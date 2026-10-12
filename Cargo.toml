@@ -1,0 +1,24 @@
+[workspace]
+resolver = "3"
+members = [
+    "suse/adapters",
+    "suse/recovery",
+    "suse/ui",
+    "suse/profiles",
+    "suse/tests",
+    "automation",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "GPL-3.0-only"
+repository = "https://github.com/GenieRobot/ryoku-opensuse"
+
+[workspace.lints.rust]
+unsafe_code = "warn"
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+all = "warn"
