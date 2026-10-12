@@ -9,3 +9,7 @@ repository.workspace = true
 
 [lints]
 workspace = true
+
+[[bin]]
+name = "vm-lab"
+path = "src/lab/main.rs"
