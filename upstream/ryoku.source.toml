@@ -1,0 +1,74 @@
+# Reviewed source pin for docs/upstream-inventory.md.
+# The complete object id and tree id make this independent of a moving ref.
+schema_version = 1
+source_name = "Ryoku"
+repository = "https://github.com/Ryoku-dev/ryoku"
+repository_identity = "Ryoku-dev/ryoku"
+revision = "98a0368253d9628be72b853985878a5db90e1547"
+tree = "49cf710dea4a8bc2c5aa2c4b524be46c5c9a2cff"
+observed_ref = "refs/heads/main"
+observed_ref_type = "HEAD"
+inspected_on = 2026-10-12
+commit_date = 2026-09-26T19:59:39Z
+commit_subject = "release: bump unstable to 0.75.5-beta.20"
+parent_revision = "f863d5ba52a08aef0f0af164f4cd45140f7f47ab"
+commit_url = "https://github.com/Ryoku-dev/ryoku/commit/98a0368253d9628be72b853985878a5db90e1547"
+license = "GPL-3.0"
+license_file = "LICENSE"
+notice_file = "NOTICE"
+source_policy = "No source is vendored by this pin; imported components must retain applicable upstream and file-level notices."
+patches = []
+vendored_paths = []
+
+[[components]]
+name = "installer"
+upstream_paths = [
+  "installation/tui/main.go",
+  "installation/backend/ryoku-install",
+  "installation/backend/lib/",
+  "installation/iso/",
+]
+port_disposition = "unsupported"
+arch_assumptions = ["archiso", "pacstrap", "arch-chroot", "pacman", "Arch package sets"]
+
+[[components]]
+name = "user-cli"
+upstream_paths = ["ryoku/cli/main.go", "ryoku/cli/internal/"]
+port_disposition = "rust-adapter"
+arch_assumptions = ["pacman", "AUR helpers", "Arch filesystem and service paths"]
+
+[[components]]
+name = "software-store"
+upstream_paths = [
+  "ryoku/apps/ryostore/",
+  "system/extras/ryostore-install",
+]
+port_disposition = "rust-package-adapter; upstream UI requires protocol and compatibility review"
+arch_assumptions = ["pacman", "AUR helper", "Arch package metadata"]
+
+[[components]]
+name = "updater"
+upstream_paths = ["ryoku/cli/internal/updater/"]
+port_disposition = "rust-adapter"
+arch_assumptions = ["pacman", "yay", "Arch split update lanes", "Snapper"]
+
+[[components]]
+name = "recovery"
+upstream_paths = [
+  "ryoku/cli/recovery.go",
+  "bin/ryoku-recovery",
+  "ryoku/cli/systemd/ryoku-boot-guard.service",
+]
+port_disposition = "rust-replacement"
+arch_assumptions = ["pacman-owned files", "Arch configuration paths", "upstream boot and snapshot behavior"]
+
+[[components]]
+name = "login-session"
+upstream_paths = [
+  "ryoku/shell/systemd/user/ryoku-session.target",
+  "ryoku/shell/systemd/user/ryoku-shell.service",
+  "ryoku/shell/systemd/user/ryoku-bootstrap.service",
+  "ryoku/lockscreen/sddm/ryoku-wayland-session",
+]
+port_disposition = "declarative-openSUSE-units; retain compatible UI/config only after review"
+arch_assumptions = ["SDDM", "Arch session paths", "upstream binaries and compositor environment"]
