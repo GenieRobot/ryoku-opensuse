@@ -1,9 +1,10 @@
 # Issue #13 bounded KDE dependency investigation
 
 Observed 2026-10-12 in an authorized existing cloud QEMU TCG guest. This is
-dependency/blocker evidence, not desktop acceptance. Project source remains at
-head `18648cae24ddf501e5f5b17882dc9102ae1f820c`; no source push or Actions
-dispatch/re-run was performed for this investigation.
+dependency/blocker evidence, not desktop acceptance. The investigation used
+PR54 head `18648cae24ddf501e5f5b17882dc9102ae1f820c`; it performed no source push
+or Actions dispatch/re-run. The subsequent follow-up changes and Run13 have
+separate revision and acceptance evidence.
 
 The original GPG-enabled native repositories refreshed successfully. All closure
 checks used `sudo zypper --no-refresh --non-interactive install --dry-run
