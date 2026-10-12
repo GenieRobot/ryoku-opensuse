@@ -1,10 +1,14 @@
 # Project scope and provenance
 
-This repository implements the approved v1.2 plan in
+This repository is being developed toward the approved v1.2 plan in
 [roadmap issue #1](https://github.com/GenieRobot/ryoku-opensuse/issues/1): an
 RPM-based Ryoku desktop for openSUSE Tumbleweed x86_64, initially using
 Hyprland with KDE fallback. The port preserves the upstream experience while
 isolating distribution-specific behavior in small, documented adapters.
+
+This issue establishes repository conventions and empty crate boundaries. The
+product capabilities below are target requirements; they are not implemented
+or verified by this foundation commit.
 
 ## Upstream attribution
 
@@ -17,25 +21,28 @@ boundaries, and any port patches are tracked in [M0-02, issue
 #11](https://github.com/GenieRobot/ryoku-opensuse/issues/11); no floating
 upstream branch is treated as a reproducible source pin.
 
-## Supported scope
+## Approved target scope and release requirements
 
-- Tumbleweed x86_64, with Hyprland as the initial desktop and KDE as fallback.
-- Native Ryoku controls by default; Myrlyn is optional. Cockpit and individually
-  compatible YaST modules are independent optional administration choices.
-- Every supported integrated change requires a verified linked pre-change
-  restore point containing matching Snapper system state and complete declared
-  Ryoku, configuration, and profile state. Capture failure prevents mutation.
-- Root rollback must preserve the catalog, configuration generations, and
-  recovery journal. Recovery preserves unrelated files in home directories.
-- UI, service, helper, providers, tests, and custom automation authored here are
-  Rust. Upstream components retain their existing languages. RPM and CI files
-  contain declarative metadata and commands only.
-- A supported full Tumbleweed update uses a reviewed compatible system
-  transaction; no partial Ryoku-only update is exposed.
+- Target Tumbleweed x86_64, with Hyprland as the initial desktop and KDE as
+  fallback.
+- The product should provide native Ryoku controls by default; Myrlyn is
+  optional. Cockpit and individually compatible YaST modules are independent
+  optional administration choices.
+- Before every supported integrated change, implementation must verify a
+  linked pre-change restore point containing matching Snapper system state and
+  complete declared Ryoku, configuration, and profile state. Capture failure
+  must prevent mutation.
+- Recovery must keep the catalog, configuration generations, and recovery
+  journal available after root rollback, and preserve unrelated home files.
+- All new project-owned executable code must be Rust. Retained upstream
+  components keep their existing languages. RPM and CI files must contain
+  declarative metadata and commands only.
+- A supported full Tumbleweed update must use a reviewed compatible system
+  transaction; implementation must not expose partial Ryoku-only updates.
 - Boot recovery and an independent authenticated login recovery session are
-  release requirements. Lock-screen recovery is an authenticated handoff.
-- A generic port must work without a private companion or network during
-  recovery. Private companion data is not stored in this public repository.
+  release requirements. Lock-screen recovery must use an authenticated handoff.
+- The generic port must work without a private companion or network during
+  recovery. Private companion data must not be stored in this public repository.
 
 ## Out of scope
 

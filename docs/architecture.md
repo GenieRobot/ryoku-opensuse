@@ -1,24 +1,27 @@
 # Architecture boundaries
 
-The workspace separates user interface, distribution adapters, profile data,
-recovery state, integration tests, and custom automation. These are Rust crate
-boundaries so later issues can introduce typed contracts without coupling
-privileged operations to the UI.
+The workspace establishes crate boundaries for user interface, distribution
+adapters, profile data, recovery state, integration tests, and custom
+automation. These crates are scaffolding only; they do not implement product
+behavior. Later issues can add typed contracts without coupling privileged
+operations to the UI.
 
 ## Trust and write path
 
-The UI and ordinary client code are unprivileged. A single typed backend and
-recovery contract connects them to an unprivileged Rust service and a narrow,
-authenticated helper. Closing the client does not cancel an accepted operation.
-Authorization and verified pre-change capture are prerequisites for every
-supported write. The captured checkpoint must link matching Snapper system
-state with all declared Ryoku, configuration, and profile state; any capture or
-verification failure prevents mutation.
+The implemented product must keep the UI and ordinary client code
+unprivileged. A single typed backend and recovery contract must connect them to
+an unprivileged Rust service and a narrow, authenticated helper. An accepted
+operation must continue if its client closes. Authorization and verified
+pre-change capture must gate every supported write. The captured checkpoint
+must link matching Snapper system state with all declared Ryoku, configuration,
+and profile state; any capture or verification failure must prevent mutation.
 
-Root rollback alone is not Ryoku recovery. The catalog, configuration
-generations, and recovery journal remain available after root rollback, and
-restore must preserve unrelated home files. A generic recovery path must work
-offline and without machine-specific private data.
+Root rollback alone will not constitute Ryoku recovery. The implementation
+must keep the catalog, configuration generations, and recovery journal
+available after root rollback, and restore must preserve unrelated home files.
+A generic recovery path must work offline and without machine-specific private
+data. None of these recovery behaviors is implemented or verified by this
+workspace foundation.
 
 ## Typed contract guidance
 

@@ -1,9 +1,11 @@
 # Ryoku for openSUSE
 
-Ryoku for openSUSE is a reusable RPM-based desktop for openSUSE Tumbleweed
-x86_64. The approved v1.2 plan starts with Hyprland and retains KDE as a
-fallback. It adapts the upstream Ryoku experience to openSUSE while keeping
-distribution-specific integration in a small, reviewed port layer.
+This project is building a reusable RPM-based Ryoku desktop for openSUSE
+Tumbleweed x86_64. The approved v1.2 target starts with Hyprland and retains
+KDE as a fallback. The port is intended to adapt the upstream Ryoku experience
+to openSUSE while keeping distribution-specific integration in a small,
+reviewed port layer; those product capabilities are not implemented or verified
+by this workspace foundation.
 
 The implementation roadmap and fixed decisions live in
 [issue #1](https://github.com/GenieRobot/ryoku-opensuse/issues/1). The primary
