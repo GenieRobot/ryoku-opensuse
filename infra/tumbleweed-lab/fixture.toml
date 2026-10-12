@@ -1,0 +1,40 @@
+# Declarative description of the existing authorized cloud fixture.
+# The moving upstream URL is provenance, never an implicit current-version pin.
+schema = 1
+architecture = "x86_64"
+snapshot = "20261011"
+image = "openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2"
+provenance = "https://download.opensuse.org/tumbleweed/appliances/"
+sha256 = "69eb7c3918c747987d33f5dde15419664cd2f2525c62e5afed33b86655c04bf3"
+release_key_fingerprint = "AD485664E901B867051AB15F35A2F86E29B700A4"
+bootloader = "GRUB2 UEFI"
+filesystem = "Btrfs"
+source_filesystem = "XFS"
+kernel_package = "kernel-default-base"
+kernel_release = "7.2.9-1-default"
+kernel_package_version = "7.2.9-1.1.36.10"
+root_default_subvolume = "@"
+snapshot_exclusions = ["@/home", "@/var"]
+derivation = "Rust-controlled root copy to blank second GPT/Btrfs disk; native grub2-install and dracut; actual sole-disk boot required"
+snapshot_provider = "Snapper"
+kde_packages = ["plasma6-session", "sddm"]
+package_recommendations = "excluded; solver hard dependencies and signatures remain enforced; KDE closure still requires the denied OpenH264 payload"
+
+[hypervisor]
+qemu = "10.0.13"
+qemu_debian_package = "1:10.0.13+ds-0+deb13u1"
+ovmf_debian_package = "2025.02-8+deb13u1"
+ovmf_code_sha256 = "624e06de18b4fa535e90db7160d00d3d07d206422b89999bf1e27d920264e4e0"
+ovmf_variables_sha256 = "5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e"
+machine = "q35"
+accelerator = "tcg"
+cpus = 2
+memory_mib = 4096
+disk_virtual_gib = 20
+
+[isolation]
+base = "read-only backing image"
+disk = "fresh qcow2 overlay in authorized cloud workspace"
+ssh = "loopback forwarding and fresh per-run key"
+offline = "QEMU user networking restrict=on; external proxy connection must fail"
+reset = "clean stop, discard overlay and firmware variables, boot fresh base, verify marker and KDE absence, delete disk and keys"
