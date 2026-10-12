@@ -1,0 +1,20 @@
+schema = 1
+kind = "actual native source-default diagnosis; not VM acceptance"
+observed_date_utc = "2026-10-12"
+image_sha256 = "69eb7c3918c747987d33f5dde15419664cd2f2525c62e5afed33b86655c04bf3"
+failed_source_commit = "4323be6a1ada8d25445dac7a4fb304cba9df2607"
+libzypp = "17.38.16-1.1"
+zypper = "1.14.101-1.1"
+enabled_repositories = ["repo-oss", "repo-non-oss", "repo-openh264", "repo-update"]
+native_repo_signature_fields = "gpgcheck, repo_gpgcheck, pkg_gpgcheck and gpgkey all absent"
+native_effective_gpg_listing = "all four enabled repositories show ( p) Yes before first refresh"
+etc_zypp_configuration = "absent"
+vendor_zypp_signature_overrides = "absent"
+repair = "explicit gpgcheck=1, repo_gpgcheck=1, pkg_gpgcheck=1 for each known enabled source; explicit false/invalid rejected"
+diagnostic_backing = "fresh private overlay; original failed Run12 disk read-only"
+repository_edits = false
+refresh_or_install_performed = false
+diagnostic_qemu_exit = 0
+original_run12_regular_files_sha256 = "all unchanged"
+original_base_sha256 = "unchanged"
+acceptance_limit = "diagnoses source configuration only; no migration, recovery, reset or graphical success credited"

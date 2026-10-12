@@ -66,7 +66,8 @@ No temporary port reservation is released for another process to bind. The
 bounded QMP parser rejects malformed/ambiguous/error/unknown-ID responses and
 enforces message, event, nesting and absolute timeout limits. A diskless native
 probe verified the assigned port was already owned (`AddrInUse` for a competing
-bind) and QEMU stopped successfully; a full VM run is still required after edits.
+bind) and QEMU stopped successfully. Run13 subsequently exercised actual guest
+SSH through these QEMU-owned endpoints in the complete base lifecycle.
 
 GitHub-hosted Rust checks were observed working for PR #54 in
 [run 38316734108](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/38316734108)
@@ -147,7 +148,7 @@ runner evidence and never satisfies KDE fallback or closes #13.
 
 ## Current KDE download blocker
 
-The full recommended closure and a retry with native `--no-recommends` both
+Earlier full recommended closure and a retry with native `--no-recommends` both
 selected 750 packages and failed with Zypper exit 4 on
 `libopenh264-8-2.6.0-2.suse1699.10.x86_64.rpm`, HTTP 403. Hard dependencies,
 signatures and TLS were preserved. The retry did not remove the codec requirement.
@@ -300,6 +301,44 @@ Run12 is incomplete evidence: no migration, recovery, reset or GUI success is
 credited. Its private logs/disks remain retained; only its actual sanitized prefix
 is public. This verifier defect is separate from the codec runtime-policy blocker.
 
+## Follow-up Run13: verified base lifecycle, blocked KDE
+
+Run13 completed on 12 October 2026 at 23:34 UTC using exact local source commit
+`40355fd0c31eeee9d5b18ae82252f3eee8e7ccab`, debug executable SHA256
+`b2d162c36b4734df5001ce6d8fb3a6ba93bf33c515de4c34aa56f17ba787f0e9`:
+
+```console
+RYOKU_LAB_AUTHORIZED=existing-cloud-workspace ./target/debug/vm-lab run /workspace/opensuse-vm /workspace/ryoku-lab-issue13-run13
+```
+
+**Process exit 1 / `lab_result=blocked`.** The [actual sanitized evidence](../infra/tumbleweed-lab/evidence/issue13-run13.txt)
+records the fresh cloud source/derived boots, mandatory native signature checking
+and exact metadata pins, Btrfs/ESP/GRUB/initramfs and ACL/context parity, exact
+kernel owner/GRUB/Snapper versions, enforcing SELinux and ordinary D-Bus Snapper.
+Actual reboot changed the boot identity and repeated inspection passed. Offline
+egress was unreachable; real corruption and native undo restored exact bytes.
+
+The sentinel was present on the derived Btrfs/Snapper baseline, exact 29 bytes
+matched and file/parent fsync passed. After whole-disk discard the fresh original
+XFS guest required the sentinel, recovery marker and root Snapper config absent
+via only-`NotFound` checks, plus exact KDE RPM absence. Every normal QEMU stop
+required exit status 0. Disks, firmware, seed and SSH keys were removed; the
+original image SHA256 was unchanged. The mode-0700 run directory contains only
+the sanitized evidence and private diagnostic logs; no owned QEMU remains.
+
+KDE's complete native Plasma/SDDM/Xorg `--no-recommends` closure selected **745**
+new packages and failed preloading the original OpenH264 RPM with **HTTP 403 /
+Zypper exit 4**. No RPM installation phase was shown. No ordinary-user graphical
+login, post-reboot desktop proof or hosted VM artifact upload is credited. The
+full #13 acceptance remains incomplete until the already-approved Cisco origin
+is actually applied to runtime policy and the real desktop checks pass.
+
+Final local checks use the recorded toolchain prefix: format, all-target/all-feature
+Clippy, workspace tests (**21 lab + 1 boundary = 22 passed, 0 failed, 0 ignored**),
+cargo-deny and the binary build passed. Separate independent reviews validated
+the immutable implementation and signature-default repair; passing review and
+base evidence do not complete the blocked KDE gate.
+
 ## Observed hosted Rust checks
 
 [GitHub run 38316734108](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/38316734108)
@@ -315,3 +354,12 @@ records the exact commands and revisions. That run contained one Rust job and
 no VM lab job; it establishes no KDE/graphical or hosted VM acceptance. New PR
 heads need their own check results. The manual VM workflow and separate cloud
 Run11 evidence retain their stated limits.
+
+The automatic integrated-main [run 38318265080](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/38318265080)
+also passed on exact merged commit `5cfa5259f3a69d7b2316d75453c28033228a2e1c`
+(same reviewed tree `6c0118f2a2a01c79169e3c47202581fee07e6b54`). Ubuntu24.04
+job 115039994093 ran from 22:43:27 to 22:45:35 UTC; checkout/command logs confirm
+format, Clippy, 5 tests and cargo-deny passed. [Sanitized integrated evidence](../infra/tumbleweed-lab/evidence/hosted-rust-run38318265080.toml)
+records this existing run. Only Rust executed; no VM job ran or was dispatched.
+Both hosted observations concern PR54's earlier source, rather than this
+follow-up revision. Local checks and actual Run13 evidence cover this revision.
