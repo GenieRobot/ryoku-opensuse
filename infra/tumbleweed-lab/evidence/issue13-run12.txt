@@ -1,0 +1,10 @@
+fixture_sha256=69eb7c3918c747987d33f5dde15419664cd2f2525c62e5afed33b86655c04bf3
+release_signer=AD485664E901B867051AB15F35A2F86E29B700A4
+host_runner=existing-managed-cloud
+accelerator=tcg
+vm_memory_mib=4096
+vm_cpus=2
+qemu=10.0.13
+image_signature=verified
+fresh_overlay=created
+fresh_boot=passed

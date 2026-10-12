@@ -17,6 +17,7 @@ const REPOSITORIES: [(&str, &str, &str, &str); 4] = [
     ("repo-openh264", "repo_codec_url", "repo_codec_repomd_sha256", "openh264/openSUSE_Tumbleweed"),
     ("repo-update", "repo_update_url", "repo_update_repomd_sha256", "update/tumbleweed"),
 ];
+const SIGNATURE_SETTINGS: [&str; 3] = ["gpgcheck", "repo_gpgcheck", "pkg_gpgcheck"];
 
 fn boolean(value: &str) -> Result<bool> {
     match value.to_ascii_lowercase().as_str() {
@@ -51,11 +52,11 @@ fn pinned_section(lines: &[&str]) -> Result<(String, Option<String>)> {
         .iter()
         .find(|repo| repo.0 == alias)
         .ok_or("unknown enabled repository; refusing unpinned package source")?;
-    require(
-        settings.get("gpgcheck").is_some_and(|v| boolean(v).ok() == Some(true)),
-        "native repository signatures must be enabled",
-    )?;
-    for key in ["repo_gpgcheck", "pkg_gpgcheck"] {
+    // Missing fields inherit native defaults; the signed cloud fixture omits
+    // all three. Canonicalize them to explicit mandatory checks below rather
+    // than mistaking inheritance for disabled verification. An explicit false
+    // or invalid override remains a failed input, never an accepted policy.
+    for key in SIGNATURE_SETTINGS {
         if let Some(value) = settings.get(key) {
             require(boolean(value)?, "native repository signature override disabled")?;
         }
@@ -86,12 +87,18 @@ fn pinned_section(lines: &[&str]) -> Result<(String, Option<String>)> {
     )?;
     let mut result = String::new();
     for line in lines {
-        if line.split_once('=').is_some_and(|(key, _)| key.trim() == "baseurl") {
+        let key = line.split_once('=').map(|(key, _)| key.trim());
+        if key == Some("baseurl") {
             result.push_str(&format!("baseurl={pinned}\n"));
+        } else if key.is_some_and(|key| SIGNATURE_SETTINGS.contains(&key)) {
+            // Write each verified setting once in canonical form below.
         } else {
             result.push_str(line);
             result.push('\n');
         }
+    }
+    for key in SIGNATURE_SETTINGS {
+        result.push_str(&format!("{key}=1\n"));
     }
     Ok((result, Some(alias.to_owned())))
 }
@@ -176,6 +183,34 @@ pub fn verify_cache() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_missing_signature_fields_become_explicit_mandatory_checks() {
+        let source = "[repo-oss]\nname=openSUSE-Tumbleweed-Oss\nenabled=1\nautorefresh=1\nbaseurl=https://downloadcontent2.opensuse.org/tumbleweed/repo/oss/\n";
+        let (pinned, aliases) = pinned_file(source).unwrap();
+        assert_eq!(aliases, ["repo-oss"]);
+        for key in SIGNATURE_SETTINGS {
+            assert_eq!(pinned.lines().filter(|line| *line == format!("{key}=1")).count(), 1);
+        }
+        assert!(pinned.contains("/history/20261011/"));
+        assert!(pinned.contains("enabled=1"));
+        assert_eq!(pinned_file(&pinned).unwrap().0, pinned);
+    }
+
+    #[test]
+    fn native_true_values_canonicalize_and_false_or_invalid_overrides_fail() {
+        let source =
+            "[repo-oss]\nenabled=1\nbaseurl=https://download.opensuse.org/tumbleweed/repo/oss/\n";
+        for key in SIGNATURE_SETTINGS {
+            for value in ["1", "true", "yes", "on", "TRUE", "Yes"] {
+                let (pinned, _) = pinned_file(&format!("{source}{key}={value}\n")).unwrap();
+                assert!(pinned.contains(&format!("{key}=1\n")));
+            }
+            for value in ["0", "false", "no", "off", "", "maybe", "yes;skip"] {
+                assert!(pinned_file(&format!("{source}{key}={value}\n")).is_err());
+            }
+        }
+    }
 
     #[test]
     fn core_repository_uses_snapshot_history_and_preserves_signatures() {

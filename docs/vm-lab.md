@@ -26,6 +26,10 @@ path (tested update history returned 404), so their original enabled sources
 remain with explicit signed metadata digest pins. They are never silently
 disabled. Digests were independently verified with release signer
 `AD485664E901B867051AB15F35A2F86E29B700A4`.
+The native cloud repo files omit their signature flags and inherit defaults.
+Initialization writes explicit `gpgcheck=1`, `repo_gpgcheck=1` and
+`pkg_gpgcheck=1` for every recognized enabled source. Existing false or invalid
+overrides are rejected; omission is not treated as disabled verification.
 
 ## Runner and execution
 
@@ -273,6 +277,28 @@ Two actual refusal checks also returned 1: invoking the command with
 invoking it with an existing run directory returned `File exists (os error 17)`
 without resuming or deleting that directory. The issue must remain open until
 its real KDE gate and subsequent review/integration verification pass.
+
+## Follow-up Run12 failure and signature-default repair
+
+[Run12's actual sanitized prefix](../infra/tumbleweed-lab/evidence/issue13-run12.txt)
+records signed-image verification, fresh creation and successful source boot/SSH
+through the QEMU-owned port. On local commit
+`4323be6a1ada8d25445dac7a4fb304cba9df2607`, executable SHA256
+`2940c395036fd71e7f1e483a1db727088445859cd8b9056e0618eb713dcf0414`, the command
+returned **1** before package installation or Btrfs formatting: the verifier
+reported `native repository signatures must be enabled`.
+
+The actual signed fixture's six repo sections contain no explicit signature
+flags. A separate read-only-backed diagnostic overlay preserved the failed disk
+and established that missing flags inherit native defaults. The verifier's
+explicit-field assumption was incorrect. The repair canonicalizes all three
+native checks to `1` for the four recognized enabled sources, while rejecting
+any explicit false/invalid value. Regression tests cover the actual omitted-field
+shape, valid native true values, false/invalid overrides and idempotency.
+
+Run12 is incomplete evidence: no migration, recovery, reset or GUI success is
+credited. Its private logs/disks remain retained; only its actual sanitized prefix
+is public. This verifier defect is separate from the codec runtime-policy blocker.
 
 ## Observed hosted Rust checks
 
