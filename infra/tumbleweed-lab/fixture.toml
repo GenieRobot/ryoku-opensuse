@@ -13,6 +13,7 @@ source_filesystem = "XFS"
 kernel_package = "kernel-default-base"
 kernel_release = "7.2.9-1-default"
 kernel_package_version = "7.2.9-1.1.36.10"
+grub2_package_version = "2.14-20.1"
 root_default_subvolume = "@"
 snapshot_exclusions = ["@/home", "@/var"]
 derivation = "Rust-controlled root copy to blank second GPT/Btrfs disk; native grub2-install and dracut; actual sole-disk boot required"

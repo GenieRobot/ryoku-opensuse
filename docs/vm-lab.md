@@ -74,6 +74,8 @@ The minimal image's running kernel is `7.2.9-1-default`, owned by
 is checked against the declarative fixture, rather than assuming the full
 `kernel-default` package. GRUB2 and its Snapper plugin are `2.14-20.1`, and
 Snapper is `0.13.1-3.4` in the observed fixture.
+The fixture pins GRUB2's package version; the main, EFI and Snapper-plugin RPMs
+must each match `2.14-20.1` during every base inspection.
 
 The offline phase restarts the same guest with QEMU user networking restricted;
 loopback SSH remains available. A TCP connection to the existing external proxy
@@ -97,6 +99,14 @@ Recovery verifies the derived Btrfs root and retained Snapper configuration
 immediately before disk discard. Reset must return to the signed source's XFS
 root with that Snapper configuration absent. These state changes remain required
 when KDE provisioning was blocked; marker/KDE absence alone is insufficient.
+A distinct `/etc/ryoku-lab-reset-sentinel` is exclusively created after recovery
+with exactly `retained fixture reset state\n` (29 bytes), then the file and parent
+`/etc` are fsynced and the bytes read back. The sentinel remains until disk
+discard. Fresh-source reset requires its absence. All reset absence checks use
+native `symlink_metadata`, accepting only `NotFound`; existing entries including
+dangling symlinks and metadata errors fail. Sanitized evidence records sentinel
+presence, byte match, length and sync success before discard, then absence after
+fresh XFS boot.
 
 If KDE provisioning fails, the command preserves its private diagnostics and
 continues the independently available base VM checks. It still returns nonzero
@@ -161,17 +171,17 @@ using a new directory after repairs. No incomplete evidence is a passing run.
 
 ## Recorded run
 
-Run10 completed on 12 October 2026 in the existing managed cloud workspace.
-[Sanitized VM evidence](../infra/tumbleweed-lab/evidence/issue13-run10.txt) contains
+Run11 completed on 12 October 2026 in the existing managed cloud workspace.
+[Sanitized VM evidence](../infra/tumbleweed-lab/evidence/issue13-run11.txt) contains
 the checked fixture identifiers and lifecycle results. The Rust sources and
 fixture in this change produced the tested debug executable SHA256
-`437548dfe632a14d0e3a47e5f880c5610947dad4c5a562d26cfc97508ce15f61`.
+`8476ea6f2ead253e9d1c25a416e4791df87a5c6aa3832e05d201e45e48d8475b`.
 
 The actual commands used the existing cloud toolchain:
 
 ```console
 PATH=/workspace/.cargo/bin:$PATH RUSTUP_HOME=/workspace/.rustup CARGO_HOME=/workspace/.cargo cargo build --locked --bin vm-lab
-RYOKU_LAB_AUTHORIZED=existing-cloud-workspace ./target/debug/vm-lab run /workspace/opensuse-vm /workspace/ryoku-lab-issue13-run10
+RYOKU_LAB_AUTHORIZED=existing-cloud-workspace ./target/debug/vm-lab run /workspace/opensuse-vm /workspace/ryoku-lab-issue13-run11
 ```
 
 The build returned 0. The VM command returned **1**, with `lab_result=blocked`:
@@ -180,7 +190,7 @@ during preloading with HTTP 403 on the OpenH264 RPM and Zypper exit 4. No RPM
 installation phase was shown in that transaction's log. Required KDE fallback
 and full #13 completion remain blocked by the origin access described above.
 
-| Independently verified gate | Run10 result |
+| Independently verified gate | Run11 result |
 | --- | --- |
 | Signed immutable image and pinned firmware/QEMU | Passed |
 | Fresh cloud source creation/boot and Btrfs derivation | Passed |
@@ -189,6 +199,8 @@ and full #13 completion remain blocked by the origin access described above.
 | Changed boot identity and repeated strict inspection after reboot | Passed |
 | Restricted egress, actual corruption and offline Snapper byte restoration | Passed |
 | Derived Btrfs/Snapper state replaced with fresh XFS/no root config | Passed |
+| Exclusive sentinel present with matched 29 bytes and file/parent fsync before discard | Passed |
+| Dedicated sentinel absent after fresh XFS boot, only `NotFound` accepted | Passed |
 | Successful QEMU exit on every normal stop | Passed; exit status 0 required |
 | Disposable disks, firmware, seeds and SSH keys removed | Passed |
 | Original signed image checksum unchanged | Passed |
@@ -198,6 +210,9 @@ The completed run directory retains only the sanitized evidence and private
 diagnostic logs, with mode 0700. No live lab QEMU process remained. Failed prior
 runs and diagnostic overlays remain private for investigation; they are not
 published or counted as a passing full run.
+The retained [historical Run10 evidence](../infra/tumbleweed-lab/evidence/issue13-run10.txt)
+predates the dedicated sentinel and exact GRUB-version criterion. It does not
+establish the current reset acceptance criterion; Run11 supersedes that proof.
 
 Local CI-style validation uses the same toolchain prefix above:
 
@@ -205,7 +220,7 @@ Local CI-style validation uses the same toolchain prefix above:
 | --- | --- |
 | `cargo fmt --all -- --check` | Exit 0 |
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Exit 0 |
-| `cargo test --workspace --all-features --locked` | Exit 0; 3 lab tests + 1 workspace boundary test passed, 0 failed |
+| `cargo test --workspace --all-features --locked` | Exit 0; 4 lab tests + 1 workspace boundary test passed, 0 failed |
 | `cargo deny check` | Exit 0; advisories, bans, licenses and sources OK |
 
 Two actual refusal checks also returned 1: invoking the command with

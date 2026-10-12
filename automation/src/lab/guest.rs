@@ -1,9 +1,19 @@
 use crate::definition::scalar;
 use crate::support::{Result, require};
-use std::{fs, process::Command, time::Duration};
+use std::{fs, io::Write, process::Command, time::Duration};
 
 const MARKER: &str = "/etc/ryoku-lab-owned-marker";
 const EXPECTED: &str = "verified fixture state\n";
+const RESET_SENTINEL: &str = "/etc/ryoku-lab-reset-sentinel";
+const RESET_STATE: &[u8] = b"retained fixture reset state\n";
+
+fn require_absent(path: impl AsRef<std::path::Path>, message: &str) -> Result<()> {
+    match fs::symlink_metadata(path) {
+        Ok(_) => Err(message.into()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.into()),
+    }
+}
 
 pub(crate) fn fixture_only() -> Result<()> {
     require(
@@ -158,6 +168,12 @@ pub fn inspect_base() -> Result<()> {
     println!("kernel_running={}\n{kernel_package}={kernel_version}", running_kernel.trim());
     for package in ["grub2", "grub2-x86_64-efi", "snapper", "grub2-snapper-plugin"] {
         let version = command("rpm", &["-q", "--qf", "%{VERSION}-%{RELEASE}", package])?;
+        if package.starts_with("grub2") {
+            require(
+                version.trim() == scalar("grub2_package_version")?,
+                "GRUB2 fixture version changed",
+            )?;
+        }
         println!("{package}={}", version.trim());
     }
     println!("snapshot={snapshot}\narch=x86_64\nroot=btrfs\nboot=UEFI-GRUB2");
@@ -173,7 +189,7 @@ pub fn recover(proxy_address: &str) -> Result<()> {
         std::net::TcpStream::connect_timeout(&address, Duration::from_secs(5)).is_err(),
         "egress is reachable; offline recovery claim rejected",
     )?;
-    require(!std::path::Path::new(MARKER).exists(), "refuse to overwrite an existing guest file")?;
+    require_absent(MARKER, "refuse to overwrite an existing guest file")?;
     fs::write(MARKER, EXPECTED)?;
     let number = command(
         "snapper",
@@ -201,9 +217,20 @@ pub fn recover(proxy_address: &str) -> Result<()> {
         command("findmnt", &["-n", "-o", "FSTYPE", "--target", "/"])?.trim() == "btrfs",
         "recovery root is not derived Btrfs",
     )?;
+    // Keep a distinct, durable state change until the entire disk is discarded.
+    // Exclusive creation refuses to overwrite any existing guest data.
+    let mut sentinel = fs::OpenOptions::new().write(true).create_new(true).open(RESET_SENTINEL)?;
+    sentinel.write_all(RESET_STATE)?;
+    sentinel.sync_all()?;
+    fs::File::open("/etc")?.sync_all()?;
+    require(
+        fs::read(RESET_SENTINEL)? == RESET_STATE,
+        "reset sentinel contents were not established",
+    )?;
     println!(
-        "egress=unreachable\ncontrolled_corruption=observed\noffline_snapper_restore=matched\nfixture_marker_cleanup=passed\nreset_baseline=derived-btrfs-snapper"
+        "egress=unreachable\ncontrolled_corruption=observed\noffline_snapper_restore=matched\nfixture_marker_cleanup=passed\nreset_baseline=derived-btrfs-snapper\nreset_sentinel_before_discard=present\nreset_sentinel_bytes=matched\nreset_sentinel_sync=passed"
     );
+    println!("reset_sentinel_length={}", RESET_STATE.len());
     Ok(())
 }
 
@@ -214,11 +241,9 @@ pub fn marker_absent() -> Result<()> {
         filesystem.trim().eq_ignore_ascii_case(scalar("source_filesystem")?),
         "reset did not return to signed source filesystem",
     )?;
-    require(
-        !std::path::Path::new("/etc/snapper/configs/root").exists(),
-        "reset retained derived Snapper configuration",
-    )?;
-    require(!std::path::Path::new(MARKER).exists(), "reset retained marker")?;
+    require_absent("/etc/snapper/configs/root", "reset retained derived Snapper configuration")?;
+    require_absent(RESET_SENTINEL, "reset retained the dedicated sentinel")?;
+    require_absent(MARKER, "reset retained marker")?;
     let package =
         Command::new("rpm").args(["-q", "plasma6-session"]).env("LC_ALL", "C").output()?;
     require(
@@ -227,6 +252,33 @@ pub fn marker_absent() -> Result<()> {
         "reset package absence was not established",
     )?;
     println!("reset_marker=absent\nreset_package=absent");
-    println!("reset_root={}\nreset_snapper_config=absent", filesystem.trim());
+    println!(
+        "reset_root={}\nreset_snapper_config=absent\nreset_sentinel=absent",
+        filesystem.trim()
+    );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn absence_requires_not_found_and_rejects_dangling_links() {
+        let unique =
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let directory =
+            std::env::temp_dir().join(format!("ryoku-reset-{}-{unique}", std::process::id()));
+        fs::create_dir(&directory).unwrap();
+        let path = directory.join("sentinel");
+        assert!(require_absent(&path, "present").is_ok());
+        fs::write(&path, RESET_STATE).unwrap();
+        assert!(require_absent(&path, "present").is_err());
+        fs::remove_file(&path).unwrap();
+        std::os::unix::fs::symlink(directory.join("missing-target"), &path).unwrap();
+        assert!(require_absent(&path, "present").is_err());
+        assert!(require_absent("invalid\0path", "present").is_err());
+        fs::remove_file(&path).unwrap();
+        fs::remove_dir(directory).unwrap();
+    }
 }

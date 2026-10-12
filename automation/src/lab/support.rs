@@ -78,6 +78,11 @@ pub fn public_evidence(line: &str) -> bool {
         "reset_baseline",
         "reset_root",
         "reset_snapper_config",
+        "reset_sentinel_before_discard",
+        "reset_sentinel",
+        "reset_sentinel_bytes",
+        "reset_sentinel_sync",
+        "reset_sentinel_length",
         "reset_package",
         "reset_fresh_boot",
         "base_unchanged",
@@ -122,5 +127,9 @@ mod tests {
         assert!(public_evidence("offline_snapper_restore=matched"));
         assert!(public_evidence("kernel-default-base=7.2.9-1.1.36.10"));
         assert!(public_evidence("reset_baseline=derived-btrfs-snapper"));
+        assert!(public_evidence("reset_sentinel_before_discard=present"));
+        assert!(public_evidence("reset_sentinel=absent"));
+        assert!(public_evidence("reset_sentinel_bytes=matched"));
+        assert!(public_evidence("reset_sentinel_sync=passed"));
     }
 }
