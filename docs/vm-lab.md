@@ -16,6 +16,21 @@ creation. The moving download alias is provenance only: a different image must
 fail, even when its signature is valid. Preserve the recorded base to reproduce
 this run; never relabel a later snapshot with this checksum.
 
+Package sources are pinned separately: OSS and non-OSS use the official
+`/history/20261011/tumbleweed/repo/` paths. Each enabled repository's exact
+`repomd.xml` digest is recorded in `fixture.toml`; native forced refresh must
+verify signatures, then every cache digest must match before installation.
+Unknown enabled repositories, disabled signatures, indirect sources and changed
+metadata fail. The official codec/update sources have no verified historical
+path (tested update history returned 404), so their original enabled sources
+remain with explicit signed metadata digest pins. They are never silently
+disabled. Digests were independently verified with release signer
+`AD485664E901B867051AB15F35A2F86E29B700A4`.
+The native cloud repo files omit their signature flags and inherit defaults.
+Initialization writes explicit `gpgcheck=1`, `repo_gpgcheck=1` and
+`pkg_gpgcheck=1` for every recognized enabled source. Existing false or invalid
+overrides are rejected; omission is not treated as disabled verification.
+
 ## Runner and execution
 
 Use the existing authorized cloud workspace with x86_64 Linux, at least 6 GiB
@@ -37,16 +52,31 @@ Custom orchestration and assertions are Rust under `automation/src/lab/`.
 No shell script or embedded custom command implementation is generated.
 NoCloud metadata contains a fresh public SSH key, public CA trust, and native
 upstream service commands. The private key stays inside the run directory, whose
-mode is 0700. Host SSH binds to loopback; guest passwords and root login are
-disabled. Fixture-only sudo access uses its disposable key and must never be
+mode is 0700. SSH password authentication and root login are disabled.
+The desktop test uses a separate ordinary nonroot account and an ephemeral
+password delivered only through stdin and virtual keyboard events to SDDM/PAM.
+It has no sudo or wheel access. Fixture-only administrative sudo access uses
+the disposable SSH key and must never be
 installed on a supported user system.
 
-GitHub hosted CI is unavailable due to the funding limitation reported by the
-user. Runner inventory returned `Forbidden`; no registered self-hosted runner
-has been established. `vm-lab.yml` is an explicit manual contract for an existing
-authorized runner carrying `ryoku-disposable-vm`, and creates no resources. Its
-presence is not evidence that a GitHub run occurred. Use the cloud command above
-for validation. Registering a funded runner is a separate resource action.
+QEMU itself binds a loopback SSH host-forward using port zero. The host reads
+that process's private QMP `info usernet` reply, requiring one exact TCP mapping
+from loopback/nonzero port to the default guest's port22 before connecting.
+No temporary port reservation is released for another process to bind. The
+bounded QMP parser rejects malformed/ambiguous/error/unknown-ID responses and
+enforces message, event, nesting and absolute timeout limits. A diskless native
+probe verified the assigned port was already owned (`AddrInUse` for a competing
+bind) and QEMU stopped successfully. Run13 subsequently exercised actual guest
+SSH through these QEMU-owned endpoints in the complete base lifecycle.
+
+GitHub-hosted Rust checks were observed working for PR #54 in
+[run 38316734108](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/38316734108)
+on `ubuntu-24.04`; exact revision, timestamps and results are recorded below.
+This observation covers that Rust run. Runner inventory returned `Forbidden`;
+no self-hosted VM runner registration was established by this work and no hosted
+VM job ran. `vm-lab.yml` remains an explicit manual contract for an existing
+authorized runner carrying `ryoku-disposable-vm`, and creates no resources.
+The cloud command above supplies the actual VM validation evidence.
 
 ## Acceptance sequence and limits
 
@@ -66,8 +96,10 @@ home and var explicitly mount their persistent subvolumes. The signed source
 base stays unchanged. Every
 guest mutation requires an explicit lab marker and QEMU DMI identity.
 It inspects x86_64, exact guest snapshot, Btrfs, GRUB2 and Snapper, then attempts
-required KDE/SDDM provisioning and checks an active display manager, recording
-exact installed versions. A
+required KDE/SDDM provisioning. An active display manager and installed RPMs
+are prerequisites; acceptance also requires an actual authenticated nonroot
+SDDM login, active local seat0 Wayland session and live package-owned Plasma/KWin
+processes. A
 reboot must change the guest boot identity and pass inspection again.
 The minimal image's running kernel is `7.2.9-1-default`, owned by
 `kernel-default-base` RPM `7.2.9-1.1.36.10`; the kernel image's actual RPM owner
@@ -84,8 +116,9 @@ snapshot, corrupts a lab-owned file, restores that file from the snapshot and
 requires matching bytes. It then removes the marker and the snapshot. This
 proves the lab can exercise controlled corruption and offline Snapper recovery.
 Full root rollback, boot-menu snapshot selection, production linked Ryoku/home
-state recovery and desktop login are later issue acceptance gates; this fixture
-test does not establish those behaviors.
+state recovery are later issue acceptance gates; this fixture test does not
+establish those behaviors. Run11 did not establish desktop login; the follow-up
+adds a fail-closed mandatory check, still blocked until KDE actually installs.
 
 Reset stops the guest cleanly, discards its disk and firmware variables, boots
 another fresh base overlay and requires both marker absence and absence of the
@@ -115,7 +148,7 @@ runner evidence and never satisfies KDE fallback or closes #13.
 
 ## Current KDE download blocker
 
-The full recommended closure and a retry with native `--no-recommends` both
+Earlier full recommended closure and a retry with native `--no-recommends` both
 selected 750 packages and failed with Zypper exit 4 on
 `libopenh264-8-2.6.0-2.suse1699.10.x86_64.rpm`, HTTP 403. Hard dependencies,
 signatures and TLS were preserved. The retry did not remove the codec requirement.
@@ -130,7 +163,16 @@ resource action is authorization of that host through the supported environment
 configuration workflow, or an accessible, supported Tumbleweed KDE fixture.
 No direct-route/proxy bypass, fake codec, signature override or solver override
 was attempted. KDE fallback acceptance remains incomplete until its real package
-closure and display-manager check pass.
+closure and actual graphical login/session checks pass. The user has approved
+the exact Cisco destination, but this chat's enforced runtime policy still
+omits it and exposes no mutation control. Applying that approved destination
+through supported environment configuration requires a new chat/environment;
+direct access or proxy bypass is not permitted. Authorization alone does not
+prove the package installation or desktop works.
+
+The [signed dependency trace](../infra/tumbleweed-lab/evidence/kde-dependency-trace.md)
+records the hard KDE→Baloo→file metadata→FFmpeg→OpenH264 chain, full native
+session/X11/pattern dry-runs and the build-only FFmpeg provider rejection.
 
 The first derived boot (run5) exposed a copy defect: copying only the root's
 children omitted its inode security metadata. Both roots had UID/GID 0 and mode
@@ -162,6 +204,13 @@ raw serial/QEMU/SSH logs, cloud-init metadata, host keys, guest disks, firmware
 variables or the whole run directory. Private diagnostic files stay under 0700
 and may contain machine identifiers or network details.
 
+The manual workflow constructs a fresh `/workspace` path using trusted workflow
+run ID/attempt values, rather than accepting an artifact path from a caller.
+Its `always()` upload after an attempted lab step selects only that exact
+`evidence.txt`, so blocked/failed evidence is retained without publishing raw
+diagnostics, disks, identities or SSH material. No manual VM workflow has run;
+this workflow correction is verified locally as declarative configuration.
+
 Normal completion leaves sanitized evidence and private diagnostics. Failure
 returns nonzero and terminates only the QEMU child owned by that process; it
 retains the disposable directory for diagnosis. If the process is forcibly
@@ -173,8 +222,9 @@ using a new directory after repairs. No incomplete evidence is a passing run.
 
 Run11 completed on 12 October 2026 in the existing managed cloud workspace.
 [Sanitized VM evidence](../infra/tumbleweed-lab/evidence/issue13-run11.txt) contains
-the checked fixture identifiers and lifecycle results. The Rust sources and
-fixture in this change produced the tested debug executable SHA256
+the checked fixture identifiers and lifecycle results. PR54 head
+`18648cae24ddf501e5f5b17882dc9102ae1f820c` and its fixture produced
+the tested Run11 debug executable SHA256
 `8476ea6f2ead253e9d1c25a416e4791df87a5c6aa3832e05d201e45e48d8475b`.
 
 The actual commands used the existing cloud toolchain:
@@ -214,7 +264,7 @@ The retained [historical Run10 evidence](../infra/tumbleweed-lab/evidence/issue1
 predates the dedicated sentinel and exact GRUB-version criterion. It does not
 establish the current reset acceptance criterion; Run11 supersedes that proof.
 
-Local CI-style validation uses the same toolchain prefix above:
+Recorded Run11 local CI-style validation used the same toolchain prefix above:
 
 | Command | Result |
 | --- | --- |
@@ -226,6 +276,90 @@ Local CI-style validation uses the same toolchain prefix above:
 Two actual refusal checks also returned 1: invoking the command with
 `env -u RYOKU_LAB_AUTHORIZED` refused unauthorized capacity before creation;
 invoking it with an existing run directory returned `File exists (os error 17)`
-without resuming or deleting that directory. No hosted GitHub CI result is
-claimed. The issue must remain open until its real KDE gate and subsequent
-review/integration verification pass.
+without resuming or deleting that directory. The issue must remain open until
+its real KDE gate and subsequent review/integration verification pass.
+
+## Follow-up Run12 failure and signature-default repair
+
+[Run12's actual sanitized prefix](../infra/tumbleweed-lab/evidence/issue13-run12.txt)
+records signed-image verification, fresh creation and successful source boot/SSH
+through the QEMU-owned port. On local commit
+`4323be6a1ada8d25445dac7a4fb304cba9df2607`, executable SHA256
+`2940c395036fd71e7f1e483a1db727088445859cd8b9056e0618eb713dcf0414`, the command
+returned **1** before package installation or Btrfs formatting: the verifier
+reported `native repository signatures must be enabled`.
+
+The actual signed fixture's six repo sections contain no explicit signature
+flags. A separate read-only-backed diagnostic overlay preserved the failed disk
+and established that missing flags inherit native defaults. The verifier's
+explicit-field assumption was incorrect. The repair canonicalizes all three
+native checks to `1` for the four recognized enabled sources, while rejecting
+any explicit false/invalid value. Regression tests cover the actual omitted-field
+shape, valid native true values, false/invalid overrides and idempotency.
+
+Run12 is incomplete evidence: no migration, recovery, reset or GUI success is
+credited. Its private logs/disks remain retained; only its actual sanitized prefix
+is public. This verifier defect is separate from the codec runtime-policy blocker.
+
+## Follow-up Run13: verified base lifecycle, blocked KDE
+
+Run13 completed on 12 October 2026 at 23:34 UTC using exact local source commit
+`40355fd0c31eeee9d5b18ae82252f3eee8e7ccab`, debug executable SHA256
+`b2d162c36b4734df5001ce6d8fb3a6ba93bf33c515de4c34aa56f17ba787f0e9`:
+
+```console
+RYOKU_LAB_AUTHORIZED=existing-cloud-workspace ./target/debug/vm-lab run /workspace/opensuse-vm /workspace/ryoku-lab-issue13-run13
+```
+
+**Process exit 1 / `lab_result=blocked`.** The [actual sanitized evidence](../infra/tumbleweed-lab/evidence/issue13-run13.txt)
+records the fresh cloud source/derived boots, mandatory native signature checking
+and exact metadata pins, Btrfs/ESP/GRUB/initramfs and ACL/context parity, exact
+kernel owner/GRUB/Snapper versions, enforcing SELinux and ordinary D-Bus Snapper.
+Actual reboot changed the boot identity and repeated inspection passed. Offline
+egress was unreachable; real corruption and native undo restored exact bytes.
+
+The sentinel was present on the derived Btrfs/Snapper baseline, exact 29 bytes
+matched and file/parent fsync passed. After whole-disk discard the fresh original
+XFS guest required the sentinel, recovery marker and root Snapper config absent
+via only-`NotFound` checks, plus exact KDE RPM absence. Every normal QEMU stop
+required exit status 0. Disks, firmware, seed and SSH keys were removed; the
+original image SHA256 was unchanged. The mode-0700 run directory contains only
+the sanitized evidence and private diagnostic logs; no owned QEMU remains.
+
+KDE's complete native Plasma/SDDM/Xorg `--no-recommends` closure selected **745**
+new packages and failed preloading the original OpenH264 RPM with **HTTP 403 /
+Zypper exit 4**. No RPM installation phase was shown. No ordinary-user graphical
+login, post-reboot desktop proof or hosted VM artifact upload is credited. The
+full #13 acceptance remains incomplete until the already-approved Cisco origin
+is actually applied to runtime policy and the real desktop checks pass.
+
+Final local checks use the recorded toolchain prefix: format, all-target/all-feature
+Clippy, workspace tests (**21 lab + 1 boundary = 22 passed, 0 failed, 0 ignored**),
+cargo-deny and the binary build passed. Separate independent reviews validated
+the immutable implementation and signature-default repair; passing review and
+base evidence do not complete the blocked KDE gate.
+
+## Observed hosted Rust checks
+
+[GitHub run 38316734108](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/38316734108)
+completed successfully for PR head `18648cae24ddf501e5f5b17882dc9102ae1f820c`.
+Job [115035038160](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/38316734108/job/115035038160)
+used GitHub-hosted `ubuntu-24.04`, from 12 October 2026 22:27:11 through 22:29:10 UTC.
+Checkout logs prove synthetic merge `f997dbc48c3c433e4e1d2498ecf1764eea81175d`,
+combining that head with base `a942ed2caf4e7087c6d3de04e11638158d528688`.
+
+Formatting, Clippy, workspace tests (5 passed, 0 failed) and cargo-deny all ran
+and passed. [Sanitized hosted evidence](../infra/tumbleweed-lab/evidence/hosted-rust-run38316734108.toml)
+records the exact commands and revisions. That run contained one Rust job and
+no VM lab job; it establishes no KDE/graphical or hosted VM acceptance. New PR
+heads need their own check results. The manual VM workflow and separate cloud
+Run11 evidence retain their stated limits.
+
+The automatic integrated-main [run 38318265080](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/38318265080)
+also passed on exact merged commit `5cfa5259f3a69d7b2316d75453c28033228a2e1c`
+(same reviewed tree `6c0118f2a2a01c79169e3c47202581fee07e6b54`). Ubuntu24.04
+job 115039994093 ran from 22:43:27 to 22:45:35 UTC; checkout/command logs confirm
+format, Clippy, 5 tests and cargo-deny passed. [Sanitized integrated evidence](../infra/tumbleweed-lab/evidence/hosted-rust-run38318265080.toml)
+records this existing run. Only Rust executed; no VM job ran or was dispatched.
+Both hosted observations concern PR54's earlier source, rather than this
+follow-up revision. Local checks and actual Run13 evidence cover this revision.

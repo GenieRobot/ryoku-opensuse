@@ -28,28 +28,13 @@ pub fn migrate(proxy: &str) -> Result<()> {
         "migration disk is mounted",
     )?;
     // The host supplies only a brand new second disk; formatting existing disks is forbidden.
-    for entry in fs::read_dir("/etc/zypp/repos.d")? {
-        let path = entry?.path();
-        if path.extension().is_some_and(|x| x == "repo") {
-            let repo = fs::read_to_string(&path)?;
-            fs::write(
-                path,
-                repo.replace(
-                    "http://download.opensuse.org/",
-                    "https://downloadcontent2.opensuse.org/",
-                )
-                .replace(
-                    "https://download.opensuse.org/",
-                    "https://downloadcontent2.opensuse.org/",
-                ),
-            )?;
-        }
-    }
+    crate::repositories::pin()?;
     command("update-ca-certificates", &[])?;
     for args in [
-        vec!["--non-interactive", "refresh"],
+        vec!["--non-interactive", "refresh", "--force"],
         vec![
             "--non-interactive",
+            "--no-refresh",
             "install",
             "--no-recommends",
             "btrfsprogs",
@@ -63,7 +48,7 @@ pub fn migrate(proxy: &str) -> Result<()> {
         ],
     ] {
         let result = Command::new("zypper")
-            .args(args)
+            .args(&args)
             .env("HTTP_PROXY", format!("http://{proxy}"))
             .env("HTTPS_PROXY", format!("http://{proxy}"))
             .output()?;
@@ -74,6 +59,9 @@ pub fn migrate(proxy: &str) -> Result<()> {
                 String::from_utf8_lossy(&result.stderr)
             );
             return Err(format!("zypper exited {}", result.status).into());
+        }
+        if args.contains(&"refresh") {
+            crate::repositories::verify_cache()?;
         }
     }
     // Native package installation created this config with generic etc_t on

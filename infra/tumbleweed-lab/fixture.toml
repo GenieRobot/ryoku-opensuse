@@ -18,8 +18,17 @@ root_default_subvolume = "@"
 snapshot_exclusions = ["@/home", "@/var"]
 derivation = "Rust-controlled root copy to blank second GPT/Btrfs disk; native grub2-install and dracut; actual sole-disk boot required"
 snapshot_provider = "Snapper"
-kde_packages = ["plasma6-session", "sddm"]
+kde_packages = ["plasma6-session", "sddm", "xorg-x11-server"]
 package_recommendations = "excluded; solver hard dependencies and signatures remain enforced; KDE closure still requires the denied OpenH264 payload"
+repo_oss_url = "https://downloadcontent2.opensuse.org/history/20261011/tumbleweed/repo/oss/"
+repo_oss_repomd_sha256 = "e8eb2ef89e9df3ce26779d4c13b8a60570cc526e4df5c22ed6752a9e30539462"
+repo_non_oss_url = "https://downloadcontent2.opensuse.org/history/20261011/tumbleweed/repo/non-oss/"
+repo_non_oss_repomd_sha256 = "6335f5b6bf7eb4590b5611a8013afc2f1d11078f0a63e12b7a336bcdb417cde1"
+repo_codec_url = "https://codecs.opensuse.org/openh264/openSUSE_Tumbleweed/"
+repo_codec_repomd_sha256 = "57b42e1c830f50adf5fd3424b2ed0260671e3d709804f51064d71a446ceb9dd1"
+repo_update_url = "https://downloadcontent2.opensuse.org/update/tumbleweed/"
+repo_update_repomd_sha256 = "01907fd3e6980cde9862f0022997532acdf68128b0b16d8aaeade0cfa5e4ec4d"
+repository_policy = "OSS/non-OSS archive snapshot20261011; no official history path for codec/update, so original enabled sources retained with exact signed repomd digest pins; any changed metadata fails closed"
 
 [hypervisor]
 qemu = "10.0.13"

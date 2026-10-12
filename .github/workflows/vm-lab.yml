@@ -8,9 +8,6 @@ on:
         description: Existing pinned lab asset directory on the cloud runner
         required: true
         default: /workspace/opensuse-vm
-      run_directory:
-        description: Fresh absolute directory beneath /workspace
-        required: true
 
 permissions:
   contents: read
@@ -22,7 +19,8 @@ jobs:
     env:
       RYOKU_LAB_AUTHORIZED: existing-cloud-workspace
       RYOKU_LAB_ASSETS: ${{ inputs.assets }}
-      RYOKU_LAB_RUN: ${{ inputs.run_directory }}
+      # Controlled fresh path: artifact upload never reads a caller-chosen path.
+      RYOKU_LAB_RUN: /workspace/ryoku-lab-actions-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Check Rust automation
@@ -30,12 +28,15 @@ jobs:
       - name: Test Rust boundaries
         run: cargo test --workspace --all-features --locked
       - name: Create, inspect, recover and reset the real VM
+        id: lab
         run: cargo run --locked --bin vm-lab -- run "$RYOKU_LAB_ASSETS" "$RYOKU_LAB_RUN"
       - name: Retain only sanitized evidence
-        if: success()
+        if: always() && steps.lab.outcome != 'skipped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: tumbleweed-lab-evidence
-          path: ${{ inputs.run_directory }}/evidence.txt
+          # Rust writes only allowlisted key/value evidence here. Never glob logs,
+          # SSH material, profiles or disks, including on failed/blocked runs.
+          path: ${{ env.RYOKU_LAB_RUN }}/evidence.txt
           if-no-files-found: error
           retention-days: 14
