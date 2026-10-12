@@ -50,6 +50,7 @@ pub fn public_evidence(line: &str) -> bool {
         "derived_grub2",
         "derived_initramfs",
         "metadata_acl_context",
+        "repository_metadata",
         "derived_btrfs_boot",
         "setup",
         "kernel-default-base",
@@ -69,6 +70,22 @@ pub fn public_evidence(line: &str) -> bool {
         "snapper_dbus_list",
         "kde_display_manager",
         "kde_provisioning",
+        "desktop_login_prepared",
+        "desktop_user",
+        "desktop_session_service",
+        "desktop_session_class",
+        "desktop_session_seat",
+        "desktop_session_type",
+        "desktop_session_state",
+        "desktop_session_remote",
+        "desktop_session_owner",
+        "desktop_pam",
+        "desktop_plasmashell",
+        "desktop_compositor",
+        "desktop_wayland_socket",
+        "desktop_authentication",
+        "desktop_greeter",
+        "desktop_login",
         "reboot",
         "egress",
         "controlled_corruption",
@@ -91,7 +108,7 @@ pub fn public_evidence(line: &str) -> bool {
     ];
     keys.contains(&key)
         && !value.is_empty()
-        && value.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_.".contains(&b))
+        && value.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_.+".contains(&b))
 }
 
 #[cfg(test)]
@@ -115,6 +132,8 @@ mod tests {
     fn artifacts_reject_unknown_identity_and_network_fields() {
         for line in [
             "access_token=abcdef",
+            "desktop_session_id=1",
+            "desktop_uid=1001",
             "ssh_host=localhost",
             "proxy=172.31.1.1",
             "root=/private/path",
@@ -124,6 +143,8 @@ mod tests {
             assert!(!public_evidence(line));
         }
         assert!(public_evidence("snapper=0.12.1-1.2"));
+        assert!(public_evidence("sddm=0.21.0+git57-1.1"));
+        assert!(public_evidence("desktop_authentication=sddm-pam"));
         assert!(public_evidence("offline_snapper_restore=matched"));
         assert!(public_evidence("kernel-default-base=7.2.9-1.1.36.10"));
         assert!(public_evidence("reset_baseline=derived-btrfs-snapper"));

@@ -4,8 +4,8 @@ use crate::{
 };
 use std::{
     fs,
-    io::Write,
-    net::{TcpListener, ToSocketAddrs},
+    io::{Read, Write},
+    net::ToSocketAddrs,
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
@@ -13,13 +13,16 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[path = "qmp.rs"]
+mod qmp;
+
 const FIRMWARE: &[(&str, &str)] =
     &[("OVMF_CODE_4M.fd", "ovmf_code_sha256"), ("OVMF_VARS_4M.fd", "ovmf_variables_sha256")];
 
 struct Lab {
     assets: PathBuf,
     run: PathBuf,
-    port: u16,
+    port: Option<u16>,
     vm: Option<Child>,
     report: fs::File,
 }
@@ -69,6 +72,7 @@ impl Lab {
 
     fn start(&mut self, offline: bool) -> Result<()> {
         require(self.vm.is_none(), "VM already owned by run")?;
+        self.port = None;
         let mut command = self.tool("qemu-system-x86_64");
         command
             .arg("-L")
@@ -101,9 +105,8 @@ impl Lab {
             ))
             .arg("-netdev")
             .arg(format!(
-                "user,id=net0,restrict={},hostfwd=tcp:127.0.0.1:{}-:22",
-                if offline { "on" } else { "off" },
-                self.port
+                "user,id=net0,restrict={},hostfwd=tcp:127.0.0.1:0-:22",
+                if offline { "on" } else { "off" }
             ))
             .args(["-device", "virtio-net-pci,netdev=net0,romfile=", "-vga", "none"])
             .arg("-device")
@@ -126,17 +129,22 @@ impl Lab {
             ));
         }
         self.vm = Some(command.spawn()?);
+        // QEMU binds port zero atomically. Query only our private owned QMP
+        // endpoint; no temporary listener is dropped before another bind.
+        let mut control = qmp::QmpClient::connect(&self.run.join("qmp-private.sock"))?;
+        self.port = Some(control.forwarded_ssh_port()?);
         self.wait_ssh()
     }
 
-    fn ssh_command(&self) -> Command {
+    fn ssh_command(&self) -> Result<Command> {
+        let port = self.port.ok_or("owned QEMU SSH forwarding endpoint unknown")?;
         let mut command = Command::new("ssh");
         command
             .args(["-F", "/dev/null", "-i"])
             .arg(self.run.join("id_ed25519"))
             .args([
                 "-p",
-                &self.port.to_string(),
+                &port.to_string(),
                 "-o",
                 "BatchMode=yes",
                 "-o",
@@ -151,17 +159,57 @@ impl Lab {
             ])
             .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
             .arg("tester@127.0.0.1");
-        command
+        Ok(command)
     }
 
     fn ssh(&self, request: &str) -> Result<String> {
-        let result = self.ssh_command().arg(request).output()?;
+        let result = self.ssh_command()?.arg(request).output()?;
         fs::write(
             self.run.join("guest-private.log"),
             [&result.stdout[..], &result.stderr[..]].concat(),
         )?;
         require(result.status.success(), "guest command failed; inspect private guest log")?;
         Ok(String::from_utf8(result.stdout)?)
+    }
+
+    fn login(&self, password: &[u8]) -> Result<String> {
+        let mut child = self
+            .ssh_command()?
+            .arg("sudo /tmp/ryoku-vm-lab guest-login-prepare")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        // No password is placed in argv, environment, disk files or command
+        // logs. Guest preparation consumes this pipe and suppresses output from
+        // the native secret-bearing password command.
+        let mut input = child.stdin.take().ok_or("missing private password pipe")?;
+        let written = input.write_all(password).and_then(|()| input.write_all(b"\n"));
+        drop(input);
+        let result = child.wait_with_output()?;
+        written?;
+        fs::write(
+            self.run.join("desktop-prepare-private.log"),
+            [&result.stdout[..], &result.stderr[..]].concat(),
+        )?;
+        require(result.status.success(), "native desktop login preparation failed")?;
+        let prepared = String::from_utf8(result.stdout)?;
+        let mut control = qmp::QmpClient::connect(&self.run.join("qmp-private.sock"))?;
+        for byte in password {
+            // Password alphabet is generated here, never interpreted as QMP
+            // JSON. Native virtual-key events exercise the actual SDDM greeter.
+            control.send_key(std::str::from_utf8(std::slice::from_ref(byte))?)?;
+            thread::sleep(Duration::from_millis(150));
+        }
+        control.send_key("ret")?;
+        let deadline = Instant::now() + Duration::from_secs(180);
+        while Instant::now() < deadline {
+            if let Ok(inspected) = self.ssh("sudo /tmp/ryoku-vm-lab guest-login-inspect") {
+                return Ok(format!("{prepared}{inspected}"));
+            }
+            thread::sleep(Duration::from_secs(3));
+        }
+        Err("actual SDDM login and active Plasma session were not verified".into())
     }
 
     fn wait_ssh(&mut self) -> Result<()> {
@@ -179,13 +227,14 @@ impl Lab {
     }
 
     fn copy_binary(&self) -> Result<()> {
+        let port = self.port.ok_or("owned QEMU SSH forwarding endpoint unknown")?;
         output(
             Command::new("scp")
                 .args(["-F", "/dev/null", "-i"])
                 .arg(self.run.join("id_ed25519"))
                 .args([
                     "-P",
-                    &self.port.to_string(),
+                    &port.to_string(),
                     "-o",
                     "BatchMode=yes",
                     "-o",
@@ -207,6 +256,7 @@ impl Lab {
             if let Some(status) = self.vm.as_mut().ok_or("no VM owned")?.try_wait()? {
                 require(status.success(), "QEMU exited abnormally during poweroff")?;
                 self.vm.take();
+                self.port = None;
                 return Ok(());
             }
             thread::sleep(Duration::from_secs(1));
@@ -251,6 +301,20 @@ impl Lab {
         )?;
         Ok(())
     }
+}
+
+fn desktop_password() -> Result<Vec<u8>> {
+    let mut entropy = fs::File::open("/dev/urandom")?;
+    let alphabet = b"abcdefghijklmnopqrstuvwxyz0123456789";
+    let mut password = Vec::with_capacity(32);
+    while password.len() < 32 {
+        let mut byte = [0_u8];
+        entropy.read_exact(&mut byte)?;
+        if byte[0] < 252 {
+            password.push(alphabet[usize::from(byte[0]) % alphabet.len()]);
+        }
+    }
+    Ok(password)
 }
 
 pub fn run(assets: &str, run: &str) -> Result<()> {
@@ -307,11 +371,10 @@ pub fn run(assets: &str, run: &str) -> Result<()> {
         "unexpected release signer",
     )?;
     let address = ("proxy", 8080).to_socket_addrs()?.next().ok_or("managed proxy DNS missing")?;
-    let port = TcpListener::bind("127.0.0.1:0")?.local_addr()?.port();
     let mut lab = Lab {
         assets,
         run: fs::canonicalize(run_path)?,
-        port,
+        port: None,
         vm: None,
         report: fs::File::create(run_path.join("evidence.txt"))?,
     };
@@ -345,7 +408,7 @@ pub fn run(assets: &str, run: &str) -> Result<()> {
     let base = lab.ssh("sudo /tmp/ryoku-vm-lab guest-base-setup")?;
     lab.evidence(&base)?;
     lab.evidence("derived_btrfs_boot=passed")?;
-    let kde_ready = match lab.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-setup {address}")) {
+    let kde_installed = match lab.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-setup {address}")) {
         Ok(setup) => {
             lab.evidence(&setup)?;
             true
@@ -356,11 +419,19 @@ pub fn run(assets: &str, run: &str) -> Result<()> {
             false
         }
     };
-    let inspect = if kde_ready {
-        "sudo /tmp/ryoku-vm-lab guest-inspect"
-    } else {
-        "sudo /tmp/ryoku-vm-lab guest-inspect-base"
-    };
+    let mut password = desktop_password()?;
+    let mut kde_ready = false;
+    if kde_installed {
+        match lab.login(&password) {
+            Ok(session) => {
+                lab.evidence(&session)?;
+                kde_ready = true;
+            }
+            Err(_) => {
+                lab.evidence("desktop_login=blocked")?;
+            }
+        }
+    }
     let before = lab.ssh("cat /proc/sys/kernel/random/boot_id")?;
     let _ = lab.ssh("sudo systemctl reboot");
     let deadline = Instant::now() + Duration::from_secs(600);
@@ -377,6 +448,21 @@ pub fn run(assets: &str, run: &str) -> Result<()> {
     require(changed, "boot identity did not change within 600 seconds")?;
     lab.wait_ssh()?;
     lab.copy_binary()?;
+    if kde_ready {
+        match lab.login(&password) {
+            Ok(session) => lab.evidence(&session)?,
+            Err(_) => {
+                kde_ready = false;
+                lab.evidence("desktop_login=blocked")?;
+            }
+        }
+    }
+    password.fill(0);
+    let inspect = if kde_ready {
+        "sudo /tmp/ryoku-vm-lab guest-inspect"
+    } else {
+        "sudo /tmp/ryoku-vm-lab guest-inspect-base"
+    };
     let inspected = lab.ssh(inspect)?;
     lab.evidence(&inspected)?;
     lab.evidence("reboot=passed")?;
@@ -418,7 +504,7 @@ pub fn run(assets: &str, run: &str) -> Result<()> {
     }
     require(
         kde_ready,
-        "KDE acceptance blocked; mandatory base VM evidence completed, inspect private KDE failure log",
+        "KDE package/login acceptance blocked; mandatory base VM evidence completed, inspect private diagnostics",
     )?;
     lab.evidence("lab_result=passed")?;
     Ok(())

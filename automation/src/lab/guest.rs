@@ -47,39 +47,24 @@ pub fn setup(proxy: &str) -> Result<()> {
         command("findmnt", &["-n", "-o", "FSTYPE", "--target", "/"])?.trim() == "btrfs",
         "fixture root must be Btrfs",
     )?;
-    // Preserve repository signatures and TLS; avoid redirects to unknown mirrors.
-    for entry in fs::read_dir("/etc/zypp/repos.d")? {
-        let path = entry?.path();
-        if path.extension().is_some_and(|x| x == "repo") {
-            let repo = fs::read_to_string(&path)?;
-            fs::write(
-                path,
-                repo.replace(
-                    "http://download.opensuse.org/",
-                    "https://downloadcontent2.opensuse.org/",
-                )
-                .replace(
-                    "https://download.opensuse.org/",
-                    "https://downloadcontent2.opensuse.org/",
-                ),
-            )?;
-        }
-    }
+    crate::repositories::pin()?;
     command("update-ca-certificates", &[])?;
     for args in [
-        vec!["--non-interactive", "refresh"],
+        vec!["--non-interactive", "refresh", "--force"],
         vec![
             "--non-interactive",
+            "--no-refresh",
             "install",
             "--no-recommends",
             "snapper",
             "grub2-snapper-plugin",
             "plasma6-session",
             "sddm",
+            "xorg-x11-server",
         ],
     ] {
         let result = Command::new("zypper")
-            .args(args)
+            .args(&args)
             .env("HTTP_PROXY", format!("http://{proxy}"))
             .env("HTTPS_PROXY", format!("http://{proxy}"))
             .output()?;
@@ -91,6 +76,9 @@ pub fn setup(proxy: &str) -> Result<()> {
             );
             return Err(format!("KDE provisioning: zypper exited {}", result.status).into());
         }
+        if args[1] == "refresh" {
+            crate::repositories::verify_cache()?;
+        }
     }
     if !std::path::Path::new("/etc/snapper/configs/root").exists() {
         command("snapper", &["-c", "root", "create-config", "/"])?;
@@ -98,10 +86,15 @@ pub fn setup(proxy: &str) -> Result<()> {
     command("systemctl", &["set-default", "graphical.target"])?;
     command("systemctl", &["enable", "--now", "display-manager"])?;
     println!("setup=passed");
-    inspect()
+    inspect_provisioned()
 }
 
 pub fn inspect() -> Result<()> {
+    inspect_provisioned()?;
+    crate::desktop::inspect()
+}
+
+fn inspect_provisioned() -> Result<()> {
     inspect_base()?;
     command("systemctl", &["is-active", "display-manager"])?;
     for package in ["plasma6-session", "sddm"] {
