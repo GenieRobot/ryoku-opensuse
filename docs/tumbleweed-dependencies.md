@@ -8,11 +8,20 @@ compatibility still requires the build and VM gates at the end of this document.
 ## Evidence and method
 
 - Official repository: [Tumbleweed OSS](https://download.opensuse.org/tumbleweed/repo/oss/)
-- Inspected `repomd.xml` on 2026-10-12. It identifies `openSUSE Tumbleweed
-  20261011`, revision `1791791893`. The downloaded `repomd.xml.asc` signature verified successfully against the
-  `repomd.xml.key` published beside it; its primary-key fingerprint is
-  `AD485664E901B867051AB15F35A2F86E29B700A4`. The primary package list was
-  the SHA-512-addressed
+- The reproducible reference is the retained
+  [20261011 `repomd.xml`](https://download.opensuse.org/history/20261011/tumbleweed/repo/oss/repodata/repomd.xml),
+  its [detached signature](https://download.opensuse.org/history/20261011/tumbleweed/repo/oss/repodata/repomd.xml.asc),
+  and published [verification key](https://download.opensuse.org/history/20261011/tumbleweed/repo/oss/repodata/repomd.xml.key).
+  The inspected metadata identifies `openSUSE Tumbleweed 20261011`, revision
+  `1791791893`. Its SHA-256 is
+  `e8eb2ef89e9df3ce26779d4c13b8a60570cc526e4df5c22ed6752a9e30539462`, matching
+  the rolling OSS `repomd.xml` retrieved on 2026-10-12. The detached signature
+  verifies against the published key with primary fingerprint
+  `AD485664E901B867051AB15F35A2F86E29B700A4`. HTTPS retrieval and verification
+  against a key hosted beside that metadata establish consistency, not an
+  independent production trust anchor. Before production use, verify this
+  fingerprint through the official openSUSE key distribution or another
+  independently trusted trust anchor. The package list is the SHA-512-addressed
   `repodata/9c6719513d5c386b484e36c839e96c8411da417a450fbfa98600aa4e30d2c5410f3033637539d4f6d7013ef24009d73421454d7c588d174d1372b09e082317bb-primary.xml.zst`.
 - Package presence and exact `name`, `arch`, `version-release`, summary,
   description, provides, and binary requirements were read from that primary
@@ -83,6 +92,13 @@ that promises unavailable features. The controlled OBS plan above records the
 minimum provenance, license, ownership, and ABI gates for each source. The
 current project has no established OBS project, key, or validated package
 recipes, so these add-ons are unresolved.
+
+The version inventory does not close the Quickshell module graph for the full
+Ryoku shell, Hub, and lockscreen. Their imports, plugin modules, and runtime
+launch dependencies remain an unresolved prerequisite; this document does not
+claim a complete shell/Hub package closure or compatibility. Map every import
+and invoked binary against the selected shell runtime, then validate on the
+supported session before packaging those surfaces.
 
 The pinned Ryoku revision includes session units, launchers and QML plus native
 upstream app backends; #11 records their Arch-specific assumptions and calls
