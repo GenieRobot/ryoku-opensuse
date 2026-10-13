@@ -3,6 +3,38 @@
 //! Callers load and validate each layer at an outer boundary, then resolve
 //! them with [`ProfileLayers::resolve`]. A companion layer is optional local
 //! input; resolving a profile never fetches it or requires credentials.
+//!
+//! A synthetic local resolution requires only the layer values supplied by
+//! the caller:
+//!
+//! ```
+//! use ryoku_profiles::{Desktop, Density, ProfileLayers, SettingsLayer, Theme};
+//!
+//! let resolved = ProfileLayers {
+//!     defaults: SettingsLayer {
+//!         desktop: Some(Desktop::Hyprland),
+//!         theme: Some(Theme::RyokuDark),
+//!         density: Some(Density::Comfortable),
+//!     },
+//!     system_overrides: SettingsLayer {
+//!         desktop: Some(Desktop::Kde),
+//!         ..SettingsLayer::default()
+//!     },
+//!     companion: Some(SettingsLayer {
+//!         theme: Some(Theme::System),
+//!         ..SettingsLayer::default()
+//!     }),
+//!     personal: SettingsLayer {
+//!         density: Some(Density::Compact),
+//!         ..SettingsLayer::default()
+//!     },
+//! }
+//! .resolve();
+//!
+//! assert_eq!(resolved.desktop, Some(Desktop::Kde));
+//! assert_eq!(resolved.theme, Some(Theme::System));
+//! assert_eq!(resolved.density, Some(Density::Compact));
+//! ```
 
 /// Stable identifier for a locally installed profile.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]

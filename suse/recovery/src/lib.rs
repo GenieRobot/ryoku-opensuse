@@ -1,8 +1,9 @@
 //! Validated, local recovery manifest primitives.
 //!
-//! This crate models only bounded metadata. It performs no filesystem access,
-//! serialization, hashing, command execution, or network access. Callers must
-//! establish those properties at a privileged storage boundary before using a
+//! This crate validates typed schema values and provides canonical JSON and
+//! SHA-256 primitives. It performs no filesystem access, command execution,
+//! or network access. Callers must establish capture, persistence, and
+//! authorization properties at a separate privileged boundary before using a
 //! manifest to authorize a mutation.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -321,12 +322,27 @@ impl FileRecord {
         path: RelativePath,
         kind: EntryKind,
     ) -> Result<Self, ValidationError> {
-        if let EntryKind::Symlink { target, .. } = &kind
+        let record = Self { root, path, kind };
+        record.validate()?;
+        Ok(record)
+    }
+
+    fn validate(&self) -> Result<(), ValidationError> {
+        let metadata = match &self.kind {
+            EntryKind::Absent => return Ok(()),
+            EntryKind::Directory { metadata }
+            | EntryKind::RegularFile { metadata, .. }
+            | EntryKind::Symlink { metadata, .. } => metadata,
+        };
+        if metadata.mode & !0o7777 != 0 {
+            return Err(ValidationError::InvalidMode);
+        }
+        if let EntryKind::Symlink { target, .. } = &self.kind
             && (target.is_empty() || target.len() > 4096 || target.as_bytes().contains(&0))
         {
             return Err(ValidationError::InvalidSymlinkTarget);
         }
-        Ok(Self { root, path, kind })
+        Ok(())
     }
 }
 
@@ -408,6 +424,7 @@ impl RecoveryManifest {
 
     /// Adds one declared path, rejecting duplicate normalized root/path pairs.
     pub fn add_file(&mut self, file: FileRecord) -> Result<(), ValidationError> {
+        file.validate()?;
         let key = (file.root, file.path.clone());
         if !self.file_keys.insert(key) {
             return Err(ValidationError::DuplicatePath);
@@ -469,24 +486,62 @@ impl RecoveryManifest {
             && self.verify_digest().is_ok_and(|valid| valid)
     }
 
+    /// Validates the supported v1 schema and its cross-field invariants.
+    /// This validates an in-memory typed value; the crate does not parse
+    /// manifests from persistent storage.
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if self.schema_version != 1 {
+            return Err(ValidationError::UnsupportedSchemaVersion);
+        }
+        if self.snapper_snapshot_id.is_empty()
+            || !self.snapper_snapshot_id.bytes().all(|byte| byte.is_ascii_digit())
+        {
+            return Err(ValidationError::InvalidSnapshotId);
+        }
+        if !is_uuid(&self.filesystem_uuid) {
+            return Err(ValidationError::InvalidFilesystemUuid);
+        }
+        if !is_utc_timestamp(&self.created_utc) {
+            return Err(ValidationError::InvalidTimestamp);
+        }
+
+        let mut file_keys = BTreeSet::new();
+        for file in &self.files {
+            file.validate()?;
+            if !file_keys.insert((file.root, file.path.clone())) {
+                return Err(ValidationError::DuplicatePath);
+            }
+        }
+        if self
+            .package_revisions
+            .windows(2)
+            .any(|pair| pair[0].package_name >= pair[1].package_name)
+        {
+            return Err(ValidationError::DuplicateOrUnsortedPackageRevision);
+        }
+        Ok(())
+    }
+
     /// Returns canonical JSON for the manifest payload, excluding its digest.
     /// Object keys are lexically ordered by serde_json's map representation;
     /// declared files are sorted by fixed root and normalized relative path.
-    pub fn canonical_payload_bytes(&self) -> Result<Vec<u8>, serde_json::Error> {
+    pub fn canonical_payload_bytes(&self) -> Result<Vec<u8>, ManifestError> {
+        self.validate()?;
         let mut payload = self.clone();
         payload.manifest_sha256 = None;
-        canonical_json(&payload)
+        Ok(canonical_json(&payload)?)
     }
 
     /// Serializes the complete manifest as canonical JSON, including its
     /// digest once sealed.
-    pub fn canonical_bytes(&self) -> Result<Vec<u8>, serde_json::Error> {
-        canonical_json(self)
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, ManifestError> {
+        self.validate()?;
+        Ok(canonical_json(self)?)
     }
 
     /// Computes and assigns the SHA-256 of canonical JSON with the digest field
     /// omitted, avoiding a self-referential checksum.
-    pub fn seal(&mut self) -> Result<(), serde_json::Error> {
+    pub fn seal(&mut self) -> Result<(), ManifestError> {
         let bytes = self.canonical_payload_bytes()?;
         let digest = Sha256Digest::digest(bytes);
         let text = digest.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
@@ -495,7 +550,8 @@ impl RecoveryManifest {
     }
 
     /// Verifies the assigned checksum against the canonical payload.
-    pub fn verify_digest(&self) -> Result<bool, serde_json::Error> {
+    pub fn verify_digest(&self) -> Result<bool, ManifestError> {
+        self.validate()?;
         let Some(expected) = &self.manifest_sha256 else {
             return Ok(false);
         };
@@ -535,6 +591,8 @@ pub const REQUIRED_CAPTURE_RULES: [CaptureRule; 5] = [
 pub enum ValidationError {
     /// Identifier violates the canonical bounded syntax.
     InvalidIdentifier,
+    /// Manifest schema version is not supported by this writer.
+    UnsupportedSchemaVersion,
     /// Package name is empty, oversized, or contains unsupported characters.
     InvalidPackageName,
     /// Revision is empty, oversized, or contains unsupported characters.
@@ -553,8 +611,51 @@ pub enum ValidationError {
     DuplicatePath,
     /// A package identity was declared more than once in one operation.
     DuplicatePackageRevision,
+    /// Package revisions are duplicated or not in canonical identity order.
+    DuplicateOrUnsortedPackageRevision,
+    /// File mode contains bits outside POSIX permission/special-mode bits.
+    InvalidMode,
     /// Creation time is not a bounded RFC3339 UTC timestamp.
     InvalidTimestamp,
+}
+
+/// Failure while validating or canonically serializing a manifest.
+#[derive(Debug)]
+pub enum ManifestError {
+    Validation(ValidationError),
+    Serialization(serde_json::Error),
+}
+
+impl From<ValidationError> for ManifestError {
+    fn from(error: ValidationError) -> Self {
+        Self::Validation(error)
+    }
+}
+
+impl From<serde_json::Error> for ManifestError {
+    fn from(error: serde_json::Error) -> Self {
+        Self::Serialization(error)
+    }
+}
+
+impl std::fmt::Display for ManifestError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Validation(error) => write!(formatter, "invalid recovery manifest: {error:?}"),
+            Self::Serialization(error) => {
+                write!(formatter, "manifest serialization failed: {error}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ManifestError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Validation(_) => None,
+            Self::Serialization(error) => Some(error),
+        }
+    }
 }
 
 fn is_uuid(value: &str) -> bool {
@@ -776,6 +877,43 @@ mod tests {
             VerificationStatus::Verified,
         );
         assert!(!manifest.is_mutation_ready());
+    }
+
+    #[test]
+    fn manifest_serialization_revalidates_mutable_schema_fields() {
+        let mut manifest = manifest();
+        manifest.schema_version = 2;
+        assert_eq!(manifest.validate(), Err(ValidationError::UnsupportedSchemaVersion));
+        assert!(matches!(
+            manifest.seal(),
+            Err(ManifestError::Validation(ValidationError::UnsupportedSchemaVersion))
+        ));
+
+        manifest.schema_version = 1;
+        manifest.filesystem_uuid = "not-a-uuid".to_owned();
+        assert!(matches!(
+            manifest.canonical_bytes(),
+            Err(ManifestError::Validation(ValidationError::InvalidFilesystemUuid))
+        ));
+    }
+
+    #[test]
+    fn file_records_reject_invalid_mode_bits_before_serialization() {
+        let mut invalid_metadata = metadata();
+        invalid_metadata.mode = 0o100640;
+        assert_eq!(
+            FileRecord::new(
+                StateRoot::UserRyokuConfig,
+                RelativePath::new("profile.json").unwrap(),
+                EntryKind::RegularFile {
+                    metadata: invalid_metadata,
+                    size: 2,
+                    sha256: Sha256::new("a".repeat(64)).unwrap(),
+                    hard_link_group: None,
+                },
+            ),
+            Err(ValidationError::InvalidMode)
+        );
     }
 
     #[test]
