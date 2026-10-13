@@ -4,6 +4,10 @@ Status: M0 design contract for issue [#16](https://github.com/GenieRobot/ryoku-o
 This is an implementation target, not evidence that dedicated storage or a
 boot recovery path has been exercised on Tumbleweed.
 
+The storage and profile decisions are recorded in
+[ADR 0002](adr/0002-linked-recovery-storage.md). That ADR is accepted design
+only; implementation and live rollback proof remain outstanding.
+
 ## Decision: linked generations outside root rollback
 
 The durable catalog, operation journal, and immutable Ryoku generation store
@@ -661,7 +665,7 @@ corresponding implementation and disposable-guest evidence are linked.
 | Protect catalog/generations outside root rollback; validate subvolume, writer coordination and privilege split | Storage ADR specifies the dedicated subvolume, validation and user/helper responsibilities | Setup/startup validation, locking/journal/publication implementation, and linked root rollback/reboot proof on Tumbleweed. |
 | Define profile precedence, absent entries and compatible migrations | Rust local resolver, strict schema-v1 local document parser/serializer, synthetic doctest, absent-file records, and explicit reject-until-migrated policy | Persistent profile/catalog storage, any future schema migration implementation/tests, and offline linked restore proof. |
 | Document snapshot/boot combinations, fallback and exclusions | Scenario matrix and explicit firmware, partitioning, arbitrary-root and undeclared-home exclusions | Exercise manifest-linked rollback, corruption handling and configuration-only fallback offline. |
-| ADR retains catalog, journal and matching generation across root rollback | Contract describes storage location, link identity and refusal to guess a generation | Actual dedicated mount plus Snapper rollback/reboot evidence. |
+| ADR retains catalog, journal and matching generation across root rollback | [ADR 0002](adr/0002-linked-recovery-storage.md) specifies the separate subvolume, identity validation, transaction link, profile contract, fallback behavior, and exclusions | Actual dedicated mount plus Snapper rollback/reboot evidence. |
 | Inventory ownership, modes, symlinks, extended metadata and external paths without traversal | Typed metadata schema; exact v1 candidate inventory; no-follow regular/directory capture, ACL/SELinux digests, absent records, hard-link checks, and symlink fail-closed behavior | Exact runtime ownership/mode/ACL/xattr evidence for integrated Ryoku state, an enforced audited allowlist, race-injection tests, and raw-target symlink capture are needed. Run19 provider paths do not constitute a Ryoku-owned path set. |
 | Profile interface works locally without remotes/credentials; public examples synthetic | Pure Rust resolver, bounded v1 parser, and fixed-name no-follow loader from a supplied descriptor; synthetic four-layer doctest and temporary-file validation tests | Caller integration for securely obtaining the intended config-root descriptor and persistence/writer coordination; companion persistence/sync remains out of scope. |
 
