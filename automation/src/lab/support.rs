@@ -104,6 +104,7 @@ pub fn public_evidence(line: &str) -> bool {
         "reset_fresh_boot",
         "base_unchanged",
         "reset_disk_and_keys",
+        "ui_visual_capture",
         "lab_result",
     ];
     keys.contains(&key)
@@ -152,5 +153,6 @@ mod tests {
         assert!(public_evidence("reset_sentinel=absent"));
         assert!(public_evidence("reset_sentinel_bytes=matched"));
         assert!(public_evidence("reset_sentinel_sync=passed"));
+        assert!(public_evidence("ui_visual_capture=passed"));
     }
 }

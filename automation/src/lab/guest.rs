@@ -92,6 +92,31 @@ pub fn setup(proxy: &str) -> Result<()> {
     inspect_provisioned()
 }
 
+/// Install GTK only when the opt-in visual proof is requested. Normal #13
+/// runs keep the original KDE-only package set.
+pub fn install_ui_runtime() -> Result<()> {
+    fixture_only()?;
+    require(
+        command("findmnt", &["-n", "-o", "FSTYPE", "--target", "/"])?.trim() == "btrfs",
+        "fixture root must be Btrfs",
+    )?;
+    let result = Command::new("zypper")
+        .args(["--non-interactive", "--no-refresh", "install", "--no-recommends", "libgtk-4-1"])
+        .output()?;
+    if !result.status.success() {
+        return Err("optional GTK runtime installation failed; inspect private guest log".into());
+    }
+    command("rpm", &["-q", "libgtk-4-1"])?;
+    command(
+        "install",
+        &["-Z", "-m", "0755", "/tmp/ryoku-ui-gtk.upload", "/usr/local/bin/ryoku-ui-gtk"],
+    )?;
+    command("restorecon", &["-F", "/usr/local/bin/ryoku-ui-gtk"])?;
+    command("rm", &["-f", "/tmp/ryoku-ui-gtk.upload"])?;
+    println!("ui_runtime=installed");
+    Ok(())
+}
+
 fn select_sddm_display_manager() -> Result<()> {
     replace_legacy_display_manager_alias(
         DISPLAY_MANAGER_ALIAS.as_ref(),

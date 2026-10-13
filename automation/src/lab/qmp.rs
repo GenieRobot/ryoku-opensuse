@@ -85,6 +85,23 @@ impl QmpClient {
         expect_empty(response)
     }
 
+    /// Ask this VM's monitor to save its current VGA framebuffer. Callers use
+    /// a fixed filename in QEMU's private run directory, never a user path.
+    pub fn screendump(&mut self, filename: &str) -> io::Result<()> {
+        validate_screenshot_filename(filename)?;
+        let arguments = format!(r#"{{"command-line":"screendump {filename}"}}"#);
+        let response = self.request(
+            "human-monitor-command",
+            Some(&arguments),
+            Instant::now() + REQUEST_TIMEOUT,
+        )?;
+        match response {
+            Json::String(message) if message.is_empty() => Ok(()),
+            Json::String(_) => Err(io::Error::other("QMP screendump failed")),
+            _ => Err(invalid("unexpected QMP screendump result")),
+        }
+    }
+
     fn request(
         &mut self,
         command: &str,
@@ -179,6 +196,21 @@ fn validate_qcode(qcode: &str) -> io::Result<()> {
         Ok(())
     } else {
         Err(io::Error::new(io::ErrorKind::InvalidInput, "unsupported lab key"))
+    }
+}
+
+fn validate_screenshot_filename(filename: &str) -> io::Result<()> {
+    if filename.len() <= 64
+        && filename.ends_with(".ppm")
+        && filename.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-' || byte == b'.'
+        })
+        && !filename.starts_with('.')
+        && !filename.contains("..")
+    {
+        Ok(())
+    } else {
+        Err(io::Error::new(io::ErrorKind::InvalidInput, "unsupported screenshot filename"))
     }
 }
 
@@ -488,6 +520,42 @@ mod tests {
         for bad in ["", "A", "enter", "ctrl", "a\"", "a\n", "ab", "é"] {
             assert!(validate_qcode(bad).is_err());
         }
+    }
+
+    #[test]
+    fn screenshot_names_are_fixed_private_run_file_components() {
+        for valid in ["ryoku-ui-success.ppm", "ryoku-ui-error.ppm"] {
+            assert!(validate_screenshot_filename(valid).is_ok());
+        }
+        for bad in [
+            "",
+            "../capture.ppm",
+            "/tmp/capture.ppm",
+            ".private.ppm",
+            "two words.ppm",
+            "capture.png",
+        ] {
+            assert!(validate_screenshot_filename(bad).is_err(), "accepted {bad:?}");
+        }
+    }
+
+    #[test]
+    fn screendump_uses_qmp_monitor_and_only_the_fixed_run_filename() {
+        let (client, mut server) = UnixStream::pair().unwrap();
+        server.write_all(b"{\"id\":\"ryoku-qmp-1\",\"return\":\"\"}\n").unwrap();
+        let receiver = thread::spawn(move || {
+            let mut request = String::new();
+            BufReader::new(server).read_line(&mut request).unwrap();
+            request
+        });
+        let mut client = QmpClient { reader: BufReader::new(client), next_id: 1 };
+        client.screendump("ryoku-ui-success.ppm").unwrap();
+        assert_eq!(
+            receiver.join().unwrap(),
+            r#"{"execute":"human-monitor-command","id":"ryoku-qmp-1", "arguments":{"command-line":"screendump ryoku-ui-success.ppm"}}"#
+                .to_owned()
+                + "\n"
+        );
     }
 
     fn reply_client(reply: &[u8]) -> QmpClient {

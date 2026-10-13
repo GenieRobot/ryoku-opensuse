@@ -22,6 +22,7 @@ const FIRMWARE: &[(&str, &str)] =
 struct Lab {
     assets: PathBuf,
     run: PathBuf,
+    ui_binary: Option<PathBuf>,
     port: Option<u16>,
     vm: Option<Child>,
     report: fs::File,
@@ -74,6 +75,11 @@ impl Lab {
         require(self.vm.is_none(), "VM already owned by run")?;
         self.port = None;
         let mut command = self.tool("qemu-system-x86_64");
+        if self.ui_binary.is_some() {
+            // HMP screendump accepts only a fixed relative filename below;
+            // QEMU's working directory is the private 0700 run directory.
+            command.current_dir(&self.run);
+        }
         command
             .arg("-L")
             .arg(self.assets.join("qemu/usr/share/qemu"))
@@ -258,6 +264,65 @@ impl Lab {
         Ok(())
     }
 
+    fn copy_ui_binary(&self) -> Result<()> {
+        let Some(binary) = &self.ui_binary else {
+            return Ok(());
+        };
+        let port = self.port.ok_or("owned QEMU SSH forwarding endpoint unknown")?;
+        output(
+            Command::new("scp")
+                .args(["-F", "/dev/null", "-i"])
+                .arg(self.run.join("id_ed25519"))
+                .args([
+                    "-P",
+                    &port.to_string(),
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "StrictHostKeyChecking=yes",
+                    "-o",
+                ])
+                .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
+                .arg(binary)
+                .arg("tester@127.0.0.1:/tmp/ryoku-ui-gtk.upload"),
+        )?;
+        self.ssh("sudo /tmp/ryoku-vm-lab guest-ui-install")?;
+        Ok(())
+    }
+
+    fn capture_screenshot(&self, filename: &str) -> Result<()> {
+        let mut control = qmp::QmpClient::connect(&self.run.join("qmp-private.sock"))?;
+        control.screendump(filename)?;
+        let path = self.run.join(filename);
+        let metadata = fs::symlink_metadata(&path)?;
+        require(
+            metadata.is_file() && metadata.len() > 0,
+            "QEMU did not create a private framebuffer capture",
+        )?;
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
+        Ok(())
+    }
+
+    fn capture_ui_scenarios(&mut self) -> Result<()> {
+        if self.ui_binary.is_none() {
+            return Ok(());
+        }
+        self.copy_ui_binary()?;
+        for (scenario, filename) in
+            [("success", "ryoku-ui-success.ppm"), ("error", "ryoku-ui-error.ppm")]
+        {
+            self.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-ui-launch {scenario}"))?;
+            thread::sleep(Duration::from_secs(3));
+            let mut control = qmp::QmpClient::connect(&self.run.join("qmp-private.sock"))?;
+            control.send_key("ret")?;
+            thread::sleep(Duration::from_secs(2));
+            self.capture_screenshot(filename)?;
+            self.ssh("sudo /tmp/ryoku-vm-lab guest-ui-stop")?;
+        }
+        self.evidence("ui_visual_capture=passed")?;
+        Ok(())
+    }
+
     fn stop(&mut self) -> Result<()> {
         // A closed SSH stream can be the successful poweroff transition.
         let _ = self.ssh("sudo systemctl poweroff");
@@ -327,7 +392,7 @@ fn desktop_password() -> Result<Vec<u8>> {
     Ok(password)
 }
 
-pub fn run(assets: &str, run: &str) -> Result<()> {
+pub fn run(assets: &str, run: &str, ui_binary: Option<&str>) -> Result<()> {
     let image = scalar("image")?;
     let hash = scalar("sha256")?;
     let signer = scalar("release_key_fingerprint")?;
@@ -343,6 +408,10 @@ pub fn run(assets: &str, run: &str) -> Result<()> {
         "set RYOKU_LAB_AUTHORIZED=existing-cloud-workspace only on authorized existing cloud capacity",
     )?;
     let assets = fs::canonicalize(assets)?;
+    let ui_binary = ui_binary.map(fs::canonicalize).transpose()?;
+    if let Some(binary) = &ui_binary {
+        require(binary.is_file(), "GTK proof binary is not a regular file")?;
+    }
     let run_path = Path::new(run);
     require(run_path.is_absolute(), "run directory must be absolute")?;
     safe_component(run_path.file_name().and_then(|x| x.to_str()).ok_or("missing run name")?)?;
@@ -384,6 +453,7 @@ pub fn run(assets: &str, run: &str) -> Result<()> {
     let mut lab = Lab {
         assets,
         run: fs::canonicalize(run_path)?,
+        ui_binary,
         port: None,
         vm: None,
         report: fs::File::create(run_path.join("evidence.txt"))?,
@@ -431,11 +501,14 @@ pub fn run(assets: &str, run: &str) -> Result<()> {
     };
     let mut password = desktop_password()?;
     let mut kde_ready = false;
+    let mut ui_captured = false;
     if kde_installed {
         match lab.login(&password) {
             Ok(session) => {
                 lab.evidence(&session)?;
                 kde_ready = true;
+                lab.capture_ui_scenarios()?;
+                ui_captured = lab.ui_binary.is_some();
             }
             Err(_) => {
                 lab.evidence("desktop_login=blocked")?;
@@ -460,7 +533,12 @@ pub fn run(assets: &str, run: &str) -> Result<()> {
     lab.copy_binary()?;
     if kde_ready {
         match lab.login(&password) {
-            Ok(session) => lab.evidence(&session)?,
+            Ok(session) => {
+                lab.evidence(&session)?;
+                if lab.ui_binary.is_some() && !ui_captured {
+                    lab.capture_ui_scenarios()?;
+                }
+            }
             Err(_) => {
                 kde_ready = false;
                 lab.evidence("desktop_login=blocked")?;
