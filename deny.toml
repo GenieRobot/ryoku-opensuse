@@ -1,17 +1,27 @@
+[graph]
+# Keep optional UI dependencies in the reviewed graph even for plain `cargo deny check` invocations.
+all-features = true
+
 [advisories]
 version = 2
 
 [licenses]
 version = 2
-# The canonical recovery serializer/hash dependency tree uses these standard
-# permissive licenses, which are compatible with the repository's GPLv3 code.
-allow = ["GPL-3.0-only", "MIT", "Apache-2.0", "Unicode-3.0", "Unlicense"]
+# GTK's target-lexicon build dependency adds the standard Apache LLVM exception.
+# Keep this exact SPDX expression alongside the project's existing permissive set.
+allow = ["GPL-3.0-only", "MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "Unicode-3.0", "Unlicense"]
 confidence-threshold = 0.93
 
 [bans]
 multiple-versions = "deny"
 wildcards = "deny"
 highlight = "all"
+# gtk4-macros and glib-macros require syn 2, while futures-macro and the
+# selected serde_derive require syn 3; these major versions cannot unify.
+# Exempt only the exact older syn version from the duplicate-version lint.
+skip = [
+  { crate = "syn", version = "=2.0.119", reason = "GTK4 and its dependency graph require syn 2 while other direct transitive macros require syn 3; the major APIs cannot unify." },
+]
 
 [sources]
 unknown-registry = "deny"
