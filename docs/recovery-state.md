@@ -185,6 +185,18 @@ rejection, and Snapper/filesystem linkage primitives. It does not read files,
 serialize manifests, calculate digests, publish generations, or authorize
 mutations.
 
+The typed contract also names operation reason/time, package and upstream
+revision provenance, all four resolved profile layers, per-phase verification,
+the canonical manifest digest slot, hard-link groups, ACL/xattr digests, and
+explicit capture exclusions. Its initial xattr enum is limited to SELinux
+labels and POSIX access/default ACLs; these values are represented by digests.
+The fixed file roots are `/etc/ryoku`, resolved per-user Ryoku config/profile
+roots, and the generation namespace. Catalog, journal, plugin payloads,
+package databases, caches, and arbitrary home/provider files are not file
+records. This code is a validated data model only: it does not acquire metadata
+or guarantee that a future collector enforces every declared rule. Unsupported
+metadata must still fail capture at that boundary.
+
 The example is illustrative, not a parser-ready schema or proof of a live
 capture. Canonical encoding, parser limits, checksum coverage, and migration
 compatibility need implementation tests before persisted data is accepted.
