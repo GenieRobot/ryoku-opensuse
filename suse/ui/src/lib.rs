@@ -4,6 +4,8 @@
 //! eventual asynchronous service client can reject stale or mismatched replies.
 //! The only action in this proof is a read-only status refresh.
 
+pub mod service_client;
+
 /// Version understood by this UI/service contract.
 pub const PROTOCOL_VERSION: u16 = 1;
 
@@ -17,6 +19,8 @@ pub enum UpdateState {
     Checking,
     UpToDate,
     UpdatesAvailable { count: u32 },
+    ServiceReady,
+    RecoveryUnavailable,
 }
 
 /// The complete set of user actions currently exposed by this proof.
@@ -44,8 +48,10 @@ impl UiRequest {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BackendError {
     Unavailable,
+    Unauthorized,
     InvalidResponse,
     UnsupportedProtocol,
+    UnsupportedOperation,
     MismatchedRequestId,
 }
 
@@ -97,6 +103,12 @@ pub fn render_status(state: &UpdateState) -> String {
         UpdateState::UpdatesAvailable { count } => {
             format!("System status: {count} updates available")
         }
+        UpdateState::ServiceReady => {
+            "Ryoku service: recovery available; this UI sent no managed action".to_owned()
+        }
+        UpdateState::RecoveryUnavailable => {
+            "Ryoku service: recovery unavailable; this UI sent no managed action".to_owned()
+        }
     }
 }
 
@@ -109,11 +121,17 @@ pub fn render_result(result: &Result<ActionResult, BackendError>) -> String {
         Err(BackendError::Unavailable) => {
             "Refresh failed: the Ryoku service is unavailable.".to_owned()
         }
+        Err(BackendError::Unauthorized) => {
+            "Refresh failed: the Ryoku service rejected this user.".to_owned()
+        }
         Err(BackendError::InvalidResponse) => {
             "Refresh failed: the Ryoku service returned invalid status.".to_owned()
         }
         Err(BackendError::UnsupportedProtocol) => {
             "Refresh failed: the Ryoku service protocol is unsupported.".to_owned()
+        }
+        Err(BackendError::UnsupportedOperation) => {
+            "Refresh failed: the Ryoku service does not support this request.".to_owned()
         }
         Err(BackendError::MismatchedRequestId) => {
             "Refresh failed: the Ryoku service returned an unrelated response.".to_owned()
@@ -165,6 +183,22 @@ mod tests {
 
         assert_eq!(result, Err(BackendError::Unavailable));
         assert_eq!(render_result(&result), "Refresh failed: the Ryoku service is unavailable.");
+    }
+
+    #[test]
+    fn service_discovery_states_do_not_claim_package_updates() {
+        assert_eq!(
+            super::render_status(&UpdateState::ServiceReady),
+            "Ryoku service: recovery available; this UI sent no managed action"
+        );
+        assert_eq!(
+            super::render_status(&UpdateState::RecoveryUnavailable),
+            "Ryoku service: recovery unavailable; this UI sent no managed action"
+        );
+        assert_eq!(
+            super::render_result(&Err(BackendError::Unauthorized)),
+            "Refresh failed: the Ryoku service rejected this user."
+        );
     }
 
     #[test]

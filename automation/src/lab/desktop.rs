@@ -738,7 +738,7 @@ pub fn launch_ui(scenario: &str) -> Result<()> {
     for (name, value) in environment {
         command.arg(format!("{name}={value}"));
     }
-    command.arg("/usr/local/bin/ryoku-ui-gtk").arg("--capture-on-launch");
+    command.arg("/usr/local/bin/ryoku-ui-gtk").args(["--demo", "--capture-on-launch"]);
     if scenario == "error" {
         command.arg("--service-unavailable");
     }

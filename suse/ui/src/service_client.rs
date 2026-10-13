@@ -1,0 +1,304 @@
+//! Opt-in client for the service's read-only discovery request.
+//!
+//! This adapter is a proof against the current Unix-socket service runtime,
+//! not a selection of the final UI transport. It never sends managed actions.
+
+use std::{
+    io::{BufRead, BufReader, Read, Write},
+    os::unix::{
+        fs::{FileTypeExt, MetadataExt},
+        net::UnixStream,
+    },
+    path::{Path, PathBuf},
+    time::Duration,
+};
+
+use rustix::process::geteuid;
+use ryoku_service::{
+    Discovery, Envelope, PROTOCOL_VERSION as SERVICE_PROTOCOL_VERSION, PeerIdentity, Request,
+    RequestId as ServiceRequestId, Response, ResponseBody, ServiceError, ServiceState,
+};
+
+use crate::{
+    ActionResult, BackendError, PROTOCOL_VERSION, RequestId, UiBackend, UiRequest, UiResponse,
+    UpdateState,
+};
+
+const IO_TIMEOUT: Duration = Duration::from_secs(5);
+const MAX_RESPONSE_BYTES: usize = 64 * 1024;
+
+/// Read-only UI adapter that queries service state through its fixed runtime
+/// socket. Construct it from `XDG_RUNTIME_DIR`; callers cannot supply a socket
+/// path from UI data or a request.
+#[derive(Clone, Debug)]
+pub struct UnixServiceBackend {
+    socket_path: PathBuf,
+}
+
+impl UnixServiceBackend {
+    pub fn from_runtime_dir(runtime_dir: &Path) -> Self {
+        Self { socket_path: runtime_dir.join("ryoku-service.sock") }
+    }
+
+    /// Resolve the user's runtime socket from the standard environment.
+    pub fn from_environment() -> Result<Self, BackendError> {
+        let runtime = std::env::var_os("XDG_RUNTIME_DIR").ok_or(BackendError::Unavailable)?;
+        let runtime = PathBuf::from(runtime);
+        if !runtime.is_absolute() {
+            return Err(BackendError::Unavailable);
+        }
+        Ok(Self::from_runtime_dir(&runtime))
+    }
+
+    fn discover(&self, request_id: RequestId) -> Result<UpdateState, BackendError> {
+        let runtime = self.socket_path.parent().ok_or(BackendError::Unavailable)?;
+        let runtime_metadata =
+            std::fs::symlink_metadata(runtime).map_err(|_| BackendError::Unavailable)?;
+        if !runtime_metadata.file_type().is_dir()
+            || runtime_metadata.uid() == 0
+            || runtime_metadata.uid() != geteuid().as_raw()
+            || runtime_metadata.mode() & 0o022 != 0
+        {
+            return Err(BackendError::Unauthorized);
+        }
+        let socket_metadata =
+            std::fs::symlink_metadata(&self.socket_path).map_err(|_| BackendError::Unavailable)?;
+        if !socket_metadata.file_type().is_socket()
+            || socket_metadata.uid() != runtime_metadata.uid()
+            || socket_metadata.mode() & 0o077 != 0
+        {
+            return Err(BackendError::Unauthorized);
+        }
+        let mut stream =
+            UnixStream::connect(&self.socket_path).map_err(|_| BackendError::Unavailable)?;
+        let peer =
+            PeerIdentity::from_unix_socket(&stream).map_err(|_| BackendError::Unauthorized)?;
+        if peer.uid() != runtime_metadata.uid() {
+            return Err(BackendError::Unauthorized);
+        }
+        Self::exchange(&mut stream, request_id)
+    }
+
+    fn exchange(
+        stream: &mut UnixStream,
+        ui_request_id: RequestId,
+    ) -> Result<UpdateState, BackendError> {
+        let request_id = ServiceRequestId::new(format!("ui-{}", ui_request_id.0))
+            .map_err(|_| BackendError::InvalidResponse)?;
+        stream.set_read_timeout(Some(IO_TIMEOUT)).map_err(|_| BackendError::Unavailable)?;
+        stream.set_write_timeout(Some(IO_TIMEOUT)).map_err(|_| BackendError::Unavailable)?;
+        let envelope = Envelope {
+            version: SERVICE_PROTOCOL_VERSION,
+            request_id: request_id.clone(),
+            request: Request::Discover,
+        };
+        serde_json::to_writer(&mut *stream, &envelope)
+            .map_err(|_| BackendError::InvalidResponse)?;
+        stream.write_all(b"\n").map_err(|_| BackendError::Unavailable)?;
+        stream.flush().map_err(|_| BackendError::Unavailable)?;
+
+        let mut reader = BufReader::new(stream.try_clone().map_err(|_| BackendError::Unavailable)?);
+        let mut bytes = Vec::with_capacity(1024);
+        let mut limited = (&mut reader).take((MAX_RESPONSE_BYTES + 1) as u64);
+        limited.read_until(b'\n', &mut bytes).map_err(|_| BackendError::Unavailable)?;
+        if bytes.len() > MAX_RESPONSE_BYTES || bytes.last() != Some(&b'\n') {
+            return Err(BackendError::InvalidResponse);
+        }
+        bytes.pop();
+        let response: Response =
+            serde_json::from_slice(&bytes).map_err(|_| BackendError::InvalidResponse)?;
+        if response.version != SERVICE_PROTOCOL_VERSION {
+            return Err(BackendError::UnsupportedProtocol);
+        }
+        if response.request_id != request_id {
+            return Err(BackendError::MismatchedRequestId);
+        }
+        match response.body {
+            ResponseBody::Discovery(Discovery { protocol_version, service_state, .. }) => {
+                if protocol_version != SERVICE_PROTOCOL_VERSION {
+                    return Err(BackendError::UnsupportedProtocol);
+                }
+                Ok(match service_state {
+                    ServiceState::Ready => UpdateState::ServiceReady,
+                    ServiceState::RecoveryUnavailable => UpdateState::RecoveryUnavailable,
+                })
+            }
+            ResponseBody::Error(ServiceError::Unauthorized) => Err(BackendError::Unauthorized),
+            ResponseBody::Error(ServiceError::Unsupported) => {
+                Err(BackendError::UnsupportedOperation)
+            }
+            _ => Err(BackendError::InvalidResponse),
+        }
+    }
+}
+
+impl UiBackend for UnixServiceBackend {
+    fn handle(&mut self, request: UiRequest) -> UiResponse {
+        let outcome = match request.action {
+            crate::UserAction::RefreshStatus => {
+                self.discover(request.request_id).map(ActionResult::StatusRefreshed)
+            }
+        };
+        UiResponse { protocol_version: PROTOCOL_VERSION, request_id: request.request_id, outcome }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        fs,
+        io::{BufRead, BufReader, Write},
+        os::unix::{
+            fs::PermissionsExt,
+            net::{UnixListener, UnixStream},
+        },
+        thread,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    use ryoku_service::{
+        Envelope, PROTOCOL_VERSION as SERVICE_PROTOCOL_VERSION, Request,
+        RequestId as ServiceRequestId, Response, ResponseBody, ServiceError, ServiceState,
+        discovery,
+    };
+
+    use crate::{BackendError, RequestId, UiRequest, UpdateState, UserAction, dispatch};
+
+    use super::{MAX_RESPONSE_BYTES, UnixServiceBackend};
+
+    fn mock_service(
+        state: ServiceState,
+        request_error: Option<ServiceError>,
+    ) -> (UnixStream, thread::JoinHandle<()>) {
+        mock_service_with(state, request_error, SERVICE_PROTOCOL_VERSION, None)
+    }
+
+    fn mock_service_with(
+        state: ServiceState,
+        request_error: Option<ServiceError>,
+        response_version: u16,
+        response_request_id: Option<ServiceRequestId>,
+    ) -> (UnixStream, thread::JoinHandle<()>) {
+        let (server, client) = UnixStream::pair().unwrap();
+        let worker = thread::spawn(move || {
+            let mut reader = BufReader::new(server.try_clone().unwrap());
+            let mut line = String::new();
+            reader.read_line(&mut line).unwrap();
+            let request: Envelope = serde_json::from_str(line.trim_end()).unwrap();
+            assert_eq!(request.version, SERVICE_PROTOCOL_VERSION);
+            assert_eq!(request.request, Request::Discover);
+            let body = request_error.map_or_else(
+                || {
+                    let mut result = discovery(matches!(state, ServiceState::Ready));
+                    result.service_state = state;
+                    ResponseBody::Discovery(result)
+                },
+                ResponseBody::Error,
+            );
+            let response = Response {
+                version: response_version,
+                request_id: response_request_id.unwrap_or(request.request_id),
+                body,
+            };
+            serde_json::to_writer(&mut &server, &response).unwrap();
+            (&server).write_all(b"\n").unwrap();
+            server.shutdown(std::net::Shutdown::Write).unwrap();
+        });
+        (client, worker)
+    }
+
+    #[test]
+    fn discovery_maps_typed_service_states_into_the_ui_contract() {
+        let (mut client, worker) = mock_service(ServiceState::RecoveryUnavailable, None);
+        let result = UnixServiceBackend::exchange(&mut client, RequestId(17));
+        worker.join().unwrap();
+        assert_eq!(result, Ok(UpdateState::RecoveryUnavailable));
+
+        let (mut client, worker) = mock_service(ServiceState::Ready, None);
+        let result = UnixServiceBackend::exchange(&mut client, RequestId(17));
+        worker.join().unwrap();
+        assert_eq!(result, Ok(UpdateState::ServiceReady));
+    }
+
+    #[test]
+    fn discovery_preserves_authentication_failure_as_a_typed_error() {
+        let (mut client, worker) =
+            mock_service(ServiceState::Ready, Some(ServiceError::Unauthorized));
+        let result = UnixServiceBackend::exchange(&mut client, RequestId(17));
+        worker.join().unwrap();
+        assert_eq!(result, Err(BackendError::Unauthorized));
+    }
+
+    #[test]
+    fn discovery_rejects_mismatched_ids_and_unknown_service_versions() {
+        let (mut client, worker) = mock_service_with(
+            ServiceState::Ready,
+            None,
+            SERVICE_PROTOCOL_VERSION,
+            Some(ServiceRequestId::new("unrelated").unwrap()),
+        );
+        assert_eq!(
+            UnixServiceBackend::exchange(&mut client, RequestId(17)),
+            Err(BackendError::MismatchedRequestId)
+        );
+        worker.join().unwrap();
+
+        let (mut client, worker) =
+            mock_service_with(ServiceState::Ready, None, SERVICE_PROTOCOL_VERSION + 1, None);
+        assert_eq!(
+            UnixServiceBackend::exchange(&mut client, RequestId(17)),
+            Err(BackendError::UnsupportedProtocol)
+        );
+        worker.join().unwrap();
+    }
+
+    #[test]
+    fn discovery_rejects_oversized_response_frames() {
+        let (mut server, mut client) = UnixStream::pair().unwrap();
+        let worker = thread::spawn(move || {
+            let mut reader = BufReader::new(server.try_clone().unwrap());
+            let mut request = String::new();
+            reader.read_line(&mut request).unwrap();
+            server.write_all(&vec![b'x'; MAX_RESPONSE_BYTES + 1]).unwrap();
+        });
+        assert_eq!(
+            UnixServiceBackend::exchange(&mut client, RequestId(17)),
+            Err(BackendError::InvalidResponse)
+        );
+        worker.join().unwrap();
+    }
+
+    #[test]
+    fn gtk_backend_uses_fixed_runtime_socket_and_user_refresh_dispatch() {
+        let unique = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let runtime =
+            std::env::temp_dir().join(format!("ryoku-ui-service-{}-{unique}", std::process::id()));
+        fs::create_dir(&runtime).unwrap();
+        fs::set_permissions(&runtime, fs::Permissions::from_mode(0o700)).unwrap();
+        let socket_path = runtime.join("ryoku-service.sock");
+        let listener = UnixListener::bind(&socket_path).unwrap();
+        fs::set_permissions(&socket_path, fs::Permissions::from_mode(0o600)).unwrap();
+        let worker = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(stream.try_clone().unwrap());
+            let mut line = String::new();
+            reader.read_line(&mut line).unwrap();
+            let request: Envelope = serde_json::from_str(line.trim_end()).unwrap();
+            let response = Response {
+                version: SERVICE_PROTOCOL_VERSION,
+                request_id: request.request_id,
+                body: ResponseBody::Discovery(discovery(false)),
+            };
+            serde_json::to_writer(&mut &stream, &response).unwrap();
+            (&stream).write_all(b"\n").unwrap();
+        });
+        let mut backend = UnixServiceBackend::from_runtime_dir(&runtime);
+        let request = UiRequest::new(RequestId(17), UserAction::RefreshStatus);
+        assert_eq!(
+            dispatch(&mut backend, request),
+            Ok(crate::ActionResult::StatusRefreshed(UpdateState::RecoveryUnavailable))
+        );
+        worker.join().unwrap();
+        fs::remove_dir_all(runtime).unwrap();
+    }
+}
