@@ -9,6 +9,8 @@
 
 #[cfg(target_os = "linux")]
 pub mod capture;
+#[cfg(target_os = "linux")]
+pub mod generation;
 
 use std::collections::{BTreeMap, BTreeSet};
 
