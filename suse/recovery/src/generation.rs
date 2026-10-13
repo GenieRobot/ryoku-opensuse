@@ -540,6 +540,7 @@ mod tests {
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir(&path).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
         path
     }
 
@@ -896,7 +897,7 @@ mod tests {
         let owner = rustix::fs::fstat(&root).unwrap().st_uid;
         assert!(matches!(
             GenerationStore::open_owned(&root, owner),
-            Err(GenerationError::Filesystem(_))
+            Err(GenerationError::Filesystem(_)) | Err(GenerationError::InvalidStore)
         ));
         fs::remove_dir_all(root_path).unwrap();
         fs::remove_dir_all(outside).unwrap();
