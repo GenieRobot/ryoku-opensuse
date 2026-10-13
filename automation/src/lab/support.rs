@@ -33,6 +33,9 @@ pub fn public_evidence(line: &str) -> bool {
     let Some((key, value)) = line.split_once('=') else {
         return false;
     };
+    if key == "desktop_login_reason" {
+        return desktop_login_reason(line).is_some();
+    }
     let keys = [
         "fixture_sha256",
         "release_signer",
@@ -127,6 +130,20 @@ pub fn public_evidence(line: &str) -> bool {
         && value.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_.+".contains(&b))
 }
 
+pub fn desktop_login_reason(line: &str) -> Option<&'static str> {
+    let value = line.strip_prefix("desktop_login_reason=")?;
+    match value {
+        "inspection_precondition_failed" => Some("inspection_precondition_failed"),
+        "active_session_absent_or_mismatch" => Some("active_session_absent_or_mismatch"),
+        "plasma_shell_absent" => Some("plasma_shell_absent"),
+        "kwin_absent" => Some("kwin_absent"),
+        "wayland_socket_absent" => Some("wayland_socket_absent"),
+        "wayland_socket_connect_failure" => Some("wayland_socket_connect_failure"),
+        "inspection_timeout" => Some("inspection_timeout"),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -161,6 +178,10 @@ mod tests {
         assert!(public_evidence("snapper=0.12.1-1.2"));
         assert!(public_evidence("sddm=0.21.0+git57-1.1"));
         assert!(public_evidence("desktop_authentication=sddm-pam"));
+        assert!(public_evidence("desktop_login_reason=active_session_absent_or_mismatch"));
+        assert!(public_evidence("desktop_login_reason=inspection_timeout"));
+        assert!(!public_evidence("desktop_login_reason=private-session-id"));
+        assert!(!public_evidence("desktop_login_reason=failed:raw-error"));
         assert!(public_evidence("offline_snapper_restore=matched"));
         assert!(public_evidence("kernel-default-base=7.2.9-1.1.36.10"));
         assert!(public_evidence("reset_baseline=derived-btrfs-snapper"));

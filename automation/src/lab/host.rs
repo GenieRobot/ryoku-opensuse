@@ -1,7 +1,7 @@
 use crate::{
     definition::scalar,
     process::{self, BoundedOutput},
-    support::{Result, output, public_evidence, require, safe_component},
+    support::{Result, desktop_login_reason, output, public_evidence, require, safe_component},
 };
 use std::{
     fs,
@@ -66,6 +66,10 @@ fn bounded_output_log(output: &BoundedOutput) -> Vec<u8> {
         log.extend_from_slice(b"\n[stderr truncated at private capture limit]\n");
     }
     log
+}
+
+fn safe_login_reason(log: &[u8]) -> Option<&'static str> {
+    String::from_utf8_lossy(log).lines().find_map(desktop_login_reason)
 }
 
 fn save_private_log(run: &Path, name: &str, contents: &[u8]) -> Result<()> {
@@ -516,7 +520,25 @@ impl Lab {
         String::from_utf8(output.stdout).map_err(|_| KdeProvisionFailure::Failed)
     }
 
-    fn login(&self, password: &[u8]) -> Result<String> {
+    fn login(&mut self, password: &[u8]) -> Result<String> {
+        let result = self.login_inner(password);
+        if let Err(error) = &result {
+            let reason = error
+                .to_string()
+                .lines()
+                .find_map(desktop_login_reason)
+                .or_else(|| {
+                    fs::read(self.run.join("guest-private.log"))
+                        .ok()
+                        .and_then(|b| safe_login_reason(&b))
+                })
+                .unwrap_or("inspection_precondition_failed");
+            self.evidence(&format!("desktop_login_reason={reason}"))?;
+        }
+        result
+    }
+
+    fn login_inner(&self, password: &[u8]) -> Result<String> {
         let mut command = self.ssh_command()?;
         command.arg(
             "sudo /usr/bin/timeout --signal=TERM --kill-after=3s 45s /tmp/ryoku-vm-lab guest-login-prepare",
@@ -554,9 +576,15 @@ impl Lab {
         )?;
         let deadline = Instant::now() + Duration::from_secs(180);
         let mut last_error = String::from("login inspection has not completed");
+        let mut last_reason = None;
         let mut journal_capture_attempted = false;
         while Instant::now() < deadline {
             let inspected = self.ssh_until("sudo /tmp/ryoku-vm-lab guest-login-inspect", deadline);
+            if inspected.is_err()
+                && let Ok(diagnostic) = fs::read(self.run.join("guest-private.log"))
+            {
+                last_reason = safe_login_reason(&diagnostic).or(last_reason);
+            }
             let inspected = if !journal_capture_attempted && inspected.is_err() {
                 journal_capture_attempted = true;
                 retain_probe_result(inspected, || self.capture_login_journal(deadline))
@@ -582,8 +610,9 @@ impl Lab {
             thread::sleep(remaining.min(Duration::from_secs(3)));
         }
         capture_login_timeout(&mut monitor);
+        let reason = last_reason.unwrap_or("inspection_timeout");
         Err(format!(
-            "actual SDDM login and active Plasma session were not verified; last inspection: {last_error}"
+            "desktop_login_reason={reason}\nactual SDDM login and active Plasma session were not verified; last inspection: {last_error}"
         )
         .into())
     }
@@ -1598,6 +1627,21 @@ pub fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn login_reason_extraction_accepts_only_static_allowlisted_categories() {
+        assert_eq!(
+            safe_login_reason(
+                b"ordinary diagnostic\ndesktop_login_reason=kwin_absent\nraw error detail"
+            ),
+            Some("kwin_absent")
+        );
+        assert_eq!(safe_login_reason(b"desktop_login_reason=private-session-id\n"), None);
+        assert_eq!(
+            safe_login_reason(b"desktop_login_reason=active_session_absent_or_mismatch extra\n"),
+            None
+        );
+    }
 
     #[test]
     fn kde_diagnostics_survive_later_ssh_output_in_a_private_stage_log() {

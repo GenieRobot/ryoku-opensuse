@@ -598,63 +598,131 @@ fn plasma_socket(environment: &[u8], uid: u32) -> Result<PathBuf> {
 }
 
 pub fn inspect() -> Result<()> {
-    guard()?;
-    authentication_policy()?;
-    let session = plasma_session()?;
-    let uid = desktop_uid()?;
+    match inspect_inner() {
+        Ok(()) => Ok(()),
+        Err(reason) => {
+            println!("desktop_login_reason={}", reason.code());
+            Err("desktop login inspection failed".into())
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum LoginFailureReason {
+    Precondition,
+    ActiveSession,
+    PlasmaShell,
+    KWin,
+    WaylandSocketAbsent,
+    WaylandSocketConnect,
+}
+
+impl LoginFailureReason {
+    fn code(self) -> &'static str {
+        match self {
+            Self::Precondition => "inspection_precondition_failed",
+            Self::ActiveSession => "active_session_absent_or_mismatch",
+            Self::PlasmaShell => "plasma_shell_absent",
+            Self::KWin => "kwin_absent",
+            Self::WaylandSocketAbsent => "wayland_socket_absent",
+            Self::WaylandSocketConnect => "wayland_socket_connect_failure",
+        }
+    }
+}
+
+fn inspect_inner() -> std::result::Result<(), LoginFailureReason> {
+    guard().map_err(|_| LoginFailureReason::Precondition)?;
+    authentication_policy().map_err(|_| LoginFailureReason::Precondition)?;
+    let session = plasma_session().map_err(|_| LoginFailureReason::Precondition)?;
+    let uid = desktop_uid().map_err(|_| LoginFailureReason::Precondition)?;
     require(
-        existing_record()? == Some(record(uid, &session)?),
+        existing_record().map_err(|_| LoginFailureReason::Precondition)?
+            == Some(record(uid, &session).map_err(|_| LoginFailureReason::Precondition)?),
         "desktop fixture identity record is absent or changed",
-    )?;
-    display_manager()?;
-    let id = active_session()?;
-    let values = show_session(&id)?;
+    )
+    .map_err(|_| LoginFailureReason::Precondition)?;
+    display_manager().map_err(|_| LoginFailureReason::Precondition)?;
+    let id = active_session().map_err(|_| LoginFailureReason::ActiveSession)?;
+    let values = show_session(&id).map_err(|_| LoginFailureReason::ActiveSession)?;
     require(
         session_matches(&values, uid),
         &format!(
             "ordinary-user Plasma Wayland SDDM/PAM session properties did not match: {}",
             login_session_diagnostic(&values)
         ),
-    )?;
-    let scope = values.get("Scope").ok_or("native login session scope missing")?;
-    require(scope == &format!("session-{id}.scope"), "unexpected native login session scope")?;
+    )
+    .map_err(|_| LoginFailureReason::ActiveSession)?;
+    let scope = values.get("Scope").ok_or(LoginFailureReason::ActiveSession)?;
+    require(scope == &format!("session-{id}.scope"), "unexpected native login session scope")
+        .map_err(|_| LoginFailureReason::ActiveSession)?;
     let user_sessions = native(
         "/usr/bin/loginctl",
         &["show-user", &uid.to_string(), "--property=Sessions", "--value"],
-    )?;
+    )
+    .map_err(|_| LoginFailureReason::ActiveSession)?;
     require(
         user_sessions.split_whitespace().any(|candidate| candidate == id),
         "active SDDM session is not registered for ordinary user",
-    )?;
+    )
+    .map_err(|_| LoginFailureReason::ActiveSession)?;
     for candidate in user_sessions.split_whitespace() {
         if candidate != id {
-            let other = show_session(candidate)?;
+            let other = show_session(candidate).map_err(|_| LoginFailureReason::ActiveSession)?;
             require(
                 other.get("Class").is_some_and(|class| class == "manager"),
                 "desktop user has another login session; attribution is ambiguous",
-            )?;
+            )
+            .map_err(|_| LoginFailureReason::ActiveSession)?;
         }
     }
-    let shell = user_process("plasmashell", "plasma6-workspace", uid, scope)?;
-    let compositor = user_process("kwin_wayland", "kwin6", uid, scope)?;
-    let socket = plasma_socket(&fs::read(format!("/proc/{shell}/environ"))?, uid)?;
-    let metadata = fs::symlink_metadata(&socket)?;
+    let shell = user_process("plasmashell", "plasma6-workspace", uid, scope)
+        .map_err(|_| LoginFailureReason::PlasmaShell)?;
+    let compositor =
+        user_process("kwin_wayland", "kwin6", uid, scope).map_err(|_| LoginFailureReason::KWin)?;
+    let socket = plasma_socket(
+        &fs::read(format!("/proc/{shell}/environ"))
+            .map_err(|_| LoginFailureReason::WaylandSocketAbsent)?,
+        uid,
+    )
+    .map_err(|_| LoginFailureReason::WaylandSocketAbsent)?;
+    let metadata =
+        fs::symlink_metadata(&socket).map_err(|_| LoginFailureReason::WaylandSocketAbsent)?;
     require(
         metadata.file_type().is_socket() && metadata.uid() == uid,
         "ordinary user's Wayland compositor socket missing",
-    )?;
-    let _connection = UnixStream::connect(socket)?;
+    )
+    .map_err(|_| LoginFailureReason::WaylandSocketAbsent)?;
+    let _connection =
+        UnixStream::connect(socket).map_err(|_| LoginFailureReason::WaylandSocketConnect)?;
     // Recheck after executable/socket inspection to reject session exits/races.
     require(
-        active_session()? == id && session_matches(&show_session(&id)?, uid),
+        active_session().map_err(|_| LoginFailureReason::ActiveSession)? == id
+            && session_matches(
+                &show_session(&id).map_err(|_| LoginFailureReason::ActiveSession)?,
+                uid,
+            ),
         "native Plasma session changed during inspection",
-    )?;
+    )
+    .map_err(|_| LoginFailureReason::ActiveSession)?;
     require(
-        process_status(&fs::read_to_string(format!("/proc/{shell}/status"))?, uid)
-            && process_status(&fs::read_to_string(format!("/proc/{compositor}/status"))?, uid),
+        process_status(
+            &fs::read_to_string(format!("/proc/{shell}/status"))
+                .map_err(|_| LoginFailureReason::PlasmaShell)?,
+            uid,
+        ),
+        "native Plasma shell exited during inspection",
+    )
+    .map_err(|_| LoginFailureReason::PlasmaShell)?;
+    require(
+        process_status(
+            &fs::read_to_string(format!("/proc/{compositor}/status"))
+                .map_err(|_| LoginFailureReason::KWin)?,
+            uid,
+        ),
         "native desktop process exited during inspection",
-    )?;
-    guard()?;
+    )
+    .map_err(|_| LoginFailureReason::KWin)?;
+    guard().map_err(|_| LoginFailureReason::Precondition)?;
     println!(
         "desktop_login=passed\ndesktop_user={USER}\ndesktop_session_service=sddm\ndesktop_session_class=user\ndesktop_session_seat=seat0\ndesktop_session_type=wayland\ndesktop_session_state=active\ndesktop_session_remote=no\ndesktop_session_owner=ordinary-test-user\ndesktop_pam=native-sddm\ndesktop_plasmashell=plasma6-workspace\ndesktop_compositor=kwin6\ndesktop_wayland_socket=connected\ndesktop_authentication=password-required"
     );
@@ -774,6 +842,19 @@ pub fn stop_ui() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn login_failure_reasons_are_static_and_stage_specific() {
+        assert_eq!(LoginFailureReason::ActiveSession.code(), "active_session_absent_or_mismatch");
+        assert_eq!(LoginFailureReason::PlasmaShell.code(), "plasma_shell_absent");
+        assert_eq!(LoginFailureReason::KWin.code(), "kwin_absent");
+        assert_eq!(LoginFailureReason::WaylandSocketAbsent.code(), "wayland_socket_absent");
+        assert_eq!(
+            LoginFailureReason::WaylandSocketConnect.code(),
+            "wayland_socket_connect_failure"
+        );
+        assert_eq!(LoginFailureReason::Precondition.code(), "inspection_precondition_failed");
+    }
 
     #[test]
     fn secret_stdin_requires_bounded_single_ascii_password() {
