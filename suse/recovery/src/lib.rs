@@ -60,6 +60,28 @@ impl Identifier {
     }
 }
 
+/// Bounded package identity; unlike an internal identifier, RPM names may
+/// begin with a digit and may contain dots, underscores, or plus signs.
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+#[serde(transparent)]
+pub struct PackageName(String);
+
+impl PackageName {
+    pub fn new(value: impl Into<String>) -> Result<Self, ValidationError> {
+        let value = value.into();
+        let valid = (1..=128).contains(&value.len())
+            && value.as_bytes()[0].is_ascii_alphanumeric()
+            && value.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'+' | b'-')
+            });
+        if valid { Ok(Self(value)) } else { Err(ValidationError::InvalidPackageName) }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 /// Bounded opaque package/profile revision, allowing common NEVRA/version
 /// punctuation while excluding whitespace, separators, and control bytes.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
@@ -200,11 +222,19 @@ pub struct ProfileRevision {
     pub personal_override_revision: Option<Revision>,
 }
 
-/// Package and upstream revisions associated with an operation.
+/// Identity and before/after revisions for one changed package.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct PackageRevision {
-    pub package_nevra: Revision,
+    pub package_name: PackageName,
+    pub before_nevra: Option<Revision>,
+    pub after_nevra: Option<Revision>,
     pub upstream_revision: Option<Revision>,
+}
+
+/// Identity and before/after revisions for the provider used by an operation.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct ProviderRevision {
+    pub provider_id: Identifier,
     pub before_revision: Option<Revision>,
     pub after_revision: Option<Revision>,
 }
@@ -320,14 +350,17 @@ pub struct RecoveryManifest {
     /// Operation reason and bounded RFC3339 UTC creation time.
     pub reason: OperationReason,
     pub created_utc: String,
-    /// Package/provider and resolved profile provenance, when applicable.
-    pub package_revision: Option<PackageRevision>,
+    /// Per-package before/after NEVRA and upstream source provenance.
+    package_revisions: Vec<PackageRevision>,
+    /// Provider identity and before/after provider revision, when applicable.
+    pub provider_revision: Option<ProviderRevision>,
+    /// Resolved profile provenance, when applicable.
     pub profile_revision: Option<ProfileRevision>,
     /// Capture, linkage, and verification checkpoints.
     pub capture_status: VerificationStatus,
     pub linkage_status: VerificationStatus,
     pub verification_status: VerificationStatus,
-    /// Canonical digest, assigned by a future serializer/publisher.
+    /// Canonical digest, assigned by [`Self::seal`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub manifest_sha256: Option<Sha256>,
     /// Complete explicitly declared affected path set.
@@ -361,7 +394,8 @@ impl RecoveryManifest {
             filesystem_uuid: snapshot.filesystem_uuid,
             reason,
             created_utc,
-            package_revision: None,
+            package_revisions: Vec::new(),
+            provider_revision: None,
             profile_revision: None,
             capture_status: VerificationStatus::Pending,
             linkage_status: VerificationStatus::Pending,
@@ -391,14 +425,27 @@ impl RecoveryManifest {
         &self.files
     }
 
-    /// Assigns optional package and profile provenance before serialization.
+    /// Assigns package revisions in stable package-name order, rejecting
+    /// duplicate package identities before serialization.
     pub fn set_provenance(
         &mut self,
-        package_revision: Option<PackageRevision>,
+        mut package_revisions: Vec<PackageRevision>,
+        provider_revision: Option<ProviderRevision>,
         profile_revision: Option<ProfileRevision>,
-    ) {
-        self.package_revision = package_revision;
+    ) -> Result<(), ValidationError> {
+        package_revisions.sort_by(|left, right| left.package_name.cmp(&right.package_name));
+        if package_revisions.windows(2).any(|pair| pair[0].package_name == pair[1].package_name) {
+            return Err(ValidationError::DuplicatePackageRevision);
+        }
+        self.package_revisions = package_revisions;
+        self.provider_revision = provider_revision;
         self.profile_revision = profile_revision;
+        Ok(())
+    }
+
+    /// Returns per-package provenance in stable package-name order.
+    pub fn package_revisions(&self) -> &[PackageRevision] {
+        &self.package_revisions
     }
 
     /// Records phase outcomes; callers cannot claim readiness with a failed phase.
@@ -488,6 +535,8 @@ pub const REQUIRED_CAPTURE_RULES: [CaptureRule; 5] = [
 pub enum ValidationError {
     /// Identifier violates the canonical bounded syntax.
     InvalidIdentifier,
+    /// Package name is empty, oversized, or contains unsupported characters.
+    InvalidPackageName,
     /// Revision is empty, oversized, or contains unsupported characters.
     InvalidRevision,
     /// A relative path is unsafe or not normalized.
@@ -502,6 +551,8 @@ pub enum ValidationError {
     InvalidFilesystemUuid,
     /// The same fixed root/path was declared more than once.
     DuplicatePath,
+    /// A package identity was declared more than once in one operation.
+    DuplicatePackageRevision,
     /// Creation time is not a bounded RFC3339 UTC timestamp.
     InvalidTimestamp,
 }
@@ -768,5 +819,51 @@ mod tests {
         second.seal().unwrap();
         assert_eq!(first.canonical_bytes().unwrap(), second.canonical_bytes().unwrap());
         assert!(first.verify_digest().unwrap());
+    }
+
+    #[test]
+    fn provenance_serializes_package_and_provider_identity_with_revisions() {
+        let zypper = PackageRevision {
+            package_name: PackageName::new("zypper").unwrap(),
+            before_nevra: Some(Revision::new("1.0-1.x86_64").unwrap()),
+            after_nevra: Some(Revision::new("1.1-1.x86_64").unwrap()),
+            upstream_revision: Some(Revision::new("release-1.1").unwrap()),
+        };
+        let libzypp = PackageRevision {
+            package_name: PackageName::new("libzypp").unwrap(),
+            before_nevra: None,
+            after_nevra: Some(Revision::new("17.36-1.x86_64").unwrap()),
+            upstream_revision: None,
+        };
+        let provider = Some(ProviderRevision {
+            provider_id: Identifier::new("libzypp").unwrap(),
+            before_revision: Some(Revision::new("17.35").unwrap()),
+            after_revision: Some(Revision::new("17.36").unwrap()),
+        });
+        let mut first_manifest = manifest();
+        first_manifest
+            .set_provenance(vec![zypper.clone(), libzypp.clone()], provider.clone(), None)
+            .unwrap();
+        let json = String::from_utf8(first_manifest.canonical_payload_bytes().unwrap()).unwrap();
+        assert!(json.contains("\"package_name\":\"zypper\""));
+        assert!(json.contains("\"before_nevra\":\"1.0-1.x86_64\""));
+        assert!(json.contains("\"after_nevra\":\"1.1-1.x86_64\""));
+        assert!(json.contains("\"provider_id\":\"libzypp\""));
+        assert!(json.contains("\"before_revision\":\"17.35\""));
+        assert!(json.contains("\"after_revision\":\"17.36\""));
+
+        let mut reversed = manifest();
+        reversed.set_provenance(vec![libzypp.clone(), zypper.clone()], provider, None).unwrap();
+        assert_eq!(
+            first_manifest.canonical_payload_bytes().unwrap(),
+            reversed.canonical_payload_bytes().unwrap()
+        );
+
+        assert_eq!(
+            first_manifest.set_provenance(vec![zypper.clone(), zypper], None, None),
+            Err(ValidationError::DuplicatePackageRevision)
+        );
+        assert_eq!(PackageName::new("7zip").unwrap().as_str(), "7zip");
+        assert!(PackageName::new("../outside").is_err());
     }
 }

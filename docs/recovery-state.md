@@ -205,8 +205,9 @@ Every transaction manifest records:
 - transaction, generation, and parent-generation IDs;
 - Snapper configuration and pre-change snapshot IDs, plus the filesystem UUID;
 - operation reason and UTC creation time;
-- package/provider identity and before/after revisions, including upstream
-  source revision where applicable;
+- each changed package's explicit package name, before/after NEVRA, and
+  upstream source revision where applicable, plus provider identity and
+  before/after provider revision;
 - selected profile ID, profile revision, and the resolved profile-layer
   revision set;
 - declared file records (including `absent` records), type, ownership, mode,
@@ -251,9 +252,10 @@ user or companion information is present):
   "generation_id": "gen-example-0007",
   "linkage_status": "verified",
   "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "package_revision": null,
+  "package_revisions": [],
   "parent_generation_id": "gen-example-0006",
   "profile_revision": null,
+  "provider_revision": null,
   "reason": "profile-apply",
   "schema_version": 1,
   "snapper_config": "root",
@@ -269,7 +271,8 @@ Snapper/filesystem linkage primitives, canonical JSON serialization and
 manifest digest verification. It does not read files, acquire metadata,
 publish generations, or authorize mutations.
 
-The typed contract also names operation reason/time, package and upstream
+The typed contract also names operation reason/time, per-package identity and
+before/after NEVRA, provider identity and before/after revision, upstream source
 revision provenance, all four resolved profile layers, per-phase verification,
 the canonical manifest digest slot, hard-link groups, ACL/xattr digests, and
 explicit capture exclusions. Its initial xattr enum is limited to SELinux
@@ -282,8 +285,9 @@ or guarantee that a future collector enforces every declared rule. Unsupported
 metadata must still fail capture at that boundary.
 
 The example is illustrative, not a parser-ready schema or proof of a live
-capture. Canonical encoding, parser limits, checksum coverage, and migration
-compatibility need implementation tests before persisted data is accepted.
+capture. Tests now cover canonical encoding, digest sealing/verification, and
+stable ordering for declared files. Parser limits and compatible schema
+migration still need implementation tests before persisted data is accepted.
 
 ## Profile resolution and private data
 
@@ -330,9 +334,10 @@ with the observed root snapshot before restore.
 
 - Implement the dedicated subvolume setup/validation and prove it survives
   actual Snapper root rollback and reboot on the disposable Tumbleweed VM.
-- Add parser, canonical digest, path traversal, symlink, ACL/xattr, absent-file,
-  atomic publication, writer-lock, interrupted-transaction, and schema
-  migration tests. The current crate tests only its typed metadata validation.
+- Add parser, path traversal, symlink, ACL/xattr, absent-file, atomic
+  publication, writer-lock, interrupted-transaction, and schema migration
+  tests. The current crate has no parser or filesystem collector, and its
+  metadata tests do not exercise live filesystem capture.
 - Exercise successful and deliberately corrupted linked generations offline,
   including configuration-only fallback and preservation of an unrelated home
   sentinel.
