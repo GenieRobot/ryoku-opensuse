@@ -70,3 +70,27 @@ of the following with sanitized evidence:
 Until this graphical proof is recorded, M0-05 remains incomplete and dependent
 graphical UI work remains blocked at the integration decision. The terminal
 contract tests and output are not substitutes for that proof.
+
+### Disposable VM visual capture
+
+The VM lab has an opt-in `--capture-ui GTK_BINARY` argument. Build the GTK
+proof for the host first, then pass its executable path:
+
+```console
+cargo build --locked -p ryoku-ui --features gtk-ui --bin ryoku-ui-gtk
+RYOKU_LAB_AUTHORIZED=existing-cloud-workspace cargo run --locked --bin vm-lab -- run /workspace/opensuse-vm /workspace/ryoku-lab-FRESH-NAME --capture-ui target/debug/ryoku-ui-gtk
+```
+
+The optional path installs the signed-repository `libgtk-4-1` runtime in the
+disposable guest, launches separate success and service-unavailable windows
+inside the authenticated ordinary-user Plasma Wayland session, and captures
+the VGA framebuffer through the VM's private QMP socket. The resulting
+`ryoku-ui-success.ppm` and `ryoku-ui-error.ppm` files stay inside the run
+directory (mode 0700); each file is set to mode 0600. Normal #13 runs retain
+their original package and display behavior when the option is absent.
+
+The VM evidence does not copy screenshots into the repository or public
+evidence. Review them locally before sharing; sanitize visible account or
+machine details first. This visual proof still requires a completed disposable
+VM run. Source tests and CI cannot establish GTK startup, screenshot quality,
+theme behavior, or accessibility on a real Wayland session.

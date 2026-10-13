@@ -661,6 +661,116 @@ pub fn inspect() -> Result<()> {
     Ok(())
 }
 
+fn plasma_environment(uid: u32) -> Result<BTreeMap<String, String>> {
+    let shell = user_process(
+        "plasmashell",
+        "plasma6-workspace",
+        uid,
+        &format!("session-{}", active_session()?),
+    )?;
+    let raw = fs::read(format!("/proc/{shell}/environ"))?;
+    let values: BTreeMap<_, _> = raw
+        .split(|byte| *byte == 0)
+        .filter_map(|entry| {
+            let equals = entry.iter().position(|byte| *byte == b'=')?;
+            Some((entry[..equals].to_vec(), entry[equals + 1..].to_vec()))
+        })
+        .collect();
+    let get = |key: &[u8]| -> Result<String> {
+        String::from_utf8(
+            values.get(key).ok_or("Plasma session environment is incomplete")?.clone(),
+        )
+        .map_err(Into::into)
+    };
+    let runtime = format!("/run/user/{uid}");
+    let display = get(b"WAYLAND_DISPLAY")?;
+    let session_type = get(b"XDG_SESSION_TYPE")?;
+    require(session_type == "wayland", "GTK proof requires the Plasma Wayland session")?;
+    let socket = plasma_socket(&raw, uid)?;
+    require(
+        socket == Path::new(&runtime).join(&display),
+        "Plasma display changed during GTK setup",
+    )?;
+    let metadata = fs::symlink_metadata(socket)?;
+    require(
+        metadata.file_type().is_socket() && metadata.uid() == uid,
+        "ordinary user's Wayland compositor socket missing",
+    )?;
+    let bus = get(b"DBUS_SESSION_BUS_ADDRESS")?;
+    require(
+        bus == format!("unix:path={runtime}/bus"),
+        "unexpected ordinary-user desktop bus address",
+    )?;
+    Ok(BTreeMap::from([
+        ("HOME".into(), HOME.into()),
+        ("USER".into(), USER.into()),
+        ("LOGNAME".into(), USER.into()),
+        ("XDG_RUNTIME_DIR".into(), runtime),
+        ("XDG_SESSION_TYPE".into(), session_type),
+        ("WAYLAND_DISPLAY".into(), display),
+        ("DBUS_SESSION_BUS_ADDRESS".into(), bus),
+        ("PATH".into(), "/usr/bin:/bin".into()),
+    ]))
+}
+
+fn ui_processes(uid: u32) -> Result<Vec<u32>> {
+    let processes = process_ids("ryoku-ui-gtk", uid)?;
+    for pid in &processes {
+        require(
+            fs::read_link(format!("/proc/{pid}/exe"))? == Path::new("/usr/local/bin/ryoku-ui-gtk"),
+            "GTK proof process has an unexpected executable",
+        )?;
+    }
+    Ok(processes)
+}
+
+/// Start the opt-in GTK proof inside the already authenticated Wayland user
+/// session. Only a fixed success/error scenario is accepted.
+pub fn launch_ui(scenario: &str) -> Result<()> {
+    guard()?;
+    inspect()?;
+    require(matches!(scenario, "success" | "error"), "unsupported GTK proof scenario")?;
+    let uid = desktop_uid()?;
+    require(ui_processes(uid)?.is_empty(), "another GTK proof window is still active")?;
+    let environment = plasma_environment(uid)?;
+    let mut command = Command::new("/usr/sbin/runuser");
+    command.args(["--user", USER, "--", "/usr/bin/env", "-i"]);
+    for (name, value) in environment {
+        command.arg(format!("{name}={value}"));
+    }
+    command.arg("/usr/local/bin/ryoku-ui-gtk").arg("--capture-on-launch");
+    if scenario == "error" {
+        command.arg("--service-unavailable");
+    }
+    command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    let _child = command.spawn()?;
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        if !ui_processes(uid)?.is_empty() {
+            println!("gtk_proof_window=running\ngtk_proof_scenario={scenario}");
+            return Ok(());
+        }
+        require(Instant::now() < deadline, "GTK proof window did not remain active")?;
+        thread::sleep(Duration::from_millis(200));
+    }
+}
+
+pub fn stop_ui() -> Result<()> {
+    guard()?;
+    let uid = desktop_uid()?;
+    let processes = ui_processes(uid)?;
+    require(processes.len() <= 1, "ambiguous GTK proof process inventory")?;
+    if let Some(pid) = processes.first() {
+        native("/usr/bin/kill", &["-TERM", &pid.to_string()])?;
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while process_ids("ryoku-ui-gtk", uid)?.contains(pid) {
+            require(Instant::now() < deadline, "GTK proof window did not exit")?;
+            thread::sleep(Duration::from_millis(100));
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -21,7 +21,9 @@ impl UiBackend for DemonstrationBackend {
 }
 
 fn main() {
-    let simulate_error = std::env::args().skip(1).any(|arg| arg == "--service-unavailable");
+    let arguments: Vec<_> = std::env::args().skip(1).collect();
+    let simulate_error = arguments.iter().any(|arg| arg == "--service-unavailable");
+    let capture_on_launch = arguments.iter().any(|arg| arg == "--capture-on-launch");
     let application =
         gtk::Application::builder().application_id("org.ryoku.OpenSUSE.UiProof").build();
 
@@ -72,6 +74,9 @@ fn main() {
         });
 
         window.present();
+        if capture_on_launch {
+            refresh.emit_clicked();
+        }
     });
 
     // Keep this app's option out of GTK's own argument parser.
