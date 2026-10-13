@@ -3,7 +3,7 @@
 use rustix::process::{Pid, Signal, kill_process_group};
 use std::os::unix::process::CommandExt;
 use std::{
-    io::{self, Read},
+    io::{self, Read, Write},
     process::{Command, ExitStatus, Stdio},
     thread,
     time::{Duration, Instant},
@@ -44,13 +44,47 @@ pub(crate) fn run(
     timeout: Duration,
     output_limit: usize,
 ) -> io::Result<BoundedOutput> {
+    run_until(command, Instant::now() + timeout, output_limit)
+}
+
+/// Execute a child using a caller-owned absolute deadline. This lets retry
+/// loops bound the complete readiness operation instead of granting every
+/// attempt a fresh timeout.
+pub(crate) fn run_until(
+    command: &mut Command,
+    deadline: Instant,
+    output_limit: usize,
+) -> io::Result<BoundedOutput> {
+    run_with_input_until(command, None, deadline, output_limit)
+}
+
+/// Variant for commands that must receive a small private input over stdin
+/// (for example a generated password). Input is never added to argv or logs.
+pub(crate) fn run_with_input_until(
+    command: &mut Command,
+    input: Option<&[u8]>,
+    deadline: Instant,
+    output_limit: usize,
+) -> io::Result<BoundedOutput> {
+    if input.is_some() {
+        command.stdin(Stdio::piped());
+    }
     let mut child =
         command.process_group(0).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+    if let Some(input) = input {
+        let mut stdin = child.stdin.take().ok_or_else(|| io::Error::other("stdin pipe missing"))?;
+        if let Err(error) = stdin.write_all(input) {
+            if let Some(pid) = Pid::from_raw(child.id() as i32) {
+                let _ = kill_process_group(pid, Signal::KILL);
+            }
+            let _ = child.wait();
+            return Err(error);
+        }
+    }
     let stdout = child.stdout.take().ok_or_else(|| io::Error::other("stdout pipe missing"))?;
     let stderr = child.stderr.take().ok_or_else(|| io::Error::other("stderr pipe missing"))?;
     let stdout_reader = thread::spawn(move || drain(stdout, output_limit));
     let stderr_reader = thread::spawn(move || drain(stderr, output_limit));
-    let deadline = Instant::now() + timeout;
     let mut timed_out = false;
     let status = loop {
         if let Some(status) = child.try_wait()? {
@@ -116,5 +150,31 @@ mod tests {
         assert_eq!(output.stderr.len(), 4096);
         assert!(output.stdout_truncated);
         assert!(output.stderr_truncated);
+    }
+
+    #[test]
+    fn caller_deadline_bounds_child_instead_of_granting_a_fresh_timeout() {
+        let mut command = Command::new("sh");
+        command.args(["-c", "sleep 30"]);
+        let started = Instant::now();
+        let output = run_until(&mut command, started + Duration::from_millis(120), 1024).unwrap();
+        assert!(output.timed_out);
+        assert!(started.elapsed() < Duration::from_secs(3));
+    }
+
+    #[test]
+    fn private_input_is_forwarded_without_changing_command_arguments() {
+        let mut command = Command::new("sh");
+        command.args(["-c", "read value; printf '%s' \"$value\""]);
+        let output = run_with_input_until(
+            &mut command,
+            Some(b"private-value\n"),
+            Instant::now() + Duration::from_secs(2),
+            1024,
+        )
+        .unwrap();
+        assert!(output.status.success());
+        assert_eq!(output.stdout, b"private-value");
+        assert_eq!(command.get_args().count(), 2);
     }
 }

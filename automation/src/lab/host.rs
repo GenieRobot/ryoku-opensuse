@@ -28,6 +28,15 @@ const GREETER_READINESS_POLL: Duration = Duration::from_millis(500);
 const KDE_PROVISION_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 const KDE_REMOTE_TIMEOUT_SECONDS: u32 = 29 * 60;
 const KDE_OUTPUT_LIMIT: usize = 1024 * 1024;
+const SSH_COMMAND_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+const SSH_OUTPUT_LIMIT: usize = 1024 * 1024;
+const SSH_READINESS_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+const GUEST_PACKAGE_COMMAND_TIMEOUT: Duration = Duration::from_secs(25 * 60);
+const LOGIN_PREPARE_TIMEOUT: Duration = Duration::from_secs(60);
+const LOGIN_JOURNAL_TIMEOUT: Duration = Duration::from_secs(30);
+const ZYPP_PROBE_TIMEOUT: Duration = Duration::from_secs(5 * 60);
+const MIGRATION_TIMEOUT: Duration = Duration::from_secs(60 * 60);
+const SSH_TRANSFER_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum KdeProvisionFailure {
@@ -59,24 +68,16 @@ fn bounded_output_log(output: &BoundedOutput) -> Vec<u8> {
     log
 }
 
-fn login_journal_path(run: &Path) -> PathBuf {
-    run.join(LOGIN_JOURNAL_FILENAME)
+fn save_private_log(run: &Path, name: &str, contents: &[u8]) -> Result<()> {
+    let mut file =
+        fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(run.join(name))?;
+    file.write_all(contents)?;
+    file.sync_all()?;
+    Ok(())
 }
 
-fn read_capped<R: Read>(mut reader: R, limit: usize) -> std::io::Result<(Vec<u8>, bool)> {
-    let mut retained = Vec::with_capacity(limit.min(64 * 1024));
-    let mut truncated = false;
-    let mut buffer = [0; 8192];
-    loop {
-        let count = reader.read(&mut buffer)?;
-        if count == 0 {
-            return Ok((retained, truncated));
-        }
-        let available = limit.saturating_sub(retained.len());
-        let keep = count.min(available);
-        retained.extend_from_slice(&buffer[..keep]);
-        truncated |= keep < count;
-    }
+fn login_journal_path(run: &Path) -> PathBuf {
+    run.join(LOGIN_JOURNAL_FILENAME)
 }
 
 fn save_private_login_journal(
@@ -457,13 +458,46 @@ impl Lab {
     }
 
     fn ssh(&self, request: &str) -> Result<String> {
-        let result = self.ssh_command()?.arg(request).output()?;
-        fs::write(
-            self.run.join("guest-private.log"),
-            [&result.stdout[..], &result.stderr[..]].concat(),
-        )?;
+        self.ssh_until(request, Instant::now() + SSH_COMMAND_TIMEOUT)
+    }
+
+    fn ssh_package_command(&self, request: &str) -> Result<String> {
+        self.ssh_until(request, Instant::now() + GUEST_PACKAGE_COMMAND_TIMEOUT)
+    }
+
+    fn ssh_migration_command(&self, request: &str) -> Result<String> {
+        self.ssh_until(request, Instant::now() + MIGRATION_TIMEOUT)
+    }
+
+    fn ssh_until(&self, request: &str, deadline: Instant) -> Result<String> {
+        let mut command = self.ssh_command()?;
+        command.arg(request);
+        let result = process::run_until(&mut command, deadline, SSH_OUTPUT_LIMIT)?;
+        fs::write(self.run.join("guest-private.log"), bounded_output_log(&result))?;
+        require(!result.timed_out, "SSH_COMMAND_TIMEOUT")?;
         require(result.status.success(), "guest command failed; inspect private guest log")?;
+        require(
+            !result.stdout_truncated && !result.stderr_truncated,
+            "guest command output exceeded private capture limit",
+        )?;
         Ok(String::from_utf8(result.stdout)?)
+    }
+
+    fn run_private_child(
+        &self,
+        command: &mut Command,
+        log_name: &str,
+        timeout_category: &'static str,
+        failure_category: &'static str,
+    ) -> Result<()> {
+        let result = process::run(command, SSH_TRANSFER_TIMEOUT, SSH_OUTPUT_LIMIT)?;
+        let log_path = self.run.join(log_name);
+        fs::write(&log_path, bounded_output_log(&result))?;
+        fs::set_permissions(&log_path, fs::Permissions::from_mode(0o600))?;
+        require(!result.timed_out, timeout_category)?;
+        require(result.status.success(), failure_category)?;
+        require(!result.stdout_truncated && !result.stderr_truncated, "SSH_TRANSFER_OUTPUT_LIMIT")?;
+        Ok(())
     }
 
     fn kde_setup(&self, proxy: &str) -> std::result::Result<String, KdeProvisionFailure> {
@@ -474,7 +508,7 @@ impl Lab {
         command.arg(request);
         let output = process::run(&mut command, KDE_PROVISION_TIMEOUT, KDE_OUTPUT_LIMIT)
             .map_err(|_| KdeProvisionFailure::Failed)?;
-        fs::write(self.run.join("guest-private.log"), bounded_output_log(&output))
+        save_private_log(&self.run, "kde-provision-private.log", &bounded_output_log(&output))
             .map_err(|_| KdeProvisionFailure::Failed)?;
         if let Some(failure) = kde_failure(output.timed_out, output.status.code()) {
             return Err(failure);
@@ -483,26 +517,31 @@ impl Lab {
     }
 
     fn login(&self, password: &[u8]) -> Result<String> {
-        let mut child = self
-            .ssh_command()?
-            .arg("sudo /tmp/ryoku-vm-lab guest-login-prepare")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
+        let mut command = self.ssh_command()?;
+        command.arg(
+            "sudo /usr/bin/timeout --signal=TERM --kill-after=3s 45s /tmp/ryoku-vm-lab guest-login-prepare",
+        );
         // No password is placed in argv, environment, disk files or command
         // logs. Guest preparation consumes this pipe and suppresses output from
         // the native secret-bearing password command.
-        let mut input = child.stdin.take().ok_or("missing private password pipe")?;
-        let written = input.write_all(password).and_then(|()| input.write_all(b"\n"));
-        drop(input);
-        let result = child.wait_with_output()?;
-        written?;
-        fs::write(
-            self.run.join("desktop-prepare-private.log"),
-            [&result.stdout[..], &result.stderr[..]].concat(),
-        )?;
+        let mut private_password = Vec::with_capacity(password.len() + 1);
+        private_password.extend_from_slice(password);
+        private_password.push(b'\n');
+        let result = process::run_with_input_until(
+            &mut command,
+            Some(&private_password),
+            Instant::now() + LOGIN_PREPARE_TIMEOUT,
+            SSH_OUTPUT_LIMIT,
+        );
+        private_password.fill(0);
+        let result = result?;
+        fs::write(self.run.join("desktop-prepare-private.log"), bounded_output_log(&result))?;
+        require(!result.timed_out, "DESKTOP_LOGIN_PREPARE_TIMEOUT")?;
         require(result.status.success(), "native desktop login preparation failed")?;
+        require(
+            !result.stdout_truncated && !result.stderr_truncated,
+            "desktop login preparation output exceeded private capture limit",
+        )?;
         let prepared = String::from_utf8(result.stdout)?;
         let mut control = qmp::QmpClient::connect(&self.run.join("qmp-private.sock"))?;
         let mut monitor = PrivateLoginMonitor { control: &mut control, run: &self.run };
@@ -517,10 +556,10 @@ impl Lab {
         let mut last_error = String::from("login inspection has not completed");
         let mut journal_capture_attempted = false;
         while Instant::now() < deadline {
-            let inspected = self.ssh("sudo /tmp/ryoku-vm-lab guest-login-inspect");
+            let inspected = self.ssh_until("sudo /tmp/ryoku-vm-lab guest-login-inspect", deadline);
             let inspected = if !journal_capture_attempted && inspected.is_err() {
                 journal_capture_attempted = true;
-                retain_probe_result(inspected, || self.capture_login_journal())
+                retain_probe_result(inspected, || self.capture_login_journal(deadline))
             } else {
                 inspected
             };
@@ -549,91 +588,98 @@ impl Lab {
         .into())
     }
 
-    fn capture_login_journal(&self) -> Result<()> {
-        let mut child = self
-            .ssh_command()?
-            .arg(LOGIN_JOURNAL_COMMAND)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        let stdout = child.stdout.take().ok_or("journal stdout pipe unavailable")?;
-        let stderr = child.stderr.take().ok_or("journal stderr pipe unavailable")?;
-        let stdout_reader = thread::spawn(move || read_capped(stdout, LOGIN_JOURNAL_STREAM_LIMIT));
-        let stderr_reader = thread::spawn(move || read_capped(stderr, LOGIN_JOURNAL_STREAM_LIMIT));
-        let status = child.wait()?;
-        let (stdout, stdout_truncated) =
-            stdout_reader.join().map_err(|_| "journal stdout reader panicked")??;
-        let (stderr, stderr_truncated) =
-            stderr_reader.join().map_err(|_| "journal stderr reader panicked")??;
+    fn capture_login_journal(&self, deadline: Instant) -> Result<()> {
+        let mut command = self.ssh_command()?;
+        command.arg(LOGIN_JOURNAL_COMMAND);
+        let journal_deadline = deadline.min(Instant::now() + LOGIN_JOURNAL_TIMEOUT);
+        let result =
+            process::run_until(&mut command, journal_deadline, LOGIN_JOURNAL_STREAM_LIMIT)?;
         save_private_login_journal(
             &self.run,
-            &stdout,
-            stdout_truncated,
-            &stderr,
-            stderr_truncated,
+            &result.stdout,
+            result.stdout_truncated,
+            &result.stderr,
+            result.stderr_truncated,
         )?;
-        require(status.success(), "bounded private login journal capture failed")?;
-        if stdout_truncated || stderr_truncated {
+        require(!result.timed_out, "LOGIN_JOURNAL_TIMEOUT")?;
+        require(result.status.success(), "bounded private login journal capture failed")?;
+        if result.stdout_truncated || result.stderr_truncated {
             return Err("private login journal output exceeded the per-stream byte cap".into());
         }
         Ok(())
     }
 
     fn wait_ssh(&mut self) -> Result<()> {
-        let deadline = Instant::now() + Duration::from_secs(600);
-        while Instant::now() < deadline {
+        let deadline = Instant::now() + SSH_READINESS_TIMEOUT;
+        loop {
             if let Some(child) = &mut self.vm {
                 require(child.try_wait()?.is_none(), "QEMU exited before SSH")?;
             }
-            if self.ssh("timeout 120 cloud-init status --wait").is_ok() {
+            if Instant::now() >= deadline {
+                break;
+            }
+            if self.ssh_until("timeout 120 cloud-init status --wait", deadline).is_ok() {
                 return Ok(());
             }
-            thread::sleep(Duration::from_secs(3));
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                break;
+            }
+            thread::sleep(remaining.min(Duration::from_secs(3)));
         }
-        Err("guest did not become ready in 600 seconds".into())
+        Err("SSH_READINESS_TIMEOUT".into())
     }
 
     fn copy_binary(&self) -> Result<()> {
         let port = self.port.ok_or("owned QEMU SSH forwarding endpoint unknown")?;
-        output(
-            Command::new("scp")
-                .args(["-F", "/dev/null", "-i"])
-                .arg(self.run.join("id_ed25519"))
-                .args([
-                    "-P",
-                    &port.to_string(),
-                    "-o",
-                    "BatchMode=yes",
-                    "-o",
-                    "StrictHostKeyChecking=yes",
-                    "-o",
-                ])
-                .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
-                .arg(std::env::current_exe()?)
-                .arg("tester@127.0.0.1:/tmp/ryoku-vm-lab"),
-        )?;
-        Ok(())
+        let mut command = Command::new("scp");
+        command
+            .args(["-F", "/dev/null", "-i"])
+            .arg(self.run.join("id_ed25519"))
+            .args([
+                "-P",
+                &port.to_string(),
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=yes",
+                "-o",
+            ])
+            .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
+            .arg(std::env::current_exe()?)
+            .arg("tester@127.0.0.1:/tmp/ryoku-vm-lab");
+        self.run_private_child(
+            &mut command,
+            "binary-copy-private.log",
+            "SSH_BINARY_COPY_TIMEOUT",
+            "SSH_BINARY_COPY_FAILED",
+        )
     }
 
     fn copy_zypp_probe(&self) -> Result<()> {
         let binary = self.zypp_probe.as_ref().ok_or("no zypper probe binary configured")?;
         let port = self.port.ok_or("owned QEMU SSH forwarding endpoint unknown")?;
-        output(
-            Command::new("scp")
-                .args(["-F", "/dev/null", "-i"])
-                .arg(self.run.join("id_ed25519"))
-                .args([
-                    "-P",
-                    &port.to_string(),
-                    "-o",
-                    "BatchMode=yes",
-                    "-o",
-                    "StrictHostKeyChecking=yes",
-                    "-o",
-                ])
-                .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
-                .arg(binary)
-                .arg("tester@127.0.0.1:/tmp/ryoku-zypp-hook-probe.upload"),
+        let mut command = Command::new("scp");
+        command
+            .args(["-F", "/dev/null", "-i"])
+            .arg(self.run.join("id_ed25519"))
+            .args([
+                "-P",
+                &port.to_string(),
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=yes",
+                "-o",
+            ])
+            .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
+            .arg(binary)
+            .arg("tester@127.0.0.1:/tmp/ryoku-zypp-hook-probe.upload");
+        self.run_private_child(
+            &mut command,
+            "zypp-probe-copy-private.log",
+            "SSH_ZYPP_PROBE_COPY_TIMEOUT",
+            "SSH_ZYPP_PROBE_COPY_FAILED",
         )?;
         self.ssh("sudo install -m 0755 /tmp/ryoku-zypp-hook-probe.upload /usr/local/sbin/ryoku-zypp-hook-probe")?;
         Ok(())
@@ -646,14 +692,26 @@ impl Lab {
         } else {
             format!("sudo /usr/local/sbin/ryoku-zypp-hook-probe {package} {mode}")
         };
-        let result = self.ssh_command()?.arg(&request).output()?;
+        let mut command = self.ssh_command()?;
+        command.arg(&request);
+        let result = process::run(&mut command, ZYPP_PROBE_TIMEOUT, SSH_OUTPUT_LIMIT)?;
         let error_category = classify_zypp_error(&result.stderr);
         let private_log = self.run.join(log_name);
-        fs::write(&private_log, [&result.stdout[..], &result.stderr[..]].concat())?;
+        fs::write(&private_log, bounded_output_log(&result))?;
         fs::set_permissions(&private_log, fs::Permissions::from_mode(0o600))?;
-        let stdout = String::from_utf8(result.stdout)?;
         let label_storage = mode.replace('-', "_");
         let label = if mode == "inventory" { "inventory" } else { label_storage.as_str() };
+        if result.timed_out || result.stdout_truncated || result.stderr_truncated {
+            let (category, code, outcome) = if result.timed_out {
+                ("timeout", 124, "timeout")
+            } else {
+                ("output_limit", result.status.code().unwrap_or(255), "output_limit")
+            };
+            self.evidence(&format!("zypp_{label}_exit_code={code}"))?;
+            self.evidence(&format!("zypp_{label}_error_category={category}"))?;
+            return Ok((false, outcome.to_owned()));
+        }
+        let stdout = String::from_utf8(result.stdout)?;
         let mut state_unchanged = None;
         let mut commit_seen = None;
         let mut timeout_seen = None;
@@ -939,24 +997,29 @@ impl Lab {
             return Ok(());
         };
         let port = self.port.ok_or("owned QEMU SSH forwarding endpoint unknown")?;
-        output(
-            Command::new("scp")
-                .args(["-F", "/dev/null", "-i"])
-                .arg(self.run.join("id_ed25519"))
-                .args([
-                    "-P",
-                    &port.to_string(),
-                    "-o",
-                    "BatchMode=yes",
-                    "-o",
-                    "StrictHostKeyChecking=yes",
-                    "-o",
-                ])
-                .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
-                .arg(binary)
-                .arg("tester@127.0.0.1:/tmp/ryoku-ui-gtk.upload"),
+        let mut command = Command::new("scp");
+        command
+            .args(["-F", "/dev/null", "-i"])
+            .arg(self.run.join("id_ed25519"))
+            .args([
+                "-P",
+                &port.to_string(),
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=yes",
+                "-o",
+            ])
+            .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
+            .arg(binary)
+            .arg("tester@127.0.0.1:/tmp/ryoku-ui-gtk.upload");
+        self.run_private_child(
+            &mut command,
+            "ui-binary-copy-private.log",
+            "SSH_UI_BINARY_COPY_TIMEOUT",
+            "SSH_UI_BINARY_COPY_FAILED",
         )?;
-        self.ssh("sudo /tmp/ryoku-vm-lab guest-ui-install")?;
+        self.ssh_package_command("sudo /tmp/ryoku-vm-lab guest-ui-install")?;
         Ok(())
     }
 
@@ -1310,7 +1373,8 @@ pub fn run(
     lab.start(false)?;
     lab.evidence("fresh_boot=passed")?;
     lab.copy_binary()?;
-    let migrated = lab.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-migrate {address}"))?;
+    let migrated =
+        lab.ssh_migration_command(&format!("sudo /tmp/ryoku-vm-lab guest-migrate {address}"))?;
     lab.evidence(&migrated)?;
     lab.stop()?;
     fs::rename(lab.run.join("disk.qcow2"), lab.run.join("source-overlay.qcow2"))?;
@@ -1327,7 +1391,6 @@ pub fn run(
             true
         }
         Err(failure) => {
-            fs::copy(lab.run.join("guest-private.log"), lab.run.join("kde-failure-private.log"))?;
             lab.evidence(match failure {
                 KdeProvisionFailure::Timeout => "kde_provisioning=timeout",
                 KdeProvisionFailure::Failed => "kde_provisioning=blocked",
@@ -1529,6 +1592,26 @@ pub fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn kde_diagnostics_survive_later_ssh_output_in_a_private_stage_log() {
+        let run = std::env::temp_dir().join(format!(
+            "ryoku-kde-log-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        fs::create_dir(&run).unwrap();
+        fs::set_permissions(&run, fs::Permissions::from_mode(0o700)).unwrap();
+        let diagnostic = b"zypper timed out\nprivate repository detail\n";
+        save_private_log(&run, "kde-provision-private.log", diagnostic).unwrap();
+        fs::write(run.join("guest-private.log"), b"later stop SSH output\n").unwrap();
+
+        let path = run.join("kde-provision-private.log");
+        assert_eq!(fs::read(&path).unwrap(), diagnostic);
+        assert_eq!(fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+        assert!(save_private_log(&run, "kde-provision-private.log", b"replacement").is_err());
+        fs::remove_dir_all(run).unwrap();
+    }
 
     #[test]
     fn zypp_error_categories_are_allowlisted_and_never_return_source_text() {
@@ -1776,18 +1859,5 @@ mod tests {
         assert_eq!(metadata.permissions().mode() & 0o777, 0o600);
         assert_eq!(fs::read(&output).unwrap(), b"sddm entry\n--- journalctl stderr ---\n");
         fs::remove_dir_all(run).unwrap();
-    }
-
-    #[test]
-    fn journal_reader_caps_retained_bytes_and_reports_truncation() {
-        let source = vec![b'x'; LOGIN_JOURNAL_STREAM_LIMIT + 37];
-        let (retained, truncated) =
-            read_capped(source.as_slice(), LOGIN_JOURNAL_STREAM_LIMIT).unwrap();
-        assert_eq!(retained.len(), LOGIN_JOURNAL_STREAM_LIMIT);
-        assert!(truncated);
-
-        let (retained, truncated) = read_capped(b"short".as_slice(), 10).unwrap();
-        assert_eq!(retained, b"short");
-        assert!(!truncated);
     }
 }

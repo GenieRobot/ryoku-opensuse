@@ -1,7 +1,7 @@
 //! Derive a bootable Btrfs fixture without altering the signed XFS source base.
 use crate::{
     definition::scalar,
-    guest::{command, fixture_only},
+    guest::{command, fixture_only, run_zypper},
     support::{Result, require},
 };
 use std::{fs, os::unix::fs::PermissionsExt, process::Command};
@@ -47,19 +47,7 @@ pub fn migrate(proxy: &str) -> Result<()> {
             "grub2-snapper-plugin",
         ],
     ] {
-        let result = Command::new("zypper")
-            .args(&args)
-            .env("HTTP_PROXY", format!("http://{proxy}"))
-            .env("HTTPS_PROXY", format!("http://{proxy}"))
-            .output()?;
-        if !result.status.success() {
-            eprintln!(
-                "{}\n{}",
-                String::from_utf8_lossy(&result.stdout),
-                String::from_utf8_lossy(&result.stderr)
-            );
-            return Err(format!("zypper exited {}", result.status).into());
-        }
+        run_zypper(&args, Some(proxy), "MIGRATION_ZYPPER_TIMEOUT", "MIGRATION_ZYPPER_FAILED")?;
         if args.contains(&"refresh") {
             crate::repositories::verify_cache()?;
         }

@@ -147,13 +147,25 @@ continues the independently available base VM checks. It still returns nonzero
 and writes `lab_result=blocked` after reset. This provides partial recovery and
 runner evidence and never satisfies KDE fallback or closes #13.
 
-KDE provisioning is bounded at both the guest and host: each Rust-launched
-Zypper command has a 20-minute deadline, the remote setup command has a 29-minute
-deadline, and the Rust SSH child has a 30-minute deadline. Timeout handling
-drains both output streams while retaining at most 1 MiB per stream, kills the
-child process group, and reaps the direct child. Public evidence records only
-`kde_provisioning=timeout`; captured command output remains in the private run
-directory.
+Package-manager and SSH readiness commands have bounded execution and output.
+Each guest zypper operation used by KDE setup, migration, or optional GTK proof
+has a 20-minute deadline and retains at most 1 MiB per output stream. The
+complete remote KDE setup is additionally bounded by 29 minutes in the guest
+and 30 minutes on the host. Optional GTK installation has a 25-minute absolute
+SSH deadline to leave room for the guest's 20-minute zypper deadline and
+post-install checks. Migration has a 60-minute absolute host deadline for its
+two package-manager stages (up to 40 minutes combined) and slower TCG disk
+preparation. Generic
+SSH commands have a 10-minute cap; guest readiness retries share one absolute
+10-minute deadline, so every SSH attempt consumes that same budget. Timeout
+handling drains both output streams, kills
+the child process group, and reaps the direct child. Binary transfers also have
+a 10-minute deadline and bounded output. Captured diagnostics remain in the
+private run directory, while callers and public evidence receive stable failure
+categories such as `SSH_READINESS_TIMEOUT` and `KDE_PROVISIONING_TIMEOUT`. KDE
+provisioning output is saved once to `kde-provision-private.log` with mode 0600,
+separate from the rolling SSH log, so later stop/recovery output cannot replace
+the package-manager diagnostics.
 
 ## Historical KDE download blocker (Runs 11–13)
 
