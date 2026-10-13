@@ -30,6 +30,13 @@ The status labels below describe the evidence available in this repository, not 
 
 At this revision there are **no verified protected provider writes**. Run19 identified the pinned guest's zypper/libzypp packages and one commit-plugin directory, but did not reach a `COMMITBEGIN` frame in any deny/malformed/timeout mode. Its missing-plugin case also failed before a package transaction. The unchanged RPM-state hash therefore does not show that any hook blocked a write, and no recovery-journal result is available. Do not infer acceptance from the harness, a callback or unchanged state when no transaction began.
 
+The Rust `ryoku-adapters::capabilities` module carries this initial operation
+allowlist in typed form. Its protected-write predicate requires all three
+operation-specific proof states: pre-mutation checkpoint, complete affected
+state inventory, and post-state verification. The initial table intentionally
+sets no write to `verified-protected`; it does not claim runtime provider
+detection or replace the evidence below.
+
 | Operation/candidate | Interface class | Current status | Privilege, errors and cancellation | Rust path and hook assessment |
 |---|---|---|---|---|
 | Show product release, current profile, recovery availability and completed job history | Native Ryoku controls | Awaiting proof (read-only contract) | Unprivileged read from validated, versioned service data; missing/stale/corrupt data must be shown as unavailable/error, never guessed. | Typed Rust backend query. No provider write hook. Data-source and privacy review remains. |
