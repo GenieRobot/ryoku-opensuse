@@ -74,9 +74,13 @@ parent ioctl works through the separate mountpoint, so that mount does not
 hide parent identity. Any missing entry, unsupported ioctl, malformed or
 oversized mount table, wrong parent, wrong identity, or unsafe descriptor is a
 typed hard stop. The collector is not yet wired into installation, startup, or
-the privileged mutation path, and target Tumbleweed ioctl behavior still needs
-VM proof. Mount source and non-read-only mount options are not yet compared to
-the machine record.
+the privileged mutation path. `GenerationStore::open_state_mount` now calls
+the collector before opening/creating store directories, so an arbitrary
+directory descriptor cannot initialize the production store. The privileged
+service/helper does not yet call this constructor, and the `machine.json`
+identity reader/setup path is not implemented. Target Tumbleweed ioctl behavior
+still needs VM proof. Mount source and non-read-only mount options are not yet
+compared to the machine record.
 
 The intended on-volume layout is:
 
