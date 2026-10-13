@@ -5,18 +5,28 @@
 
 use gtk::prelude::*;
 use ryoku_ui::{
-    ActionResult, BackendError, UiBackend, UpdateState, UserAction, dispatch, render_result,
-    render_status,
+    ActionResult, BackendError, RequestId, UiBackend, UiRequest, UiResponse, UpdateState,
+    UserAction, dispatch, render_result, render_status,
 };
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 
 struct DemonstrationBackend {
     response: Result<UpdateState, BackendError>,
 }
 
 impl UiBackend for DemonstrationBackend {
-    fn refresh_status(&mut self) -> Result<UpdateState, BackendError> {
-        self.response.clone()
+    fn handle(&mut self, request: UiRequest) -> UiResponse {
+        let outcome = match request.action {
+            UserAction::RefreshStatus => self.response.clone().map(ActionResult::StatusRefreshed),
+        };
+        UiResponse {
+            protocol_version: request.protocol_version,
+            request_id: request.request_id,
+            outcome,
+        }
     }
 }
 
@@ -63,10 +73,13 @@ fn main() {
             },
         }));
         let backend_for_refresh = Rc::clone(&backend);
+        let next_request_id = Cell::new(0_u64);
 
         refresh.connect_clicked(move |_| {
-            let outcome =
-                dispatch(&mut *backend_for_refresh.borrow_mut(), UserAction::RefreshStatus);
+            let request_id = next_request_id.get().wrapping_add(1);
+            next_request_id.set(request_id);
+            let request = UiRequest::new(RequestId(request_id), UserAction::RefreshStatus);
+            let outcome = dispatch(&mut *backend_for_refresh.borrow_mut(), request);
             if let Ok(ActionResult::StatusRefreshed(state)) = &outcome {
                 status.set_text(&render_status(state));
             }
