@@ -1079,7 +1079,10 @@ pub fn run(
                         }
                     }
                     Err(_) => {
-                        lab.evidence(&format!("zypp_{mode}_gate=probe_failed"))?;
+                        lab.evidence(&format!(
+                            "zypp_{}_gate=probe_failed",
+                            mode.replace('-', "_")
+                        ))?;
                         break;
                     }
                 }

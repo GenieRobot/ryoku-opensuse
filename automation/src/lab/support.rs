@@ -108,8 +108,10 @@ pub fn public_evidence(line: &str) -> bool {
         "ui_visual_capture",
         "zypp_experiment_is_not_a_protected_write_gate",
         "packagekit_cockpit_myrlyn_yast_write_paths",
+        "zypp_inventory",
+        "zypp_plugin_directory",
+        "zypp_later_modes",
         "lab_result",
-        "lifecycle_result",
     ];
     let dynamic_key = (key.starts_with("zypp_inventory_")
         || key.starts_with("zypp_deny_commit_")
@@ -167,5 +169,8 @@ mod tests {
         assert!(public_evidence("reset_sentinel_bytes=matched"));
         assert!(public_evidence("reset_sentinel_sync=passed"));
         assert!(public_evidence("ui_visual_capture=passed"));
+        assert!(public_evidence("zypp_inventory_path_1=usr_lib64_zypp_plugins_commit"));
+        assert!(!public_evidence("zypp_inventory_path_1=/usr/lib64/zypp/plugins/commit"));
+        assert!(public_evidence("zypp_inventory_zypper_version=1.14.80"));
     }
 }
