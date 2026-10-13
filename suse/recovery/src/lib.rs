@@ -292,6 +292,34 @@ impl SnapshotLink {
 }
 
 /// Exact metadata required for a declared entry.
+/// serde_json's Value serializer does not support i128; represent the exact
+/// nanosecond count as a canonical decimal string in persisted v1 manifests.
+mod i128_decimal {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(value: &i128, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&value.to_string())
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<i128, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        if value.is_empty()
+            || (value.starts_with('0') && value.len() > 1)
+            || (value.starts_with("-0") && value.len() > 2)
+            || value.starts_with('+')
+        {
+            return Err(serde::de::Error::custom("non-canonical i128 decimal"));
+        }
+        value.parse().map_err(serde::de::Error::custom)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EntryMetadata {
@@ -302,6 +330,7 @@ pub struct EntryMetadata {
     /// Numeric group ID.
     pub gid: u32,
     /// Modification time as nanoseconds since the Unix epoch.
+    #[serde(with = "i128_decimal")]
     pub mtime_unix_ns: i128,
     /// Optional digest of the explicitly supported ACL representation.
     pub acl_sha256: Option<Sha256>,
@@ -789,6 +818,36 @@ mod tests {
         let json = String::from_utf8(encoded).unwrap();
         let unknown = format!("{{\"unknown\":\"x\",{}", &json[1..]);
         assert!(serde_json::from_str::<RecoveryManifest>(&unknown).is_err());
+    }
+
+    #[test]
+    fn persisted_manifest_round_trips_exact_i128_mtime() {
+        let mut value = manifest();
+        value
+            .add_file(
+                FileRecord::new(
+                    StateRoot::UserRyokuConfig,
+                    RelativePath::new("profile.json").unwrap(),
+                    EntryKind::Directory {
+                        metadata: EntryMetadata {
+                            mode: 0o700,
+                            uid: 1000,
+                            gid: 1000,
+                            mtime_unix_ns: 1_765_000_000_123_456_789,
+                            acl_sha256: None,
+                            extended: ExtendedMetadata::default(),
+                        },
+                    },
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        value.seal().unwrap();
+        let bytes = value.canonical_bytes().unwrap();
+        let text = std::str::from_utf8(&bytes).unwrap();
+        assert!(text.contains("\"mtime_unix_ns\":\"1765000000123456789\""));
+        let parsed = RecoveryManifest::parse_verified_json(&bytes).unwrap();
+        assert_eq!(parsed, value);
     }
 
     #[test]
