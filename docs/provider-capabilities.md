@@ -37,6 +37,15 @@ state inventory, and post-state verification. The initial table intentionally
 sets no write to `verified-protected`; it does not claim runtime provider
 detection or replace the evidence below.
 
+The presentation classes are separate from the protection status: **native**
+means a Ryoku-owned control and service request; **embedded panel** means an
+upstream panel rendered inside a Ryoku-owned view; **external application**
+means a separately launched desktop program; and **external browser panel**
+means a separately launched browser administration page. The embedded class
+is represented in the Rust type for explicit classification, but this
+repository has no implemented embedded provider panel. No evidence currently
+supports embedding Cockpit, Myrlyn, or YaST as a protected control.
+
 | Operation/candidate | Interface class | Current status | Privilege, errors and cancellation | Rust path and hook assessment |
 |---|---|---|---|---|
 | Show product release, current profile, recovery availability and completed job history | Native Ryoku controls | Awaiting proof (read-only contract) | Unprivileged read from validated, versioned service data; missing/stale/corrupt data must be shown as unavailable/error, never guessed. | Typed Rust backend query. No provider write hook. Data-source and privacy review remains. |
@@ -56,6 +65,21 @@ detection or replace the evidence below.
 This matrix names an upstream boundary that can be investigated; it does not
 claim that the pinned guest has that package installed or that Ryoku has
 integrated it. UI placement and write protection are separate decisions.
+
+No embedded panel is selected or implemented in the first-release control
+surface. This is an explicit coverage result, not an assumption that upstream
+pages can be embedded transparently.
+
+| Embedded candidate | Ryoku implementation | Operation coverage and decision | Evidence required before reconsideration |
+|---|---|---|---|
+| Cockpit Packages | None. Cockpit's documented embedding/navigation contract is only a candidate for a Ryoku-owned browser view; no embedding code or guest integration has been demonstrated. | Package reads await target proof. Package writes are unsupported because PackageKit requests do not enter the Rust checkpoint/job/journal path by evidence available here. | Demonstrate the selected Cockpit page's embedding and navigation contract in the local Plasma session, identify its exact PackageKit request path and privilege behavior, then prove every write is mediated before the provider call and survives client loss. |
+| Cockpit host/service pages | None. Local browser launch remains the external-panel candidate. | Local read-only navigation awaits guest proof; write-capable host/service controls remain outside the protected Ryoku workflow. | Demonstrate page/category navigation and privilege scope in the target session; verify the actual local listener and prove per-operation capture/authorization before supporting any write. |
+| Myrlyn or YaST modules | None; each remains a separately launched upstream application if selected for optional administration. | Myrlyn and YaST writes are unsupported. No embedded Rust adapter or common upstream module API is evidenced. | Establish a stable embedding/API contract and operation-level interception without adding project-owned Ruby glue, then prove the full recovery boundary for each specific operation. |
+
+The Rust `IntegrationSurface::EmbeddedPanel` variant records this possible
+presentation class. It is descriptive only and grants no operation or
+protection capability. The initial operation allowlist contains no embedded
+panel operation.
 
 | Provider surface | Documented boundary to inspect | Ryoku presentation decision | Protection level supported by current evidence |
 |---|---|---|---|
