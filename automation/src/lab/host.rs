@@ -551,7 +551,7 @@ impl Lab {
             let inspected = self.ssh_until("sudo /tmp/ryoku-vm-lab guest-login-inspect", deadline);
             let inspected = if !journal_capture_attempted && inspected.is_err() {
                 journal_capture_attempted = true;
-                retain_probe_result(inspected, || self.capture_login_journal())
+                retain_probe_result(inspected, || self.capture_login_journal(deadline))
             } else {
                 inspected
             };
@@ -580,10 +580,12 @@ impl Lab {
         .into())
     }
 
-    fn capture_login_journal(&self) -> Result<()> {
+    fn capture_login_journal(&self, deadline: Instant) -> Result<()> {
         let mut command = self.ssh_command()?;
         command.arg(LOGIN_JOURNAL_COMMAND);
-        let result = process::run(&mut command, LOGIN_JOURNAL_TIMEOUT, LOGIN_JOURNAL_STREAM_LIMIT)?;
+        let journal_deadline = deadline.min(Instant::now() + LOGIN_JOURNAL_TIMEOUT);
+        let result =
+            process::run_until(&mut command, journal_deadline, LOGIN_JOURNAL_STREAM_LIMIT)?;
         save_private_login_journal(
             &self.run,
             &result.stdout,
