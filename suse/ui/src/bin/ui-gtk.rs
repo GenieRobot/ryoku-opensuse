@@ -6,7 +6,7 @@
 use gtk::prelude::*;
 use ryoku_ui::{
     ActionResult, BackendError, RequestId, UiBackend, UiRequest, UiResponse, UpdateState,
-    UserAction, dispatch, render_result, render_status,
+    UserAction, dispatch, render_result, render_status, service_client::UnixServiceBackend,
 };
 use std::{
     cell::{Cell, RefCell},
@@ -30,10 +30,31 @@ impl UiBackend for DemonstrationBackend {
     }
 }
 
+enum BackendMode {
+    Demonstration(DemonstrationBackend),
+    Service(UnixServiceBackend),
+    Failure(BackendError),
+}
+
+impl UiBackend for BackendMode {
+    fn handle(&mut self, request: UiRequest) -> UiResponse {
+        match self {
+            Self::Demonstration(backend) => backend.handle(request),
+            Self::Service(backend) => backend.handle(request),
+            Self::Failure(error) => UiResponse {
+                protocol_version: ryoku_ui::PROTOCOL_VERSION,
+                request_id: request.request_id,
+                outcome: Err(*error),
+            },
+        }
+    }
+}
+
 fn main() {
     let arguments: Vec<_> = std::env::args().skip(1).collect();
     let simulate_error = arguments.iter().any(|arg| arg == "--service-unavailable");
     let capture_on_launch = arguments.iter().any(|arg| arg == "--capture-on-launch");
+    let connect_service = arguments.iter().any(|arg| arg == "--connect-service");
     let application =
         gtk::Application::builder().application_id("org.ryoku.OpenSUSE.UiProof").build();
 
@@ -65,13 +86,21 @@ fn main() {
             .build();
         window.set_default_widget(Some(&refresh));
 
-        let backend = Rc::new(RefCell::new(DemonstrationBackend {
-            response: if simulate_error {
-                Err(BackendError::Unavailable)
-            } else {
-                Ok(UpdateState::UpdatesAvailable { count: 3 })
-            },
-        }));
+        let backend = if connect_service {
+            match UnixServiceBackend::from_environment() {
+                Ok(backend) => BackendMode::Service(backend),
+                Err(error) => BackendMode::Failure(error),
+            }
+        } else {
+            BackendMode::Demonstration(DemonstrationBackend {
+                response: if simulate_error {
+                    Err(BackendError::Unavailable)
+                } else {
+                    Ok(UpdateState::UpdatesAvailable { count: 3 })
+                },
+            })
+        };
+        let backend = Rc::new(RefCell::new(backend));
         let backend_for_refresh = Rc::clone(&backend);
         let next_request_id = Cell::new(0_u64);
 

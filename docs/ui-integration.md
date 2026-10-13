@@ -27,17 +27,38 @@ changes to those executable files are outside the approved Rust-only rule.
 Any new Ryoku surface therefore belongs in Rust.
 
 Keep the Rust presentation layer separate from backend and provider code. The
-workspace now contains an optional GTK 4 Rust proof binary (`gtk-ui` feature).
-It reuses the typed read-only refresh contract and renders status, request
-result, and service-unavailable error with GTK labels and a named,
-keyboard-activatable button. The sample backend uses fixed demonstration data;
-it is not a system service client. GTK remains the selected M0 proof candidate,
-while its Tumbleweed package/runtime dependencies, Wayland behavior,
-accessibility, theme integration, and lifecycle handling still need guest
-validation. The executor currently lacks GTK/GLib development metadata, so a
-feature build has not yet reached compilation of the proof binary. The GitHub
-Rust check installs `libgtk-4-dev` so all-feature CI can compile and test the
-GTK target. KDE fallback must be included in the graphical test.
+workspace contains an optional GTK 4 Rust proof binary (`gtk-ui` feature). Its
+existing “Refresh status” button is a user-triggered, non-destructive request.
+The default demonstration backend renders fixed sample update counts and a
+service-unavailable error for visual capture. An opt-in `--connect-service`
+mode sends the existing typed `Discover` request to the fixed
+`$XDG_RUNTIME_DIR/ryoku-service.sock` endpoint after checking the runtime
+directory and socket ownership/modes and the connected peer UID. It maps the
+service's `Ready` and `RecoveryUnavailable` states into distinct UI status
+messages and renders authentication failures as typed errors. Responses are
+limited to 64 KiB and socket operations time out after five seconds. No
+managed action is sent, and these states do not claim package-update data.
+
+This Unix-socket adapter exercises the current service runtime as an
+integration prototype; it does not settle the transport decision in ADR 0001.
+Start the service as the ordinary desktop user in one terminal:
+
+```console
+cargo run --locked -p ryoku-service --bin ryoku-service
+```
+
+Then launch the GTK client in that user's desktop session in another terminal;
+click **Refresh status** to issue `Discover`:
+
+```console
+cargo run --locked -p ryoku-ui --features gtk-ui --bin ryoku-ui-gtk -- --connect-service
+```
+
+GTK remains the selected M0 proof candidate, while its Tumbleweed package and
+runtime dependencies, Wayland behavior, accessibility, theme integration, and
+lifecycle handling still need guest validation. GitHub Rust checks install
+`libgtk-4-dev` so all-feature CI can compile and test the GTK target. KDE
+fallback must be included in the graphical test.
 
 GTK's Rust bindings wrap a C toolkit internally, so keep the wrapper API at
 the presentation edge, do not expose GTK/GLib objects through workspace
@@ -47,14 +68,13 @@ the same authenticated protocol without project-owned QML/JavaScript glue.
 
 ## Remaining validation
 
-After Run17 completed its helper-copy/migration phase, the workspace built and
-tested successfully; the terminal proof rendered both its sample success and
-service-unavailable paths. The GTK proof source and lockfile are now present,
-but the feature build requires system GTK4/GLib development packages and has
-not yet compiled locally. Run17 installed KDE/SDDM, but its ordinary-user
-Wayland login check remained blocked. On a disposable Tumbleweed graphical VM
-with a working login, build the native surface and demonstrate all
-of the following with sanitized evidence:
+The GTK proof and opt-in service-discovery adapter are present. The
+`--connect-service` path has local protocol tests, but it has not yet been
+verified against the running daemon in a Tumbleweed desktop. Run18 installed
+KDE/SDDM, but its ordinary-user Wayland login check remained blocked. On a
+disposable Tumbleweed graphical VM with a working login and the service
+available, build the native surface and demonstrate all of the following with
+sanitized evidence:
 
 1. Launch and render typed backend status in a real desktop window under
    Hyprland, including keyboard navigation, screen-reader labels, and current
@@ -66,9 +86,9 @@ of the following with sanitized evidence:
 4. Package and install the UI and required runtime dependencies through the
    declarative RPM metadata, verify clean removal, and confirm it does not
    replace distro-owned desktop files.
-5. Replace the demonstration backend with the real unprivileged service client
-   only after its authenticated/versioned contract and error behavior are
-   defined; verify it cannot invoke writes or bypass recovery gates.
+5. Verify the service client cannot invoke writes or bypass recovery gates;
+   package and daemon activation must also be tested against the final
+   transport decision in ADR 0001.
 
 Until this graphical proof is recorded, M0-05 remains incomplete and dependent
 graphical UI work remains blocked at the integration decision. The terminal
