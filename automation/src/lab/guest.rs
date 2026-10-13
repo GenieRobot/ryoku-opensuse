@@ -13,6 +13,33 @@ const SDDM_UNIT: &str = "/usr/lib/systemd/system/sddm.service";
 const ZYPPER_TIMEOUT: Duration = Duration::from_secs(20 * 60);
 const ZYPPER_OUTPUT_LIMIT: usize = 1024 * 1024;
 
+/// Run one fixed zypper operation with a hard child-process deadline. Output is
+/// emitted only into the host's mode-0600 private guest log; callers receive
+/// stable categories, never repository URLs or package-manager diagnostics.
+pub(crate) fn run_zypper(
+    args: &[&str],
+    proxy: Option<&str>,
+    timeout_category: &'static str,
+    failure_category: &'static str,
+) -> Result<()> {
+    let mut zypper = Command::new("zypper");
+    zypper.args(args);
+    if let Some(proxy) = proxy {
+        zypper.env("HTTP_PROXY", format!("http://{proxy}"));
+        zypper.env("HTTPS_PROXY", format!("http://{proxy}"));
+    }
+    let result = process::run(&mut zypper, ZYPPER_TIMEOUT, ZYPPER_OUTPUT_LIMIT)?;
+    eprint!("{}", String::from_utf8_lossy(&result.stdout));
+    eprint!("{}", String::from_utf8_lossy(&result.stderr));
+    if result.stdout_truncated || result.stderr_truncated {
+        eprintln!("[zypper private diagnostic output truncated at configured cap]");
+    }
+    if result.timed_out {
+        return Err(timeout_category.into());
+    }
+    require(result.status.success(), failure_category)
+}
+
 fn require_absent(path: impl AsRef<std::path::Path>, message: &str) -> Result<()> {
     match fs::symlink_metadata(path) {
         Ok(_) => Err(message.into()),
@@ -69,23 +96,7 @@ pub fn setup(proxy: &str) -> Result<()> {
             "xorg-x11-server",
         ],
     ] {
-        let mut zypper = Command::new("zypper");
-        zypper
-            .args(&args)
-            .env("HTTP_PROXY", format!("http://{proxy}"))
-            .env("HTTPS_PROXY", format!("http://{proxy}"));
-        let result = process::run(&mut zypper, ZYPPER_TIMEOUT, ZYPPER_OUTPUT_LIMIT)?;
-        if result.timed_out {
-            return Err("KDE_PROVISIONING_TIMEOUT".into());
-        }
-        if !result.status.success() {
-            eprintln!(
-                "{}\n{}",
-                String::from_utf8_lossy(&result.stdout),
-                String::from_utf8_lossy(&result.stderr)
-            );
-            return Err(format!("KDE provisioning: zypper exited {}", result.status).into());
-        }
+        run_zypper(&args, Some(proxy), "KDE_PROVISIONING_TIMEOUT", "KDE_PROVISIONING_FAILED")?;
         if args[1] == "refresh" {
             crate::repositories::verify_cache()?;
         }
@@ -136,12 +147,12 @@ pub fn install_ui_runtime() -> Result<()> {
         command("findmnt", &["-n", "-o", "FSTYPE", "--target", "/"])?.trim() == "btrfs",
         "fixture root must be Btrfs",
     )?;
-    let result = Command::new("zypper")
-        .args(["--non-interactive", "--no-refresh", "install", "--no-recommends", "libgtk-4-1"])
-        .output()?;
-    if !result.status.success() {
-        return Err("optional GTK runtime installation failed; inspect private guest log".into());
-    }
+    run_zypper(
+        &["--non-interactive", "--no-refresh", "install", "--no-recommends", "libgtk-4-1"],
+        None,
+        "OPTIONAL_UI_RUNTIME_TIMEOUT",
+        "OPTIONAL_UI_RUNTIME_FAILED",
+    )?;
     command("rpm", &["-q", "libgtk-4-1"])?;
     verify_ui_runtime(Path::new("/tmp/ryoku-ui-gtk.upload"))?;
     command(
