@@ -344,7 +344,7 @@ user or companion information is present):
         "extended": { "values": {} },
         "gid": 0,
         "mode": 416,
-        "mtime_unix_ns": 0,
+        "mtime_unix_ns": "0",
         "uid": 0
       },
       "path": "appearance.toml",
@@ -360,7 +360,7 @@ user or companion information is present):
         "extended": { "values": { "selinux-label": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" } },
         "gid": 1000,
         "mode": 511,
-        "mtime_unix_ns": 0,
+        "mtime_unix_ns": "0",
         "uid": 1000
       },
       "path": "theme-current",
@@ -415,7 +415,7 @@ records. The collector only enforces the exact paths passed to it; a reviewed
 inventory compiler and trusted root-descriptor resolver must supply that list.
 Unsupported metadata fails capture rather than being recorded as absent.
 
-The example is illustrative and synthetic; it is not proof of a live capture. Tests cover v1 schema bounds, canonical encoding, digest sealing/verification, stable file/package ordering, bounded strict parsing, unknown-field rejection, wrapper validation, tampering, and verified round trips. The parser accepts v1 only; a local migration executor and compatibility tests across schema versions remain future work.
+The v1 JSON encoding stores `mtime_unix_ns` as a canonical decimal string so nanosecond values retain their exact `i128` range. The example is illustrative and synthetic; it is not proof of a live capture. Tests cover v1 schema bounds, canonical encoding, digest sealing/verification, stable file/package ordering, bounded strict parsing, unknown-field rejection, wrapper validation, tampering, and verified round trips. The parser accepts v1 only; a local migration executor and compatibility tests across schema versions remain future work.
 
 ## Profile resolution and private data
 
