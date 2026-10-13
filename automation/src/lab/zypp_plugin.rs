@@ -203,6 +203,7 @@ fn escape_header(value: &str, escape_colon: bool) -> String {
 
 /// Process one frame. EOF is clean only before a new frame begins. Unknown
 /// frames receive ERROR and are never acknowledged.
+#[cfg(test)]
 fn process_one(stream: &mut (impl Read + Write), policy: Policy<'_>) -> io::Result<bool> {
     let frame = match read_frame(stream)? {
         FrameRead::Eof => return Ok(false),
@@ -210,6 +211,65 @@ fn process_one(stream: &mut (impl Read + Write), policy: Policy<'_>) -> io::Resu
     };
     write_response(stream, decide(&frame, policy))?;
     Ok(true)
+}
+
+/// Run as a libzypp commit plugin. The mode is inherited from the disposable
+/// experiment process and exists only to characterize the guest's behavior.
+#[allow(dead_code)] // The same protocol module is included by vm-lab tests and the probe binary.
+pub(crate) fn serve() -> io::Result<()> {
+    let mode = std::env::var("RYOKU_ZYPP_PROBE_MODE").unwrap_or_else(|_| "deny-commit".into());
+    let deny_command = match mode.as_str() {
+        "deny-commit" | "malformed-commit" | "timeout-commit" => "COMMITBEGIN",
+        _ => return Err(invalid_data("unsupported zypp probe mode")),
+    };
+    if let Some(path) = std::env::var_os("RYOKU_ZYPP_PROBE_LOG") {
+        use std::io::Write;
+        use std::{fs::OpenOptions, path::Path};
+        let mut log = OpenOptions::new().append(true).open(Path::new(&path))?;
+        writeln!(log, "probe_pid={}", std::process::id())?;
+    }
+    let stdin = io::stdin();
+    let stdout = io::stdout();
+    let mut input = stdin.lock();
+    let mut output = stdout.lock();
+    loop {
+        let frame = match read_frame(&mut input)? {
+            FrameRead::Eof => break,
+            FrameRead::Frame(frame) => frame,
+        };
+        if let Some(path) = std::env::var_os("RYOKU_ZYPP_PROBE_LOG") {
+            use std::io::Write;
+            use std::{fs::OpenOptions, path::Path};
+            let mut log = OpenOptions::new().append(true).open(Path::new(&path))?;
+            writeln!(log, "probe_frame={}", frame.command)?;
+        }
+        if frame.command == deny_command {
+            match mode.as_str() {
+                "deny-commit" => write_response(
+                    &mut output,
+                    Decision::Deny("Ryoku disposable probe denied COMMITBEGIN".into()),
+                )?,
+                "malformed-commit" => {
+                    output.write_all(b"NOT-A-LIBZYPP-RESPONSE\n\n\0")?;
+                    output.flush()?;
+                    break;
+                }
+                "timeout-commit" => loop {
+                    std::thread::sleep(std::time::Duration::from_secs(3600));
+                },
+                _ => unreachable!(),
+            }
+        } else {
+            write_response(
+                &mut output,
+                decide(
+                    &frame,
+                    Policy { deny_command: None, deny_message: "Ryoku disposable probe" },
+                ),
+            )?;
+        }
+    }
+    Ok(())
 }
 
 fn invalid_data(message: &'static str) -> io::Error {
