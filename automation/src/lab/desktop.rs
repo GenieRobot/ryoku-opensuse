@@ -313,7 +313,7 @@ fn matches(values: &BTreeMap<String, String>, expected: &[(&str, &str)]) -> bool
 }
 
 fn login_session_diagnostic(values: &BTreeMap<String, String>) -> String {
-    ["Name", "UID", "Service", "Class", "Seat", "Type", "Desktop", "Active", "State", "Remote"]
+    ["Name", "User", "Service", "Class", "Seat", "Type", "Desktop", "Active", "State", "Remote"]
         .iter()
         .map(|key| format!("{key}={}", values.get(*key).map(String::as_str).unwrap_or("<missing>")))
         .collect::<Vec<_>>()
@@ -810,7 +810,9 @@ mod tests {
     #[test]
     fn native_login_contract_rejects_root_remote_greeter_and_inactive() {
         let output = "Name=ryoku-desktop\nUser=1001\nService=sddm\nClass=user\nSeat=seat0\nType=wayland\nDesktop=KDE\nActive=yes\nState=active\nRemote=no\n";
-        assert!(session_matches(&properties(output).unwrap(), 1001));
+        let values = properties(output).unwrap();
+        assert!(session_matches(&values, 1001));
+        assert!(login_session_diagnostic(&values).contains("User=1001"));
         for (old, new) in [
             ("User=1001", "User=0"),
             ("Service=sddm", "Service=sshd"),
