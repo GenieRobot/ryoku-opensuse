@@ -1,4 +1,6 @@
-//! Typed, local profile layers. This crate has no filesystem or network access.
+//! Typed, local profile layers. File loading requires an explicit directory
+//! descriptor and uses one fixed, no-follow file name; the crate has no
+//! ambient path or network access.
 //!
 //! Callers load and validate each layer at an outer boundary, then resolve
 //! them with [`ProfileLayers::resolve`]. A companion layer is optional local
@@ -37,6 +39,9 @@
 //! ```
 
 use serde::{Deserialize, Deserializer, Serialize};
+
+mod local;
+pub use local::{LOCAL_PROFILE_FILE, ProfileLoadError, ProfileOwner, load_local_profile};
 
 /// The only profile document schema currently accepted by this crate.
 pub const PROFILE_SCHEMA_VERSION: u16 = 1;

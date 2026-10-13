@@ -596,6 +596,7 @@ version = "0.1.0"
 name = "ryoku-profiles"
 version = "0.1.0"
 dependencies = [
+ "rustix",
  "serde",
  "serde_json",
 ]
