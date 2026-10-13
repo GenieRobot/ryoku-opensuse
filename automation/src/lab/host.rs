@@ -68,6 +68,14 @@ fn bounded_output_log(output: &BoundedOutput) -> Vec<u8> {
     log
 }
 
+fn save_private_log(run: &Path, name: &str, contents: &[u8]) -> Result<()> {
+    let mut file =
+        fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(run.join(name))?;
+    file.write_all(contents)?;
+    file.sync_all()?;
+    Ok(())
+}
+
 fn login_journal_path(run: &Path) -> PathBuf {
     run.join(LOGIN_JOURNAL_FILENAME)
 }
@@ -500,7 +508,7 @@ impl Lab {
         command.arg(request);
         let output = process::run(&mut command, KDE_PROVISION_TIMEOUT, KDE_OUTPUT_LIMIT)
             .map_err(|_| KdeProvisionFailure::Failed)?;
-        fs::write(self.run.join("guest-private.log"), bounded_output_log(&output))
+        save_private_log(&self.run, "kde-provision-private.log", &bounded_output_log(&output))
             .map_err(|_| KdeProvisionFailure::Failed)?;
         if let Some(failure) = kde_failure(output.timed_out, output.status.code()) {
             return Err(failure);
@@ -1383,7 +1391,6 @@ pub fn run(
             true
         }
         Err(failure) => {
-            fs::copy(lab.run.join("guest-private.log"), lab.run.join("kde-failure-private.log"))?;
             lab.evidence(match failure {
                 KdeProvisionFailure::Timeout => "kde_provisioning=timeout",
                 KdeProvisionFailure::Failed => "kde_provisioning=blocked",
@@ -1585,6 +1592,26 @@ pub fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn kde_diagnostics_survive_later_ssh_output_in_a_private_stage_log() {
+        let run = std::env::temp_dir().join(format!(
+            "ryoku-kde-log-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        fs::create_dir(&run).unwrap();
+        fs::set_permissions(&run, fs::Permissions::from_mode(0o700)).unwrap();
+        let diagnostic = b"zypper timed out\nprivate repository detail\n";
+        save_private_log(&run, "kde-provision-private.log", diagnostic).unwrap();
+        fs::write(run.join("guest-private.log"), b"later stop SSH output\n").unwrap();
+
+        let path = run.join("kde-provision-private.log");
+        assert_eq!(fs::read(&path).unwrap(), diagnostic);
+        assert_eq!(fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+        assert!(save_private_log(&run, "kde-provision-private.log", b"replacement").is_err());
+        fs::remove_dir_all(run).unwrap();
+    }
 
     #[test]
     fn zypp_error_categories_are_allowlisted_and_never_return_source_text() {
