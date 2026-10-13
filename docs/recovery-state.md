@@ -55,8 +55,28 @@ mountpoint without following a substituted path, then compare the observed
 filesystem UUID, subvolume ID/parent relationship, mount source/options, and
 ownership/mode with the installed machine record on every startup and before
 each write. Any mismatch blocks mutation and remains visible as a typed
-recovery-unavailable result. This is a design requirement; no implementation
-or Tumbleweed proof exists yet.
+recovery-unavailable result.
+
+The Linux recovery crate now provides a fail-closed live collector in
+`state_mount`. It opens the fixed relative path beneath a trusted `/`
+descriptor without following symlinks, pins the directory, checks root:root
+mode `0700`, and matches its kernel mount ID to the exact `/proc/self/mountinfo`
+entry. Mountinfo parsing is bounded to 4 MiB and checks the effective
+mountpoint, filesystem type, and read-only option, and decodes the mount root.
+For Btrfs, the mountinfo root may be the subvolume's filesystem-relative path,
+so requiring that field to equal `/` would reject normal subvolume mounts. The
+collector instead requires the pinned directory's Btrfs root inode number
+`256`, which rejects a bind mount of an ordinary directory inside the
+subvolume while allowing the subvolume root itself. Btrfs filesystem UUID and
+subvolume ID/parent ID come from the read-only `BTRFS_IOC_FS_INFO` and
+`BTRFS_IOC_GET_SUBVOL_INFO` calls on that pinned descriptor. The subvolume
+parent ioctl works through the separate mountpoint, so that mount does not
+hide parent identity. Any missing entry, unsupported ioctl, malformed or
+oversized mount table, wrong parent, wrong identity, or unsafe descriptor is a
+typed hard stop. The collector is not yet wired into installation, startup, or
+the privileged mutation path, and target Tumbleweed ioctl behavior still needs
+VM proof. Mount source and non-read-only mount options are not yet compared to
+the machine record.
 
 The intended on-volume layout is:
 
