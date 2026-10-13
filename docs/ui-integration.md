@@ -32,8 +32,9 @@ it is not a system service client. GTK remains the selected M0 proof candidate,
 while its Tumbleweed package/runtime dependencies, Wayland behavior,
 accessibility, theme integration, and lifecycle handling still need guest
 validation. The executor currently lacks GTK/GLib development metadata, so a
-feature build has not yet reached compilation of the proof binary. KDE fallback
-must be included in the graphical test.
+feature build has not yet reached compilation of the proof binary. The GitHub
+Rust check installs `libgtk-4-dev` so all-feature CI can compile and test the
+GTK target. KDE fallback must be included in the graphical test.
 
 GTK's Rust bindings wrap a C toolkit internally, so keep the wrapper API at
 the presentation edge, do not expose GTK/GLib objects through workspace
