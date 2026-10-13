@@ -59,7 +59,7 @@ integrated it. UI placement and write protection are separate decisions.
 
 | Provider surface | Documented boundary to inspect | Ryoku presentation decision | Protection level supported by current evidence |
 |---|---|---|---|
-| Zypper/libzypp package transaction | Fixed zypper CLI operations; libzypp `ZYpp::commit` and its commit-plugin protocol | Native Rust controls call one typed service operation. Do not expose arbitrary CLI arguments or invoke a UI shell. | Awaiting proof. A commit plugin is only a candidate hook; do not claim that its ERROR, timeout or disappearance prevents commit. |
+| Zypper/libzypp package transaction | Fixed zypper CLI operations; libzypp `ZYpp::commit` and its commit-plugin protocol | Native Rust controls call one typed service operation. Do not expose arbitrary CLI arguments or invoke a UI shell. | Awaiting proof for a complete protected transaction. Pinned source review classifies the commit-plugin mechanism as unsupported for protection: ERROR or unexpected replies close the plugin while the enclosing transaction continues. Use it for telemetry only. |
 | PackageKit and Cockpit Packages | `org.freedesktop.PackageKit` system-bus transaction methods and signals; `cockpit-packages` uses PackageKit D-Bus | Native Rust service may call a fixed PackageKit role after capture. Cockpit Packages remains externally launched or separately evaluated for embedding. | Awaiting proof for read APIs; unsupported for protected writes until the same pre-commit and journal boundary is measured through PackageKit and Cockpit. |
 | Myrlyn | Upstream Qt application backed by libzypp; upstream README describes package/repository management and a read-only mode | External application only. No embedded panel or Rust API is evidenced. | Read-only candidate awaiting target proof; all writes unsupported in Ryoku. |
 | Cockpit host/service views | Documented Cockpit browser, bridge, embedding and privilege interfaces | Local browser launch is the default candidate. There is no evidence of a native Plasma category/page integration in this repository. Any embed must use the documented API and be tested against the selected Cockpit page. | Awaiting proof for local read-only navigation; no protected writes. Remote access stays off unless separately requested and configured. |
@@ -125,10 +125,10 @@ is not a complete affected-state inventory for a package transaction.
 
 | Probe mode | Sanitized result | What it establishes |
 |---|---|---|
-| Deny response | Probe registered, but no `COMMITBEGIN` was observed; deny decision was not invoked. The zypper child exited 4 and the RPM-state hash was unchanged. | Pre-hook failure cause is unclassified; no evidence that ERROR prevented a commit. |
+| Deny response | Probe registered, but no `COMMITBEGIN` was observed; deny decision was not invoked. The zypper child exited 4 and the RPM-state hash was unchanged. | No live response behavior was exercised. Pinned source review shows ERROR closes the plugin but does not veto a transaction; the run itself did not reach that code. |
 | Malformed response | Probe registered, but no `COMMITBEGIN` was observed; malformed reply was not sent. The zypper child exited 4 and the RPM-state hash was unchanged. | Pre-hook failure cause is unclassified; no evidence about libzypp's handling of malformed plugin replies. |
-| Bounded timeout | Probe registered, but no `COMMITBEGIN` was observed; timeout mode did not begin. The zypper child exited 4 and the RPM-state hash was unchanged. | Pre-hook failure cause is unclassified; no evidence about commit behavior on a plugin timeout. |
-| Missing plugin | The zypper child exited 4 before a package transaction began; RPM-state hash was unchanged. | Inconclusive whether the transaction would proceed without a plugin or failed elsewhere. |
+| Bounded timeout | Probe registered, but no `COMMITBEGIN` was observed; timeout mode did not begin. The zypper child exited 4 and the RPM-state hash was unchanged. | No live timeout behavior was exercised. In the matching source, a receive timeout is caught and closes the plugin; it is not propagated as a transaction veto. |
+| Missing plugin | The zypper child exited 4 before a package transaction began; RPM-state hash was unchanged. | This run did not test a transaction. Pinned source review shows plugin loading is optional and no plugin is required before `TargetImpl` proceeds to commit. |
 
 The runner records only a fixed `zypp_*_error_category` label derived from
 provider stderr: `authorization`, `package_manager_lock`, `package_resolution`,
@@ -144,59 +144,92 @@ prove a blocking hook or protected provider write. Keep issue #15 open and keep
 package writes awaiting proof; do not describe the unchanged hash as a passed
 denial test.
 
-The only conclusion available is that the target snapshot contains a libzypp
-commit-plugin directory and the probe harness did not reach a commit frame in
-these attempts. A follow-up may only claim hook behavior after it records an
-actual `COMMITBEGIN`, provider exit/result, meaningful before/after RPM state,
-and linked recovery-journal evidence for the same transaction.
+Run19's only behavioral conclusion is that the target snapshot contains a
+libzypp commit-plugin directory and the probe harness did not reach a commit
+frame in these attempts. Runtime provider claims still require an actual
+`COMMITBEGIN`, provider exit/result, meaningful before/after RPM state, and
+linked recovery-journal evidence for the same transaction.
 
-The current source-level candidate is libzypp's commit-plugin protocol, not an
-application-launch notification. Its documented `PLUGINBEGIN`/`COMMITBEGIN`
-exchange occurs around `ZYpp::commit`; `COMMITBEGIN` includes planned
-transaction steps before installation starts. However, the inspected upstream
-`PluginExecutor::send()` implementation accepts ACK/ENOMETHOD and removes a
-plugin after another reply, then continues broadcasting. It is therefore not
-established that returning ERROR vetoes the package commit. This is a critical
-open question: a callback before the RPM actions is useful only if a timeout,
-plugin failure, unavailable broker, or negative checkpoint actually prevents
-the enclosing transaction. Do not treat a Rust plugin as a fail-closed gate
-until a disposable guest proves that property for the exact installed libzypp.
+### Pinned libzypp 17.38.16 source review
 
-If the native plugin cannot abort the transaction, it may still provide
-transaction telemetry but is not the authorization/recovery boundary. The
-product must leave that provider path unsupported until another pre-commit
-mechanism reliably stops zypper, PackageKit, and Cockpit writes. A small
-root-owned Rust executable could request the linked checkpoint and acknowledge
-only after the service confirms capture, but this is only a hypothesis. The
-Run19 probe was registered for a disposable experiment, but was never invoked
-at `COMMITBEGIN`; no observed commit was blocked. Although Run19 identified the zypper/libzypp versions and plugin
-directory, protocol veto behavior, ordering, timeout behavior, cancellation
-semantics, and PackageKit backend remain unverified.
+Run19 recorded guest `libzypp 17.38.16-1.1.x86_64`. I downloaded the exact
+NEVRA binary from the fixture's pinned official Tumbleweed snapshot and inspected
+its RPM headers: `SOURCERPM` is `libzypp-17.38.16-1.1.src.rpm`, and its
+`SOURCEPKGID` equals the source RPM header's `SIGMD5`
+(`1e7d2d5304e19675bc85b0d98d0ab046`). The binary RPM SHA-256 is
+`3d3a33e9118b748d1ca8d9d0d65e443fce98d91cb35b2f2b82bce296e5adf715`; the
+matching source RPM SHA-256 is
+`a101827f533bb47623a60ce28d0e12612db28086b7923a59409b8052be2d69c4`; its
+package identity matches the binary header's source-package identifier. Its spec
+declares `Version: 17.38.16`, `Release: 1.1`, and uses the
+`libzypp-17.38.16.tar.bz2` source archive, SHA-256
+`6b5a20972643fbab4ebbed93551baa2b9568c6704559f86255fe58ffaa640112`.
+The [binary artifact](https://download.opensuse.org/history/20261011/tumbleweed/repo/oss/x86_64/libzypp-17.38.16-1.1.x86_64.rpm)
+and [source RPM](https://download.opensuse.org/source/tumbleweed/repo/oss/src/libzypp-17.38.16-1.1.src.rpm)
+are the inspected files. The source files `PluginExecutor.cc`, `TargetImpl.cc`,
+and `PluginScript.cc` match the upstream `17.38.16` tag at commit
+[`a8aac2497414ef42a03ff5cbc174ab10ddbf8231`](https://github.com/openSUSE/libzypp/commit/a8aac2497414ef42a03ff5cbc174ab10ddbf8231)
+byte-for-byte (SHA-256 values respectively
+`e93debc76cbfbedf8b8be815add1e6934031cc19f822eaba0e641bb0bab77306`,
+`ea6c140dda466cae05feaf6fbcf71c5ca1a2e1f62195ec8c1acd06d6465e71c7`, and
+`92c7c2cd81ce01d46171bf78d3d756f198609763598240ab34d4fc9e6f44bb21`). This
+binds the official snapshot artifact with the Run19 guest's recorded NEVRA to
+the tagged upstream source. The original Run19 record did not retain an
+installed RPM checksum, so its per-file identity cannot be independently
+rechecked against the downloaded package.
 
-Further proof requires a zypper attempt that reaches an actual `COMMITBEGIN`,
-with an allowlisted error category retained for any pre-hook failure rather
-than raw stderr. Then record the provider exit/result, meaningful before/after
-RPM state, and linked recovery-journal evidence. PackageKit, its zypp backend,
-Cockpit, and Myrlyn versions and write paths also remain unmeasured. Attempt a
-harmless zypper transaction
-and a PackageKit transaction separately and measure whether ERROR, no ACK,
-malformed reply, or timeout actually prevents commit and leaves RPM state
-unchanged. Do not infer veto from the callback occurring. If libzypp continues,
-record the exact bypass and mark this path unsupported. Only if native behavior
-reliably blocks writes should a checkpoint broker be tested for negative
-checkpoint, timeout and success; compare capture ID, transaction steps, and
-installed package state. Confirm
-whether Cockpit uses that same PackageKit backend in the guest. Treat direct
-RPM, repository-definition, and trust-key writes as bypasses until separate
-pre-mutation controls are demonstrated. A libzypp commit hook cannot be claimed
-to cover operations that do not pass through that commit path.
+The pinned [`TargetImpl.cc`](https://github.com/openSUSE/libzypp/blob/a8aac2497414ef42a03ff5cbc174ab10ddbf8231/zypp/zypp/target/TargetImpl.cc)
+loads commit plugins and sends `COMMITBEGIN`, then proceeds to store non-package
+state and call the package commit without checking a plugin decision. The
+pinned [`PluginExecutor.cc`](https://github.com/openSUSE/libzypp/blob/a8aac2497414ef42a03ff5cbc174ab10ddbf8231/zypp/zypp/PluginExecutor.cc)
+has `send()` return `void`; `doSend()` accepts ACK/ENOMETHOD and closes the
+plugin on ERROR, an unexpected response, or a caught protocol exception. The
+executor erases closed plugins and continues. The matching
+[`Plugin-Commit.doc`](https://github.com/openSUSE/libzypp/blob/a8aac2497414ef42a03ff5cbc174ab10ddbf8231/zypp/doc/autoinclude/Plugin-Commit.doc)
+calls `COMMITBEGIN` a pre-install notification, but does not give the plugin a
+transaction-veto result. The docs say an ERROR cancels the plugin execution; the implementation confirms
+this is not cancellation of `ZYpp::commit`. This establishes source-level
+placement before the package actions and fail-open behavior after plugin
+rejection; Run19 did not reach the hook at runtime.
 
-References for experiment design: [libzypp commit plugin protocol](https://github.com/openSUSE/libzypp/blob/master/zypp/doc/autoinclude/Plugin-Commit.doc),
-[libzypp plugin executor](https://github.com/openSUSE/libzypp/blob/master/zypp/PluginExecutor.cc),
-[PackageKit zypp backend](https://github.com/PackageKit/PackageKit/blob/main/backends/zypp/pk-backend-zypp.cpp),
-and the [PackageKit transaction API](https://github.com/PackageKit/PackageKit/blob/main/src/org.freedesktop.packagekit1.Transaction.xml).
-These moving source references establish a candidate only; each must be pinned
-to and checked against the actual guest packages before implementation.
+Conclusion: a libzypp commit plugin cannot provide the required
+pre-mutation failure-stop gate for this release. Treat such a plugin as
+telemetry only; do not use ERROR, malformed output, plugin disappearance,
+missing plugin, timeout, or a negative checkpoint callback to authorize a
+zypper write. This does not establish that the whole package transaction operation is protected or
+unsupported through every possible Ryoku-owned execution path. That operation
+remains awaiting proof until a complete mediated transaction is demonstrated;
+Run19 still supplies no guest `COMMITBEGIN`, provider result, or journal entry.
+
+A libzypp commit plugin may provide transaction telemetry, but it is not an
+authorization or recovery boundary. A broker called only from this plugin cannot
+make zypper fail closed: the pinned implementation closes the plugin after a
+negative or missing reply and continues the transaction. To protect the native
+Ryoku operation, any viable design must place the checkpoint and authorization
+in the Rust-owned service before it launches the fixed provider operation, then
+keep a durable job through provider completion and verify/journal the result.
+This does not prevent out-of-band system administration; those interfaces must
+remain outside the protected Ryoku workflow unless separately mediated.
+
+Run19 did not reach `COMMITBEGIN`, so it still provides no runtime transaction
+result or recovery-journal evidence. The pinned source review settles the
+commit-plugin veto question for the matching upstream release, but it does not
+measure PackageKit, its zypp backend, Cockpit, Myrlyn, or YaST. Their versions,
+write paths, authorization/cancellation behavior and bypasses remain unmeasured.
+A future guest experiment should first validate the fixture binary's source
+provenance, then test the Rust service-owned transaction path: inject
+checkpoint failure and prove the provider is never invoked; complete one
+harmless transaction; and match its capture ID, provider outcome, resulting RPM
+state and journal entry. Separately inspect PackageKit and Cockpit to determine
+whether either is called by that path or bypasses it. Treat direct RPM,
+repository-definition and trust-key writes as outside the protected workflow
+until separate pre-mutation controls are demonstrated.
+
+References for source analysis are pinned to libzypp tag `17.38.16` above.
+The [PackageKit zypp backend](https://github.com/PackageKit/PackageKit/blob/main/backends/zypp/pk-backend-zypp.cpp)
+and [PackageKit transaction API](https://github.com/PackageKit/PackageKit/blob/main/src/org.freedesktop.packagekit1.Transaction.xml)
+remain moving references because their installed guest versions and exact source
+revisions have not yet been collected.
 
 “Embedded” is an integration choice, not a protection property. A panel that can submit writes remains a provider bypass unless those exact writes are mediated. Where the upstream integration cannot meet this boundary, use an external launch only for unsupported/admin use and clearly mark it outside the protected controls.
 
@@ -225,8 +258,8 @@ Myrlyn, Cockpit and YaST are not alternate owners of the recovery contract. If f
 
 Run these against the supported disposable Tumbleweed guest and record exact package/provider versions, command/API, relevant service state, redacted logs and before/after state. Do not use the production host. The existing lab run is infrastructure evidence, not a provider-hook experiment.
 
-1. **Transaction boundary:** invoke the candidate native Rust operation for one harmless package already available in the frozen repository snapshot (or a no-op plan followed by a disposable transaction). Record authorization, linked pre-change capture ID, provider transaction/job ID, commit start/completion, final RPM state and post-state verification. Inject checkpoint failure and show that the provider is never called.
-2. **Bypass check:** perform the same transaction through direct zypper, PackageKit, Myrlyn, Cockpit software and YaST software interfaces one at a time. Determine whether any documented supported hook reliably prevents commit until the Ryoku checkpoint is verified. A before/after notification, app launch, package script, or desktop prompt is not a pre-commit gate.
+1. **Rust-owned transaction boundary:** invoke the candidate native Rust service operation for one harmless package already available in the frozen repository snapshot (or a no-op plan followed by a disposable transaction). Record authorization, linked pre-change capture ID, provider transaction/job ID, commit start/completion, final RPM state and post-state verification. Inject checkpoint failure and show that the provider is never called. The libzypp commit plugin is not a candidate failure-stop hook; source review proves its error/timeout path continues into the commit.
+2. **Bypass classification:** verify which interfaces can reach PackageKit/libzypp operations independently of the Ryoku service. Direct zypper, PackageKit, Myrlyn, Cockpit software and YaST software remain outside the protected Ryoku workflow unless each write is mediated before provider invocation. Record versions and exact request paths; do not spend a live transaction testing whether the libzypp plugin vetoes, since the pinned source shows no veto result is consumed.
 3. **Cancellation and client loss:** close the client before provider start, request cancellation before commit, then disconnect after commit begins. Verify no write before checkpoint, accurate cancellation reporting, persistent job status and recovery after service restart. Never claim that killing the client or provider process reverses a committed transaction.
 4. **Repository/trust operation:** use a disposable local repository fixture. Prove the pre-change checkpoint precedes each repo definition, priority, enablement and trust-key mutation; verify failure blocks the write and recovery restores the affected definition plus trust state.
 5. **Selected config operation:** choose one explicitly bounded setting. Capture its complete affected-state inventory; inject checkpoint failure; perform the write; verify post-state, service reload/error behavior, restore, and preservation of unrelated home files.
@@ -239,8 +272,8 @@ A candidate moves to **verified protected** only after the matching experiments 
 These references describe upstream interfaces; they are not evidence that this port has integrated or validated them.
 
 - [zypper manual (openSUSE documentation)](https://en.opensuse.org/SDB:Zypper_manual) — CLI operations and options. Consult the pinned guest's `zypper --help` and man page before selecting flags; the moving manual does not prove the guest's exact behavior.
-- [libzypp project](https://github.com/openSUSE/libzypp) — native package-management library and source. Its existence does not prove stable Rust bindings or the required transaction hook.
-- [libzypp commit-plugin protocol](https://github.com/openSUSE/libzypp/blob/master/zypp/doc/autoinclude/Plugin-Commit.doc), [plugin protocol overview](https://github.com/openSUSE/libzypp/blob/master/zypp/doc/autoinclude/Plugins.doc) and [plugin executor](https://github.com/openSUSE/libzypp/blob/master/zypp/PluginExecutor.cc) — source-level candidate hook and response behavior; check all three against the exact guest libzypp version.
+- [libzypp project](https://github.com/openSUSE/libzypp) — native package-management library and source. Its existence does not prove stable Rust bindings.
+- [libzypp 17.38.16 commit-plugin protocol](https://github.com/openSUSE/libzypp/blob/a8aac2497414ef42a03ff5cbc174ab10ddbf8231/zypp/doc/autoinclude/Plugin-Commit.doc), [plugin protocol overview](https://github.com/openSUSE/libzypp/blob/a8aac2497414ef42a03ff5cbc174ab10ddbf8231/zypp/doc/autoinclude/Plugins.doc), [plugin executor](https://github.com/openSUSE/libzypp/blob/a8aac2497414ef42a03ff5cbc174ab10ddbf8231/zypp/zypp/PluginExecutor.cc), [plugin script timeout](https://github.com/openSUSE/libzypp/blob/a8aac2497414ef42a03ff5cbc174ab10ddbf8231/zypp/zypp/PluginScript.cc) and [commit call site](https://github.com/openSUSE/libzypp/blob/a8aac2497414ef42a03ff5cbc174ab10ddbf8231/zypp/zypp/target/TargetImpl.cc) — pinned source review of the snapshot's matching libzypp NEVRA; runtime transaction behavior remains unexercised.
 - [PackageKit API](https://www.freedesktop.org/software/PackageKit/gtk-doc/), [PackageKit D-Bus API](https://www.freedesktop.org/software/PackageKit/docs/introduction.html), [transaction interface XML](https://github.com/PackageKit/PackageKit/blob/main/src/org.freedesktop.packagekit1.Transaction.xml) and [polkit actions](https://github.com/PackageKit/PackageKit/blob/main/data/policy/org.freedesktop.packagekit.policy.in) — standardized transaction methods, signals and authorization actions. Authorization and completion signals are not a pre-commit recovery hook. Confirm backend/version and behavior in the guest.
 - [Myrlyn source and README](https://github.com/shundhammer/myrlyn) and [openSUSE news on its origin](https://news.opensuse.org/2024/12/20/new-pkg-mgmt-tool-debuts/) — upstream describes a Qt UI backed by libzypp, package/repository management and read-only use. The installed Tumbleweed build, permission behavior and exact UI remain to be inspected.
 - [Cockpit embedding guide](https://cockpit-project.org/guide/latest/embedding.html) — documented embedding/navigation constraints.
