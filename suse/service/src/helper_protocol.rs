@@ -1,7 +1,9 @@
 //! Versioned, typed boundary for requests from the user service to a future
 //! privileged helper. It intentionally provides no command or mutation runner.
 
-use std::io::{BufRead, Read};
+use std::io::{BufRead, BufWriter, Read, Write};
+use std::os::unix::net::UnixStream;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
@@ -11,6 +13,7 @@ use crate::{
 
 pub const HELPER_PROTOCOL_VERSION: u16 = 1;
 pub const MAX_HELPER_REQUEST_BYTES: usize = 64 * 1024;
+const HELPER_IO_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// One helper request frame. The request language is the explicit
 /// [`HelperRequest`] enum; unknown fields are rejected during decoding.
@@ -88,11 +91,73 @@ pub fn dispatch_helper_request(
     })
 }
 
+/// Handle one helper socket connection. Peer credentials are obtained before
+/// request dispatch, and valid requests can produce only typed rejection
+/// outcomes. This function neither accepts nor persists an operation.
+pub fn serve_helper_connection(
+    mut stream: UnixStream,
+    service_uid: u32,
+) -> Result<(), ProtocolError> {
+    stream.set_read_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
+    stream.set_write_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
+
+    // Read kernel credentials before parsing or dispatching a request. The
+    // validated request ID is used only to correlate the typed rejection.
+    let peer = PeerIdentity::from_unix_socket(&stream)?;
+    let envelope = match read_helper_envelope(&mut std::io::BufReader::new(&mut stream)) {
+        Ok(envelope) => envelope,
+        Err(ProtocolError::Malformed("incomplete helper request frame")) => {
+            return Err(ProtocolError::Malformed("incomplete helper request frame"));
+        }
+        Err(ProtocolError::Io) => return Err(ProtocolError::Io),
+        Err(error) => {
+            let outcome = match error {
+                ProtocolError::UnsupportedVersion(_) => {
+                    HelperOutcome::Rejected(ServiceError::Unsupported)
+                }
+                ProtocolError::Malformed(_) | ProtocolError::TooLarge => HelperOutcome::Rejected(
+                    ServiceError::Malformed("invalid helper request".into()),
+                ),
+                ProtocolError::Io => unreachable!("I/O errors returned above"),
+            };
+            return write_helper_response(
+                stream,
+                HelperResponse {
+                    version: HELPER_PROTOCOL_VERSION,
+                    request_id: RequestId::new("invalid").expect("static request ID is valid"),
+                    outcome,
+                },
+            );
+        }
+    };
+
+    let response = if authorize_helper_peer(peer, service_uid).is_err() {
+        HelperResponse {
+            version: HELPER_PROTOCOL_VERSION,
+            request_id: envelope.request_id.clone(),
+            outcome: HelperOutcome::Rejected(ServiceError::Unauthorized),
+        }
+    } else {
+        dispatch_helper_request(peer, service_uid, envelope)?
+    };
+    write_helper_response(stream, response)
+}
+
+fn write_helper_response(
+    stream: UnixStream,
+    response: HelperResponse,
+) -> Result<(), ProtocolError> {
+    let mut writer = BufWriter::new(stream);
+    serde_json::to_writer(&mut writer, &response).map_err(|_| ProtocolError::Io)?;
+    writer.write_all(b"\n").map_err(|_| ProtocolError::Io)?;
+    writer.flush().map_err(|_| ProtocolError::Io)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{CheckpointId, PackageId};
-    use std::io::BufReader;
+    use std::io::{BufRead, BufReader};
     use std::os::unix::net::UnixStream;
 
     fn valid_envelope(request: HelperRequest) -> HelperEnvelope {
@@ -168,6 +233,64 @@ mod tests {
         assert_eq!(
             read_helper_envelope(&mut BufReader::new(input.as_slice())),
             Err(ProtocolError::TooLarge)
+        );
+    }
+
+    fn socket_request(request_id: &str) -> HelperEnvelope {
+        HelperEnvelope {
+            version: HELPER_PROTOCOL_VERSION,
+            request_id: RequestId::new(request_id).unwrap(),
+            request: HelperRequest::VerifyLinkedCheckpoint {
+                transaction_id: "txn-1".into(),
+                manifest_id: "manifest-1".into(),
+            },
+        }
+    }
+
+    fn send_envelope(stream: &mut UnixStream, envelope: &HelperEnvelope) {
+        serde_json::to_writer(&mut *stream, envelope).unwrap();
+        stream.write_all(b"\n").unwrap();
+    }
+
+    fn receive_response(stream: &mut UnixStream) -> HelperResponse {
+        let mut line = String::new();
+        BufReader::new(stream).read_line(&mut line).unwrap();
+        serde_json::from_str(&line).unwrap()
+    }
+
+    #[test]
+    fn socket_handler_authenticates_then_writes_only_typed_rejections() {
+        let (server, mut client) = UnixStream::pair().unwrap();
+        send_envelope(&mut client, &socket_request("unauthorized-req"));
+        serve_helper_connection(server, u32::MAX).unwrap();
+        let response = receive_response(&mut client);
+        assert_eq!(response.request_id.as_str(), "unauthorized-req");
+        assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
+
+        let (server, mut client) = UnixStream::pair().unwrap();
+        let peer = PeerIdentity::from_unix_socket(&client).unwrap();
+        send_envelope(&mut client, &socket_request("known-req"));
+        serve_helper_connection(server, peer.uid()).unwrap();
+        let response = receive_response(&mut client);
+        assert_eq!(response.request_id.as_str(), "known-req");
+        assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unsupported));
+    }
+
+    #[test]
+    fn socket_handler_returns_typed_framing_error_and_handles_peer_close() {
+        let (server, mut client) = UnixStream::pair().unwrap();
+        client.write_all(b"not-json\n").unwrap();
+        serve_helper_connection(server, rustix::process::geteuid().as_raw()).unwrap();
+        let response = receive_response(&mut client);
+        assert_eq!(response.request_id.as_str(), "invalid");
+        assert!(matches!(response.outcome, HelperOutcome::Rejected(ServiceError::Malformed(_))));
+
+        let (server, mut client) = UnixStream::pair().unwrap();
+        client.write_all(b"{\"version\":1").unwrap();
+        drop(client);
+        assert_eq!(
+            serve_helper_connection(server, rustix::process::geteuid().as_raw()),
+            Err(ProtocolError::Malformed("incomplete helper request frame"))
         );
     }
 }
