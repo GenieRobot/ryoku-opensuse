@@ -1,0 +1,13 @@
+[Unit]
+Description=Ryoku privileged helper socket
+
+[Socket]
+ListenStream=/run/ryoku/helper.sock
+SocketUser=root
+SocketGroup=ryoku-operators
+SocketMode=0660
+DirectoryMode=0755
+Accept=no
+
+[Install]
+WantedBy=sockets.target
