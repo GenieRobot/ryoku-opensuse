@@ -19,7 +19,7 @@ snapshot_exclusions = ["@/home", "@/var"]
 derivation = "Rust-controlled root copy to blank second GPT/Btrfs disk; native grub2-install and dracut; actual sole-disk boot required"
 snapshot_provider = "Snapper"
 kde_packages = ["plasma6-session", "sddm", "xorg-x11-server"]
-package_recommendations = "excluded; solver hard dependencies and signatures remain enforced; KDE closure still requires the denied OpenH264 payload"
+package_recommendations = "excluded; solver hard dependencies and signatures remain enforced; OpenH264 remains a hard dependency obtained from the pinned enabled source"
 repo_oss_url = "https://downloadcontent2.opensuse.org/history/20261011/tumbleweed/repo/oss/"
 repo_oss_repomd_sha256 = "e8eb2ef89e9df3ce26779d4c13b8a60570cc526e4df5c22ed6752a9e30539462"
 repo_non_oss_url = "https://downloadcontent2.opensuse.org/history/20261011/tumbleweed/repo/non-oss/"
@@ -39,7 +39,7 @@ ovmf_variables_sha256 = "5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388
 machine = "q35"
 accelerator = "tcg"
 cpus = 2
-memory_mib = 4096
+memory_mib = 6144
 disk_virtual_gib = 20
 
 [isolation]

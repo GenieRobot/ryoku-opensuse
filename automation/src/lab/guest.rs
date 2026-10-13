@@ -6,6 +6,9 @@ const MARKER: &str = "/etc/ryoku-lab-owned-marker";
 const EXPECTED: &str = "verified fixture state\n";
 const RESET_SENTINEL: &str = "/etc/ryoku-lab-reset-sentinel";
 const RESET_STATE: &[u8] = b"retained fixture reset state\n";
+const DISPLAY_MANAGER_ALIAS: &str = "/etc/systemd/system/display-manager.service";
+const LEGACY_DISPLAY_MANAGER: &str = "/usr/lib/systemd/system/display-manager-legacy.service";
+const SDDM_UNIT: &str = "/usr/lib/systemd/system/sddm.service";
 
 fn require_absent(path: impl AsRef<std::path::Path>, message: &str) -> Result<()> {
     match fs::symlink_metadata(path) {
@@ -84,9 +87,51 @@ pub fn setup(proxy: &str) -> Result<()> {
         command("snapper", &["-c", "root", "create-config", "/"])?;
     }
     command("systemctl", &["set-default", "graphical.target"])?;
-    command("systemctl", &["enable", "--now", "display-manager"])?;
+    select_sddm_display_manager()?;
     println!("setup=passed");
     inspect_provisioned()
+}
+
+fn select_sddm_display_manager() -> Result<()> {
+    replace_legacy_display_manager_alias(
+        DISPLAY_MANAGER_ALIAS.as_ref(),
+        LEGACY_DISPLAY_MANAGER.as_ref(),
+        SDDM_UNIT.as_ref(),
+    )?;
+    command("systemctl", &["daemon-reload"])?;
+    // Enable the canonical unit; `display-manager.service` is a systemd alias.
+    command("systemctl", &["enable", "--now", "sddm.service"])?;
+    Ok(())
+}
+
+fn replace_legacy_display_manager_alias(
+    alias: &std::path::Path,
+    legacy_unit: &std::path::Path,
+    sddm_unit: &std::path::Path,
+) -> Result<()> {
+    match fs::read_link(alias) {
+        Ok(target) => {
+            let resolved = if target.is_absolute() {
+                target
+            } else {
+                alias.parent().ok_or("display-manager alias has no parent")?.join(target)
+            }
+            .canonicalize()?;
+            let legacy = legacy_unit.canonicalize()?;
+            let sddm = sddm_unit.canonicalize()?;
+            if resolved == legacy {
+                // The minimal appliance pre-enables its console fallback under
+                // this alias. Replace only that exact symlink in this marked
+                // disposable fixture; preserve and reject every other provider.
+                fs::remove_file(alias)?;
+            } else {
+                require(resolved == sddm, "unexpected display-manager provider")?;
+            }
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
+    }
+    Ok(())
 }
 
 pub fn inspect() -> Result<()> {
@@ -273,5 +318,35 @@ mod tests {
         assert!(require_absent("invalid\0path", "present").is_err());
         fs::remove_file(&path).unwrap();
         fs::remove_dir(directory).unwrap();
+    }
+
+    #[test]
+    fn replaces_only_the_exact_legacy_display_manager_symlink() {
+        let unique =
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let directory = std::env::temp_dir()
+            .join(format!("ryoku-display-manager-{}-{unique}", std::process::id()));
+        fs::create_dir(&directory).unwrap();
+        let legacy = directory.join("display-manager-legacy.service");
+        let sddm = directory.join("sddm.service");
+        let alias = directory.join("display-manager.service");
+        fs::write(&legacy, "legacy").unwrap();
+        fs::write(&sddm, "sddm").unwrap();
+        std::os::unix::fs::symlink(&legacy, &alias).unwrap();
+        replace_legacy_display_manager_alias(&alias, &legacy, &sddm).unwrap();
+        assert!(require_absent(&alias, "legacy alias remains").is_ok());
+
+        std::os::unix::fs::symlink(&sddm, &alias).unwrap();
+        replace_legacy_display_manager_alias(&alias, &legacy, &sddm).unwrap();
+        assert!(fs::read_link(&alias).is_ok());
+        fs::remove_file(&alias).unwrap();
+
+        let unexpected = directory.join("unexpected.service");
+        fs::write(&unexpected, "unexpected").unwrap();
+        std::os::unix::fs::symlink(&unexpected, &alias).unwrap();
+        assert!(replace_legacy_display_manager_alias(&alias, &legacy, &sddm).is_err());
+        assert!(fs::symlink_metadata(&alias).unwrap().file_type().is_symlink());
+        fs::remove_file(alias).unwrap();
+        fs::remove_dir_all(directory).unwrap();
     }
 }

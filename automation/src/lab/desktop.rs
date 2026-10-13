@@ -312,6 +312,14 @@ fn matches(values: &BTreeMap<String, String>, expected: &[(&str, &str)]) -> bool
     expected.iter().all(|(key, expected)| values.get(*key).map(String::as_str) == Some(*expected))
 }
 
+fn login_session_diagnostic(values: &BTreeMap<String, String>) -> String {
+    ["Name", "UID", "Service", "Class", "Seat", "Type", "Desktop", "Active", "State", "Remote"]
+        .iter()
+        .map(|key| format!("{key}={}", values.get(*key).map(String::as_str).unwrap_or("<missing>")))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 fn greeter_ready() -> Result<()> {
     display_manager()?;
     let values = show_session(&active_session()?)?;
@@ -603,7 +611,10 @@ pub fn inspect() -> Result<()> {
     let values = show_session(&id)?;
     require(
         session_matches(&values, uid),
-        "no active ordinary-user Plasma Wayland SDDM/PAM login on seat0",
+        &format!(
+            "ordinary-user Plasma Wayland SDDM/PAM session properties did not match: {}",
+            login_session_diagnostic(&values)
+        ),
     )?;
     let scope = values.get("Scope").ok_or("native login session scope missing")?;
     require(scope == &format!("session-{id}.scope"), "unexpected native login session scope")?;

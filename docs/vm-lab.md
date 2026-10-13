@@ -118,7 +118,8 @@ proves the lab can exercise controlled corruption and offline Snapper recovery.
 Full root rollback, boot-menu snapshot selection, production linked Ryoku/home
 state recovery are later issue acceptance gates; this fixture test does not
 establish those behaviors. Run11 did not establish desktop login; the follow-up
-adds a fail-closed mandatory check, still blocked until KDE actually installs.
+adds a fail-closed mandatory check. Run17 installed KDE/SDDM but did not pass
+the actual ordinary-user Wayland login/session check.
 
 Reset stops the guest cleanly, discards its disk and firmware variables, boots
 another fresh base overlay and requires both marker absence and absence of the
@@ -146,14 +147,14 @@ continues the independently available base VM checks. It still returns nonzero
 and writes `lab_result=blocked` after reset. This provides partial recovery and
 runner evidence and never satisfies KDE fallback or closes #13.
 
-## Current KDE download blocker
+## Historical KDE download blocker (Runs 11–13)
 
 Earlier full recommended closure and a retry with native `--no-recommends` both
 selected 750 packages and failed with Zypper exit 4 on
 `libopenh264-8-2.6.0-2.suse1699.10.x86_64.rpm`, HTTP 403. Hard dependencies,
 signatures and TLS were preserved. The retry did not remove the codec requirement.
 
-The allowed official URL
+In Runs 11–13, the allowed official URL
 `https://codecs.opensuse.org/openh264/openSUSE_Tumbleweed/x86_64/libopenh264-8-2.6.0-2.suse1699.10.x86_64.rpm`
 returns HTTP 302 to
 `https://ciscobinary.openh264.org/libopenh264-8-2.6.0-2.suse1699.10.x86_64.rpm`.
@@ -162,13 +163,8 @@ A HEAD request on 12 October 2026 verified that redirect without following it.
 resource action is authorization of that host through the supported environment
 configuration workflow, or an accessible, supported Tumbleweed KDE fixture.
 No direct-route/proxy bypass, fake codec, signature override or solver override
-was attempted. KDE fallback acceptance remains incomplete until its real package
-closure and actual graphical login/session checks pass. The user has approved
-the exact Cisco destination, but this chat's enforced runtime policy still
-omits it and exposes no mutation control. Applying that approved destination
-through supported environment configuration requires a new chat/environment;
-direct access or proxy bypass is not permitted. Authorization alone does not
-prove the package installation or desktop works.
+was attempted in those runs. Run17 supersedes the OpenH264 access result; see
+the later recorded run for current installation and graphical-login evidence.
 
 The [signed dependency trace](../infra/tumbleweed-lab/evidence/kde-dependency-trace.md)
 records the hard KDE→Baloo→file metadata→FFmpeg→OpenH264 chain, full native
@@ -338,6 +334,36 @@ Clippy, workspace tests (**21 lab + 1 boundary = 22 passed, 0 failed, 0 ignored*
 cargo-deny and the binary build passed. Separate independent reviews validated
 the immutable implementation and signature-default repair; passing review and
 base evidence do not complete the blocked KDE gate.
+
+## Follow-up Run17: KDE packages installed, graphical login blocked
+
+Run17 completed on 13 October 2026 in the existing managed cloud workspace with
+6144 MiB guest memory, QEMU 10.0.13 and TCG. The
+[sanitized evidence](../infra/tumbleweed-lab/evidence/issue13-run17.txt) records
+the complete run. Its runner executable SHA256 was
+`a0b3597150378af14f6bf90db0eb5f0e51efa3ea68280de0cc0cba7616660e97`.
+
+The official OpenH264 redirect worked through the existing network path during
+this run; no proxy or direct-route bypass was used. The pinned transaction
+installed Plasma 6 and SDDM (`6.7.5-1.1` and `0.21.0+git57-1.1`), and the SDDM
+display manager became active. The mandatory ordinary-user Plasma Wayland
+login/session inspection still failed with `no active ordinary-user Plasma
+Wayland SDDM/PAM login on seat0`. Raising guest memory did not resolve this.
+The evidence therefore records `desktop_login=blocked` and
+`lab_result=blocked`; package installation alone is not KDE fallback
+acceptance. The precise login failure cause remains unproven.
+
+All independent base lifecycle gates passed: derived Btrfs/EFI/GRUB/Snapper
+boot, repeated inspection after reboot, unreachable external egress, controlled
+corruption, offline Snapper restore with matching bytes, marker cleanup, and
+sentinel durability before discard. Reset booted fresh XFS with the marker,
+KDE package, Snapper config and sentinel absent. The source image was unchanged;
+disks and keys were removed. Normal teardown left no lab QEMU process.
+
+Only sanitized evidence is public; serial, guest and desktop diagnostics remain
+private. Run17 supersedes the old OpenH264 access blocker but does not satisfy
+the login gate or close issue #13. It also does not establish the separate GUI
+application, provider-hook or profile-state acceptance gates.
 
 ## Observed hosted Rust checks
 
