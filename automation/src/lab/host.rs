@@ -408,10 +408,15 @@ impl Lab {
                 if offline { "on" } else { "off" }
             ))
             .args(["-device", "virtio-net-pci,netdev=net0,romfile=", "-vga", "none"])
+            // VMware SVGA is the only DRM-capable emulated GPU in the pinned
+            // QEMU build. The legacy VGA device binds bochs-drm when a full
+            // kernel is installed, but that driver exposes no render node for
+            // KWin's Wayland compositor. Runtime acceptance still requires
+            // the headed ordinary-user session to render successfully.
             .arg("-device")
             .arg(format!(
-                "VGA,romfile={}",
-                self.assets.join("qemu/usr/share/seabios/vgabios-stdvga.bin").display()
+                "vmware-svga,romfile={}",
+                self.assets.join("qemu/usr/share/seabios/vgabios-vmware.bin").display()
             ))
             .args(["-display", "none", "-monitor", "none"])
             .arg("-qmp")
