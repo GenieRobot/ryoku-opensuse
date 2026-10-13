@@ -2,14 +2,15 @@
 //!
 //! This module does not capture recovery state or execute provider operations.
 //! Integrations must provide a trusted checkpoint verifier and plan revalidator.
-//! The lock must be an open file in a service-owned, non-user-writable directory;
-//! all cooperating writers must use the same inode. `flock` coordinates processes
-//! on one host and is advisory, so it cannot constrain uncooperative providers.
+//! `MutationLock` pins a private service-state directory and opens one fixed lock
+//! file afresh for each operation. `flock` coordinates cooperating Ryoku
+//! processes on one host and releases on process exit; it cannot constrain
+//! uncooperative providers.
 
 use std::fs::File;
 use std::io;
 
-use rustix::fs::{FlockOperation, flock};
+use rustix::fs::{FileType, FlockOperation, Mode, OFlags, flock, fstat, fsync, openat};
 
 use crate::{
     JournalError, ManagedActionKind, OperationId, OperationJournal, OperationPhase,
@@ -124,14 +125,79 @@ fn pre_change_error(cause: &GateError) -> ServiceError {
     }
 }
 
-/// Holds an exclusive interprocess writer lock until dropped.
+const MUTATION_LOCK_NAME: &str = "mutation.lock";
+
+/// Stable location for the coordinator lock used by cooperating Ryoku writers.
+/// Construct this from a trusted, service-owned state-directory descriptor.
+pub struct MutationLock {
+    directory: File,
+    expected_uid: u32,
+}
+
+impl MutationLock {
+    /// Validate and pin a private state directory, creating the fixed lock file
+    /// if needed. The directory must be owned by `expected_uid` and inaccessible
+    /// to group and other users. Each `acquire` performs a fresh open so threads
+    /// and processes contend using distinct open-file descriptions for the same
+    /// lock inode.
+    pub fn open(directory: File, expected_uid: u32) -> Result<Self, GateError> {
+        validate_lock_directory(&directory, expected_uid)?;
+        let lock = Self { directory, expected_uid };
+        drop(lock.open_lock_file()?);
+        fsync(&lock.directory).map_err(lock_error)?;
+        Ok(lock)
+    }
+
+    /// Block until all cooperating Ryoku writers using this lock directory
+    /// release the common advisory lock.
+    pub fn acquire(&self) -> Result<WriterGuard, GateError> {
+        WriterGuard::acquire(self.open_lock_file()?)
+    }
+
+    fn open_lock_file(&self) -> Result<File, GateError> {
+        validate_lock_directory(&self.directory, self.expected_uid)?;
+        let descriptor = openat(
+            &self.directory,
+            MUTATION_LOCK_NAME,
+            OFlags::RDWR | OFlags::CREATE | OFlags::CLOEXEC | OFlags::NOFOLLOW,
+            Mode::from_raw_mode(0o600),
+        )
+        .map_err(lock_error)?;
+        let file = File::from(descriptor);
+        let metadata = fstat(&file).map_err(lock_error)?;
+        if FileType::from_raw_mode(metadata.st_mode) != FileType::RegularFile
+            || metadata.st_uid != self.expected_uid
+            || metadata.st_mode & 0o7777 != 0o600
+            || metadata.st_nlink != 1
+        {
+            return Err(GateError::Lock(io::ErrorKind::PermissionDenied));
+        }
+        Ok(file)
+    }
+}
+
+fn validate_lock_directory(directory: &File, expected_uid: u32) -> Result<(), GateError> {
+    let metadata = fstat(directory).map_err(lock_error)?;
+    if FileType::from_raw_mode(metadata.st_mode) != FileType::Directory
+        || metadata.st_uid != expected_uid
+        || metadata.st_mode & 0o077 != 0
+    {
+        return Err(GateError::Lock(io::ErrorKind::PermissionDenied));
+    }
+    Ok(())
+}
+
+fn lock_error(error: rustix::io::Errno) -> GateError {
+    GateError::Lock(io::Error::from(error).kind())
+}
+
+/// Holds an exclusive interprocess writer lock until dropped or the process exits.
 pub struct WriterGuard {
     _file: File,
 }
 
 impl WriterGuard {
-    /// Blocks until the advisory exclusive lock is acquired.
-    pub fn acquire(service_owned_lock_file: File) -> Result<Self, GateError> {
+    fn acquire(service_owned_lock_file: File) -> Result<Self, GateError> {
         flock(&service_owned_lock_file, FlockOperation::LockExclusive)
             .map_err(|error| GateError::Lock(error.kind()))?;
         Ok(Self { _file: service_owned_lock_file })
@@ -177,7 +243,7 @@ pub fn with_verified_prechange<T>(
 /// callback begins. A crash leaves the last reached phase for explicit
 /// recovery; this function does not infer or replay an interrupted operation.
 pub fn with_journaled_verified_mutation<T>(
-    lock_file: File,
+    lock: &MutationLock,
     planned: &PlannedChange,
     operation: &mut JournaledOperation<'_>,
     checkpoint: &mut impl CheckpointVerifier,
@@ -185,14 +251,11 @@ pub fn with_journaled_verified_mutation<T>(
     apply: impl FnOnce(&VerifiedLinkedGeneration) -> Result<T, GateError>,
     verify_post_change: impl FnOnce(&T, &VerifiedLinkedGeneration) -> Result<(), GateError>,
 ) -> Result<T, GateError> {
+    // Acquire before the first journal append. Cooperating processes share this
+    // lock across every phase, preventing records or provider work from
+    // interleaving around one operation.
+    let _writer = lock.acquire()?;
     operation.record(OperationPhase::Accepted, None)?;
-    let _writer = match WriterGuard::acquire(lock_file) {
-        Ok(guard) => guard,
-        Err(error) => {
-            let category = pre_change_error(&error);
-            return Err(operation.fail(category, error));
-        }
-    };
 
     operation.record(OperationPhase::Capturing, None)?;
     let evidence = match checkpoint.create_and_verify() {
@@ -244,7 +307,9 @@ pub fn with_journaled_verified_mutation<T>(
 mod tests {
     use super::*;
     use crate::JournalRecord;
+    use std::os::unix::fs::PermissionsExt;
     use std::path::{Path, PathBuf};
+    use std::process::Command;
     use std::sync::{Arc, Mutex};
 
     fn lock_file(tag: &str) -> File {
@@ -259,6 +324,27 @@ mod tests {
             .unwrap();
         std::fs::remove_file(path).unwrap();
         file
+    }
+
+    struct TestMutationLock {
+        path: PathBuf,
+        lock: MutationLock,
+    }
+
+    impl Drop for TestMutationLock {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    fn mutation_lock(tag: &str) -> TestMutationLock {
+        let path =
+            std::env::temp_dir().join(format!("ryoku-mutation-lock-{tag}-{}", std::process::id()));
+        std::fs::create_dir(&path).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let uid = rustix::process::geteuid().as_raw();
+        let lock = MutationLock::open(File::open(&path).unwrap(), uid).unwrap();
+        TestMutationLock { path, lock }
     }
 
     fn evidence() -> CheckpointEvidence {
@@ -420,6 +506,7 @@ mod tests {
         let (path, mut journal) = operation_journal("success");
         let id = operation_id("op-success");
         let mut operation = JournaledOperation::new(&mut journal, id.clone(), action());
+        let lock = mutation_lock("durable-success");
         struct DurableCheckpoint {
             path: PathBuf,
             id: OperationId,
@@ -447,7 +534,7 @@ mod tests {
         let verify_path = path.clone();
         let verify_id = id.clone();
         let result = with_journaled_verified_mutation(
-            lock_file("durable-success"),
+            &lock.lock,
             &planned(),
             &mut operation,
             &mut checkpoint,
@@ -494,12 +581,13 @@ mod tests {
             let (path, mut journal) = operation_journal(tag);
             let id = operation_id(if tag == "capture" { "op-capture" } else { "op-stale" });
             let mut operation = JournaledOperation::new(&mut journal, id.clone(), action());
+            let lock = mutation_lock(tag);
             let trace = Arc::new(Mutex::new(Vec::new()));
             let mut checkpoint =
                 FakeCheckpoint { evidence: checkpoint_result, trace: trace.clone() };
             let mut revalidator = FakeRevalidator { matches: plan_matches, trace };
             let result = with_journaled_verified_mutation(
-                lock_file(tag),
+                &lock.lock,
                 &planned(),
                 &mut operation,
                 &mut checkpoint,
@@ -529,11 +617,12 @@ mod tests {
         let (path, mut journal) = operation_journal("post-change");
         let id = operation_id("op-post-change");
         let mut operation = JournaledOperation::new(&mut journal, id.clone(), action());
+        let lock = mutation_lock("post-change");
         let trace = Arc::new(Mutex::new(Vec::new()));
         let mut checkpoint = FakeCheckpoint { evidence: Ok(evidence()), trace: trace.clone() };
         let mut revalidator = FakeRevalidator { matches: true, trace };
         let result = with_journaled_verified_mutation(
-            lock_file("post-change"),
+            &lock.lock,
             &planned(),
             &mut operation,
             &mut checkpoint,
@@ -555,11 +644,12 @@ mod tests {
         let (path, mut journal) = operation_journal("apply-failure");
         let id = operation_id("op-apply-failure");
         let mut operation = JournaledOperation::new(&mut journal, id.clone(), action());
+        let lock = mutation_lock("apply-failure");
         let trace = Arc::new(Mutex::new(Vec::new()));
         let mut checkpoint = FakeCheckpoint { evidence: Ok(evidence()), trace: trace.clone() };
         let mut revalidator = FakeRevalidator { matches: true, trace };
         let result = with_journaled_verified_mutation(
-            lock_file("apply-failure"),
+            &lock.lock,
             &planned(),
             &mut operation,
             &mut checkpoint,
@@ -577,29 +667,128 @@ mod tests {
     }
 
     #[test]
-    fn separate_descriptors_for_same_inode_serialize_writers() {
+    fn independently_opened_coordinator_locks_serialize_writers() {
         use std::sync::mpsc;
         use std::time::Duration;
-        let path =
-            std::env::temp_dir().join(format!("ryoku-mutation-serialize-{}", std::process::id()));
-        let first = std::fs::OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .read(true)
-            .write(true)
-            .open(&path)
-            .unwrap();
-        let second = std::fs::OpenOptions::new().read(true).write(true).open(&path).unwrap();
-        let guard = WriterGuard::acquire(first).unwrap();
+        let first = mutation_lock("serialize");
+        let uid = rustix::process::geteuid().as_raw();
+        let second = MutationLock::open(first.lock.directory.try_clone().unwrap(), uid).unwrap();
+        let guard = first.lock.acquire().unwrap();
         let (tx, rx) = mpsc::channel();
         let thread = std::thread::spawn(move || {
-            let _second_guard = WriterGuard::acquire(second).unwrap();
+            let _second_guard = second.acquire().unwrap();
             tx.send(()).unwrap();
         });
         assert!(rx.recv_timeout(Duration::from_millis(75)).is_err());
         drop(guard);
         rx.recv_timeout(Duration::from_secs(2)).unwrap();
         thread.join().unwrap();
-        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn coordinator_lock_rejects_nonprivate_state_directories() {
+        let path =
+            std::env::temp_dir().join(format!("ryoku-mutation-lock-public-{}", std::process::id()));
+        std::fs::create_dir(&path).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let result =
+            MutationLock::open(File::open(&path).unwrap(), rustix::process::geteuid().as_raw());
+        assert!(matches!(result, Err(GateError::Lock(io::ErrorKind::PermissionDenied))));
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        std::fs::remove_dir(path).unwrap();
+    }
+
+    #[test]
+    fn coordinator_lock_rejects_aliased_lock_inode() {
+        let owner = mutation_lock("aliased");
+        std::fs::hard_link(owner.path.join(MUTATION_LOCK_NAME), owner.path.join("alias")).unwrap();
+        assert!(matches!(
+            owner.lock.acquire(),
+            Err(GateError::Lock(io::ErrorKind::PermissionDenied))
+        ));
+        std::fs::remove_file(owner.path.join("alias")).unwrap();
+    }
+
+    #[test]
+    fn lock_holder_process_exit_releases_the_coordinator_lock() {
+        const DIRECTORY_ENV: &str = "RYOKU_TEST_MUTATION_LOCK_DIRECTORY";
+        if let Some(path) = std::env::var_os(DIRECTORY_ENV) {
+            let lock =
+                MutationLock::open(File::open(path).unwrap(), rustix::process::geteuid().as_raw())
+                    .unwrap();
+            let _guard = lock.acquire().unwrap();
+            // Exit without Rust destructors to model an interrupted process.
+            std::process::exit(73);
+        }
+
+        let owner = mutation_lock("process-exit");
+        let status = Command::new(std::env::current_exe().unwrap())
+            .arg("--exact")
+            .arg("mutation_gate::tests::lock_holder_process_exit_releases_the_coordinator_lock")
+            .env(DIRECTORY_ENV, &owner.path)
+            .status()
+            .unwrap();
+        assert_eq!(status.code(), Some(73));
+        let _guard = owner.lock.acquire().unwrap();
+    }
+
+    #[test]
+    fn lock_holder_process_contention_child() {
+        let Some(directory) = std::env::var_os("RYOKU_TEST_MUTATION_LOCK_DIRECTORY") else {
+            return;
+        };
+        let ready = PathBuf::from(std::env::var_os("RYOKU_TEST_MUTATION_LOCK_READY").unwrap());
+        let release = PathBuf::from(std::env::var_os("RYOKU_TEST_MUTATION_LOCK_RELEASE").unwrap());
+        let lock =
+            MutationLock::open(File::open(directory).unwrap(), rustix::process::geteuid().as_raw())
+                .unwrap();
+        let _guard = lock.acquire().unwrap();
+        std::fs::write(ready, b"locked").unwrap();
+        while !release.exists() {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        std::process::exit(74);
+    }
+
+    #[test]
+    fn independent_processes_contend_on_the_coordinator_lock() {
+        use std::sync::mpsc;
+        use std::time::{Duration, Instant};
+
+        let owner = mutation_lock("process-contention");
+        let ready = owner.path.join("child.ready");
+        let release = owner.path.join("child.release");
+        let mut child = Command::new(std::env::current_exe().unwrap())
+            .arg("--exact")
+            .arg("mutation_gate::tests::lock_holder_process_contention_child")
+            .env("RYOKU_TEST_MUTATION_LOCK_DIRECTORY", &owner.path)
+            .env("RYOKU_TEST_MUTATION_LOCK_READY", &ready)
+            .env("RYOKU_TEST_MUTATION_LOCK_RELEASE", &release)
+            .spawn()
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while !ready.exists() {
+            assert!(Instant::now() < deadline, "lock holder child did not acquire lock");
+            assert!(child.try_wait().unwrap().is_none(), "lock holder child exited early");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+
+        let second = MutationLock::open(
+            owner.lock.directory.try_clone().unwrap(),
+            rustix::process::geteuid().as_raw(),
+        )
+        .unwrap();
+        let (tx, rx) = mpsc::channel();
+        let waiter = std::thread::spawn(move || {
+            let _guard = second.acquire().unwrap();
+            tx.send(()).unwrap();
+        });
+        assert!(rx.recv_timeout(Duration::from_millis(75)).is_err());
+        std::fs::write(&release, b"release").unwrap();
+        assert_eq!(child.wait().unwrap().code(), Some(74));
+        rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        waiter.join().unwrap();
+        std::fs::remove_file(ready).unwrap();
+        std::fs::remove_file(release).unwrap();
     }
 }
