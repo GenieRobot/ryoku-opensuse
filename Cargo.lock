@@ -584,6 +584,9 @@ version = "0.1.0"
 [[package]]
 name = "ryoku-automation"
 version = "0.1.0"
+dependencies = [
+ "rustix",
+]
 
 [[package]]
 name = "ryoku-contract-tests"

@@ -10,6 +10,9 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[dependencies]
+rustix = { version = "1.1.5", features = ["process"] }
+
 [[bin]]
 name = "vm-lab"
 path = "src/lab/main.rs"

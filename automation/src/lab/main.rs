@@ -4,6 +4,7 @@ mod desktop;
 mod guest;
 mod host;
 mod migration;
+mod process;
 mod repositories;
 mod support;
 #[cfg(test)]
@@ -12,7 +13,8 @@ mod zypp_plugin;
 fn main() {
     if let Err(error) = run() {
         eprintln!("VM lab failed: {error}");
-        std::process::exit(1);
+        let status = if error.to_string() == "KDE_PROVISIONING_TIMEOUT" { 124 } else { 1 };
+        std::process::exit(status);
     }
 }
 
