@@ -304,13 +304,40 @@ lexically, file records are sorted by fixed root name and relative path, and
 the SHA-256 digest covers this canonical document with `manifest_sha256`
 omitted. The sealed document includes that digest. The Rust recovery crate
 validates v1 schema bounds before producing this canonical byte representation,
-then seals and verifies the digest when callers construct the typed value. The persisted reader accepts at most 1 MiB, validates parsed values, and verifies the digest before returning a manifest. The Linux collector captures exact metadata records, and the generation publisher writes content-addressed payload blobs plus the sealed manifest under an already-open state-root descriptor, verifies readback, atomically publishes the generation, and publishes a transaction catalog link. This is still a storage primitive: it does not validate the dedicated subvolume/mount identity, acquire the writer lock, append the operation journal, derive a complete inventory, collect payload bytes from the filesystem, capture Snapper state, restore paths, or authorize a provider mutation.
+then seals and verifies the digest when callers construct the typed value. The
+persisted reader accepts at most 1 MiB, validates parsed values, and verifies
+the digest before returning a manifest. The Linux `generation_capture` layer
+now composes exact-file capture with bounded no-follow payload reads, a second
+metadata/content capture, manifest sealing, immutable publication, and
+transaction read-back verification. The input remains an explicit caller
+inventory and an externally verified snapshot-link attestation; this code
+does not validate the dedicated subvolume/mount identity, freeze writers,
+append the operation journal, derive an audited inventory, contact Snapper,
+restore paths, or authorize a provider mutation.
 
 The exact signed `mtime_unix_ns` value is encoded as a canonical decimal JSON string so the entire supported i128 range survives serde_json's canonical value representation without rounding or overflow.
 
 Generation payload filenames are their lowercase SHA-256 values. A generation contains only `manifest.json` and `payloads/<sha256>.blob`; duplicate file content is stored once, and any unlisted entry invalidates verification. The store enforces 256 manifest entries, 16 MiB per file, 64 MiB total payload data, and the existing 1 MiB manifest limit. The transaction catalog entry is compact canonical JSON containing schema version, transaction ID, generation ID, and manifest digest. The storage root and its `staging`, `generations`, and `catalog` directories must be root-owned mode `0700`; published generation directories are mode `0500`, and their files are mode `0400`. Publication writes only below directory descriptors, refuses symlinked store subdirectories, synchronizes files and directories, verifies every referenced blob against its size and digest, renames the complete staging directory into `generations/<generation-id>` without replacement, then publishes `catalog/<transaction-id>.json` without replacement. `verify_transaction` requires a canonical catalog link and revalidates the manifest and every referenced blob. Incomplete staging is never considered by readers. A verified generation means its supplied manifest and content agree; it does not by itself authorize a restore or mutation.
 
-The publisher accepts a caller-supplied exact digest-to-bytes payload map. The current capture API returns records and digests but does not yet return captured bytes, so an end-to-end collector-to-generation capture path is still missing. The capture implementation also fails closed on symlink entries pending race-free symlink metadata capture; the publisher can preserve a validated relative symlink target, but that does not close the capture gap. Protected-content classification, supported multi-layer inventory compilation, catalog reconstruction, journal coordination, mount identity validation, and crash/reboot recovery evidence remain incomplete. Issue #18 must stay open until its customized multi-layer, corrupt-input, interrupted-capture, and linked restore acceptance fixtures pass.
+The lower-level publisher still accepts a caller-supplied exact
+digest-to-bytes map. `capture_publish_verify` builds that map only from the
+records returned by the exact-file collector, reopens regular files beneath
+their supplied descriptors without following symlinks or mount crossings,
+checks their size/digest, repeats the capture and compares the complete
+records, then invokes the publisher and verifies the transaction from disk.
+Any capture, metadata, payload, or read-back failure returns an error; no
+verified manifest is returned. A crash during storage publication leaves
+unindexed staging or an unindexed generation, which store readers ignore.
+Capture continues to fail closed on symlink entries pending race-free symlink
+metadata capture. Protected-content classification, the audited multi-layer
+inventory compiler, catalog reconstruction, journal/writer coordination,
+mount identity validation, and crash/reboot recovery evidence remain
+incomplete. Issue #18 stays open until customized multi-layer, corrupt-input,
+interrupted-capture, and linked restore acceptance fixtures pass.
+The synthetic end-to-end unit fixture injects a test-only no-xattr reader
+because its temporary filesystem does not expose the required ACL xattrs;
+production capture still uses the kernel reader and rejects unsupported
+metadata.
 
 Every transaction manifest records:
 
@@ -403,9 +430,15 @@ captures owner, group, mode, nanosecond mtime, POSIX ACL digests, and
 SELinux-label digests through the opened file descriptor. It detects
 identity/content/metadata changes during capture and rejects special files,
 symlink leaves, incomplete hard-link sets, and filesystems that cannot supply
-required metadata. Symlink target capture, a multi-root enrollment compiler,
-authorization, generation publication, restore, and Tumbleweed runtime proof
-remain unimplemented. The collector is not a privileged helper and cannot
+required metadata. The `generation_capture` module accepts multiple distinct
+fixed root selectors and explicit path lists, reads each regular payload
+beneath its matching descriptor with no-follow/no-cross-mount resolution,
+confirms the complete capture records are unchanged, then seals, publishes,
+and verifies the exact generation. The caller must freeze writers and
+attest an externally verified snapshot link; neither is established by this
+module. Symlink target capture, a reviewed multi-root enrollment compiler,
+authorization, restore, and Tumbleweed runtime proof remain unimplemented.
+Neither collector nor generation capture is a privileged helper or can
 authorize a mutation by itself.
 
 The typed contract also names operation reason/time, per-package identity and
@@ -494,7 +527,7 @@ with the observed root snapshot before restore.
 
 - Implement the dedicated subvolume setup/validation and prove it survives
   actual Snapper root rollback and reboot on the disposable Tumbleweed VM.
-- Add race-injection and supported-filesystem ACL/SELinux capture tests; implement safe raw-target symlink capture or keep symlinks out of v1 enrolled paths. Atomic publication, writer-lock, interrupted-transaction, and schema migration remain unimplemented. The current unit tests exercise capture against synthetic temporary trees; they do not prove live Tumbleweed metadata capture.
+- Add race-injection and supported-filesystem ACL/SELinux capture tests; implement safe raw-target symlink capture or keep symlinks out of v1 enrolled paths. Immutable publication has focused unit tests, but a writer lock, operation journal, coordinated interrupted-transaction handling, and schema migration remain unimplemented. The current unit tests exercise capture against synthetic temporary trees; they do not prove live Tumbleweed metadata capture.
 - Exercise successful and deliberately corrupted linked generations offline,
   including configuration-only fallback and preservation of an unrelated home
   sentinel.
