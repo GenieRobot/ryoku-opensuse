@@ -6,6 +6,8 @@ mod host;
 mod migration;
 mod repositories;
 mod support;
+#[cfg(test)]
+mod zypp_plugin;
 
 fn main() {
     if let Err(error) = run() {
