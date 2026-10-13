@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "suse/adapters",
+    "suse/service",
     "suse/recovery",
     "suse/ui",
     "suse/profiles",

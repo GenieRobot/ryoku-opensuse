@@ -604,6 +604,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ryoku-service"
+version = "0.1.0"
+dependencies = [
+ "rustix",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ryoku-ui"
 version = "0.1.0"
 dependencies = [

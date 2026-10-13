@@ -1,10 +1,12 @@
 # Architecture boundaries
 
 The workspace establishes crate boundaries for user interface, distribution
-adapters, profile data, recovery state, integration tests, and custom
-automation. These crates are scaffolding only; they do not implement product
-behavior. Later issues can add typed contracts without coupling privileged
-operations to the UI.
+adapters, profile data, recovery state, integration tests, custom automation,
+and a versioned Rust service contract. The service crate provides validated
+request/response types, Linux Unix-socket peer credential reading, a fixed
+helper request enum, and a synchronized operation journal. It does not yet
+implement a listening daemon, privileged helper executable, provider
+mutations, or linked recovery execution; see [service-contract.md](service-contract.md).
 
 ## Trust and write path
 
