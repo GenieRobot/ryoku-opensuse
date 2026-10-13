@@ -5,6 +5,7 @@
 //! supplied executable, path, shell text, or provider arguments. Mutations are
 //! rejected until an integration can supply verified linked-capture evidence.
 
+pub mod helper_protocol;
 pub mod mutation_gate;
 pub mod runtime;
 
