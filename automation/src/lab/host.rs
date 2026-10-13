@@ -370,6 +370,10 @@ impl Lab {
         require(self.vm.is_none(), "VM already owned by run")?;
         self.port = None;
         let mut command = self.tool("qemu-system-x86_64");
+        // The pinned Debian package ships some PCI devices, including
+        // virtio-vga, as modules under qemu-system-common. The assets are
+        // extracted into a private directory rather than installed globally.
+        command.env("QEMU_MODULE_DIR", self.assets.join("qemu/usr/lib/x86_64-linux-gnu/qemu"));
         // QMP screendumps use fixed relative names and stay below this private
         // mode-0700 directory. All other QEMU inputs use absolute paths.
         command.current_dir(&self.run);
@@ -408,15 +412,15 @@ impl Lab {
                 if offline { "on" } else { "off" }
             ))
             .args(["-device", "virtio-net-pci,netdev=net0,romfile=", "-vga", "none"])
-            // VMware SVGA is the only DRM-capable emulated GPU in the pinned
-            // QEMU build. The legacy VGA device binds bochs-drm when a full
-            // kernel is installed, but that driver exposes no render node for
-            // KWin's Wayland compositor. Runtime acceptance still requires
-            // the headed ordinary-user session to render successfully.
+            // virtio-vga provides the guest virtio_gpu KMS/DRM driver with a
+            // render node; the legacy VGA device's bochs-drm only exposed a
+            // primary node and left KWin's Wayland compositor on a black
+            // framebuffer. Runtime acceptance still requires the headed
+            // ordinary-user session to render successfully.
             .arg("-device")
             .arg(format!(
-                "vmware-svga,romfile={}",
-                self.assets.join("qemu/usr/share/seabios/vgabios-vmware.bin").display()
+                "virtio-vga,romfile={}",
+                self.assets.join("qemu/usr/share/seabios/vgabios-virtio.bin").display()
             ))
             .args(["-display", "none", "-monitor", "none"])
             .arg("-qmp")
