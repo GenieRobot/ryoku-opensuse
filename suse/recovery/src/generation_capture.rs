@@ -171,6 +171,27 @@ fn capture_publish_verify_using(
         CaptureLimits,
     ) -> Result<Vec<crate::FileRecord>, CaptureError>,
 ) -> Result<RecoveryManifest, GenerationCaptureError> {
+    capture_publish_verify_using_capacity(
+        store,
+        request,
+        capture_files,
+        |store, payload_bytes, payload_file_count| {
+            store.ensure_available_space(payload_bytes, payload_file_count)
+        },
+    )
+}
+
+fn capture_publish_verify_using_capacity(
+    store: &GenerationStore,
+    request: GenerationCaptureRequest<'_>,
+    capture_files: impl Fn(
+        &File,
+        StateRoot,
+        &[RelativePath],
+        CaptureLimits,
+    ) -> Result<Vec<crate::FileRecord>, CaptureError>,
+    check_capacity: impl Fn(&GenerationStore, u64, usize) -> Result<(), GenerationError>,
+) -> Result<RecoveryManifest, GenerationCaptureError> {
     validate_inventory(request.roots, request.limits)?;
     let roots = sorted_roots(request.roots)?;
 
@@ -181,6 +202,9 @@ fn capture_publish_verify_using(
     if records.is_empty() {
         return Err(GenerationCaptureError::EmptyInventory);
     }
+
+    let (payload_bytes, payload_file_count) = payload_storage_bound(&records)?;
+    check_capacity(store, payload_bytes, payload_file_count)?;
 
     let payloads = collect_payloads(&roots, &records, request.limits)?;
 
@@ -226,6 +250,20 @@ fn capture_publish_verify_using(
         return Err(GenerationCaptureError::VerificationMismatch);
     }
     Ok(stored)
+}
+
+/// Upper bound for on-disk payload bytes before deduplication. Counting every
+/// regular file is conservative and also bounds per-file allocation overhead.
+fn payload_storage_bound(
+    records: &[crate::FileRecord],
+) -> Result<(u64, usize), GenerationCaptureError> {
+    records.iter().try_fold((0_u64, 0_usize), |(bytes, files), record| match &record.kind {
+        EntryKind::RegularFile { size, .. } => Ok((
+            bytes.checked_add(*size).ok_or(GenerationCaptureError::InventoryTooLarge)?,
+            files.checked_add(1).ok_or(GenerationCaptureError::InventoryTooLarge)?,
+        )),
+        _ => Ok((bytes, files)),
+    })
 }
 
 fn validate_inventory(
@@ -548,6 +586,49 @@ mod tests {
                 "system.posix_acl_access"
             )))
         ));
+        assert!(
+            store.verify_transaction(&Identifier::new("capture-transaction-1").unwrap()).is_err()
+        );
+    }
+
+    #[test]
+    fn low_space_preflight_stops_before_payload_reopen_or_publication() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let source = TempDir::new("space-source");
+        let store_root = TempDir::new("space-store");
+        fs::write(source.0.join("profile.json"), b"synthetic profile bytes").unwrap();
+        let source_fd = source.descriptor();
+        let store_fd = store_root.descriptor();
+        let store = GenerationStore::open_for_test(&store_fd).unwrap();
+        let paths = [RelativePath::new("profile.json").unwrap()];
+        let roots = [DeclaredRoot {
+            root: StateRoot::UserRyokuProfile,
+            descriptor: &source_fd,
+            paths: &paths,
+        }];
+        let captures = AtomicUsize::new(0);
+
+        let result = capture_publish_verify_using_capacity(
+            &store,
+            request(&roots),
+            |root, state, paths, limits| {
+                captures.fetch_add(1, Ordering::SeqCst);
+                crate::capture::capture_declared_without_xattrs_for_test(root, state, paths, limits)
+            },
+            |_, required_bytes, _| {
+                Err(GenerationError::InsufficientSpace {
+                    required_bytes,
+                    available_bytes: required_bytes.saturating_sub(1),
+                })
+            },
+        );
+
+        assert!(matches!(
+            result,
+            Err(GenerationCaptureError::Generation(GenerationError::InsufficientSpace { .. }))
+        ));
+        assert_eq!(captures.load(Ordering::SeqCst), 1);
         assert!(
             store.verify_transaction(&Identifier::new("capture-transaction-1").unwrap()).is_err()
         );

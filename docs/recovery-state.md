@@ -348,6 +348,14 @@ records, then invokes the publisher and verifies the transaction from disk.
 Any capture, metadata, payload, or read-back failure returns an error; no
 verified manifest is returned. A crash during storage publication leaves
 unindexed staging or an unindexed generation, which store readers ignore.
+Before reopening payloads, the capture path checks available blocks through
+the open staging-directory descriptor. It bounds requested payload bytes from
+the initial inventory and includes the maximum manifest size and per-file
+allocation overhead. This preflight is advisory rather than a reservation;
+any later write or synchronization failure still aborts capture, so callers
+must not authorize mutation unless publication and read-back verification both
+succeed. This check covers the generation store filesystem only; it does not
+estimate Snapper snapshot or provider package transaction space.
 Capture continues to fail closed on symlink entries pending race-free symlink
 metadata capture. Protected-content classification, the audited multi-layer
 inventory compiler, catalog reconstruction, journal/writer coordination,
