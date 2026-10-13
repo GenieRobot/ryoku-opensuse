@@ -529,10 +529,7 @@ impl Lab {
                 "outcome" => outcome = Some(value),
                 _ => {}
             }
-            let safe_value = !value.is_empty()
-                && value
-                    .bytes()
-                    .all(|byte| byte.is_ascii_alphanumeric() || b"_.+-:|/@".contains(&byte));
+            let safe_value = safe_zypp_probe_value(key, value);
             if safe_value {
                 match key {
                     "inventory_packages" | "inventory_plugin_directories" => {
@@ -907,6 +904,114 @@ impl Lab {
     }
 }
 
+fn safe_zypp_probe_value(key: &str, value: &str) -> bool {
+    if key == "inventory_path" {
+        return safe_inventory_path_value(value);
+    }
+
+    !value.is_empty()
+        && value.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"_.+-:|/@".contains(&byte))
+}
+
+fn safe_inventory_path_value(value: &str) -> bool {
+    let mut fields = value.split('|');
+    let Some(path) = fields.next() else { return false };
+    if path.is_empty()
+        || !path.starts_with('/')
+        || !path.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"/_.+-".contains(&byte))
+    {
+        return false;
+    }
+    let Some(kind) = fields.next() else { return false };
+    if !["missing", "regular-file", "directory", "symlink", "other"].contains(&kind) {
+        return false;
+    }
+
+    let rest = fields.collect::<Vec<_>>();
+    if kind == "missing" {
+        return matches!(rest.as_slice(), [owner] if owner.strip_prefix("owner=").is_some_and(safe_inventory_owner));
+    }
+    if rest.len() != 9 {
+        return false;
+    }
+
+    let mut mode = false;
+    let mut uid = false;
+    let mut gid = false;
+    let mut mtime = false;
+    let mut target = false;
+    let mut owner = false;
+    let mut acl = false;
+    let mut selinux = false;
+    let mut capability = false;
+    for field in rest {
+        let Some((key, value)) = field.split_once('=') else { return false };
+        let valid = match key {
+            "mode" if !mode => {
+                mode = true;
+                !value.is_empty() && value.bytes().all(|byte| (b'0'..=b'7').contains(&byte))
+            }
+            "uid" if !uid => {
+                uid = true;
+                safe_decimal(value)
+            }
+            "gid" if !gid => {
+                gid = true;
+                safe_decimal(value)
+            }
+            "mtime_ns" if !mtime => {
+                mtime = true;
+                let digits = value.strip_prefix('-').unwrap_or(value);
+                safe_decimal(digits)
+            }
+            "target" if !target => {
+                target = true;
+                value.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"/_.+-".contains(&byte))
+            }
+            "owner" if !owner => {
+                owner = true;
+                safe_inventory_owner(value)
+            }
+            "acl" if !acl => {
+                acl = true;
+                safe_inventory_digest_status(value)
+            }
+            "xattr.security.selinux" if !selinux => {
+                selinux = true;
+                safe_inventory_digest_status(value)
+            }
+            "xattr.security.capability" if !capability => {
+                capability = true;
+                safe_inventory_digest_status(value)
+            }
+            _ => false,
+        };
+        if !valid {
+            return false;
+        }
+    }
+    mode && uid && gid && mtime && target && owner && acl && selinux && capability
+}
+
+fn safe_decimal(value: &str) -> bool {
+    !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+fn safe_inventory_owner(value: &str) -> bool {
+    !value.is_empty()
+        && value.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"_.+-:@".contains(&byte))
+}
+
+fn safe_inventory_digest_status(value: &str) -> bool {
+    match value.split_once(':') {
+        None => ["absent", "unavailable"].contains(&value),
+        Some(("present", digest)) => {
+            digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+        }
+        _ => false,
+    }
+}
+
 fn desktop_password() -> Result<Vec<u8>> {
     let mut entropy = fs::File::open("/dev/urandom")?;
     let alphabet = b"abcdefghijklmnopqrstuvwxyz0123456789";
@@ -1236,6 +1341,38 @@ pub fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn zypp_inventory_accepts_structured_metadata_but_rejects_untrusted_fields() {
+        let record = "/etc/zypp/zypper.conf|regular-file|mode=644|uid=0|gid=0|mtime_ns=0|target=|owner=zypper@0:1.2-1.noarch|acl=absent|xattr.security.selinux=absent|xattr.security.capability=unavailable";
+        assert!(safe_zypp_probe_value("inventory_path", record));
+        assert!(safe_zypp_probe_value(
+            "inventory_path",
+            "/etc/zypp/missing.conf|missing|owner=UNOWNED"
+        ));
+        assert!(!safe_zypp_probe_value(
+            "inventory_path",
+            &record.replace("mode=644", "mode=644;touch")
+        ));
+        assert!(!safe_zypp_probe_value(
+            "inventory_path",
+            &record.replace("target=", "target=$(id)")
+        ));
+        assert!(!safe_zypp_probe_value(
+            "inventory_path",
+            &record.replace("uid=0", "uid=0|secret=private")
+        ));
+        assert!(!safe_zypp_probe_value(
+            "inventory_path",
+            &record.replace("acl=absent", "acl=present:not-a-digest")
+        ));
+    }
+
+    #[test]
+    fn zypp_probe_scalar_grammar_stays_restricted() {
+        assert!(safe_zypp_probe_value("outcome", "denied"));
+        assert!(!safe_zypp_probe_value("outcome", "denied=unexpected"));
+    }
 
     #[derive(Default)]
     struct RecordingLoginMonitor {
