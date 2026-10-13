@@ -181,14 +181,34 @@ struct Lab {
 
 impl Drop for Lab {
     fn drop(&mut self) {
-        if let Some(mut child) = self.vm.take() {
-            let _ = child.kill();
-            let _ = child.wait();
-        }
+        let _ = self.terminate_owned_vm();
     }
 }
 
 impl Lab {
+    fn terminate_owned_vm(&mut self) -> Result<()> {
+        let Some(child) = self.vm.as_mut() else {
+            self.port = None;
+            return Ok(());
+        };
+
+        if child.try_wait()?.is_none()
+            && let Err(kill_error) = child.kill()
+        {
+            // QEMU may have exited between try_wait and kill. Keep the
+            // child and port owned unless that exit can be observed.
+            if child.try_wait()?.is_none() {
+                return Err(kill_error.into());
+            }
+        }
+        child.wait()?;
+
+        // Clear ownership only after wait has successfully reaped QEMU.
+        self.vm = None;
+        self.port = None;
+        Ok(())
+    }
+
     fn tool(&self, binary: &str) -> Command {
         let mut command = Command::new(self.assets.join("qemu/usr/bin").join(binary));
         command.env("LD_LIBRARY_PATH", self.assets.join("qemu/usr/lib/x86_64-linux-gnu"));
@@ -1153,11 +1173,7 @@ pub fn run(
         lab.evidence("zypp_experiment_is_not_a_protected_write_gate=confirmed")?;
         // This is a disposable test overlay. Terminate only the QEMU process
         // this Lab owns; its private overlay is deleted below and never reused.
-        if let Some(mut child) = lab.vm.take() {
-            let _ = child.kill();
-            let _ = child.wait();
-        }
-        lab.port = None;
+        lab.terminate_owned_vm()?;
         lab.evidence("offline_recovery=skipped_provider_probe_overlay_discarded")?;
     } else {
         lab.stop()?;
