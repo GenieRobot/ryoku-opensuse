@@ -5,6 +5,8 @@
 //! supplied executable, path, shell text, or provider arguments. Mutations are
 //! rejected until an integration can supply verified linked-capture evidence.
 
+pub mod mutation_gate;
+
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
