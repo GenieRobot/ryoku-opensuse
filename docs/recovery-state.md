@@ -184,19 +184,23 @@ contents for secrets or undeclared data in the public catalog.
 
 ## Manifest schema and publication rules
 
-The schema has a required `schema_version`; unsupported major versions or
-unknown required fields must fail closed. Compatible readers may ignore unknown
-optional fields, while writers preserve them when round-tripping. Migrations
-are deterministic, local, and version-to-version; they write a new generation
-and retain the prior one until verification and catalog publication succeed.
-No migration fetches code or data from a Git remote.
+The schema has a required `schema_version`; the current typed writer accepts
+version 1 only and rejects any other version before serialization. The v1
+compatibility rule is strict: a future reader must reject unknown fields rather
+than silently discard data. Optionality applies only to known v1 fields, where
+an absent value means `None`. Any field-set or semantic change requires an
+explicit local version-to-version migration. A migration writes a new
+generation and retains the prior one until verification and catalog
+publication succeed; it never fetches code or data from a Git remote. The
+reader/parser and migration executor are not implemented yet.
 
 Version 1 canonical encoding is compact UTF-8 JSON. JSON object keys are sorted
 lexically, file records are sorted by fixed root name and relative path, and
 the SHA-256 digest covers this canonical document with `manifest_sha256`
-omitted. The sealed document includes that digest. The Rust recovery crate can
-now produce this canonical byte representation, seal it, and verify the digest
-when callers reconstruct the same typed value. It still has no parser,
+omitted. The sealed document includes that digest. The Rust recovery crate
+validates v1 schema bounds before producing this canonical byte representation,
+then seals and verifies the digest when callers construct the typed value. It
+still has no parser,
 filesystem collector, durable writer, or generation publisher, so this is not
 yet a persistent-storage or capture guarantee.
 
@@ -285,9 +289,10 @@ or guarantee that a future collector enforces every declared rule. Unsupported
 metadata must still fail capture at that boundary.
 
 The example is illustrative, not a parser-ready schema or proof of a live
-capture. Tests now cover canonical encoding, digest sealing/verification, and
-stable ordering for declared files. Parser limits and compatible schema
-migration still need implementation tests before persisted data is accepted.
+capture. Tests cover v1 schema bounds, canonical encoding, digest
+sealing/verification, and stable file/package ordering. Parser limits and
+version migration still need implementation tests before persisted data is
+accepted.
 
 ## Profile resolution and private data
 
@@ -303,6 +308,8 @@ An absent companion layer is normal. The resolver needs only locally supplied
 typed data and performs no Git or network access. The current
 `ryoku-profiles` Rust model captures this merge order for the initial typed
 settings surface. It has no filesystem, command, or network capability.
+Its Rust module documentation includes a synthetic local example that resolves
+all four layers without a Git remote, credentials, or companion payload.
 
 Public profiles and examples must be synthetic. Never commit private companion
 payloads, remote URLs, access tokens, user identifiers, private profile names,
@@ -345,3 +352,20 @@ with the observed root snapshot before restore.
   installed desktop, every integrated provider, and packaged Ryoku components.
 - Link the live evidence and reviewed implementation commit to issue #16
   before marking it complete.
+
+## Issue #16 checklist reconciliation
+
+This matrix reports repository evidence without treating an ADR or synthetic
+example as a live recovery result. Every issue checkbox remains open until the
+corresponding implementation and disposable-guest evidence are linked.
+
+| Issue #16 item | Current repository evidence | Still needed |
+|---|---|---|
+| Inventory Ryoku config, app/theme/shell state, provider state and profile layers | Pinned upstream path tables and exclusions above; typed local profile layers | Run19's exact Tumbleweed package/path ownership and metadata findings; final integrated Ryoku package/session inventory after login support succeeds. |
+| Define manifest IDs, reason/time, checksums, metadata, package/upstream/profile revisions and verification | Typed v1 manifest, canonical JSON/SHA-256 seal/verify, explicit package/provider revisions, profile revisions, metadata fields and validation tests | Parser and schema migration implementation; metadata acquisition and filesystem capture tests. |
+| Protect catalog/generations outside root rollback; validate subvolume, writer coordination and privilege split | Storage ADR specifies the dedicated subvolume, validation and user/helper responsibilities | Setup/startup validation, locking/journal/publication implementation, and linked root rollback/reboot proof on Tumbleweed. |
+| Define profile precedence, absent entries and compatible migrations | Rust local resolver plus synthetic doctest; absent-file records; strict v1 compatibility/migration rules | Persistent profile/catalog storage and migration implementation; offline linked restore proof. |
+| Document snapshot/boot combinations, fallback and exclusions | Scenario matrix and explicit firmware, partitioning, arbitrary-root and undeclared-home exclusions | Exercise manifest-linked rollback, corruption handling and configuration-only fallback offline. |
+| ADR retains catalog, journal and matching generation across root rollback | Contract describes storage location, link identity and refusal to guess a generation | Actual dedicated mount plus Snapper rollback/reboot evidence. |
+| Inventory ownership, modes, symlinks, extended metadata and external paths without traversal | Typed metadata schema, pinned Ryoku source inventory and no-recursive-traversal rules | Exact Tumbleweed runtime ownership/mode/ACL/xattr evidence from Run19; audited allowlist and collector behavior tests. |
+| Profile interface works locally without remotes/credentials; public examples synthetic | Pure Rust resolver has no filesystem/network capability; synthetic four-layer doctest | None for the resolver contract; companion persistence/sync remains out of scope. |
