@@ -61,16 +61,15 @@ metadata makes capture incomplete rather than silently dropping it.
 |---|---|---|
 | Catalog and operation journal | `/var/lib/ryoku-state/catalog/`, `journal/` | Root-owned helper writes; outside root Snapper rollback; include in a separate durable state backup policy. |
 | Immutable configuration generations | `/var/lib/ryoku-state/generations/<id>/` | Root-owned, content-addressed, read-only after publish; includes only paths explicitly declared by a generation manifest. |
-| Ryoku system configuration | `/etc/ryoku/` and individually declared provider paths below `/etc` | Root-owned system configuration; exact per-file ownership/mode/metadata captured. No general `/etc` traversal. |
+| Proposed Ryoku system configuration | `/etc/ryoku/` is an openSUSE namespace proposal; provider files below `/etc` are not yet enumerated | No Tumbleweed provider path is currently authorized for recovery. Do not interpret this proposed namespace as a discovered or audited installed path. |
 | User Ryoku configuration | `$XDG_CONFIG_HOME/ryoku/` (or the resolved per-user config root) | User-owned; include only declared Ryoku files, with UID/GID and mode. Do not include sibling or unrelated home files. |
 | Local profile selection and layers | `/var/lib/ryoku-state/profiles/` plus per-user Ryoku profile selection under the Ryoku config root | User selection stays user-owned; installed profile defaults/system overlays are immutable generations. Companion and personal material is local-only and excluded from public examples. |
-| Provider / package state | Exact provider setting files and package/upstream revision records named by the operation manifest | Capture only reviewed, known provider state needed to reverse the supported operation. Package database and arbitrary provider-owned files are not recursively copied. |
+| Provider / package state | No exact Tumbleweed provider setting path is currently approved; package/upstream revisions may be recorded as manifest metadata | Provider writes remain unsupported pending #15 hook proof. Package databases and provider-owned files are not recovery inputs. |
 
-The exact provider paths remain an inventory obligation for each accepted
-provider operation. Any external path must include its declared root,
-expected filesystem, ownership policy, and rollback method in the operation
-manifest. A path outside the allowlist is not managed merely because a tool
-can access it.
+Any future provider operation must first name and audit each affected path,
+including package owner, writer, filesystem, ownership/mode/metadata, and
+rollback behavior. A path outside a reviewed operation allowlist is not
+managed merely because a tool can access it.
 
 ### Pinned upstream findings and first-sprint scope
 
@@ -101,6 +100,77 @@ describes a user-facing profile page and hero image, not the openSUSE four-layer
 precedence above; that precedence is a new local contract. Package intent and
 upstream revisions may be recorded, but pacman databases and generic provider
 state are not restore targets.
+
+### Exact paths evidenced by the pinned upstream source
+
+The following are source-backed path contracts at the immutable revision above.
+They describe upstream Ryoku ownership; they are not a claim that these files
+exist on the Tumbleweed guest or that every upstream feature is in this port.
+Variable roots are resolved for one target user and never authorize walking the
+home directory.
+
+| Path or exact file set | Source-backed writer/ownership | Recovery scope |
+|---|---|---|
+| `$XDG_CONFIG_HOME/ryoku/{desktop,hypr,shell,theme,launcher,ryogami,widgets,visualizer,decor,brand,profile}.json` and `hub.toml` | Upstream Hub/provider preference stores; written by the user session. `rice.go` names its store set and Hub `config.go`/`profile.go` define their locations. The default root is `~/.config/ryoku`. | Per-file opt-in records only for settings the openSUSE UI actually supports. Do not treat the directory or JSON suffix as a recursive allowlist. |
+| `$XDG_CONFIG_HOME/ryoku/profile.json` and `profile/hero.<ext>` | Profile UI writes JSON and copies a selected custom hero into `profile/`; both are user-owned. The hero extension and size are not fixed by the upstream contract. | The metadata file is a candidate declared file. A hero image needs explicit format/size rules before capture; no directory walk. |
+| `$XDG_CONFIG_HOME/hypr/{monitors.lua,gpu.lua,keyboard.lua,user.lua}` and optional `monitors_user.lua`; generated `settings.lua`/`rebinds.lua`; mirrored generated overlay files `ryoku/user_edits/hypr/{settings.lua,rebinds.lua}`; user-editable `modules/` | The pinned provider interface (`ryoku/cli/vendor/ryoku-wm/detect.go`) distinguishes generated seeds, user-owned files, generated outputs and hand-edit escape hatches. | Not a current Tumbleweed provider set. If a compatible provider is later supported, list only specific files in that operation. |
+| `$XDG_CONFIG_HOME/niri/{monitors.kdl,gpu.kdl,keyboard.kdl,user.kdl,monitors_user.kdl}`; generated `settings.kdl`/`rebinds.kdl`; mirrored generated overlay files `ryoku/user_edits/niri/{settings.kdl,rebinds.kdl}` | Same pinned provider interface; niri's `monitors_user.kdl` is a required seeded include. | Not a current Tumbleweed provider set. No arbitrary `niri/` capture. |
+| `$XDG_CONFIG_HOME/ryoku/user_edits/<relative-path>` | Sparse user-authored forks. Upstream enumerates regular files, skipping symlinks, `.md` files, and nested `ryoku/user_edits/`; the overlay mirrors paths into `~/.config`. | Preserve only a future explicitly enrolled file. Upstream's recursive overlay behavior is not adopted as this project's capture policy. |
+| `$XDG_STATE_HOME/ryoku/{repo,deployed,materialized,doctor-report.txt}` | CLI operational state at default `~/.local/state/ryoku`; upstream CLI reference identifies checkout, deploy revision, materialization hash manifest, and latest report. Other features have independent state beneath this root. | Excluded from configuration generations. Do not copy this directory or rely on these Arch-updater records for restore. |
+| `$XDG_DATA_HOME/ryoku/plugins/`, `$XDG_STATE_HOME/ryoku/plugins/<id>`, `$XDG_CACHE_HOME/ryoku/plugins/<id>` | Plugin payload, plugin state and cache have separate upstream roots. Plugin payloads can contain executable code. | Excluded. Plugin sync/recovery requires a separate reviewed contract. |
+| `/usr/share/ryoku/config/` | Package-provided base config. The pinned `materialize.go` copies regular files into the user's config root and stores a path-to-content-hash manifest at `$XDG_STATE_HOME/ryoku/materialized`. | Package source is regenerated from the exact package revision, not copied into a user generation. The hash manifest does not represent full file metadata. |
+
+Pinned implementation references: [Hub store paths and rice store set](https://github.com/Ryoku-dev/ryoku/blob/98a0368253d9628be72b853985878a5db90e1547/ryoku/hub/backend/rice.go), [Hub config path](https://github.com/Ryoku-dev/ryoku/blob/98a0368253d9628be72b853985878a5db90e1547/ryoku/hub/backend/config.go), [profile file and hero directory](https://github.com/Ryoku-dev/ryoku/blob/98a0368253d9628be72b853985878a5db90e1547/ryoku/hub/backend/profile.go), [preference write mode and atomic writer](https://github.com/Ryoku-dev/ryoku/blob/98a0368253d9628be72b853985878a5db90e1547/ryoku/hub/backend/desktop.go), [Hyprland/Niri seed and generated path contract](https://github.com/Ryoku-dev/ryoku/blob/98a0368253d9628be72b853985878a5db90e1547/ryoku/cli/vendor/ryoku-wm/detect.go), [sparse overlay enumeration](https://github.com/Ryoku-dev/ryoku/blob/98a0368253d9628be72b853985878a5db90e1547/ryoku/cli/internal/sys/useredits.go), and [CLI state file descriptions](https://github.com/Ryoku-dev/ryoku/blob/98a0368253d9628be72b853985878a5db90e1547/docs/cli.md).
+
+`materialize.go` and `sys/fsops.go` prove that the upstream materializer tracks
+relative paths and SHA-256 values and copies file permission bits into a new
+user-owned file. It does not capture or restore source UID/GID, mtime, ACLs,
+xattrs, hard-link identity or symlink targets. Its behavior therefore cannot
+serve as evidence that a recovery collector already meets the metadata
+contract. The openSUSE manifest must capture metadata independently and fail
+closed when a required supported attribute cannot be read.
+
+For the cited user-session writers, source calls request `0755` directories and
+`0644` preference files (`atomicWrite` explicitly chmods files); resulting
+ownership is the account running the UI/materializer. `CopyFile` requests the
+source permission bits for its temporary copy but does not chown or restore
+timestamps. These are writer semantics, not observed Tumbleweed metadata and
+not proof that all upstream files use identical modes.
+
+The pinned upstream tree also contains system/installer paths such as
+`/etc/ryoku-release`, `/etc/ryoku/default-kernel`,
+`/etc/ryoku/snapshots-disabled`, `/etc/ryoku/limine-existing-esp`,
+`/etc/systemd/logind.conf.d/10-ryoku-lid.conf`,
+`/etc/sddm.conf.d/99-ryoku.conf`, and `/var/lib/ryoku/*`. Their writers and
+ownership rules are specific to the Arch installer/packages or upstream greeter
+implementation. They are **not** evidence for Tumbleweed package ownership,
+and none is admitted to this manifest by name or by directory.
+The source paths for these examples are the pinned [desktop package
+recipe](https://github.com/Ryoku-dev/ryoku/blob/98a0368253d9628be72b853985878a5db90e1547/release/packages/ryoku-desktop/PKGBUILD), [installer
+bootloader](https://github.com/Ryoku-dev/ryoku/blob/98a0368253d9628be72b853985878a5db90e1547/installation/backend/lib/bootloader.sh), [installer
+snapshot choice](https://github.com/Ryoku-dev/ryoku/blob/98a0368253d9628be72b853985878a5db90e1547/installation/backend/lib/snapshots.sh), [greeter
+writer](https://github.com/Ryoku-dev/ryoku/blob/98a0368253d9628be72b853985878a5db90e1547/ryoku/hub/backend/lock.go), and [tmpfiles
+ownership declaration](https://github.com/Ryoku-dev/ryoku/blob/98a0368253d9628be72b853985878a5db90e1547/ryoku/cli/systemd/ryoku.tmpfiles.conf).
+
+### Tumbleweed evidence boundary
+
+The committed Tumbleweed fixture pins the `snapshot20261011` repository
+metadata digests and requests `plasma6-session`, `sddm`, and
+`xorg-x11-server`. Sanitized Run17 evidence records installed versions
+`plasma6-session 6.7.5-1.1` and `sddm 0.21.0+git57-1.1`, with SDDM active and
+the ordinary-user KDE login blocked. It does not record `rpm -qf` results,
+package file lists, post-install `/etc` contents, user config paths, UID/GID,
+modes, ACLs, or xattrs. The run therefore proves package presence/version and
+service state only.
+
+There is currently no supported Tumbleweed provider write set in this project:
+package, repository, Snapper, Plasma/SDDM and arbitrary system-setting writes
+remain outside the recovery allowlist until their #15 pre-mutation boundary and
+affected-state inventory are proven. The log does not justify declaring
+`/etc/sddm.conf.d`, `/etc/zypp`, `/etc/PackageKit`, `/etc/snapper`, or any other
+provider path Ryoku-owned. Exact package ownership and file metadata require a
+sanitized guest inspection after installation; this audit did not connect to
+or modify the running VM.
 
 For every declared regular file record: normalized relative path, entry type,
 size, SHA-256, mode, UID/GID, modification time, hard-link group where
