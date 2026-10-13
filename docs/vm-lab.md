@@ -438,3 +438,44 @@ format, Clippy, 5 tests and cargo-deny passed. [Sanitized integrated evidence](.
 records this existing run. Only Rust executed; no VM job ran or was dispatched.
 Both hosted observations concern PR54's earlier source, rather than this
 follow-up revision. Local checks and actual Run13 evidence cover this revision.
+
+## Optional M0-06 libzypp hook experiment
+
+The normal `vm-lab run ASSET_DIRECTORY FRESH_RUN_DIRECTORY` lifecycle is
+unchanged. A one-off disposable provider experiment can be explicitly enabled
+with `--zypp-probe PROBE_BINARY PACKAGE`, for example:
+
+```text
+RYOKU_LAB_AUTHORIZED=existing-cloud-workspace \
+  ./target/release/vm-lab run /workspace/opensuse-vm \
+  /workspace/ryoku-lab-issue15-run19 \
+  --zypp-probe ./target/release/zypp-hook-probe hello
+```
+
+Build both Rust binaries from the same reviewed checkout with
+`cargo build --release --locked -p ryoku-automation --bin vm-lab --bin zypp-hook-probe`.
+The probe runs after the normal guest setup/reboot checks and before offline
+recovery. It first gathers the read-only provider/package ownership inventory,
+then runs deny, malformed-response, bounded-timeout and missing-plugin modes in
+that order. The selected package must be absent from the guest RPM database and
+available from the pinned repository metadata; choose a small harmless package.
+The final missing-plugin mode may intentionally install it. Any unsafe or
+inconclusive result is kept in the private logs and the derived overlay is
+discarded without reuse. The optional experiment skips the offline recovery
+phase because its deliberate missing-plugin bypass can change guest state;
+the normal reset-from-base marker check still runs. Its evidence reports
+`lifecycle_result=partial` and `lab_result=partial`; do not interpret that run
+as a passing #13 recovery run or as a protected provider write.
+
+The raw inventory/probe output, SSH diagnostics and QEMU logs stay in the
+mode-0700 run directory; probe-specific logs are mode 0600. Public evidence
+contains only allowlisted package/version facts, normalized allowlisted paths,
+file kind, owner/mode facts, symlink targets only for discovered symlinks,
+ACL/xattr availability statuses and hashes, and outcome flags. Raw metadata
+values and guest output remain private; hashes cover ACLs and the allowlisted
+SELinux/capability xattrs. The inventory reads RPM package records,
+plugin/config paths and file metadata. It does not install more provider
+packages. The
+experiment is Rust-only; a discovered commit plugin and direct zypper are not
+treated as integrated Ryoku authorization. PackageKit/Cockpit, Myrlyn and YaST
+write paths remain unsupported pending separate transaction-boundary proof.

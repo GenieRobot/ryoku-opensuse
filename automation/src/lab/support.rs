@@ -106,9 +106,23 @@ pub fn public_evidence(line: &str) -> bool {
         "base_unchanged",
         "reset_disk_and_keys",
         "ui_visual_capture",
+        "zypp_experiment_is_not_a_protected_write_gate",
+        "packagekit_cockpit_myrlyn_yast_write_paths",
+        "zypp_inventory",
+        "zypp_plugin_directory",
+        "zypp_later_modes",
         "lab_result",
     ];
-    keys.contains(&key)
+    let dynamic_key = (key.starts_with("zypp_inventory_")
+        || key.starts_with("zypp_deny_commit_")
+        || key.starts_with("zypp_malformed_commit_")
+        || key.starts_with("zypp_timeout_commit_")
+        || key.starts_with("zypp_missing_plugin_")
+        || key.starts_with("zypp_probe_"))
+        && key.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-'
+        });
+    (keys.contains(&key) || dynamic_key)
         && !value.is_empty()
         && value.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_.+".contains(&b))
 }
@@ -155,5 +169,15 @@ mod tests {
         assert!(public_evidence("reset_sentinel_bytes=matched"));
         assert!(public_evidence("reset_sentinel_sync=passed"));
         assert!(public_evidence("ui_visual_capture=passed"));
+        assert!(public_evidence("zypp_inventory_path_1=usr_lib64_zypp_plugins_commit"));
+        assert!(public_evidence("zypp_inventory_kind_1=symlink"));
+        assert!(public_evidence("zypp_inventory_symlink_target_1=usr_lib_systemd_systemd"));
+        assert!(public_evidence("zypp_inventory_acl_1=present"));
+        assert!(public_evidence(
+            "zypp_inventory_acl_sha256_1=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ));
+        assert!(public_evidence("zypp_inventory_xattr_selinux_1=absent"));
+        assert!(!public_evidence("zypp_inventory_path_1=/usr/lib64/zypp/plugins/commit"));
+        assert!(public_evidence("zypp_inventory_zypper_version=1.14.80"));
     }
 }
