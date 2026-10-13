@@ -365,6 +365,16 @@ private. Run17 supersedes the old OpenH264 access blocker but does not satisfy
 the login gate or close issue #13. It also does not establish the separate GUI
 application, provider-hook or profile-state acceptance gates.
 
+For the next diagnostic attempt, the host records fixed-name QMP framebuffer
+captures immediately before sending SDDM password keystrokes and when the
+ordinary-user session check times out: sddm-before-input.ppm and
+sddm-login-timeout.ppm. QEMU runs with its working directory set to the
+private mode-0700 run directory; each screenshot is set to mode 0600. These
+files are not part of public evidence and may show account or desktop details.
+Inspect them locally and sanitize them before any sharing. A capture failure is
+recorded in a separate private diagnostic and does not prevent the password
+input or replace the original login-timeout result.
+
 ## Observed hosted Rust checks
 
 [GitHub run 38316734108](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/38316734108)
