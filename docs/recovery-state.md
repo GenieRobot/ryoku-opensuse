@@ -662,16 +662,17 @@ corresponding implementation and disposable-guest evidence are linked.
 ## Issue #21 restore journal implementation status
 
 The `ryoku-recovery` Rust binary now has bounded, offline `list`, `inspect`,
-and `verify` commands for an already-existing generation store. Its
-`GenerationReader` opens existing directories read-only, checks the expected
-owner and private directory modes, enumerates committed catalog links, and
-verifies the canonical link, sealed manifest, and payload hashes. `inspect`
-prints only manifest summary fields and `verify` emits a compact integrity
-result. This reader does not establish the protected Btrfs mount identity,
-create state, write a journal, or authorize restore. The commands are an
-integrity-inspection slice; no restore command is exposed until the remaining
-partner, compatibility, staging, writer-quiescence, and destructive recovery
-criteria are implemented and exercised.
+and `verify` commands for the installed machine's generation store. It reads
+the root-owned `/etc/ryoku/state-machine.json` record, validates the fixed
+`/var/lib/ryoku-state` mount against that identity, then opens existing store
+directories read-only and checks owner/mode. It enumerates committed catalog
+links and verifies the canonical link, sealed manifest, and payload hashes.
+`inspect` prints manifest summary fields and `verify` emits a compact
+integrity result. Caller-supplied store paths are not accepted. Inspection
+does not create state, write a journal, or authorize restore. No restore
+command is exposed until the remaining partner, compatibility, staging,
+writer-quiescence, and destructive recovery criteria are implemented and
+exercised.
 
 The Rust recovery crate now provides typed preflight plans for configuration-only,
 system-only, and complete linked scopes, plus an atomically replaced, fsync'd
