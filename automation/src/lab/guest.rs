@@ -92,6 +92,35 @@ pub fn setup(proxy: &str) -> Result<()> {
     inspect_provisioned()
 }
 
+fn missing_runtime_dependencies(source: &str) -> Vec<&str> {
+    source
+        .lines()
+        .filter(|line| line.contains("=> not found"))
+        .filter_map(|line| line.split_whitespace().next())
+        .collect()
+}
+
+/// Check the supplied proof binary against the Tumbleweed guest's dynamic
+/// loader after installing the GTK runtime.
+fn verify_ui_runtime(binary: &Path) -> Result<()> {
+    let result = Command::new("/usr/bin/ldd").arg(binary).output()?;
+    require(
+        result.status.success(),
+        "GTK proof binary is incompatible with this Linux runtime; ldd could not inspect it",
+    )?;
+    let dependencies = String::from_utf8(result.stdout)?;
+    let missing = missing_runtime_dependencies(&dependencies);
+    require(
+        missing.is_empty(),
+        &format!(
+            "GTK proof binary cannot run on Tumbleweed; missing runtime libraries: {}",
+            missing.join(", ")
+        ),
+    )?;
+    println!("ui_runtime_dependencies=resolved");
+    Ok(())
+}
+
 /// Install GTK only when the opt-in visual proof is requested. Normal #13
 /// runs keep the original KDE-only package set.
 pub fn install_ui_runtime() -> Result<()> {
@@ -107,6 +136,7 @@ pub fn install_ui_runtime() -> Result<()> {
         return Err("optional GTK runtime installation failed; inspect private guest log".into());
     }
     command("rpm", &["-q", "libgtk-4-1"])?;
+    verify_ui_runtime(Path::new("/tmp/ryoku-ui-gtk.upload"))?;
     command(
         "install",
         &["-Z", "-m", "0755", "/tmp/ryoku-ui-gtk.upload", "/usr/local/bin/ryoku-ui-gtk"],
@@ -325,6 +355,17 @@ pub fn marker_absent() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reports_only_loader_dependencies_marked_not_found() {
+        assert_eq!(
+            missing_runtime_dependencies(
+                "\tlibgtk-4.so.1 => /usr/lib64/libgtk-4.so.1 (0x1)\n\tlibmissing.so.9 => not found\n"
+            ),
+            ["libmissing.so.9"]
+        );
+        assert!(missing_runtime_dependencies("linux-vdso.so.1 (0x1)\n").is_empty());
+    }
 
     #[test]
     fn absence_requires_not_found_and_rejects_dangling_links() {
