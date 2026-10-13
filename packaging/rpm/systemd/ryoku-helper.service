@@ -1,0 +1,20 @@
+[Unit]
+Description=Ryoku privileged helper
+Requires=ryoku-helper.socket
+After=ryoku-helper.socket
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/libexec/ryoku/ryoku-helper
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native

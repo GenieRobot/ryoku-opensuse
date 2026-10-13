@@ -300,6 +300,11 @@ pub fn read_envelope(reader: &mut impl BufRead) -> Result<Envelope, ProtocolErro
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HelperRequest {
+    /// Non-mutating availability probe used to connect the user daemon to the
+    /// installed helper boundary while provider operations remain unavailable.
+    CheckAvailability {
+        action: ManagedActionKind,
+    },
     VerifyLinkedCheckpoint {
         transaction_id: String,
         manifest_id: String,
@@ -319,6 +324,7 @@ pub enum HelperRequest {
 impl HelperRequest {
     pub fn validate(&self) -> Result<(), ProtocolError> {
         let (transaction, manifest) = match self {
+            Self::CheckAvailability { .. } => return Ok(()),
             Self::VerifyLinkedCheckpoint { transaction_id, manifest_id }
             | Self::ApplyPackageTransaction { transaction_id, manifest_id, .. }
             | Self::RestoreCheckpoint { transaction_id, manifest_id, .. } => {
@@ -379,6 +385,14 @@ pub fn authorize_helper_peer(peer: PeerIdentity, service_uid: u32) -> Result<(),
     } else {
         Err(ServiceError::Unauthorized)
     }
+}
+
+/// Authorization used by the root helper's group-owned socket. Membership in
+/// the opt-in `ryoku-operators` group is enforced by the socket mode; peercred
+/// supplies the caller UID used as the future per-user scope. Root is never a
+/// valid desktop caller.
+pub fn authorize_helper_operator(uid: u32) -> Result<(), ServiceError> {
+    if uid == 0 { Err(ServiceError::Unauthorized) } else { Ok(()) }
 }
 
 /// Append-only operation state journal. Construct it from a root/service-owned

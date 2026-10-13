@@ -74,7 +74,9 @@ pub fn serve_connection(
                 .unwrap_or(ResponseBody::Error(ServiceError::NotFound)),
             // No executor has passed the linked capture and provider review
             // gates. Never create an accepted operation for work not run.
-            Request::Start { .. } => ResponseBody::Error(ServiceError::Unsupported),
+            Request::Start { action } => ResponseBody::Error(
+                crate::helper_protocol::check_action_availability((&action).into()),
+            ),
         }
     };
     write_response(stream, Response { version: PROTOCOL_VERSION, request_id: id, body })

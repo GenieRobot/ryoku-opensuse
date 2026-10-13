@@ -1,19 +1,21 @@
 //! Versioned, typed boundary for requests from the user service to a future
 //! privileged helper. It intentionally provides no command or mutation runner.
 
-use std::io::{BufRead, BufWriter, Read, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    HelperRequest, PeerIdentity, ProtocolError, RequestId, ServiceError, authorize_helper_peer,
+    HelperRequest, ManagedActionKind, PeerIdentity, ProtocolError, RequestId, ServiceError,
+    authorize_helper_operator, authorize_helper_peer,
 };
 
 pub const HELPER_PROTOCOL_VERSION: u16 = 1;
 pub const MAX_HELPER_REQUEST_BYTES: usize = 64 * 1024;
 const HELPER_IO_TIMEOUT: Duration = Duration::from_secs(5);
+pub const HELPER_SOCKET_PATH: &str = "/run/ryoku/helper.sock";
 
 /// One helper request frame. The request language is the explicit
 /// [`HelperRequest`] enum; unknown fields are rejected during decoding.
@@ -91,6 +93,26 @@ pub fn dispatch_helper_request(
     })
 }
 
+/// Dispatch for the installed root helper. The fixed socket's group/mode
+/// gates membership; kernel peer credentials identify the user principal.
+pub fn dispatch_operator_request(
+    peer: PeerIdentity,
+    envelope: HelperEnvelope,
+) -> Result<HelperResponse, ProtocolError> {
+    envelope.validate()?;
+    let outcome = if authorize_helper_operator(peer.uid()).is_err() {
+        HelperOutcome::Rejected(ServiceError::Unauthorized)
+    } else {
+        // Availability probes and every future provider request fail closed.
+        HelperOutcome::Rejected(ServiceError::Unsupported)
+    };
+    Ok(HelperResponse {
+        version: HELPER_PROTOCOL_VERSION,
+        request_id: envelope.request_id,
+        outcome,
+    })
+}
+
 /// Handle one helper socket connection. Peer credentials are obtained before
 /// request dispatch, and valid requests can produce only typed rejection
 /// outcomes. This function neither accepts nor persists an operation.
@@ -143,6 +165,79 @@ pub fn serve_helper_connection(
     write_helper_response(stream, response)
 }
 
+/// Serve one connection from the opt-in group-owned helper socket.
+pub fn serve_operator_helper_connection(mut stream: UnixStream) -> Result<(), ProtocolError> {
+    stream.set_read_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
+    stream.set_write_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
+    let peer = PeerIdentity::from_unix_socket(&stream)?;
+    let envelope = match read_helper_envelope(&mut std::io::BufReader::new(&mut stream)) {
+        Ok(envelope) => envelope,
+        Err(ProtocolError::Malformed("incomplete helper request frame")) => {
+            return Err(ProtocolError::Malformed("incomplete helper request frame"));
+        }
+        Err(ProtocolError::Io) => return Err(ProtocolError::Io),
+        Err(error) => {
+            let outcome = match error {
+                ProtocolError::UnsupportedVersion(_) => {
+                    HelperOutcome::Rejected(ServiceError::Unsupported)
+                }
+                ProtocolError::Malformed(_) | ProtocolError::TooLarge => HelperOutcome::Rejected(
+                    ServiceError::Malformed("invalid helper request".into()),
+                ),
+                ProtocolError::Io => unreachable!("I/O errors returned above"),
+            };
+            return write_helper_response(
+                stream,
+                HelperResponse {
+                    version: HELPER_PROTOCOL_VERSION,
+                    request_id: RequestId::new("invalid").expect("static request ID is valid"),
+                    outcome,
+                },
+            );
+        }
+    };
+    let response = dispatch_operator_request(peer, envelope)?;
+    write_helper_response(stream, response)
+}
+
+/// Ask the installed helper whether a named action is available. This probe
+/// has no operation identifier, payload path, or mutation semantics. Until a
+/// reviewed provider is installed the only valid response is Unsupported.
+pub fn check_action_availability(action: ManagedActionKind) -> ServiceError {
+    let result = (|| -> Result<(), ProtocolError> {
+        let mut stream = UnixStream::connect(HELPER_SOCKET_PATH).map_err(|_| ProtocolError::Io)?;
+        stream.set_read_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
+        stream.set_write_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
+        let request = HelperEnvelope {
+            version: HELPER_PROTOCOL_VERSION,
+            request_id: RequestId::new("availability").expect("static request ID is valid"),
+            request: HelperRequest::CheckAvailability { action },
+        };
+        serde_json::to_writer(&mut stream, &request).map_err(|_| ProtocolError::Io)?;
+        stream.write_all(b"\n").map_err(|_| ProtocolError::Io)?;
+        let mut line = String::new();
+        BufReader::new(stream).read_line(&mut line).map_err(|_| ProtocolError::Io)?;
+        let response: HelperResponse = serde_json::from_str(&line)
+            .map_err(|_| ProtocolError::Malformed("invalid helper response"))?;
+        if response.version != HELPER_PROTOCOL_VERSION || response.request_id != request.request_id
+        {
+            return Err(ProtocolError::Malformed("helper response correlation mismatch"));
+        }
+        match response.outcome {
+            HelperOutcome::Rejected(error) => {
+                if error == ServiceError::Unsupported {
+                    Ok(())
+                } else {
+                    Err(ProtocolError::Malformed("helper rejected availability probe"))
+                }
+            }
+        }
+    })();
+    match result {
+        Ok(()) | Err(_) => ServiceError::Unsupported,
+    }
+}
+
 fn write_helper_response(
     stream: UnixStream,
     response: HelperResponse,
@@ -156,7 +251,7 @@ fn write_helper_response(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{CheckpointId, PackageId};
+    use crate::{CheckpointId, ManagedActionKind, PackageId, authorize_helper_operator};
     use std::io::{BufRead, BufReader};
     use std::os::unix::net::UnixStream;
 
@@ -224,6 +319,66 @@ mod tests {
         assert_eq!(allowed.outcome, HelperOutcome::Rejected(ServiceError::Unsupported));
         let denied = dispatch_helper_request(peer, u32::MAX, envelope).unwrap();
         assert_eq!(denied.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
+    }
+
+    #[test]
+    fn operator_socket_accepts_only_nonroot_uid_and_valid_requests_stay_rejected() {
+        assert_eq!(authorize_helper_operator(0), Err(ServiceError::Unauthorized));
+        assert_eq!(authorize_helper_operator(1000), Ok(()));
+
+        let request = valid_envelope(HelperRequest::CheckAvailability {
+            action: ManagedActionKind::InstallPackage,
+        });
+        let root_peer = PeerIdentity { uid: 0, gid: 0, pid: None };
+        assert_eq!(
+            dispatch_operator_request(root_peer, request.clone()).unwrap().outcome,
+            HelperOutcome::Rejected(ServiceError::Unauthorized)
+        );
+        let user_peer = PeerIdentity { uid: 1000, gid: 1000, pid: None };
+        assert_eq!(
+            dispatch_operator_request(user_peer, request).unwrap().outcome,
+            HelperOutcome::Rejected(ServiceError::Unsupported)
+        );
+
+        let (server, mut client) = UnixStream::pair().unwrap();
+        let peer = PeerIdentity::from_unix_socket(&client).unwrap();
+        let envelope = valid_envelope(HelperRequest::CheckAvailability {
+            action: ManagedActionKind::InstallPackage,
+        });
+        send_envelope(&mut client, &envelope);
+        serve_operator_helper_connection(server).unwrap();
+        let response = receive_response(&mut client);
+        assert_eq!(response.request_id, envelope.request_id);
+        let expected =
+            if peer.uid() == 0 { ServiceError::Unauthorized } else { ServiceError::Unsupported };
+        assert_eq!(response.outcome, HelperOutcome::Rejected(expected));
+        assert_eq!(peer.uid(), rustix::process::geteuid().as_raw());
+    }
+
+    #[test]
+    fn operator_socket_returns_malformed_rejection_without_dispatching() {
+        let (server, mut client) = UnixStream::pair().unwrap();
+        client.write_all(b"not-json\n").unwrap();
+        serve_operator_helper_connection(server).unwrap();
+        let response = receive_response(&mut client);
+        assert_eq!(response.request_id.as_str(), "invalid");
+        assert!(matches!(response.outcome, HelperOutcome::Rejected(ServiceError::Malformed(_))));
+    }
+
+    #[test]
+    fn availability_request_has_no_arbitrary_command_or_path_fields() {
+        let envelope = valid_envelope(HelperRequest::CheckAvailability {
+            action: ManagedActionKind::RestoreCheckpoint,
+        });
+        let mut bytes = serde_json::to_vec(&envelope).unwrap();
+        bytes.push(b'\n');
+        assert_eq!(read_helper_envelope(&mut bytes.as_slice()).unwrap(), envelope);
+        let with_command = br#"{"version":1,"request_id":"r1","request":{"operation":"check_availability","action":"install_package","command":"id","path":"/etc"}}
+"#;
+        assert!(matches!(
+            read_helper_envelope(&mut with_command.as_slice()),
+            Err(ProtocolError::Malformed(_))
+        ));
     }
 
     #[test]
