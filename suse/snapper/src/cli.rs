@@ -68,7 +68,16 @@ impl SnapperBackend for SnapperCliBackend {
         // deadlock the child. Capture is capped while draining continues.
         let stdout_reader = thread::spawn(move || read_capped(stdout, MAX_STDOUT_BYTES));
         let stderr_reader = thread::spawn(move || read_capped(stderr, MAX_STDERR_BYTES));
-        let status = wait_bounded(&mut child, COMMAND_TIMEOUT)?;
+        let status = match wait_bounded(&mut child, COMMAND_TIMEOUT) {
+            Ok(status) => status,
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = stdout_reader.join();
+                let _ = stderr_reader.join();
+                return Err(error);
+            }
+        };
         let (stdout, stdout_overflow) = stdout_reader
             .join()
             .map_err(|_| SnapperCliError::CommandFailed)?
