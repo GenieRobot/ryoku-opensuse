@@ -1,15 +1,12 @@
 use std::{
     env,
-    fs::File,
     io::{self, Write},
-    os::unix::fs::MetadataExt,
-    path::Path,
     process::ExitCode,
 };
 
 use ryoku_recovery::{Identifier, generation::GenerationReader};
 
-const USAGE: &str = "Usage:\n  ryoku-recovery list STORE_ROOT\n  ryoku-recovery inspect STORE_ROOT TRANSACTION_ID\n  ryoku-recovery verify STORE_ROOT TRANSACTION_ID\n";
+const USAGE: &str = "Usage:\n  ryoku-recovery list\n  ryoku-recovery inspect TRANSACTION_ID\n  ryoku-recovery verify TRANSACTION_ID\n";
 
 fn main() -> ExitCode {
     match execute(env::args().skip(1), &mut io::stdout()) {
@@ -27,8 +24,8 @@ fn execute(
 ) -> Result<(), String> {
     let args: Vec<_> = arguments.into_iter().collect();
     match args.as_slice() {
-        [command, store_path] if command == "list" => {
-            let reader = open_reader(Path::new(store_path))?;
+        [command] if command == "list" => {
+            let reader = GenerationReader::open_state_mount().map_err(|error| error.to_string())?;
             let transactions = reader.list_transactions().map_err(|error| error.to_string())?;
             if transactions.is_empty() {
                 writeln!(output, "No committed transactions").map_err(|error| error.to_string())?;
@@ -40,8 +37,8 @@ fn execute(
             }
             Ok(())
         }
-        [command, store_path, transaction_id] if command == "inspect" || command == "verify" => {
-            let reader = open_reader(Path::new(store_path))?;
+        [command, transaction_id] if command == "inspect" || command == "verify" => {
+            let reader = GenerationReader::open_state_mount().map_err(|error| error.to_string())?;
             let transaction = Identifier::new(transaction_id.clone())
                 .map_err(|error| format!("invalid transaction ID: {error:?}"))?;
             let manifest =
@@ -87,12 +84,6 @@ fn execute(
     }
 }
 
-fn open_reader(path: &Path) -> Result<GenerationReader, String> {
-    let root = File::open(path).map_err(|error| format!("open store root: {error}"))?;
-    let owner = root.metadata().map_err(|error| format!("inspect store root: {error}"))?.uid();
-    GenerationReader::open_existing(&root, owner).map_err(|error| error.to_string())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -105,10 +96,9 @@ mod tests {
     }
 
     #[test]
-    fn list_requires_an_existing_store_root() {
-        let path =
-            std::env::temp_dir().join(format!("missing-recovery-store-{}", std::process::id()));
+    fn cli_does_not_accept_an_arbitrary_store_path() {
         let mut output = Vec::new();
-        assert!(execute(["list".into(), path.display().to_string()], &mut output).is_err());
+        assert!(execute(["list".into(), "/tmp".into()], &mut output).is_err());
+        assert!(String::from_utf8(output).unwrap().is_empty());
     }
 }

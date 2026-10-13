@@ -20,6 +20,7 @@ use rustix::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256 as Sha256Digest};
 
+use crate::machine_state::{MachineStateError, read_machine_state_record};
 use crate::state_mount::{StateMountError, StateMountIdentity, collect_and_open_state_mount};
 use crate::{EntryKind, Identifier, MAX_MANIFEST_BYTES, ManifestError, RecoveryManifest, Sha256};
 
@@ -69,6 +70,7 @@ pub enum GenerationError {
     Filesystem(Errno),
     Io(std::io::Error),
     Validation(crate::ValidationError),
+    MachineState(MachineStateError),
     StateMount(StateMountError),
 }
 
@@ -100,6 +102,9 @@ impl std::fmt::Display for GenerationError {
             Self::Filesystem(error) => write!(f, "generation filesystem operation failed: {error}"),
             Self::Io(error) => write!(f, "generation payload I/O failed: {error}"),
             Self::Validation(error) => write!(f, "manifest validation failed: {error:?}"),
+            Self::MachineState(error) => {
+                write!(f, "trusted machine identity is unavailable: {error}")
+            }
             Self::StateMount(error) => write!(f, "protected state mount is unavailable: {error}"),
         }
     }
@@ -128,6 +133,11 @@ impl From<StateMountError> for GenerationError {
         Self::StateMount(value)
     }
 }
+impl From<MachineStateError> for GenerationError {
+    fn from(value: MachineStateError) -> Self {
+        Self::MachineState(value)
+    }
+}
 impl From<crate::ValidationError> for GenerationError {
     fn from(value: crate::ValidationError) -> Self {
         Self::Validation(value)
@@ -152,6 +162,25 @@ pub struct GenerationReader {
 }
 
 impl GenerationReader {
+    /// Opens the fixed protected state mount after reading the installed
+    /// machine identity from the root-owned record and matching live Btrfs
+    /// evidence. This is the supported entry point for machine-local reads.
+    pub fn open_state_mount() -> Result<Self, GenerationError> {
+        let process_root = rustix::fs::open(
+            "/",
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+            Mode::empty(),
+        )?;
+        Self::open_state_mount_from(&File::from(process_root))
+    }
+
+    fn open_state_mount_from(root: &File) -> Result<Self, GenerationError> {
+        let expected = read_machine_state_record(root)?;
+        let (state_fd, _evidence) = collect_and_open_state_mount(root, expected.identity())?;
+        let state_root = File::from(state_fd);
+        Self::open_existing(&state_root, 0)
+    }
+
     /// Opens an existing store without write-capable operations. The caller
     /// supplies the expected directory owner; offline verification alone is
     /// not an authorization signal for destructive recovery.
@@ -818,6 +847,18 @@ mod tests {
         assert!(matches!(
             GenerationReader::open_existing(&root, owner),
             Err(GenerationError::Filesystem(_))
+        ));
+        assert_eq!(fs::read_dir(&root_path).unwrap().count(), 0);
+        fs::remove_dir(root_path).unwrap();
+    }
+
+    #[test]
+    fn protected_reader_rejects_a_caller_supplied_directory_as_identity_root() {
+        let root_path = temp_root();
+        let root = File::open(&root_path).unwrap();
+        assert!(matches!(
+            GenerationReader::open_state_mount_from(&root),
+            Err(GenerationError::MachineState(MachineStateError::UnsafeRoot(_)))
         ));
         assert_eq!(fs::read_dir(&root_path).unwrap().count(), 0);
         fs::remove_dir(root_path).unwrap();
