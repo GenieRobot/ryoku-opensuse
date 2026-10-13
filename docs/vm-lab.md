@@ -349,9 +349,12 @@ installed Plasma 6 and SDDM (`6.7.5-1.1` and `0.21.0+git57-1.1`), and the SDDM
 display manager became active. The mandatory ordinary-user Plasma Wayland
 login/session inspection still failed with `no active ordinary-user Plasma
 Wayland SDDM/PAM login on seat0`. Raising guest memory did not resolve this.
-The evidence therefore records `desktop_login=blocked` and
-`lab_result=blocked`; package installation alone is not KDE fallback
-acceptance. The precise login failure cause remains unproven.
+The evidence records `desktop_login=blocked`; package installation alone is
+not KDE fallback acceptance. The precise login failure cause remains unproven.
+The runner reports the lifecycle/recovery/reset gates separately as
+`lifecycle_result=passed` once those checks complete. `lab_result` remains
+blocked until the required ordinary-user desktop login gate passes, so this
+separate lifecycle status does not change issue #13 acceptance.
 
 All independent base lifecycle gates passed: derived Btrfs/EFI/GRUB/Snapper
 boot, repeated inspection after reboot, unreachable external egress, controlled
@@ -374,6 +377,42 @@ files are not part of public evidence and may show account or desktop details.
 Inspect them locally and sanitize them before any sharing. A capture failure is
 recorded in a separate private diagnostic and does not prevent the password
 input or replace the original login-timeout result.
+
+After the first failed ordinary-user session probe, the host also attempts a
+fixed, read-only journal capture for `sddm.service` and
+`systemd-logind.service`. `journalctl` is bounded to 15 seconds, the last five
+minutes, at most 1000 lines, and at most 1 MiB each for retained stdout and
+stderr. Excess bytes are drained but discarded; the private file marks any
+truncated stream. Its output is written to `sddm-logind-journal-private.log`
+with mode 0600 under the private mode-0700
+run directory. This file is private diagnostic material and is never copied
+into public evidence. If journal capture fails, the original session-probe
+result remains the login gate result.
+
+If `--ui-binary` was requested but the ordinary-user session was not verified,
+the runner records `ui_visual_capture=blocked`. A requested UI capture failure
+also remains an optional blocked UI result and does not change the lifecycle
+result; the top-level `lab_result` still follows the required login gate.
+
+## Follow-up Run18: lifecycle and recovery pass, desktop login blocked
+
+Run18 used fixture snapshot `20261011`, QEMU `10.0.13`, verified image
+signature, and 6144 MiB with TCG. Its sanitized key/value evidence records
+`derived_root=btrfs`, `boot=UEFI-GRUB2`, `derived_grub2=installed`,
+`derived_initramfs=generated`, `derived_btrfs_boot=passed`, and the installed
+Plasma/SDDM versions `6.7.5-1.1` and `0.21.0+git57-1.1`. It records
+`desktop_login=blocked`, while `reboot=passed`,
+`offline_snapper_restore=matched`, `reset_fresh_boot=passed`,
+`base_unchanged=passed`, and `reset_disk_and_keys=removed`.
+
+The updated runner reports completed lifecycle/recovery/reset checks
+independently as `lifecycle_result=passed`; Run18 itself predates this field.
+The ordinary-user SDDM/Plasma login remains the required #13 closure gate, so
+the run's `lab_result=blocked` is retained until that login is verified.
+Run18 predates the framebuffer capture patch; it has
+no login screenshots and does not establish why authentication/session
+handoff failed. Only the sanitized key/value facts above are reproduced here;
+private serial, guest/session logs and raw images are excluded.
 
 ## Observed hosted Rust checks
 
