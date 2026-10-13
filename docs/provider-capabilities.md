@@ -28,19 +28,19 @@ The status labels below describe the evidence available in this repository, not 
 - **Unsupported** — the product will not offer the operation in the first release.
 - **Awaiting proof** — a plausible interface exists, but its precise contract, hook placement or Tumbleweed behavior has not been demonstrated.
 
-At this revision there are **no verified protected provider writes**. Run17 confirms the base Tumbleweed migration, offline restore and reset lifecycle, while the KDE login gate remains blocked. Run19 adds a bounded host-side libzypp probe harness, but its disposable-guest results are still pending: there is no actual zypper exit status, before/after RPM state, or linked recovery-journal result to evaluate. Do not infer acceptance from the harness, a callback, a command's existence or a successful package installation.
+At this revision there are **no verified protected provider writes**. Run19 identified the pinned guest's zypper/libzypp packages and one commit-plugin directory, but did not reach a `COMMITBEGIN` frame in any deny/malformed/timeout mode. Its missing-plugin case also failed before a package transaction. The unchanged RPM-state hash therefore does not show that any hook blocked a write, and no recovery-journal result is available. Do not infer acceptance from the harness, a callback or unchanged state when no transaction began.
 
 | Operation/candidate | Interface class | Current status | Privilege, errors and cancellation | Rust path and hook assessment |
 |---|---|---|---|---|
 | Show product release, current profile, recovery availability and completed job history | Native Ryoku controls | Awaiting proof (read-only contract) | Unprivileged read from validated, versioned service data; missing/stale/corrupt data must be shown as unavailable/error, never guessed. | Typed Rust backend query. No provider write hook. Data-source and privacy review remains. |
 | Search package metadata and inspect installed package/repository state | Native Ryoku controls; no external panel by default | Awaiting proof; candidate read-only | Read-only metadata queries should not obtain root privileges. Report stale metadata and provider errors. | Rust provider adapter over a narrowly defined zypper query or PackageKit read API. Pin query options and prove they do not refresh metadata or mutate state on the target snapshot. |
-| Install/remove/update packages, including a full Tumbleweed update | Native Ryoku controls; direct zypper, Myrlyn and PackageKit/Cockpit are outside this control surface | Awaiting proof; only a reviewed full-system transaction is a candidate | Privileged, operation-specific authorization. Validate exact requested package IDs and policy before authorization. Provider dependency/conflict/signature failures are failures; do not continue partially. Pre-commit cancellation may abort; post-commit cancellation is not rollback. Preserve durable job outcome across client exit. | Rust service owns the transaction and durable job; candidate interfaces are fixed-argument zypper CLI or PackageKit `InstallPackages`, `RemovePackages`, `UpdatePackages` and `UpgradeSystem` over system D-Bus. Run19 must establish a real pre-mutation stop, capture ID ordering, provider result, RPM state and recovery-journal entry before any path can be called protected. Do not run a shell command from UI or authorize arbitrary zypper arguments. |
+| Install/remove/update packages, including a full Tumbleweed update | Native Ryoku controls; direct zypper, Myrlyn and PackageKit/Cockpit are outside this control surface | Awaiting proof; only a reviewed full-system transaction is a candidate | Privileged, operation-specific authorization. Validate exact requested package IDs and policy before authorization. Provider dependency/conflict/signature failures are failures; do not continue partially. Pre-commit cancellation may abort; post-commit cancellation is not rollback. Preserve durable job outcome across client exit. | Rust service owns the transaction and durable job; candidate interfaces are fixed-argument zypper CLI or PackageKit `InstallPackages`, `RemovePackages`, `UpdatePackages` and `UpgradeSystem` over system D-Bus. Run19 did not reach a real transaction boundary, so it supplies no evidence of a pre-mutation stop, capture ordering, provider result or recovery-journal entry. Do not run a shell command from UI or authorize arbitrary zypper arguments. |
 | Add/change/enable/disable repositories, alter priorities, import/remove trust keys | Native Ryoku controls | Unsupported for first release pending separate proof | Root/polkit privilege; repository and trust failures must be explicit. Do not offer arbitrary URLs or trust-on-first-use. | Rust service only after exact scope and hook is proven. Repository writes change future package trust and resolution, and must checkpoint before each mutation; capturing only before a later install does not protect them. External YaST/zypper/Cockpit editors bypass the path. |
 | Snapper list/read-only status | Native Ryoku controls | Awaiting proof (read-only path) | Read through the least-privileged supported interface; distinguish empty, unavailable and denied. | Rust query adapter; verify D-Bus/CLI semantics in the VM. |
 | Create/delete/modify Snapper snapshots or configuration | Native Ryoku controls | Unsupported as general administration; Ryoku recovery operations are separate | Privileged and constrained to authenticated recovery workflow. Destructive errors must preserve the last usable recovery point. | Narrow Rust recovery service operation only. Arbitrary snapshot deletion/config edits can invalidate linked recovery and are not an ordinary provider action. |
 | Change selected system settings (initial candidate: a small, enumerated set of display/session preferences) | Native Ryoku controls | Unsupported until each setting has an affected-state inventory and restore proof | Per-operation authorization; validate values and report validation/service-reload failures. Do not accept arbitrary file paths or shell fragments. | Rust typed operation and declared config ownership. No generic “settings provider” hook. |
 | Browse/manage software through Myrlyn | Externally launched Qt desktop application; embedding is not established | Unsupported for writes in first release; read-only use is a candidate, not yet target-verified | Upstream describes package and repository changes through its libzypp backend and a non-root read-only mode. Its privilege prompts, read-only enforcement and cancellation behavior must be checked in the pinned guest. | No Rust service API or per-operation Ryoku hook is evidenced. A launch-time checkpoint is invalid. Keep writes out of the supported Ryoku flow unless every commit is mediated before mutation; do not add Ruby glue. |
-| Cockpit package panel (`cockpit-packages`) | Externally launched Cockpit browser module by default; embed only after the documented embedding contract is checked against the selected local view | Awaiting proof for local read-only access; protected writes unsupported | The openSUSE module documents PackageKit D-Bus as its package boundary. Confirm the installed backend, polkit actions, transaction errors and cancellation behavior in the target snapshot. | PackageKit's transaction API is a candidate boundary, not a recovery hook. The zypp backend source calls `ZYpp::commit`, but the installed libzypp plugin's negative-response behavior is not proven to veto commit. Keep writes unsupported pending Run19 guest results and recovery-journal proof. |
+| Cockpit package panel (`cockpit-packages`) | Externally launched Cockpit browser module by default; embed only after the documented embedding contract is checked against the selected local view | Awaiting proof for local read-only access; protected writes unsupported | The openSUSE module documents PackageKit D-Bus as its package boundary. Confirm the installed backend, polkit actions, transaction errors and cancellation behavior in the target snapshot. | PackageKit's transaction API is a candidate boundary, not a recovery hook. Run19 exercised only the zypper probe path and never reached `COMMITBEGIN`; no PackageKit or Cockpit transaction was measured. Protected writes remain unsupported. |
 | Cockpit overview / service and host panels | Externally launched Cockpit browser UI for local navigation; embed only through the documented Cockpit contract | Awaiting proof for local read-only navigation; unsupported for protected writes | Cockpit has its own privilege and service boundaries. UI errors or cancellation do not provide Ryoku recovery. Keep Cockpit remote access as a separate explicit opt-in; local package installation must not enable an externally reachable listener. | No generic Cockpit REST API is assumed. The selected pages, category/navigation behavior, localhost binding and socket activation must be checked on the target guest. Do not embed write-capable pages as protected controls. |
 | YaST software, repository or system-configuration modules | Externally launched optional interface; individual modules may be excluded | Unsupported for protected changes in first release; read-only query candidates require module-by-module proof | YaST modules can perform privileged writes. Do not assume module-level privilege or cancellation prompts satisfy product authorization/recovery. | YaST's established module ecosystem is Ruby-based. New project-owned Ruby glue/bindings are deferred. External modules cannot be wrapped by a UI launch hook; omit write-capable modules from the supported Ryoku path until their writes can be mediated per operation. |
 
@@ -81,6 +81,49 @@ REST API and does not mediate provider writes.
 
 ## Candidate libzypp commit gate (awaiting Tumbleweed proof)
 
+### Sanitized Run19 results
+
+These are the allowlisted findings from the disposable guest on fixture
+snapshot `20261011`. Package versions are exact to that guest; normalized path
+keys below are sanitized names, not raw command output or host paths.
+
+| Fact | Sanitized result |
+|---|---|
+| Relevant RPM-owned packages | `libzypp 17.38.16-1.1.x86_64`; `zypper 1.14.101-1.1.x86_64`; `zypper-needs-restarting 1.14.101-1.1.noarch` (3 packages) |
+| Commit-plugin directory | One RPM-owned directory was discovered: normalized key `usr_lib_zypp_plugins_commit`, kind `directory`, package owner `libzypp`, mode `0755`, uid/gid `0/0` |
+| Sanitized path inventory | Five normalized entries are listed below. ACLs were present on all five, and no symlinks were found. ACL values are omitted; only SHA-256 digests are recorded below. |
+
+| Entry key (normalized) | Kind | RPM owner | Mode | UID/GID | ACL SHA-256 |
+|---|---|---|---:|---:|---|
+| `etc_zypp_needreboot` | regular file | `libzypp` | `0644` | `0/0` | `82423033d591a8c3228661facec8c2cb4e95625a13269e802dcd08ac98e7d9cb` |
+| `etc_zypp_systemCheck` | regular file | `libzypp` | `0644` | `0/0` | `82423033d591a8c3228661facec8c2cb4e95625a13269e802dcd08ac98e7d9cb` |
+| `etc_zypp_zypper_conf` | regular file | `zypper` | `0644` | `0/0` | `82423033d591a8c3228661facec8c2cb4e95625a13269e802dcd08ac98e7d9cb` |
+| `usr_lib_zypp_plugins_commit` | directory | `libzypp` | `0755` | `0/0` | `0557359434fae41db3ea2f9006e77672f2a3d33e4c2bd8276dd504e42662bcf3` |
+| `var_log_zypper_log` | regular file | `zypper` | `0640` | `0/0` | `e957040aa926e7592861c49de6d536cb72c7c2c12ac78679d945d6e2abd39653` |
+
+The guest could not provide SELinux-label or file-capability xattr query
+results; their status is **unavailable**, not absent. The five-entry inventory
+is not a complete affected-state inventory for a package transaction.
+
+| Probe mode | Sanitized result | What it establishes |
+|---|---|---|
+| Deny response | Probe registered, but no `COMMITBEGIN` was observed; deny decision was not invoked. The zypper child exited 4 and the RPM-state hash was unchanged. | Pre-hook failure cause is unclassified; no evidence that ERROR prevented a commit. |
+| Malformed response | Probe registered, but no `COMMITBEGIN` was observed; malformed reply was not sent. The zypper child exited 4 and the RPM-state hash was unchanged. | Pre-hook failure cause is unclassified; no evidence about libzypp's handling of malformed plugin replies. |
+| Bounded timeout | Probe registered, but no `COMMITBEGIN` was observed; timeout mode did not begin. The zypper child exited 4 and the RPM-state hash was unchanged. | Pre-hook failure cause is unclassified; no evidence about commit behavior on a plugin timeout. |
+| Missing plugin | The zypper child exited 4 before a package transaction began; RPM-state hash was unchanged. | Inconclusive whether the transaction would proceed without a plugin or failed elsewhere. |
+
+No package commit, PackageKit/Cockpit operation, checkpoint ID, post-change
+verification or recovery-journal entry was observed. Run19 therefore does not
+prove a blocking hook or protected provider write. Keep issue #15 open and keep
+package writes awaiting proof; do not describe the unchanged hash as a passed
+denial test.
+
+The only conclusion available is that the target snapshot contains a libzypp
+commit-plugin directory and the probe harness did not reach a commit frame in
+these attempts. A follow-up may only claim hook behavior after it records an
+actual `COMMITBEGIN`, provider exit/result, meaningful before/after RPM state,
+and linked recovery-journal evidence for the same transaction.
+
 The current source-level candidate is libzypp's commit-plugin protocol, not an
 application-launch notification. Its documented `PLUGINBEGIN`/`COMMITBEGIN`
 exchange occurs around `ZYpp::commit`; `COMMITBEGIN` includes planned
@@ -98,15 +141,18 @@ transaction telemetry but is not the authorization/recovery boundary. The
 product must leave that provider path unsupported until another pre-commit
 mechanism reliably stops zypper, PackageKit, and Cockpit writes. A small
 root-owned Rust executable could request the linked checkpoint and acknowledge
-only after the service confirms capture, but this is only a hypothesis; no
-plugin has been installed or tested here. The package version, configured
-plugin directory, protocol version, ordering, timeout behavior, cancellation
-semantics, and PackageKit backend in the pinned snapshot remain unverified.
+only after the service confirms capture, but this is only a hypothesis. The
+Run19 probe was registered for a disposable experiment, but was never invoked
+at `COMMITBEGIN`; no observed commit was blocked. Although Run19 identified the zypper/libzypp versions and plugin
+directory, protocol veto behavior, ordering, timeout behavior, cancellation
+semantics, and PackageKit backend remain unverified.
 
-The next disposable-guest experiment must record exact `zypper`, `libzypp`,
-PackageKit, PackageKit zypp backend, Cockpit and Myrlyn versions and package
-ownership; inspect the actual libzypp plugin path; then install a Rust probe that
-rejects `PLUGINBEGIN` or `COMMITBEGIN`. Attempt a harmless zypper transaction
+Further proof requires a zypper attempt that reaches an actual `COMMITBEGIN`,
+with an allowlisted error category retained for any pre-hook failure rather
+than raw stderr. Then record the provider exit/result, meaningful before/after
+RPM state, and linked recovery-journal evidence. PackageKit, its zypp backend,
+Cockpit, and Myrlyn versions and write paths also remain unmeasured. Attempt a
+harmless zypper transaction
 and a PackageKit transaction separately and measure whether ERROR, no ACK,
 malformed reply, or timeout actually prevents commit and leaves RPM state
 unchanged. Do not infer veto from the callback occurring. If libzypp continues,
@@ -160,7 +206,7 @@ Run these against the supported disposable Tumbleweed guest and record exact pac
 5. **Selected config operation:** choose one explicitly bounded setting. Capture its complete affected-state inventory; inject checkpoint failure; perform the write; verify post-state, service reload/error behavior, restore, and preservation of unrelated home files.
 6. **UI integration:** for each optional panel, verify navigation and authorization in a local graphical session; inspect the actual write request path. Confirm Cockpit is not remotely listening unless the user separately opts in. Test whether the interface can be constrained to read-only; do not infer this from its visual presentation.
 
-A candidate moves to **verified protected** only after the matching experiments pass and evidence is linked. Failed or unavailable hooks move that operation to **unsupported**. Missing UI/VM availability leaves the item **awaiting proof**.
+A candidate moves to **verified protected** only after the matching experiments pass and evidence is linked. A demonstrated bypass or inability to stop a real attempted write moves that operation to **unsupported**. A failed attempt that never reaches the hook, like Run19, leaves it **awaiting proof**.
 
 ## Interface references
 
