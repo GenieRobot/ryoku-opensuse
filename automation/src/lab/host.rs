@@ -740,6 +740,12 @@ impl Lab {
                         };
                         self.evidence(&format!("zypp_inventory_{field}={value}"))?;
                     }
+                    "inventory_cockpit_socket_enabled"
+                    | "inventory_cockpit_socket_active"
+                    | "inventory_cockpit_socket_listen_scope"
+                    | "inventory_host_tcp_listener_scope" => {
+                        self.evidence(&format!("zypp_{key}={value}"))?;
+                    }
                     "inventory_rpm_ql" => {
                         let fields = value.split('|').collect::<Vec<_>>();
                         if let [path, owner] = fields.as_slice() {
