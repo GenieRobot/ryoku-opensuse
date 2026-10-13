@@ -73,24 +73,52 @@ contract tests and output are not substitutes for that proof.
 
 ### Disposable VM visual capture
 
-The VM lab has an opt-in `--capture-ui GTK_BINARY` argument. Build the GTK
-proof for the host first, then pass its executable path:
+The `Rust checks` workflow retains a release `ryoku-ui-gtk` artifact only
+after a successful push to `main`. Pull request runs compile and test GTK but
+never publish the binary. The artifact name includes the exact 40-character
+source commit SHA and expires after 14 days. It includes
+`BUILD-METADATA.txt` with that commit, workflow run, Cargo.lock hash, and
+binary SHA-256, plus the build host's dynamic dependency listing.
+
+From the successful `Rust checks` workflow run for the main commit you intend
+to test, download that exact artifact:
 
 ```console
-cargo build --locked -p ryoku-ui --features gtk-ui --bin ryoku-ui-gtk
-RYOKU_LAB_AUTHORIZED=existing-cloud-workspace cargo run --locked --bin vm-lab -- run /workspace/opensuse-vm /workspace/ryoku-lab-FRESH-NAME --capture-ui target/debug/ryoku-ui-gtk
+MAIN_SHA=<40-character-main-commit-sha>
+RUN_ID=<successful-main-push-workflow-run-id>
+ARTIFACT_DIR="/workspace/ryoku-ui-gtk-$MAIN_SHA"
+gh run download "$RUN_ID" --repo GenieRobot/ryoku-opensuse \
+  --name "ryoku-ui-gtk-$MAIN_SHA" --dir "$ARTIFACT_DIR"
+grep -Fx "source_commit=$MAIN_SHA" "$ARTIFACT_DIR/BUILD-METADATA.txt"
+EXPECTED_SHA="$(sed -n 's/^binary_sha256=//p' "$ARTIFACT_DIR/BUILD-METADATA.txt")"
+ACTUAL_SHA="$(sha256sum "$ARTIFACT_DIR/ryoku-ui-gtk" | cut -d ' ' -f 1)"
+test "$ACTUAL_SHA" = "$EXPECTED_SHA"
 ```
 
-The optional path installs the signed-repository `libgtk-4-1` runtime in the
-disposable guest, launches separate success and service-unavailable windows
-inside the authenticated ordinary-user Plasma Wayland session, and captures
-the VGA framebuffer through the VM's private QMP socket. The resulting
-`ryoku-ui-success.ppm` and `ryoku-ui-error.ppm` files stay inside the run
-directory (mode 0700); each file is set to mode 0600. Normal #13 runs retain
-their original package and display behavior when the option is absent.
+The main-only build checks the binary's linked libraries with `ldd` and fails
+the artifact job if any are unresolved on Ubuntu 24.04. The VM guest installs
+Tumbleweed's `libgtk-4-1`, then runs its own `ldd` check before installing or
+launching the binary. An incompatible architecture, loader, or unresolved
+library stops capture with a clear error naming the missing library in the
+private guest diagnostic; no window launch is credited.
 
-The VM evidence does not copy screenshots into the repository or public
-evidence. Review them locally before sharing; sanitize visible account or
-machine details first. This visual proof still requires a completed disposable
-VM run. Source tests and CI cannot establish GTK startup, screenshot quality,
-theme behavior, or accessibility on a real Wayland session.
+Pass the verified binary to the disposable VM lab:
+
+```console
+RYOKU_LAB_AUTHORIZED=existing-cloud-workspace cargo run --locked --bin vm-lab -- \
+  run /workspace/opensuse-vm /workspace/ryoku-lab-FRESH-NAME \
+  --capture-ui "$ARTIFACT_DIR/ryoku-ui-gtk"
+```
+
+The optional path launches separate success and service-unavailable windows
+inside the authenticated ordinary-user Plasma Wayland session and captures the
+VGA framebuffer through the VM's private QMP socket. The resulting
+`ryoku-ui-success.ppm` and `ryoku-ui-error.ppm` files stay inside the
+mode-0700 run directory; each file is mode 0600. Normal #13 runs retain their
+original package and display behavior when the option is absent.
+
+Review both screenshots locally before sharing; sanitize visible account or
+machine details first. This capture proves GTK startup and the displayed
+sample outcomes only. It does not establish accessibility, theme integration,
+Hyprland behavior, packaging acceptance, or a real service client. Issue #14
+remains open until its separate desktop evidence and review gates pass.
