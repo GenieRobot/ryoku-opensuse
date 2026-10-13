@@ -1337,9 +1337,10 @@ pub fn run(
                     Ok((passed, outcome)) => {
                         if !passed && mode != "missing-plugin" {
                             let private = fs::read_to_string(lab.run.join(log)).unwrap_or_default();
-                            let classification = if !private.lines().any(|line| {
-                                line == "plugin_commitbegin_seen=true"
-                            }) {
+                            let classification = if !private
+                                .lines()
+                                .any(|line| line == "plugin_commitbegin_seen=true")
+                            {
                                 "awaiting_proof"
                             } else {
                                 "failed_probe"
@@ -1452,10 +1453,7 @@ mod tests {
 
     #[test]
     fn zypp_error_categories_are_allowlisted_and_never_return_source_text() {
-        assert_eq!(
-            classify_zypp_error(b"Permission denied: private path"),
-            "authorization"
-        );
+        assert_eq!(classify_zypp_error(b"Permission denied: private path"), "authorization");
         assert_eq!(
             classify_zypp_error(b"No provider of package secret-name"),
             "package_resolution"
