@@ -359,7 +359,7 @@ pub fn open_validated_state_mount(
 
 /// Ensure the caller-provided anchor is exactly this process's `/` mount,
 /// rather than a different root-owned directory or a bind-mounted substitute.
-fn validate_trusted_root(root: &impl AsFd) -> Result<(), StateMountError> {
+pub(crate) fn validate_trusted_root(root: &impl AsFd) -> Result<(), StateMountError> {
     let supplied = fstat(root).map_err(StateMountError::Filesystem)?;
     let actual_fd =
         open("/", OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC, rustix::fs::Mode::empty())
