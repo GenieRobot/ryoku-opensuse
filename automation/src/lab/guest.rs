@@ -11,6 +11,7 @@ const DISPLAY_MANAGER_ALIAS: &str = "/etc/systemd/system/display-manager.service
 const LEGACY_DISPLAY_MANAGER: &str = "/usr/lib/systemd/system/display-manager-legacy.service";
 const SDDM_UNIT: &str = "/usr/lib/systemd/system/sddm.service";
 const ZYPPER_TIMEOUT: Duration = Duration::from_secs(20 * 60);
+const KDE_ZYPPER_TIMEOUT: Duration = Duration::from_secs(34 * 60);
 const ZYPPER_OUTPUT_LIMIT: usize = 1024 * 1024;
 
 /// Run one fixed zypper operation with a hard child-process deadline. Output is
@@ -22,13 +23,23 @@ pub(crate) fn run_zypper(
     timeout_category: &'static str,
     failure_category: &'static str,
 ) -> Result<()> {
+    run_zypper_with_timeout(args, proxy, ZYPPER_TIMEOUT, timeout_category, failure_category)
+}
+
+fn run_zypper_with_timeout(
+    args: &[&str],
+    proxy: Option<&str>,
+    timeout: Duration,
+    timeout_category: &'static str,
+    failure_category: &'static str,
+) -> Result<()> {
     let mut zypper = Command::new("zypper");
     zypper.args(args);
     if let Some(proxy) = proxy {
         zypper.env("HTTP_PROXY", format!("http://{proxy}"));
         zypper.env("HTTPS_PROXY", format!("http://{proxy}"));
     }
-    let result = process::run(&mut zypper, ZYPPER_TIMEOUT, ZYPPER_OUTPUT_LIMIT)?;
+    let result = process::run(&mut zypper, timeout, ZYPPER_OUTPUT_LIMIT)?;
     eprint!("{}", String::from_utf8_lossy(&result.stdout));
     eprint!("{}", String::from_utf8_lossy(&result.stderr));
     if result.stdout_truncated || result.stderr_truncated {
@@ -96,7 +107,13 @@ pub fn setup(proxy: &str) -> Result<()> {
             "xorg-x11-server",
         ],
     ] {
-        run_zypper(&args, Some(proxy), "KDE_PROVISIONING_TIMEOUT", "KDE_PROVISIONING_FAILED")?;
+        run_zypper_with_timeout(
+            &args,
+            Some(proxy),
+            KDE_ZYPPER_TIMEOUT,
+            "KDE_PROVISIONING_TIMEOUT",
+            "KDE_PROVISIONING_FAILED",
+        )?;
         if args[1] == "refresh" {
             crate::repositories::verify_cache()?;
         }
@@ -373,6 +390,13 @@ pub fn marker_absent() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn kde_zypper_deadline_is_extended_without_changing_other_operations() {
+        assert_eq!(ZYPPER_TIMEOUT, Duration::from_secs(20 * 60));
+        assert_eq!(KDE_ZYPPER_TIMEOUT, Duration::from_secs(34 * 60));
+        assert!(KDE_ZYPPER_TIMEOUT > ZYPPER_TIMEOUT);
+    }
 
     #[test]
     fn reports_only_loader_dependencies_marked_not_found() {
