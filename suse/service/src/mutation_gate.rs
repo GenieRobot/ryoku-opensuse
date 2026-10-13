@@ -11,6 +11,11 @@ use std::io;
 
 use rustix::fs::{FlockOperation, flock};
 
+use crate::{
+    JournalError, ManagedActionKind, OperationId, OperationJournal, OperationPhase,
+    OperationStatus, ServiceError,
+};
+
 /// Identity pair for the system snapshot and Ryoku/configuration generation.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LinkedGeneration {
@@ -62,8 +67,61 @@ pub struct PlannedChange {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum GateError {
     Lock(io::ErrorKind),
+    Journal(JournalError),
     CheckpointUnverified,
     PlanChanged,
+    ApplyFailed,
+    PostChangeFailed,
+}
+
+/// Durable operation identity and append-only journal for one guarded change.
+pub struct JournaledOperation<'a> {
+    journal: &'a mut OperationJournal,
+    operation_id: OperationId,
+    action: ManagedActionKind,
+}
+
+impl<'a> JournaledOperation<'a> {
+    pub fn new(
+        journal: &'a mut OperationJournal,
+        operation_id: OperationId,
+        action: ManagedActionKind,
+    ) -> Self {
+        Self { journal, operation_id, action }
+    }
+
+    fn record(
+        &mut self,
+        phase: OperationPhase,
+        error: Option<ServiceError>,
+    ) -> Result<(), GateError> {
+        self.journal
+            .record(OperationStatus {
+                operation_id: self.operation_id.clone(),
+                action: self.action,
+                phase,
+                progress: None,
+                error,
+            })
+            .map_err(GateError::Journal)
+    }
+
+    fn fail(&mut self, category: ServiceError, cause: GateError) -> GateError {
+        match self.record(OperationPhase::Failed, Some(category)) {
+            Ok(()) => cause,
+            Err(journal_error) => journal_error,
+        }
+    }
+}
+
+/// Persist pre-change failures using only error codes already defined by
+/// protocol v1. This keeps old clients able to deserialize operation status.
+fn pre_change_error(cause: &GateError) -> ServiceError {
+    match cause {
+        GateError::Lock(_) => ServiceError::Busy,
+        GateError::PlanChanged => ServiceError::StaleRequest,
+        _ => ServiceError::RecoveryUnavailable,
+    }
 }
 
 /// Holds an exclusive interprocess writer lock until dropped.
@@ -113,9 +171,79 @@ pub fn with_verified_prechange<T>(
     Ok(apply(&proof))
 }
 
+/// Execute one mutation through durably recorded orchestration phases. The
+/// caller must supply trusted checkpoint, revalidation, apply, and post-change
+/// verification integrations. Each phase is synchronized before the next
+/// callback begins. A crash leaves the last reached phase for explicit
+/// recovery; this function does not infer or replay an interrupted operation.
+pub fn with_journaled_verified_mutation<T>(
+    lock_file: File,
+    planned: &PlannedChange,
+    operation: &mut JournaledOperation<'_>,
+    checkpoint: &mut impl CheckpointVerifier,
+    revalidator: &mut impl PlanRevalidator,
+    apply: impl FnOnce(&VerifiedLinkedGeneration) -> Result<T, GateError>,
+    verify_post_change: impl FnOnce(&T, &VerifiedLinkedGeneration) -> Result<(), GateError>,
+) -> Result<T, GateError> {
+    operation.record(OperationPhase::Accepted, None)?;
+    let _writer = match WriterGuard::acquire(lock_file) {
+        Ok(guard) => guard,
+        Err(error) => {
+            let category = pre_change_error(&error);
+            return Err(operation.fail(category, error));
+        }
+    };
+
+    operation.record(OperationPhase::Capturing, None)?;
+    let evidence = match checkpoint.create_and_verify() {
+        Ok(evidence) => evidence,
+        Err(error) => {
+            let category = pre_change_error(&error);
+            return Err(operation.fail(category, error));
+        }
+    };
+    let proof = match VerifiedLinkedGeneration::validate(evidence) {
+        Ok(proof) => proof,
+        Err(error) => {
+            let category = pre_change_error(&error);
+            return Err(operation.fail(category, error));
+        }
+    };
+    let still_matches = match revalidator.still_matches(planned) {
+        Ok(value) => value,
+        Err(error) => {
+            let category = pre_change_error(&error);
+            return Err(operation.fail(category, error));
+        }
+    };
+    if !still_matches {
+        let error = GateError::PlanChanged;
+        let category = pre_change_error(&error);
+        return Err(operation.fail(category, error));
+    }
+
+    // If this durable write fails, the mutation callback is never entered.
+    operation.record(OperationPhase::Applying, None)?;
+    let result = match apply(&proof) {
+        Ok(result) => result,
+        Err(error) => return Err(operation.fail(ServiceError::Failed, error)),
+    };
+
+    operation.record(OperationPhase::Verifying, None)?;
+    if let Err(error) = verify_post_change(&result, &proof) {
+        // `failed` is an existing protocol-v1 code; unlike pre-change
+        // checkpoint failures (`recovery_unavailable`), it marks failure
+        // after the mutation entered the durable Verifying phase.
+        return Err(operation.fail(ServiceError::Failed, error));
+    }
+    operation.record(OperationPhase::Succeeded, None)?;
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
 
     fn lock_file(tag: &str) -> File {
@@ -170,6 +298,32 @@ mod tests {
             plan_fingerprint: "plan-a".into(),
             affected_state_fingerprint: "scope-a".into(),
         }
+    }
+
+    fn operation_journal(tag: &str) -> (PathBuf, OperationJournal) {
+        let path = std::env::temp_dir()
+            .join(format!("ryoku-mutation-journal-{tag}-{}", std::process::id()));
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        (path, OperationJournal::open(file).unwrap())
+    }
+
+    fn persisted_status(path: &Path, id: &OperationId) -> OperationStatus {
+        let file = std::fs::OpenOptions::new().read(true).append(true).open(path).unwrap();
+        OperationJournal::open(file).unwrap().get(id).cloned().unwrap()
+    }
+
+    fn operation_id(value: &str) -> OperationId {
+        OperationId::new(value).unwrap()
+    }
+
+    fn action() -> ManagedActionKind {
+        ManagedActionKind::InstallPackage
     }
 
     #[test]
@@ -248,6 +402,139 @@ mod tests {
         );
         assert_eq!(result, Err(GateError::CheckpointUnverified));
         assert_eq!(*trace.lock().unwrap(), ["checkpoint"]);
+    }
+
+    #[test]
+    fn journaled_mutation_persists_each_phase_before_callbacks() {
+        let (path, mut journal) = operation_journal("success");
+        let id = operation_id("op-success");
+        let mut operation = JournaledOperation::new(&mut journal, id.clone(), action());
+        let mut checkpoint =
+            FakeCheckpoint { evidence: Ok(evidence()), trace: Arc::new(Mutex::new(Vec::new())) };
+        let mut revalidator =
+            FakeRevalidator { matches: true, trace: Arc::new(Mutex::new(Vec::new())) };
+        let apply_path = path.clone();
+        let apply_id = id.clone();
+        let verify_path = path.clone();
+        let verify_id = id.clone();
+        let result = with_journaled_verified_mutation(
+            lock_file("durable-success"),
+            &planned(),
+            &mut operation,
+            &mut checkpoint,
+            &mut revalidator,
+            move |_| {
+                let status = persisted_status(&apply_path, &apply_id);
+                assert_eq!(status.phase, OperationPhase::Applying);
+                assert_eq!(status.error, None);
+                Ok("applied")
+            },
+            move |result, _| {
+                assert_eq!(*result, "applied");
+                let status = persisted_status(&verify_path, &verify_id);
+                assert_eq!(status.phase, OperationPhase::Verifying);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(result, "applied");
+        let status = persisted_status(&path, &id);
+        assert_eq!(status.phase, OperationPhase::Succeeded);
+        assert_eq!(status.error, None);
+        drop(operation);
+        drop(journal);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn journaled_failed_checkpoint_and_revalidation_never_apply() {
+        for (tag, checkpoint_result, plan_matches) in [
+            ("capture", Err(GateError::CheckpointUnverified), true),
+            ("revalidate", Ok(evidence()), false),
+        ] {
+            let (path, mut journal) = operation_journal(tag);
+            let id = operation_id(if tag == "capture" { "op-capture" } else { "op-stale" });
+            let mut operation = JournaledOperation::new(&mut journal, id.clone(), action());
+            let trace = Arc::new(Mutex::new(Vec::new()));
+            let mut checkpoint =
+                FakeCheckpoint { evidence: checkpoint_result, trace: trace.clone() };
+            let mut revalidator = FakeRevalidator { matches: plan_matches, trace };
+            let result = with_journaled_verified_mutation(
+                lock_file(tag),
+                &planned(),
+                &mut operation,
+                &mut checkpoint,
+                &mut revalidator,
+                |_| -> Result<(), GateError> {
+                    panic!("apply must not follow failed pre-change gates")
+                },
+                |_: &(), _| Ok(()),
+            );
+            let expected = if tag == "capture" {
+                (GateError::CheckpointUnverified, ServiceError::RecoveryUnavailable)
+            } else {
+                (GateError::PlanChanged, ServiceError::StaleRequest)
+            };
+            assert_eq!(result, Err(expected.0));
+            let status = persisted_status(&path, &id);
+            assert_eq!(status.phase, OperationPhase::Failed);
+            assert_eq!(status.error, Some(expected.1));
+            drop(operation);
+            drop(journal);
+            std::fs::remove_file(path).unwrap();
+        }
+    }
+
+    #[test]
+    fn journaled_post_change_failure_is_durable_and_distinct() {
+        let (path, mut journal) = operation_journal("post-change");
+        let id = operation_id("op-post-change");
+        let mut operation = JournaledOperation::new(&mut journal, id.clone(), action());
+        let trace = Arc::new(Mutex::new(Vec::new()));
+        let mut checkpoint = FakeCheckpoint { evidence: Ok(evidence()), trace: trace.clone() };
+        let mut revalidator = FakeRevalidator { matches: true, trace };
+        let result = with_journaled_verified_mutation(
+            lock_file("post-change"),
+            &planned(),
+            &mut operation,
+            &mut checkpoint,
+            &mut revalidator,
+            |_| Ok(()),
+            |_, _| Err(GateError::PostChangeFailed),
+        );
+        assert_eq!(result, Err(GateError::PostChangeFailed));
+        let status = persisted_status(&path, &id);
+        assert_eq!(status.phase, OperationPhase::Failed);
+        assert_eq!(status.error, Some(ServiceError::Failed));
+        drop(operation);
+        drop(journal);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn journaled_apply_failure_is_a_terminal_failed_record() {
+        let (path, mut journal) = operation_journal("apply-failure");
+        let id = operation_id("op-apply-failure");
+        let mut operation = JournaledOperation::new(&mut journal, id.clone(), action());
+        let trace = Arc::new(Mutex::new(Vec::new()));
+        let mut checkpoint = FakeCheckpoint { evidence: Ok(evidence()), trace: trace.clone() };
+        let mut revalidator = FakeRevalidator { matches: true, trace };
+        let result = with_journaled_verified_mutation(
+            lock_file("apply-failure"),
+            &planned(),
+            &mut operation,
+            &mut checkpoint,
+            &mut revalidator,
+            |_| Err(GateError::ApplyFailed),
+            |_: &(), _| Ok(()),
+        );
+        assert_eq!(result, Err(GateError::ApplyFailed));
+        let status = persisted_status(&path, &id);
+        assert_eq!(status.phase, OperationPhase::Failed);
+        assert_eq!(status.error, Some(ServiceError::Failed));
+        drop(operation);
+        drop(journal);
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]
