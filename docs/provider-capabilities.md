@@ -112,6 +112,14 @@ is not a complete affected-state inventory for a package transaction.
 | Bounded timeout | Probe registered, but no `COMMITBEGIN` was observed; timeout mode did not begin. The zypper child exited 4 and the RPM-state hash was unchanged. | Pre-hook failure cause is unclassified; no evidence about commit behavior on a plugin timeout. |
 | Missing plugin | The zypper child exited 4 before a package transaction began; RPM-state hash was unchanged. | Inconclusive whether the transaction would proceed without a plugin or failed elsewhere. |
 
+The runner records only a fixed `zypp_*_error_category` label derived from
+provider stderr: `authorization`, `package_manager_lock`, `package_resolution`,
+`network_or_download`, `repository_configuration`, `repository_or_metadata`,
+`plugin`, `no_stderr` or `unclassified`. It never copies stderr text into public
+evidence; raw command output stays in the permission-restricted private run log.
+These labels help target a repeat experiment and do not establish hook placement
+or whether a provider write was blocked.
+
 No package commit, PackageKit/Cockpit operation, checkpoint ID, post-change
 verification or recovery-journal entry was observed. Run19 therefore does not
 prove a blocking hook or protected provider write. Keep issue #15 open and keep
