@@ -35,7 +35,7 @@ jobs:
         run: cargo install cargo-deny --locked --version 0.20.2
 
       - name: Review dependencies
-        run: cargo deny check
+        run: cargo deny --all-features check
 
   gtk-proof-artifact:
     name: Build GTK proof artifact from main
