@@ -295,6 +295,31 @@ impl PairCorrelation {
     }
 }
 
+/// Complete pure-Rust reconciliation result for a requested Snapper pair.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PairReconciliation {
+    /// Observed records matching both requested config and transaction ID.
+    pub correlation: PairCorrelation,
+    /// Safe next step; incomplete and ambiguous pairs are never duplicated.
+    pub disposition: PairDisposition,
+}
+
+/// Reconciles a requested pair against observed Snapper records.
+///
+/// An existing package-hook pair is reused, so the caller does not create a
+/// redundant nested pair. A missing exact match may be created. Partial,
+/// duplicate, or otherwise ambiguous matching records require explicit
+/// reconciliation before proceeding. This function only classifies supplied
+/// observations; it does not query or mutate Snapper.
+pub fn reconcile_pair(
+    request: &SnapshotPairRequest,
+    records: &[SnapshotRecord],
+) -> PairReconciliation {
+    let correlation = correlate_pair(&request.config, &request.transaction_id, records);
+    let disposition = correlation.disposition();
+    PairReconciliation { correlation, disposition }
+}
+
 /// Matches hook-created records by exact transaction ID and config, never by
 /// descriptions or timestamp proximity. Duplicate IDs are treated as
 /// ambiguous and must not trigger automatic snapshot creation.
@@ -320,7 +345,9 @@ pub fn correlate_pair(
     match (pre.as_slice(), post.as_slice()) {
         ([], []) => PairCorrelation::Missing,
         ([pre], []) => PairCorrelation::PreOnly { pre: pre.clone() },
-        ([pre], [post]) => PairCorrelation::Existing { pre: pre.clone(), post: post.clone() },
+        ([pre], [post]) if pre != post => {
+            PairCorrelation::Existing { pre: pre.clone(), post: post.clone() }
+        }
         _ => PairCorrelation::Ambiguous,
     }
 }
@@ -518,6 +545,69 @@ mod tests {
             ),
             PairCorrelation::Ambiguous
         );
+    }
+
+    #[test]
+    fn reconciliation_reuses_exact_hook_pair_and_never_duplicates_partial_pairs() {
+        let request = SnapshotPairRequest { config: config(), transaction_id: transaction() };
+        let exact = reconcile_pair(
+            &request,
+            &[
+                record(SnapshotKind::Pre, "10", "root", "zypp-1234"),
+                record(SnapshotKind::Post, "11", "root", "zypp-1234"),
+                record(SnapshotKind::Pre, "12", "root", "zypp-9999"),
+                record(SnapshotKind::Post, "13", "home", "zypp-1234"),
+            ],
+        );
+        assert_eq!(
+            exact,
+            PairReconciliation {
+                correlation: PairCorrelation::Existing {
+                    pre: SnapshotId::new("10").unwrap(),
+                    post: SnapshotId::new("11").unwrap(),
+                },
+                disposition: PairDisposition::ReuseExistingPair,
+            }
+        );
+
+        let incomplete = reconcile_pair(
+            &request,
+            &[
+                record(SnapshotKind::Pre, "10", "root", "zypp-1234"),
+                // A post record with the wrong config is not its partner.
+                record(SnapshotKind::Post, "11", "home", "zypp-1234"),
+            ],
+        );
+        assert_eq!(
+            incomplete.correlation,
+            PairCorrelation::PreOnly { pre: SnapshotId::new("10").unwrap() }
+        );
+        assert_eq!(incomplete.disposition, PairDisposition::ReconcileBeforeProceeding);
+
+        let mismatched_transaction = reconcile_pair(
+            &request,
+            &[
+                record(SnapshotKind::Pre, "10", "root", "zypp-9999"),
+                record(SnapshotKind::Post, "11", "root", "zypp-9999"),
+            ],
+        );
+        assert_eq!(mismatched_transaction.correlation, PairCorrelation::Missing);
+        assert_eq!(mismatched_transaction.disposition, PairDisposition::CreatePair);
+
+        let unrelated =
+            reconcile_pair(&request, &[record(SnapshotKind::Single, "10", "root", "zypp-9999")]);
+        assert_eq!(unrelated.correlation, PairCorrelation::Missing);
+        assert_eq!(unrelated.disposition, PairDisposition::CreatePair);
+
+        let duplicate_id = reconcile_pair(
+            &request,
+            &[
+                record(SnapshotKind::Pre, "10", "root", "zypp-1234"),
+                record(SnapshotKind::Post, "10", "root", "zypp-1234"),
+            ],
+        );
+        assert_eq!(duplicate_id.correlation, PairCorrelation::Ambiguous);
+        assert_eq!(duplicate_id.disposition, PairDisposition::ReconcileBeforeProceeding);
     }
 
     fn catalog_entry(capability: LayoutCapability, partner: PartnerState) -> CatalogEntry {
