@@ -152,10 +152,10 @@ pub trait PlanRevalidator {
     fn still_matches(&mut self, planned: &PlannedChange) -> Result<bool, GateError>;
 }
 
-/// Sequence a mutation under a cross-process writer lock. `apply` is called
-/// only after acquiring the lock, obtaining a verified linked generation, and
-/// revalidating the plan. The callback is deliberately generic: this module
-/// does not choose or execute a provider operation.
+/// Test-only unjournaled variant retained for focused gate unit tests.
+/// Production callers must use [`with_journaled_verified_mutation`] so every
+/// supported mutation has durable operation history before its callback runs.
+#[cfg(test)]
 pub fn with_verified_prechange<T>(
     lock_file: File,
     planned: &PlannedChange,
@@ -243,6 +243,7 @@ pub fn with_journaled_verified_mutation<T>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::JournalRecord;
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
 
@@ -316,6 +317,16 @@ mod tests {
     fn persisted_status(path: &Path, id: &OperationId) -> OperationStatus {
         let file = std::fs::OpenOptions::new().read(true).append(true).open(path).unwrap();
         OperationJournal::open(file).unwrap().get(id).cloned().unwrap()
+    }
+
+    fn persisted_phases(path: &Path, id: &OperationId) -> Vec<OperationPhase> {
+        std::fs::read_to_string(path)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str::<JournalRecord>(line).unwrap())
+            .filter(|record| record.status.operation_id == *id)
+            .map(|record| record.status.phase)
+            .collect()
     }
 
     fn operation_id(value: &str) -> OperationId {
@@ -409,10 +420,28 @@ mod tests {
         let (path, mut journal) = operation_journal("success");
         let id = operation_id("op-success");
         let mut operation = JournaledOperation::new(&mut journal, id.clone(), action());
-        let mut checkpoint =
-            FakeCheckpoint { evidence: Ok(evidence()), trace: Arc::new(Mutex::new(Vec::new())) };
-        let mut revalidator =
-            FakeRevalidator { matches: true, trace: Arc::new(Mutex::new(Vec::new())) };
+        struct DurableCheckpoint {
+            path: PathBuf,
+            id: OperationId,
+        }
+        impl CheckpointVerifier for DurableCheckpoint {
+            fn create_and_verify(&mut self) -> Result<CheckpointEvidence, GateError> {
+                assert_eq!(persisted_status(&self.path, &self.id).phase, OperationPhase::Capturing);
+                Ok(evidence())
+            }
+        }
+        struct DurableRevalidator {
+            path: PathBuf,
+            id: OperationId,
+        }
+        impl PlanRevalidator for DurableRevalidator {
+            fn still_matches(&mut self, _: &PlannedChange) -> Result<bool, GateError> {
+                assert_eq!(persisted_status(&self.path, &self.id).phase, OperationPhase::Capturing);
+                Ok(true)
+            }
+        }
+        let mut checkpoint = DurableCheckpoint { path: path.clone(), id: id.clone() };
+        let mut revalidator = DurableRevalidator { path: path.clone(), id: id.clone() };
         let apply_path = path.clone();
         let apply_id = id.clone();
         let verify_path = path.clone();
@@ -441,6 +470,16 @@ mod tests {
         let status = persisted_status(&path, &id);
         assert_eq!(status.phase, OperationPhase::Succeeded);
         assert_eq!(status.error, None);
+        assert_eq!(
+            persisted_phases(&path, &id),
+            [
+                OperationPhase::Accepted,
+                OperationPhase::Capturing,
+                OperationPhase::Applying,
+                OperationPhase::Verifying,
+                OperationPhase::Succeeded,
+            ]
+        );
         drop(operation);
         drop(journal);
         std::fs::remove_file(path).unwrap();
