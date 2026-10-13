@@ -873,6 +873,7 @@ pub fn run(
             require(binary.is_file(), "zypper probe binary is not a regular file")?;
             require(
                 !package.is_empty()
+                    && package.as_bytes()[0].is_ascii_alphanumeric()
                     && package
                         .bytes()
                         .all(|byte| byte.is_ascii_alphanumeric() || b"-_.+".contains(&byte)),

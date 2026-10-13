@@ -66,6 +66,7 @@ fn run_options(args: &[String]) -> Result<RunOptions<'_>, &'static str> {
                 let package = args[index + 2].as_str();
                 if binary.is_empty()
                     || package.is_empty()
+                    || !package.as_bytes()[0].is_ascii_alphanumeric()
                     || !package
                         .bytes()
                         .all(|byte| byte.is_ascii_alphanumeric() || b"-_.+".contains(&byte))
@@ -119,6 +120,7 @@ mod tests {
             vec!["vm-lab", "run", "assets", "run", "--display", "gtk"],
             vec!["vm-lab", "run", "assets", "run", "--zypp-probe", "/tmp/probe"],
             vec!["vm-lab", "run", "assets", "run", "--zypp-probe", "/tmp/probe", "bad package"],
+            vec!["vm-lab", "run", "assets", "run", "--zypp-probe", "/tmp/probe", "-bad"],
         ] {
             let invalid = invalid.into_iter().map(str::to_owned).collect::<Vec<_>>();
             assert!(run_options(&invalid).is_err());

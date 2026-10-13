@@ -175,6 +175,7 @@ fn experiment() -> Result<(), Box<dyn std::error::Error>> {
     let mode = args.next().unwrap_or_else(|| "deny-commit".into());
     if args.next().is_some()
         || package.is_empty()
+        || !package.as_bytes()[0].is_ascii_alphanumeric()
         || !package.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_.+".contains(&b))
         || !["deny-commit", "malformed-commit", "timeout-commit", "missing-plugin"]
             .contains(&mode.as_str())
