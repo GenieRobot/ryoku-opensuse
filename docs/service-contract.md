@@ -6,7 +6,7 @@ Status: Rust protocol and authorization primitives plus a runnable unprivileged 
 
 `ryoku-service` defines protocol version 1 in Rust. Each envelope carries a validated bounded request ID and one typed request: capability discovery, durable operation lookup, or a named managed action. The decoder bounds input to 64 KiB, rejects unknown required fields and versions, and validates package, profile, checkpoint, request, and operation identifiers during deserialization. Responses distinguish acceptance, durable operation state, and structured errors. Operation phases are explicit, and journal transitions are restricted to `accepted → capturing → applying → verifying → succeeded`, with failure exits at each in-progress phase.
 
-There is no generic command request. The helper request enum has only linked-checkpoint verification, package transaction, and checkpoint restore variants, each carrying opaque transaction/manifest IDs and typed package/checkpoint IDs. There are no paths, executable names, argv arrays, shell strings, environment variables, or arbitrary provider names. The helper policy currently refuses all effectful actions because no implementation can yet verify the complete linked pre-change capture required by #1 and #16.
+There is no generic command request. The helper protocol has its own versioned, bounded envelope and only three typed request variants: linked-checkpoint verification, package transaction, and checkpoint restore. They carry validated transaction/manifest references and typed package/checkpoint IDs. Unknown fields, unsupported versions, malformed IDs, empty/oversized/duplicate package lists, and frames over 64 KiB are rejected before policy dispatch. There are no paths, executable names, argv arrays, shell strings, environment variables, or arbitrary provider names. The current response schema has only rejected outcomes: even a valid request from the configured service UID returns `unsupported` until the full linked pre-change capture and provider path are implemented. This protocol adds no helper listener and executes no mutations.
 
 ## Authentication, runtime, and persistence
 
@@ -23,7 +23,7 @@ Discovery advertises no mutation actions in this build. Known action names remai
 ## Acceptance gaps
 
 - Add a managed user-session service unit/lifecycle, live end-to-end process restart/reconnect proof, and stricter race-free descriptor-based validation for runtime/state paths.
-- Add a privileged helper executable/service unit with a root-owned socket policy, dedicated service identity, bounded framing, replay protection, and independently reviewed installation permissions.
+- Add a privileged helper executable/service unit with a root-owned socket policy, dedicated service identity, request replay protection, and independently reviewed installation permissions; connect its bounded listener to this typed protocol.
 - Connect only the `ryoku-service` identity to the helper; test forged peer identities, other users, root, malformed/stale/unsupported requests, and ensure all denials leave system state unchanged.
 - Integrate a provider and #16's verified linked capture/publication so an accepted operation survives client disconnect and can resume/query actual durable progress.
 - Connect the coordinator to durable operation phases, authorization, complete #16 capture/publication, low-space checks, cancellation boundaries, provider-level writer coordination, and post-change capture; test interruptions and recovery.
