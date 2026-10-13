@@ -414,6 +414,26 @@ no login screenshots and does not establish why authentication/session
 handoff failed. Only the sanitized key/value facts above are reproduced here;
 private serial, guest/session logs and raw images are excluded.
 
+## Follow-up Run19: SDDM graphical readiness race observed
+
+Run19's sanitized evidence still records `desktop_login=blocked`; it does not
+pass issue #13's login gate. Private QMP captures showed an all-black
+framebuffer immediately before password input. The timeout frame showed the
+SDDM greeter with the ordinary test account selected and an empty password
+field. The bounded private journal recorded the greeter starting, but no user
+PAM authentication attempt or ordinary-user session launch during the input
+attempt. This points to a graphical readiness race: the guest had an active
+greeter session/process before the greeter UI was ready to receive input. It
+does not establish a PAM rejection.
+
+The runner now polls QMP framebuffer captures, bounded to 60 seconds, until
+the greeter framebuffer is non-black. It then records the private pre-input
+capture and sends the password. Temporary readiness frames stay inside the
+mode-0700 run directory and are removed after inspection. This is a targeted
+fix for the observed blank-frame/input race; a fresh disposable run must still
+prove password authentication and the ordinary-user Plasma Wayland session
+before closing #13. Raw Run19 frames and journal remain private.
+
 ## Observed hosted Rust checks
 
 [GitHub run 38316734108](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/38316734108)

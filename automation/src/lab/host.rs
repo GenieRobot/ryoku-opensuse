@@ -21,6 +21,9 @@ const FIRMWARE: &[(&str, &str)] =
 const LOGIN_JOURNAL_FILENAME: &str = "sddm-logind-journal-private.log";
 const LOGIN_JOURNAL_STREAM_LIMIT: usize = 1024 * 1024;
 const LOGIN_JOURNAL_COMMAND: &str = "sudo /usr/bin/timeout --signal=KILL --kill-after=2s 15s /usr/bin/journalctl --no-pager --output=short-monotonic --since=-5min --lines=1000 --unit=sddm.service --unit=systemd-logind.service";
+const GREETER_READINESS_FRAME: &str = "sddm-readiness.ppm";
+const GREETER_READINESS_TIMEOUT: Duration = Duration::from_secs(60);
+const GREETER_READINESS_POLL: Duration = Duration::from_millis(500);
 
 fn login_journal_path(run: &Path) -> PathBuf {
     run.join(LOGIN_JOURNAL_FILENAME)
@@ -105,7 +108,50 @@ impl LoginCapturePoint {
 
 trait LoginMonitor {
     fn send_key(&mut self, qcode: &str) -> Result<()>;
+    fn framebuffer_has_rendered_content(&mut self) -> Result<bool>;
     fn capture(&mut self, point: LoginCapturePoint) -> Result<()>;
+}
+
+fn ppm_frame_has_nonblack_pixels(frame: &[u8]) -> Result<bool> {
+    let mut lines = frame.splitn(4, |byte| *byte == b'\n');
+    require(lines.next() == Some(b"P6".as_slice()), "QEMU framebuffer is not a binary PPM")?;
+    let dimensions = std::str::from_utf8(lines.next().ok_or("PPM dimensions missing")?)?;
+    let mut fields = dimensions.split_ascii_whitespace();
+    let width: usize = fields.next().ok_or("PPM width missing")?.parse()?;
+    let height: usize = fields.next().ok_or("PPM height missing")?.parse()?;
+    require(fields.next().is_none(), "invalid PPM dimensions")?;
+    let maximum = lines.next().ok_or("PPM maximum color missing")?;
+    require(maximum == b"255", "unsupported PPM color depth")?;
+    let pixels = lines.next().ok_or("PPM pixels missing")?;
+    let expected = width
+        .checked_mul(height)
+        .and_then(|count| count.checked_mul(3))
+        .ok_or("PPM pixel count overflow")?;
+    require(
+        width > 0 && height > 0 && width <= 8192 && height <= 8192 && pixels.len() == expected,
+        "invalid QEMU framebuffer dimensions or pixel length",
+    )?;
+    Ok(pixels.iter().any(|pixel| *pixel != 0))
+}
+
+fn wait_for_rendered_greeter(
+    control: &mut impl LoginMonitor,
+    timeout: Duration,
+    poll_interval: Duration,
+) -> Result<()> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        if control.framebuffer_has_rendered_content()? {
+            return Ok(());
+        }
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        require(!remaining.is_zero(), "SDDM greeter framebuffer remained black")?;
+        if poll_interval.is_zero() {
+            thread::yield_now();
+        } else {
+            thread::sleep(poll_interval.min(remaining));
+        }
+    }
 }
 
 struct PrivateLoginMonitor<'a> {
@@ -117,6 +163,26 @@ impl LoginMonitor for PrivateLoginMonitor<'_> {
     fn send_key(&mut self, qcode: &str) -> Result<()> {
         self.control.send_key(qcode)?;
         Ok(())
+    }
+
+    fn framebuffer_has_rendered_content(&mut self) -> Result<bool> {
+        let path = self.run.join(GREETER_READINESS_FRAME);
+        match fs::remove_file(&path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+        let result = (|| {
+            self.control.screendump(GREETER_READINESS_FRAME)?;
+            let metadata = fs::symlink_metadata(&path)?;
+            require(
+                metadata.is_file() && metadata.len() <= 32 * 1024 * 1024,
+                "QEMU created an invalid private readiness framebuffer",
+            )?;
+            ppm_frame_has_nonblack_pixels(&fs::read(&path)?)
+        })();
+        let _ = fs::remove_file(path);
+        result
     }
 
     fn capture(&mut self, point: LoginCapturePoint) -> Result<()> {
@@ -150,7 +216,13 @@ fn send_greeter_password(
     control: &mut impl LoginMonitor,
     password: &[u8],
     key_delay: Duration,
+    ready_timeout: Duration,
+    ready_poll: Duration,
 ) -> Result<()> {
+    if let Err(error) = wait_for_rendered_greeter(control, ready_timeout, ready_poll) {
+        capture_login_timeout(control);
+        return Err(error);
+    }
     // Diagnostic capture must never prevent the actual authentication probe.
     let _ = control.capture(LoginCapturePoint::BeforeGreeterInput);
     for byte in password {
@@ -371,7 +443,13 @@ impl Lab {
         let prepared = String::from_utf8(result.stdout)?;
         let mut control = qmp::QmpClient::connect(&self.run.join("qmp-private.sock"))?;
         let mut monitor = PrivateLoginMonitor { control: &mut control, run: &self.run };
-        send_greeter_password(&mut monitor, password, Duration::from_millis(150))?;
+        send_greeter_password(
+            &mut monitor,
+            password,
+            Duration::from_millis(150),
+            GREETER_READINESS_TIMEOUT,
+            GREETER_READINESS_POLL,
+        )?;
         let deadline = Instant::now() + Duration::from_secs(180);
         let mut last_error = String::from("login inspection has not completed");
         let mut journal_capture_attempted = false;
@@ -1240,13 +1318,32 @@ mod tests {
     #[derive(Default)]
     struct RecordingLoginMonitor {
         events: Vec<String>,
+        readiness_frames: Vec<Vec<u8>>,
         fail_captures: bool,
+    }
+
+    fn ppm_pixel(rgb: [u8; 3]) -> Vec<u8> {
+        [b"P6\n1 1\n255\n".as_slice(), rgb.as_slice()].concat()
     }
 
     impl LoginMonitor for RecordingLoginMonitor {
         fn send_key(&mut self, qcode: &str) -> Result<()> {
             self.events.push(format!("key:{qcode}"));
             Ok(())
+        }
+
+        fn framebuffer_has_rendered_content(&mut self) -> Result<bool> {
+            let rendered = self
+                .readiness_frames
+                .first()
+                .map(|frame| ppm_frame_has_nonblack_pixels(frame))
+                .transpose()?
+                .unwrap_or(false);
+            if !self.readiness_frames.is_empty() {
+                self.readiness_frames.remove(0);
+            }
+            self.events.push(if rendered { "frame:rendered" } else { "frame:black" }.into());
+            Ok(rendered)
         }
 
         fn capture(&mut self, point: LoginCapturePoint) -> Result<()> {
@@ -1256,14 +1353,27 @@ mod tests {
     }
 
     #[test]
-    fn login_captures_pre_input_and_timeout_frames_in_order() {
-        let mut monitor = RecordingLoginMonitor { fail_captures: true, ..Default::default() };
-        send_greeter_password(&mut monitor, b"ab2", Duration::ZERO).unwrap();
+    fn login_waits_through_black_frame_before_capturing_and_typing() {
+        let mut monitor = RecordingLoginMonitor {
+            readiness_frames: vec![ppm_pixel([0, 0, 0]), ppm_pixel([1, 0, 0])],
+            fail_captures: true,
+            ..Default::default()
+        };
+        send_greeter_password(
+            &mut monitor,
+            b"ab2",
+            Duration::ZERO,
+            Duration::from_secs(1),
+            Duration::ZERO,
+        )
+        .unwrap();
         capture_login_timeout(&mut monitor);
 
         assert_eq!(
             monitor.events,
             [
+                "frame:black",
+                "frame:rendered",
                 "capture:sddm-before-input.ppm",
                 "key:a",
                 "key:b",
@@ -1272,6 +1382,25 @@ mod tests {
                 "capture:sddm-login-timeout.ppm",
             ]
         );
+    }
+
+    #[test]
+    fn all_black_greeter_frame_times_out_without_sending_credentials() {
+        let mut monitor = RecordingLoginMonitor {
+            readiness_frames: vec![ppm_pixel([0, 0, 0])],
+            fail_captures: true,
+            ..Default::default()
+        };
+        let result = send_greeter_password(
+            &mut monitor,
+            b"ab2",
+            Duration::ZERO,
+            Duration::ZERO,
+            Duration::ZERO,
+        );
+
+        assert!(result.is_err());
+        assert_eq!(monitor.events, ["frame:black", "capture:sddm-login-timeout.ppm"]);
     }
 
     #[test]
