@@ -154,14 +154,14 @@ fn experiment() -> Result<(), Box<dyn std::error::Error>> {
     );
     if mode == "timeout-commit" {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-        while plugin_pids.iter().any(|pid| Path::new(&format!("/proc/{pid}")).exists())
+        while plugin_pids.iter().any(|pid| process_active(*pid))
             && std::time::Instant::now() < deadline
         {
             std::thread::sleep(std::time::Duration::from_millis(100));
         }
         println!(
             "timeout_plugin_terminated={}",
-            plugin_pids.iter().all(|pid| !Path::new(&format!("/proc/{pid}")).exists())
+            plugin_pids.iter().all(|pid| !process_active(*pid))
         );
     }
     let commit_seen = frames.lines().any(|line| line == "probe_frame=COMMITBEGIN");
@@ -200,9 +200,7 @@ fn experiment() -> Result<(), Box<dyn std::error::Error>> {
     {
         return Err("timeout mode completed before the bounded deadline instead of exercising the timeout path".into());
     }
-    if mode == "timeout-commit"
-        && plugin_pids.iter().any(|pid| Path::new(&format!("/proc/{pid}")).exists())
-    {
+    if mode == "timeout-commit" && plugin_pids.iter().any(|pid| process_active(*pid)) {
         return Err(
             "timed out plugin process remains; discard and reset the disposable guest".into()
         );
@@ -239,6 +237,21 @@ fn experiment() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
     Ok(())
+}
+
+/// A zombie has exited and cannot handle protocol input, even if a slow init
+/// process has not yet reaped its /proc entry.
+fn process_active(pid: u32) -> bool {
+    let Ok(stat) = fs::read_to_string(format!("/proc/{pid}/stat")) else {
+        return false;
+    };
+    let Some(end_of_comm) = stat.rfind(')') else {
+        return true;
+    };
+    match stat[end_of_comm + 1..].trim_start().chars().next() {
+        Some('Z' | 'X') => false,
+        Some(_) | None => true,
+    }
 }
 
 fn discover_plugin_dirs() -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
@@ -331,4 +344,122 @@ fn current_uid() -> u32 {
         .and_then(|o| String::from_utf8(o.stdout).ok())
         .and_then(|s| s.trim().parse().ok())
         .unwrap_or(u32::MAX)
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod timeout_process_tree_tests {
+    use std::{
+        env, fs,
+        io::Write,
+        os::unix::fs::OpenOptionsExt,
+        process::{Command, Stdio},
+        thread,
+        time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    };
+
+    const CHILD_MODE: &str = "RYOKU_TIMEOUT_TREE_CHILD";
+    const PID_FILE: &str = "RYOKU_TIMEOUT_TREE_PID_FILE";
+
+    fn record_pid() {
+        let path = env::var_os(PID_FILE).expect("timeout test PID file path");
+        let mut file =
+            fs::OpenOptions::new().append(true).open(path).expect("open timeout test PID file");
+        writeln!(file, "{}", std::process::id()).expect("record timeout test PID");
+    }
+
+    #[test]
+    fn timeout_probe_child() {
+        if env::var_os(CHILD_MODE).is_none() {
+            return;
+        }
+        record_pid();
+        let executable = env::current_exe().expect("test executable path");
+        let mut grandchild = Command::new(executable)
+            .args([
+                "--exact",
+                "timeout_process_tree_tests::timeout_probe_grandchild",
+                "--nocapture",
+            ])
+            .env(CHILD_MODE, "grandchild")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn Rust timeout grandchild");
+        loop {
+            let _ = grandchild.try_wait();
+            thread::sleep(Duration::from_secs(60));
+        }
+    }
+
+    #[test]
+    fn timeout_probe_grandchild() {
+        if env::var_os(CHILD_MODE).as_deref() != Some(std::ffi::OsStr::new("grandchild")) {
+            return;
+        }
+        record_pid();
+        loop {
+            thread::sleep(Duration::from_secs(60));
+        }
+    }
+
+    #[test]
+    fn gnu_timeout_kills_the_rust_probe_process_tree() {
+        let version =
+            Command::new("timeout").arg("--version").output().expect("GNU timeout available on CI");
+        assert!(version.status.success());
+        assert!(String::from_utf8_lossy(&version.stdout).contains("GNU coreutils"));
+
+        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let pid_file =
+            env::temp_dir().join(format!("ryoku-timeout-tree-{}-{nonce}", std::process::id()));
+        let _cleanup = super::Cleanup(pid_file.clone());
+        let file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&pid_file)
+            .expect("create private timeout test PID file");
+        drop(file);
+
+        let executable = env::current_exe().expect("test executable path");
+        let result = Command::new("timeout")
+            .args(["--signal=TERM", "--kill-after=1s", "3s"])
+            .arg(executable)
+            .args(["--exact", "timeout_process_tree_tests::timeout_probe_child", "--nocapture"])
+            .env(CHILD_MODE, "parent")
+            .env(PID_FILE, &pid_file)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .output()
+            .expect("run bounded Rust process tree");
+        assert_eq!(result.status.code(), Some(124), "timeout wrapper must report deadline");
+
+        let pids = fs::read_to_string(&pid_file)
+            .expect("Rust child and grandchild started")
+            .lines()
+            .map(|line| line.parse::<u32>().expect("valid child PID"))
+            .collect::<Vec<_>>();
+        assert_eq!(pids.len(), 2, "both the child and grandchild must have started");
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while pids.iter().any(|pid| super::process_active(*pid)) && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(50));
+        }
+        for pid in &pids {
+            if let Ok(status) = fs::read_to_string(format!("/proc/{pid}/status")) {
+                eprintln!(
+                    "test child {pid} status: {}",
+                    status
+                        .lines()
+                        .find(|line| line.starts_with("State:"))
+                        .unwrap_or("missing State")
+                );
+            }
+        }
+        assert!(
+            pids.iter().all(|pid| !super::process_active(*pid)),
+            "GNU timeout must terminate both Rust processes (zombies count as terminated)"
+        );
+    }
 }
