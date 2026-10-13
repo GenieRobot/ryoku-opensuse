@@ -8,6 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+libc = "0.2"
 ryoku-recovery = { version = "0.1.0", path = "../recovery" }
 rustix = { version = "1.1.5", features = ["fs", "net", "process"] }
 serde = { version = "1", features = ["derive"] }

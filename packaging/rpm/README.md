@@ -10,12 +10,13 @@ The deny-only service boundary installs the helper's
 `systemd/ryoku-helper.socket` and `systemd/ryoku-helper.service`, plus the
 user-scoped `systemd/user/ryoku-service.service` and `sysusers.d/ryoku.conf`.
 The socket is root-owned and group-readable/writable by the opt-in
-`ryoku-operators` group;
-the package installs a sysusers declaration that provisions the group but
-adds no users. Administrators must select users explicitly. The socket is
-installed but not enabled by the package. The per-user daemon connects to this
-fixed socket with a typed `CheckAvailability` request. The helper identifies
-the caller by kernel peer UID, returns `unsupported` for every valid request,
+`ryoku-operators` group. The package installs a sysusers declaration that
+provisions the group but adds no users. Administrators must select users
+explicitly. The socket is installed but not enabled by the package. The
+per-user daemon connects to this fixed socket with a typed
+`CheckAvailability` request. The helper checks the kernel peer UID, primary
+GID, and supplementary group IDs against the local `ryoku-operators` GID, and
+independently denies root. It returns `unsupported` for every valid request
 and does not read user files, persist journal records, or mutate the system.
 The `ryoku-helper.spec` builds and installs the service and deny-only helper,
 units, and sysusers file. Both executables and package metadata are explicitly

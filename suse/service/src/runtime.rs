@@ -76,7 +76,7 @@ fn serve_connection_with_helper_path(
         }
     };
     let id = envelope.request_id;
-    let body = if authorize_helper_peer(peer, uid).is_err() {
+    let body = if authorize_helper_peer(&peer, uid).is_err() {
         ResponseBody::Error(ServiceError::Unauthorized)
     } else {
         match envelope.request {
@@ -265,7 +265,11 @@ mod tests {
         let listener = UnixListener::bind(&socket_path).unwrap();
         let helper_thread = thread::spawn(move || {
             let (stream, _) = listener.accept().unwrap();
-            crate::helper_protocol::serve_operator_helper_connection(stream).unwrap();
+            crate::helper_protocol::serve_operator_helper_connection(
+                stream,
+                rustix::process::getegid().as_raw(),
+            )
+            .unwrap();
         });
 
         let file = std::fs::OpenOptions::new()

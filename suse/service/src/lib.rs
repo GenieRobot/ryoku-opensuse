@@ -14,7 +14,7 @@ pub mod runtime;
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
-use std::os::fd::AsFd;
+use std::os::fd::{AsFd, AsRawFd};
 
 use rustix::net::sockopt::socket_peercred;
 use serde::{Deserialize, Serialize};
@@ -352,10 +352,11 @@ impl HelperRequest {
 }
 
 /// Kernel-authenticated credentials of a connected Unix-domain socket peer.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PeerIdentity {
     uid: u32,
     gid: u32,
+    supplementary_gids: Vec<u32>,
     pid: Option<u32>,
 }
 
@@ -365,6 +366,7 @@ impl PeerIdentity {
         Ok(Self {
             uid: cred.uid.as_raw(),
             gid: cred.gid.as_raw(),
+            supplementary_gids: socket_peer_groups(socket)?,
             pid: Some(cred.pid.as_raw_pid() as u32),
         })
     }
@@ -379,9 +381,50 @@ impl PeerIdentity {
     }
 }
 
-/// The privileged helper only trusts the configured service UID, established
-/// out-of-band by its root-owned service installation. UID 0 is never accepted.
-pub fn authorize_helper_peer(peer: PeerIdentity, service_uid: u32) -> Result<(), ServiceError> {
+/// Read supplementary groups from the kernel's credentials snapshot for this
+/// connected AF_UNIX peer. A fixed upper bound matches Linux NGROUPS_MAX and
+/// keeps the getsockopt buffer bounded.
+#[cfg(target_os = "linux")]
+#[allow(unsafe_code)]
+fn socket_peer_groups<T: AsFd>(socket: &T) -> Result<Vec<u32>, ProtocolError> {
+    use std::mem::size_of;
+
+    const MAX_GROUPS: usize = 65_536;
+    let mut groups = vec![0 as libc::gid_t; MAX_GROUPS];
+    let mut length = libc::socklen_t::try_from(groups.len() * size_of::<libc::gid_t>())
+        .map_err(|_| ProtocolError::Io)?;
+    // SAFETY: `groups` is writable for `length` bytes; getsockopt receives a
+    // valid connected socket fd and an initialized length pointer.
+    let result = unsafe {
+        libc::getsockopt(
+            socket.as_fd().as_raw_fd(),
+            libc::SOL_SOCKET,
+            libc::SO_PEERGROUPS,
+            groups.as_mut_ptr().cast(),
+            &mut length,
+        )
+    };
+    if result != 0 {
+        return Err(ProtocolError::Io);
+    }
+    let bytes = usize::try_from(length).map_err(|_| ProtocolError::Io)?;
+    let capacity = groups.len() * size_of::<libc::gid_t>();
+    if bytes > capacity || bytes % size_of::<libc::gid_t>() != 0 {
+        return Err(ProtocolError::Io);
+    }
+    groups.truncate(bytes / size_of::<libc::gid_t>());
+    Ok(groups)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn socket_peer_groups<T: AsFd>(_socket: &T) -> Result<Vec<u32>, ProtocolError> {
+    Err(ProtocolError::Io)
+}
+
+/// The helper may only use the dedicated service identity for this legacy
+/// authorization path. Ordinary operator access is checked separately using
+/// the explicit `ryoku-operators` group policy.
+pub fn authorize_helper_peer(peer: &PeerIdentity, service_uid: u32) -> Result<(), ServiceError> {
     if service_uid != 0 && peer.uid == service_uid {
         Ok(())
     } else {
@@ -389,12 +432,53 @@ pub fn authorize_helper_peer(peer: PeerIdentity, service_uid: u32) -> Result<(),
     }
 }
 
-/// Authorization used by the root helper's group-owned socket. Membership in
-/// the opt-in `ryoku-operators` group is enforced by the socket mode; peercred
-/// supplies the caller UID used as the future per-user scope. Root is never a
-/// valid desktop caller.
-pub fn authorize_helper_operator(uid: u32) -> Result<(), ServiceError> {
-    if uid == 0 { Err(ServiceError::Unauthorized) } else { Ok(()) }
+/// The privileged helper only trusts non-root peers whose primary or
+/// supplementary group set contains the installed `ryoku-operators` GID.
+pub fn authorize_helper_operator(
+    peer: &PeerIdentity,
+    operator_gid: u32,
+) -> Result<(), ServiceError> {
+    if peer.uid != 0
+        && (peer.gid == operator_gid || peer.supplementary_gids.contains(&operator_gid))
+    {
+        Ok(())
+    } else {
+        Err(ServiceError::Unauthorized)
+    }
+}
+
+/// Resolve the opt-in operator group from the local system group database.
+/// The RPM sysusers declaration ensures this entry exists before activation.
+pub fn operator_group_gid() -> Result<u32, ProtocolError> {
+    let contents = std::fs::read_to_string("/etc/group").map_err(|_| ProtocolError::Io)?;
+    parse_operator_group_gid(&contents)
+}
+
+fn parse_operator_group_gid(contents: &str) -> Result<u32, ProtocolError> {
+    let mut found = None;
+    for line in contents.lines().filter(|line| !line.is_empty() && !line.starts_with('#')) {
+        let mut fields = line.split(':');
+        if fields.next() != Some("ryoku-operators") {
+            continue;
+        }
+        let _password = fields.next().ok_or(ProtocolError::Malformed("invalid operator group"))?;
+        let gid = fields
+            .next()
+            .ok_or(ProtocolError::Malformed("invalid operator group"))?
+            .parse::<u32>()
+            .map_err(|_| ProtocolError::Malformed("invalid operator group"))?;
+        if gid == 0 {
+            return Err(ProtocolError::Malformed("invalid operator group"));
+        }
+        let _members = fields.next().ok_or(ProtocolError::Malformed("invalid operator group"))?;
+        if fields.next().is_some() {
+            return Err(ProtocolError::Malformed("invalid operator group"));
+        }
+        if found.replace(gid).is_some() {
+            return Err(ProtocolError::Malformed("duplicate operator group"));
+        }
+    }
+    found.ok_or(ProtocolError::Malformed("operator group is not installed"))
 }
 
 /// Append-only operation state journal. Construct it from a root/service-owned
@@ -596,8 +680,8 @@ mod tests {
         let (a, _b) = UnixStream::pair().unwrap();
         let peer = PeerIdentity::from_unix_socket(&a).unwrap();
         assert_eq!(peer.uid(), rustix::process::geteuid().as_raw());
-        assert!(authorize_helper_peer(peer, peer.uid()).is_ok());
-        assert_eq!(authorize_helper_peer(peer, 0), Err(ServiceError::Unauthorized));
+        assert!(authorize_helper_peer(&peer, peer.uid()).is_ok());
+        assert_eq!(authorize_helper_peer(&peer, 0), Err(ServiceError::Unauthorized));
     }
 
     #[test]
