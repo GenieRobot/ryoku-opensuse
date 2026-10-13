@@ -7,5 +7,17 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+default = []
+gtk-ui = ["dep:gtk"]
+
+[dependencies]
+gtk = { package = "gtk4", version = "0.10", optional = true }
+
+[[bin]]
+name = "ryoku-ui-gtk"
+path = "src/bin/ui-gtk.rs"
+required-features = ["gtk-ui"]
+
 [lints]
 workspace = true

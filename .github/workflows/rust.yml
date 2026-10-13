@@ -16,6 +16,12 @@ jobs:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Refresh Ubuntu package index
+        run: sudo apt-get update
+
+      - name: Install GTK4 build dependencies
+        run: sudo apt-get install --no-install-recommends --yes libgtk-4-dev
+
       - name: Check formatting
         run: cargo fmt --all -- --check
 
