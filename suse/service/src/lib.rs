@@ -7,6 +7,8 @@
 
 pub mod helper_protocol;
 pub mod mutation_gate;
+#[cfg(target_os = "linux")]
+pub mod protected_state;
 pub mod runtime;
 
 use std::collections::BTreeMap;

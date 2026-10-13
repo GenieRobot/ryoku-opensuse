@@ -84,9 +84,15 @@ transaction; startup reads that independent record and passes its identity to
 `GenerationStore::open_state_mount`. The reader rejects noncanonical UUIDs,
 unsupported/unknown/duplicate fields, non-top-level parents, oversized or
 noncanonical JSON, symlinked paths, and files without root:root mode `0600`.
-The actual installer and service/helper wiring are still missing. Target
-Tumbleweed ioctl behavior still needs VM proof. Mount source and non-read-only
-mount options are not yet compared to the machine record.
+The privileged helper now reads this record and opens
+`GenerationStore::open_state_mount` before entering its request loop. A missing
+or corrupt record, absent or mismatched mount, or unsafe store prevents the
+helper from serving requests; the validated store descriptor stays pinned for
+the helper lifetime. The helper still rejects every action, and no protected
+operation consumes this store yet. Installer provisioning is not wired, so the
+record must currently be installed by a trusted external provisioning step.
+Target Tumbleweed ioctl behavior still needs VM proof. Mount source and
+non-read-only mount options are not yet compared to the machine record.
 
 The intended on-volume layout is:
 

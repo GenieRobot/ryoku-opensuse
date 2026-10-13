@@ -35,6 +35,11 @@ fn run() -> Result<(), String> {
     if path != Path::new(HELPER_SOCKET_PATH) {
         return Err("activated listener has unexpected socket path".into());
     }
+    // Keep the validated state directory descriptor alive for the helper's
+    // entire request lifetime. Identity or live-mount failures abort startup,
+    // so no helper request can reach a protected operation without this gate.
+    let _protected_state = ryoku_service::protected_state::ProtectedState::open()
+        .map_err(|error| format!("protected recovery state unavailable: {error}"))?;
     for accepted in listener.incoming() {
         match accepted {
             Ok(stream) => {

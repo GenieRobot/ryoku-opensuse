@@ -617,6 +617,7 @@ name = "ryoku-service"
 version = "0.1.0"
 dependencies = [
  "rustix",
+ "ryoku-recovery",
  "serde",
  "serde_json",
 ]
