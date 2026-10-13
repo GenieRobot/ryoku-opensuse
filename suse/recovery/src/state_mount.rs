@@ -273,10 +273,14 @@ fn decode_mount_field(value: &str) -> Result<String, StateMountError> {
     String::from_utf8(decoded).map_err(|_| StateMountError::InvalidMountInfo)
 }
 
+#[allow(unsafe_code)]
 fn read_btrfs_fs_info<Fd: AsFd>(
     fd: Fd,
 ) -> Result<linux_raw_sys::btrfs::btrfs_ioctl_fs_info_args, StateMountError> {
     type FsInfo = linux_raw_sys::btrfs::btrfs_ioctl_fs_info_args;
+    // SAFETY: `Getter` requires the caller to guarantee a valid ioctl opcode
+    // and output layout. The UAPI request and exact kernel struct type below
+    // come from linux-raw-sys for this target architecture.
     let request =
         unsafe { Getter::<{ linux_raw_sys::ioctl::BTRFS_IOC_FS_INFO as _ }, FsInfo>::new() };
     // SAFETY: the request number and output layout are the Linux Btrfs UAPI
@@ -285,10 +289,14 @@ fn read_btrfs_fs_info<Fd: AsFd>(
     unsafe { ioctl(fd, request) }.map_err(|_| StateMountError::NotBtrfsSubvolume)
 }
 
+#[allow(unsafe_code)]
 fn read_btrfs_subvolume_info<Fd: AsFd>(
     fd: Fd,
 ) -> Result<linux_raw_sys::btrfs::btrfs_ioctl_get_subvol_info_args, StateMountError> {
     type SubvolumeInfo = linux_raw_sys::btrfs::btrfs_ioctl_get_subvol_info_args;
+    // SAFETY: `Getter` requires the caller to guarantee a valid ioctl opcode
+    // and output layout. The UAPI request and exact kernel struct type below
+    // come from linux-raw-sys for this target architecture.
     let request = unsafe {
         Getter::<{ linux_raw_sys::ioctl::BTRFS_IOC_GET_SUBVOL_INFO as _ }, SubvolumeInfo>::new()
     };
