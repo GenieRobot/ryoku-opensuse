@@ -1,6 +1,6 @@
 # Typed service and helper contract
 
-Status: initial Rust protocol and authorization primitives for [issue #17](https://github.com/GenieRobot/ryoku-opensuse/issues/17), plus a fail-closed sequencing contract for [issue #20](https://github.com/GenieRobot/ryoku-opensuse/issues/20). This does not claim that a daemon, helper executable, provider mutation, or recovery transaction is operational.
+Status: Rust protocol and authorization primitives plus a runnable unprivileged per-user daemon for [issue #17](https://github.com/GenieRobot/ryoku-opensuse/issues/17), and a fail-closed sequencing contract for [issue #20](https://github.com/GenieRobot/ryoku-opensuse/issues/20). This does not claim that a privileged helper, provider mutation, or recovery transaction is operational.
 
 ## Protocol
 
@@ -8,11 +8,13 @@ Status: initial Rust protocol and authorization primitives for [issue #17](https
 
 There is no generic command request. The helper request enum has only linked-checkpoint verification, package transaction, and checkpoint restore variants, each carrying opaque transaction/manifest IDs and typed package/checkpoint IDs. There are no paths, executable names, argv arrays, shell strings, environment variables, or arbitrary provider names. The helper policy currently refuses all effectful actions because no implementation can yet verify the complete linked pre-change capture required by #1 and #16.
 
-## Authentication and persistence primitives
+## Authentication, runtime, and persistence
 
 On Linux, `PeerIdentity::from_unix_socket` reads credentials from the connected socket using `SO_PEERCRED` through safe rustix APIs. The helper authorization rule accepts only the non-root service UID configured out of band by a root-owned installation. A deployment must reserve that UID exclusively for the unprivileged Ryoku service; same-UID authentication is not authorization for any write. This crate does not create/listen on sockets, install policy, or set up the dedicated account.
 
-`OperationJournal` replays bounded, versioned newline JSON records from a caller-supplied already-validated file descriptor. Each legal state transition is synchronized before its in-memory state changes, so a reconnect can query the last durable state without resubmitting the action. The caller must ensure the journal file is service/root owned, mode restricted, on durable state storage, and protected by one exclusive writer. `mutation_gate` now provides a blocking Linux `flock` guard and requires a typed verified linked-generation result plus plan revalidation before it invokes a caller-supplied apply callback. The lock descriptor must refer to a service-owned file in a non-user-writable directory, and every participating writer must lock the same inode. `flock` is advisory; it does not coordinate uncooperative external tools.
+`OperationJournal` replays bounded, versioned newline JSON records from a caller-supplied already-validated file descriptor. Each legal state transition is synchronized before its in-memory state changes, so a reconnect can query the last durable state without resubmitting the action. The `ryoku-service` executable now binds `$XDG_RUNTIME_DIR/ryoku-service.sock` (mode `0600`) and stores its journal at `$XDG_STATE_HOME/ryoku/operations.log` (mode `0600` in a private per-user directory). It refuses root startup, checks directory/file ownership and permissions, rejects a live duplicate socket, applies bounded request framing and socket read/write deadlines, and authenticates clients using kernel peer credentials. It serves one request per connection. Discovery and durable status lookup are available; all `Start` requests receive a typed `unsupported` error and are never journaled as accepted. Run it in the foreground as the logged-in user with both standard XDG variables set; no system-wide installation or service unit is included yet.
+
+The caller must ensure the journal file is on durable state storage and protected by one exclusive writer. `mutation_gate` provides a blocking Linux `flock` guard and requires a typed verified linked-generation result plus plan revalidation before it invokes a caller-supplied apply callback. The lock descriptor must refer to a service-owned file in a non-user-writable directory, and every participating writer must lock the same inode. `flock` is advisory; it does not coordinate uncooperative external tools.
 
 The coordinator does not create or validate `/var/lib/ryoku-state`, implement checkpoint creation/read-back verification, guarantee durable operation-history transitions around the apply callback, coordinate provider-internal writers, or implement rollback. Its traits and test fakes prove only local callback ordering and same-inode process serialization. The `CheckpointVerifier` implementation remains a trusted integration boundary; a caller-provided boolean is not independent evidence. No provider action is run by this module.
 
@@ -20,7 +22,7 @@ Discovery advertises no mutation actions in this build. Known action names remai
 
 ## Acceptance gaps
 
-- Add a real unprivileged Rust service transport and process that authenticates its clients and returns typed responses.
+- Add a managed user-session service unit/lifecycle, live end-to-end process restart/reconnect proof, and stricter race-free descriptor-based validation for runtime/state paths.
 - Add a privileged helper executable/service unit with a root-owned socket policy, dedicated service identity, bounded framing, replay protection, and independently reviewed installation permissions.
 - Connect only the `ryoku-service` identity to the helper; test forged peer identities, other users, root, malformed/stale/unsupported requests, and ensure all denials leave system state unchanged.
 - Integrate a provider and #16's verified linked capture/publication so an accepted operation survives client disconnect and can resume/query actual durable progress.

@@ -6,6 +6,7 @@
 //! rejected until an integration can supply verified linked-capture evidence.
 
 pub mod mutation_gate;
+pub mod runtime;
 
 use std::collections::BTreeMap;
 use std::fs::File;
