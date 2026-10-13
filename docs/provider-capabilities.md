@@ -48,24 +48,37 @@ At this revision there are **no verified protected provider writes**. Run17 conf
 
 The current source-level candidate is libzypp's commit-plugin protocol, not an
 application-launch notification. Its documented `PLUGINBEGIN`/`COMMITBEGIN`
-exchange occurs around `ZYpp::commit`; `COMMITBEGIN` includes the planned
-transaction steps before installation starts, and the protocol requires the
-plugin response before commit proceeds. A small root-owned Rust executable
-could therefore request the linked checkpoint and acknowledge only after the
-service confirms capture. The package version, configured plugin directory,
-protocol version, plugin ordering, timeout behavior, exact cancellation reply,
-and PackageKit backend in the pinned Tumbleweed snapshot have not yet been
-verified here. Do not enable protected package writes based on upstream `main`
-documentation alone.
+exchange occurs around `ZYpp::commit`; `COMMITBEGIN` includes planned
+transaction steps before installation starts. However, the inspected upstream
+`PluginExecutor::send()` implementation accepts ACK/ENOMETHOD and removes a
+plugin after another reply, then continues broadcasting. It is therefore not
+established that returning ERROR vetoes the package commit. This is a critical
+open question: a callback before the RPM actions is useful only if a timeout,
+plugin failure, unavailable broker, or negative checkpoint actually prevents
+the enclosing transaction. Do not treat a Rust plugin as a fail-closed gate
+until a disposable guest proves that property for the exact installed libzypp.
+
+If the native plugin cannot abort the transaction, it may still provide
+transaction telemetry but is not the authorization/recovery boundary. The
+product must leave that provider path unsupported until another pre-commit
+mechanism reliably stops zypper, PackageKit, and Cockpit writes. A small
+root-owned Rust executable could request the linked checkpoint and acknowledge
+only after the service confirms capture, but this is only a hypothesis; no
+plugin has been installed or tested here. The package version, configured
+plugin directory, protocol version, ordering, timeout behavior, cancellation
+semantics, and PackageKit backend in the pinned snapshot remain unverified.
 
 The next disposable-guest experiment must record exact `zypper`, `libzypp`,
 PackageKit, PackageKit zypp backend, Cockpit and Myrlyn versions and package
 ownership; inspect the actual libzypp plugin path; then install a Rust probe that
 rejects `PLUGINBEGIN` or `COMMITBEGIN`. Attempt a harmless zypper transaction
-and a PackageKit transaction separately and prove no package/RPM database
-change occurs. After a verified checkpoint broker is available, repeat with a
-checkpoint failure and timeout, then with success and a harmless transaction;
-compare capture ID, transaction steps, and installed package state. Confirm
+and a PackageKit transaction separately and measure whether ERROR, no ACK,
+malformed reply, or timeout actually prevents commit and leaves RPM state
+unchanged. Do not infer veto from the callback occurring. If libzypp continues,
+record the exact bypass and mark this path unsupported. Only if native behavior
+reliably blocks writes should a checkpoint broker be tested for negative
+checkpoint, timeout and success; compare capture ID, transaction steps, and
+installed package state. Confirm
 whether Cockpit uses that same PackageKit backend in the guest. Treat direct
 RPM, repository-definition, and trust-key writes as bypasses until separate
 pre-mutation controls are demonstrated. A libzypp commit hook cannot be claimed
