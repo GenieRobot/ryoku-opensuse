@@ -584,6 +584,7 @@ impl Lab {
             format!("sudo /usr/local/sbin/ryoku-zypp-hook-probe {package} {mode}")
         };
         let result = self.ssh_command()?.arg(&request).output()?;
+        let error_category = classify_zypp_error(&result.stderr);
         let private_log = self.run.join(log_name);
         fs::write(&private_log, [&result.stdout[..], &result.stderr[..]].concat())?;
         fs::set_permissions(&private_log, fs::Permissions::from_mode(0o600))?;
@@ -866,6 +867,7 @@ impl Lab {
                 && timeout_seen == Some(false)
         };
         self.evidence(&format!("zypp_{label}_exit_code={}", result.status.code().unwrap_or(255)))?;
+        self.evidence(&format!("zypp_{label}_error_category={error_category}"))?;
         Ok((passed, outcome.unwrap_or("no_outcome").to_owned()))
     }
 
@@ -989,6 +991,27 @@ fn safe_zypp_probe_value(key: &str, value: &str) -> bool {
 
     !value.is_empty()
         && value.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"_.+-:|/@".contains(&byte))
+}
+
+/// Reduce provider stderr to a small public category. Raw stderr remains in
+/// the permission-restricted private run log and is never copied into evidence.
+fn classify_zypp_error(stderr: &[u8]) -> &'static str {
+    let text = String::from_utf8_lossy(stderr).to_ascii_lowercase();
+    if text.contains("permission denied") || text.contains("not authorized") {
+        "authorization"
+    } else if text.contains("could not get lock") || text.contains("another package manager") {
+        "package_manager_lock"
+    } else if text.contains("no provider") || text.contains("not found") {
+        "package_resolution"
+    } else if text.contains("repository") || text.contains("metadata") {
+        "repository_or_metadata"
+    } else if text.contains("plugin") {
+        "plugin"
+    } else if stderr.is_empty() {
+        "no_stderr"
+    } else {
+        "unclassified"
+    }
 }
 
 fn safe_inventory_path_value(value: &str) -> bool {
@@ -1313,13 +1336,20 @@ pub fn run(
                 match lab.zypp_probe(mode, log) {
                     Ok((passed, outcome)) => {
                         if !passed && mode != "missing-plugin" {
+                            let private = fs::read_to_string(lab.run.join(log)).unwrap_or_default();
+                            let classification = if !private.lines().any(|line| {
+                                line == "plugin_commitbegin_seen=true"
+                            }) {
+                                "awaiting_proof"
+                            } else {
+                                "failed_probe"
+                            };
                             lab.evidence(&format!(
-                                "zypp_{}_gate=unsupported",
+                                "zypp_{}_gate={classification}",
                                 mode.replace('-', "_")
                             ))?;
                             // A failed denial may have changed RPM state; do
                             // not issue more package transactions in that case.
-                            let private = fs::read_to_string(lab.run.join(log)).unwrap_or_default();
                             if private.contains("rpm_state_unchanged=false") {
                                 lab.evidence("zypp_later_modes=skipped_after_rpm_change")?;
                                 break;
@@ -1419,6 +1449,20 @@ pub fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn zypp_error_categories_are_allowlisted_and_never_return_source_text() {
+        assert_eq!(
+            classify_zypp_error(b"Permission denied: private path"),
+            "authorization"
+        );
+        assert_eq!(
+            classify_zypp_error(b"No provider of package secret-name"),
+            "package_resolution"
+        );
+        assert_eq!(classify_zypp_error(b"private implementation detail"), "unclassified");
+        assert_eq!(classify_zypp_error(b""), "no_stderr");
+    }
 
     #[test]
     fn zypp_inventory_accepts_structured_metadata_but_rejects_untrusted_fields() {
