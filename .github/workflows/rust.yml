@@ -36,3 +36,56 @@ jobs:
 
       - name: Review dependencies
         run: cargo deny check
+
+  gtk-proof-artifact:
+    name: Build GTK proof artifact from main
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: rust
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Refresh Ubuntu package index
+        run: sudo apt-get update
+
+      - name: Install GTK4 build dependencies
+        run: sudo apt-get install --no-install-recommends --yes libgtk-4-dev
+
+      - name: Build release GTK proof binary
+        run: cargo build --locked --release -p ryoku-ui --features gtk-ui --bin ryoku-ui-gtk
+
+      - name: Stage binary and validate Linux dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -D -m 0755 target/release/ryoku-ui-gtk dist/ryoku-ui-gtk
+          if ! ldd dist/ryoku-ui-gtk > dist/runtime-dependencies.txt; then
+            echo "::error::Could not inspect GTK proof binary runtime dependencies."
+            exit 1
+          fi
+          if grep -Fq "not found" dist/runtime-dependencies.txt; then
+            cat dist/runtime-dependencies.txt
+            echo "::error::GTK proof binary has unresolved Linux runtime dependencies."
+            exit 1
+          fi
+          {
+            printf "source_commit=%s\n" "$GITHUB_SHA"
+            printf "workflow_run_id=%s\n" "$GITHUB_RUN_ID"
+            printf "workflow_attempt=%s\n" "$GITHUB_RUN_ATTEMPT"
+            printf "target=x86_64-unknown-linux-gnu\n"
+            printf "rustc=%s\n" "$(rustc --version)"
+            printf "cargo_lock_sha256=%s\n" "$(sha256sum Cargo.lock | cut -d " " -f 1)"
+            printf "binary_sha256=%s\n" "$(sha256sum dist/ryoku-ui-gtk | cut -d " " -f 1)"
+          } > dist/BUILD-METADATA.txt
+
+      - name: Retain GTK proof binary for this main commit
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ryoku-ui-gtk-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
