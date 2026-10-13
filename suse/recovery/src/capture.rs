@@ -528,6 +528,14 @@ mod tests {
         }
     }
 
+    struct UnsupportedXattrs;
+
+    impl super::XattrReader for UnsupportedXattrs {
+        fn read(&self, _fd: &File, name: &'static str) -> Result<Option<Vec<u8>>, CaptureError> {
+            Err(CaptureError::UnsupportedMetadata(name))
+        }
+    }
+
     fn capture_without_xattrs(
         root: &File,
         declared: &[RelativePath],
@@ -653,6 +661,16 @@ mod tests {
             Ok(_) => {}
             Err(error) => panic!("unexpected capture error: {error}"),
         }
+        assert!(matches!(
+            super::capture_declared_with_xattrs(
+                &root,
+                StateRoot::EtcRyoku,
+                &[path("config")],
+                CaptureLimits::default(),
+                &UnsupportedXattrs,
+            ),
+            Err(CaptureError::UnsupportedMetadata("system.posix_acl_access"))
+        ));
     }
 
     #[test]
@@ -684,7 +702,7 @@ mod tests {
                 &root,
                 StateRoot::EtcRyoku,
                 &[path("config")],
-                CaptureLimits { max_paths: 1, max_file_bytes: 16, max_total_bytes: 1 },
+                CaptureLimits { max_paths: 1, max_file_bytes: 16, max_total_bytes: 6 },
                 &SmallXattrs,
             ),
             Err(CaptureError::TotalCaptureTooLarge)
