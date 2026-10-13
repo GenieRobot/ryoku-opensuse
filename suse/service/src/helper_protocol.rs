@@ -430,8 +430,8 @@ mod tests {
         if rustix::process::geteuid().as_raw() == 0 {
             return;
         }
-        let path = std::env::temp_dir()
-            .join(format!("ryoku-helper-denied-{}.sock", std::process::id()));
+        let path =
+            std::env::temp_dir().join(format!("ryoku-helper-denied-{}.sock", std::process::id()));
         let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000)).unwrap();
         assert_eq!(
