@@ -469,10 +469,13 @@ as a passing #13 recovery run or as a protected provider write.
 
 The raw inventory/probe output, SSH diagnostics and QEMU logs stay in the
 mode-0700 run directory; probe-specific logs are mode 0600. Public evidence
-contains only allowlisted package/version facts, normalized path/owner/mode
-facts, selected hashes and outcome flags. The inventory reads RPM package
-records, plugin/config paths, file metadata, ACLs and only the allowlisted
-SELinux/capability xattrs. It does not install more provider packages. The
+contains only allowlisted package/version facts, normalized allowlisted paths,
+file kind, owner/mode facts, symlink targets only for discovered symlinks,
+ACL/xattr availability statuses and hashes, and outcome flags. Raw metadata
+values and guest output remain private; hashes cover ACLs and the allowlisted
+SELinux/capability xattrs. The inventory reads RPM package records,
+plugin/config paths and file metadata. It does not install more provider
+packages. The
 experiment is Rust-only; a discovered commit plugin and direct zypper are not
 treated as integrated Ryoku authorization. PackageKit/Cockpit, Myrlyn and YaST
 write paths remain unsupported pending separate transaction-boundary proof.
