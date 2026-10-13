@@ -57,18 +57,20 @@ ownership/mode with the installed machine record on every startup and before
 each write. Any mismatch blocks mutation and remains visible as a typed
 recovery-unavailable result.
 
-The Linux recovery crate now provides a fail-closed validation contract in
-`state_mount`: it rejects absent observations, a non-fixed mountpoint,
-non-Btrfs or read-only storage, mismatched UUID/subvolume/parent identity,
-missing parent identity, unsafe descriptor ownership/mode, and a descriptor
-whose kernel mount ID differs from the supplied live observation. It opens the
-fixed relative path beneath a trusted `/` descriptor without following
-symlinks and returns the pinned descriptor for later relative operations.
-This slice is not yet the production mount inspector: the caller must supply
-facts from live `mountinfo` and Btrfs metadata, and no production call site
-currently does so. In particular, this work does not safely query the Btrfs
-parent-subvolume ID; absence of that fact is a typed hard stop. Tumbleweed
-setup/startup integration and proof remain outstanding.
+The Linux recovery crate now provides a fail-closed live collector in
+`state_mount`. It opens the fixed relative path beneath a trusted `/`
+descriptor without following symlinks, pins the directory, checks root:root
+mode `0700`, and matches its kernel mount ID to the exact `/proc/self/mountinfo`
+entry. Mountinfo parsing is bounded to 4 MiB and checks the effective
+mountpoint, filesystem type, and read-only option. Btrfs filesystem UUID and
+subvolume ID/parent ID come from the read-only `BTRFS_IOC_FS_INFO` and
+`BTRFS_IOC_GET_SUBVOL_INFO` calls on that pinned descriptor. The subvolume
+parent ioctl works through the separate mountpoint, so that mount does not
+hide parent identity. Any missing entry, unsupported ioctl, malformed or
+oversized mount table, wrong parent, wrong identity, or unsafe descriptor is a
+typed hard stop. The collector is not yet wired into installation, startup, or
+the privileged mutation path, and target Tumbleweed ioctl behavior still needs
+VM proof.
 
 The intended on-volume layout is:
 

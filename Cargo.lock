@@ -605,6 +605,7 @@ dependencies = [
 name = "ryoku-recovery"
 version = "0.1.0"
 dependencies = [
+ "linux-raw-sys",
  "rustix",
  "serde",
  "serde_json",
