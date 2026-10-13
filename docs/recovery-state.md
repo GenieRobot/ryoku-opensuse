@@ -559,7 +559,7 @@ with the observed root snapshot before restore.
 
 - Implement the dedicated subvolume setup/validation and prove it survives
   actual Snapper root rollback and reboot on the disposable Tumbleweed VM.
-- Add race-injection and supported-filesystem ACL/SELinux capture tests; implement safe raw-target symlink capture or keep symlinks out of v1 enrolled paths. Immutable publication has focused unit tests, but a writer lock, operation journal, coordinated interrupted-transaction handling, and schema migration remain unimplemented. The current unit tests exercise capture against synthetic temporary trees; they do not prove live Tumbleweed metadata capture.
+- Add race-injection and supported-filesystem ACL/SELinux capture tests; implement safe raw-target symlink capture or keep symlinks out of v1 enrolled paths. Immutable publication has focused unit tests, and the service has a private-directory `MutationLock` plus durable operation journal. Those service pieces are not yet wired through inventory freeze, generation publication, restore, and recovery; coordinated interrupted-transaction handling and schema migration remain unimplemented. The current unit tests exercise capture against synthetic temporary trees; they do not prove live Tumbleweed metadata capture.
 - Exercise successful and deliberately corrupted linked generations offline,
   including configuration-only fallback and preservation of an unrelated home
   sentinel.
