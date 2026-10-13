@@ -448,9 +448,15 @@ serialization has fixed struct-field order and no maps. The parser accepts
 only v1. There are no legacy inputs to migrate yet: an older schema remains
 unsupported until a deliberate version-to-version migration and fixtures are
 added, and a future version is rejected rather than guessed. This API parses
-caller-supplied bytes only; callers remain responsible for resolving exact
-local files and permissions. Companion retrieval, filesystem persistence,
-and credential handling are outside this crate.
+caller-supplied bytes, and the local loader can open only the fixed
+`profile.json` entry beneath a caller-supplied root directory descriptor. The
+loader requires matching expected UID/GID on the root and file, root mode
+`0700` or `0755`, file mode `0600` or `0644`, a single-link regular file, and
+at most 64 KiB. It opens with no-symlink, beneath-root, and no-cross-mount
+resolution, and rejects files modified while being read. The caller remains
+responsible for securely obtaining the trusted root descriptor; this API does
+not discover config paths. Companion retrieval and credential handling are
+outside this crate.
 
 Synthetic schema-v1 example:
 
@@ -512,7 +518,7 @@ corresponding implementation and disposable-guest evidence are linked.
 | Document snapshot/boot combinations, fallback and exclusions | Scenario matrix and explicit firmware, partitioning, arbitrary-root and undeclared-home exclusions | Exercise manifest-linked rollback, corruption handling and configuration-only fallback offline. |
 | ADR retains catalog, journal and matching generation across root rollback | Contract describes storage location, link identity and refusal to guess a generation | Actual dedicated mount plus Snapper rollback/reboot evidence. |
 | Inventory ownership, modes, symlinks, extended metadata and external paths without traversal | Typed metadata schema; exact v1 candidate inventory; no-follow regular/directory capture, ACL/SELinux digests, absent records, hard-link checks, and symlink fail-closed behavior | Exact runtime ownership/mode/ACL/xattr evidence for integrated Ryoku state, an enforced audited allowlist, race-injection tests, and raw-target symlink capture are needed. Run19 provider paths do not constitute a Ryoku-owned path set. |
-| Profile interface works locally without remotes/credentials; public examples synthetic | Pure Rust resolver and bounded profile document parser have no filesystem/network capability; synthetic four-layer doctest and serialization tests | Exact local file loading/permissions and persistence integration; companion persistence/sync remains out of scope. |
+| Profile interface works locally without remotes/credentials; public examples synthetic | Pure Rust resolver, bounded v1 parser, and fixed-name no-follow loader from a supplied descriptor; synthetic four-layer doctest and temporary-file validation tests | Caller integration for securely obtaining the intended config-root descriptor and persistence/writer coordination; companion persistence/sync remains out of scope. |
 
 ## Issue #21 restore journal implementation status
 
