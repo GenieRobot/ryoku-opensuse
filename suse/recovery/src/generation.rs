@@ -142,6 +142,71 @@ pub struct GenerationStore {
     catalog: File,
 }
 
+/// Read-only access to an existing generation store. Unlike [`GenerationStore`],
+/// opening this view never creates directories, synchronizes metadata, or writes
+/// recovery state. It validates the directory owner/modes but does not prove
+/// the protected mount identity or authorize restore.
+pub struct GenerationReader {
+    generations: File,
+    catalog: File,
+}
+
+impl GenerationReader {
+    /// Opens an existing store without write-capable operations. The caller
+    /// supplies the expected directory owner; offline verification alone is
+    /// not an authorization signal for destructive recovery.
+    pub fn open_existing(root: &File, expected_uid: u32) -> Result<Self, GenerationError> {
+        let root_stat = rustix::fs::fstat(root)?;
+        if rustix::fs::FileType::from_raw_mode(root_stat.st_mode) != rustix::fs::FileType::Directory
+            || root_stat.st_uid != expected_uid
+            || root_stat.st_mode & 0o7777 != 0o700
+        {
+            return Err(GenerationError::InvalidStore);
+        }
+        let root = duplicate(root)?;
+        let staging = existing_directory(&root, "staging", expected_uid)?;
+        let generations = existing_directory(&root, "generations", expected_uid)?;
+        let catalog = existing_directory(&root, "catalog", expected_uid)?;
+        drop(staging);
+        Ok(Self { generations, catalog })
+    }
+
+    /// Lists committed transaction catalog names in stable order. Each ID is
+    /// validated, but callers should use [`Self::verify_transaction`] before
+    /// treating an entry as intact.
+    pub fn list_transactions(&self) -> Result<Vec<Identifier>, GenerationError> {
+        let mut entries = Dir::read_from(&self.catalog)?;
+        let mut transactions = Vec::new();
+        for entry in &mut entries {
+            let entry = entry?;
+            let name = entry.file_name();
+            if name.to_bytes() == b"." || name.to_bytes() == b".." {
+                continue;
+            }
+            let name = name.to_str().map_err(|_| GenerationError::IncompletePublication)?;
+            if !name.ends_with(".json") {
+                // Incomplete `.tmp` catalog publications are intentionally not
+                // listed as committed transactions.
+                continue;
+            }
+            let transaction =
+                name.strip_suffix(".json").ok_or(GenerationError::IncompletePublication)?;
+            transactions.push(Identifier::new(transaction).map_err(GenerationError::Validation)?);
+        }
+        transactions.sort();
+        Ok(transactions)
+    }
+
+    /// Verifies the canonical transaction link, manifest seal, and every
+    /// generation payload from the existing store.
+    pub fn verify_transaction(
+        &self,
+        transaction_id: &Identifier,
+    ) -> Result<RecoveryManifest, GenerationError> {
+        verify_transaction_from(&self.catalog, &self.generations, transaction_id)
+    }
+}
+
 impl GenerationStore {
     /// Opens the store only after collecting and validating the fixed
     /// `/var/lib/ryoku-state` Btrfs mount against the installed machine
@@ -361,12 +426,7 @@ impl GenerationStore {
 
     /// Verifies an already published generation directly from its directory.
     pub fn verify(&self, generation_id: &Identifier) -> Result<RecoveryManifest, GenerationError> {
-        let dir = open_dir(&self.generations, generation_id.as_str())?;
-        let manifest = verify_directory(&dir, None, true)?;
-        if &manifest.generation_id != generation_id {
-            return Err(GenerationError::IncompletePublication);
-        }
-        Ok(manifest)
+        verify_generation_from(&self.generations, generation_id)
     }
 
     /// Verifies the transaction catalog link and the complete linked
@@ -375,24 +435,43 @@ impl GenerationStore {
         &self,
         transaction_id: &Identifier,
     ) -> Result<RecoveryManifest, GenerationError> {
-        let link_bytes =
-            read_file(&self.catalog, &format!("{}.json", transaction_id.as_str()), 4096)?;
-        let link: CatalogLink = serde_json::from_slice(&link_bytes)
-            .map_err(|error| GenerationError::Io(std::io::Error::other(error)))?;
-        if link.schema_version != 1
-            || &link.transaction_id != transaction_id
-            || link.canonical_bytes()? != link_bytes
-        {
-            return Err(GenerationError::IncompletePublication);
-        }
-        let manifest = self.verify(&link.generation_id)?;
-        if &manifest.transaction_id != transaction_id
-            || manifest.manifest_sha256.as_ref() != Some(&link.manifest_sha256)
-        {
-            return Err(GenerationError::IncompletePublication);
-        }
-        Ok(manifest)
+        verify_transaction_from(&self.catalog, &self.generations, transaction_id)
     }
+}
+
+fn verify_generation_from(
+    generations: &File,
+    generation_id: &Identifier,
+) -> Result<RecoveryManifest, GenerationError> {
+    let dir = open_dir(generations, generation_id.as_str())?;
+    let manifest = verify_directory(&dir, None, true)?;
+    if &manifest.generation_id != generation_id {
+        return Err(GenerationError::IncompletePublication);
+    }
+    Ok(manifest)
+}
+
+fn verify_transaction_from(
+    catalog: &File,
+    generations: &File,
+    transaction_id: &Identifier,
+) -> Result<RecoveryManifest, GenerationError> {
+    let link_bytes = read_file(catalog, &format!("{}.json", transaction_id.as_str()), 4096)?;
+    let link: CatalogLink = serde_json::from_slice(&link_bytes)
+        .map_err(|error| GenerationError::Io(std::io::Error::other(error)))?;
+    if link.schema_version != 1
+        || &link.transaction_id != transaction_id
+        || link.canonical_bytes()? != link_bytes
+    {
+        return Err(GenerationError::IncompletePublication);
+    }
+    let manifest = verify_generation_from(generations, &link.generation_id)?;
+    if &manifest.transaction_id != transaction_id
+        || manifest.manifest_sha256.as_ref() != Some(&link.manifest_sha256)
+    {
+        return Err(GenerationError::IncompletePublication);
+    }
+    Ok(manifest)
 }
 
 fn required_payloads(manifest: &RecoveryManifest) -> Result<BTreeSet<Sha256>, GenerationError> {
@@ -487,6 +566,22 @@ fn directory(parent: &File, name: &str, expected_uid: u32) -> Result<File, Gener
         }
         Err(error) => Err(error.into()),
     }
+}
+
+fn existing_directory(
+    parent: &File,
+    name: &str,
+    expected_uid: u32,
+) -> Result<File, GenerationError> {
+    let dir = open_dir(parent, name)?;
+    let stat = rustix::fs::fstat(&dir)?;
+    if rustix::fs::FileType::from_raw_mode(stat.st_mode) != rustix::fs::FileType::Directory
+        || stat.st_uid != expected_uid
+        || stat.st_mode & 0o7777 != 0o700
+    {
+        return Err(GenerationError::InvalidStore);
+    }
+    Ok(dir)
 }
 
 fn create_directory(parent: &File, name: &str) -> Result<File, Errno> {
@@ -690,6 +785,11 @@ mod tests {
         store.publish(&manifest, &payloads).unwrap();
         assert_eq!(store.verify(&manifest.generation_id).unwrap(), manifest);
         assert_eq!(store.verify_transaction(&manifest.transaction_id).unwrap(), manifest);
+        let reader =
+            GenerationReader::open_existing(&root, rustix::fs::fstat(&root).unwrap().st_uid)
+                .unwrap();
+        assert_eq!(reader.list_transactions().unwrap(), vec![manifest.transaction_id.clone()]);
+        assert_eq!(reader.verify_transaction(&manifest.transaction_id).unwrap(), manifest);
         store.publish(&manifest, &payloads).unwrap();
         let manifest_bytes =
             fs::read(root_path.join("generations/gen-generation-1/manifest.json")).unwrap();
@@ -708,6 +808,19 @@ mod tests {
         )
         .unwrap();
         fs::remove_dir_all(root_path).unwrap();
+    }
+
+    #[test]
+    fn read_only_reader_does_not_create_a_missing_store() {
+        let root_path = temp_root();
+        let root = File::open(&root_path).unwrap();
+        let owner = rustix::fs::fstat(&root).unwrap().st_uid;
+        assert!(matches!(
+            GenerationReader::open_existing(&root, owner),
+            Err(GenerationError::Filesystem(_))
+        ));
+        assert_eq!(fs::read_dir(&root_path).unwrap().count(), 0);
+        fs::remove_dir(root_path).unwrap();
     }
 
     #[test]
