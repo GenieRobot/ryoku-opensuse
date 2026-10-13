@@ -1,9 +1,13 @@
 //! Typed primitives for Snapper layout discovery and checkpoint correlation.
 //!
-//! This crate deliberately contains no command runner, D-Bus client, durable
-//! catalog implementation, or mutation executor. A caller must gather
-//! trustworthy observations and provide an authorized backend before any
-//! operation can affect a system.
+//! The included [`SnapperCliBackend`] is read-only. This crate contains no
+//! D-Bus client, durable catalog implementation, or mutation executor.
+//! Creating snapshots remains unavailable until an authorized helper and
+//! supported guest evidence exist.
+
+mod cli;
+
+pub use cli::{SnapperCliBackend, SnapperCliError, parse_snapper_json};
 
 use std::collections::BTreeMap;
 

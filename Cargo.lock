@@ -624,6 +624,9 @@ dependencies = [
 [[package]]
 name = "ryoku-snapper"
 version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
 
 [[package]]
 name = "ryoku-ui"
