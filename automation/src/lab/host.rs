@@ -172,6 +172,8 @@ struct Lab {
     assets: PathBuf,
     run: PathBuf,
     ui_binary: Option<PathBuf>,
+    zypp_probe: Option<PathBuf>,
+    zypp_package: Option<String>,
     port: Option<u16>,
     vm: Option<Child>,
     report: fs::File,
@@ -452,6 +454,267 @@ impl Lab {
         Ok(())
     }
 
+    fn copy_zypp_probe(&self) -> Result<()> {
+        let binary = self.zypp_probe.as_ref().ok_or("no zypper probe binary configured")?;
+        let port = self.port.ok_or("owned QEMU SSH forwarding endpoint unknown")?;
+        output(
+            Command::new("scp")
+                .args(["-F", "/dev/null", "-i"])
+                .arg(self.run.join("id_ed25519"))
+                .args([
+                    "-P",
+                    &port.to_string(),
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "StrictHostKeyChecking=yes",
+                    "-o",
+                ])
+                .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
+                .arg(binary)
+                .arg("tester@127.0.0.1:/tmp/ryoku-zypp-hook-probe.upload"),
+        )?;
+        self.ssh("sudo install -m 0755 /tmp/ryoku-zypp-hook-probe.upload /usr/local/sbin/ryoku-zypp-hook-probe")?;
+        Ok(())
+    }
+
+    fn zypp_probe(&mut self, mode: &str, log_name: &str) -> Result<(bool, String)> {
+        let package = self.zypp_package.as_deref().ok_or("missing zypper probe package")?;
+        let request = if mode == "inventory" {
+            "sudo /usr/local/sbin/ryoku-zypp-hook-probe --inventory".to_owned()
+        } else {
+            format!("sudo /usr/local/sbin/ryoku-zypp-hook-probe {package} {mode}")
+        };
+        let result = self.ssh_command()?.arg(&request).output()?;
+        let private_log = self.run.join(log_name);
+        fs::write(&private_log, [&result.stdout[..], &result.stderr[..]].concat())?;
+        fs::set_permissions(&private_log, fs::Permissions::from_mode(0o600))?;
+        let stdout = String::from_utf8(result.stdout)?;
+        let label_storage = mode.replace('-', "_");
+        let label = if mode == "inventory" { "inventory" } else { label_storage.as_str() };
+        let mut state_unchanged = None;
+        let mut commit_seen = None;
+        let mut timeout_seen = None;
+        let mut terminated = None;
+        let mut installed = None;
+        let mut outcome = None;
+        for line in stdout.lines() {
+            let Some((key, value)) = line.split_once('=') else { continue };
+            match key {
+                "rpm_state_unchanged" => state_unchanged = Some(value == "true"),
+                "plugin_commitbegin_seen" => commit_seen = Some(value == "true"),
+                "transaction_timed_out" => timeout_seen = Some(value == "true"),
+                "timeout_plugin_terminated" => terminated = Some(value == "true"),
+                "requested_package_installed" => installed = Some(value == "true"),
+                "outcome" => outcome = Some(value),
+                _ => {}
+            }
+            let safe_value = !value.is_empty()
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || b"_.+-:|/@".contains(&byte));
+            if safe_value {
+                match key {
+                    "inventory_packages" | "inventory_plugin_directories" => {
+                        let field = if key == "inventory_packages" {
+                            "packages"
+                        } else {
+                            "plugin_directories"
+                        };
+                        self.evidence(&format!("zypp_inventory_{field}={value}"))?;
+                    }
+                    "inventory_rpm_ql" => {
+                        let fields = value.split('|').collect::<Vec<_>>();
+                        if let [path, owner] = fields.as_slice() {
+                            let normalized = path.trim_matches('/').replace(['/', '.'], "_");
+                            let owner = owner.to_ascii_lowercase().replace('-', "_");
+                            if normalized.bytes().all(|byte| {
+                                byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-'
+                            }) && owner
+                                .bytes()
+                                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+                            {
+                                self.evidence(&format!(
+                                    "zypp_inventory_rpm_ql={normalized}_{owner}"
+                                ))?;
+                            }
+                        }
+                    }
+                    "inventory_provider" => {
+                        let fields = value.split('|').collect::<Vec<_>>();
+                        if let [name, epoch, version, release, arch] = fields.as_slice() {
+                            let name = name.to_ascii_lowercase().replace('-', "_");
+                            if name.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+                            {
+                                for (suffix, field) in [
+                                    ("epoch", *epoch),
+                                    ("version", *version),
+                                    ("release", *release),
+                                    ("arch", *arch),
+                                ] {
+                                    self.evidence(&format!(
+                                        "zypp_inventory_{name}_{suffix}={field}"
+                                    ))?;
+                                }
+                            }
+                        }
+                    }
+                    "inventory_path" => {
+                        let fields = value.split('|').collect::<Vec<_>>();
+                        if let Some(path) = fields.first() {
+                            let normalized = path.trim_matches('/').replace(['/', '.'], "_");
+                            if normalized.bytes().all(|byte| {
+                                byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-'
+                            }) {
+                                let index = self.run.join(".zypp-inventory-counter");
+                                let current = fs::read_to_string(&index)
+                                    .ok()
+                                    .and_then(|x| x.parse::<usize>().ok())
+                                    .unwrap_or(0)
+                                    + 1;
+                                fs::write(&index, current.to_string())?;
+                                fs::set_permissions(&index, fs::Permissions::from_mode(0o600))?;
+                                self.evidence(&format!(
+                                    "zypp_inventory_path_{current}={normalized}"
+                                ))?;
+                                if let Some(owner) =
+                                    fields.iter().find_map(|field| field.strip_prefix("owner="))
+                                {
+                                    let owner = owner.split('|').next().unwrap_or(owner);
+                                    let (owner_name, owner_evr) =
+                                        owner.split_once('@').unwrap_or((owner, ""));
+                                    let owner_name =
+                                        owner_name.to_ascii_lowercase().replace('-', "_");
+                                    if owner_name
+                                        .bytes()
+                                        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+                                    {
+                                        self.evidence(&format!(
+                                            "zypp_inventory_owner_{current}={owner_name}"
+                                        ))?;
+                                    }
+                                    if let Some((epoch, rest)) = owner_evr.split_once(':')
+                                        && let Some((version, release_arch)) = rest.split_once('-')
+                                        && let Some((release, arch)) = release_arch.rsplit_once('.')
+                                    {
+                                        for (suffix, field) in [
+                                            ("owner_epoch", epoch),
+                                            ("owner_version", version),
+                                            ("owner_release", release),
+                                            ("owner_arch", arch),
+                                        ] {
+                                            self.evidence(&format!(
+                                                "zypp_inventory_{suffix}_{current}={field}"
+                                            ))?;
+                                        }
+                                    }
+                                }
+                                for prefix in ["mode=", "uid=", "gid="] {
+                                    if let Some(field) =
+                                        fields.iter().find_map(|field| field.strip_prefix(prefix))
+                                    {
+                                        let field = field.split('|').next().unwrap_or(field);
+                                        if field.bytes().all(|byte| byte.is_ascii_digit()) {
+                                            self.evidence(&format!(
+                                                "zypp_inventory_{}_{current}={field}",
+                                                prefix.trim_end_matches('=')
+                                            ))?;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    "provider" => {
+                        let mut fields = value.split_whitespace();
+                        if let (Some(name), Some(evr), None) =
+                            (fields.next(), fields.next(), fields.next())
+                            && let Some((epoch, rest)) = evr.split_once(':')
+                            && let Some((version, release_arch)) = rest.split_once('-')
+                            && let Some((release, arch)) = release_arch.rsplit_once('.')
+                        {
+                            let name = name.to_ascii_lowercase().replace('-', "_");
+                            for (suffix, field) in [
+                                ("epoch", epoch),
+                                ("version", version),
+                                ("release", release),
+                                ("arch", arch),
+                            ] {
+                                self.evidence(&format!("zypp_{label}_{name}_{suffix}={field}"))?;
+                            }
+                        }
+                    }
+                    "package_requested" => {
+                        self.evidence(&format!("zypp_{label}_package={value}"))?;
+                    }
+                    "rpm_state_before_sha256" | "rpm_state_after_sha256" => {
+                        let field = if key == "rpm_state_before_sha256" {
+                            "rpm_before_sha256"
+                        } else {
+                            "rpm_after_sha256"
+                        };
+                        self.evidence(&format!("zypp_{label}_{field}={value}"))?;
+                    }
+                    "plugin_directory" => {
+                        let normalized = value.trim_matches('/').replace('/', "_");
+                        if normalized
+                            .bytes()
+                            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+                        {
+                            self.evidence(&format!("zypp_plugin_directory={normalized}"))?;
+                        }
+                    }
+                    "plugin_registered"
+                    | "plugin_invoked"
+                    | "plugin_commitbegin_seen"
+                    | "rpm_state_unchanged"
+                    | "requested_package_installed"
+                    | "transaction_timed_out"
+                    | "timeout_plugin_terminated"
+                    | "plugin_cleanup"
+                    | "zypper_success"
+                    | "outcome" => {
+                        let field = match key {
+                            "plugin_registered" => "registered",
+                            "plugin_invoked" => "invoked",
+                            "plugin_commitbegin_seen" => "commitbegin",
+                            "rpm_state_unchanged" => "rpm_unchanged",
+                            "requested_package_installed" => "package_installed",
+                            "transaction_timed_out" => "timed_out",
+                            "timeout_plugin_terminated" => "plugin_terminated",
+                            "plugin_cleanup" => "plugin_cleanup",
+                            "zypper_success" => "zypper_success",
+                            "outcome" => "outcome",
+                            _ => unreachable!(),
+                        };
+                        self.evidence(&format!("zypp_{label}_{field}={value}"))?;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let _ = fs::remove_file(self.run.join(".zypp-inventory-counter"));
+        let passed = if mode == "inventory" {
+            result.status.success()
+                && stdout.lines().any(|line| line.starts_with("inventory_packages="))
+        } else if mode == "timeout-commit" {
+            result.status.success()
+                && commit_seen == Some(true)
+                && timeout_seen == Some(true)
+                && terminated == Some(true)
+                && state_unchanged == Some(true)
+        } else if mode == "missing-plugin" {
+            state_unchanged == Some(true) && result.status.success() && installed == Some(true)
+        } else {
+            result.status.success()
+                && commit_seen == Some(true)
+                && state_unchanged == Some(true)
+                && timeout_seen == Some(false)
+        };
+        self.evidence(&format!("zypp_{label}_exit_code={}", result.status.code().unwrap_or(255)))?;
+        Ok((passed, outcome.unwrap_or("no_outcome").to_owned()))
+    }
+
     fn copy_ui_binary(&self) -> Result<()> {
         let Some(binary) = &self.ui_binary else {
             return Ok(());
@@ -579,7 +842,12 @@ fn desktop_password() -> Result<Vec<u8>> {
     Ok(password)
 }
 
-pub fn run(assets: &str, run: &str, ui_binary: Option<&str>) -> Result<()> {
+pub fn run(
+    assets: &str,
+    run: &str,
+    ui_binary: Option<&str>,
+    zypp_probe: Option<(&str, &str)>,
+) -> Result<()> {
     let image = scalar("image")?;
     let hash = scalar("sha256")?;
     let signer = scalar("release_key_fingerprint")?;
@@ -599,6 +867,20 @@ pub fn run(assets: &str, run: &str, ui_binary: Option<&str>) -> Result<()> {
     if let Some(binary) = &ui_binary {
         require(binary.is_file(), "GTK proof binary is not a regular file")?;
     }
+    let zypp_probe = zypp_probe
+        .map(|(binary, package)| {
+            let binary = fs::canonicalize(binary)?;
+            require(binary.is_file(), "zypper probe binary is not a regular file")?;
+            require(
+                !package.is_empty()
+                    && package
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || b"-_.+".contains(&byte)),
+                "invalid zypper probe package identifier",
+            )?;
+            Ok::<_, Box<dyn std::error::Error>>((binary, package.to_owned()))
+        })
+        .transpose()?;
     let run_path = Path::new(run);
     require(run_path.is_absolute(), "run directory must be absolute")?;
     safe_component(run_path.file_name().and_then(|x| x.to_str()).ok_or("missing run name")?)?;
@@ -641,6 +923,8 @@ pub fn run(assets: &str, run: &str, ui_binary: Option<&str>) -> Result<()> {
         assets,
         run: fs::canonicalize(run_path)?,
         ui_binary,
+        zypp_probe: zypp_probe.as_ref().map(|(binary, _)| binary.clone()),
+        zypp_package: zypp_probe.as_ref().map(|(_, package)| package.clone()),
         port: None,
         vm: None,
         report: fs::File::create(run_path.join("evidence.txt"))?,
@@ -741,12 +1025,85 @@ pub fn run(assets: &str, run: &str, ui_binary: Option<&str>) -> Result<()> {
     let inspected = lab.ssh(inspect)?;
     lab.evidence(&inspected)?;
     lab.evidence("reboot=passed")?;
-    lab.stop()?;
-    lab.start(true)?;
-    lab.copy_binary()?;
-    let recovered = lab.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-recover {address}"))?;
-    lab.evidence(&recovered)?;
-    lab.stop()?;
+    if zypp_probe.is_some() {
+        // Probe modes deliberately include a missing-plugin bypass and can
+        // alter RPM state. Keep their output private and jump directly to the
+        // disposable-overlay reset, even when a result is unsafe/incomplete.
+        let copy_ok = match lab.copy_zypp_probe() {
+            Ok(()) => true,
+            Err(_) => {
+                lab.evidence("zypp_probe_copy=failed")?;
+                false
+            }
+        };
+        if copy_ok {
+            match lab.zypp_probe("inventory", "zypp-inventory-private.log") {
+                Ok((true, _)) => lab.evidence("zypp_inventory=passed")?,
+                Ok((false, _)) | Err(_) => lab.evidence("zypp_inventory=failed")?,
+            }
+            for (mode, log) in [
+                ("deny-commit", "zypp-deny-private.log"),
+                ("malformed-commit", "zypp-malformed-private.log"),
+                ("timeout-commit", "zypp-timeout-private.log"),
+                ("missing-plugin", "zypp-missing-private.log"),
+            ] {
+                match lab.zypp_probe(mode, log) {
+                    Ok((passed, outcome)) => {
+                        if !passed && mode != "missing-plugin" {
+                            lab.evidence(&format!(
+                                "zypp_{}_gate=unsupported",
+                                mode.replace('-', "_")
+                            ))?;
+                            // A failed denial may have changed RPM state; do
+                            // not issue more package transactions in that case.
+                            let private = fs::read_to_string(lab.run.join(log)).unwrap_or_default();
+                            if private.contains("rpm_state_unchanged=false") {
+                                lab.evidence("zypp_later_modes=skipped_after_rpm_change")?;
+                                break;
+                            }
+                        } else if mode == "missing-plugin" {
+                            let classification = if outcome == "missing_plugin_allowed_rpm_change" {
+                                "bypass_committed"
+                            } else if passed {
+                                "unexpectedly_passed"
+                            } else {
+                                "inconclusive_or_blocked_elsewhere"
+                            };
+                            lab.evidence(&format!("zypp_missing_plugin_gate={classification}"))?;
+                        } else if passed {
+                            lab.evidence(&format!(
+                                "zypp_{}_gate=observed_block",
+                                mode.replace('-', "_")
+                            ))?;
+                        }
+                    }
+                    Err(_) => {
+                        lab.evidence(&format!("zypp_{mode}_gate=probe_failed"))?;
+                        break;
+                    }
+                }
+            }
+        } else {
+            lab.evidence("zypp_probe_modes=skipped_copy_failed")?;
+        }
+        lab.evidence("packagekit_cockpit_myrlyn_yast_write_paths=unsupported")?;
+        lab.evidence("zypp_experiment_is_not_a_protected_write_gate=confirmed")?;
+        // This is a disposable test overlay. Terminate only the QEMU process
+        // this Lab owns; its private overlay is deleted below and never reused.
+        if let Some(mut child) = lab.vm.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        lab.port = None;
+        lab.evidence("offline_recovery=skipped_provider_probe_overlay_discarded")?;
+    } else {
+        lab.stop()?;
+        lab.start(true)?;
+        lab.copy_binary()?;
+        let recovered = lab.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-recover {address}"))?;
+        lab.evidence(&recovered)?;
+        lab.stop()?;
+    }
     fs::remove_file(lab.run.join("disk.qcow2"))?;
     fs::remove_file(lab.run.join("OVMF_VARS.fd"))?;
     fs::remove_file(lab.run.join("known_hosts"))?;

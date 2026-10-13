@@ -11,9 +11,17 @@ use std::{
 };
 
 fn main() {
-    if env::args().len() == 1 {
+    let args = env::args().skip(1).collect::<Vec<_>>();
+    if args.is_empty() {
         if let Err(error) = protocol::serve() {
             eprintln!("probe_error={error}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    if args.as_slice() == ["--inventory"] {
+        if let Err(error) = inventory() {
+            eprintln!("inventory_error={error}");
             std::process::exit(1);
         }
         return;
@@ -21,6 +29,141 @@ fn main() {
     if let Err(error) = experiment() {
         eprintln!("experiment_error={error}");
         std::process::exit(1);
+    }
+}
+
+/// Read-only provider/plugin/config inventory for the seeded disposable VM.
+/// Full path metadata and allowlisted xattr values are emitted only to the
+/// runner's mode-0600 private log; the host publishes selected safe facts.
+fn inventory() -> Result<(), Box<dyn std::error::Error>> {
+    use std::{collections::BTreeSet, os::unix::fs::MetadataExt};
+
+    fixture_guard()?;
+    let packages = Command::new("rpm")
+        .args(["-qa", "--qf", "%{NAME} %{EPOCHNUM} %{VERSION} %{RELEASE} %{ARCH}\\n"])
+        .output()?;
+    if !packages.status.success() {
+        return Err("rpm -qa provider inventory failed".into());
+    }
+    let package_rows = String::from_utf8(packages.stdout)?
+        .lines()
+        .filter(|row| {
+            let name = row.split_whitespace().next().unwrap_or("");
+            ["zypper", "libzypp", "PackageKit", "cockpit", "yast", "myrlyn"]
+                .iter()
+                .any(|prefix| name.starts_with(prefix))
+        })
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    let mut paths = BTreeSet::new();
+    for row in &package_rows {
+        let Some(package) = row.split_whitespace().next() else { continue };
+        let config = Command::new("rpm").args(["-qc", package]).output()?;
+        if config.status.success() {
+            paths.extend(String::from_utf8(config.stdout)?.lines().map(PathBuf::from));
+        }
+    }
+    let plugin_dirs = discover_plugin_dirs()?;
+    for dir in &plugin_dirs {
+        paths.insert(dir.clone());
+        if let Ok(children) = fs::read_dir(dir) {
+            paths.extend(children.filter_map(Result::ok).map(|entry| entry.path()));
+        }
+    }
+
+    for row in &package_rows {
+        let Some(package) = row.split_whitespace().next() else {
+            continue;
+        };
+        let listed = Command::new("rpm").args(["-ql", package]).output()?;
+        if listed.status.success() {
+            for path in String::from_utf8(listed.stdout)?.lines() {
+                if paths.contains(Path::new(path)) {
+                    println!("inventory_rpm_ql={path}|{package}");
+                }
+            }
+        }
+    }
+
+    println!("inventory_packages={}", package_rows.len());
+    println!("inventory_plugin_directories={}", plugin_dirs.len());
+    for row in package_rows {
+        println!("inventory_provider={}", row.replace(' ', "|"));
+    }
+    for path in paths {
+        let display = path.to_string_lossy();
+        let ownership = Command::new("rpm")
+            .args([
+                "-qf",
+                "--qf",
+                "%{NAME} %{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}",
+                display.as_ref(),
+            ])
+            .output()?;
+        let owner = if ownership.status.success() {
+            String::from_utf8_lossy(&ownership.stdout).trim().replace(' ', "@")
+        } else {
+            "UNOWNED".to_owned()
+        };
+        let Ok(metadata) = fs::symlink_metadata(&path) else {
+            println!("inventory_path={display}|missing|owner={owner}");
+            continue;
+        };
+        let kind = if metadata.file_type().is_symlink() {
+            "symlink"
+        } else if metadata.is_dir() {
+            "directory"
+        } else if metadata.is_file() {
+            "regular-file"
+        } else {
+            "other"
+        };
+        let target = if metadata.file_type().is_symlink() {
+            fs::read_link(&path)
+                .ok()
+                .map(|target| target.to_string_lossy().into_owned())
+                .unwrap_or_default()
+        } else {
+            String::new()
+        };
+        let acl = command_digest("getfacl", &["--omit-header", "--numeric", display.as_ref()]);
+        let selinux = command_digest(
+            "getfattr",
+            &["--only-values", "-n", "security.selinux", display.as_ref()],
+        );
+        let capability = command_digest(
+            "getfattr",
+            &["--only-values", "-n", "security.capability", display.as_ref()],
+        );
+        println!(
+            "inventory_path={display}|{kind}|mode={:o}|uid={}|gid={}|mtime_ns={}|target={target}|owner={owner}|acl={acl}|xattr.security.selinux={selinux}|xattr.security.capability={capability}",
+            metadata.mode() & 0o7777,
+            metadata.uid(),
+            metadata.gid(),
+            metadata.mtime() as i128 * 1_000_000_000 + i128::from(metadata.mtime_nsec()),
+        );
+    }
+    Ok(())
+}
+
+fn fixture_guard() -> Result<(), Box<dyn std::error::Error>> {
+    if current_uid() != 0 {
+        return Err("must run as root inside the explicitly seeded disposable QEMU fixture".into());
+    }
+    if fs::read_to_string("/etc/ryoku-lab-fixture")? != "disposable-issue13\n"
+        || fs::read_to_string("/sys/class/dmi/id/sys_vendor")?.trim() != "QEMU"
+    {
+        return Err("refusing to run outside the explicitly seeded disposable QEMU fixture".into());
+    }
+    Ok(())
+}
+
+fn command_digest(program: &str, args: &[&str]) -> String {
+    match Command::new(program).args(args).output() {
+        Ok(result) if result.status.success() => {
+            format!("present:{}", sha256_bytes(&result.stdout))
+        }
+        _ => "unavailable-or-absent".to_owned(),
     }
 }
 
@@ -309,6 +452,10 @@ fn rpm_state() -> Result<String, Box<dyn std::error::Error>> {
 }
 
 fn sha256(data: &str) -> String {
+    sha256_bytes(data.as_bytes())
+}
+
+fn sha256_bytes(data: &[u8]) -> String {
     // Use the platform's coreutils binary rather than introducing another crate.
     let mut child = Command::new("sha256sum")
         .stdin(std::process::Stdio::piped())
@@ -316,7 +463,7 @@ fn sha256(data: &str) -> String {
         .spawn()
         .expect("sha256sum available in Tumbleweed");
     use std::io::Write;
-    child.stdin.take().expect("piped stdin").write_all(data.as_bytes()).expect("write hash input");
+    child.stdin.take().expect("piped stdin").write_all(data).expect("write hash input");
     let output = child.wait_with_output().expect("read hash output");
     String::from_utf8_lossy(&output.stdout)
         .split_whitespace()
