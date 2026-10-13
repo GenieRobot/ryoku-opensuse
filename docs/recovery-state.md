@@ -55,8 +55,20 @@ mountpoint without following a substituted path, then compare the observed
 filesystem UUID, subvolume ID/parent relationship, mount source/options, and
 ownership/mode with the installed machine record on every startup and before
 each write. Any mismatch blocks mutation and remains visible as a typed
-recovery-unavailable result. This is a design requirement; no implementation
-or Tumbleweed proof exists yet.
+recovery-unavailable result.
+
+The Linux recovery crate now provides a fail-closed validation contract in
+`state_mount`: it rejects absent observations, a non-fixed mountpoint,
+non-Btrfs or read-only storage, mismatched UUID/subvolume/parent identity,
+missing parent identity, unsafe descriptor ownership/mode, and a descriptor
+whose kernel mount ID differs from the supplied live observation. It opens the
+fixed relative path beneath a trusted `/` descriptor without following
+symlinks and returns the pinned descriptor for later relative operations.
+This slice is not yet the production mount inspector: the caller must supply
+facts from live `mountinfo` and Btrfs metadata, and no production call site
+currently does so. In particular, this work does not safely query the Btrfs
+parent-subvolume ID; absence of that fact is a typed hard stop. Tumbleweed
+setup/startup integration and proof remain outstanding.
 
 The intended on-volume layout is:
 

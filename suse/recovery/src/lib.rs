@@ -15,6 +15,8 @@ pub mod generation;
 pub mod generation_capture;
 #[cfg(target_os = "linux")]
 pub mod restore;
+#[cfg(target_os = "linux")]
+pub mod state_mount;
 
 use std::collections::{BTreeMap, BTreeSet};
 
