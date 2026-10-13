@@ -577,6 +577,65 @@ impl Lab {
                                 self.evidence(&format!(
                                     "zypp_inventory_path_{current}={normalized}"
                                 ))?;
+                                if let Some(kind) = fields.get(1).copied().filter(|kind| {
+                                    ["missing", "regular-file", "directory", "symlink", "other"]
+                                        .contains(kind)
+                                }) {
+                                    self.evidence(&format!(
+                                        "zypp_inventory_kind_{current}={kind}"
+                                    ))?;
+                                }
+                                if let Some(target) = fields
+                                    .iter()
+                                    .find_map(|field| field.strip_prefix("target="))
+                                    .filter(|target| !target.is_empty())
+                                {
+                                    let normalized_target =
+                                        target.trim_matches('/').replace(['/', '.'], "_");
+                                    if normalized_target.bytes().all(|byte| {
+                                        byte.is_ascii_alphanumeric() || b"_+-".contains(&byte)
+                                    }) {
+                                        self.evidence(&format!(
+                                            "zypp_inventory_symlink_target_{current}={normalized_target}"
+                                        ))?;
+                                    }
+                                }
+                                if let Some(acl) =
+                                    fields.iter().find_map(|field| field.strip_prefix("acl="))
+                                {
+                                    let (status, digest) = acl.split_once(':').unwrap_or((acl, ""));
+                                    self.evidence(&format!(
+                                        "zypp_inventory_acl_{current}={status}"
+                                    ))?;
+                                    if digest.len() == 64
+                                        && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+                                    {
+                                        self.evidence(&format!(
+                                            "zypp_inventory_acl_sha256_{current}={digest}"
+                                        ))?;
+                                    }
+                                }
+                                for (source, label) in [
+                                    ("xattr.security.selinux=", "selinux"),
+                                    ("xattr.security.capability=", "capability"),
+                                ] {
+                                    if let Some(attribute) =
+                                        fields.iter().find_map(|field| field.strip_prefix(source))
+                                    {
+                                        let (status, digest) =
+                                            attribute.split_once(':').unwrap_or((attribute, ""));
+                                        self.evidence(&format!(
+                                            "zypp_inventory_xattr_{label}_{current}={status}"
+                                        ))?;
+                                        if digest.len() == 64
+                                            && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+                                        {
+                                            self.evidence(&format!(
+                                                "zypp_inventory_xattr_{label}_sha256_{current}={digest}"
+                                            ))?;
+                                        }
+                                    }
+                                }
                                 if let Some(owner) =
                                     fields.iter().find_map(|field| field.strip_prefix("owner="))
                                 {

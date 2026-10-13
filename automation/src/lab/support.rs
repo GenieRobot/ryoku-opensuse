@@ -170,6 +170,13 @@ mod tests {
         assert!(public_evidence("reset_sentinel_sync=passed"));
         assert!(public_evidence("ui_visual_capture=passed"));
         assert!(public_evidence("zypp_inventory_path_1=usr_lib64_zypp_plugins_commit"));
+        assert!(public_evidence("zypp_inventory_kind_1=symlink"));
+        assert!(public_evidence("zypp_inventory_symlink_target_1=usr_lib_systemd_systemd"));
+        assert!(public_evidence("zypp_inventory_acl_1=present"));
+        assert!(public_evidence(
+            "zypp_inventory_acl_sha256_1=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ));
+        assert!(public_evidence("zypp_inventory_xattr_selinux_1=absent"));
         assert!(!public_evidence("zypp_inventory_path_1=/usr/lib64/zypp/plugins/commit"));
         assert!(public_evidence("zypp_inventory_zypper_version=1.14.80"));
     }

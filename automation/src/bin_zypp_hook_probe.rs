@@ -159,11 +159,21 @@ fn fixture_guard() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn command_digest(program: &str, args: &[&str]) -> String {
-    match Command::new(program).args(args).output() {
+    match Command::new(program).args(args).env("LC_ALL", "C").output() {
         Ok(result) if result.status.success() => {
             format!("present:{}", sha256_bytes(&result.stdout))
         }
-        _ => "unavailable-or-absent".to_owned(),
+        Ok(result)
+            if String::from_utf8_lossy(&result.stderr)
+                .to_ascii_lowercase()
+                .contains("no such attribute")
+                || String::from_utf8_lossy(&result.stderr)
+                    .to_ascii_lowercase()
+                    .contains("attribute not found") =>
+        {
+            "absent".to_owned()
+        }
+        _ => "unavailable".to_owned(),
     }
 }
 
