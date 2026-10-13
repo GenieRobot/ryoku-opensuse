@@ -64,7 +64,7 @@ fn main() {
 
         refresh.connect_clicked(move |_| {
             let outcome =
-                dispatch(&mut backend_for_refresh.borrow_mut(), UserAction::RefreshStatus);
+                dispatch(&mut *backend_for_refresh.borrow_mut(), UserAction::RefreshStatus);
             if let Ok(ActionResult::StatusRefreshed(state)) = &outcome {
                 status.set_text(&render_status(state));
             }
