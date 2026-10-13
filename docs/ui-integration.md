@@ -24,13 +24,16 @@ changes to those executable files are outside the approved Rust-only rule.
 Any new Ryoku surface therefore belongs in Rust.
 
 Keep the Rust presentation layer separate from backend and provider code. The
-next candidate to evaluate is a GTK 4 Rust surface communicating with an
-unprivileged Rust service over a versioned, typed IPC contract (D-Bus is the
-first IPC candidate). This keeps package/provider actions behind the service
-and avoids a UI-to-provider FFI boundary. This is a candidate, not a final
-toolkit or IPC selection: accessibility, Wayland behavior, desktop theme
-integration, dependency availability, and lifecycle handling remain to be
-proved on Tumbleweed. KDE fallback must be included in the graphical test.
+workspace now contains an optional GTK 4 Rust proof binary (`gtk-ui` feature).
+It reuses the typed read-only refresh contract and renders status, request
+result, and service-unavailable error with GTK labels and a named,
+keyboard-activatable button. The sample backend uses fixed demonstration data;
+it is not a system service client. GTK remains the selected M0 proof candidate,
+while its Tumbleweed package/runtime dependencies, Wayland behavior,
+accessibility, theme integration, and lifecycle handling still need guest
+validation. The executor currently lacks GTK/GLib development metadata, so a
+feature build has not yet reached compilation of the proof binary. KDE fallback
+must be included in the graphical test.
 
 GTK's Rust bindings wrap a C toolkit internally, so keep the wrapper API at
 the presentation edge, do not expose GTK/GLib objects through workspace
@@ -42,9 +45,11 @@ the same authenticated protocol without project-owned QML/JavaScript glue.
 
 After Run17 completed its helper-copy/migration phase, the workspace built and
 tested successfully; the terminal proof rendered both its sample success and
-service-unavailable paths. Run17 installed KDE/SDDM, but its ordinary-user
+service-unavailable paths. The GTK proof source and lockfile are now present,
+but the feature build requires system GTK4/GLib development packages and has
+not yet compiled locally. Run17 installed KDE/SDDM, but its ordinary-user
 Wayland login check remained blocked. On a disposable Tumbleweed graphical VM
-with a working login, build the selected native surface and demonstrate all
+with a working login, build the native surface and demonstrate all
 of the following with sanitized evidence:
 
 1. Launch and render typed backend status in a real desktop window under
