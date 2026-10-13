@@ -7,8 +7,12 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use serde::Serialize;
+use sha2::{Digest, Sha256 as Sha256Digest};
+
 /// Canonical lowercase hexadecimal SHA-256 value.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+#[serde(transparent)]
 pub struct Sha256(String);
 
 impl Sha256 {
@@ -31,7 +35,8 @@ impl Sha256 {
 }
 
 /// Bounded canonical identifier used for transaction and generation lookup.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+#[serde(transparent)]
 pub struct Identifier(String);
 
 impl Identifier {
@@ -57,7 +62,8 @@ impl Identifier {
 
 /// Bounded opaque package/profile revision, allowing common NEVRA/version
 /// punctuation while excluding whitespace, separators, and control bytes.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+#[serde(transparent)]
 pub struct Revision(String);
 
 impl Revision {
@@ -77,7 +83,8 @@ impl Revision {
 }
 
 /// A normalized path relative to one fixed manifest root.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+#[serde(transparent)]
 pub struct RelativePath(String);
 
 impl RelativePath {
@@ -107,7 +114,8 @@ impl RelativePath {
 
 /// Fixed roots that a manifest may name. Callers map these variants to
 /// administrator-defined directories; manifest text never supplies a root.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum StateRoot {
     /// Ryoku-owned system configuration below `/etc/ryoku`.
     EtcRyoku,
@@ -133,7 +141,8 @@ impl StateRoot {
 }
 
 /// Only xattr names captured by the initial contract; additions require review.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum XattrName {
     /// SELinux label, when supported by the filesystem/provider.
     SelinuxLabel,
@@ -155,13 +164,14 @@ impl XattrName {
 }
 
 /// Digests of allowed metadata values; public manifests do not embed labels.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct ExtendedMetadata {
     pub values: BTreeMap<XattrName, Sha256>,
 }
 
 /// Typed operation intent recorded in each manifest.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum OperationReason {
     ProfileApply,
     ProviderChange,
@@ -171,7 +181,8 @@ pub enum OperationReason {
 }
 
 /// Capture/linkage/verification phase state.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum VerificationStatus {
     Pending,
     Verified,
@@ -179,7 +190,7 @@ pub enum VerificationStatus {
 }
 
 /// Profile layer identity when a transaction resolves profile settings.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct ProfileRevision {
     pub profile_id: Identifier,
     pub profile_revision: Revision,
@@ -190,7 +201,7 @@ pub struct ProfileRevision {
 }
 
 /// Package and upstream revisions associated with an operation.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct PackageRevision {
     pub package_nevra: Revision,
     pub upstream_revision: Option<Revision>,
@@ -199,7 +210,7 @@ pub struct PackageRevision {
 }
 
 /// Validated link to the system-side pre-change snapshot.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct SnapshotLink {
     pub snapper_config: Identifier,
     pub snapper_snapshot_id: String,
@@ -227,7 +238,7 @@ impl SnapshotLink {
 }
 
 /// Exact metadata required for a declared entry.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct EntryMetadata {
     /// POSIX permission and file-type-independent mode bits.
     pub mode: u32,
@@ -244,7 +255,8 @@ pub struct EntryMetadata {
 }
 
 /// One declared entry and the metadata/content proof required for its kind.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum EntryKind {
     /// The declared destination did not exist before the transaction.
     Absent,
@@ -262,7 +274,7 @@ pub enum EntryKind {
 }
 
 /// A single explicitly declared path in a transaction generation.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct FileRecord {
     /// Fixed root selector.
     pub root: StateRoot,
@@ -289,7 +301,7 @@ impl FileRecord {
 }
 
 /// Linkage required before a managed operation may begin.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct RecoveryManifest {
     /// Supported manifest schema. This model accepts version 1 only.
     pub schema_version: u16,
@@ -316,10 +328,12 @@ pub struct RecoveryManifest {
     pub linkage_status: VerificationStatus,
     pub verification_status: VerificationStatus,
     /// Canonical digest, assigned by a future serializer/publisher.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub manifest_sha256: Option<Sha256>,
     /// Complete explicitly declared affected path set.
     files: Vec<FileRecord>,
     /// Set used to reject duplicate root/path pairs.
+    #[serde(skip)]
     file_keys: BTreeSet<(StateRoot, RelativePath)>,
 }
 
@@ -365,6 +379,10 @@ impl RecoveryManifest {
             return Err(ValidationError::DuplicatePath);
         }
         self.files.push(file);
+        self.files.sort_by(|left, right| {
+            (left.root.manifest_name(), left.path.as_str())
+                .cmp(&(right.root.manifest_name(), right.path.as_str()))
+        });
         Ok(())
     }
 
@@ -401,14 +419,50 @@ impl RecoveryManifest {
             && self.capture_status == VerificationStatus::Verified
             && self.linkage_status == VerificationStatus::Verified
             && self.verification_status == VerificationStatus::Verified
-            && self.manifest_sha256.is_some()
+            && self.verify_digest().is_ok_and(|valid| valid)
     }
 
-    /// Attaches a digest calculated by an external canonical serializer after
-    /// read-back verification. This crate does not calculate the digest.
-    pub fn set_manifest_digest(&mut self, digest: Sha256) {
-        self.manifest_sha256 = Some(digest);
+    /// Returns canonical JSON for the manifest payload, excluding its digest.
+    /// Object keys are lexically ordered by serde_json's map representation;
+    /// declared files are sorted by fixed root and normalized relative path.
+    pub fn canonical_payload_bytes(&self) -> Result<Vec<u8>, serde_json::Error> {
+        let mut payload = self.clone();
+        payload.manifest_sha256 = None;
+        canonical_json(&payload)
     }
+
+    /// Serializes the complete manifest as canonical JSON, including its
+    /// digest once sealed.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, serde_json::Error> {
+        canonical_json(self)
+    }
+
+    /// Computes and assigns the SHA-256 of canonical JSON with the digest field
+    /// omitted, avoiding a self-referential checksum.
+    pub fn seal(&mut self) -> Result<(), serde_json::Error> {
+        let bytes = self.canonical_payload_bytes()?;
+        let digest = Sha256Digest::digest(bytes);
+        let text = digest.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+        self.manifest_sha256 = Some(Sha256::new(text).expect("SHA-256 formatter is canonical"));
+        Ok(())
+    }
+
+    /// Verifies the assigned checksum against the canonical payload.
+    pub fn verify_digest(&self) -> Result<bool, serde_json::Error> {
+        let Some(expected) = &self.manifest_sha256 else {
+            return Ok(false);
+        };
+        let mut payload = self.clone();
+        payload.manifest_sha256 = None;
+        let digest = Sha256Digest::digest(canonical_json(&payload)?);
+        let actual = digest.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+        Ok(expected.as_str() == actual)
+    }
+}
+
+fn canonical_json(value: &impl Serialize) -> Result<Vec<u8>, serde_json::Error> {
+    let value = serde_json::to_value(value)?;
+    serde_json::to_vec(&value)
 }
 
 /// Mandatory capture rules for a future filesystem boundary.
@@ -659,8 +713,12 @@ mod tests {
             VerificationStatus::Verified,
         );
         assert!(!manifest.is_mutation_ready());
-        manifest.set_manifest_digest(Sha256::new("b".repeat(64)).unwrap());
+        manifest.seal().unwrap();
         assert!(manifest.is_mutation_ready());
+        assert!(manifest.verify_digest().unwrap());
+        manifest.reason = OperationReason::PackageChange;
+        assert!(!manifest.verify_digest().unwrap());
+        assert!(!manifest.is_mutation_ready());
         manifest.set_verification(
             VerificationStatus::Failed,
             VerificationStatus::Verified,
@@ -680,5 +738,35 @@ mod tests {
             .insert(XattrName::SelinuxLabel, Sha256::new("c".repeat(64)).unwrap());
         assert_eq!(metadata.extended.values.len(), 1);
         assert_eq!(StateRoot::UserRyokuProfile.manifest_name(), "user-ryoku-profile");
+    }
+
+    #[test]
+    fn canonical_encoding_is_independent_of_file_insertion_order() {
+        let mut first = manifest();
+        let mut second = manifest();
+        let records = [
+            FileRecord::new(
+                StateRoot::UserRyokuConfig,
+                RelativePath::new("z.toml").unwrap(),
+                EntryKind::Absent,
+            )
+            .unwrap(),
+            FileRecord::new(
+                StateRoot::EtcRyoku,
+                RelativePath::new("a.toml").unwrap(),
+                EntryKind::Absent,
+            )
+            .unwrap(),
+        ];
+        for file in records.clone() {
+            first.add_file(file).unwrap();
+        }
+        for file in records.into_iter().rev() {
+            second.add_file(file).unwrap();
+        }
+        first.seal().unwrap();
+        second.seal().unwrap();
+        assert_eq!(first.canonical_bytes().unwrap(), second.canonical_bytes().unwrap());
+        assert!(first.verify_digest().unwrap());
     }
 }

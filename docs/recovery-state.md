@@ -184,12 +184,21 @@ contents for secrets or undeclared data in the public catalog.
 
 ## Manifest schema and publication rules
 
-The persisted format has a required `schema_version`; unsupported major
-versions or unknown required fields fail closed. Compatible readers may ignore
-unknown optional fields, while writers preserve them when round-tripping.
-Migrations are deterministic, local, and version-to-version; they write a new
-generation and retain the prior one until verification and catalog publication
-succeed. No migration fetches code or data from a Git remote.
+The schema has a required `schema_version`; unsupported major versions or
+unknown required fields must fail closed. Compatible readers may ignore unknown
+optional fields, while writers preserve them when round-tripping. Migrations
+are deterministic, local, and version-to-version; they write a new generation
+and retain the prior one until verification and catalog publication succeed.
+No migration fetches code or data from a Git remote.
+
+Version 1 canonical encoding is compact UTF-8 JSON. JSON object keys are sorted
+lexically, file records are sorted by fixed root name and relative path, and
+the SHA-256 digest covers this canonical document with `manifest_sha256`
+omitted. The sealed document includes that digest. The Rust recovery crate can
+now produce this canonical byte representation, seal it, and verify the digest
+when callers reconstruct the same typed value. It still has no parser,
+filesystem collector, durable writer, or generation publisher, so this is not
+yet a persistent-storage or capture guarantee.
 
 Every transaction manifest records:
 
@@ -212,48 +221,53 @@ digest check, or Snapper link prevents mutation. Catalog indexes are
 rebuildable from verified immutable manifests; the journal is append-only and
 is not reconstructed from mutable root state.
 
-Synthetic shape only (all identifiers and paths below are examples; no user
-or companion information is present):
+Synthetic canonical JSON shape only (identifiers and paths are examples; no
+user or companion information is present):
 
-```toml
-schema_version = 1
-transaction_id = "txn-example-0001"
-generation_id = "gen-example-0007"
-parent_generation_id = "gen-example-0006"
-snapper_config = "root"
-snapper_snapshot_id = "42"
-filesystem_uuid = "00000000-0000-0000-0000-000000000000"
-reason = "profile-apply"
-created_utc = "2026-01-01T00:00:00Z"
-package_revision = "example-rpm-nevra"
-upstream_revision = "0000000000000000000000000000000000000000"
-profile_id = "desktop-default"
-profile_revision = "profile-v1"
-verification = "verified"
-manifest_sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-
-[[files]]
-root = "etc-ryoku"
-path = "appearance.toml"
-kind = "regular"
-mode = 416
-uid = 0
-gid = 0
-size = 34
-sha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-acl_sha256 = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-
-[[files]]
-root = "user-ryoku-config"
-path = "local-overrides.toml"
-kind = "absent"
+```json
+{
+  "capture_status": "verified",
+  "created_utc": "2026-01-01T00:00:00Z",
+  "files": [
+    {
+      "hard_link_group": null,
+      "kind": "regular-file",
+      "metadata": {
+        "acl_sha256": null,
+        "extended": { "values": {} },
+        "gid": 0,
+        "mode": 416,
+        "mtime_unix_ns": 0,
+        "uid": 0
+      },
+      "path": "appearance.toml",
+      "root": "etc-ryoku",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "size": 34
+    },
+    { "kind": "absent", "path": "local-overrides.toml", "root": "user-ryoku-config" }
+  ],
+  "filesystem_uuid": "00000000-0000-0000-0000-000000000000",
+  "generation_id": "gen-example-0007",
+  "linkage_status": "verified",
+  "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "package_revision": null,
+  "parent_generation_id": "gen-example-0006",
+  "profile_revision": null,
+  "reason": "profile-apply",
+  "schema_version": 1,
+  "snapper_config": "root",
+  "snapper_snapshot_id": "42",
+  "transaction_id": "txn-example-0001",
+  "verification_status": "verified"
+}
 ```
 
-The Rust `ryoku-recovery` crate now provides dependency-free validated IDs,
-fixed root selectors, root-relative paths, entry-kind records, duplicate-path
-rejection, and Snapper/filesystem linkage primitives. It does not read files,
-serialize manifests, calculate digests, publish generations, or authorize
-mutations.
+The Rust `ryoku-recovery` crate provides validated IDs, fixed root selectors,
+root-relative paths, entry-kind records, duplicate-path rejection,
+Snapper/filesystem linkage primitives, canonical JSON serialization and
+manifest digest verification. It does not read files, acquire metadata,
+publish generations, or authorize mutations.
 
 The typed contract also names operation reason/time, package and upstream
 revision provenance, all four resolved profile layers, per-phase verification,
