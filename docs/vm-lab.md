@@ -148,12 +148,14 @@ and writes `lab_result=blocked` after reset. This provides partial recovery and
 runner evidence and never satisfies KDE fallback or closes #13.
 
 Package-manager and SSH readiness commands have bounded execution and output.
-Each guest zypper operation used by KDE setup, migration, or optional GTK proof
-has a 20-minute deadline and retains at most 1 MiB per output stream. The
-complete remote KDE setup is additionally bounded by 29 minutes in the guest
-and 30 minutes on the host. Optional GTK installation has a 25-minute absolute
-SSH deadline to leave room for the guest's 20-minute zypper deadline and
-post-install checks. Migration has a 60-minute absolute host deadline for its
+Each guest zypper operation used by migration or optional GTK proof has a
+20-minute deadline and retains at most 1 MiB per output stream. KDE provisioning
+uses a dedicated 34-minute zypper deadline, based on Run22 reaching package
+479 of 745 before the prior 20-minute deadline. The complete remote KDE setup
+is additionally bounded by 36 minutes in the guest and 38 minutes on the host.
+Optional GTK installation has a 25-minute absolute SSH deadline to leave room
+for the guest's 20-minute zypper deadline and post-install checks. Migration has
+a 60-minute absolute host deadline for its
 two package-manager stages (up to 40 minutes combined) and slower TCG disk
 preparation. Generic
 SSH commands have a 10-minute cap; guest readiness retries share one absolute

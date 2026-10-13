@@ -25,8 +25,8 @@ const LOGIN_JOURNAL_COMMAND: &str = "sudo /usr/bin/timeout --signal=KILL --kill-
 const GREETER_READINESS_FRAME: &str = "sddm-readiness.ppm";
 const GREETER_READINESS_TIMEOUT: Duration = Duration::from_secs(60);
 const GREETER_READINESS_POLL: Duration = Duration::from_millis(500);
-const KDE_PROVISION_TIMEOUT: Duration = Duration::from_secs(30 * 60);
-const KDE_REMOTE_TIMEOUT_SECONDS: u32 = 29 * 60;
+const KDE_PROVISION_TIMEOUT: Duration = Duration::from_secs(38 * 60);
+const KDE_REMOTE_TIMEOUT_SECONDS: u32 = 36 * 60;
 const KDE_OUTPUT_LIMIT: usize = 1024 * 1024;
 const SSH_COMMAND_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const SSH_OUTPUT_LIMIT: usize = 1024 * 1024;
@@ -1842,6 +1842,13 @@ mod tests {
         assert_eq!(kde_failure(false, Some(124)), Some(KdeProvisionFailure::Timeout));
         assert_eq!(kde_failure(false, Some(1)), Some(KdeProvisionFailure::Failed));
         assert_eq!(kde_failure(false, Some(0)), None);
+    }
+
+    #[test]
+    fn kde_setup_deadlines_nest_around_the_guest_zypper_deadline() {
+        assert_eq!(KDE_REMOTE_TIMEOUT_SECONDS, 36 * 60);
+        assert_eq!(KDE_PROVISION_TIMEOUT, Duration::from_secs(38 * 60));
+        assert!(Duration::from_secs(u64::from(KDE_REMOTE_TIMEOUT_SECONDS)) < KDE_PROVISION_TIMEOUT);
     }
 
     #[test]
