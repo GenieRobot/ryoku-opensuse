@@ -182,6 +182,34 @@ traversal. Device nodes, sockets, FIFOs, hard-link surprises, and unlisted
 entry types fail capture. An absent record is valid only for a declared exact
 path; it cannot be synthesized by scanning a parent directory.
 
+The schema's representable kinds are broader than the current Linux collector.
+For v1 operation eligibility, only exact regular-file, directory-metadata,
+and absent records are capturable today. The `symlink` kind is schema-only:
+`capture_declared` rejects a symlink leaf and uses no-symlink resolution for
+every component. Therefore no current managed-file allowlist may enroll a
+symlink, even though the manifest can represent one. Root selectors are also
+not filesystem paths supplied by a manifest: a trusted caller must resolve
+`user-ryoku-config` to the selected account's config directory descriptor,
+`user-ryoku-profile` to the selected account's profile area, and `etc-ryoku`
+to the reserved `/etc/ryoku` namespace descriptor. No system file is currently
+approved under that namespace. `state-generation` is protected store-internal
+space, not a caller-selected source root. The collector enforces entries it
+receives; it does not yet compile the inventory or establish those trusted
+descriptors.
+
+| Metadata field | V1 meaning | Missing / unsupported behavior |
+|---|---|---|
+| `mode`, `uid`, `gid`, `mtime_unix_ns` | Observed permission/special bits, owner, group, and nanosecond mtime for the exact entry. | These are required observations. Capture errors rather than substituting defaults. |
+| `acl_sha256` | Digest of both supported POSIX access and default ACL xattrs, with names and presence markers included. `null` means both reads succeeded and neither ACL xattr exists. | An unsupported ACL read is an error, not `null`. |
+| `extended.values` | Digests of present allowlisted xattrs; the current allowlist contains only `security.selinux`. An empty map means that label read succeeded and no label was present. | Unsupported xattr reads and oversized values fail capture. No raw xattr values enter the manifest. |
+| Regular-file `size`, `sha256`, `hard_link_group` | Bounded byte count and content digest; hard-link identity is represented only when the exact declared set supports it. | I/O failure, file mutation during capture, and undeclared hard-link relationships fail capture. |
+| `absent` | The declared relative path was missing at capture time. It is an affirmative record, not an inventory scan result. | Only the exact declared path can later be removed by a verified restore. |
+
+The root selector mapping above is an interface contract, not implemented path
+discovery. Until a reviewed inventory compiler and descriptor resolver are
+integrated, these records prove capture primitives only and do not authorize a
+production recovery transaction.
+
 Record POSIX ACL data in `acl_sha256` and SELinux labels by digest in the
 allowlisted xattr map. The only v1 xattr name is `security.selinux`; do not
 collect `user.*`, capability, or arbitrary security namespaces. The ACL digest
@@ -522,6 +550,44 @@ resolution, and rejects files modified while being read. The caller remains
 responsible for securely obtaining the trusted root descriptor; this API does
 not discover config paths. Companion retrieval and credential handling are
 outside this crate.
+
+For the v1 recovery inventory, that document maps to the exact
+`user-ryoku-config/profile.json` candidate in the inventory table. It stores a
+local profile identity and typed settings, but does not label itself as one of
+the four resolution layers. The caller must explicitly map its values to the
+intended layer; it cannot silently treat this file as defaults, system
+overrides, companion, or personal overrides. The profile resolver accepts
+those four typed values from its caller, while the recovery manifest's
+`profile_revision` binds their provenance. A
+missing optional layer is encoded as `null` in its revision slot (and as no
+layer value to the resolver); it does not cause a remote lookup. Layer
+revision labels identify the inputs used, but do not embed their contents or
+establish that they have been persisted or made durable. In particular, there
+is no public companion file path, payload, revision value, URL, credential, or
+identity in this contract. System override persistence and the caller that
+assembles all four layers remain integration work.
+
+Synthetic manifest profile provenance (all values below are examples):
+
+```json
+{
+  "profile_revision": {
+    "profile_id": "demo-desktop",
+    "profile_revision": "profile-r1",
+    "defaults_revision": "defaults-r1",
+    "system_override_revision": "system-r1",
+    "companion_revision": null,
+    "personal_override_revision": "personal-r1"
+  },
+  "files": [
+    { "kind": "absent", "path": "shell.json", "root": "user-ryoku-config" }
+  ]
+}
+```
+
+The absent `shell.json` is meaningful only if the transaction explicitly
+declared that exact candidate path; this example does not enable it for
+capture. The synthetic revision labels describe no private or real profile.
 
 Synthetic schema-v1 example:
 
