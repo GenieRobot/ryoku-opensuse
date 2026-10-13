@@ -72,6 +72,36 @@ expected filesystem, ownership policy, and rollback method in the operation
 manifest. A path outside the allowlist is not managed merely because a tool
 can access it.
 
+### Pinned upstream findings and first-sprint scope
+
+The upstream pin in `upstream/ryoku.source.toml` was inspected for the
+first-sprint user-state contract. It defines the CLI state root as
+`$XDG_STATE_HOME/ryoku` (default `~/.local/state/ryoku`) in
+[`ryoku/cli/internal/sys/paths.go`](https://github.com/Ryoku-dev/ryoku/blob/98a0368253d9628be72b853985878a5db90e1547/ryoku/cli/internal/sys/paths.go),
+and the packaged config source and user materialization rules in
+[`ryoku/cli/internal/updater/materialize.go`](https://github.com/Ryoku-dev/ryoku/blob/98a0368253d9628be72b853985878a5db90e1547/ryoku/cli/internal/updater/materialize.go).
+These references identify upstream ownership concepts; the Go implementation
+is not shipped by this port. The first-sprint inventory is:
+
+| Exact path or pattern | Owner / writer | First-sprint recovery treatment |
+|---|---|---|
+| `/usr/share/ryoku/config/` | Immutable package-owned defaults, installed by the exact Ryoku RPM revision. | Do not copy into a user generation. Record the package revision; reinstall the same package to recover defaults. |
+| `$XDG_CONFIG_HOME/ryoku/` (default `~/.config/ryoku/`), only individually declared preference and profile files | Ordinary-user owned; written by the Ryoku UI/config writer. Upstream examples include `hypr.json`, `shell.json`, `launcher.json`, `hub.toml`, `profile.json`, `profile/hero.*`, and sparse `user_edits/` files. | Capture only allowlisted paths. Preserve owner, mode, symlink target and supported ACL/xattrs. Unknown files and directories are not recursively included. The `hero.*` and sparse overlay paths require explicit type/size rules before enabling them. |
+| `$XDG_STATE_HOME/ryoku/` (default `~/.local/state/ryoku/`) | User-owned upstream CLI operational data; examples include `manifest.json`, `materialized`, `release-cache/`, `provisioned/`, `migrations/`, and `repo`. | Excluded from first-sprint configuration generations. It can contain cache or provision receipts; no blanket copy. Add individual records only if a supported operation needs them and defines format and privacy. |
+| `$XDG_DATA_HOME/ryoku/plugins/` (default `~/.local/share/ryoku/plugins/`) | User-owned plugin payloads; upstream tracks plugin receipts/state separately. | Excluded from first-sprint recovery. Plugin payloads, secrets and executable content need separate review. |
+| `$XDG_CACHE_HOME/ryoku/` (default `~/.cache/ryoku/`) | User cache, when an integrated component creates it. | Excluded and rebuildable; never use as a recovery source. |
+| `$XDG_CONFIG_HOME/hypr/user.lua`, `$XDG_CONFIG_HOME/kitty/user.conf`, `$XDG_CONFIG_HOME/fish/user.fish` | User-owned raw overrides named by upstream `docs/config-import.md`; not necessarily managed by the openSUSE port. | Preserve as user data unless a specific import feature is implemented and the file is explicitly enrolled. Package reinstall must not replace them. |
+| `/var/lib/ryoku-state/catalog/`, `journal/`, `generations/`, and `profiles/` | Root-owned openSUSE storage internals on the separately validated state subvolume; written by the authenticated helper. | These are protected store internals, not user/system file records in a transaction manifest. Their integrity/publication rules are defined above. |
+| `/etc/ryoku/` and openSUSE provider files | Root-owned; exact contents depend on the selected Rust adapter and supported operation. | Not yet audited against an installed openSUSE package. No broad `/etc` traversal or provider path is authorized. Add exact files, owner, writer and restore behavior before enabling each operation. |
+
+This inventory is intentionally scoped to supported Ryoku preferences, profile
+selection and local package identity. It does not claim to inventory every
+upstream Quickshell surface, plugin, or user edit. Upstream `docs/profile.md`
+describes a user-facing profile page and hero image, not the openSUSE four-layer
+precedence above; that precedence is a new local contract. Package intent and
+upstream revisions may be recorded, but pacman databases and generic provider
+state are not restore targets.
+
 For every declared regular file record: normalized relative path, entry type,
 size, SHA-256, mode, UID/GID, modification time, hard-link group where
 relevant, ACL digest, and allowlisted extended-attribute names and digests.
