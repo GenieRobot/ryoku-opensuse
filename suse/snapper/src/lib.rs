@@ -267,6 +267,46 @@ pub trait SnapperBackend {
     ) -> Result<SnapshotId, Self::Error>;
 }
 
+/// Failure while reading and validating the inventory for one pair query.
+/// Backend errors are preserved; malformed backend inventories fail closed.
+#[derive(Debug, Eq, PartialEq)]
+pub enum PairQueryError<E> {
+    Backend(E),
+    ForeignConfigRecord,
+    DuplicateSnapshotId(SnapshotId),
+}
+
+/// A fresh read-only observation of the requested transaction's hook pair.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PairQuery {
+    /// Complete inventory returned for the requested config.
+    pub records: Vec<SnapshotRecord>,
+    /// Correlation derived only from that fresh inventory.
+    pub reconciliation: PairReconciliation,
+}
+
+/// Lists one config and reconciles its transaction pair without invoking any
+/// backend mutation operation. A backend must return a config-scoped list;
+/// foreign config records or duplicate snapshot IDs invalidate the whole
+/// observation rather than being silently ignored.
+pub fn query_pair<B: SnapperBackend>(
+    backend: &B,
+    request: &SnapshotPairRequest,
+) -> Result<PairQuery, PairQueryError<B::Error>> {
+    let records = backend.list(&request.config).map_err(PairQueryError::Backend)?;
+    let mut ids = std::collections::BTreeSet::new();
+    for record in &records {
+        if record.config != request.config {
+            return Err(PairQueryError::ForeignConfigRecord);
+        }
+        if !ids.insert(record.id.clone()) {
+            return Err(PairQueryError::DuplicateSnapshotId(record.id.clone()));
+        }
+    }
+    let reconciliation = reconcile_pair(request, &records);
+    Ok(PairQuery { records, reconciliation })
+}
+
 /// Existing package-hook pair state for one transaction ID.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PairCorrelation {
@@ -439,6 +479,33 @@ impl CatalogIndex {
 mod tests {
     use super::*;
 
+    struct FakeBackend {
+        records: Result<Vec<SnapshotRecord>, &'static str>,
+    }
+
+    impl SnapperBackend for FakeBackend {
+        type Error = &'static str;
+
+        fn list(&self, _config: &ConfigName) -> Result<Vec<SnapshotRecord>, Self::Error> {
+            self.records.clone()
+        }
+
+        fn create_pre(
+            &mut self,
+            _request: &SnapshotPairRequest,
+        ) -> Result<SnapshotId, Self::Error> {
+            panic!("read-only pair query must not create snapshots")
+        }
+
+        fn create_post(
+            &mut self,
+            _request: &SnapshotPairRequest,
+            _pre_snapshot: &SnapshotId,
+        ) -> Result<SnapshotId, Self::Error> {
+            panic!("read-only pair query must not create snapshots")
+        }
+    }
+
     fn base_layout() -> LayoutObservation {
         LayoutObservation {
             root_filesystem: FilesystemKind::Btrfs,
@@ -608,6 +675,53 @@ mod tests {
         );
         assert_eq!(duplicate_id.correlation, PairCorrelation::Ambiguous);
         assert_eq!(duplicate_id.disposition, PairDisposition::ReconcileBeforeProceeding);
+    }
+
+    #[test]
+    fn runtime_pair_query_lists_once_and_reconciles_read_only() {
+        let request = SnapshotPairRequest { config: config(), transaction_id: transaction() };
+        let result = query_pair(
+            &FakeBackend {
+                records: Ok(vec![
+                    record(SnapshotKind::Pre, "10", "root", "zypp-1234"),
+                    record(SnapshotKind::Post, "11", "root", "zypp-1234"),
+                ]),
+            },
+            &request,
+        )
+        .unwrap();
+        assert_eq!(result.records.len(), 2);
+        assert_eq!(result.reconciliation.disposition, PairDisposition::ReuseExistingPair);
+    }
+
+    #[test]
+    fn runtime_pair_query_rejects_unscoped_or_duplicate_inventory() {
+        let request = SnapshotPairRequest { config: config(), transaction_id: transaction() };
+        assert_eq!(
+            query_pair(
+                &FakeBackend {
+                    records: Ok(vec![record(SnapshotKind::Pre, "10", "home", "zypp-1234")]),
+                },
+                &request,
+            ),
+            Err(PairQueryError::ForeignConfigRecord)
+        );
+        assert_eq!(
+            query_pair(
+                &FakeBackend {
+                    records: Ok(vec![
+                        record(SnapshotKind::Pre, "10", "root", "zypp-1234"),
+                        record(SnapshotKind::Post, "10", "root", "zypp-1234"),
+                    ]),
+                },
+                &request,
+            ),
+            Err(PairQueryError::DuplicateSnapshotId(SnapshotId::new("10").unwrap()))
+        );
+        assert_eq!(
+            query_pair(&FakeBackend { records: Err("unavailable") }, &request),
+            Err(PairQueryError::Backend("unavailable"))
+        );
     }
 
     fn catalog_entry(capability: LayoutCapability, partner: PartnerState) -> CatalogEntry {
