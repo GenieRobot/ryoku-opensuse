@@ -1,6 +1,6 @@
 use crate::definition::scalar;
 use crate::support::{Result, require};
-use std::{fs, io::Write, process::Command, time::Duration};
+use std::{fs, io::Write, path::Path, process::Command, time::Duration};
 
 const MARKER: &str = "/etc/ryoku-lab-owned-marker";
 const EXPECTED: &str = "verified fixture state\n";
