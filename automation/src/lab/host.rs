@@ -6,7 +6,7 @@ use std::{
     fs,
     io::{Read, Write},
     net::ToSocketAddrs,
-    os::unix::fs::PermissionsExt,
+    os::unix::fs::{OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     thread,
@@ -18,6 +18,86 @@ mod qmp;
 
 const FIRMWARE: &[(&str, &str)] =
     &[("OVMF_CODE_4M.fd", "ovmf_code_sha256"), ("OVMF_VARS_4M.fd", "ovmf_variables_sha256")];
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum LoginCapturePoint {
+    BeforeGreeterInput,
+    LoginTimeout,
+}
+
+impl LoginCapturePoint {
+    fn filename(self) -> &'static str {
+        match self {
+            Self::BeforeGreeterInput => "sddm-before-input.ppm",
+            Self::LoginTimeout => "sddm-login-timeout.ppm",
+        }
+    }
+}
+
+trait LoginMonitor {
+    fn send_key(&mut self, qcode: &str) -> Result<()>;
+    fn capture(&mut self, point: LoginCapturePoint) -> Result<()>;
+}
+
+struct PrivateLoginMonitor<'a> {
+    control: &'a mut qmp::QmpClient,
+    run: &'a Path,
+}
+
+impl LoginMonitor for PrivateLoginMonitor<'_> {
+    fn send_key(&mut self, qcode: &str) -> Result<()> {
+        self.control.send_key(qcode)?;
+        Ok(())
+    }
+
+    fn capture(&mut self, point: LoginCapturePoint) -> Result<()> {
+        let filename = point.filename();
+        let path = self.run.join(filename);
+        let result = (|| {
+            self.control.screendump(filename)?;
+            let metadata = fs::symlink_metadata(&path)?;
+            require(
+                metadata.is_file() && metadata.len() > 0,
+                "QEMU did not create a private login framebuffer capture",
+            )?;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
+            Ok(())
+        })();
+        if result.is_err() {
+            let _ = fs::remove_file(path);
+            let mut failures = fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .mode(0o600)
+                .open(self.run.join("login-frame-capture-private.log"))?;
+            writeln!(failures, "{filename}=capture-failed")?;
+            failures.sync_all()?;
+        }
+        result
+    }
+}
+
+fn send_greeter_password(
+    control: &mut impl LoginMonitor,
+    password: &[u8],
+    key_delay: Duration,
+) -> Result<()> {
+    // Diagnostic capture must never prevent the actual authentication probe.
+    let _ = control.capture(LoginCapturePoint::BeforeGreeterInput);
+    for byte in password {
+        // The generated password alphabet is lowercase ASCII and is never
+        // interpreted as QMP JSON.
+        control.send_key(std::str::from_utf8(std::slice::from_ref(byte))?)?;
+        thread::sleep(key_delay);
+    }
+    control.send_key("ret")?;
+    Ok(())
+}
+
+fn capture_login_timeout(control: &mut impl LoginMonitor) {
+    // Preserve the timeout result even if QEMU cannot write the diagnostic.
+    let _ = control.capture(LoginCapturePoint::LoginTimeout);
+}
 
 struct Lab {
     assets: PathBuf,
@@ -75,11 +155,9 @@ impl Lab {
         require(self.vm.is_none(), "VM already owned by run")?;
         self.port = None;
         let mut command = self.tool("qemu-system-x86_64");
-        if self.ui_binary.is_some() {
-            // HMP screendump accepts only a fixed relative filename below;
-            // QEMU's working directory is the private 0700 run directory.
-            command.current_dir(&self.run);
-        }
+        // QMP screendumps use fixed relative names and stay below this private
+        // mode-0700 directory. All other QEMU inputs use absolute paths.
+        command.current_dir(&self.run);
         command
             .arg("-L")
             .arg(self.assets.join("qemu/usr/share/qemu"))
@@ -201,13 +279,8 @@ impl Lab {
         require(result.status.success(), "native desktop login preparation failed")?;
         let prepared = String::from_utf8(result.stdout)?;
         let mut control = qmp::QmpClient::connect(&self.run.join("qmp-private.sock"))?;
-        for byte in password {
-            // Password alphabet is generated here, never interpreted as QMP
-            // JSON. Native virtual-key events exercise the actual SDDM greeter.
-            control.send_key(std::str::from_utf8(std::slice::from_ref(byte))?)?;
-            thread::sleep(Duration::from_millis(150));
-        }
-        control.send_key("ret")?;
+        let mut monitor = PrivateLoginMonitor { control: &mut control, run: &self.run };
+        send_greeter_password(&mut monitor, password, Duration::from_millis(150))?;
         let deadline = Instant::now() + Duration::from_secs(180);
         let mut last_error = String::from("login inspection has not completed");
         while Instant::now() < deadline {
@@ -223,8 +296,13 @@ impl Lab {
                     fs::write(self.run.join("desktop-login-last-private.log"), diagnostic)?;
                 }
             }
-            thread::sleep(Duration::from_secs(3));
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                break;
+            }
+            thread::sleep(remaining.min(Duration::from_secs(3)));
         }
+        capture_login_timeout(&mut monitor);
         Err(format!("actual SDDM login and active Plasma session were not verified; last inspection: {last_error}").into())
     }
 
@@ -596,4 +674,57 @@ pub fn run(assets: &str, run: &str, ui_binary: Option<&str>) -> Result<()> {
     )?;
     lab.evidence("lab_result=passed")?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Default)]
+    struct RecordingLoginMonitor {
+        events: Vec<String>,
+        fail_captures: bool,
+    }
+
+    impl LoginMonitor for RecordingLoginMonitor {
+        fn send_key(&mut self, qcode: &str) -> Result<()> {
+            self.events.push(format!("key:{qcode}"));
+            Ok(())
+        }
+
+        fn capture(&mut self, point: LoginCapturePoint) -> Result<()> {
+            self.events.push(format!("capture:{}", point.filename()));
+            if self.fail_captures { Err("mock screenshot failure".into()) } else { Ok(()) }
+        }
+    }
+
+    #[test]
+    fn login_captures_pre_input_and_timeout_frames_in_order() {
+        let mut monitor = RecordingLoginMonitor { fail_captures: true, ..Default::default() };
+        send_greeter_password(&mut monitor, b"ab2", Duration::ZERO).unwrap();
+        capture_login_timeout(&mut monitor);
+
+        assert_eq!(
+            monitor.events,
+            [
+                "capture:sddm-before-input.ppm",
+                "key:a",
+                "key:b",
+                "key:2",
+                "key:ret",
+                "capture:sddm-login-timeout.ppm",
+            ]
+        );
+    }
+
+    #[test]
+    fn login_capture_names_are_fixed_distinct_ppm_files() {
+        let before = LoginCapturePoint::BeforeGreeterInput.filename();
+        let timeout = LoginCapturePoint::LoginTimeout.filename();
+        assert_eq!(before, "sddm-before-input.ppm");
+        assert_eq!(timeout, "sddm-login-timeout.ppm");
+        assert_ne!(before, timeout);
+        assert!(qmp::validate_screenshot_filename(before).is_ok());
+        assert!(qmp::validate_screenshot_filename(timeout).is_ok());
+    }
 }

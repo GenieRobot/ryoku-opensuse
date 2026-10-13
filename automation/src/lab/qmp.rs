@@ -199,7 +199,7 @@ fn validate_qcode(qcode: &str) -> io::Result<()> {
     }
 }
 
-fn validate_screenshot_filename(filename: &str) -> io::Result<()> {
+pub(super) fn validate_screenshot_filename(filename: &str) -> io::Result<()> {
     if filename.len() <= 64
         && filename.ends_with(".ppm")
         && filename.bytes().all(|byte| {
