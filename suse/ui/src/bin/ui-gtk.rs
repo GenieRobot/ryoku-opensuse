@@ -8,6 +8,7 @@ use ryoku_ui::{
     ActionResult, BackendError, UiBackend, UpdateState, UserAction, dispatch, render_result,
     render_status,
 };
+use std::{cell::RefCell, rc::Rc};
 
 struct DemonstrationBackend {
     response: Result<UpdateState, BackendError>,
@@ -52,16 +53,18 @@ fn main() {
             .build();
         window.set_default_widget(Some(&refresh));
 
-        let mut backend = DemonstrationBackend {
+        let backend = Rc::new(RefCell::new(DemonstrationBackend {
             response: if simulate_error {
                 Err(BackendError::Unavailable)
             } else {
                 Ok(UpdateState::UpdatesAvailable { count: 3 })
             },
-        };
+        }));
+        let backend_for_refresh = Rc::clone(&backend);
 
         refresh.connect_clicked(move |_| {
-            let outcome = dispatch(&mut backend, UserAction::RefreshStatus);
+            let outcome =
+                dispatch(&mut backend_for_refresh.borrow_mut(), UserAction::RefreshStatus);
             if let Ok(ActionResult::StatusRefreshed(state)) = &outcome {
                 status.set_text(&render_status(state));
             }
