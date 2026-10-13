@@ -1,10 +1,11 @@
 //! Fail-closed validation contract for the protected Ryoku state mount.
 //!
-//! This module validates kernel observations supplied by the privileged mount
-//! inspector and the already-opened mountpoint descriptor. It deliberately
-//! does not fabricate mount or Btrfs identity from a pathname. A production
-//! caller must obtain [`MountEvidence`] from a trusted mountinfo/Btrfs
-//! inspector and must open the fixed path below a trusted descriptor for `/`.
+//! The live [`collect_and_open_state_mount`] entry point reads mountinfo and
+//! Btrfs identity from the kernel and returns the pinned validated directory.
+//! The lower-level evidence validator is also available to callers that
+//! already have trusted observations. Both paths require a descriptor verified
+//! as this process's `/` mount and never derive filesystem identity from a
+//! caller-supplied path.
 
 use rustix::{
     fd::AsFd,
@@ -315,11 +316,12 @@ fn format_uuid(uuid: &[u8; 16]) -> String {
     format!("{}-{}-{}-{}-{}", &hex[0..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..32])
 }
 
-/// Open the fixed state mount beneath a trusted descriptor for `/`, then
-/// verify its descriptor security and mount ID against live mount evidence.
-/// The returned descriptor pins the validated directory for subsequent
+/// Open the fixed state mount beneath a descriptor for `/`, then verify its
+/// descriptor security and mount ID against trusted live mount evidence. The
+/// returned descriptor pins the validated directory for subsequent
 /// descriptor-relative operations. The caller must repeat this check before
-/// each protected write.
+/// each protected write. Prefer [`collect_and_open_state_mount`] when a trusted
+/// evidence collector is not already available.
 pub fn open_validated_state_mount(
     trusted_root: &impl AsFd,
     evidence: Option<&MountEvidence>,
