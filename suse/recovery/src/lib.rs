@@ -1,10 +1,14 @@
 //! Validated, local recovery manifest primitives.
 //!
-//! This crate validates typed schema values and provides canonical JSON and
-//! SHA-256 primitives. It performs no filesystem access, command execution,
-//! or network access. Callers must establish capture, persistence, and
-//! authorization properties at a separate privileged boundary before using a
-//! manifest to authorize a mutation.
+//! This crate validates typed schema values and provides canonical JSON,
+//! SHA-256, and bounded exact-file capture primitives. Capture is anchored at
+//! caller-opened directory descriptors and performs no command or network
+//! access. Callers must still establish root authorization, persistence,
+//! generation publication, and recovery properties before using a manifest to
+//! authorize a mutation.
+
+#[cfg(target_os = "linux")]
+pub mod capture;
 
 use std::collections::{BTreeMap, BTreeSet};
 
