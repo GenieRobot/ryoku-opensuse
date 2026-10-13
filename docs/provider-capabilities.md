@@ -86,6 +86,17 @@ listener, and that setup remains outside the first-release recovery contract.
 Cockpit's embedding guide documents integration constraints; it is not a generic
 REST API and does not mediate provider writes.
 
+The read-only `zypp-hook-probe --inventory` diagnostic now records the
+`cockpit.socket` enablement and activity states, the socket unit's configured
+listen scope, and a separate host-wide TCP listener scope. Listener addresses
+are reduced to `none`, `loopback-only`, `non-loopback-present` or `unavailable`;
+the raw addresses are not emitted. The host-wide result is not attributed to
+Cockpit. These observations describe the guest at probe time only: inactive or
+disabled does not prove Cockpit cannot be started, configured socket addresses
+do not prove what a later activation binds, and no result proves native desktop
+category navigation, embedding, or write protection. Those UI checks still
+require the graphical guest and the selected Cockpit module.
+
 ## Candidate libzypp commit gate (awaiting Tumbleweed proof)
 
 ### Sanitized Run19 results

@@ -90,6 +90,7 @@ fn inventory() -> Result<(), Box<dyn std::error::Error>> {
     for row in package_rows {
         println!("inventory_provider={}", row.replace(' ', "|"));
     }
+    print_cockpit_runtime_state();
     for path in paths {
         let display = path.to_string_lossy();
         let ownership = Command::new("rpm")
@@ -144,6 +145,135 @@ fn inventory() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
     Ok(())
+}
+
+/// Record bounded, privacy-preserving Cockpit runtime facts for the provider
+/// inventory. This is diagnostic only: an inactive socket does not prove that
+/// Cockpit cannot be started, and a loopback listener does not mediate writes.
+fn print_cockpit_runtime_state() {
+    println!("inventory_cockpit_socket_enabled={}", systemctl_state("is-enabled"));
+    println!("inventory_cockpit_socket_active={}", systemctl_state("is-active"));
+    let output = Command::new("systemctl")
+        .args(["show", "--property=Listen", "--value", "cockpit.socket"])
+        .env("LC_ALL", "C")
+        .output();
+    let cockpit_scope = match output {
+        Ok(result) if result.status.success() => {
+            classify_listener_endpoints(&String::from_utf8_lossy(&result.stdout))
+        }
+        _ => "unavailable",
+    };
+    println!("inventory_cockpit_socket_listen_scope={cockpit_scope}");
+
+    // Keep the host-wide observation distinct: it cannot be attributed to
+    // Cockpit and is useful only as a broad environment diagnostic.
+    let output = Command::new("ss").args(["-H", "-ltn"]).env("LC_ALL", "C").output();
+    let listener_scope = match output {
+        Ok(result) if result.status.success() => {
+            classify_tcp_listeners(&String::from_utf8_lossy(&result.stdout))
+        }
+        _ => "unavailable",
+    };
+    println!("inventory_host_tcp_listener_scope={listener_scope}");
+}
+
+fn systemctl_state(verb: &str) -> &'static str {
+    let output =
+        Command::new("systemctl").args([verb, "cockpit.socket"]).env("LC_ALL", "C").output();
+    let Ok(output) = output else { return "unavailable" };
+    let state = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    match (verb, output.status.success(), state.as_str()) {
+        ("is-enabled", true, "enabled") => "enabled",
+        ("is-enabled", true, "static") => "static",
+        ("is-enabled", true, "indirect") => "indirect",
+        ("is-enabled", true, "generated") => "generated",
+        ("is-enabled", false, "disabled") => "disabled",
+        ("is-enabled", false, "masked") => "masked",
+        ("is-enabled", false, "not-found") => "not-found",
+        ("is-active", true, "active") => "active",
+        ("is-active", false, "inactive") => "inactive",
+        ("is-active", false, "failed") => "failed",
+        ("is-active", false, "unknown") => "unknown",
+        _ => "unavailable",
+    }
+}
+
+fn classify_tcp_listeners(output: &str) -> &'static str {
+    let endpoints = output
+        .lines()
+        .map(|line| line.split_whitespace().nth(3).ok_or(()))
+        .collect::<Result<Vec<_>, _>>();
+    let Ok(endpoints) = endpoints else { return "unavailable" };
+    classify_endpoint_iter(endpoints)
+}
+
+fn classify_listener_endpoints(output: &str) -> &'static str {
+    let endpoints = output
+        .lines()
+        .map(|line| line.rsplit_once('=').map_or(line.trim(), |(_, endpoint)| endpoint.trim()))
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    classify_endpoint_iter(endpoints)
+}
+
+fn classify_endpoint_iter<'a>(endpoints: impl IntoIterator<Item = &'a str>) -> &'static str {
+    let mut found = false;
+    for endpoint in endpoints {
+        found = true;
+        let Some(host) = listener_host(endpoint) else { return "unavailable" };
+        if !is_loopback_host(host) {
+            return "non-loopback-present";
+        }
+    }
+    if found { "loopback-only" } else { "none" }
+}
+
+fn listener_host(endpoint: &str) -> Option<&str> {
+    if let Some(bracketed) = endpoint.strip_prefix('[') {
+        let (host, suffix) = bracketed.split_once(']')?;
+        return suffix.starts_with(':').then_some(host);
+    }
+    endpoint
+        .rsplit_once(':')
+        .map(|(host, port)| if port.is_empty() { "" } else { host })
+        .filter(|host| !host.is_empty())
+}
+
+fn is_loopback_host(host: &str) -> bool {
+    host == "localhost"
+        || host.parse::<std::net::IpAddr>().is_ok_and(|address| address.is_loopback())
+}
+
+#[cfg(test)]
+mod cockpit_runtime_inventory_tests {
+    use super::*;
+
+    #[test]
+    fn classifies_socket_activation_listener_scope_without_emitting_addresses() {
+        assert_eq!(
+            classify_listener_endpoints("Stream=127.0.0.1:9090\nStream=[::1]:9090\n"),
+            "loopback-only"
+        );
+        assert_eq!(classify_listener_endpoints("Stream=0.0.0.0:9090\n"), "non-loopback-present");
+        assert_eq!(classify_listener_endpoints(""), "none");
+        assert_eq!(classify_listener_endpoints("Stream=not-an-endpoint"), "unavailable");
+    }
+
+    #[test]
+    fn classifies_host_tcp_listener_rows_but_keeps_them_separate_from_cockpit() {
+        assert_eq!(
+            classify_tcp_listeners(
+                "LISTEN 0 128 127.0.0.1:22 0.0.0.0:*\nLISTEN 0 128 [::1]:22 [::]:*\n"
+            ),
+            "loopback-only"
+        );
+        assert_eq!(
+            classify_tcp_listeners("LISTEN 0 128 [::]:9090 [::]:*\n"),
+            "non-loopback-present"
+        );
+        assert_eq!(classify_tcp_listeners(""), "none");
+        assert_eq!(classify_tcp_listeners("malformed"), "unavailable");
+    }
 }
 
 fn fixture_guard() -> Result<(), Box<dyn std::error::Error>> {

@@ -179,6 +179,11 @@ mod tests {
         assert!(public_evidence("zypp_inventory_xattr_selinux_1=absent"));
         assert!(!public_evidence("zypp_inventory_path_1=/usr/lib64/zypp/plugins/commit"));
         assert!(public_evidence("zypp_inventory_zypper_version=1.14.80"));
+        assert!(public_evidence("zypp_inventory_cockpit_socket_enabled=disabled"));
+        assert!(public_evidence("zypp_inventory_cockpit_socket_active=inactive"));
+        assert!(public_evidence("zypp_inventory_cockpit_socket_listen_scope=loopback-only"));
+        assert!(public_evidence("zypp_inventory_host_tcp_listener_scope=non-loopback-present"));
+        assert!(!public_evidence("zypp_inventory_cockpit_socket_listen_scope=127.0.0.1:9090"));
     }
 
     #[test]
