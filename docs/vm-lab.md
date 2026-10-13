@@ -454,6 +454,26 @@ fix for the observed blank-frame/input race; a fresh disposable run must still
 prove password authentication and the ordinary-user Plasma Wayland session
 before closing #13. Raw Run19 frames and journal remain private.
 
+## Follow-up Run22: KDE install timed out; offline recovery passed
+
+[Sanitized Run22 evidence](../infra/tumbleweed-lab/evidence/issue13-run22.txt)
+records the exact fixture, image signer, Tumbleweed package versions, derived
+Btrfs boot, and lifecycle outcomes. KDE provisioning reached package 479 of
+745 before its bounded zypper deadline expired under two-vCPU TCG emulation.
+Plasma installation did not complete, so `desktop_login=blocked` means the
+ordinary-user Wayland login probe was not reached; it is not an observed
+authentication or session failure. The bounded private KDE diagnostic log
+confirmed the package transaction was still progressing and remains outside
+the repository.
+
+The independent base and recovery checks passed: the VM rebooted, egress was
+unreachable, controlled corruption was observed, offline Snapper restore
+matched, and the reset sentinel was verified before discard. A fresh XFS reset
+boot confirmed the fixture marker, package, Snapper config and sentinel were
+absent. The base image was unchanged and all run disk/key artifacts were
+removed. The run therefore records `lifecycle_result=passed` and
+`lab_result=blocked`; it does not satisfy #13's desktop login gate.
+
 ## Observed hosted Rust checks
 
 [GitHub run 38316734108](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/38316734108)
