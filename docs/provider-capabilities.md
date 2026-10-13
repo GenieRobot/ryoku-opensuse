@@ -44,6 +44,40 @@ At this revision there are **no verified protected provider writes**. Run17 conf
 | Cockpit overview / service and host panels | Embedded panel only if the upstream Cockpit embedding/navigation contract and local-only mode fit; otherwise externally launched interface | Awaiting proof for read-only navigation; unsupported for protected writes | Cockpit may invoke privileged system services through its own authorization model. Its UI's error and cancellation behavior does not provide the Ryoku recovery guarantee. | Cockpit uses its documented frontend/backend and service boundaries; there is no assumed generic Cockpit REST API. A panel is protected only if each commit reaches the Rust service before mutation. Remote listening remains separately opt-in and off by default. |
 | YaST software, repository or system-configuration modules | Externally launched optional interface; individual modules may be excluded | Unsupported for protected changes in first release; read-only query candidates require module-by-module proof | YaST modules can perform privileged writes. Do not assume module-level privilege or cancellation prompts satisfy product authorization/recovery. | YaST's established module ecosystem is Ruby-based. New project-owned Ruby glue/bindings are deferred. External modules cannot be wrapped by a UI launch hook; omit write-capable modules from the supported Ryoku path until their writes can be mediated per operation. |
 
+## Candidate libzypp commit gate (awaiting Tumbleweed proof)
+
+The current source-level candidate is libzypp's commit-plugin protocol, not an
+application-launch notification. Its documented `PLUGINBEGIN`/`COMMITBEGIN`
+exchange occurs around `ZYpp::commit`; `COMMITBEGIN` includes the planned
+transaction steps before installation starts, and the protocol requires the
+plugin response before commit proceeds. A small root-owned Rust executable
+could therefore request the linked checkpoint and acknowledge only after the
+service confirms capture. The package version, configured plugin directory,
+protocol version, plugin ordering, timeout behavior, exact cancellation reply,
+and PackageKit backend in the pinned Tumbleweed snapshot have not yet been
+verified here. Do not enable protected package writes based on upstream `main`
+documentation alone.
+
+The next disposable-guest experiment must record exact `zypper`, `libzypp`,
+PackageKit, PackageKit zypp backend, Cockpit and Myrlyn versions and package
+ownership; inspect the actual libzypp plugin path; then install a Rust probe that
+rejects `PLUGINBEGIN` or `COMMITBEGIN`. Attempt a harmless zypper transaction
+and a PackageKit transaction separately and prove no package/RPM database
+change occurs. After a verified checkpoint broker is available, repeat with a
+checkpoint failure and timeout, then with success and a harmless transaction;
+compare capture ID, transaction steps, and installed package state. Confirm
+whether Cockpit uses that same PackageKit backend in the guest. Treat direct
+RPM, repository-definition, and trust-key writes as bypasses until separate
+pre-mutation controls are demonstrated. A libzypp commit hook cannot be claimed
+to cover operations that do not pass through that commit path.
+
+References for experiment design: [libzypp commit plugin protocol](https://github.com/openSUSE/libzypp/blob/master/zypp/doc/autoinclude/Plugin-Commit.doc),
+[libzypp plugin executor](https://github.com/openSUSE/libzypp/blob/master/zypp/PluginExecutor.cc),
+[PackageKit zypp backend](https://github.com/PackageKit/PackageKit/blob/main/backends/zypp/pk-backend-zypp.cpp),
+and the [PackageKit transaction API](https://github.com/PackageKit/PackageKit/blob/main/src/org.freedesktop.packagekit1.Transaction.xml).
+These moving source references establish a candidate only; each must be pinned
+to and checked against the actual guest packages before implementation.
+
 “Embedded” is an integration choice, not a protection property. A panel that can submit writes remains a provider bypass unless those exact writes are mediated. Where the upstream integration cannot meet this boundary, use an external launch only for unsupported/admin use and clearly mark it outside the protected controls.
 
 ## Provider boundary decision
