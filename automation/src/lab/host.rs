@@ -112,7 +112,7 @@ trait LoginMonitor {
     fn capture(&mut self, point: LoginCapturePoint) -> Result<()>;
 }
 
-fn ppm_frame_has_nonblack_pixels(frame: &[u8]) -> Result<bool> {
+fn ppm_frame_has_rendered_content(frame: &[u8]) -> Result<bool> {
     let mut lines = frame.splitn(4, |byte| *byte == b'\n');
     require(lines.next() == Some(b"P6".as_slice()), "QEMU framebuffer is not a binary PPM")?;
     let dimensions = std::str::from_utf8(lines.next().ok_or("PPM dimensions missing")?)?;
@@ -131,7 +131,20 @@ fn ppm_frame_has_nonblack_pixels(frame: &[u8]) -> Result<bool> {
         width > 0 && height > 0 && width <= 8192 && height <= 8192 && pixels.len() == expected,
         "invalid QEMU framebuffer dimensions or pixel length",
     )?;
-    Ok(pixels.iter().any(|pixel| *pixel != 0))
+    // A newly-started X server can have a black framebuffer with only the
+    // hardware cursor drawn. Treating one nonblack pixel as readiness caused
+    // us to type credentials before SDDM had painted its user chooser. Ignore
+    // near-black noise and require visible content across a small fraction of
+    // the framebuffer; a real greeter has large UI/text regions, while a
+    // cursor does not.
+    let visible_pixels = pixels
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .filter(|rgb| rgb.iter().any(|channel| *channel > 16))
+        .count();
+    let minimum_visible_pixels = (width * height / 1000).max(32);
+    Ok(visible_pixels >= minimum_visible_pixels)
 }
 
 fn wait_for_rendered_greeter(
@@ -179,7 +192,7 @@ impl LoginMonitor for PrivateLoginMonitor<'_> {
                 metadata.is_file() && metadata.len() <= 32 * 1024 * 1024,
                 "QEMU created an invalid private readiness framebuffer",
             )?;
-            ppm_frame_has_nonblack_pixels(&fs::read(&path)?)
+            ppm_frame_has_rendered_content(&fs::read(&path)?)
         })();
         let _ = fs::remove_file(path);
         result
@@ -1535,6 +1548,12 @@ mod tests {
         [b"P6\n1 1\n255\n".as_slice(), rgb.as_slice()].concat()
     }
 
+    fn ppm_solid(width: usize, height: usize, rgb: [u8; 3]) -> Vec<u8> {
+        let mut frame = format!("P6\n{width} {height}\n255\n").into_bytes();
+        frame.extend(std::iter::repeat_n(rgb, width * height).flatten());
+        frame
+    }
+
     impl LoginMonitor for RecordingLoginMonitor {
         fn send_key(&mut self, qcode: &str) -> Result<()> {
             self.events.push(format!("key:{qcode}"));
@@ -1545,7 +1564,7 @@ mod tests {
             let rendered = self
                 .readiness_frames
                 .first()
-                .map(|frame| ppm_frame_has_nonblack_pixels(frame))
+                .map(|frame| ppm_frame_has_rendered_content(frame))
                 .transpose()?
                 .unwrap_or(false);
             if !self.readiness_frames.is_empty() {
@@ -1562,9 +1581,23 @@ mod tests {
     }
 
     #[test]
+    fn greeter_readiness_ignores_a_cursor_on_an_otherwise_black_frame() {
+        let mut frame = ppm_solid(1280, 800, [0, 0, 0]);
+        // A small white cursor is visible but does not mean SDDM has rendered.
+        let pixel_start = b"P6\n1280 800\n255\n".len();
+        frame[pixel_start..pixel_start + 3].copy_from_slice(&[255, 255, 255]);
+        assert!(!ppm_frame_has_rendered_content(&frame).unwrap());
+    }
+
+    #[test]
+    fn greeter_readiness_accepts_a_frame_with_substantial_ui_content() {
+        assert!(ppm_frame_has_rendered_content(&ppm_solid(1280, 800, [24, 24, 24])).unwrap());
+    }
+
+    #[test]
     fn login_waits_through_black_frame_before_capturing_and_typing() {
         let mut monitor = RecordingLoginMonitor {
-            readiness_frames: vec![ppm_pixel([0, 0, 0]), ppm_pixel([1, 0, 0])],
+            readiness_frames: vec![ppm_pixel([0, 0, 0]), ppm_solid(128, 64, [32, 32, 32])],
             fail_captures: true,
             ..Default::default()
         };
