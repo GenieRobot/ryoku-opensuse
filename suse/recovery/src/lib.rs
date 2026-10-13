@@ -183,16 +183,12 @@ impl StateRoot {
     }
 }
 
-/// Only xattr names captured by the initial contract; additions require review.
+/// Only non-ACL xattr names captured by the initial contract; additions require review.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum XattrName {
     /// SELinux label, when supported by the filesystem/provider.
     SelinuxLabel,
-    /// POSIX access ACL encoding.
-    PosixAclAccess,
-    /// POSIX default ACL encoding.
-    PosixAclDefault,
 }
 
 impl XattrName {
@@ -200,8 +196,6 @@ impl XattrName {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::SelinuxLabel => "security.selinux",
-            Self::PosixAclAccess => "system.posix_acl_access",
-            Self::PosixAclDefault => "system.posix_acl_default",
         }
     }
 }
@@ -807,6 +801,25 @@ mod tests {
         assert!(matches!(
             RecoveryManifest::parse_verified_json(invalid_uuid.as_bytes()),
             Err(ManifestError::Validation(ValidationError::InvalidFilesystemUuid))
+        ));
+
+        let mut with_path = manifest();
+        with_path
+            .add_file(
+                FileRecord::new(
+                    StateRoot::UserRyokuConfig,
+                    RelativePath::new("settings.json").unwrap(),
+                    EntryKind::Absent,
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        with_path.seal().unwrap();
+        let encoded_path = String::from_utf8(with_path.canonical_bytes().unwrap()).unwrap();
+        let invalid_path = encoded_path.replace("settings.json", "../outside");
+        assert!(matches!(
+            RecoveryManifest::parse_verified_json(invalid_path.as_bytes()),
+            Err(ManifestError::Serialization(_))
         ));
     }
 
