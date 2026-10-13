@@ -20,6 +20,7 @@ use rustix::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256 as Sha256Digest};
 
+use crate::state_mount::{StateMountError, StateMountIdentity, collect_and_open_state_mount};
 use crate::{EntryKind, Identifier, MAX_MANIFEST_BYTES, ManifestError, RecoveryManifest, Sha256};
 
 const MAX_GENERATION_BYTES: u64 = 64 * 1024 * 1024;
@@ -65,6 +66,7 @@ pub enum GenerationError {
     Filesystem(Errno),
     Io(std::io::Error),
     Validation(crate::ValidationError),
+    StateMount(StateMountError),
 }
 
 impl std::fmt::Display for GenerationError {
@@ -88,6 +90,7 @@ impl std::fmt::Display for GenerationError {
             Self::Filesystem(error) => write!(f, "generation filesystem operation failed: {error}"),
             Self::Io(error) => write!(f, "generation payload I/O failed: {error}"),
             Self::Validation(error) => write!(f, "manifest validation failed: {error:?}"),
+            Self::StateMount(error) => write!(f, "protected state mount is unavailable: {error}"),
         }
     }
 }
@@ -109,14 +112,20 @@ impl From<std::io::Error> for GenerationError {
         Self::Io(value)
     }
 }
+
+impl From<StateMountError> for GenerationError {
+    fn from(value: StateMountError) -> Self {
+        Self::StateMount(value)
+    }
+}
 impl From<crate::ValidationError> for GenerationError {
     fn from(value: crate::ValidationError) -> Self {
         Self::Validation(value)
     }
 }
 
-/// Publish immutable generations below an already-open, trusted state root.
-/// The root must be dedicated storage validated by a higher privileged layer.
+/// Publish immutable generations below the fixed, validated state subvolume.
+/// Production construction validates that mount before opening store paths.
 pub struct GenerationStore {
     staging: File,
     generations: File,
@@ -124,10 +133,20 @@ pub struct GenerationStore {
 }
 
 impl GenerationStore {
-    /// Opens/creates fixed store directories relative to a root-owned 0700
-    /// descriptor. It does not validate that the descriptor is a dedicated mount.
-    pub fn open(root: &File) -> Result<Self, GenerationError> {
-        Self::open_owned(root, 0)
+    /// Opens the store only after collecting and validating the fixed
+    /// `/var/lib/ryoku-state` Btrfs mount against the installed machine
+    /// identity. Callers must obtain `expected` from trusted installation
+    /// state. There is intentionally no public constructor from an arbitrary
+    /// directory descriptor.
+    pub fn open_state_mount(expected: &StateMountIdentity) -> Result<Self, GenerationError> {
+        let process_root = rustix::fs::open(
+            "/",
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+            Mode::empty(),
+        )?;
+        let (state_fd, _evidence) = collect_and_open_state_mount(&process_root, expected)?;
+        let state_root = File::from(state_fd);
+        Self::open_owned(&state_root, 0)
     }
 
     fn open_owned(root: &File, expected_uid: u32) -> Result<Self, GenerationError> {
@@ -553,6 +572,19 @@ mod tests {
     fn test_store(root: &File) -> GenerationStore {
         let owner = rustix::fs::fstat(root).unwrap().st_uid;
         GenerationStore::open_owned(root, owner).unwrap()
+    }
+
+    #[test]
+    fn production_store_open_fails_closed_without_the_expected_state_mount() {
+        let expected = StateMountIdentity {
+            filesystem_uuid: "00000000-0000-0000-0000-000000000000".into(),
+            subvolume_id: u64::MAX,
+            parent_subvolume_id: 5,
+        };
+        assert!(matches!(
+            GenerationStore::open_state_mount(&expected),
+            Err(GenerationError::StateMount(_))
+        ));
     }
 
     fn ready_manifest(content: &[u8]) -> RecoveryManifest {
