@@ -997,12 +997,25 @@ fn safe_zypp_probe_value(key: &str, value: &str) -> bool {
 /// the permission-restricted private run log and is never copied into evidence.
 fn classify_zypp_error(stderr: &[u8]) -> &'static str {
     let text = String::from_utf8_lossy(stderr).to_ascii_lowercase();
+    // Order specific signatures before broad words such as "repository" and
+    // "plugin". The returned value is always a fixed label; input text is
+    // never copied into public evidence.
     if text.contains("permission denied") || text.contains("not authorized") {
         "authorization"
     } else if text.contains("could not get lock") || text.contains("another package manager") {
         "package_manager_lock"
     } else if text.contains("no provider") || text.contains("not found") {
         "package_resolution"
+    } else if text.contains("failed to download")
+        || text.contains("could not resolve host")
+        || text.contains("connection timed out")
+    {
+        "network_or_download"
+    } else if text.contains("no repositories defined")
+        || text.contains("no repository defined")
+        || text.contains("repository is not defined")
+    {
+        "repository_configuration"
     } else if text.contains("repository") || text.contains("metadata") {
         "repository_or_metadata"
     } else if text.contains("plugin") {
@@ -1455,9 +1468,26 @@ mod tests {
     fn zypp_error_categories_are_allowlisted_and_never_return_source_text() {
         assert_eq!(classify_zypp_error(b"Permission denied: private path"), "authorization");
         assert_eq!(
+            classify_zypp_error(b"Could not get lock /secret; another package manager is running"),
+            "package_manager_lock"
+        );
+        assert_eq!(
             classify_zypp_error(b"No provider of package secret-name"),
             "package_resolution"
         );
+        assert_eq!(
+            classify_zypp_error(b"Failed to download https://user:pass@example.invalid/private"),
+            "network_or_download"
+        );
+        assert_eq!(
+            classify_zypp_error(b"No repositories defined in /private/config"),
+            "repository_configuration"
+        );
+        assert_eq!(
+            classify_zypp_error(b"Repository metadata expired at /private/cache"),
+            "repository_or_metadata"
+        );
+        assert_eq!(classify_zypp_error(b"commit plugin failed for private transaction"), "plugin");
         assert_eq!(classify_zypp_error(b"private implementation detail"), "unclassified");
         assert_eq!(classify_zypp_error(b""), "no_stderr");
     }
