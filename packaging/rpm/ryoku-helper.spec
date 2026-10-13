@@ -10,6 +10,10 @@ BuildRequires:  rust
 BuildRequires:  systemd-rpm-macros
 Requires:       systemd
 
+# Tumbleweed's RPM >= 4.19 applies packaged sysusers declarations before
+# unpacking the payload. No compatibility scriptlet is needed because this
+# package has no files owned by the group it declares.
+
 %description
 Installs Ryoku's socket-activated privileged helper boundary. The current
 helper rejects all valid operations and performs no system mutation. Access
@@ -29,13 +33,13 @@ install -D -m 0644 packaging/rpm/systemd/ryoku-helper.service \
 install -D -m 0644 packaging/rpm/systemd/ryoku-helper.socket \
     %{buildroot}%{_unitdir}/ryoku-helper.socket
 install -D -m 0644 packaging/rpm/sysusers.d/ryoku.conf \
-    %{buildroot}%{_prefix}/lib/sysusers.d/ryoku.conf
+    %{buildroot}%{_sysusersdir}/ryoku.conf
 
 %files
 %{_libexecdir}/ryoku/ryoku-helper
 %{_unitdir}/ryoku-helper.service
 %{_unitdir}/ryoku-helper.socket
-%{_prefix}/lib/sysusers.d/ryoku.conf
+%{_sysusersdir}/ryoku.conf
 
 %license LICENSE
 %doc packaging/rpm/README.md
