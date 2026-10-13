@@ -8,7 +8,7 @@
 
 use rustix::{
     fd::AsFd,
-    fs::{AtFlags, FileType, OFlags, ResolveFlags, StatxFlags, fstat, openat2, statx},
+    fs::{AtFlags, FileType, OFlags, ResolveFlags, StatxFlags, fstat, open, openat2, statx},
     io::Errno,
     ioctl::{Getter, ioctl},
 };
@@ -58,6 +58,7 @@ pub enum StateMountError {
     IdentityMismatch,
     MissingSubvolumeParent,
     UnsafeDescriptor,
+    UnsafeRootDescriptor,
     MountSubstituted,
     KernelObservationUnavailable,
     InvalidMountInfo,
@@ -78,6 +79,7 @@ impl std::fmt::Display for StateMountError {
             Self::UnsafeDescriptor => {
                 "protected state descriptor is not root-owned mode 0700 directory"
             }
+            Self::UnsafeRootDescriptor => "supplied root descriptor is not the process root mount",
             Self::MountSubstituted => "protected state descriptor resolves to a different mount",
             Self::KernelObservationUnavailable => "required kernel mount identity is unavailable",
             Self::InvalidMountInfo => "kernel mount table could not be parsed unambiguously",
@@ -102,6 +104,7 @@ pub fn collect_and_open_state_mount(
     trusted_root: &impl AsFd,
     expected: &StateMountIdentity,
 ) -> Result<(rustix::fd::OwnedFd, MountEvidence), StateMountError> {
+    validate_trusted_root(trusted_root)?;
     let state_fd = openat2(
         trusted_root,
         STATE_RELATIVE_PATH,
@@ -286,6 +289,7 @@ pub fn open_validated_state_mount(
     evidence: Option<&MountEvidence>,
     expected: &StateMountIdentity,
 ) -> Result<rustix::fd::OwnedFd, StateMountError> {
+    validate_trusted_root(trusted_root)?;
     let evidence = evidence.ok_or(StateMountError::MissingMount)?;
     validate_evidence(evidence, expected)?;
 
@@ -313,6 +317,34 @@ pub fn open_validated_state_mount(
         return Err(StateMountError::MountSubstituted);
     }
     Ok(state_fd)
+}
+
+/// Ensure the caller-provided anchor is exactly this process's `/` mount,
+/// rather than a different root-owned directory or a bind-mounted substitute.
+fn validate_trusted_root(root: &impl AsFd) -> Result<(), StateMountError> {
+    let supplied = fstat(root).map_err(StateMountError::Filesystem)?;
+    let actual_fd =
+        open("/", OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC, rustix::fs::Mode::empty())
+            .map_err(StateMountError::Filesystem)?;
+    let actual = fstat(&actual_fd).map_err(StateMountError::Filesystem)?;
+    if FileType::from_raw_mode(supplied.st_mode) != FileType::Directory
+        || supplied.st_mode & 0o022 != 0
+        || supplied.st_dev != actual.st_dev
+        || supplied.st_ino != actual.st_ino
+    {
+        return Err(StateMountError::UnsafeRootDescriptor);
+    }
+    let supplied_mount = statx(root, "", AtFlags::EMPTY_PATH, StatxFlags::MNT_ID)
+        .map_err(|_| StateMountError::KernelObservationUnavailable)?;
+    let actual_mount = statx(&actual_fd, "", AtFlags::EMPTY_PATH, StatxFlags::MNT_ID)
+        .map_err(|_| StateMountError::KernelObservationUnavailable)?;
+    if supplied_mount.stx_mask & StatxFlags::MNT_ID.bits() == 0
+        || actual_mount.stx_mask & StatxFlags::MNT_ID.bits() == 0
+        || supplied_mount.stx_mnt_id != actual_mount.stx_mnt_id
+    {
+        return Err(StateMountError::UnsafeRootDescriptor);
+    }
+    Ok(())
 }
 
 /// Validate fields that must agree before opening or writing the state store.
@@ -388,6 +420,25 @@ mod tests {
             .unwrap_err(),
             StateMountError::MissingMount
         );
+    }
+
+    #[test]
+    fn root_anchor_must_be_the_process_root_mount() {
+        let root = open(
+            "/",
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+            rustix::fs::Mode::empty(),
+        )
+        .unwrap();
+        assert_eq!(validate_trusted_root(&root), Ok(()));
+
+        let unrelated = open(
+            "/tmp",
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+            rustix::fs::Mode::empty(),
+        )
+        .unwrap();
+        assert_eq!(validate_trusted_root(&unrelated), Err(StateMountError::UnsafeRootDescriptor));
     }
 
     #[test]
