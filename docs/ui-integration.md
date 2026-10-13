@@ -1,5 +1,8 @@
 # Rust UI integration proof
 
+The source-backed architecture decision and Quickshell reuse assessment are in
+[`ADR 0001`](adr/0001-ui-and-service-integration.md).
+
 M0-05 adds an executable Rust proof in `suse/ui`: a typed dashboard status,
 one explicit `RefreshStatus` action, and typed success and service-error
 results. The action is read-only. The small terminal surface shows the
