@@ -109,6 +109,7 @@ pub fn public_evidence(line: &str) -> bool {
         "zypp_experiment_is_not_a_protected_write_gate",
         "packagekit_cockpit_myrlyn_yast_write_paths",
         "lab_result",
+        "lifecycle_result",
     ];
     let dynamic_key = (key.starts_with("zypp_inventory_")
         || key.starts_with("zypp_deny_commit_")

@@ -463,7 +463,8 @@ The final missing-plugin mode may intentionally install it. Any unsafe or
 inconclusive result is kept in the private logs and the derived overlay is
 discarded without reuse. The optional experiment skips the offline recovery
 phase because its deliberate missing-plugin bypass can change guest state;
-the normal reset-from-base marker check still runs. Do not interpret that run
+the normal reset-from-base marker check still runs. Its evidence reports
+`lifecycle_result=partial` and `lab_result=partial`; do not interpret that run
 as a passing #13 recovery run or as a protected provider write.
 
 The raw inventory/probe output, SSH diagnostics and QEMU logs stay in the

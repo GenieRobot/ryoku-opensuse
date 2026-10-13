@@ -1132,6 +1132,14 @@ pub fn run(
     let checksum = output(Command::new("sha256sum").arg(lab.assets.join(image)))?;
     require(checksum.split_whitespace().next() == Some(hash), "base changed during run")?;
     lab.evidence("base_unchanged=passed\nreset_disk_and_keys=removed")?;
+    if zypp_probe.is_some() {
+        lab.evidence("lifecycle_result=partial")?;
+        if let Some(result) = optional_ui_result(lab.ui_binary.is_some(), ui_captured) {
+            lab.evidence(result)?;
+        }
+        lab.evidence("lab_result=partial")?;
+        return Ok(());
+    }
     lab.evidence("lifecycle_result=passed")?;
     if let Some(result) = optional_ui_result(lab.ui_binary.is_some(), ui_captured) {
         lab.evidence(result)?;
