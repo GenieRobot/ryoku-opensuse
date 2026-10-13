@@ -8,7 +8,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde::Serialize;
+use serde::{Deserialize, Deserializer, Serialize};
 use sha2::{Digest, Sha256 as Sha256Digest};
 
 /// Canonical lowercase hexadecimal SHA-256 value.
@@ -135,9 +135,29 @@ impl RelativePath {
     }
 }
 
+macro_rules! deserialize_validated_string {
+    ($type:ty) => {
+        impl<'de> Deserialize<'de> for $type {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                let value = String::deserialize(deserializer)?;
+                <$type>::new(value).map_err(|error| serde::de::Error::custom(format!("{error:?}")))
+            }
+        }
+    };
+}
+
+deserialize_validated_string!(Sha256);
+deserialize_validated_string!(Identifier);
+deserialize_validated_string!(PackageName);
+deserialize_validated_string!(Revision);
+deserialize_validated_string!(RelativePath);
+
 /// Fixed roots that a manifest may name. Callers map these variants to
 /// administrator-defined directories; manifest text never supplies a root.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum StateRoot {
     /// Ryoku-owned system configuration below `/etc/ryoku`.
@@ -163,16 +183,12 @@ impl StateRoot {
     }
 }
 
-/// Only xattr names captured by the initial contract; additions require review.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+/// Only non-ACL xattr names captured by the initial contract; additions require review.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum XattrName {
     /// SELinux label, when supported by the filesystem/provider.
     SelinuxLabel,
-    /// POSIX access ACL encoding.
-    PosixAclAccess,
-    /// POSIX default ACL encoding.
-    PosixAclDefault,
 }
 
 impl XattrName {
@@ -180,20 +196,19 @@ impl XattrName {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::SelinuxLabel => "security.selinux",
-            Self::PosixAclAccess => "system.posix_acl_access",
-            Self::PosixAclDefault => "system.posix_acl_default",
         }
     }
 }
 
 /// Digests of allowed metadata values; public manifests do not embed labels.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ExtendedMetadata {
     pub values: BTreeMap<XattrName, Sha256>,
 }
 
 /// Typed operation intent recorded in each manifest.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum OperationReason {
     ProfileApply,
@@ -204,7 +219,7 @@ pub enum OperationReason {
 }
 
 /// Capture/linkage/verification phase state.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum VerificationStatus {
     Pending,
@@ -213,7 +228,8 @@ pub enum VerificationStatus {
 }
 
 /// Profile layer identity when a transaction resolves profile settings.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProfileRevision {
     pub profile_id: Identifier,
     pub profile_revision: Revision,
@@ -224,7 +240,8 @@ pub struct ProfileRevision {
 }
 
 /// Identity and before/after revisions for one changed package.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PackageRevision {
     pub package_name: PackageName,
     pub before_nevra: Option<Revision>,
@@ -233,7 +250,8 @@ pub struct PackageRevision {
 }
 
 /// Identity and before/after revisions for the provider used by an operation.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProviderRevision {
     pub provider_id: Identifier,
     pub before_revision: Option<Revision>,
@@ -241,7 +259,8 @@ pub struct ProviderRevision {
 }
 
 /// Validated link to the system-side pre-change snapshot.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SnapshotLink {
     pub snapper_config: Identifier,
     pub snapper_snapshot_id: String,
@@ -269,7 +288,8 @@ impl SnapshotLink {
 }
 
 /// Exact metadata required for a declared entry.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EntryMetadata {
     /// POSIX permission and file-type-independent mode bits.
     pub mode: u32,
@@ -286,8 +306,8 @@ pub struct EntryMetadata {
 }
 
 /// One declared entry and the metadata/content proof required for its kind.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[serde(tag = "kind", rename_all = "kebab-case")]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum EntryKind {
     /// The declared destination did not exist before the transaction.
     Absent,
@@ -305,7 +325,8 @@ pub enum EntryKind {
 }
 
 /// A single explicitly declared path in a transaction generation.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FileRecord {
     /// Fixed root selector.
     pub root: StateRoot,
@@ -347,7 +368,8 @@ impl FileRecord {
 }
 
 /// Linkage required before a managed operation may begin.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RecoveryManifest {
     /// Supported manifest schema. This model accepts version 1 only.
     pub schema_version: u16,
@@ -382,7 +404,7 @@ pub struct RecoveryManifest {
     /// Complete explicitly declared affected path set.
     files: Vec<FileRecord>,
     /// Set used to reject duplicate root/path pairs.
-    #[serde(skip)]
+    #[serde(skip, default)]
     file_keys: BTreeSet<(StateRoot, RelativePath)>,
 }
 
@@ -486,9 +508,30 @@ impl RecoveryManifest {
             && self.verify_digest().is_ok_and(|valid| valid)
     }
 
+    /// Parses a bounded persisted JSON manifest, rejects unknown fields and
+    /// unsupported schema versions, validates all typed values, and verifies
+    /// the canonical digest before returning it. This performs no I/O beyond
+    /// the caller-provided bytes and never consults a Git remote.
+    pub fn parse_verified_json(bytes: &[u8]) -> Result<Self, ManifestError> {
+        if bytes.len() > MAX_MANIFEST_BYTES {
+            return Err(ManifestError::InputTooLarge);
+        }
+        let mut manifest: Self = serde_json::from_slice(bytes)?;
+        manifest.validate()?;
+        manifest.files.sort_by(|left, right| {
+            (left.root.manifest_name(), left.path.as_str())
+                .cmp(&(right.root.manifest_name(), right.path.as_str()))
+        });
+        manifest.file_keys =
+            manifest.files.iter().map(|file| (file.root, file.path.clone())).collect();
+        if !manifest.verify_digest()? {
+            return Err(ManifestError::DigestMismatch);
+        }
+        Ok(manifest)
+    }
+
     /// Validates the supported v1 schema and its cross-field invariants.
-    /// This validates an in-memory typed value; the crate does not parse
-    /// manifests from persistent storage.
+    /// This validates the typed value after construction or parsing.
     pub fn validate(&self) -> Result<(), ValidationError> {
         if self.schema_version != 1 {
             return Err(ValidationError::UnsupportedSchemaVersion);
@@ -563,6 +606,8 @@ impl RecoveryManifest {
     }
 }
 
+pub const MAX_MANIFEST_BYTES: usize = 1024 * 1024;
+
 fn canonical_json(value: &impl Serialize) -> Result<Vec<u8>, serde_json::Error> {
     let value = serde_json::to_value(value)?;
     serde_json::to_vec(&value)
@@ -619,9 +664,13 @@ pub enum ValidationError {
     InvalidTimestamp,
 }
 
-/// Failure while validating or canonically serializing a manifest.
+/// Failure while parsing, validating, or canonically encoding a manifest.
 #[derive(Debug)]
 pub enum ManifestError {
+    /// Input exceeds the bounded persisted-manifest size.
+    InputTooLarge,
+    /// Parsed manifest is unsealed or its canonical digest does not match.
+    DigestMismatch,
     Validation(ValidationError),
     Serialization(serde_json::Error),
 }
@@ -641,9 +690,13 @@ impl From<serde_json::Error> for ManifestError {
 impl std::fmt::Display for ManifestError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::InputTooLarge => write!(formatter, "manifest exceeds the 1 MiB input limit"),
+            Self::DigestMismatch => {
+                write!(formatter, "manifest digest is missing or does not match")
+            }
             Self::Validation(error) => write!(formatter, "invalid recovery manifest: {error:?}"),
             Self::Serialization(error) => {
-                write!(formatter, "manifest serialization failed: {error}")
+                write!(formatter, "manifest JSON processing failed: {error}")
             }
         }
     }
@@ -652,7 +705,7 @@ impl std::fmt::Display for ManifestError {
 impl std::error::Error for ManifestError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Validation(_) => None,
+            Self::InputTooLarge | Self::DigestMismatch | Self::Validation(_) => None,
             Self::Serialization(error) => Some(error),
         }
     }
@@ -704,6 +757,88 @@ fn is_utc_timestamp(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn persisted_manifest_round_trips_and_rejects_unknown_fields() {
+        let mut original = manifest();
+        original.set_verification(
+            VerificationStatus::Verified,
+            VerificationStatus::Verified,
+            VerificationStatus::Verified,
+        );
+        original
+            .add_file(
+                FileRecord::new(
+                    StateRoot::UserRyokuConfig,
+                    RelativePath::new("theme.json").unwrap(),
+                    EntryKind::Absent,
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        original.seal().unwrap();
+        let encoded = original.canonical_bytes().unwrap();
+        let decoded = RecoveryManifest::parse_verified_json(&encoded).unwrap();
+        assert_eq!(decoded.canonical_bytes().unwrap(), encoded);
+        assert_eq!(decoded.files(), original.files());
+
+        let json = String::from_utf8(encoded).unwrap();
+        let unknown = format!("{{\"unknown\":\"x\",{}", &json[1..]);
+        assert!(serde_json::from_str::<RecoveryManifest>(&unknown).is_err());
+    }
+
+    #[test]
+    fn persisted_manifest_parser_validates_wrapper_values() {
+        let mut original = manifest();
+        original.seal().unwrap();
+        let encoded = String::from_utf8(original.canonical_bytes().unwrap()).unwrap();
+        let invalid_id = encoded.replace("txn-example-01", "../escape");
+        assert!(matches!(
+            RecoveryManifest::parse_verified_json(invalid_id.as_bytes()),
+            Err(ManifestError::Serialization(_))
+        ));
+        let invalid_uuid = encoded.replace("00000000-0000-0000-0000-000000000000", "not-a-uuid");
+        assert!(matches!(
+            RecoveryManifest::parse_verified_json(invalid_uuid.as_bytes()),
+            Err(ManifestError::Validation(ValidationError::InvalidFilesystemUuid))
+        ));
+
+        let mut with_path = manifest();
+        with_path
+            .add_file(
+                FileRecord::new(
+                    StateRoot::UserRyokuConfig,
+                    RelativePath::new("settings.json").unwrap(),
+                    EntryKind::Absent,
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        with_path.seal().unwrap();
+        let encoded_path = String::from_utf8(with_path.canonical_bytes().unwrap()).unwrap();
+        let invalid_path = encoded_path.replace("settings.json", "../outside");
+        assert!(matches!(
+            RecoveryManifest::parse_verified_json(invalid_path.as_bytes()),
+            Err(ManifestError::Serialization(_))
+        ));
+    }
+
+    #[test]
+    fn persisted_manifest_parser_rejects_oversize_and_tampered_digest() {
+        assert!(matches!(
+            RecoveryManifest::parse_verified_json(&vec![b' '; MAX_MANIFEST_BYTES + 1]),
+            Err(ManifestError::InputTooLarge)
+        ));
+
+        let mut original = manifest();
+        original.seal().unwrap();
+        let mut encoded = String::from_utf8(original.canonical_bytes().unwrap()).unwrap();
+        encoded = encoded.replace("2026-01-01T00:00:00Z", "2026-01-01T00:00:01Z");
+        assert!(matches!(
+            RecoveryManifest::parse_verified_json(encoded.as_bytes()),
+            Err(ManifestError::DigestMismatch)
+        ));
+    }
 
     fn manifest() -> RecoveryManifest {
         RecoveryManifest::new(

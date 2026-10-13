@@ -38,12 +38,62 @@ recovery. Readers may inspect committed generations while a writer is active,
 but cannot observe partially published generations. The journal is appended
 and synchronized before each irreversible phase transition.
 
-This design preserves Ryoku state across a root rollback; it does not promise
-to preserve the state subvolume across disk loss, repartitioning, filesystem
-replacement, or a malicious root administrator. Backups to another device are
-outside this contract. Native Btrfs/Snapper restore compatibility, early mount
-ordering, and failure behavior must be demonstrated in the disposable VM
-before implementation can claim recovery support.
+This design preserves Ryoku state across a root rollback; it does not
+promise to preserve the state subvolume across disk loss, repartitioning,
+filesystem replacement, or a malicious root administrator. Backups to another
+device are outside this contract. Native Btrfs/Snapper restore compatibility,
+early mount ordering, and failure behavior must be demonstrated in the
+disposable VM before implementation can claim recovery support.
+
+### Storage layout and transaction ordering
+
+The proposed state subvolume is mounted at `/var/lib/ryoku-state`, owned by
+`root:root`, mode `0700`. Its direct parent is the Btrfs top-level subvolume;
+it is not a child of the Snapper root subvolume. The root Snapper configuration
+must exclude the mounted state path. The implementation must resolve the
+mountpoint without following a substituted path, then compare the observed
+filesystem UUID, subvolume ID/parent relationship, mount source/options, and
+ownership/mode with the installed machine record on every startup and before
+each write. Any mismatch blocks mutation and remains visible as a typed
+recovery-unavailable result. This is a design requirement; no implementation
+or Tumbleweed proof exists yet.
+
+The intended on-volume layout is:
+
+```text
+/var/lib/ryoku-state/          root:root 0700, dedicated Btrfs subvolume
+  machine.json                 validated filesystem/subvolume identity
+  catalog/                     rebuildable index of verified manifest IDs
+  generations/<generation-id>/ immutable manifest + declared payload blobs
+  journal/operations.log       append-only, synchronized phase records
+  staging/<transaction-id>/    private incomplete publication, never a restore source
+  writer.lock                  machine-wide writer coordination
+```
+
+A transaction holds the writer lock from inventory freeze through publication.
+It validates that every requested record belongs to an approved path set,
+captures declared entries without following symlinks, creates the Snapper
+pre-change snapshot, then writes the manifest and content into a private
+staging generation. Every payload and directory is synchronized, read back,
+and checked against the manifest digest and snapshot/filesystem link. The
+journal is appended and synchronized before each irreversible transition.
+Only then is staging atomically renamed to its immutable generation ID and the
+catalog link published atomically; provider mutation begins after both are
+verifiable. A crash before publication leaves staging ignored. A crash after
+publication but before provider mutation leaves a recoverable, unused linked
+generation. Reusing a transaction ID is idempotent; a collision with different
+content is a hard error.
+
+After root rollback, recovery reads the catalog and journal from the separately
+mounted state subvolume, matches the observed root filesystem and Snapper
+snapshot ID to one exact generation link, verifies all declared content and
+metadata, and restores only those paths. It never guesses from timestamps,
+chooses the newest generation, follows an unlisted path, or deletes a path
+without a matching verified absent record. If the mount, catalog, link, or
+payload fails validation, recovery refuses restore and preserves the evidence.
+A configuration-only restore is a distinct labeled action and is allowed only
+when its generation is compatible and fully verified; it does not claim system
+rollback. This sequence still requires end-to-end implementation and VM proof.
 
 ## Managed state inventory
 
@@ -70,6 +120,61 @@ Any future provider operation must first name and audit each affected path,
 including package owner, writer, filesystem, ownership/mode/metadata, and
 rollback behavior. A path outside a reviewed operation allowlist is not
 managed merely because a tool can access it.
+
+### v1 record inventory and metadata rules
+
+The manifest root is selected by the trusted caller; a record path is always
+relative to that root. This table defines the v1 enrollment boundary. Entries
+called *candidate* are not enabled for a Tumbleweed writer until that writer
+and its on-disk result are audited. A record is never permission to discover
+siblings or recurse into a directory.
+
+| Manifest root | Candidate record path | Owner and writer contract | Entry and mode policy | Metadata policy |
+|---|---|---|---|---|
+| `user-ryoku-config` | `profile.json` | The target ordinary account (resolved UID and primary GID); written by a user session. The pinned upstream profile writer requests mode `0644`; this is source behavior, not measured openSUSE state. | Regular file only in v1 enrollment. Preserve and verify source mode; reject unexpected ownership or special bits. | Record size, SHA-256, UID/GID, mode, mtime, ACL digest, and present allowlisted xattr digests. |
+| `user-ryoku-config` | `theme.json`, `shell.json`, `launcher.json` | Same user ownership and session writer boundary; source-backed candidate names, not proof these files are installed or used by the openSUSE UI. | Regular files only; each path must be explicitly enrolled by the feature that writes it. | Same as `profile.json`; no xattr values or file contents are copied into public inventory documentation. |
+| `user-ryoku-profile` | No v1 record is approved. The upstream `profile/hero.*` path needs explicit format and size rules before enrollment. | Same resolved target account; files in this class remain user-owned. | No wildcard or directory enrollment. | Same metadata requirements if an exact file is later approved. |
+| `etc-ryoku` | No v1 record is approved yet. `appearance.toml` is a synthetic schema example only. | Would require an audited root-owned writer and exact packaged path ownership first. | No system path is admitted based on the proposed `/etc/ryoku` namespace alone. | Capture must fail closed on any unavailable required metadata. |
+| `state-generation` | No transaction file record. | Root-owned immutable generation storage is internal protected state, not an input root for arbitrary manifest paths. | Generation publication is controlled by the storage protocol below. | Manifest files do not recursively describe the catalog, journal, or their containing directories. |
+
+For an enrolled user regular file, the caller resolves the account once and
+checks the observed UID and primary GID against that identity. It preserves
+the observed permission bits rather than changing ownership or normalizing
+modes; mode changes must be an explicit operation. `0644` above is the pinned
+upstream writer's requested mode for selected preference files, not a promise
+about umask effects or live Tumbleweed metadata. Root-owned system entries, if
+later approved, must declare the exact package owner, writer, UID/GID and
+permitted mode before capture is enabled. Catalog and generation directories
+are root-owned with mode `0700`; their internal files are root-owned and are
+not restored as user configuration.
+
+The regular-file policy is the default. A symlink record is permitted only
+when the specific enrolled path declares that symlinks are allowed. Capture
+stores the raw target bytes and link metadata using `lstat`-style semantics;
+validation, digesting, backup, and restore never resolve the target. A target
+may point outside the declared root without authorizing access to that target.
+Directory records describe that directory alone and never grant recursive
+traversal. Device nodes, sockets, FIFOs, hard-link surprises, and unlisted
+entry types fail capture. An absent record is valid only for a declared exact
+path; it cannot be synthesized by scanning a parent directory.
+
+Record POSIX ACL data in `acl_sha256` and SELinux labels by digest in the
+allowlisted xattr map. The only v1 xattr name is `security.selinux`; do not
+collect `user.*`, capability, or arbitrary security namespaces. The ACL digest
+represents the supported access/default ACL metadata for that entry; do not
+silently omit an ACL because the runtime or filesystem cannot read it. The
+collector must report whether each applicable metadata source is supported;
+unsupported required metadata makes the capture incomplete. Metadata values
+are not included in public examples, only synthetic digests.
+
+The following are explicitly external to transaction file inventories:
+`/usr/share/ryoku/config/` (package-owned immutable defaults, recovered by
+reinstalling the exact RPM), `$XDG_STATE_HOME/ryoku/` (upstream CLI operational
+state), `$XDG_DATA_HOME/ryoku/plugins/`, `$XDG_CACHE_HOME/ryoku/`, unrelated
+home files, and all unreviewed provider paths below `/etc`, `/var`, or `/usr`.
+`/var/lib/ryoku-state/catalog`, `journal`, `generations`, and `profiles` are
+protected storage internals rather than manifest entries. Their location does
+not authorize following symlinks or reading arbitrary content there.
 
 ### Pinned upstream findings and first-sprint scope
 
@@ -186,23 +291,20 @@ contents for secrets or undeclared data in the public catalog.
 
 The schema has a required `schema_version`; the current typed writer accepts
 version 1 only and rejects any other version before serialization. The v1
-compatibility rule is strict: a future reader must reject unknown fields rather
-than silently discard data. Optionality applies only to known v1 fields, where
+compatibility rule is strict: the persisted v1 reader rejects unknown fields
+rather than silently discarding data. Optionality applies only to known v1 fields, where
 an absent value means `None`. Any field-set or semantic change requires an
 explicit local version-to-version migration. A migration writes a new
 generation and retains the prior one until verification and catalog
-publication succeed; it never fetches code or data from a Git remote. The
-reader/parser and migration executor are not implemented yet.
+publication succeed; it never fetches code or data from a Git remote. The reader parses and verifies sealed v1 JSON locally; a version-to-version
+migration executor is not implemented yet.
 
 Version 1 canonical encoding is compact UTF-8 JSON. JSON object keys are sorted
 lexically, file records are sorted by fixed root name and relative path, and
 the SHA-256 digest covers this canonical document with `manifest_sha256`
 omitted. The sealed document includes that digest. The Rust recovery crate
 validates v1 schema bounds before producing this canonical byte representation,
-then seals and verifies the digest when callers construct the typed value. It
-still has no parser,
-filesystem collector, durable writer, or generation publisher, so this is not
-yet a persistent-storage or capture guarantee.
+then seals and verifies the digest when callers construct the typed value. Its persisted reader accepts at most 1 MiB, validates parsed values, and verifies the digest before returning a manifest. It still has no filesystem collector, durable writer, or generation publisher, so this is not yet a persistent-storage or capture guarantee.
 
 Every transaction manifest records:
 
@@ -250,7 +352,21 @@ user or companion information is present):
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "size": 34
     },
-    { "kind": "absent", "path": "local-overrides.toml", "root": "user-ryoku-config" }
+    { "kind": "absent", "path": "local-overrides.toml", "root": "user-ryoku-config" },
+    {
+      "kind": "symlink",
+      "metadata": {
+        "acl_sha256": null,
+        "extended": { "values": { "selinux-label": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" } },
+        "gid": 1000,
+        "mode": 511,
+        "mtime_unix_ns": 0,
+        "uid": 1000
+      },
+      "path": "theme-current",
+      "root": "user-ryoku-config",
+      "target": "themes/neutral.toml"
+    }
   ],
   "filesystem_uuid": "00000000-0000-0000-0000-000000000000",
   "generation_id": "gen-example-0007",
@@ -272,15 +388,16 @@ user or companion information is present):
 The Rust `ryoku-recovery` crate provides validated IDs, fixed root selectors,
 root-relative paths, entry-kind records, duplicate-path rejection,
 Snapper/filesystem linkage primitives, canonical JSON serialization and
-manifest digest verification. It does not read files, acquire metadata,
-publish generations, or authorize mutations.
+manifest digest verification and bounded offline parsing of sealed v1 JSON. It
+does not read filesystem paths, acquire runtime metadata, publish generations,
+or authorize mutations.
 
 The typed contract also names operation reason/time, per-package identity and
 before/after NEVRA, provider identity and before/after revision, upstream source
 revision provenance, all four resolved profile layers, per-phase verification,
 the canonical manifest digest slot, hard-link groups, ACL/xattr digests, and
-explicit capture exclusions. Its initial xattr enum is limited to SELinux
-labels and POSIX access/default ACLs; these values are represented by digests.
+explicit capture exclusions. ACLs use the dedicated ACL digest field; the
+allowlisted xattr enum contains only SELinux labels, represented by digest.
 The fixed file roots are `/etc/ryoku`, resolved per-user Ryoku config/profile
 roots, and the generation namespace. Catalog, journal, plugin payloads,
 package databases, caches, and arbitrary home/provider files are not file
@@ -288,11 +405,7 @@ records. This code is a validated data model only: it does not acquire metadata
 or guarantee that a future collector enforces every declared rule. Unsupported
 metadata must still fail capture at that boundary.
 
-The example is illustrative, not a parser-ready schema or proof of a live
-capture. Tests cover v1 schema bounds, canonical encoding, digest
-sealing/verification, and stable file/package ordering. Parser limits and
-version migration still need implementation tests before persisted data is
-accepted.
+The example is illustrative and synthetic; it is not proof of a live capture. Tests cover v1 schema bounds, canonical encoding, digest sealing/verification, stable file/package ordering, bounded strict parsing, unknown-field rejection, wrapper validation, tampering, and verified round trips. The parser accepts v1 only; a local migration executor and compatibility tests across schema versions remain future work.
 
 ## Profile resolution and private data
 
@@ -341,10 +454,7 @@ with the observed root snapshot before restore.
 
 - Implement the dedicated subvolume setup/validation and prove it survives
   actual Snapper root rollback and reboot on the disposable Tumbleweed VM.
-- Add parser, path traversal, symlink, ACL/xattr, absent-file, atomic
-  publication, writer-lock, interrupted-transaction, and schema migration
-  tests. The current crate has no parser or filesystem collector, and its
-  metadata tests do not exercise live filesystem capture.
+- Expand adversarial persisted path parsing and add filesystem capture tests for symlink, ACL/xattr, absent-file, atomic publication, writer-lock, interrupted-transaction, and schema migration. The crate has no filesystem collector or migration executor, and metadata tests do not exercise live filesystem capture.
 - Exercise successful and deliberately corrupted linked generations offline,
   including configuration-only fallback and preservation of an unrelated home
   sentinel.
@@ -361,11 +471,11 @@ corresponding implementation and disposable-guest evidence are linked.
 
 | Issue #16 item | Current repository evidence | Still needed |
 |---|---|---|
-| Inventory Ryoku config, app/theme/shell state, provider state and profile layers | Pinned upstream path tables and exclusions above; typed local profile layers | Run19's exact Tumbleweed package/path ownership and metadata findings; final integrated Ryoku package/session inventory after login support succeeds. |
-| Define manifest IDs, reason/time, checksums, metadata, package/upstream/profile revisions and verification | Typed v1 manifest, canonical JSON/SHA-256 seal/verify, explicit package/provider revisions, profile revisions, metadata fields and validation tests | Parser and schema migration implementation; metadata acquisition and filesystem capture tests. |
+| Inventory Ryoku config, app/theme/shell state, provider state and profile layers | Pinned upstream paths, an explicit v1 exact-file enrollment boundary, ownership/mode policy, symlink/xattr rules and declared exclusions above; typed local profile layers | Exact Tumbleweed ownership/mode/metadata audit for integrated Ryoku paths and final package/session inventory after login support succeeds. |
+| Define manifest IDs, reason/time, checksums, metadata, package/upstream/profile revisions and verification | Typed v1 manifest, canonical JSON/SHA-256 seal/verify, explicit package/provider revisions, profile revisions, metadata fields and validation tests | Filesystem capture tests and schema migration implementation/tests; parser now validates bounded v1 persisted input. |
 | Protect catalog/generations outside root rollback; validate subvolume, writer coordination and privilege split | Storage ADR specifies the dedicated subvolume, validation and user/helper responsibilities | Setup/startup validation, locking/journal/publication implementation, and linked root rollback/reboot proof on Tumbleweed. |
-| Define profile precedence, absent entries and compatible migrations | Rust local resolver plus synthetic doctest; absent-file records; strict v1 compatibility/migration rules | Persistent profile/catalog storage and migration implementation; offline linked restore proof. |
+| Define profile precedence, absent entries and compatible migrations | Rust local resolver plus synthetic doctest; absent-file records; strict v1 compatibility/migration rules | Persistent profile/catalog storage, migration implementation/tests, and offline linked restore proof. |
 | Document snapshot/boot combinations, fallback and exclusions | Scenario matrix and explicit firmware, partitioning, arbitrary-root and undeclared-home exclusions | Exercise manifest-linked rollback, corruption handling and configuration-only fallback offline. |
 | ADR retains catalog, journal and matching generation across root rollback | Contract describes storage location, link identity and refusal to guess a generation | Actual dedicated mount plus Snapper rollback/reboot evidence. |
-| Inventory ownership, modes, symlinks, extended metadata and external paths without traversal | Typed metadata schema, pinned Ryoku source inventory and no-recursive-traversal rules | Exact Tumbleweed runtime ownership/mode/ACL/xattr evidence from Run19; audited allowlist and collector behavior tests. |
+| Inventory ownership, modes, symlinks, extended metadata and external paths without traversal | Typed metadata schema; exact v1 candidate inventory; raw-target symlink semantics; allowlisted metadata digest rules and explicit external path exclusions | Exact runtime ownership/mode/ACL/xattr evidence for integrated Ryoku state, an enforced audited allowlist and collector behavior tests are needed. Run19 provider paths do not constitute a Ryoku-owned path set. |
 | Profile interface works locally without remotes/credentials; public examples synthetic | Pure Rust resolver has no filesystem/network capability; synthetic four-layer doctest | None for the resolver contract; companion persistence/sync remains out of scope. |
