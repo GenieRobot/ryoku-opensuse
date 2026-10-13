@@ -3,10 +3,11 @@
 The workspace establishes crate boundaries for user interface, distribution
 adapters, profile data, recovery state, integration tests, custom automation,
 and a versioned Rust service contract. The service crate provides validated
-request/response types, Linux Unix-socket peer credential reading, a fixed
-helper request enum, and a synchronized operation journal. It does not yet
-implement a listening daemon, privileged helper executable, provider
-mutations, or linked recovery execution; see [service-contract.md](service-contract.md).
+request/response types, a per-user Unix-socket daemon and journal, plus a
+socket-activated root helper that rejects requests fail-closed. The RPM
+declares system and user units but does not enable them. Provider mutations,
+linked recovery execution, and installed Tumbleweed runtime proof are still
+missing; see [service-contract.md](service-contract.md).
 
 ## Trust and write path
 

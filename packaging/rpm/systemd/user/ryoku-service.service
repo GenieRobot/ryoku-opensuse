@@ -1,0 +1,16 @@
+[Unit]
+Description=Ryoku per-user service
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/ryoku/ryoku-service
+Environment=XDG_STATE_HOME=%h/.local/state
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX
+Restart=on-failure
+RestartSec=2s
+
+[Install]
+WantedBy=default.target

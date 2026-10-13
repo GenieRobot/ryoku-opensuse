@@ -38,6 +38,20 @@ pub fn serve_connection(
     journal: &mut OperationJournal,
     uid: u32,
 ) -> Result<(), ProtocolError> {
+    serve_connection_with_helper_path(
+        stream,
+        journal,
+        uid,
+        Path::new(crate::helper_protocol::HELPER_SOCKET_PATH),
+    )
+}
+
+fn serve_connection_with_helper_path(
+    stream: UnixStream,
+    journal: &mut OperationJournal,
+    uid: u32,
+    helper_socket_path: &Path,
+) -> Result<(), ProtocolError> {
     stream.set_read_timeout(Some(IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
     stream.set_write_timeout(Some(IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
     let peer = PeerIdentity::from_unix_socket(&stream)?;
@@ -74,9 +88,12 @@ pub fn serve_connection(
                 .unwrap_or(ResponseBody::Error(ServiceError::NotFound)),
             // No executor has passed the linked capture and provider review
             // gates. Never create an accepted operation for work not run.
-            Request::Start { action } => ResponseBody::Error(
-                crate::helper_protocol::check_action_availability((&action).into()),
-            ),
+            Request::Start { action } => {
+                ResponseBody::Error(crate::helper_protocol::check_action_availability_at(
+                    helper_socket_path,
+                    (&action).into(),
+                ))
+            }
         }
     };
     write_response(stream, Response { version: PROTOCOL_VERSION, request_id: id, body })
@@ -181,8 +198,20 @@ mod tests {
     use super::*;
     use crate::{Envelope, ManagedAction, ManagedActionKind, PackageId, Request, ResponseBody};
     use std::io::{BufRead, BufReader, Write};
+    use std::os::unix::net::UnixListener;
+    use std::thread;
 
     fn exchange(journal: &mut OperationJournal, request: Request) -> ResponseBody {
+        let unavailable_socket =
+            std::env::temp_dir().join(format!("ryoku-no-helper-{}.sock", std::process::id()));
+        exchange_with_helper_path(journal, request, &unavailable_socket)
+    }
+
+    fn exchange_with_helper_path(
+        journal: &mut OperationJournal,
+        request: Request,
+        helper_socket_path: &Path,
+    ) -> ResponseBody {
         let (server, client) = UnixStream::pair().unwrap();
         let uid = rustix::process::geteuid().as_raw();
         let envelope = Envelope {
@@ -193,7 +222,7 @@ mod tests {
         let mut client = client;
         serde_json::to_writer(&mut client, &envelope).unwrap();
         client.write_all(b"\n").unwrap();
-        serve_connection(server, journal, uid).unwrap();
+        serve_connection_with_helper_path(server, journal, uid, helper_socket_path).unwrap();
         let mut line = String::new();
         BufReader::new(client).read_line(&mut line).unwrap();
         serde_json::from_str::<Response>(&line).unwrap().body
@@ -225,6 +254,43 @@ mod tests {
         assert_eq!(journal.get(&crate::OperationId::new("not-created").unwrap()), None);
         drop(journal);
         std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn user_service_probes_helper_and_rejection_does_not_write_journal() {
+        let socket_path = std::env::temp_dir()
+            .join(format!("ryoku-helper-integration-{}.sock", std::process::id()));
+        let journal_path = std::env::temp_dir()
+            .join(format!("ryoku-helper-integration-{}.log", std::process::id()));
+        let listener = UnixListener::bind(&socket_path).unwrap();
+        let helper_thread = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            crate::helper_protocol::serve_operator_helper_connection(stream).unwrap();
+        });
+
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .read(true)
+            .write(true)
+            .open(&journal_path)
+            .unwrap();
+        let mut journal = OperationJournal::open(file).unwrap();
+        let action = ManagedAction::InstallPackage { package: PackageId::new("firefox").unwrap() };
+        let expected = if rustix::process::geteuid().as_raw() == 0 {
+            ServiceError::Unauthorized
+        } else {
+            ServiceError::Unsupported
+        };
+        assert_eq!(
+            exchange_with_helper_path(&mut journal, Request::Start { action }, &socket_path,),
+            ResponseBody::Error(expected)
+        );
+        helper_thread.join().unwrap();
+        assert_eq!(std::fs::metadata(&journal_path).unwrap().len(), 0);
+        drop(journal);
+        std::fs::remove_file(journal_path).unwrap();
+        std::fs::remove_file(socket_path).unwrap();
     }
 
     #[test]

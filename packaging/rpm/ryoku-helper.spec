@@ -23,22 +23,28 @@ to its socket is limited to explicitly selected members of ryoku-operators.
 %autosetup -n ryoku-opensuse-%{version}
 
 %build
-cargo build --locked --release -p ryoku-service --bin ryoku-helper
+cargo build --locked --release -p ryoku-service --bin ryoku-helper --bin ryoku-service
 
 %install
 install -D -m 0755 target/release/ryoku-helper \
     %{buildroot}%{_libexecdir}/ryoku/ryoku-helper
+install -D -m 0755 target/release/ryoku-service \
+    %{buildroot}%{_libexecdir}/ryoku/ryoku-service
 install -D -m 0644 packaging/rpm/systemd/ryoku-helper.service \
     %{buildroot}%{_unitdir}/ryoku-helper.service
 install -D -m 0644 packaging/rpm/systemd/ryoku-helper.socket \
     %{buildroot}%{_unitdir}/ryoku-helper.socket
+install -D -m 0644 packaging/rpm/systemd/user/ryoku-service.service \
+    %{buildroot}%{_userunitdir}/ryoku-service.service
 install -D -m 0644 packaging/rpm/sysusers.d/ryoku.conf \
     %{buildroot}%{_sysusersdir}/ryoku.conf
 
 %files
 %{_libexecdir}/ryoku/ryoku-helper
+%{_libexecdir}/ryoku/ryoku-service
 %{_unitdir}/ryoku-helper.service
 %{_unitdir}/ryoku-helper.socket
+%{_userunitdir}/ryoku-service.service
 %{_sysusersdir}/ryoku.conf
 
 %license LICENSE

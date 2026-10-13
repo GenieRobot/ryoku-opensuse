@@ -1,8 +1,10 @@
-//! Versioned, typed boundary for requests from the user service to a future
-//! privileged helper. It intentionally provides no command or mutation runner.
+//! Versioned, typed boundary between the per-user service and root helper.
+//! The installed helper currently rejects all requests and has no mutation
+//! runner.
 
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::os::unix::net::UnixStream;
+use std::path::Path;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -204,8 +206,21 @@ pub fn serve_operator_helper_connection(mut stream: UnixStream) -> Result<(), Pr
 /// has no operation identifier, payload path, or mutation semantics. Until a
 /// reviewed provider is installed the only valid response is Unsupported.
 pub fn check_action_availability(action: ManagedActionKind) -> ServiceError {
-    let result = (|| -> Result<(), ProtocolError> {
-        let mut stream = UnixStream::connect(HELPER_SOCKET_PATH).map_err(|_| ProtocolError::Io)?;
+    check_action_availability_at(Path::new(HELPER_SOCKET_PATH), action)
+}
+
+pub(crate) fn check_action_availability_at(
+    socket_path: &Path,
+    action: ManagedActionKind,
+) -> ServiceError {
+    let mut stream = match UnixStream::connect(socket_path) {
+        Ok(stream) => stream,
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+            return ServiceError::Unauthorized;
+        }
+        Err(_) => return ServiceError::Unsupported,
+    };
+    let result = (|| -> Result<ServiceError, ProtocolError> {
         stream.set_read_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
         stream.set_write_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
         let request = HelperEnvelope {
@@ -223,18 +238,12 @@ pub fn check_action_availability(action: ManagedActionKind) -> ServiceError {
         {
             return Err(ProtocolError::Malformed("helper response correlation mismatch"));
         }
-        match response.outcome {
-            HelperOutcome::Rejected(error) => {
-                if error == ServiceError::Unsupported {
-                    Ok(())
-                } else {
-                    Err(ProtocolError::Malformed("helper rejected availability probe"))
-                }
-            }
-        }
+        let HelperOutcome::Rejected(error) = response.outcome;
+        Ok(error)
     })();
     match result {
-        Ok(()) | Err(_) => ServiceError::Unsupported,
+        Ok(error) => error,
+        Err(_) => ServiceError::Unsupported,
     }
 }
 
@@ -340,6 +349,39 @@ mod tests {
             HelperOutcome::Rejected(ServiceError::Unsupported)
         );
 
+        let mutation_requests = [
+            HelperRequest::VerifyLinkedCheckpoint {
+                transaction_id: "txn-1".into(),
+                manifest_id: "manifest-1".into(),
+            },
+            HelperRequest::ApplyPackageTransaction {
+                transaction_id: "txn-1".into(),
+                manifest_id: "manifest-1".into(),
+                packages: vec![PackageId::new("firefox").unwrap()],
+            },
+            HelperRequest::RestoreCheckpoint {
+                transaction_id: "txn-1".into(),
+                manifest_id: "manifest-1".into(),
+                checkpoint_id: CheckpointId::new("snap-1").unwrap(),
+            },
+        ];
+        for request in mutation_requests {
+            assert_eq!(
+                dispatch_operator_request(
+                    user_peer,
+                    HelperEnvelope {
+                        request,
+                        ..valid_envelope(HelperRequest::CheckAvailability {
+                            action: ManagedActionKind::CreateCheckpoint,
+                        })
+                    },
+                )
+                .unwrap()
+                .outcome,
+                HelperOutcome::Rejected(ServiceError::Unsupported)
+            );
+        }
+
         let (server, mut client) = UnixStream::pair().unwrap();
         let peer = PeerIdentity::from_unix_socket(&client).unwrap();
         let envelope = valid_envelope(HelperRequest::CheckAvailability {
@@ -379,6 +421,25 @@ mod tests {
             read_helper_envelope(&mut with_command.as_slice()),
             Err(ProtocolError::Malformed(_))
         ));
+    }
+
+    #[test]
+    fn unavailable_operator_socket_permission_is_a_structured_unauthorized_error() {
+        use std::os::unix::fs::PermissionsExt;
+
+        if rustix::process::geteuid().as_raw() == 0 {
+            return;
+        }
+        let path = std::env::temp_dir()
+            .join(format!("ryoku-helper-denied-{}.sock", std::process::id()));
+        let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000)).unwrap();
+        assert_eq!(
+            check_action_availability_at(&path, ManagedActionKind::InstallPackage),
+            ServiceError::Unauthorized
+        );
+        drop(listener);
+        let _ = std::fs::remove_file(path);
     }
 
     #[test]
