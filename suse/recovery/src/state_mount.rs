@@ -39,6 +39,9 @@ pub struct StateMountIdentity {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MountEvidence {
     pub mountpoint: String,
+    /// Mount root within the filesystem (for Btrfs this can be the subvolume
+    /// path, such as `/@ryoku-state`, rather than `/`).
+    pub filesystem_root: String,
     pub mount_id: u64,
     pub filesystem_type: String,
     pub filesystem_uuid: String,
@@ -144,6 +147,7 @@ pub fn collect_and_open_state_mount(
     let subvolume_info = read_btrfs_subvolume_info(&state_fd)?;
     let evidence = MountEvidence {
         mountpoint: mount.mountpoint,
+        filesystem_root: mount.root,
         mount_id: statx.stx_mnt_id,
         filesystem_type: mount.filesystem_type,
         filesystem_uuid: format_uuid(&fs_info.fsid),
@@ -387,6 +391,9 @@ pub fn validate_evidence(
     if evidence.mountpoint != STATE_MOUNTPOINT {
         return Err(StateMountError::WrongMountpoint);
     }
+    if !evidence.filesystem_root.starts_with('/') {
+        return Err(StateMountError::InvalidMountInfo);
+    }
     if evidence.filesystem_type != "btrfs" {
         return Err(StateMountError::WrongFilesystem);
     }
@@ -422,6 +429,7 @@ mod tests {
     fn evidence() -> MountEvidence {
         MountEvidence {
             mountpoint: STATE_MOUNTPOINT.into(),
+            filesystem_root: "/".into(),
             mount_id: 41,
             filesystem_type: "btrfs".into(),
             filesystem_uuid: expected().filesystem_uuid,
