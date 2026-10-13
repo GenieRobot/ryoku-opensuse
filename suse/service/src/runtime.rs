@@ -294,18 +294,10 @@ mod tests {
     }
 
     #[test]
-    fn reconnect_lookup_returns_replayed_journal_state() {
+    fn reconnect_lookup_returns_state_after_journal_reopen() {
         let path =
             std::env::temp_dir().join(format!("ryoku-runtime-journal-{}", std::process::id()));
-        let file = std::fs::OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .read(true)
-            .write(true)
-            .open(&path)
-            .unwrap();
         let id = crate::OperationId::new("durable-op").unwrap();
-        let mut journal = OperationJournal::open(file).unwrap();
         let status = crate::OperationStatus {
             operation_id: id.clone(),
             action: ManagedActionKind::CreateCheckpoint,
@@ -313,12 +305,28 @@ mod tests {
             progress: None,
             error: None,
         };
+
+        // Simulate the service stopping after a durable write, then starting
+        // again and replaying the on-disk journal before a client reconnects.
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let mut journal = OperationJournal::open(file).unwrap();
         journal.record(status.clone()).unwrap();
+        drop(journal);
+
+        let file = std::fs::OpenOptions::new().read(true).write(true).open(&path).unwrap();
+        let mut restarted_journal = OperationJournal::open(file).unwrap();
+        assert_eq!(restarted_journal.get(&id), Some(&status));
         assert_eq!(
-            exchange(&mut journal, Request::GetOperation { operation_id: id }),
+            exchange(&mut restarted_journal, Request::GetOperation { operation_id: id }),
             ResponseBody::Operation(status)
         );
-        drop(journal);
+        drop(restarted_journal);
         std::fs::remove_file(path).unwrap();
     }
 
