@@ -203,13 +203,23 @@ impl Lab {
         }
         control.send_key("ret")?;
         let deadline = Instant::now() + Duration::from_secs(180);
+        let mut last_error = String::from("login inspection has not completed");
         while Instant::now() < deadline {
-            if let Ok(inspected) = self.ssh("sudo /tmp/ryoku-vm-lab guest-login-inspect") {
-                return Ok(format!("{prepared}{inspected}"));
+            match self.ssh("sudo /tmp/ryoku-vm-lab guest-login-inspect") {
+                Ok(inspected) => return Ok(format!("{prepared}{inspected}")),
+                Err(error) => {
+                    last_error = error.to_string();
+                    // Keep the most recent failed inspection separately from
+                    // the rolling guest log. It contains only safe login
+                    // state diagnostics, never the generated password.
+                    let diagnostic = fs::read(self.run.join("guest-private.log"))
+                        .unwrap_or_else(|_| last_error.as_bytes().to_vec());
+                    fs::write(self.run.join("desktop-login-last-private.log"), diagnostic)?;
+                }
             }
             thread::sleep(Duration::from_secs(3));
         }
-        Err("actual SDDM login and active Plasma session were not verified".into())
+        Err(format!("actual SDDM login and active Plasma session were not verified; last inspection: {last_error}").into())
     }
 
     fn wait_ssh(&mut self) -> Result<()> {
