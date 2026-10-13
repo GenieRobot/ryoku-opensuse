@@ -74,24 +74,32 @@ parent ioctl works through the separate mountpoint, so that mount does not
 hide parent identity. Any missing entry, unsupported ioctl, malformed or
 oversized mount table, wrong parent, wrong identity, or unsafe descriptor is a
 typed hard stop. The collector is not yet wired into installation, startup, or
-the privileged mutation path. `GenerationStore::open_state_mount` now calls
-the collector before opening/creating store directories, so an arbitrary
-directory descriptor cannot initialize the production store. The privileged
-service/helper does not yet call this constructor, and the `machine.json`
-identity reader/setup path is not implemented. Target Tumbleweed ioctl behavior
-still needs VM proof. Mount source and non-read-only mount options are not yet
-compared to the machine record.
+the privileged mutation path. `GenerationStore::open_state_mount` calls the
+collector before opening/creating store directories, so an arbitrary directory
+descriptor cannot initialize the production store. The recovery crate now has
+a strict schema-v1 reader and exclusive provisioner for
+`/etc/ryoku/state-machine.json`, stored on the root filesystem outside the
+state mount. Provisioning accepts facts from the trusted subvolume-creation
+transaction; startup reads that independent record and passes its identity to
+`GenerationStore::open_state_mount`. The reader rejects noncanonical UUIDs,
+unsupported/unknown/duplicate fields, non-top-level parents, oversized or
+noncanonical JSON, symlinked paths, and files without root:root mode `0600`.
+The actual installer and service/helper wiring are still missing. Target
+Tumbleweed ioctl behavior still needs VM proof. Mount source and non-read-only
+mount options are not yet compared to the machine record.
 
 The intended on-volume layout is:
 
 ```text
 /var/lib/ryoku-state/          root:root 0700, dedicated Btrfs subvolume
-  machine.json                 validated filesystem/subvolume identity
   catalog/                     rebuildable index of verified manifest IDs
   generations/<generation-id>/ immutable manifest + declared payload blobs
   journal/operations.log       append-only, synchronized phase records
   staging/<transaction-id>/    private incomplete publication, never a restore source
   writer.lock                  machine-wide writer coordination
+
+/etc/ryoku/state-machine.json  root:root 0600, expected identity installed
+                               from trusted subvolume-creation facts
 ```
 
 A transaction holds the writer lock from inventory freeze through publication.
