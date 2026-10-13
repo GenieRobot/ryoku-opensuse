@@ -1,7 +1,8 @@
 //! Small Rust-only integration proof for the Ryoku dashboard status surface.
 
 use ryoku_ui::{
-    BackendError, UiBackend, UpdateState, UserAction, dispatch, render_result, render_status,
+    ActionResult, BackendError, PROTOCOL_VERSION, RequestId, UiBackend, UiRequest, UiResponse,
+    UpdateState, UserAction, dispatch, render_result, render_status,
 };
 
 struct DemonstrationBackend {
@@ -9,8 +10,9 @@ struct DemonstrationBackend {
 }
 
 impl UiBackend for DemonstrationBackend {
-    fn refresh_status(&mut self) -> Result<UpdateState, BackendError> {
-        self.response.clone()
+    fn handle(&mut self, request: UiRequest) -> UiResponse {
+        let outcome = self.response.clone().map(ActionResult::StatusRefreshed);
+        UiResponse { protocol_version: PROTOCOL_VERSION, request_id: request.request_id, outcome }
     }
 }
 
@@ -27,6 +29,7 @@ fn main() {
         Ok(UpdateState::UpdatesAvailable { count: 3 })
     };
     let mut backend = DemonstrationBackend { response };
-    let result = dispatch(&mut backend, UserAction::RefreshStatus);
+    let request = UiRequest::new(RequestId(1), UserAction::RefreshStatus);
+    let result = dispatch(&mut backend, request);
     println!("{}", render_result(&result));
 }
