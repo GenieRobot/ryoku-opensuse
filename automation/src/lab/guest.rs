@@ -1,4 +1,5 @@
 use crate::definition::scalar;
+use crate::process;
 use crate::support::{Result, require};
 use std::{fs, io::Write, path::Path, process::Command, time::Duration};
 
@@ -9,6 +10,8 @@ const RESET_STATE: &[u8] = b"retained fixture reset state\n";
 const DISPLAY_MANAGER_ALIAS: &str = "/etc/systemd/system/display-manager.service";
 const LEGACY_DISPLAY_MANAGER: &str = "/usr/lib/systemd/system/display-manager-legacy.service";
 const SDDM_UNIT: &str = "/usr/lib/systemd/system/sddm.service";
+const ZYPPER_TIMEOUT: Duration = Duration::from_secs(20 * 60);
+const ZYPPER_OUTPUT_LIMIT: usize = 1024 * 1024;
 
 fn require_absent(path: impl AsRef<std::path::Path>, message: &str) -> Result<()> {
     match fs::symlink_metadata(path) {
@@ -66,11 +69,15 @@ pub fn setup(proxy: &str) -> Result<()> {
             "xorg-x11-server",
         ],
     ] {
-        let result = Command::new("zypper")
+        let mut zypper = Command::new("zypper");
+        zypper
             .args(&args)
             .env("HTTP_PROXY", format!("http://{proxy}"))
-            .env("HTTPS_PROXY", format!("http://{proxy}"))
-            .output()?;
+            .env("HTTPS_PROXY", format!("http://{proxy}"));
+        let result = process::run(&mut zypper, ZYPPER_TIMEOUT, ZYPPER_OUTPUT_LIMIT)?;
+        if result.timed_out {
+            return Err("KDE_PROVISIONING_TIMEOUT".into());
+        }
         if !result.status.success() {
             eprintln!(
                 "{}\n{}",

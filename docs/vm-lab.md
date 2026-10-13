@@ -147,6 +147,14 @@ continues the independently available base VM checks. It still returns nonzero
 and writes `lab_result=blocked` after reset. This provides partial recovery and
 runner evidence and never satisfies KDE fallback or closes #13.
 
+KDE provisioning is bounded at both the guest and host: each Rust-launched
+Zypper command has a 20-minute deadline, the remote setup command has a 29-minute
+deadline, and the Rust SSH child has a 30-minute deadline. Timeout handling
+drains both output streams while retaining at most 1 MiB per stream, kills the
+child process group, and reaps the direct child. Public evidence records only
+`kde_provisioning=timeout`; captured command output remains in the private run
+directory.
+
 ## Historical KDE download blocker (Runs 11–13)
 
 Earlier full recommended closure and a retry with native `--no-recommends` both

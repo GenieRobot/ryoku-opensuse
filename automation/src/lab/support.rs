@@ -180,4 +180,11 @@ mod tests {
         assert!(!public_evidence("zypp_inventory_path_1=/usr/lib64/zypp/plugins/commit"));
         assert!(public_evidence("zypp_inventory_zypper_version=1.14.80"));
     }
+
+    #[test]
+    fn kde_timeout_evidence_exposes_only_the_bounded_category() {
+        assert!(public_evidence("kde_provisioning=timeout"));
+        assert!(public_evidence("kde_provisioning=blocked"));
+        assert!(!public_evidence("kde_provisioning=zypper timed out after 20 minutes"));
+    }
 }

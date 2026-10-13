@@ -1,5 +1,6 @@
 use crate::{
     definition::scalar,
+    process::{self, BoundedOutput},
     support::{Result, output, public_evidence, require, safe_component},
 };
 use std::{
@@ -24,6 +25,39 @@ const LOGIN_JOURNAL_COMMAND: &str = "sudo /usr/bin/timeout --signal=KILL --kill-
 const GREETER_READINESS_FRAME: &str = "sddm-readiness.ppm";
 const GREETER_READINESS_TIMEOUT: Duration = Duration::from_secs(60);
 const GREETER_READINESS_POLL: Duration = Duration::from_millis(500);
+const KDE_PROVISION_TIMEOUT: Duration = Duration::from_secs(30 * 60);
+const KDE_REMOTE_TIMEOUT_SECONDS: u32 = 29 * 60;
+const KDE_OUTPUT_LIMIT: usize = 1024 * 1024;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KdeProvisionFailure {
+    Timeout,
+    Failed,
+}
+
+fn kde_failure(timed_out: bool, exit_code: Option<i32>) -> Option<KdeProvisionFailure> {
+    if timed_out || exit_code == Some(124) {
+        Some(KdeProvisionFailure::Timeout)
+    } else if exit_code == Some(0) {
+        None
+    } else {
+        Some(KdeProvisionFailure::Failed)
+    }
+}
+
+fn bounded_output_log(output: &BoundedOutput) -> Vec<u8> {
+    let mut log = Vec::with_capacity(output.stdout.len() + output.stderr.len() + 128);
+    log.extend_from_slice(&output.stdout);
+    if output.stdout_truncated {
+        log.extend_from_slice(b"\n[stdout truncated at private capture limit]\n");
+    }
+    log.extend_from_slice(b"\n--- stderr ---\n");
+    log.extend_from_slice(&output.stderr);
+    if output.stderr_truncated {
+        log.extend_from_slice(b"\n[stderr truncated at private capture limit]\n");
+    }
+    log
+}
 
 fn login_journal_path(run: &Path) -> PathBuf {
     run.join(LOGIN_JOURNAL_FILENAME)
@@ -430,6 +464,22 @@ impl Lab {
         )?;
         require(result.status.success(), "guest command failed; inspect private guest log")?;
         Ok(String::from_utf8(result.stdout)?)
+    }
+
+    fn kde_setup(&self, proxy: &str) -> std::result::Result<String, KdeProvisionFailure> {
+        let request = format!(
+            "sudo /usr/bin/timeout --signal=TERM --kill-after=10s {KDE_REMOTE_TIMEOUT_SECONDS}s /tmp/ryoku-vm-lab guest-setup {proxy}"
+        );
+        let mut command = self.ssh_command().map_err(|_| KdeProvisionFailure::Failed)?;
+        command.arg(request);
+        let output = process::run(&mut command, KDE_PROVISION_TIMEOUT, KDE_OUTPUT_LIMIT)
+            .map_err(|_| KdeProvisionFailure::Failed)?;
+        fs::write(self.run.join("guest-private.log"), bounded_output_log(&output))
+            .map_err(|_| KdeProvisionFailure::Failed)?;
+        if let Some(failure) = kde_failure(output.timed_out, output.status.code()) {
+            return Err(failure);
+        }
+        String::from_utf8(output.stdout).map_err(|_| KdeProvisionFailure::Failed)
     }
 
     fn login(&self, password: &[u8]) -> Result<String> {
@@ -1271,14 +1321,17 @@ pub fn run(
     let base = lab.ssh("sudo /tmp/ryoku-vm-lab guest-base-setup")?;
     lab.evidence(&base)?;
     lab.evidence("derived_btrfs_boot=passed")?;
-    let kde_installed = match lab.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-setup {address}")) {
+    let kde_installed = match lab.kde_setup(&address.to_string()) {
         Ok(setup) => {
             lab.evidence(&setup)?;
             true
         }
-        Err(_) => {
+        Err(failure) => {
             fs::copy(lab.run.join("guest-private.log"), lab.run.join("kde-failure-private.log"))?;
-            lab.evidence("kde_provisioning=blocked")?;
+            lab.evidence(match failure {
+                KdeProvisionFailure::Timeout => "kde_provisioning=timeout",
+                KdeProvisionFailure::Failed => "kde_provisioning=blocked",
+            })?;
             false
         }
     };
@@ -1692,6 +1745,14 @@ mod tests {
         assert_eq!(optional_ui_result(false, false), None);
         assert_eq!(optional_ui_result(true, false), Some("ui_visual_capture=blocked"));
         assert_eq!(optional_ui_result(true, true), Some("ui_visual_capture=passed"));
+    }
+
+    #[test]
+    fn kde_timeout_classification_accepts_only_timeout_status_or_host_deadline() {
+        assert_eq!(kde_failure(true, None), Some(KdeProvisionFailure::Timeout));
+        assert_eq!(kde_failure(false, Some(124)), Some(KdeProvisionFailure::Timeout));
+        assert_eq!(kde_failure(false, Some(1)), Some(KdeProvisionFailure::Failed));
+        assert_eq!(kde_failure(false, Some(0)), None);
     }
 
     #[test]
