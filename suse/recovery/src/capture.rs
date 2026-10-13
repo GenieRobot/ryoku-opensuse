@@ -118,6 +118,26 @@ pub fn capture_declared(
     capture_declared_with_xattrs(root_fd, root, declared, limits, &KernelXattrs)
 }
 
+#[cfg(test)]
+pub(crate) fn capture_declared_without_xattrs_for_test(
+    root_fd: &File,
+    root: StateRoot,
+    declared: &[RelativePath],
+    limits: CaptureLimits,
+) -> Result<Vec<FileRecord>, CaptureError> {
+    capture_declared_with_xattrs(root_fd, root, declared, limits, &TestNoXattrs)
+}
+
+#[cfg(test)]
+struct TestNoXattrs;
+
+#[cfg(test)]
+impl XattrReader for TestNoXattrs {
+    fn read(&self, _fd: &File, _name: &'static str) -> Result<Option<Vec<u8>>, CaptureError> {
+        Ok(None)
+    }
+}
+
 fn capture_declared_with_xattrs(
     root_fd: &File,
     root: StateRoot,

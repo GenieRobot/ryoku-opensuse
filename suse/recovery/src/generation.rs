@@ -149,6 +149,12 @@ impl GenerationStore {
         Ok(Self { staging, generations, catalog })
     }
 
+    #[cfg(test)]
+    pub(crate) fn open_for_test(root: &File) -> Result<Self, GenerationError> {
+        let owner = rustix::fs::fstat(root)?.st_uid;
+        Self::open_owned(root, owner)
+    }
+
     /// Publishes all content, verifies it from disk, atomically makes the
     /// generation visible, then atomically publishes the transaction index.
     /// A crash before the final rename leaves ignored staging; a crash between
