@@ -440,6 +440,24 @@ settings surface. It has no filesystem, command, or network capability.
 Its Rust module documentation includes a synthetic local example that resolves
 all four layers without a Git remote, credentials, or companion payload.
 
+The local `ProfileDocument` JSON contract is schema version 1, bounded to 64
+KiB, and contains only a validated profile ID plus typed settings. Unknown
+fields and noncanonical profile IDs are rejected; setting values are closed
+enums, so documents cannot introduce paths, commands, or scripts. Canonical
+serialization has fixed struct-field order and no maps. The parser accepts
+only v1. There are no legacy inputs to migrate yet: an older schema remains
+unsupported until a deliberate version-to-version migration and fixtures are
+added, and a future version is rejected rather than guessed. This API parses
+caller-supplied bytes only; callers remain responsible for resolving exact
+local files and permissions. Companion retrieval, filesystem persistence,
+and credential handling are outside this crate.
+
+Synthetic schema-v1 example:
+
+```json
+{"schema_version":1,"id":"demo-desktop","settings":{"desktop":"kde","theme":"ryoku_dark","density":null}}
+```
+
 Public profiles and examples must be synthetic. Never commit private companion
 payloads, remote URLs, access tokens, user identifiers, private profile names,
 or real personal overrides. Future sync/import code must remain outside the
@@ -490,11 +508,11 @@ corresponding implementation and disposable-guest evidence are linked.
 | Inventory Ryoku config, app/theme/shell state, provider state and profile layers | Pinned upstream paths, an explicit v1 exact-file enrollment boundary, ownership/mode policy, symlink/xattr rules and declared exclusions above; typed local profile layers | Exact Tumbleweed ownership/mode/metadata audit for integrated Ryoku paths and final package/session inventory after login support succeeds. |
 | Define manifest IDs, reason/time, checksums, metadata, package/upstream/profile revisions and verification | Typed v1 manifest, canonical JSON/SHA-256 seal/verify, explicit package/provider revisions, profile revisions, metadata fields, bounded parser, and exact-file Linux capture for regular files/directories/absence | Supported-filesystem ACL/SELinux integration proof, safe symlink target capture, schema migration implementation/tests, and live Tumbleweed metadata capture. |
 | Protect catalog/generations outside root rollback; validate subvolume, writer coordination and privilege split | Storage ADR specifies the dedicated subvolume, validation and user/helper responsibilities | Setup/startup validation, locking/journal/publication implementation, and linked root rollback/reboot proof on Tumbleweed. |
-| Define profile precedence, absent entries and compatible migrations | Rust local resolver plus synthetic doctest; absent-file records; strict v1 compatibility/migration rules | Persistent profile/catalog storage, migration implementation/tests, and offline linked restore proof. |
+| Define profile precedence, absent entries and compatible migrations | Rust local resolver, strict schema-v1 local document parser/serializer, synthetic doctest, absent-file records, and explicit reject-until-migrated policy | Persistent profile/catalog storage, any future schema migration implementation/tests, and offline linked restore proof. |
 | Document snapshot/boot combinations, fallback and exclusions | Scenario matrix and explicit firmware, partitioning, arbitrary-root and undeclared-home exclusions | Exercise manifest-linked rollback, corruption handling and configuration-only fallback offline. |
 | ADR retains catalog, journal and matching generation across root rollback | Contract describes storage location, link identity and refusal to guess a generation | Actual dedicated mount plus Snapper rollback/reboot evidence. |
 | Inventory ownership, modes, symlinks, extended metadata and external paths without traversal | Typed metadata schema; exact v1 candidate inventory; no-follow regular/directory capture, ACL/SELinux digests, absent records, hard-link checks, and symlink fail-closed behavior | Exact runtime ownership/mode/ACL/xattr evidence for integrated Ryoku state, an enforced audited allowlist, race-injection tests, and raw-target symlink capture are needed. Run19 provider paths do not constitute a Ryoku-owned path set. |
-| Profile interface works locally without remotes/credentials; public examples synthetic | Pure Rust resolver has no filesystem/network capability; synthetic four-layer doctest | None for the resolver contract; companion persistence/sync remains out of scope. |
+| Profile interface works locally without remotes/credentials; public examples synthetic | Pure Rust resolver and bounded profile document parser have no filesystem/network capability; synthetic four-layer doctest and serialization tests | Exact local file loading/permissions and persistence integration; companion persistence/sync remains out of scope. |
 
 ## Issue #21 restore journal implementation status
 
