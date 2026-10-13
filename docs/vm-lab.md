@@ -159,10 +159,10 @@ and slower TCG disk preparation. Generic
 SSH commands have a 10-minute cap; guest readiness retries share one absolute
 10-minute deadline, so every SSH attempt consumes that same budget. Timeout
 handling drains both output streams, kills
-the child process group, and reaps the direct child. Captured diagnostics remain
-in the private run directory, while callers and public evidence receive stable
-failure categories such as `SSH_READINESS_TIMEOUT` and
-`KDE_PROVISIONING_TIMEOUT`.
+the child process group, and reaps the direct child. Binary transfers also have
+a 10-minute deadline and bounded output. Captured diagnostics remain in the
+private run directory, while callers and public evidence receive stable failure
+categories such as `SSH_READINESS_TIMEOUT` and `KDE_PROVISIONING_TIMEOUT`.
 
 ## Historical KDE download blocker (Runs 11–13)
 

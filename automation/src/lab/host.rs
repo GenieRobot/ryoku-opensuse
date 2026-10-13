@@ -36,6 +36,7 @@ const LOGIN_PREPARE_TIMEOUT: Duration = Duration::from_secs(60);
 const LOGIN_JOURNAL_TIMEOUT: Duration = Duration::from_secs(30);
 const ZYPP_PROBE_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 const MIGRATION_TIMEOUT: Duration = Duration::from_secs(60 * 60);
+const SSH_TRANSFER_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum KdeProvisionFailure {
@@ -474,6 +475,23 @@ impl Lab {
         Ok(String::from_utf8(result.stdout)?)
     }
 
+    fn run_private_child(
+        &self,
+        command: &mut Command,
+        log_name: &str,
+        timeout_category: &'static str,
+        failure_category: &'static str,
+    ) -> Result<()> {
+        let result = process::run(command, SSH_TRANSFER_TIMEOUT, SSH_OUTPUT_LIMIT)?;
+        let log_path = self.run.join(log_name);
+        fs::write(&log_path, bounded_output_log(&result))?;
+        fs::set_permissions(&log_path, fs::Permissions::from_mode(0o600))?;
+        require(!result.timed_out, timeout_category)?;
+        require(result.status.success(), failure_category)?;
+        require(!result.stdout_truncated && !result.stderr_truncated, "SSH_TRANSFER_OUTPUT_LIMIT")?;
+        Ok(())
+    }
+
     fn kde_setup(&self, proxy: &str) -> std::result::Result<String, KdeProvisionFailure> {
         let request = format!(
             "sudo /usr/bin/timeout --signal=TERM --kill-after=10s {KDE_REMOTE_TIMEOUT_SECONDS}s /tmp/ryoku-vm-lab guest-setup {proxy}"
@@ -604,45 +622,54 @@ impl Lab {
 
     fn copy_binary(&self) -> Result<()> {
         let port = self.port.ok_or("owned QEMU SSH forwarding endpoint unknown")?;
-        output(
-            Command::new("scp")
-                .args(["-F", "/dev/null", "-i"])
-                .arg(self.run.join("id_ed25519"))
-                .args([
-                    "-P",
-                    &port.to_string(),
-                    "-o",
-                    "BatchMode=yes",
-                    "-o",
-                    "StrictHostKeyChecking=yes",
-                    "-o",
-                ])
-                .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
-                .arg(std::env::current_exe()?)
-                .arg("tester@127.0.0.1:/tmp/ryoku-vm-lab"),
-        )?;
-        Ok(())
+        let mut command = Command::new("scp");
+        command
+            .args(["-F", "/dev/null", "-i"])
+            .arg(self.run.join("id_ed25519"))
+            .args([
+                "-P",
+                &port.to_string(),
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=yes",
+                "-o",
+            ])
+            .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
+            .arg(std::env::current_exe()?)
+            .arg("tester@127.0.0.1:/tmp/ryoku-vm-lab");
+        self.run_private_child(
+            &mut command,
+            "binary-copy-private.log",
+            "SSH_BINARY_COPY_TIMEOUT",
+            "SSH_BINARY_COPY_FAILED",
+        )
     }
 
     fn copy_zypp_probe(&self) -> Result<()> {
         let binary = self.zypp_probe.as_ref().ok_or("no zypper probe binary configured")?;
         let port = self.port.ok_or("owned QEMU SSH forwarding endpoint unknown")?;
-        output(
-            Command::new("scp")
-                .args(["-F", "/dev/null", "-i"])
-                .arg(self.run.join("id_ed25519"))
-                .args([
-                    "-P",
-                    &port.to_string(),
-                    "-o",
-                    "BatchMode=yes",
-                    "-o",
-                    "StrictHostKeyChecking=yes",
-                    "-o",
-                ])
-                .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
-                .arg(binary)
-                .arg("tester@127.0.0.1:/tmp/ryoku-zypp-hook-probe.upload"),
+        let mut command = Command::new("scp");
+        command
+            .args(["-F", "/dev/null", "-i"])
+            .arg(self.run.join("id_ed25519"))
+            .args([
+                "-P",
+                &port.to_string(),
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=yes",
+                "-o",
+            ])
+            .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
+            .arg(binary)
+            .arg("tester@127.0.0.1:/tmp/ryoku-zypp-hook-probe.upload");
+        self.run_private_child(
+            &mut command,
+            "zypp-probe-copy-private.log",
+            "SSH_ZYPP_PROBE_COPY_TIMEOUT",
+            "SSH_ZYPP_PROBE_COPY_FAILED",
         )?;
         self.ssh("sudo install -m 0755 /tmp/ryoku-zypp-hook-probe.upload /usr/local/sbin/ryoku-zypp-hook-probe")?;
         Ok(())
@@ -960,22 +987,27 @@ impl Lab {
             return Ok(());
         };
         let port = self.port.ok_or("owned QEMU SSH forwarding endpoint unknown")?;
-        output(
-            Command::new("scp")
-                .args(["-F", "/dev/null", "-i"])
-                .arg(self.run.join("id_ed25519"))
-                .args([
-                    "-P",
-                    &port.to_string(),
-                    "-o",
-                    "BatchMode=yes",
-                    "-o",
-                    "StrictHostKeyChecking=yes",
-                    "-o",
-                ])
-                .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
-                .arg(binary)
-                .arg("tester@127.0.0.1:/tmp/ryoku-ui-gtk.upload"),
+        let mut command = Command::new("scp");
+        command
+            .args(["-F", "/dev/null", "-i"])
+            .arg(self.run.join("id_ed25519"))
+            .args([
+                "-P",
+                &port.to_string(),
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=yes",
+                "-o",
+            ])
+            .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
+            .arg(binary)
+            .arg("tester@127.0.0.1:/tmp/ryoku-ui-gtk.upload");
+        self.run_private_child(
+            &mut command,
+            "ui-binary-copy-private.log",
+            "SSH_UI_BINARY_COPY_TIMEOUT",
+            "SSH_UI_BINARY_COPY_FAILED",
         )?;
         self.ssh_package_command("sudo /tmp/ryoku-vm-lab guest-ui-install")?;
         Ok(())
