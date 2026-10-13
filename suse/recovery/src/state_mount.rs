@@ -35,8 +35,7 @@ pub struct StateMountIdentity {
 ///
 /// Values must come from the live mount table and Btrfs metadata, not from
 /// persisted machine state or a caller-supplied path. Parent identity is
-/// intentionally mandatory: `None` fails closed because this implementation
-/// has no safe Btrfs parent-subvolume query yet.
+/// intentionally mandatory; `None` fails closed.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MountEvidence {
     pub mountpoint: String,
@@ -64,6 +63,7 @@ pub enum StateMountError {
     InvalidMountInfo,
     MountInfoTooLarge,
     NotBtrfsSubvolume,
+    NotSubvolumeRoot,
     Filesystem(Errno),
 }
 
@@ -85,6 +85,7 @@ impl std::fmt::Display for StateMountError {
             Self::InvalidMountInfo => "kernel mount table could not be parsed unambiguously",
             Self::MountInfoTooLarge => "kernel mount table exceeds the inspection bound",
             Self::NotBtrfsSubvolume => "protected state directory is not a Btrfs subvolume root",
+            Self::NotSubvolumeRoot => "protected state mount is not at the Btrfs subvolume root",
             Self::Filesystem(_) => "protected state mount inspection failed",
         })
     }
@@ -137,6 +138,7 @@ pub fn collect_and_open_state_mount(
     if mount.read_only {
         return Err(StateMountError::ReadOnly);
     }
+    validate_btrfs_root_inode(fstat(&state_fd).map_err(StateMountError::Filesystem)?.st_ino)?;
 
     let fs_info = read_btrfs_fs_info(&state_fd)?;
     let subvolume_info = read_btrfs_subvolume_info(&state_fd)?;
@@ -162,11 +164,15 @@ fn validate_state_descriptor<Fd: AsFd>(fd: Fd) -> Result<(), StateMountError> {
     {
         return Err(StateMountError::UnsafeDescriptor);
     }
+    validate_btrfs_root_inode(stat.st_ino)?;
     Ok(())
 }
 
 #[derive(Debug, Eq, PartialEq)]
 struct ParsedMountInfo {
+    /// Root path inside the mounted filesystem. For Btrfs subvolume mounts
+    /// this may name the subvolume path, so it is not necessarily `/`.
+    root: String,
     mountpoint: String,
     filesystem_type: String,
     read_only: bool,
@@ -204,6 +210,10 @@ fn parse_mountinfo_for_id(
         if mount_id != expected_id {
             continue;
         }
+        let root = decode_mount_field(before[3])?;
+        if !root.starts_with('/') {
+            return Err(StateMountError::InvalidMountInfo);
+        }
         let mountpoint = decode_mount_field(before[4])?;
         let mut ro = false;
         let mut rw = false;
@@ -214,13 +224,27 @@ fn parse_mountinfo_for_id(
         if ro == rw {
             return Err(StateMountError::InvalidMountInfo);
         }
-        let parsed =
-            ParsedMountInfo { mountpoint, filesystem_type: after[0].to_string(), read_only: ro };
+        let parsed = ParsedMountInfo {
+            root,
+            mountpoint,
+            filesystem_type: after[0].to_string(),
+            read_only: ro,
+        };
         if found.replace(parsed).is_some() {
             return Err(StateMountError::InvalidMountInfo);
         }
     }
     found.ok_or(StateMountError::MissingMount)
+}
+
+/// Btrfs assigns inode 256 to the root directory of every subvolume. The
+/// GET_SUBVOL_INFO ioctl reports the containing subvolume even for a regular
+/// directory bind-mounted from inside it; requiring inode 256 proves that the
+/// pinned mount root itself is the subvolume root. The mountinfo `root` field
+/// is decoded separately, but cannot be required to equal `/`: Btrfs reports
+/// the subvolume's filesystem-relative path there for normal subvolume mounts.
+fn validate_btrfs_root_inode(inode: u64) -> Result<(), StateMountError> {
+    if inode == 256 { Ok(()) } else { Err(StateMountError::NotSubvolumeRoot) }
 }
 
 fn decode_mount_field(value: &str) -> Result<String, StateMountError> {
@@ -490,6 +514,7 @@ mod tests {
     fn parses_mountinfo_for_the_descriptor_mount_id() {
         let parsed = parse_mountinfo_for_id(MOUNTINFO_FIXTURE, 25).unwrap();
         assert_eq!(parsed.mountpoint, STATE_MOUNTPOINT);
+        assert_eq!(parsed.root, "/");
         assert_eq!(parsed.filesystem_type, "btrfs");
         assert!(!parsed.read_only);
         assert_eq!(
@@ -504,6 +529,26 @@ mod tests {
         let parsed = parse_mountinfo_for_id(fixture, 26).unwrap();
         assert_eq!(parsed.mountpoint, "/var/lib/ryoku state");
         assert!(parsed.read_only);
+    }
+
+    #[test]
+    fn accepts_btrfs_subvolume_root_path_and_rejects_bind_root_subpath() {
+        // Btrfs mountinfo's root field may be the filesystem-relative path of
+        // the mounted subvolume. The descriptor inode check proves the mount
+        // is at that subvolume's root.
+        let subvolume = "27 1 0:22 /@ryoku-state /var/lib/ryoku-state rw - btrfs /dev/vda2 rw\n";
+        let parsed = parse_mountinfo_for_id(subvolume, 27).unwrap();
+        assert_eq!(parsed.root, "/@ryoku-state");
+        assert_eq!(validate_btrfs_root_inode(256), Ok(()));
+
+        // A same-filesystem bind mount of a directory inside the subvolume
+        // retains the containing tree ID but has a non-root inode and a
+        // filesystem-relative mount root.
+        let bind_subpath =
+            "28 1 0:22 /@ryoku-state/catalog /var/lib/ryoku-state rw - btrfs /dev/vda2 rw\n";
+        let parsed = parse_mountinfo_for_id(bind_subpath, 28).unwrap();
+        assert_eq!(parsed.root, "/@ryoku-state/catalog");
+        assert_eq!(validate_btrfs_root_inode(257), Err(StateMountError::NotSubvolumeRoot));
     }
 
     #[test]
