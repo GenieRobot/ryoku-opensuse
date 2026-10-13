@@ -4,6 +4,7 @@ members = [
     "suse/adapters",
     "suse/service",
     "suse/recovery",
+    "suse/snapper",
     "suse/ui",
     "suse/profiles",
     "suse/tests",
