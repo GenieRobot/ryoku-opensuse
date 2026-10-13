@@ -76,7 +76,7 @@ pub fn read_helper_envelope(reader: &mut impl BufRead) -> Result<HelperEnvelope,
 /// Evaluate the current helper policy. Even authenticated, valid operations
 /// are rejected until linked checkpoint and provider evidence are integrated.
 pub fn dispatch_helper_request(
-    peer: PeerIdentity,
+    peer: &PeerIdentity,
     service_uid: u32,
     envelope: HelperEnvelope,
 ) -> Result<HelperResponse, ProtocolError> {
@@ -95,14 +95,15 @@ pub fn dispatch_helper_request(
     })
 }
 
-/// Dispatch for the installed root helper. The fixed socket's group/mode
-/// gates membership; kernel peer credentials identify the user principal.
+/// Dispatch for the installed root helper. Socket mode gates membership at
+/// connect time; kernel peer credentials independently validate the group and UID.
 pub fn dispatch_operator_request(
     peer: PeerIdentity,
+    operator_gid: u32,
     envelope: HelperEnvelope,
 ) -> Result<HelperResponse, ProtocolError> {
     envelope.validate()?;
-    let outcome = if authorize_helper_operator(peer.uid()).is_err() {
+    let outcome = if authorize_helper_operator(&peer, operator_gid).is_err() {
         HelperOutcome::Rejected(ServiceError::Unauthorized)
     } else {
         // Availability probes and every future provider request fail closed.
@@ -155,20 +156,23 @@ pub fn serve_helper_connection(
         }
     };
 
-    let response = if authorize_helper_peer(peer, service_uid).is_err() {
+    let response = if authorize_helper_peer(&peer, service_uid).is_err() {
         HelperResponse {
             version: HELPER_PROTOCOL_VERSION,
             request_id: envelope.request_id.clone(),
             outcome: HelperOutcome::Rejected(ServiceError::Unauthorized),
         }
     } else {
-        dispatch_helper_request(peer, service_uid, envelope)?
+        dispatch_helper_request(&peer, service_uid, envelope)?
     };
     write_helper_response(stream, response)
 }
 
 /// Serve one connection from the opt-in group-owned helper socket.
-pub fn serve_operator_helper_connection(mut stream: UnixStream) -> Result<(), ProtocolError> {
+pub fn serve_operator_helper_connection(
+    mut stream: UnixStream,
+    operator_gid: u32,
+) -> Result<(), ProtocolError> {
     stream.set_read_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
     stream.set_write_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
     let peer = PeerIdentity::from_unix_socket(&stream)?;
@@ -198,7 +202,7 @@ pub fn serve_operator_helper_connection(mut stream: UnixStream) -> Result<(), Pr
             );
         }
     };
-    let response = dispatch_operator_request(peer, envelope)?;
+    let response = dispatch_operator_request(peer, operator_gid, envelope)?;
     write_helper_response(stream, response)
 }
 
@@ -324,28 +328,55 @@ mod tests {
             manifest_id: "manifest-1".into(),
             checkpoint_id: CheckpointId::new("snap-1").unwrap(),
         });
-        let allowed = dispatch_helper_request(peer, peer.uid(), envelope.clone()).unwrap();
+        let allowed = dispatch_helper_request(&peer, peer.uid(), envelope.clone()).unwrap();
         assert_eq!(allowed.outcome, HelperOutcome::Rejected(ServiceError::Unsupported));
-        let denied = dispatch_helper_request(peer, u32::MAX, envelope).unwrap();
+        let denied = dispatch_helper_request(&peer, u32::MAX, envelope).unwrap();
         assert_eq!(denied.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
     }
 
     #[test]
-    fn operator_socket_accepts_only_nonroot_uid_and_valid_requests_stay_rejected() {
-        assert_eq!(authorize_helper_operator(0), Err(ServiceError::Unauthorized));
-        assert_eq!(authorize_helper_operator(1000), Ok(()));
-
+    fn operator_socket_requires_opt_in_group_and_keeps_valid_requests_denied() {
+        const OPERATOR_GID: u32 = 4242;
         let request = valid_envelope(HelperRequest::CheckAvailability {
             action: ManagedActionKind::InstallPackage,
         });
-        let root_peer = PeerIdentity { uid: 0, gid: 0, pid: None };
+        let root_peer =
+            PeerIdentity { uid: 0, gid: 0, supplementary_gids: vec![OPERATOR_GID], pid: None };
+        let ordinary_peer =
+            PeerIdentity { uid: 1000, gid: 1000, supplementary_gids: vec![1001], pid: None };
+        let operator_peer = PeerIdentity {
+            uid: 1000,
+            gid: 1000,
+            supplementary_gids: vec![OPERATOR_GID],
+            pid: None,
+        };
+        let primary_group_peer = PeerIdentity { gid: OPERATOR_GID, ..ordinary_peer.clone() };
+
         assert_eq!(
-            dispatch_operator_request(root_peer, request.clone()).unwrap().outcome,
+            authorize_helper_operator(&root_peer, OPERATOR_GID),
+            Err(ServiceError::Unauthorized)
+        );
+        assert_eq!(
+            authorize_helper_operator(&ordinary_peer, OPERATOR_GID),
+            Err(ServiceError::Unauthorized)
+        );
+        assert_eq!(authorize_helper_operator(&operator_peer, OPERATOR_GID), Ok(()));
+        assert_eq!(authorize_helper_operator(&primary_group_peer, OPERATOR_GID), Ok(()));
+
+        assert_eq!(
+            dispatch_operator_request(root_peer, OPERATOR_GID, request.clone()).unwrap().outcome,
             HelperOutcome::Rejected(ServiceError::Unauthorized)
         );
-        let user_peer = PeerIdentity { uid: 1000, gid: 1000, pid: None };
         assert_eq!(
-            dispatch_operator_request(user_peer, request).unwrap().outcome,
+            dispatch_operator_request(ordinary_peer, OPERATOR_GID, request.clone())
+                .unwrap()
+                .outcome,
+            HelperOutcome::Rejected(ServiceError::Unauthorized)
+        );
+        assert_eq!(
+            dispatch_operator_request(operator_peer.clone(), OPERATOR_GID, request.clone())
+                .unwrap()
+                .outcome,
             HelperOutcome::Rejected(ServiceError::Unsupported)
         );
 
@@ -368,7 +399,8 @@ mod tests {
         for request in mutation_requests {
             assert_eq!(
                 dispatch_operator_request(
-                    user_peer,
+                    operator_peer.clone(),
+                    OPERATOR_GID,
                     HelperEnvelope {
                         request,
                         ..valid_envelope(HelperRequest::CheckAvailability {
@@ -381,30 +413,65 @@ mod tests {
                 HelperOutcome::Rejected(ServiceError::Unsupported)
             );
         }
+    }
 
-        let (server, mut client) = UnixStream::pair().unwrap();
-        let peer = PeerIdentity::from_unix_socket(&client).unwrap();
-        let envelope = valid_envelope(HelperRequest::CheckAvailability {
-            action: ManagedActionKind::InstallPackage,
-        });
-        send_envelope(&mut client, &envelope);
-        serve_operator_helper_connection(server).unwrap();
-        let response = receive_response(&mut client);
-        assert_eq!(response.request_id, envelope.request_id);
-        let expected =
-            if peer.uid() == 0 { ServiceError::Unauthorized } else { ServiceError::Unsupported };
-        assert_eq!(response.outcome, HelperOutcome::Rejected(expected));
-        assert_eq!(peer.uid(), rustix::process::geteuid().as_raw());
+    #[test]
+    fn connected_peer_groups_match_kernel_process_group_snapshot() {
+        let (server, client) = UnixStream::pair().unwrap();
+        let peer = PeerIdentity::from_unix_socket(&server).unwrap();
+        let expected = rustix::process::getgroups()
+            .unwrap()
+            .into_iter()
+            .map(|gid| gid.as_raw())
+            .collect::<Vec<_>>();
+        assert_eq!(peer.supplementary_gids, expected);
+        drop(client);
+    }
+
+    #[test]
+    fn operator_group_database_requires_one_valid_local_entry() {
+        assert_eq!(
+            crate::parse_operator_group_gid("root:x:0:\nryoku-operators:x:4242:\n"),
+            Ok(4242)
+        );
+        assert!(matches!(
+            crate::parse_operator_group_gid("root:x:0:\n"),
+            Err(ProtocolError::Malformed(_))
+        ));
+        assert!(matches!(
+            crate::parse_operator_group_gid("ryoku-operators:x:bad:\n"),
+            Err(ProtocolError::Malformed(_))
+        ));
+        assert!(matches!(
+            crate::parse_operator_group_gid("ryoku-operators:x:4242:\nryoku-operators:x:4243:\n"),
+            Err(ProtocolError::Malformed(_))
+        ));
     }
 
     #[test]
     fn operator_socket_returns_malformed_rejection_without_dispatching() {
         let (server, mut client) = UnixStream::pair().unwrap();
         client.write_all(b"not-json\n").unwrap();
-        serve_operator_helper_connection(server).unwrap();
+        let operator_gid = rustix::process::getegid().as_raw();
+        serve_operator_helper_connection(server, operator_gid).unwrap();
         let response = receive_response(&mut client);
         assert_eq!(response.request_id.as_str(), "invalid");
         assert!(matches!(response.outcome, HelperOutcome::Rejected(ServiceError::Malformed(_))));
+    }
+
+    #[test]
+    fn obsolete_protocol_version_gets_structured_unsupported_rejection() {
+        let (server, mut client) = UnixStream::pair().unwrap();
+        let mut envelope = valid_envelope(HelperRequest::CheckAvailability {
+            action: ManagedActionKind::InstallPackage,
+        });
+        envelope.version = HELPER_PROTOCOL_VERSION + 1;
+        send_envelope(&mut client, &envelope);
+        let operator_gid = rustix::process::getegid().as_raw();
+        serve_operator_helper_connection(server, operator_gid).unwrap();
+        let response = receive_response(&mut client);
+        assert_eq!(response.request_id.as_str(), "invalid");
+        assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unsupported));
     }
 
     #[test]

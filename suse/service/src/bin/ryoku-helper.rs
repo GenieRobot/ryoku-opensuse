@@ -3,6 +3,7 @@ use std::os::unix::net::UnixListener;
 use std::path::Path;
 
 use ryoku_service::helper_protocol::{HELPER_SOCKET_PATH, serve_operator_helper_connection};
+use ryoku_service::operator_group_gid;
 
 fn main() {
     if let Err(error) = run() {
@@ -40,10 +41,12 @@ fn run() -> Result<(), String> {
     // so no helper request can reach a protected operation without this gate.
     let _protected_state = ryoku_service::protected_state::ProtectedState::open()
         .map_err(|error| format!("protected recovery state unavailable: {error}"))?;
+    let operator_gid =
+        operator_group_gid().map_err(|_| "ryoku-operators group is missing or invalid")?;
     for accepted in listener.incoming() {
         match accepted {
             Ok(stream) => {
-                let _ = serve_operator_helper_connection(stream);
+                let _ = serve_operator_helper_connection(stream, operator_gid);
             }
             Err(error) => eprintln!("ryoku-helper: accept failed: {error}"),
         }
