@@ -13,3 +13,7 @@ workspace = true
 [[bin]]
 name = "vm-lab"
 path = "src/lab/main.rs"
+
+[[bin]]
+name = "zypp-hook-probe"
+path = "src/bin_zypp_hook_probe.rs"
