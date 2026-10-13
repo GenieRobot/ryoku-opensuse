@@ -12,8 +12,8 @@ use std::{
 
 use rustix::{
     fs::{
-        Dir, Mode, OFlags, RenameFlags, ResolveFlags, fchmod, fsync, mkdirat, openat, openat2,
-        renameat_with,
+        Dir, Mode, OFlags, RenameFlags, ResolveFlags, fchmod, fstatvfs, fsync, mkdirat, openat,
+        openat2, renameat_with,
     },
     io::Errno,
 };
@@ -26,6 +26,7 @@ use crate::{EntryKind, Identifier, MAX_MANIFEST_BYTES, ManifestError, RecoveryMa
 const MAX_GENERATION_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_GENERATION_FILE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_GENERATION_FILES: usize = 256;
+const GENERATION_AUXILIARY_BLOCKS: u64 = 4;
 
 /// Immutable copy inputs. Keys must equal the set of distinct regular-file
 /// content digests in the manifest; repeated identical content is deduplicated.
@@ -62,6 +63,8 @@ pub enum GenerationError {
     PayloadMismatch,
     GenerationCollision,
     IncompletePublication,
+    InsufficientSpace { required_bytes: u64, available_bytes: u64 },
+    CapacityOverflow,
     Manifest(ManifestError),
     Filesystem(Errno),
     Io(std::io::Error),
@@ -86,6 +89,13 @@ impl std::fmt::Display for GenerationError {
                 f.write_str("generation ID already names different content")
             }
             Self::IncompletePublication => f.write_str("generation is incomplete or corrupt"),
+            Self::InsufficientSpace { required_bytes, available_bytes } => write!(
+                f,
+                "recovery generation needs {required_bytes} bytes but only {available_bytes} are available"
+            ),
+            Self::CapacityOverflow => {
+                f.write_str("recovery generation capacity calculation overflowed")
+            }
             Self::Manifest(error) => write!(f, "manifest validation failed: {error}"),
             Self::Filesystem(error) => write!(f, "generation filesystem operation failed: {error}"),
             Self::Io(error) => write!(f, "generation payload I/O failed: {error}"),
@@ -149,6 +159,41 @@ impl GenerationStore {
         Self::open_owned(&state_root, 0)
     }
 
+    /// Fail closed unless the generation's payload, bounded manifest and
+    /// per-file allocation overhead fit on the filesystem backing `staging`.
+    /// This is a preflight estimate, not a reservation: callers must still
+    /// treat any later write or synchronization failure as a failed checkpoint.
+    pub fn ensure_available_space(
+        &self,
+        payload_bytes: u64,
+        payload_file_count: usize,
+    ) -> Result<(), GenerationError> {
+        if payload_bytes > MAX_GENERATION_BYTES || payload_file_count > MAX_GENERATION_FILES {
+            return Err(GenerationError::InventoryTooLarge);
+        }
+        let stats = fstatvfs(&self.staging)?;
+        let block_size = if stats.f_frsize != 0 { stats.f_frsize } else { stats.f_bsize };
+        if block_size == 0 {
+            return Err(GenerationError::CapacityOverflow);
+        }
+        let allocation_blocks = u64::try_from(payload_file_count)
+            .map_err(|_| GenerationError::CapacityOverflow)?
+            .checked_add(GENERATION_AUXILIARY_BLOCKS)
+            .ok_or(GenerationError::CapacityOverflow)?;
+        let allocation_overhead =
+            allocation_blocks.checked_mul(block_size).ok_or(GenerationError::CapacityOverflow)?;
+        let required_bytes = payload_bytes
+            .checked_add(MAX_MANIFEST_BYTES as u64)
+            .and_then(|value| value.checked_add(allocation_overhead))
+            .ok_or(GenerationError::CapacityOverflow)?;
+        let available_bytes =
+            stats.f_bavail.checked_mul(block_size).ok_or(GenerationError::CapacityOverflow)?;
+        if available_bytes < required_bytes {
+            return Err(GenerationError::InsufficientSpace { required_bytes, available_bytes });
+        }
+        Ok(())
+    }
+
     fn open_owned(root: &File, expected_uid: u32) -> Result<Self, GenerationError> {
         if !is_directory(root)? {
             return Err(GenerationError::InvalidStore);
@@ -208,6 +253,7 @@ impl GenerationStore {
                 return Err(GenerationError::PayloadMismatch);
             }
         }
+        self.ensure_available_space(total, payloads.len())?;
 
         let tx = manifest.transaction_id.as_str();
         let generation = manifest.generation_id.as_str();
