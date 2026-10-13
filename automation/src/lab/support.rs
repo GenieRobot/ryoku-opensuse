@@ -86,6 +86,7 @@ pub fn public_evidence(line: &str) -> bool {
         "desktop_authentication",
         "desktop_greeter",
         "desktop_login",
+        "lifecycle_result",
         "reboot",
         "egress",
         "controlled_corruption",

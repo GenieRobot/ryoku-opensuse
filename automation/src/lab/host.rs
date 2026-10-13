@@ -18,6 +18,75 @@ mod qmp;
 
 const FIRMWARE: &[(&str, &str)] =
     &[("OVMF_CODE_4M.fd", "ovmf_code_sha256"), ("OVMF_VARS_4M.fd", "ovmf_variables_sha256")];
+const LOGIN_JOURNAL_FILENAME: &str = "sddm-logind-journal-private.log";
+const LOGIN_JOURNAL_STREAM_LIMIT: usize = 1024 * 1024;
+const LOGIN_JOURNAL_COMMAND: &str = "sudo /usr/bin/timeout --signal=KILL --kill-after=2s 15s /usr/bin/journalctl --no-pager --output=short-monotonic --since=-5min --lines=1000 --unit=sddm.service --unit=systemd-logind.service";
+
+fn login_journal_path(run: &Path) -> PathBuf {
+    run.join(LOGIN_JOURNAL_FILENAME)
+}
+
+fn read_capped<R: Read>(mut reader: R, limit: usize) -> std::io::Result<(Vec<u8>, bool)> {
+    let mut retained = Vec::with_capacity(limit.min(64 * 1024));
+    let mut truncated = false;
+    let mut buffer = [0; 8192];
+    loop {
+        let count = reader.read(&mut buffer)?;
+        if count == 0 {
+            return Ok((retained, truncated));
+        }
+        let available = limit.saturating_sub(retained.len());
+        let keep = count.min(available);
+        retained.extend_from_slice(&buffer[..keep]);
+        truncated |= keep < count;
+    }
+}
+
+fn save_private_login_journal(
+    run: &Path,
+    stdout: &[u8],
+    stdout_truncated: bool,
+    stderr: &[u8],
+    stderr_truncated: bool,
+) -> Result<()> {
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(login_journal_path(run))?;
+    file.write_all(stdout)?;
+    if stdout_truncated {
+        file.write_all(b"\n[stdout truncated at per-stream byte cap]\n")?;
+    }
+    file.write_all(b"\n--- journalctl stderr ---\n")?;
+    file.write_all(stderr)?;
+    if stderr_truncated {
+        file.write_all(b"\n[stderr truncated at per-stream byte cap]\n")?;
+    }
+    file.sync_all()?;
+    Ok(())
+}
+
+fn retain_probe_result<T, E>(
+    probe: std::result::Result<T, E>,
+    capture: impl FnOnce() -> Result<()>,
+) -> std::result::Result<T, E> {
+    match probe {
+        Ok(value) => Ok(value),
+        Err(error) => {
+            let _ = capture();
+            Err(error)
+        }
+    }
+}
+
+fn optional_ui_result(requested: bool, captured: bool) -> Option<&'static str> {
+    requested.then_some(if captured {
+        "ui_visual_capture=passed"
+    } else {
+        "ui_visual_capture=blocked"
+    })
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum LoginCapturePoint {
@@ -283,8 +352,16 @@ impl Lab {
         send_greeter_password(&mut monitor, password, Duration::from_millis(150))?;
         let deadline = Instant::now() + Duration::from_secs(180);
         let mut last_error = String::from("login inspection has not completed");
+        let mut journal_capture_attempted = false;
         while Instant::now() < deadline {
-            match self.ssh("sudo /tmp/ryoku-vm-lab guest-login-inspect") {
+            let inspected = self.ssh("sudo /tmp/ryoku-vm-lab guest-login-inspect");
+            let inspected = if !journal_capture_attempted && inspected.is_err() {
+                journal_capture_attempted = true;
+                retain_probe_result(inspected, || self.capture_login_journal())
+            } else {
+                inspected
+            };
+            match inspected {
                 Ok(inspected) => return Ok(format!("{prepared}{inspected}")),
                 Err(error) => {
                     last_error = error.to_string();
@@ -303,7 +380,40 @@ impl Lab {
             thread::sleep(remaining.min(Duration::from_secs(3)));
         }
         capture_login_timeout(&mut monitor);
-        Err(format!("actual SDDM login and active Plasma session were not verified; last inspection: {last_error}").into())
+        Err(format!(
+            "actual SDDM login and active Plasma session were not verified; last inspection: {last_error}"
+        )
+        .into())
+    }
+
+    fn capture_login_journal(&self) -> Result<()> {
+        let mut child = self
+            .ssh_command()?
+            .arg(LOGIN_JOURNAL_COMMAND)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        let stdout = child.stdout.take().ok_or("journal stdout pipe unavailable")?;
+        let stderr = child.stderr.take().ok_or("journal stderr pipe unavailable")?;
+        let stdout_reader = thread::spawn(move || read_capped(stdout, LOGIN_JOURNAL_STREAM_LIMIT));
+        let stderr_reader = thread::spawn(move || read_capped(stderr, LOGIN_JOURNAL_STREAM_LIMIT));
+        let status = child.wait()?;
+        let (stdout, stdout_truncated) =
+            stdout_reader.join().map_err(|_| "journal stdout reader panicked")??;
+        let (stderr, stderr_truncated) =
+            stderr_reader.join().map_err(|_| "journal stderr reader panicked")??;
+        save_private_login_journal(
+            &self.run,
+            &stdout,
+            stdout_truncated,
+            &stderr,
+            stderr_truncated,
+        )?;
+        require(status.success(), "bounded private login journal capture failed")?;
+        if stdout_truncated || stderr_truncated {
+            return Err("private login journal output exceeded the per-stream byte cap".into());
+        }
+        Ok(())
     }
 
     fn wait_ssh(&mut self) -> Result<()> {
@@ -397,7 +507,6 @@ impl Lab {
             self.capture_screenshot(filename)?;
             self.ssh("sudo /tmp/ryoku-vm-lab guest-ui-stop")?;
         }
-        self.evidence("ui_visual_capture=passed")?;
         Ok(())
     }
 
@@ -585,13 +694,16 @@ pub fn run(assets: &str, run: &str, ui_binary: Option<&str>) -> Result<()> {
             Ok(session) => {
                 lab.evidence(&session)?;
                 kde_ready = true;
-                lab.capture_ui_scenarios()?;
-                ui_captured = lab.ui_binary.is_some();
+                if lab.ui_binary.is_some() {
+                    ui_captured = lab.capture_ui_scenarios().is_ok();
+                }
             }
             Err(_) => {
                 lab.evidence("desktop_login=blocked")?;
             }
         }
+    } else {
+        lab.evidence("desktop_login=blocked")?;
     }
     let before = lab.ssh("cat /proc/sys/kernel/random/boot_id")?;
     let _ = lab.ssh("sudo systemctl reboot");
@@ -613,9 +725,6 @@ pub fn run(assets: &str, run: &str, ui_binary: Option<&str>) -> Result<()> {
         match lab.login(&password) {
             Ok(session) => {
                 lab.evidence(&session)?;
-                if lab.ui_binary.is_some() && !ui_captured {
-                    lab.capture_ui_scenarios()?;
-                }
             }
             Err(_) => {
                 kde_ready = false;
@@ -665,6 +774,10 @@ pub fn run(assets: &str, run: &str, ui_binary: Option<&str>) -> Result<()> {
     let checksum = output(Command::new("sha256sum").arg(lab.assets.join(image)))?;
     require(checksum.split_whitespace().next() == Some(hash), "base changed during run")?;
     lab.evidence("base_unchanged=passed\nreset_disk_and_keys=removed")?;
+    lab.evidence("lifecycle_result=passed")?;
+    if let Some(result) = optional_ui_result(lab.ui_binary.is_some(), ui_captured) {
+        lab.evidence(result)?;
+    }
     if !kde_ready {
         lab.evidence("lab_result=blocked")?;
     }
@@ -726,5 +839,79 @@ mod tests {
         assert_ne!(before, timeout);
         assert!(qmp::validate_screenshot_filename(before).is_ok());
         assert!(qmp::validate_screenshot_filename(timeout).is_ok());
+    }
+
+    #[test]
+    fn failed_session_probe_captures_journal_without_replacing_probe_result() {
+        use std::cell::RefCell;
+
+        let events = RefCell::new(vec!["ordinary-user session probe failed"]);
+        let probe: std::result::Result<(), &str> = Err("ordinary-user session probe failed");
+        let result = retain_probe_result(probe, || {
+            events.borrow_mut().push("journal capture immediately after probe failure");
+            Err("journal capture failed".into())
+        });
+        events.borrow_mut().push("session probe retry");
+        assert_eq!(result, Err("ordinary-user session probe failed"));
+        assert_eq!(
+            *events.borrow(),
+            [
+                "ordinary-user session probe failed",
+                "journal capture immediately after probe failure",
+                "session probe retry"
+            ]
+        );
+
+        let called = RefCell::new(false);
+        let success: std::result::Result<&str, &str> = Ok("session passed");
+        let result = retain_probe_result(success, || {
+            *called.borrow_mut() = true;
+            Ok(())
+        });
+        assert_eq!(result, Ok("session passed"));
+        assert!(!*called.borrow());
+    }
+
+    #[test]
+    fn optional_ui_result_remains_separate_from_login_and_lifecycle_results() {
+        assert_eq!(optional_ui_result(false, false), None);
+        assert_eq!(optional_ui_result(true, false), Some("ui_visual_capture=blocked"));
+        assert_eq!(optional_ui_result(true, true), Some("ui_visual_capture=passed"));
+    }
+
+    #[test]
+    fn login_journal_uses_fixed_bounded_command_and_private_output_path() {
+        let run = std::env::temp_dir().join(format!(
+            "ryoku-login-journal-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        fs::create_dir(&run).unwrap();
+        fs::set_permissions(&run, fs::Permissions::from_mode(0o700)).unwrap();
+        assert_eq!(login_journal_path(&run), run.join("sddm-logind-journal-private.log"));
+        assert_eq!(
+            LOGIN_JOURNAL_COMMAND,
+            "sudo /usr/bin/timeout --signal=KILL --kill-after=2s 15s /usr/bin/journalctl --no-pager --output=short-monotonic --since=-5min --lines=1000 --unit=sddm.service --unit=systemd-logind.service"
+        );
+
+        save_private_login_journal(&run, b"sddm entry", false, b"", false).unwrap();
+        let output = login_journal_path(&run);
+        let metadata = fs::metadata(&output).unwrap();
+        assert_eq!(metadata.permissions().mode() & 0o777, 0o600);
+        assert_eq!(fs::read(&output).unwrap(), b"sddm entry\n--- journalctl stderr ---\n");
+        fs::remove_dir_all(run).unwrap();
+    }
+
+    #[test]
+    fn journal_reader_caps_retained_bytes_and_reports_truncation() {
+        let source = vec![b'x'; LOGIN_JOURNAL_STREAM_LIMIT + 37];
+        let (retained, truncated) =
+            read_capped(source.as_slice(), LOGIN_JOURNAL_STREAM_LIMIT).unwrap();
+        assert_eq!(retained.len(), LOGIN_JOURNAL_STREAM_LIMIT);
+        assert!(truncated);
+
+        let (retained, truncated) = read_capped(b"short".as_slice(), 10).unwrap();
+        assert_eq!(retained, b"short");
+        assert!(!truncated);
     }
 }
