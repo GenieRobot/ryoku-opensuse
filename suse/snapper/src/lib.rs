@@ -1,12 +1,15 @@
 //! Typed primitives for Snapper layout discovery and checkpoint correlation.
 //!
-//! The included [`SnapperCliBackend`] is read-only. This crate contains no
-//! D-Bus client, durable catalog implementation, or mutation executor.
+//! The included [`SnapperCliBackend`] is read-only. Durable catalog storage
+//! uses a caller-supplied protected directory descriptor; placement outside
+//! rollback scope remains the caller's responsibility.
 //! Creating snapshots remains unavailable until an authorized helper and
 //! supported guest evidence exist.
 
+mod catalog;
 mod cli;
 
+pub use catalog::{CatalogStore, CatalogStoreError};
 pub use cli::{SnapperCliBackend, SnapperCliError, parse_snapper_json};
 
 use std::collections::BTreeMap;
@@ -446,6 +449,11 @@ impl CatalogIndex {
 
     pub fn get(&self, id: &TransactionId) -> Option<&CatalogEntry> {
         self.entries.get(id)
+    }
+
+    /// Entries in stable transaction-ID order for persistence and review.
+    pub fn entries(&self) -> impl Iterator<Item = &CatalogEntry> {
+        self.entries.values()
     }
 
     pub fn remove(&mut self, id: &TransactionId) -> Option<CatalogEntry> {
