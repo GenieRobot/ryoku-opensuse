@@ -495,3 +495,26 @@ corresponding implementation and disposable-guest evidence are linked.
 | ADR retains catalog, journal and matching generation across root rollback | Contract describes storage location, link identity and refusal to guess a generation | Actual dedicated mount plus Snapper rollback/reboot evidence. |
 | Inventory ownership, modes, symlinks, extended metadata and external paths without traversal | Typed metadata schema; exact v1 candidate inventory; no-follow regular/directory capture, ACL/SELinux digests, absent records, hard-link checks, and symlink fail-closed behavior | Exact runtime ownership/mode/ACL/xattr evidence for integrated Ryoku state, an enforced audited allowlist, race-injection tests, and raw-target symlink capture are needed. Run19 provider paths do not constitute a Ryoku-owned path set. |
 | Profile interface works locally without remotes/credentials; public examples synthetic | Pure Rust resolver has no filesystem/network capability; synthetic four-layer doctest | None for the resolver contract; companion persistence/sync remains out of scope. |
+
+## Issue #21 restore journal implementation status
+
+The Rust recovery crate now provides typed preflight plans for configuration-only,
+system-only, and complete linked scopes, plus an atomically replaced, fsync'd
+phase journal stored relative to a trusted private directory descriptor. Journal
+updates are locked across processes, reject stale or skipped phase transitions,
+and can be reloaded after process interruption. All scopes require a verified
+current-state checkpoint. Configuration-only and complete-linked scopes also
+require a verified generation/archive and known-compatible configuration
+revisions; system-only requires a supported available snapshot and
+known-compatible system revisions, without depending on the configuration
+partner. Complete-linked additionally requires exact Snapper/filesystem
+linkage. The privileged caller remains responsible for deriving the typed
+compatibility evidence from installed package/profile state. Reload validates
+the persisted snapshot ID, filesystem UUID, and scope invariants.
+
+This is a planning and journal slice only. It does not create the current-state
+checkpoint, stage content, stop writers, invoke Snapper, restore targets or
+metadata, coordinate the root rollback, run health checks, or gate normal session
+startup. No offline console restore or interruption exercise has been recorded
+in a Tumbleweed VM. Issue #21 must remain open until those destructive restore
+steps and the required evidence are implemented and reviewed.
