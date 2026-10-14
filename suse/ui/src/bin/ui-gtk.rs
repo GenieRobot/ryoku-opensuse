@@ -63,7 +63,10 @@ fn main() {
         status.set_xalign(0.0);
         status.set_wrap(true);
 
-        let result = gtk::Label::new(Some("Choose Refresh status to request an update."));
+        let result = gtk::Label::builder()
+            .label("Choose Refresh status to request an update.")
+            .accessible_role(gtk::AccessibleRole::Alert)
+            .build();
         result.set_xalign(0.0);
         result.set_wrap(true);
 
