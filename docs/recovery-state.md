@@ -588,6 +588,18 @@ is no public companion file path, payload, revision value, URL, credential, or
 identity in this contract. System override persistence and the caller that
 assembles all four layers remain integration work.
 
+`ProfileLayers::content_revisions` now supplies a deterministic revision for
+each present typed layer, hashing its canonical, map-free JSON with SHA-256.
+Defaults, system overrides, and personal overrides always have revisions;
+the optional companion revision stays absent when no companion input was
+loaded. A present but empty companion is distinct from an absent companion.
+Callers may place these opaque `sha256-…` values in the matching recovery
+manifest revision slots. These hashes identify the layer values used during
+resolution; they do not prove that those inputs were installed from a trusted
+source, saved durably, or coordinated against concurrent writers. The public
+API still accepts caller-supplied layer values and does not capture a real
+installed profile set.
+
 Synthetic manifest profile provenance (all values below are examples):
 
 ```json
