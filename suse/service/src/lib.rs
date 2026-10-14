@@ -242,6 +242,12 @@ pub struct Progress {
     pub total: Option<u32>,
 }
 
+impl Progress {
+    fn is_valid(&self) -> bool {
+        self.total.is_none_or(|total| self.completed <= total)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OperationPhase {
@@ -558,6 +564,9 @@ fn validate_transition(
     previous: Option<&OperationStatus>,
     next: &OperationStatus,
 ) -> Result<(), JournalError> {
+    if !valid_operation_status(next) {
+        return Err(JournalError::InvalidTransition);
+    }
     let valid = match previous {
         None => {
             next.phase == OperationPhase::Accepted
@@ -577,6 +586,23 @@ fn validate_transition(
         ),
     };
     if valid { Ok(()) } else { Err(JournalError::InvalidTransition) }
+}
+
+/// Reject impossible progress and phase/error combinations both when writing
+/// and when replaying durable state. These checks keep malformed internal
+/// records from being exposed as authoritative reconnect status.
+fn valid_operation_status(status: &OperationStatus) -> bool {
+    if status.progress.as_ref().is_some_and(|progress| !progress.is_valid()) {
+        return false;
+    }
+    match status.phase {
+        OperationPhase::Accepted => status.progress.is_none() && status.error.is_none(),
+        OperationPhase::Capturing | OperationPhase::Applying | OperationPhase::Verifying => {
+            status.error.is_none()
+        }
+        OperationPhase::Succeeded => status.error.is_none(),
+        OperationPhase::Failed => status.error.is_some(),
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -741,6 +767,52 @@ mod tests {
             error: None,
         };
         assert_eq!(journal.record(invalid), Err(JournalError::InvalidTransition));
+        drop(journal);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn journal_rejects_impossible_progress_and_phase_error_combinations() {
+        let path = std::env::temp_dir()
+            .join(format!("ryoku-journal-status-invariants-{}", std::process::id()));
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let mut journal = OperationJournal::open(file).unwrap();
+        let id = OperationId::new("invariant-op").unwrap();
+        journal
+            .record(OperationStatus {
+                operation_id: id.clone(),
+                action: ManagedActionKind::InstallPackage,
+                phase: OperationPhase::Accepted,
+                progress: None,
+                error: None,
+            })
+            .unwrap();
+        let accepted_record_len = std::fs::metadata(&path).unwrap().len();
+
+        let impossible_progress = OperationStatus {
+            operation_id: id.clone(),
+            action: ManagedActionKind::InstallPackage,
+            phase: OperationPhase::Capturing,
+            progress: Some(Progress { completed: 2, total: Some(1) }),
+            error: None,
+        };
+        assert_eq!(journal.record(impossible_progress), Err(JournalError::InvalidTransition));
+
+        let missing_failure_reason = OperationStatus {
+            operation_id: id,
+            action: ManagedActionKind::InstallPackage,
+            phase: OperationPhase::Failed,
+            progress: None,
+            error: None,
+        };
+        assert_eq!(journal.record(missing_failure_reason), Err(JournalError::InvalidTransition));
+        assert_eq!(std::fs::metadata(&path).unwrap().len(), accepted_record_len);
         drop(journal);
         std::fs::remove_file(path).unwrap();
     }
