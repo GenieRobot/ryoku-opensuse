@@ -39,6 +39,7 @@
 //! ```
 
 use serde::{Deserialize, Deserializer, Serialize};
+use sha2::{Digest, Sha256};
 
 mod local;
 pub use local::{LOCAL_PROFILE_FILE, ProfileLoadError, ProfileOwner, load_local_profile};
@@ -228,6 +229,42 @@ impl ProfileLayers {
         result.apply(self.personal);
         result
     }
+
+    /// Return stable content revisions for the exact local layers used by a
+    /// resolution. Revisions are SHA-256 of each layer's canonical typed JSON;
+    /// absent optional layers remain absent. This records provenance without
+    /// embedding profile payloads or consulting a remote source.
+    pub fn content_revisions(self) -> ProfileLayerRevisions {
+        ProfileLayerRevisions {
+            defaults: layer_revision(self.defaults),
+            system_overrides: Some(layer_revision(self.system_overrides)),
+            companion: self.companion.map(layer_revision),
+            personal_overrides: Some(layer_revision(self.personal)),
+        }
+    }
+}
+
+/// Content-derived revisions for the four profile resolution layers.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProfileLayerRevisions {
+    pub defaults: String,
+    pub system_overrides: Option<String>,
+    pub companion: Option<String>,
+    pub personal_overrides: Option<String>,
+}
+
+fn layer_revision(layer: SettingsLayer) -> String {
+    // SettingsLayer consists only of closed enums and options; serde's struct
+    // field order is fixed, so this encoding is canonical and map-free.
+    let canonical = serde_json::to_vec(&layer).expect("typed settings serialize");
+    let digest = Sha256::digest(canonical);
+    let mut revision = String::with_capacity(67);
+    revision.push_str("sha256-");
+    for byte in digest {
+        use std::fmt::Write as _;
+        write!(&mut revision, "{byte:02x}").expect("writing to String cannot fail");
+    }
+    revision
 }
 
 impl ResolvedSettings {
@@ -277,6 +314,32 @@ mod tests {
 
         let without_companion = ProfileLayers { companion: None, ..layers };
         assert_eq!(without_companion.resolve().theme, Some(Theme::RyokuDark));
+    }
+
+    #[test]
+    fn layer_content_revisions_are_stable_and_track_effective_inputs() {
+        let base = ProfileLayers {
+            defaults: SettingsLayer { theme: Some(Theme::RyokuDark), ..SettingsLayer::default() },
+            ..ProfileLayers::default()
+        };
+        let first = base.content_revisions();
+        let repeated = base.content_revisions();
+        assert_eq!(first, repeated);
+        assert_eq!(first.defaults.len(), 71);
+        assert!(first.defaults.starts_with("sha256-"));
+        assert_eq!(first.companion, None);
+
+        let changed = ProfileLayers {
+            defaults: SettingsLayer { theme: Some(Theme::RyokuLight), ..SettingsLayer::default() },
+            ..ProfileLayers::default()
+        }
+        .content_revisions();
+        assert_ne!(first.defaults, changed.defaults);
+
+        let installed_companion =
+            ProfileLayers { companion: Some(SettingsLayer::default()), ..ProfileLayers::default() }
+                .content_revisions();
+        assert!(installed_companion.companion.is_some());
     }
 
     #[test]
