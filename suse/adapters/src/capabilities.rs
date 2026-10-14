@@ -18,6 +18,75 @@ pub enum ProviderOperation {
     YastModuleWrite,
 }
 
+/// Persistent state that a pre-change recovery point must include for an
+/// operation. These are product-owned coverage requirements, not a claim that
+/// the current checkpoint implementation has captured or verified them.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AffectedState {
+    SystemSnapshot,
+    PackageDatabase,
+    InstalledRpmPayloadAndConfiguration,
+    PackageScriptAndServiceEffects,
+    BootKernelAndInitramfsArtifacts,
+    RepositoryDefinitionsAndPolicy,
+    TrustKeysAndImportedSigningState,
+    PackageMetadataCache,
+    SnapperConfiguration,
+    RyokuCatalogAndRecoveryJournal,
+    RyokuConfigurationAndProfiles,
+    UnboundedAdministrativeState,
+}
+
+const NO_MUTATION_SCOPE: &[AffectedState] = &[];
+const PACKAGE_TRANSACTION_SCOPE: &[AffectedState] = &[
+    AffectedState::SystemSnapshot,
+    AffectedState::PackageDatabase,
+    AffectedState::InstalledRpmPayloadAndConfiguration,
+    AffectedState::PackageScriptAndServiceEffects,
+    AffectedState::BootKernelAndInitramfsArtifacts,
+    AffectedState::RepositoryDefinitionsAndPolicy,
+    AffectedState::PackageMetadataCache,
+    AffectedState::RyokuCatalogAndRecoveryJournal,
+    AffectedState::RyokuConfigurationAndProfiles,
+];
+const REPOSITORY_MUTATION_SCOPE: &[AffectedState] = &[
+    AffectedState::SystemSnapshot,
+    AffectedState::RepositoryDefinitionsAndPolicy,
+    AffectedState::TrustKeysAndImportedSigningState,
+    AffectedState::PackageMetadataCache,
+    AffectedState::RyokuCatalogAndRecoveryJournal,
+    AffectedState::RyokuConfigurationAndProfiles,
+];
+const SNAPPER_ADMIN_SCOPE: &[AffectedState] = &[
+    AffectedState::SystemSnapshot,
+    AffectedState::SnapperConfiguration,
+    AffectedState::RyokuCatalogAndRecoveryJournal,
+    AffectedState::RyokuConfigurationAndProfiles,
+];
+const UNBOUNDED_SCOPE: &[AffectedState] = &[AffectedState::UnboundedAdministrativeState];
+
+/// Minimum persistent-state coverage required before capturing an operation's
+/// linked checkpoint. An empty slice means the operation is read-only. An
+/// unbounded scope is intentionally impossible to certify as protected.
+pub const fn required_recovery_scope(operation: ProviderOperation) -> &'static [AffectedState] {
+    match operation {
+        ProviderOperation::PackageSearch
+        | ProviderOperation::InstalledPackageAndRepositoryQuery
+        | ProviderOperation::SnapperStatusQuery => NO_MUTATION_SCOPE,
+        ProviderOperation::PackageTransaction | ProviderOperation::CockpitPackageWrite => {
+            PACKAGE_TRANSACTION_SCOPE
+        }
+        ProviderOperation::RepositoryOrTrustMutation => REPOSITORY_MUTATION_SCOPE,
+        ProviderOperation::GeneralSnapperAdministration => SNAPPER_ADMIN_SCOPE,
+        ProviderOperation::MyrlynWrite => {
+            // Myrlyn can edit repositories as well as run package transactions.
+            // A future supported operation must narrow this to one typed action.
+            UNBOUNDED_SCOPE
+        }
+        ProviderOperation::YastModuleWrite => UNBOUNDED_SCOPE,
+    }
+}
+
 /// How Ryoku presents the operation to the user.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IntegrationSurface {
@@ -213,5 +282,54 @@ mod tests {
         assert!(
             !ProviderCapability { mutates_state: false, ..verified }.may_offer_protected_write()
         );
+    }
+
+    #[test]
+    fn package_mutations_require_linked_system_and_complete_ryoku_state() {
+        for operation in
+            [ProviderOperation::PackageTransaction, ProviderOperation::CockpitPackageWrite]
+        {
+            let scope = required_recovery_scope(operation);
+            for required in [
+                AffectedState::SystemSnapshot,
+                AffectedState::PackageDatabase,
+                AffectedState::InstalledRpmPayloadAndConfiguration,
+                AffectedState::PackageScriptAndServiceEffects,
+                AffectedState::BootKernelAndInitramfsArtifacts,
+                AffectedState::RyokuCatalogAndRecoveryJournal,
+                AffectedState::RyokuConfigurationAndProfiles,
+            ] {
+                assert!(scope.contains(&required), "{operation:?} omits {required:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn ambiguous_external_admin_scope_cannot_be_certified_as_protected() {
+        for operation in [ProviderOperation::MyrlynWrite, ProviderOperation::YastModuleWrite] {
+            assert_eq!(
+                required_recovery_scope(operation),
+                &[AffectedState::UnboundedAdministrativeState]
+            );
+            let entry =
+                INITIAL_CAPABILITIES.iter().find(|entry| entry.operation == operation).unwrap();
+            assert_eq!(entry.status, CapabilityStatus::Unsupported);
+            assert!(!entry.may_offer_protected_write());
+        }
+    }
+
+    #[test]
+    fn repository_mutations_cover_policy_trust_cache_and_ryoku_state() {
+        let scope = required_recovery_scope(ProviderOperation::RepositoryOrTrustMutation);
+        for required in [
+            AffectedState::SystemSnapshot,
+            AffectedState::RepositoryDefinitionsAndPolicy,
+            AffectedState::TrustKeysAndImportedSigningState,
+            AffectedState::PackageMetadataCache,
+            AffectedState::RyokuCatalogAndRecoveryJournal,
+            AffectedState::RyokuConfigurationAndProfiles,
+        ] {
+            assert!(scope.contains(&required), "repository mutation omits {required:?}");
+        }
     }
 }
