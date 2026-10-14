@@ -21,8 +21,15 @@ pub enum ProviderOperation {
 /// How Ryoku presents the operation to the user.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IntegrationSurface {
+    /// Controls rendered and dispatched by the native Ryoku application.
     NativeRyoku,
+    /// A provider panel rendered inside a Ryoku-owned view. This is a
+    /// presentation classification only; it does not assert that any panel is
+    /// implemented or that its writes are mediated by the Rust service.
+    EmbeddedPanel,
+    /// A separately launched desktop application.
     ExternalApplication,
+    /// A separately launched browser page or administration panel.
     ExternalBrowserPanel,
 }
 
