@@ -55,6 +55,16 @@ fn serve_connection_with_helper_path(
     stream.set_read_timeout(Some(IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
     stream.set_write_timeout(Some(IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
     let peer = PeerIdentity::from_unix_socket(&stream)?;
+    if authorize_helper_peer(&peer, uid).is_err() {
+        return write_response(
+            stream,
+            Response {
+                version: PROTOCOL_VERSION,
+                request_id: RequestId::new("invalid").expect("static request id is valid"),
+                body: ResponseBody::Error(ServiceError::Unauthorized),
+            },
+        );
+    }
     let request_id = RequestId::new("invalid").expect("static request id is valid");
     let mut reader = BufReader::new(stream.try_clone().map_err(|_| ProtocolError::Io)?);
     let envelope = match crate::read_envelope(&mut reader) {
@@ -76,24 +86,20 @@ fn serve_connection_with_helper_path(
         }
     };
     let id = envelope.request_id;
-    let body = if authorize_helper_peer(&peer, uid).is_err() {
-        ResponseBody::Error(ServiceError::Unauthorized)
-    } else {
-        match envelope.request {
-            Request::Discover => ResponseBody::Discovery(discovery(false)),
-            Request::GetOperation { operation_id } => journal
-                .get(&operation_id)
-                .cloned()
-                .map(ResponseBody::Operation)
-                .unwrap_or(ResponseBody::Error(ServiceError::NotFound)),
-            // No executor has passed the linked capture and provider review
-            // gates. Never create an accepted operation for work not run.
-            Request::Start { action } => {
-                ResponseBody::Error(crate::helper_protocol::check_action_availability_at(
-                    helper_socket_path,
-                    (&action).into(),
-                ))
-            }
+    let body = match envelope.request {
+        Request::Discover => ResponseBody::Discovery(discovery(false)),
+        Request::GetOperation { operation_id } => journal
+            .get(&operation_id)
+            .cloned()
+            .map(ResponseBody::Operation)
+            .unwrap_or(ResponseBody::Error(ServiceError::NotFound)),
+        // No executor has passed the linked capture and provider review
+        // gates. Never create an accepted operation for work not run.
+        Request::Start { action } => {
+            ResponseBody::Error(crate::helper_protocol::check_action_availability_at(
+                helper_socket_path,
+                (&action).into(),
+            ))
         }
     };
     write_response(stream, Response { version: PROTOCOL_VERSION, request_id: id, body })
@@ -346,20 +352,16 @@ mod tests {
             .unwrap();
         let mut journal = OperationJournal::open(file).unwrap();
         let (server, mut client) = UnixStream::pair().unwrap();
-        let request = Envelope {
-            version: PROTOCOL_VERSION,
-            request_id: RequestId::new("wrong-peer").unwrap(),
-            request: Request::Discover,
-        };
-        serde_json::to_writer(&mut client, &request).unwrap();
-        client.write_all(b"\n").unwrap();
+        // A rejected UID is answered before parsing, even if its bytes are
+        // malformed. The untrusted request ID is not reflected.
+        client.write_all(b"not-json\n").unwrap();
         assert_eq!(serve_connection(server, &mut journal, u32::MAX), Ok(()));
         let mut line = String::new();
         BufReader::new(&mut client).read_line(&mut line).unwrap();
-        assert_eq!(
-            serde_json::from_str::<Response>(&line).unwrap().body,
-            ResponseBody::Error(ServiceError::Unauthorized)
-        );
+        let response: Response = serde_json::from_str(&line).unwrap();
+        assert_eq!(response.request_id.as_str(), "invalid");
+        assert_eq!(response.body, ResponseBody::Error(ServiceError::Unauthorized));
+        assert_eq!(std::fs::metadata(&path).unwrap().len(), 0);
 
         let (server, mut client) = UnixStream::pair().unwrap();
         client.write_all(b"not-json\n").unwrap();
