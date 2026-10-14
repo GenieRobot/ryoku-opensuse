@@ -37,6 +37,30 @@ state inventory, and post-state verification. The initial table intentionally
 sets no write to `verified-protected`; it does not claim runtime provider
 detection or replace the evidence below.
 
+The same module now declares `required_recovery_scope(operation)` as a typed
+minimum coverage contract. Its `AffectedState` entries make recovery scope
+reviewable and testable at the operation boundary:
+
+| Rust operation | Required state coverage |
+|---|---|
+| `PackageTransaction`, `CockpitPackageWrite` | Linked system snapshot; package database; installed RPM payload/configuration; package script and service effects; boot, kernel and initramfs artifacts; repository definitions/policy and metadata cache; Ryoku catalog/journal and configuration/profiles. |
+| `RepositoryOrTrustMutation` | Linked system snapshot; repository definitions/policy; trust keys/imported signing state; package metadata cache; Ryoku catalog/journal and configuration/profiles. |
+| `GeneralSnapperAdministration` | Linked system snapshot and Snapper configuration, plus Ryoku catalog/journal and configuration/profiles. These operations remain unsupported as general administration. |
+| `MyrlynWrite`, `YastModuleWrite` | `UnboundedAdministrativeState`. The current app/module write surface is too broad to declare a complete inventory; these stay unsupported. A future candidate must first narrow to a typed action. |
+| Read-only query operations | Empty mutation scope; this does not yet prove provider read APIs are non-mutating on the pinned guest. |
+
+These scopes define what evidence a future checkpoint integration must cover;
+they are not themselves capture hooks or proof that all listed state is
+currently restorable. The service's journaled mutation gate supplies the
+ordering contract: acquire the shared writer lock, durably record acceptance,
+capture and verify linked state, revalidate the exact plan, durably record
+`Applying`, call the provider, verify post-state, then durably record success.
+Capture, verification, revalidation, apply, or post-state failure never yields
+a successful operation; the provider callback is unreachable until checkpoint
+and plan validation have both passed. The gate unit tests exercise this
+ordering with fakes. They do not establish that a real zypper, PackageKit,
+Cockpit, Myrlyn, or YaST transaction is intercepted at its mutation boundary.
+
 The presentation classes are separate from the protection status: **native**
 means a Ryoku-owned control and service request; **embedded panel** means an
 upstream panel rendered inside a Ryoku-owned view; **external application**
