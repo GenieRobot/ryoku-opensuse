@@ -2,19 +2,20 @@
 //!
 //! The caller supplies an already-open directory descriptor for one approved
 //! root. Relative components are opened one at a time with `O_NOFOLLOW`; the
-//! collector never walks a directory tree or follows the final entry. Symlink
-//! entries currently fail closed because race-free capture of their security
-//! metadata is not supported by this API.
+//! collector never walks a directory tree or follows a final symlink.
 
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs::File,
     io::Read,
-    os::fd::AsFd,
+    os::fd::{AsFd, AsRawFd},
 };
 
 use rustix::{
-    fs::{AtFlags, FileType, Mode, OFlags, ResolveFlags, fgetxattr, fstat, openat2, statat},
+    fs::{
+        AtFlags, FileType, Mode, OFlags, ResolveFlags, fgetxattr, fstat, lgetxattr, openat2,
+        readlinkat, statat,
+    },
     io::{Errno, dup},
 };
 use sha2::{Digest, Sha256 as Sha256Digest};
@@ -105,7 +106,7 @@ struct Captured {
 /// Captures exactly `declared` beneath the caller-opened `root_fd`.
 ///
 /// Missing final entries and missing intermediate directories produce absent
-/// records. An intermediate symlink, a symlink leaf, special file, incomplete
+/// records. An intermediate symlink, special file, incomplete
 /// hard-link set, unsupported ACL/xattr, or concurrent change aborts capture.
 /// The root descriptor itself must already refer to the approved fixed root;
 /// its path is never taken from manifest data.
@@ -134,6 +135,15 @@ struct TestNoXattrs;
 #[cfg(test)]
 impl XattrReader for TestNoXattrs {
     fn read(&self, _fd: &File, _name: &'static str) -> Result<Option<Vec<u8>>, CaptureError> {
+        Ok(None)
+    }
+
+    fn read_symlink(
+        &self,
+        _parent: &File,
+        _leaf: &str,
+        _name: &'static str,
+    ) -> Result<Option<Vec<u8>>, CaptureError> {
         Ok(None)
     }
 }
@@ -198,8 +208,61 @@ fn capture_declared_with_xattrs(
         };
 
         let kind = FileType::from_raw_mode(before.st_mode);
+        if kind == FileType::Symlink {
+            let target_bytes = readlinkat(&parent, leaf, Vec::new())
+                .map_err(CaptureError::Filesystem)?
+                .into_bytes();
+            if target_bytes.is_empty() || target_bytes.len() > 4096 {
+                return Err(CaptureError::UnsupportedEntryType);
+            }
+            let target = String::from_utf8(target_bytes.clone())
+                .map_err(|_| CaptureError::UnsupportedEntryType)?;
+            if target.starts_with('/') || target.split('/').any(|component| component == "..") {
+                return Err(CaptureError::UnsupportedEntryType);
+            }
+            let acl_access = xattrs.read_symlink(
+                &File::from(dup(parent.as_fd()).map_err(CaptureError::Filesystem)?),
+                leaf,
+                "system.posix_acl_access",
+            )?;
+            let acl_default = xattrs.read_symlink(
+                &File::from(dup(parent.as_fd()).map_err(CaptureError::Filesystem)?),
+                leaf,
+                "system.posix_acl_default",
+            )?;
+            let selinux = xattrs.read_symlink(
+                &File::from(dup(parent.as_fd()).map_err(CaptureError::Filesystem)?),
+                leaf,
+                "security.selinux",
+            )?;
+            let metadata = metadata_from_xattrs(&before, acl_access, acl_default, selinux)?;
+            let after = statat(&parent, leaf, AtFlags::SYMLINK_NOFOLLOW)
+                .map_err(CaptureError::Filesystem)?;
+            let target_after = readlinkat(&parent, leaf, Vec::new())
+                .map_err(CaptureError::Filesystem)?
+                .into_bytes();
+            if !same_fingerprint(&before, &after) || target_bytes != target_after {
+                return Err(CaptureError::ConcurrentModification);
+            }
+            total_bytes = total_bytes
+                .saturating_add(target_bytes.len() as u64)
+                .saturating_add(metadata.source_bytes);
+            if total_bytes > limits.max_total_bytes {
+                return Err(CaptureError::TotalCaptureTooLarge);
+            }
+            captured.push(Captured {
+                record: FileRecord::new(
+                    root,
+                    path,
+                    EntryKind::Symlink { metadata: metadata.entry, target },
+                )?,
+                device: before.st_dev,
+                inode: before.st_ino,
+                links: before.st_nlink,
+            });
+            continue;
+        }
         if !matches!(kind, FileType::RegularFile | FileType::Directory) {
-            // In particular, a final symlink is never opened or followed.
             return Err(CaptureError::UnsupportedEntryType);
         }
 
@@ -367,6 +430,12 @@ fn open_parent<'a>(
 
 trait XattrReader {
     fn read(&self, fd: &File, name: &'static str) -> Result<Option<Vec<u8>>, CaptureError>;
+    fn read_symlink(
+        &self,
+        parent: &File,
+        leaf: &str,
+        name: &'static str,
+    ) -> Result<Option<Vec<u8>>, CaptureError>;
 }
 
 struct KernelXattrs;
@@ -374,6 +443,30 @@ struct KernelXattrs;
 impl XattrReader for KernelXattrs {
     fn read(&self, fd: &File, name: &'static str) -> Result<Option<Vec<u8>>, CaptureError> {
         get_xattr(fd.as_fd(), name)
+    }
+
+    fn read_symlink(
+        &self,
+        parent: &File,
+        leaf: &str,
+        name: &'static str,
+    ) -> Result<Option<Vec<u8>>, CaptureError> {
+        // `parent` is pinned and `leaf` is a single validated component.
+        // lgetxattr does not follow the final symlink.
+        let path = format!("/proc/self/fd/{}/{leaf}", parent.as_raw_fd());
+        let mut buffer = vec![0_u8; MAX_XATTR_BYTES];
+        match lgetxattr(path, name, &mut buffer) {
+            Ok(length) => {
+                buffer.truncate(length);
+                Ok(Some(buffer))
+            }
+            Err(error) if error == Errno::NODATA => Ok(None),
+            Err(error) if error == Errno::OPNOTSUPP || error == Errno::NOSYS => {
+                Err(CaptureError::UnsupportedMetadata(name))
+            }
+            Err(error) if error == Errno::RANGE => Err(CaptureError::MetadataTooLarge),
+            Err(error) => Err(CaptureError::Filesystem(error)),
+        }
     }
 }
 
@@ -389,6 +482,16 @@ fn capture_metadata(
 ) -> Result<MetadataSnapshot, CaptureError> {
     let acl_access = xattrs.read(fd, "system.posix_acl_access")?;
     let acl_default = xattrs.read(fd, "system.posix_acl_default")?;
+    let selinux = xattrs.read(fd, "security.selinux")?;
+    metadata_from_xattrs(stat, acl_access, acl_default, selinux)
+}
+
+fn metadata_from_xattrs(
+    stat: &rustix::fs::Stat,
+    acl_access: Option<Vec<u8>>,
+    acl_default: Option<Vec<u8>>,
+    selinux: Option<Vec<u8>>,
+) -> Result<MetadataSnapshot, CaptureError> {
     let acl_access_len = acl_access.as_ref().map_or(0, |value| value.len() as u64);
     let acl_default_len = acl_default.as_ref().map_or(0, |value| value.len() as u64);
     let acl_sha256 = match (acl_access, acl_default) {
@@ -414,7 +517,6 @@ fn capture_metadata(
         }
     };
     let mut extended = ExtendedMetadata::default();
-    let selinux = xattrs.read(fd, "security.selinux")?;
     let selinux_len = selinux.as_ref().map_or(0, |value| value.len() as u64);
     if let Some(selinux) = selinux {
         extended.values.insert(crate::XattrName::SelinuxLabel, hash(Sha256Digest::digest(selinux)));
@@ -530,12 +632,28 @@ mod tests {
         fn read(&self, _fd: &File, _name: &'static str) -> Result<Option<Vec<u8>>, CaptureError> {
             Ok(None)
         }
+        fn read_symlink(
+            &self,
+            _parent: &File,
+            _leaf: &str,
+            _name: &'static str,
+        ) -> Result<Option<Vec<u8>>, CaptureError> {
+            Ok(None)
+        }
     }
 
     struct EmptyAccessAcl;
 
     impl super::XattrReader for EmptyAccessAcl {
         fn read(&self, _fd: &File, name: &'static str) -> Result<Option<Vec<u8>>, CaptureError> {
+            Ok((name == "system.posix_acl_access").then(Vec::new))
+        }
+        fn read_symlink(
+            &self,
+            _parent: &File,
+            _leaf: &str,
+            name: &'static str,
+        ) -> Result<Option<Vec<u8>>, CaptureError> {
             Ok((name == "system.posix_acl_access").then(Vec::new))
         }
     }
@@ -546,12 +664,28 @@ mod tests {
         fn read(&self, _fd: &File, name: &'static str) -> Result<Option<Vec<u8>>, CaptureError> {
             Ok((name == "security.selinux").then(|| vec![b'x'; 2]))
         }
+        fn read_symlink(
+            &self,
+            _parent: &File,
+            _leaf: &str,
+            name: &'static str,
+        ) -> Result<Option<Vec<u8>>, CaptureError> {
+            Ok((name == "security.selinux").then(|| vec![b'x'; 2]))
+        }
     }
 
     struct UnsupportedXattrs;
 
     impl super::XattrReader for UnsupportedXattrs {
         fn read(&self, _fd: &File, name: &'static str) -> Result<Option<Vec<u8>>, CaptureError> {
+            Err(CaptureError::UnsupportedMetadata(name))
+        }
+        fn read_symlink(
+            &self,
+            _parent: &File,
+            _leaf: &str,
+            name: &'static str,
+        ) -> Result<Option<Vec<u8>>, CaptureError> {
             Err(CaptureError::UnsupportedMetadata(name))
         }
     }
@@ -607,6 +741,27 @@ mod tests {
         let leaf = capture_without_xattrs(&root, &[path("leaf-link")], CaptureLimits::default());
         assert!(matches!(leaf, Err(CaptureError::UnsupportedEntryType)));
         assert_eq!(fs::read(outside.0.join("secret")).unwrap(), b"untouched");
+    }
+
+    #[test]
+    fn captures_safe_symlink_target_as_text_without_following_it() {
+        let temp = TempDir::new();
+        fs::write(temp.0.join("theme.toml"), b"theme = 'blue'\n").unwrap();
+        symlink("theme.toml", temp.0.join("theme-current")).unwrap();
+        let root = root_file(&temp.0);
+
+        let records =
+            capture_without_xattrs(&root, &[path("theme-current")], CaptureLimits::default())
+                .unwrap();
+
+        assert!(matches!(
+            &records[0].kind,
+            EntryKind::Symlink { target, .. } if target == "theme.toml"
+        ));
+        assert_eq!(
+            fs::read_link(temp.0.join("theme-current")).unwrap(),
+            std::path::Path::new("theme.toml")
+        );
     }
 
     #[test]

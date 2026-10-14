@@ -535,6 +535,32 @@ mod tests {
     }
 
     #[test]
+    fn safe_symlink_is_captured_and_verified_without_reading_its_target() {
+        let source = TempDir::new("safe-symlink-source");
+        let store_root = TempDir::new("safe-symlink-store");
+        fs::write(source.0.join("theme.toml"), b"not part of this inventory").unwrap();
+        std::os::unix::fs::symlink("theme.toml", source.0.join("theme-current")).unwrap();
+        let source_fd = source.descriptor();
+        let store_fd = store_root.descriptor();
+        let store = GenerationStore::open_for_test(&store_fd).unwrap();
+        let paths = [RelativePath::new("theme-current").unwrap()];
+        let roots = [DeclaredRoot {
+            root: StateRoot::UserRyokuConfig,
+            descriptor: &source_fd,
+            paths: &paths,
+        }];
+
+        let manifest =
+            capture_publish_verify_without_xattrs_for_test(&store, request(&roots)).unwrap();
+
+        assert!(matches!(
+            &manifest.files()[0].kind,
+            EntryKind::Symlink { target, .. } if target == "theme.toml"
+        ));
+        assert_eq!(store.verify_transaction(&manifest.transaction_id).unwrap(), manifest);
+    }
+
+    #[test]
     fn duplicate_roots_are_rejected_before_capture() {
         let source = TempDir::new("duplicate-source");
         let store_root = TempDir::new("duplicate-store");

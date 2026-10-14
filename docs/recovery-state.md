@@ -200,12 +200,15 @@ traversal. Device nodes, sockets, FIFOs, hard-link surprises, and unlisted
 entry types fail capture. An absent record is valid only for a declared exact
 path; it cannot be synthesized by scanning a parent directory.
 
-The schema's representable kinds are broader than the current Linux collector.
-For v1 operation eligibility, only exact regular-file, directory-metadata,
-and absent records are capturable today. The `symlink` kind is schema-only:
-`capture_declared` rejects a symlink leaf and uses no-symlink resolution for
-every component. Therefore no current managed-file allowlist may enroll a
-symlink, even though the manifest can represent one. Root selectors are also
+The Linux collector captures exact symlink leaves with `lstat`-style metadata
+and raw target text. It reads the final link with `readlinkat` and captures
+symlink xattrs through `lgetxattr` anchored at the already-open parent
+descriptor; it never opens or follows the link itself. Absolute targets,
+targets containing a `..` component, invalid UTF-8 targets, and targets over
+4096 bytes fail closed because the current generation policy only admits
+relative in-scope target text. Intermediate symlink components remain
+rejected. Symlink capture has focused fixture coverage, but no live managed
+configuration path is yet approved for enrollment. Root selectors are also
 not filesystem paths supplied by a manifest: a trusted caller must resolve
 `user-ryoku-config` to the selected account's config directory descriptor,
 `user-ryoku-profile` to the selected account's profile area, and `etc-ryoku`
