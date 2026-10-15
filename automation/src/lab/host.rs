@@ -125,9 +125,9 @@ fn retain_probe_result<T, E>(
 
 fn optional_ui_result(requested: bool, captured: bool) -> Option<&'static str> {
     requested.then_some(if captured {
-        "ui_visual_capture=passed"
+        "ui_framebuffer_capture=passed"
     } else {
-        "ui_visual_capture=blocked"
+        "ui_framebuffer_capture=blocked"
     })
 }
 
@@ -1096,6 +1096,11 @@ impl Lab {
             self.capture_screenshot(&mut control, filename)?;
             self.ssh("sudo /tmp/ryoku-vm-lab guest-ui-stop")?;
         }
+        // A framebuffer can be captured while the application is off-screen
+        // or has not rendered visibly. Keep runtime diagnostics on successful
+        // transport too, before reboot/reset discards the guest logs.
+        let diagnostics = self.ssh("sudo /tmp/ryoku-vm-lab guest-ui-diagnostics")?;
+        save_private_log(&self.run, "ui-runtime-private.log", diagnostics.as_bytes())?;
         Ok(())
     }
 
@@ -1480,7 +1485,7 @@ pub fn run(
                                 failure.write_all(b"\n--- GTK runtime output ---\n")?;
                                 failure.write_all(diagnostics.as_bytes())?;
                             }
-                            lab.evidence("ui_visual_capture=blocked")?;
+                            lab.evidence("ui_framebuffer_capture=blocked")?;
                         }
                     }
                 }
@@ -1916,8 +1921,8 @@ mod tests {
     #[test]
     fn optional_ui_result_remains_separate_from_login_and_lifecycle_results() {
         assert_eq!(optional_ui_result(false, false), None);
-        assert_eq!(optional_ui_result(true, false), Some("ui_visual_capture=blocked"));
-        assert_eq!(optional_ui_result(true, true), Some("ui_visual_capture=passed"));
+        assert_eq!(optional_ui_result(true, false), Some("ui_framebuffer_capture=blocked"));
+        assert_eq!(optional_ui_result(true, true), Some("ui_framebuffer_capture=passed"));
     }
 
     #[test]

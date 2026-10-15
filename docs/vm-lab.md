@@ -118,6 +118,23 @@ component results remain useful, but the full run is interrupted. Guest binary
 copies now use the running process's `/proc/<pid>/exe` rather than a build
 output pathname, so a concurrent Cargo rebuild cannot replace their source.
 
+Run05 completed standalone Btrfs boot, ordinary-user native SDDM/Wayland login
+before and after reboot, restricted-network fixture restoration and fresh XFS
+baseline reset. Its disks and keys were removed and the signed base was
+unchanged. The [Run05 evidence](../infra/tumbleweed-lab/evidence/issue13-wsl-run05.toml)
+separates this passing lifecycle from visual acceptance: the historical
+`ui_visual_capture=passed` flag only established that files were captured.
+Inspection of the scenario images did not establish a visible GTK proof window.
+
+New captures wait up to 120 seconds for a marker emitted after a mapped,
+nonzero-size GTK window completes a paint frame. Process existence and renderer
+diagnostics do not satisfy readiness. Automated output now uses
+`ui_framebuffer_capture`, and visual acceptance still requires reviewing the
+images. Runtime logs are retained even when transport succeeds. Both lab
+profiles pass 58 tests; the updated GTK proof emitted its paint marker under
+openSUSE WSLg with the existing Mesa warnings. That local result is not native
+KDE visual acceptance; a fresh guest exercise remains required.
+
 ## Original cloud runner
 
 The selected resource is the existing managed cloud development workspace. No

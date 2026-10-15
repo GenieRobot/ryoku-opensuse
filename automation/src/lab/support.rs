@@ -110,6 +110,7 @@ pub fn public_evidence(line: &str) -> bool {
         "base_unchanged",
         "reset_disk_and_keys",
         "ui_visual_capture",
+        "ui_framebuffer_capture",
         "zypp_experiment_is_not_a_protected_write_gate",
         "packagekit_cockpit_myrlyn_yast_write_paths",
         "zypp_inventory",
@@ -191,6 +192,7 @@ mod tests {
         assert!(public_evidence("reset_sentinel_bytes=matched"));
         assert!(public_evidence("reset_sentinel_sync=passed"));
         assert!(public_evidence("ui_visual_capture=passed"));
+        assert!(public_evidence("ui_framebuffer_capture=passed"));
         assert!(public_evidence("zypp_inventory_path_1=usr_lib64_zypp_plugins_commit"));
         assert!(public_evidence("zypp_inventory_kind_1=symlink"));
         assert!(public_evidence("zypp_inventory_symlink_target_1=usr_lib_systemd_systemd"));
