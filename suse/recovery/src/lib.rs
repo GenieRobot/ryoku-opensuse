@@ -22,6 +22,7 @@ pub mod inode_metadata;
 #[cfg(target_os = "linux")]
 pub mod machine_state;
 pub mod metadata;
+pub mod native_checkpoint;
 #[cfg(target_os = "linux")]
 pub mod preparation;
 #[cfg(target_os = "linux")]

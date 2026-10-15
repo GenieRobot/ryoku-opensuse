@@ -279,7 +279,7 @@ fn decode_mount_field(value: &str) -> Result<String, StateMountError> {
 }
 
 #[allow(unsafe_code)]
-fn read_btrfs_fs_info<Fd: AsFd>(
+pub(crate) fn read_btrfs_fs_info<Fd: AsFd>(
     fd: Fd,
 ) -> Result<linux_raw_sys::btrfs::btrfs_ioctl_fs_info_args, StateMountError> {
     type FsInfo = linux_raw_sys::btrfs::btrfs_ioctl_fs_info_args;
@@ -295,7 +295,7 @@ fn read_btrfs_fs_info<Fd: AsFd>(
 }
 
 #[allow(unsafe_code)]
-fn read_btrfs_subvolume_info<Fd: AsFd>(
+pub(crate) fn read_btrfs_subvolume_info<Fd: AsFd>(
     fd: Fd,
 ) -> Result<linux_raw_sys::btrfs::btrfs_ioctl_get_subvol_info_args, StateMountError> {
     type SubvolumeInfo = linux_raw_sys::btrfs::btrfs_ioctl_get_subvol_info_args;
@@ -311,7 +311,7 @@ fn read_btrfs_subvolume_info<Fd: AsFd>(
     unsafe { ioctl(fd, request) }.map_err(|_| StateMountError::NotBtrfsSubvolume)
 }
 
-fn format_uuid(uuid: &[u8; 16]) -> String {
+pub(crate) fn format_uuid(uuid: &[u8; 16]) -> String {
     let hex: String = uuid.iter().map(|byte| format!("{byte:02x}")).collect();
     format!("{}-{}-{}-{}-{}", &hex[0..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..32])
 }

@@ -898,3 +898,17 @@ Those checks, authorization, writer freezing, console/helper integration and
 native VM acceptance are still required. The read-only `SnapperCliBackend`
 retains disabled pre/post mutation methods. Tests simulate command responses;
 they do not claim a native checkpoint was created on this WSL host.
+
+`native_checkpoint::verify_new_root_checkpoint` independently opens the fixed
+default-root `.snapshots/<number>/snapshot` beneath a descriptor verified as
+the process root, refusing symlinks. Btrfs ioctls must show matching filesystem
+UUIDs, distinct nonzero root/snapshot subvolume UUIDs and IDs, the read-only
+snapshot flag, and the running root UUID as snapshot parent UUID. The result
+retains the snapshot descriptor and supplies a verified generation-capture
+link. This check applies to a newly created checkpoint of the current root,
+not historical source availability after rollback. Snapper config mapping,
+transaction correlation, boot coverage and writer freezing remain independent
+requirements; the checkpoint backend and verifier are not yet wired into the
+installed privileged coordinator. Local tests cover rejected identity/flag
+observations and rejection of a directory masquerading as the process root;
+successful Btrfs ioctl verification still requires native VM evidence.
