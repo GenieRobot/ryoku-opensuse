@@ -109,8 +109,8 @@ The parent lab harness owns VM creation, root rollback/reboot, and cleanup.
 The journal is a synthetic `Planned` persistence fixture, not a prepared
 restore attempt or proof of a fresh current-state checkpoint. Capture uses a
 fixed synthetic timestamp and payload. Local build, Clippy, and unprivileged
-host refusal pass; no native execution or rollback is credited to this probe
-until a versioned lab artifact records it. A returned historical handle is
+host refusal pass; native component evidence is linked below. Actual root
+rollback remains unproven. A returned historical handle is
 only an observation at lookup time: an eventual mutation executor must reopen
 and compare both catalog/generation and native snapshot under its cleanup and
 mutation lock immediately before use.
@@ -141,5 +141,15 @@ entire parsed contents, unlink that one matching record, and synchronize the
 directory. The harness requires `pending` to be empty before the initializer's
 healthy-repeat check. Other or changed journals are never deleted; failures
 preserve the disposable fixture for inspection. The local harness tests,
-build/Clippy and probe host-refusal checks pass. Native execution, normal
-reboot persistence and root rollback remain uncredited pending lab artifacts.
+build/Clippy and probe host-refusal checks pass.
+
+The [Run15 artifact](../infra/tumbleweed-lab/evidence/issue19-run15-linked-partners.toml)
+records actual KVM execution against the signed Tumbleweed 20261013 fixture:
+original receipt/catalog/generation verification, all four partner-refusal
+cases, real CLI queries, normal-reboot persistence and exact owning-journal
+cleanup passed. Offline fixture restoration and fresh-base reset/cleanup also
+passed. Console mode deliberately reports partial overall coverage because
+desktop provisioning and login were skipped. Before/after layout observations
+retain the same running root identity and subvolume `@`; this is normal-reboot
+persistence evidence. Root rollback, boot compatibility, retention ownership,
+installed writer capture and helper/restore execution remain unproven.

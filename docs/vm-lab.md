@@ -765,3 +765,16 @@ synthetic obstructions and invokes the real CLI resume, followed by ordinary
 repeat/reboot/offline/reset checks. Both executables are staged and hashed;
 raw failure/resume output remains private. This is not arbitrary-volume adoption
 or complete process-interruption coverage.
+
+## Native linked-partner result
+
+[Run15](../infra/tumbleweed-lab/evidence/issue19-run15-linked-partners.toml)
+used explicit KVM acceleration after the shared preflight passed. Its evidence
+window spans approximately three minutes. Signed-input checks, sole-disk
+Btrfs/UEFI boot under enforcing SELinux, initializer checks, exact linked-partner
+capture/read-back, four controlled partner refusals, actual recovery CLI queries,
+normal-reboot persistence, owning-journal cleanup, bounded offline fixture
+restoration and fresh-baseline reset/cleanup passed. Parent and independent
+worker audits confirmed no surviving VM, disk or key and an unchanged signed
+base. Desktop/login remained skipped and both overall result flags remain
+`partial`. This run does not prove changed-root rollback or complete Ryoku restore.
