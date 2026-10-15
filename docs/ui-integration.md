@@ -68,6 +68,17 @@ the same authenticated protocol without project-owned QML/JavaScript glue.
 
 ## Remaining validation
 
+On 2026-10-15, the GTK proof was built and launched locally in openSUSE
+Tumbleweed WSL2 through WSLg, using Rust 1.99.0 and GTK 4.22.5. The ordinary
+user service ran with `XDG_STATE_HOME=$HOME/.local/state`; the GTK client ran
+with `--connect-service --capture-on-launch`. The operator confirmed that the
+window was visible and that clicking **Refresh status** displayed recovery
+unavailable. The service's private socket was present with mode `0600`.
+All-feature workspace Clippy and locked tests passed. GTK logged unavailable
+accessibility-bus and Mesa/EGL driver warnings; this run does not establish
+accessibility or accelerated rendering support. It is a WSL client/service
+smoke test, without Hyprland/KDE login, packaging, reboot, or rollback evidence.
+
 The GTK proof and opt-in service-discovery adapter are present. The
 `--connect-service` path has local protocol tests, but it has not yet been
 verified against the running daemon in a Tumbleweed desktop. Run18 installed

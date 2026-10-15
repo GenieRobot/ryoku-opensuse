@@ -711,7 +711,18 @@ known-compatible system revisions, without depending on the configuration
 partner. Complete-linked additionally requires exact Snapper/filesystem
 linkage. The privileged caller remains responsible for deriving the typed
 compatibility evidence from installed package/profile state. Reload validates
-the persisted snapshot ID, filesystem UUID, and scope invariants.
+the persisted snapshot ID, filesystem UUID, and scope invariants. The same
+schema and plan validation runs before journal publication, so an invalid
+candidate cannot create a record that fails on restart. New journals must
+start at `planned`; later phases require advancing an existing durable record.
+Preflight enforces the journal's 256-configuration-entry bound before returning
+a plan, including for system-only requests that retain the manifest count.
+Focused Rust regression cases cover rejected initial records, phase skipping,
+the entry-count boundary, reload at each phase, and terminal completion. On
+2026-10-15, `cargo test -p ryoku-recovery --locked` passed on openSUSE WSL2
+with Rust 1.99.0: 69 library tests and two CLI tests. Formatting, all-feature
+workspace Clippy with warnings denied, and locked all-feature workspace tests
+also passed. These checks do not establish VM interruption recovery.
 
 This is a planning and journal slice only. It does not create the current-state
 checkpoint, stage content, stop writers, invoke Snapper, restore targets or

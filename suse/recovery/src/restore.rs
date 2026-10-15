@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
 use crate::{Identifier, RecoveryManifest, Sha256, StateRoot, ValidationError};
 
 const MAX_JOURNAL_BYTES: u64 = 16 * 1024;
+const MAX_CONFIGURATION_ENTRIES: u32 = 256;
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 /// The concrete content selected for restore.
@@ -105,6 +106,7 @@ pub enum PreflightError {
     ConfigurationIncompatible,
     ConfigurationScopeEmpty,
     EntryCountOverflow,
+    ConfigurationScopeTooLarge,
 }
 
 impl std::fmt::Display for PreflightError {
@@ -151,6 +153,9 @@ pub fn plan_restore(
         .count();
     let configuration_entries =
         u32::try_from(configuration_entries).map_err(|_| PreflightError::EntryCountOverflow)?;
+    if configuration_entries > MAX_CONFIGURATION_ENTRIES {
+        return Err(PreflightError::ConfigurationScopeTooLarge);
+    }
     if matches!(scope, RestoreScope::ConfigurationOnly | RestoreScope::CompleteLinked)
         && configuration_entries == 0
     {
@@ -340,7 +345,13 @@ impl RestoreJournalStore {
     }
 
     /// Creates the initial durable phase without replacing existing state.
+    /// Only a valid schema-v1 plan at `Planned` may start a new journal;
+    /// restart recovery must load the existing journal and advance it instead.
     pub fn create(&self, journal: &RestoreJournal) -> Result<(), JournalError> {
+        validate_journal(journal)?;
+        if journal.phase != RestorePhase::Planned {
+            return Err(JournalError::InvalidTransition);
+        }
         self.with_lock(|| {
             let name = journal_name(&journal.plan.transaction_id)?;
             match read_journal(&self.root, &name) {
@@ -396,6 +407,7 @@ impl RestoreJournalStore {
     }
 
     fn write_atomic(&self, name: &str, journal: &RestoreJournal) -> Result<(), JournalError> {
+        validate_journal(journal)?;
         let bytes = serde_json::to_vec(journal).map_err(|_| JournalError::InvalidJournal)?;
         if bytes.len() as u64 > MAX_JOURNAL_BYTES {
             return Err(JournalError::TooLarge);
@@ -432,7 +444,16 @@ fn validate_plan(plan: &RestorePlan) -> bool {
     let config_scope_has_entries =
         !matches!(plan.scope, RestoreScope::ConfigurationOnly | RestoreScope::CompleteLinked)
             || plan.configuration_entries > 0;
-    linked_snapshot_is_valid && config_scope_has_entries && plan.configuration_entries <= 256
+    linked_snapshot_is_valid
+        && config_scope_has_entries
+        && plan.configuration_entries <= MAX_CONFIGURATION_ENTRIES
+}
+
+fn validate_journal(journal: &RestoreJournal) -> Result<(), JournalError> {
+    if journal.schema_version != 1 || !validate_plan(&journal.plan) {
+        return Err(JournalError::InvalidJournal);
+    }
+    Ok(())
 }
 
 fn create_temp(root: &File) -> Result<(String, File), JournalError> {
@@ -480,10 +501,8 @@ fn read_journal(root: &File, name: &str) -> Result<RestoreJournal, JournalError>
     }
     let journal: RestoreJournal =
         serde_json::from_slice(&bytes).map_err(|_| JournalError::InvalidJournal)?;
-    if journal.schema_version != 1
-        || journal_name(&journal.plan.transaction_id)? != name
-        || !validate_plan(&journal.plan)
-    {
+    validate_journal(&journal)?;
+    if journal_name(&journal.plan.transaction_id)? != name {
         return Err(JournalError::InvalidJournal);
     }
     Ok(journal)
@@ -639,6 +658,53 @@ mod tests {
     }
 
     #[test]
+    fn preflight_enforces_the_persisted_plan_entry_limit() {
+        let mut manifest = manifest();
+        for index in 1..MAX_CONFIGURATION_ENTRIES {
+            manifest
+                .add_file(
+                    FileRecord::new(
+                        StateRoot::UserRyokuConfig,
+                        RelativePath::new(format!("setting-{index}.json")).unwrap(),
+                        EntryKind::Absent,
+                    )
+                    .unwrap(),
+                )
+                .unwrap();
+        }
+        manifest.seal().unwrap();
+        let plan = plan_restore(&manifest, RestoreScope::CompleteLinked, &evidence()).unwrap();
+        assert_eq!(plan.configuration_entries, MAX_CONFIGURATION_ENTRIES);
+        let (_path, fd) = root();
+        let store = RestoreJournalStore::open(&fd).unwrap();
+        let state = journal(plan);
+        store.create(&state).unwrap();
+        assert_eq!(store.load(&state.plan.transaction_id).unwrap(), state);
+
+        manifest
+            .add_file(
+                FileRecord::new(
+                    StateRoot::UserRyokuConfig,
+                    RelativePath::new("over-limit.json").unwrap(),
+                    EntryKind::Absent,
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        manifest.seal().unwrap();
+        for scope in [
+            RestoreScope::ConfigurationOnly,
+            RestoreScope::SystemOnly,
+            RestoreScope::CompleteLinked,
+        ] {
+            assert_eq!(
+                plan_restore(&manifest, scope, &evidence()),
+                Err(PreflightError::ConfigurationScopeTooLarge)
+            );
+        }
+    }
+
+    #[test]
     fn preflight_rejects_mismatched_filesystem_before_journaling() {
         let manifest = manifest();
         let mut facts = evidence();
@@ -717,6 +783,90 @@ mod tests {
             store.load(&Identifier::new("txn-restore-1").unwrap()),
             Err(JournalError::InvalidJournal)
         ));
+    }
+
+    #[test]
+    fn invalid_initial_journals_leave_no_persistent_state() {
+        let (path, fd) = root();
+        let store = RestoreJournalStore::open(&fd).unwrap();
+        let plan = plan_restore(&manifest(), RestoreScope::CompleteLinked, &evidence()).unwrap();
+        let valid = journal(plan);
+        let mut invalid_cases = Vec::new();
+        let mut invalid = valid.clone();
+        invalid.schema_version = 2;
+        invalid_cases.push(invalid);
+        let mut invalid = valid.clone();
+        invalid.plan.snapshot_id = "../evil".into();
+        invalid_cases.push(invalid);
+        let mut invalid = valid.clone();
+        invalid.plan.filesystem_uuid = "invalid".into();
+        invalid_cases.push(invalid);
+        let mut invalid = valid.clone();
+        invalid.plan.configuration_entries = 0;
+        invalid_cases.push(invalid);
+        let mut invalid = valid.clone();
+        invalid.plan.configuration_entries = 257;
+        invalid_cases.push(invalid);
+
+        for invalid in invalid_cases {
+            assert!(matches!(store.create(&invalid), Err(JournalError::InvalidJournal)));
+            assert!(!path.join("txn-restore-1.json").exists());
+        }
+        // A rejected candidate must not reserve the transaction or poison a
+        // subsequent valid creation and restart.
+        store.create(&valid).unwrap();
+        drop(store);
+        let reopened = RestoreJournalStore::open(&fd).unwrap();
+        assert_eq!(reopened.load(&valid.plan.transaction_id).unwrap(), valid);
+    }
+
+    #[test]
+    fn initial_journal_cannot_skip_recovery_work() {
+        let (path, fd) = root();
+        let store = RestoreJournalStore::open(&fd).unwrap();
+        let plan = plan_restore(&manifest(), RestoreScope::CompleteLinked, &evidence()).unwrap();
+        let mut state = journal(plan);
+        for phase in [
+            RestorePhase::CheckpointVerified,
+            RestorePhase::ContentStaged,
+            RestorePhase::WritersStopped,
+            RestorePhase::RootRollbackComplete,
+            RestorePhase::ConfigurationRestored,
+            RestorePhase::HealthChecked,
+            RestorePhase::Complete,
+        ] {
+            state.phase = phase;
+            assert!(matches!(store.create(&state), Err(JournalError::InvalidTransition)));
+            assert!(!path.join("txn-restore-1.json").exists());
+        }
+        state.phase = RestorePhase::Planned;
+        store.create(&state).unwrap();
+    }
+
+    #[test]
+    fn every_phase_survives_restart_and_complete_is_terminal() {
+        let (_path, fd) = root();
+        let plan = plan_restore(&manifest(), RestoreScope::CompleteLinked, &evidence()).unwrap();
+        let initial = journal(plan);
+        RestoreJournalStore::open(&fd).unwrap().create(&initial).unwrap();
+        let mut expected = initial;
+        while let Some(next) = expected.phase.next() {
+            let store = RestoreJournalStore::open(&fd).unwrap();
+            let mut recovered = store.load(&expected.plan.transaction_id).unwrap();
+            assert_eq!(recovered, expected);
+            store.advance(&mut recovered, next).unwrap();
+            expected = recovered;
+        }
+        let store = RestoreJournalStore::open(&fd).unwrap();
+        let mut complete = store.load(&expected.plan.transaction_id).unwrap();
+        assert_eq!(complete.phase, RestorePhase::Complete);
+        for next in [RestorePhase::Planned, RestorePhase::HealthChecked, RestorePhase::Complete] {
+            assert!(matches!(
+                store.advance(&mut complete, next),
+                Err(JournalError::InvalidTransition)
+            ));
+            assert_eq!(store.load(&expected.plan.transaction_id).unwrap(), expected);
+        }
     }
 
     #[test]
