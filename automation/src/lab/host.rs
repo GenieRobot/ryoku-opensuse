@@ -64,6 +64,10 @@ const INITIALIZER_FAILURE_RESULTS: &[&str] = &[
     "native_initializer_foreign_target_preserved=passed",
     "native_initializer_foreign_unit_preserved=passed",
     "native_initializer_unmounted_resume=passed",
+    "native_initializer_missing_boot_unit_refused=passed",
+    "native_initializer_changed_boot_unit_preserved=passed",
+    "native_initializer_missing_enablement_refused=passed",
+    "native_initializer_foreign_enablement_preserved=passed",
 ];
 
 fn validate_initializer_failure_results(output: &str) -> Result<()> {

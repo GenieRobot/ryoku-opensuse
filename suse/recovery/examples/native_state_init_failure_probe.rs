@@ -184,6 +184,49 @@ fn main() -> Result<()> {
     collect_and_open_state_mount(&root, expected.identity())?;
     let _reader = GenerationReader::open_state_mount()?;
     println!("native_initializer_unmounted_resume=passed");
+    // Change only boot files created by this seeded fixture. The live mount
+    // stays available, so refusal must come from persistent boot verification.
+    let unit_bytes = fs::read(&unit_path)?;
+    fs::remove_file(&unit_path)?;
+    if initializer(&["initialize"])?.status.success() {
+        return Err("repeat accepted missing boot unit".into());
+    }
+    require_absent(&unit_path)?;
+    fs::write(&unit_path, &unit_bytes)?;
+    fs::set_permissions(&unit_path, fs::Permissions::from_mode(0o644))?;
+    println!("native_initializer_missing_boot_unit_refused=passed");
+    fs::write(&unit_path, foreign_unit)?;
+    if initializer(&["initialize"])?.status.success() || fs::read(&unit_path)? != foreign_unit {
+        return Err("repeat accepted or repaired altered boot unit".into());
+    }
+    fs::write(&unit_path, &unit_bytes)?;
+    println!("native_initializer_changed_boot_unit_preserved=passed");
+    let enabled = format!("/etc/systemd/system/local-fs.target.wants/{STATE_MOUNT_UNIT}");
+    let target = fs::read_link(&enabled)?;
+    fs::remove_file(&enabled)?;
+    if initializer(&["initialize"])?.status.success() {
+        return Err("repeat accepted missing enablement".into());
+    }
+    require_absent(&enabled)?;
+    println!("native_initializer_missing_enablement_refused=passed");
+    std::os::unix::fs::symlink("../foreign-fixture.mount", &enabled)?;
+    if initializer(&["initialize"])?.status.success()
+        || fs::read_link(&enabled)? != std::path::Path::new("../foreign-fixture.mount")
+    {
+        return Err("repeat accepted or repaired foreign enablement".into());
+    }
+    fs::remove_file(&enabled)?;
+    std::os::unix::fs::symlink(target, &enabled)?;
+    println!("native_initializer_foreign_enablement_preserved=passed");
+    File::open(&unit_path)?.sync_all()?;
+    File::open("/etc/systemd/system/local-fs.target.wants")?.sync_all()?;
+    File::open("/etc/systemd/system")?.sync_all()?;
+    if !initializer(&["initialize"])?.status.success()
+        || read_machine_state_record(&root)? != expected
+        || initializer_snapshots()? != snapshots
+    {
+        return Err("healthy repeat after fixture restoration failed".into());
+    }
     Ok(())
 }
 
