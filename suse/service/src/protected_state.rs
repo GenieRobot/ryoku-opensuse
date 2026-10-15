@@ -1,7 +1,7 @@
 //! Startup gate for the privileged helper's protected recovery store.
 //!
 //! The expected identity is read from the root-side machine record and then
-//! checked against live evidence by `GenerationStore::open_state_mount`. The
+//! checked against live evidence by `GenerationStore::open_initialized_state_mount`. The
 //! helper retains the resulting pinned store for its lifetime.
 
 use ryoku_recovery::{
@@ -54,7 +54,8 @@ impl ProtectedState {
                     .map_err(ProtectedStateError::MachineIdentity)
             },
             |identity| {
-                GenerationStore::open_state_mount(identity).map_err(ProtectedStateError::Store)
+                GenerationStore::open_initialized_state_mount(identity)
+                    .map_err(ProtectedStateError::Store)
             },
         )?;
         Ok(Self { store })

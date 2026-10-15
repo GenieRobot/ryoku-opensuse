@@ -278,6 +278,21 @@ impl GenerationReader {
 }
 
 impl GenerationStore {
+    /// Open a previously initialized protected store without creating or
+    /// synchronizing its directory structure. Startup must not repair missing
+    /// initialization state outside the explicit provisioning transaction.
+    pub fn open_initialized_state_mount(
+        expected: &StateMountIdentity,
+    ) -> Result<Self, GenerationError> {
+        let process_root = rustix::fs::open(
+            "/",
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+            Mode::empty(),
+        )?;
+        let (state_fd, _) = collect_and_open_state_mount(&process_root, expected)?;
+        Self::open_initialized(&File::from(state_fd), 0)
+    }
+
     /// Opens the store only after collecting and validating the fixed
     /// `/var/lib/ryoku-state` Btrfs mount against the installed machine
     /// identity. Callers must obtain `expected` from trusted installation
@@ -346,6 +361,21 @@ impl GenerationStore {
         fsync(&catalog)?;
         fsync(&root)?;
         Ok(Self { staging, generations, catalog })
+    }
+
+    fn open_initialized(root: &File, expected_uid: u32) -> Result<Self, GenerationError> {
+        if !is_directory(root)? {
+            return Err(GenerationError::InvalidStore);
+        }
+        let stat = rustix::fs::fstat(root)?;
+        if stat.st_uid != expected_uid || stat.st_mode & 0o7777 != 0o700 {
+            return Err(GenerationError::InvalidStore);
+        }
+        Ok(Self {
+            staging: existing_directory(root, "staging", expected_uid)?,
+            generations: existing_directory(root, "generations", expected_uid)?,
+            catalog: existing_directory(root, "catalog", expected_uid)?,
+        })
     }
 
     #[cfg(test)]
@@ -1169,6 +1199,23 @@ mod tests {
         ));
         assert_eq!(fs::read_dir(&root_path).unwrap().count(), 0);
         fs::remove_dir(root_path).unwrap();
+    }
+
+    #[test]
+    fn startup_store_open_never_creates_or_repairs_missing_directories() {
+        let root_path = temp_root();
+        let root = File::open(&root_path).unwrap();
+        let owner = rustix::fs::fstat(&root).unwrap().st_uid;
+        assert!(GenerationStore::open_initialized(&root, owner).is_err());
+        assert_eq!(fs::read_dir(&root_path).unwrap().count(), 0);
+        drop(test_store(&root));
+        assert!(GenerationStore::open_initialized(&root, owner).is_ok());
+        fs::remove_dir(root_path.join("catalog")).unwrap();
+        assert!(GenerationStore::open_initialized(&root, owner).is_err());
+        assert!(!root_path.join("catalog").exists());
+        assert!(root_path.join("staging").is_dir());
+        assert!(root_path.join("generations").is_dir());
+        fs::remove_dir_all(root_path).unwrap();
     }
 
     #[test]
