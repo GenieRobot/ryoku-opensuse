@@ -1,10 +1,11 @@
 //! Controlled failure cases, only in the seeded disposable QEMU guest.
 //! The harness installs the real initializer at its fixed native path first.
 use ryoku_recovery::{
-    Identifier, SnapshotLink,
+    Identifier, Sha256, SnapshotLink,
     generation::GenerationReader,
     machine_state::read_machine_state_record,
     native_checkpoint::verify_new_root_checkpoint,
+    restore::{RestoreJournal, RestoreJournalStore, RestorePlan, RestoreScope},
     state_creation::{StateCreationTransaction, has_pending_state_creation},
     state_mount::collect_and_open_state_mount,
     state_provision::{STATE_MOUNT_UNIT, provisioning_root_uuid},
@@ -227,6 +228,72 @@ fn main() -> Result<()> {
     {
         return Err("healthy repeat after fixture restoration failed".into());
     }
+    verify_journal_discovery(&snapshot, &expected.identity().filesystem_uuid)?;
+    Ok(())
+}
+
+fn verify_journal_discovery(snapshot: &ryoku_snapper::SnapshotId, uuid: &str) -> Result<()> {
+    let path = format!("{TARGET}/restore-journals");
+    let held = format!("{TARGET}/fixture-held-journals");
+    if !RestoreJournalStore::open_existing_state_mount()?.incomplete_attempts()?.is_empty() {
+        return Err("fresh journal directory contains unfinished attempts".into());
+    }
+    println!("native_journal_empty_scan=passed");
+    require_absent(&held)?;
+    fs::rename(&path, &held)?;
+    if initializer(&["initialize"])?.status.success()
+        || RestoreJournalStore::open_existing_state_mount().is_ok()
+    {
+        return Err("missing journal directory was accepted or recreated".into());
+    }
+    require_absent(&path)?;
+    fs::rename(&held, &path)?;
+    println!("native_journal_missing_store_refused=passed");
+    let partial = format!("{path}/.restore-fixture-interrupted.tmp");
+    let mut file =
+        fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&partial)?;
+    file.write_all(b"partial-fixture-journal")?;
+    file.sync_all()?;
+    if initializer(&["initialize"])?.status.success()
+        || RestoreJournalStore::open_existing_state_mount()?.incomplete_attempts().is_ok()
+        || fs::read(&partial)? != b"partial-fixture-journal"
+    {
+        return Err("partial journal was accepted or repaired".into());
+    }
+    fs::remove_file(&partial)?;
+    println!("native_journal_partial_record_preserved=passed");
+    // Synthetic Planned record tests discovery only. No restore phase or
+    // checkpoint execution is claimed, and no restore target is mutated.
+    let digest = Sha256::new("0".repeat(64)).map_err(|_| "invalid fixture digest")?;
+    let journal = RestoreJournal::new(
+        Identifier::new("fixture-pending-restore").map_err(|_| "invalid fixture ID")?,
+        RestorePlan {
+            source_manifest_sha256: digest.clone(),
+            transaction_id: Identifier::new("fixture-source").map_err(|_| "invalid source")?,
+            generation_id: Identifier::new("fixture-source-generation")
+                .map_err(|_| "invalid generation")?,
+            snapper_config: Identifier::new("root").map_err(|_| "invalid config")?,
+            snapshot_id: snapshot.as_str().into(),
+            filesystem_uuid: uuid.into(),
+            scope: RestoreScope::SystemOnly,
+            configuration_entries: 0,
+        },
+        Identifier::new("fixture-current-generation").map_err(|_| "invalid current")?,
+        digest,
+    );
+    RestoreJournalStore::open_existing_state_mount()?.create(&journal)?;
+    let record = format!("{path}/fixture-pending-restore.json");
+    let bytes = fs::read(&record)?;
+    if RestoreJournalStore::open_existing_state_mount()?.incomplete_attempts()? != [journal]
+        || initializer(&["initialize"])?.status.success()
+        || fs::read(&record)? != bytes
+    {
+        return Err("unfinished journal was lost or reported healthy".into());
+    }
+    println!("native_journal_pending_attempt_refused=passed");
+    fs::remove_file(record)?; // Only this fixture's synthetic nonexecuted plan.
+    File::open(&path)?.sync_all()?;
+    File::open(TARGET)?.sync_all()?;
     Ok(())
 }
 

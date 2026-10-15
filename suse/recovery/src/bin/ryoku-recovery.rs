@@ -4,9 +4,9 @@ use std::{
     process::ExitCode,
 };
 
-use ryoku_recovery::{Identifier, generation::GenerationReader};
+use ryoku_recovery::{Identifier, generation::GenerationReader, restore::RestoreJournalStore};
 
-const USAGE: &str = "Usage:\n  ryoku-recovery list\n  ryoku-recovery inspect TRANSACTION_ID\n  ryoku-recovery verify TRANSACTION_ID\n";
+const USAGE: &str = "Usage:\n  ryoku-recovery list\n  ryoku-recovery pending\n  ryoku-recovery inspect TRANSACTION_ID\n  ryoku-recovery verify TRANSACTION_ID\n";
 
 fn main() -> ExitCode {
     match execute(env::args().skip(1), &mut io::stdout()) {
@@ -24,6 +24,21 @@ fn execute(
 ) -> Result<(), String> {
     let args: Vec<_> = arguments.into_iter().collect();
     match args.as_slice() {
+        [command] if command == "pending" => {
+            let store = RestoreJournalStore::open_existing_state_mount()
+                .map_err(|error| error.to_string())?;
+            let pending = store.incomplete_attempts().map_err(|error| error.to_string())?;
+            if pending.is_empty() {
+                writeln!(output, "No unfinished recovery attempts")
+                    .map_err(|error| error.to_string())?;
+            } else {
+                for attempt in pending {
+                    writeln!(output, "{} {:?}", attempt.restore_id.as_str(), attempt.phase)
+                        .map_err(|error| error.to_string())?;
+                }
+            }
+            Ok(())
+        }
         [command] if command == "list" => {
             let reader = GenerationReader::open_state_mount().map_err(|error| error.to_string())?;
             let transactions = reader.list_transactions().map_err(|error| error.to_string())?;

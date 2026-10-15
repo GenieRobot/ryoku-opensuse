@@ -68,6 +68,10 @@ const INITIALIZER_FAILURE_RESULTS: &[&str] = &[
     "native_initializer_changed_boot_unit_preserved=passed",
     "native_initializer_missing_enablement_refused=passed",
     "native_initializer_foreign_enablement_preserved=passed",
+    "native_journal_empty_scan=passed",
+    "native_journal_missing_store_refused=passed",
+    "native_journal_partial_record_preserved=passed",
+    "native_journal_pending_attempt_refused=passed",
 ];
 
 fn validate_initializer_failure_results(output: &str) -> Result<()> {

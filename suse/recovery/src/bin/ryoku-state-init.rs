@@ -8,6 +8,7 @@ use ryoku_recovery::{
     generation::{GenerationReader, GenerationStore},
     machine_state::{MachineStateError, provision_machine_state_record, read_machine_state_record},
     native_checkpoint::verify_new_root_checkpoint,
+    restore::RestoreJournalStore,
     state_creation::{CreationError, StateCreationTransaction, has_pending_state_creation},
     state_mount::{StateMountError, collect_and_open_state_mount},
     state_provision::{
@@ -92,6 +93,14 @@ fn initialize(action: Action) -> Result<()> {
                 collect_and_open_state_mount(&root, record.identity())?;
                 let _reader = GenerationReader::open_state_mount()?;
                 verify_recorded_state_mount_unit(&root)?;
+                if !RestoreJournalStore::open_existing_state_mount()?
+                    .incomplete_attempts()?
+                    .is_empty()
+                {
+                    return Err(
+                        "unfinished recovery requires explicit recovery coordination".into()
+                    );
+                }
                 println!("State store already initialized and available");
                 return Ok(());
             }
@@ -201,6 +210,8 @@ fn configure_created(
     fsync(&system)?;
     collect_and_open_state_mount(root, created.machine_record().identity())?;
     let _store = GenerationStore::open_state_mount(created.machine_record().identity())?;
+    let _journals =
+        RestoreJournalStore::initialize_state_mount(created.machine_record().identity())?;
     run_command("/usr/sbin/restorecon", &["-R", "/var/lib/ryoku-state"])?;
     provision_machine_state_record(root, created.machine_record())?;
     let _reader = GenerationReader::open_state_mount()?;
