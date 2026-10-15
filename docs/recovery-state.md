@@ -933,3 +933,11 @@ duplicating the checkpoint. Use explicit `--verify-existing` to reconcile the
 unique transaction-tagged snapshot without creating one, including after a
 failed initial verification. This is a native component experiment, not a full
 linked restore or checkpoint acceptance gate.
+
+The new [configuration application path](configuration-application.md) now
+publishes enrolled configuration inode types and absences through private
+destination-local stages, verifies read-back, and advances only to
+`ConfigurationRestored`. Durable-boundary replay, unrelated-file preservation,
+metadata and cross-filesystem tests cover the writer. Privileged console/native
+coordination, writer shutdown, health checks and the normal-session gate are
+still needed before issue #21 can be completed.

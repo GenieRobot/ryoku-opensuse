@@ -1,5 +1,7 @@
 use super::*;
 
+#[path = "configuration_apply_tests.rs"]
+mod configuration_apply_tests;
 #[path = "preparation_tests.rs"]
 mod preparation_tests;
 use crate::Identifier;
@@ -24,6 +26,9 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
+        Self::with_extra(&[], |_| {})
+    }
+    fn with_extra(extra: &[&str], populate: impl FnOnce(&Path)) -> Self {
         let path = std::env::temp_dir().join(format!(
             "ryoku-disk-stage-{}-{}",
             std::process::id(),
@@ -40,8 +45,10 @@ impl Fixture {
         fs::create_dir(path.join("source/directory")).unwrap();
         symlink("a", path.join("source/link")).unwrap();
         fs::write(path.join("unrelated"), b"home sentinel").unwrap();
+        populate(&path.join("source"));
         let paths: Vec<_> = ["a", "b", "directory", "link", "missing"]
             .into_iter()
+            .chain(extra.iter().copied())
             .map(|name| crate::RelativePath::new(name).unwrap())
             .collect();
         let inventory = capture_inventory(
@@ -92,7 +99,7 @@ impl Fixture {
             snapshot_id: manifest.snapper_snapshot_id.clone(),
             filesystem_uuid: manifest.filesystem_uuid.clone(),
             scope: RestoreScope::ConfigurationOnly,
-            configuration_entries: 5,
+            configuration_entries: manifest.files().len() as u32,
         };
         let verified = generation.open_verified_transaction(&manifest.transaction_id).unwrap();
         let source = stage_configuration(&verified, &plan).unwrap();

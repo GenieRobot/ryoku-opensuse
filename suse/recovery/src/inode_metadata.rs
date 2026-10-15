@@ -1,7 +1,9 @@
 //! Metadata restoration on caller-owned private staging inodes.
 //!
 //! The caller must supply a writable, exclusively held inode in its protected
-//! staging area, never a live configuration target. This primitive does not
+//! staging area for regular files. The offline writer can finalize an enrolled
+//! live directory after all child operations, while writers remain stopped;
+//! failures must leave recovery active. This primitive does not
 //! authorize restore, checkpoint current state, publish names, advance a
 //! journal, or freeze writers. Apply directory metadata after preparing children.
 //! Failures can leave the staging inode partly modified; never publish it.
