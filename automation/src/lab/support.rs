@@ -41,6 +41,7 @@ pub fn public_evidence(line: &str) -> bool {
         "release_signer",
         "host_runner",
         "accelerator",
+        "accelerator_runtime",
         "vm_memory_mib",
         "vm_cpus",
         "qemu",

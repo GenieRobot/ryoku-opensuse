@@ -1,9 +1,11 @@
 //! Disposable cloud fixture automation; no production recovery implementation.
+mod accelerator;
 mod definition;
 mod desktop;
 mod guest;
 mod host;
 mod migration;
+mod preflight;
 mod process;
 mod repositories;
 mod runner;
@@ -26,6 +28,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let options = run_options(&args)?;
             host::run(&args[2], &args[3], options)
         }
+        Some("preflight") => {
+            let options = run_options(&args)?;
+            preflight::report(&args[2], &args[3], options)
+        }
         Some("guest-setup") if args.len() == 3 => guest::setup(&args[2]),
         Some("guest-migrate") if args.len() == 3 => migration::migrate(&args[2]),
         Some("guest-inspect") => guest::inspect(),
@@ -40,12 +46,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some("guest-recover") if args.len() == 3 => guest::recover(&args[2]),
         Some("guest-online-probe") if args.len() == 3 => guest::online_probe(&args[2]),
         Some("guest-marker-absent") => guest::marker_absent(),
-        _ => Err("usage: vm-lab run ASSET_DIRECTORY FRESH_RUN_DIRECTORY [--capture-ui GTK_BINARY]"
-            .into()),
+        _ => Err(usage().into()),
     }
 }
 
+#[derive(Clone, Copy)]
 pub(crate) struct RunOptions<'a> {
+    accelerator: Option<accelerator::Accelerator>,
     capture_ui: Option<&'a str>,
     zypp_probe: Option<(&'a str, &'a str)>,
     state_probe: Option<&'a str>,
@@ -61,6 +68,7 @@ fn run_options(args: &[String]) -> Result<RunOptions<'_>, &'static str> {
         return Err(usage());
     }
     let mut options = RunOptions {
+        accelerator: None,
         capture_ui: None,
         zypp_probe: None,
         state_probe: None,
@@ -73,6 +81,11 @@ fn run_options(args: &[String]) -> Result<RunOptions<'_>, &'static str> {
     let mut index = 4;
     while index < args.len() {
         match args[index].as_str() {
+            "--accelerator" if options.accelerator.is_none() && index + 1 < args.len() => {
+                options.accelerator =
+                    Some(accelerator::Accelerator::parse(&args[index + 1], runner::WSL)?);
+                index += 2;
+            }
             "--linked-checkpoint-probe"
                 if options.linked_probe.is_none() && index + 1 < args.len() =>
             {
@@ -173,12 +186,29 @@ fn run_options(args: &[String]) -> Result<RunOptions<'_>, &'static str> {
 }
 
 fn usage() -> &'static str {
-    "usage: vm-lab run ASSET_DIRECTORY FRESH_RUN_DIRECTORY [--capture-ui GTK_BINARY] [--zypp-probe PROBE_BINARY PACKAGE] [--state-probe PROBE_BINARY] [--state-initializer INITIALIZER_BINARY] [--state-prepare-probe PROBE_BINARY] [--linked-checkpoint-probe PROBE_BINARY --recovery-cli CLI_BINARY] [--console-only]"
+    "usage: vm-lab {run|preflight} ASSET_DIRECTORY FRESH_RUN_DIRECTORY [--accelerator tcg|kvm] [--capture-ui GTK_BINARY] [--zypp-probe PROBE_BINARY PACKAGE] [--state-probe PROBE_BINARY] [--state-initializer INITIALIZER_BINARY] [--state-prepare-probe PROBE_BINARY] [--linked-checkpoint-probe PROBE_BINARY --recovery-cli CLI_BINARY] [--console-only]"
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn accelerator_options_default_to_tcg_and_reject_duplicates_or_cloud_kvm() {
+        let base = ["vm-lab", "preflight", "assets", "run"].map(str::to_owned);
+        assert_eq!(
+            run_options(&base).unwrap().accelerator.unwrap_or_default(),
+            accelerator::Accelerator::Tcg
+        );
+        let mut arguments = base.to_vec();
+        arguments.extend(["--accelerator", "kvm"].map(str::to_owned));
+        assert_eq!(run_options(&arguments).is_ok(), runner::WSL);
+        arguments.extend(["--accelerator", "tcg"].map(str::to_owned));
+        assert!(run_options(&arguments).is_err());
+        let mut arguments = base.to_vec();
+        arguments.push("--accelerator".into());
+        assert!(run_options(&arguments).is_err());
+    }
 
     #[test]
     fn linked_probe_requires_exact_binary_pair_and_initialized_console_fixture() {

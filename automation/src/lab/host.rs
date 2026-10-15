@@ -20,8 +20,6 @@ mod linked_checkpoint;
 #[path = "qmp.rs"]
 mod qmp;
 
-const FIRMWARE: &[(&str, &str)] =
-    &[("OVMF_CODE_4M.fd", "ovmf_code_sha256"), ("OVMF_VARS_4M.fd", "ovmf_variables_sha256")];
 const LOGIN_JOURNAL_FILENAME: &str = "sddm-logind-journal-private.log";
 const LOGIN_JOURNAL_STREAM_LIMIT: usize = 1024 * 1024;
 const LOGIN_JOURNAL_COMMAND: &str = "sudo /usr/bin/timeout --signal=KILL --kill-after=2s 15s /usr/bin/journalctl --no-pager --output=short-monotonic --since=-5min --lines=1000 --unit=sddm.service --unit=systemd-logind.service";
@@ -354,6 +352,7 @@ fn capture_login_timeout(control: &mut impl LoginMonitor) {
 }
 
 struct Lab {
+    accelerator: crate::accelerator::Accelerator,
     assets: PathBuf,
     run: PathBuf,
     ui_binary: Option<PathBuf>,
@@ -453,15 +452,12 @@ impl Lab {
             .args([
                 "-machine",
                 scalar("machine")?,
-                "-accel",
-                "tcg,thread=multi",
-                "-cpu",
-                "max",
                 "-smp",
                 scalar("cpus")?,
                 "-m",
                 scalar("memory_mib")?,
             ])
+            .args(self.accelerator.arguments())
             .arg("-drive")
             .arg(format!("file={},format=qcow2,if=virtio", self.run.join("disk.qcow2").display()))
             .arg("-drive")
@@ -500,7 +496,10 @@ impl Lab {
         // QEMU binds port zero atomically. Query only our private owned QMP
         // endpoint; no temporary listener is dropped before another bind.
         let mut control = qmp::QmpClient::connect(&self.run.join("qmp-private.sock"))?;
+        control.verify_accelerator(self.accelerator == crate::accelerator::Accelerator::Kvm)?;
+        self.evidence("accelerator_runtime=verified")?;
         self.port = Some(control.forwarded_ssh_port()?);
+        drop(control);
         self.wait_ssh()
     }
 
@@ -1568,68 +1567,26 @@ fn stage_input_binary(source: &Path, destination: &Path) -> Result<PathBuf> {
 }
 
 pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Result<()> {
-    let crate::RunOptions {
-        capture_ui: ui_binary,
-        zypp_probe,
+    let inputs = crate::preflight::inspect(assets, run, options)?;
+    let assets = inputs.assets;
+    let run_path = inputs.run.as_path();
+    let [
+        ui_binary,
         state_probe,
         state_initializer,
         state_prepare,
         linked_probe,
         recovery_cli,
-        console_only,
-    } = options;
+        zypp_binary,
+    ] = inputs.binaries;
+    let zypp_probe = zypp_binary.zip(options.zypp_probe.map(|(_, package)| package.to_owned()));
+    let console_only = options.console_only;
     let image = scalar("image")?;
     let hash = scalar("sha256")?;
     let signer = scalar("release_key_fingerprint")?;
     let qemu = scalar("qemu")?;
     let memory = scalar("memory_mib")?;
     let cpus = scalar("cpus")?;
-    require(
-        scalar("architecture")? == "x86_64" && scalar("accelerator")? == "tcg",
-        "unsupported fixture architecture or accelerator",
-    )?;
-    let assets = fs::canonicalize(assets)?;
-    let ui_binary = ui_binary.map(fs::canonicalize).transpose()?;
-    let state_probe = state_probe.map(fs::canonicalize).transpose()?;
-    let state_initializer = state_initializer.map(fs::canonicalize).transpose()?;
-    let state_prepare = state_prepare.map(fs::canonicalize).transpose()?;
-    let linked_probe = linked_probe.map(fs::canonicalize).transpose()?;
-    let recovery_cli = recovery_cli.map(fs::canonicalize).transpose()?;
-    for binary in [&linked_probe, &recovery_cli].into_iter().flatten() {
-        require(binary.is_file(), "linked checkpoint input is not a regular file")?;
-    }
-    if let Some(binary) = &state_prepare {
-        require(binary.is_file(), "state preparation probe is not a regular file")?;
-    }
-    if let Some(binary) = &state_initializer {
-        require(binary.is_file(), "state initializer is not a regular file")?;
-    }
-    if let Some(binary) = &state_probe {
-        require(binary.is_file(), "state probe binary is not a regular file")?;
-    }
-    if let Some(binary) = &ui_binary {
-        require(binary.is_file(), "GTK proof binary is not a regular file")?;
-    }
-    let zypp_probe = zypp_probe
-        .map(|(binary, package)| {
-            let binary = fs::canonicalize(binary)?;
-            require(binary.is_file(), "zypper probe binary is not a regular file")?;
-            require(
-                !package.is_empty()
-                    && package.as_bytes()[0].is_ascii_alphanumeric()
-                    && package
-                        .bytes()
-                        .all(|byte| byte.is_ascii_alphanumeric() || b"-_.+".contains(&byte)),
-                "invalid zypper probe package identifier",
-            )?;
-            Ok::<_, Box<dyn std::error::Error>>((binary, package.to_owned()))
-        })
-        .transpose()?;
-    let run_path = Path::new(run);
-    require(run_path.is_absolute(), "run directory must be absolute")?;
-    safe_component(run_path.file_name().and_then(|x| x.to_str()).ok_or("missing run name")?)?;
-    let parent = fs::canonicalize(run_path.parent().ok_or("missing parent")?)?;
-    runner::validate_host(&assets, &parent)?;
     fs::create_dir(run_path)?; // Never resume or delete an unowned existing directory.
     fs::set_permissions(run_path, fs::Permissions::from_mode(0o700))?;
     let ui_binary = ui_binary
@@ -1656,32 +1613,6 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
                 .map(|binary| (binary, package))
         })
         .transpose()?;
-    let checksum = output(Command::new("sha256sum").arg(assets.join(image)))?;
-    require(checksum.split_whitespace().next() == Some(hash), "base checksum mismatch")?;
-    let signed_sum = fs::read_to_string(assets.join("image.sha256"))?;
-    require(
-        signed_sum.split_whitespace().next() == Some(hash),
-        "signed checksum does not describe pinned base",
-    )?;
-    for (file, key) in FIRMWARE {
-        let digest = output(Command::new("sha256sum").arg(runner::firmware(&assets, file)))?;
-        require(
-            digest.split_whitespace().next() == Some(scalar(key)?),
-            "firmware checksum mismatch",
-        )?;
-    }
-    let signature = output(
-        Command::new("gpg")
-            .args(["--no-auto-check-trustdb", "--homedir"])
-            .arg(assets.join("gnupg"))
-            .args(["--status-fd", "1", "--verify"])
-            .arg(assets.join("image.sha256.asc"))
-            .arg(assets.join("image.sha256")),
-    )?;
-    require(
-        signature.lines().any(|x| x.starts_with(&format!("[GNUPG:] VALIDSIG {signer} "))),
-        "unexpected release signer",
-    )?;
     let (network, offline_probe) = if runner::WSL {
         ("direct".to_owned(), "1.1.1.1:443".to_owned())
     } else {
@@ -1690,6 +1621,7 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         (address.to_string(), address.to_string())
     };
     let mut lab = Lab {
+        accelerator: options.accelerator.unwrap_or_default(),
         assets,
         run: fs::canonicalize(run_path)?,
         ui_binary,
@@ -1705,12 +1637,8 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         report: fs::File::create(run_path.join("evidence.txt"))?,
     };
     let runner_name = if runner::WSL { "existing-opensuse-wsl" } else { "existing-managed-cloud" };
-    lab.evidence(&format!("fixture_sha256={hash}\nrelease_signer={signer}\nhost_runner={runner_name}\naccelerator=tcg\nvm_memory_mib={memory}\nvm_cpus={cpus}"))?;
-    let version = output(lab.tool("qemu-system-x86_64").arg("--version"))?;
-    require(
-        version.starts_with(&format!("QEMU emulator version {qemu}")),
-        "unexpected QEMU version",
-    )?;
+    let accelerator = lab.accelerator.name();
+    lab.evidence(&format!("fixture_sha256={hash}\nrelease_signer={signer}\nhost_runner={runner_name}\naccelerator={accelerator}\nvm_memory_mib={memory}\nvm_cpus={cpus}"))?;
     lab.evidence(&format!("qemu={qemu}\nimage_signature=verified"))?;
     for (key, binary) in [
         ("ui_binary_sha256", lab.ui_binary.clone()),
