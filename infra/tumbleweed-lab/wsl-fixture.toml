@@ -33,6 +33,7 @@ repository_policy = "signed archived OSS/non-OSS and exact signed codec/update m
 [hypervisor]
 qemu = "11.1.2"
 qemu_package = "qemu-x86-11.1.2-1.1"
+vgabios_sha256 = "ef8adebf5f2f860404706efff8fdc17628c7cc7f07e6692353f931ca1010bd6e"
 ovmf_package = "ovmf-202608-3.1"
 ovmf_code_sha256 = "72cf8e1a3653f031d2cf9dace93702b99cfa5c16b897a7d0a495c1bf03bf8690"
 ovmf_variables_sha256 = "5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e"

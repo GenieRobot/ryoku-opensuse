@@ -332,6 +332,14 @@ pub fn inspect_base() -> Result<()> {
     Ok(())
 }
 
+pub fn online_probe(endpoint: &str) -> Result<()> {
+    fixture_only()?;
+    let address: std::net::SocketAddr = endpoint.parse()?;
+    std::net::TcpStream::connect_timeout(&address, Duration::from_secs(5))?;
+    println!("egress_online_baseline=reachable");
+    Ok(())
+}
+
 pub fn recover(proxy_address: &str) -> Result<()> {
     fixture_only()?;
     // Offline phase retains loopback host-forwarded SSH, but blocks egress.

@@ -1612,6 +1612,13 @@ pub fn run(
         lab.terminate_owned_vm()?;
         lab.evidence("offline_recovery=skipped_provider_probe_overlay_discarded")?;
     } else {
+        let online =
+            lab.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-online-probe {offline_probe}"))?;
+        require(
+            online.trim() == "egress_online_baseline=reachable",
+            "online egress baseline missing",
+        )?;
+        lab.evidence(&online)?;
         lab.stop()?;
         lab.start(true)?;
         lab.copy_binary()?;

@@ -5,7 +5,10 @@ use std::{
     process::Command,
 };
 
-use crate::support::{Result, require};
+use crate::{
+    definition::scalar,
+    support::{Result, output, require},
+};
 
 pub const WSL: bool = cfg!(feature = "wsl-lab");
 
@@ -54,6 +57,18 @@ pub fn validate_host(assets: &Path, parent: &Path) -> Result<()> {
         "explicit runner authorization does not match the selected build feature",
     )?;
     if WSL {
+        let package = output(Command::new("/usr/bin/rpm").args([
+            "-q",
+            "--qf",
+            "%{NAME}-%{VERSION}-%{RELEASE}\\n",
+            "qemu-x86",
+        ]))?;
+        require(package.trim() == scalar("qemu_package")?, "native QEMU RPM release changed")?;
+        let bios = output(Command::new("/usr/bin/sha256sum").arg(vgabios(assets)))?;
+        require(
+            bios.split_whitespace().next() == Some(scalar("vgabios_sha256")?),
+            "native VGA BIOS checksum changed",
+        )?;
         require(!rustix::process::geteuid().is_root(), "run the WSL lab as an ordinary user")?;
         require(
             fs::read_to_string("/proc/sys/kernel/osrelease")?.to_ascii_lowercase().contains("wsl")
