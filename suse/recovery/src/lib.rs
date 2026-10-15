@@ -15,6 +15,7 @@ pub mod generation;
 pub mod generation_capture;
 #[cfg(target_os = "linux")]
 pub mod machine_state;
+pub mod metadata;
 #[cfg(target_os = "linux")]
 pub mod restore;
 #[cfg(target_os = "linux")]

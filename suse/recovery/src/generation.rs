@@ -21,16 +21,20 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256 as Sha256Digest};
 
 use crate::machine_state::{MachineStateError, read_machine_state_record};
+use crate::metadata::{AclPayload, MAX_METADATA_VALUE_BYTES, entry_metadata};
 use crate::state_mount::{StateMountError, StateMountIdentity, collect_and_open_state_mount};
 use crate::{EntryKind, Identifier, MAX_MANIFEST_BYTES, ManifestError, RecoveryManifest, Sha256};
 
 const MAX_GENERATION_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_GENERATION_FILE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_GENERATION_FILES: usize = 256;
+const MAX_GENERATION_PAYLOADS: usize = MAX_GENERATION_FILES * 3;
 const GENERATION_AUXILIARY_BLOCKS: u64 = 4;
 
-/// Immutable copy inputs. Keys must equal the set of distinct regular-file
-/// content digests in the manifest; repeated identical content is deduplicated.
+/// Immutable copy inputs: regular-file bytes, canonical ACL bundles, and raw
+/// allowlisted xattr values. Keys must equal all distinct manifest-referenced
+/// digests; repeated identical content is deduplicated. Raw metadata stays in
+/// this protected store rather than in public manifest fields.
 pub type Payloads = BTreeMap<Sha256, Vec<u8>>;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -262,7 +266,7 @@ impl GenerationStore {
         payload_bytes: u64,
         payload_file_count: usize,
     ) -> Result<(), GenerationError> {
-        if payload_bytes > MAX_GENERATION_BYTES || payload_file_count > MAX_GENERATION_FILES {
+        if payload_bytes > MAX_GENERATION_BYTES || payload_file_count > MAX_GENERATION_PAYLOADS {
             return Err(GenerationError::InventoryTooLarge);
         }
         let stats = fstatvfs(&self.staging)?;
@@ -343,7 +347,10 @@ impl GenerationStore {
         for (digest, bytes) in payloads {
             total =
                 total.checked_add(bytes.len() as u64).ok_or(GenerationError::InventoryTooLarge)?;
-            if total > MAX_GENERATION_BYTES || digest_bytes(bytes) != *digest {
+            if total > MAX_GENERATION_BYTES
+                || digest_bytes(bytes) != *digest
+                || !valid_payload_shape(manifest, digest, bytes)
+            {
                 return Err(GenerationError::PayloadMismatch);
             }
         }
@@ -352,7 +359,7 @@ impl GenerationStore {
         let tx = manifest.transaction_id.as_str();
         let generation = manifest.generation_id.as_str();
         let index = CatalogLink {
-            schema_version: 1,
+            schema_version: catalog_schema(manifest),
             transaction_id: manifest.transaction_id.clone(),
             generation_id: manifest.generation_id.clone(),
             manifest_sha256: manifest
@@ -488,7 +495,7 @@ fn verify_transaction_from(
     let link_bytes = read_file(catalog, &format!("{}.json", transaction_id.as_str()), 4096)?;
     let link: CatalogLink = serde_json::from_slice(&link_bytes)
         .map_err(|error| GenerationError::Io(std::io::Error::other(error)))?;
-    if link.schema_version != 1
+    if !matches!(link.schema_version, 1 | 2)
         || &link.transaction_id != transaction_id
         || link.canonical_bytes()? != link_bytes
     {
@@ -497,10 +504,26 @@ fn verify_transaction_from(
     let manifest = verify_generation_from(generations, &link.generation_id)?;
     if &manifest.transaction_id != transaction_id
         || manifest.manifest_sha256.as_ref() != Some(&link.manifest_sha256)
+        || link.schema_version != catalog_schema(&manifest)
     {
         return Err(GenerationError::IncompletePublication);
     }
     Ok(manifest)
+}
+
+// Metadata-bearing generations require a richer payload contract. Older
+// readers reject catalog v2 before interpreting the new generation format;
+// content-only generations remain compatible with the v1 catalog contract.
+fn catalog_schema(manifest: &RecoveryManifest) -> u16 {
+    if manifest.files().iter().any(|record| {
+        entry_metadata(&record.kind).is_some_and(|metadata| {
+            metadata.acl_sha256.is_some() || !metadata.extended.values.is_empty()
+        })
+    }) {
+        2
+    } else {
+        1
+    }
 }
 
 fn required_payloads(manifest: &RecoveryManifest) -> Result<BTreeSet<Sha256>, GenerationError> {
@@ -511,6 +534,12 @@ fn required_payloads(manifest: &RecoveryManifest) -> Result<BTreeSet<Sha256>, Ge
                 return Err(GenerationError::InventoryTooLarge);
             }
             result.insert(sha256.clone());
+        }
+        if let Some(metadata) = entry_metadata(&entry.kind) {
+            if let Some(digest) = &metadata.acl_sha256 {
+                result.insert(digest.clone());
+            }
+            result.extend(metadata.extended.values.values().cloned());
         }
         if let EntryKind::Symlink { target, .. } = &entry.kind
             && (target.starts_with('/') || target.split('/').any(|component| component == ".."))
@@ -531,7 +560,10 @@ fn verify_directory(
     }
     let manifest_bytes = read_file(dir, "manifest.json", MAX_MANIFEST_BYTES as u64)?;
     let manifest = RecoveryManifest::parse_verified_json(&manifest_bytes)?;
-    if !manifest.is_mutation_ready() || required_payloads(&manifest)?.len() > MAX_GENERATION_FILES {
+    if !manifest.is_mutation_ready()
+        || manifest.files().len() > MAX_GENERATION_FILES
+        || required_payloads(&manifest)?.len() > MAX_GENERATION_PAYLOADS
+    {
         return Err(GenerationError::IncompletePublication);
     }
     if let Some(expected) = expected
@@ -554,27 +586,49 @@ fn verify_directory(
     )?;
     let mut total = 0_u64;
     for digest in required {
-        let bytes =
-            read_file(&payload_dir, &format!("{}.blob", digest.as_str()), MAX_GENERATION_BYTES)?;
+        let bytes = read_file(
+            &payload_dir,
+            &format!("{}.blob", digest.as_str()),
+            MAX_GENERATION_FILE_BYTES,
+        )?;
         total = total.checked_add(bytes.len() as u64).ok_or(GenerationError::InventoryTooLarge)?;
         if total > MAX_GENERATION_BYTES || digest_bytes(&bytes) != digest {
             return Err(GenerationError::IncompletePublication);
         }
-        let expected_sizes: Vec<_> = manifest
-            .files()
-            .iter()
-            .filter_map(|record| match &record.kind {
-                EntryKind::RegularFile { size, sha256, .. } if *sha256 == digest => Some(*size),
-                _ => None,
-            })
-            .collect();
-        if expected_sizes.is_empty()
-            || expected_sizes.iter().any(|size| *size != bytes.len() as u64)
-        {
+        if !valid_payload_shape(&manifest, &digest, &bytes) {
             return Err(GenerationError::IncompletePublication);
         }
     }
     Ok(manifest)
+}
+
+fn valid_payload_shape(manifest: &RecoveryManifest, digest: &Sha256, bytes: &[u8]) -> bool {
+    let mut referenced = false;
+    for record in manifest.files() {
+        if let EntryKind::RegularFile { size, sha256, .. } = &record.kind
+            && sha256 == digest
+        {
+            referenced = true;
+            if *size != bytes.len() as u64 {
+                return false;
+            }
+        }
+        if let Some(metadata) = entry_metadata(&record.kind) {
+            if metadata.acl_sha256.as_ref() == Some(digest) {
+                referenced = true;
+                if AclPayload::decode(bytes).is_err() {
+                    return false;
+                }
+            }
+            if metadata.extended.values.values().any(|value| value == digest) {
+                referenced = true;
+                if bytes.len() > MAX_METADATA_VALUE_BYTES {
+                    return false;
+                }
+            }
+        }
+    }
+    referenced
 }
 
 fn digest_bytes(bytes: &[u8]) -> Sha256 {
@@ -837,6 +891,146 @@ mod tests {
         )
         .unwrap();
         fs::remove_dir_all(root_path).unwrap();
+    }
+
+    #[test]
+    fn metadata_blobs_are_mandatory_private_and_verified_on_readback() {
+        let root_path = temp_root();
+        let store = test_store(&File::open(&root_path).unwrap());
+        let content = b"customized profile";
+        let acl = crate::metadata::AclPayload {
+            access: Some(vec![2, 0, 0, 0]),
+            default: Some(vec![2, 0, 0, 0, 1, 0]),
+        }
+        .encode()
+        .unwrap()
+        .unwrap();
+        let label = b"synthetic_u:object_r:ryoku_t:s0\0";
+        let mut manifest = ready_manifest(content);
+        let EntryKind::RegularFile { metadata, .. } = &mut manifest.files[0].kind else {
+            unreachable!()
+        };
+        metadata.acl_sha256 = Some(digest_bytes(&acl));
+        metadata.extended.values.insert(crate::XattrName::SelinuxLabel, digest_bytes(label));
+        manifest.seal().unwrap();
+        let mut payloads = BTreeMap::from([(digest_bytes(content), content.to_vec())]);
+        assert!(matches!(
+            store.publish(&manifest, &payloads),
+            Err(GenerationError::PayloadMismatch)
+        ));
+        payloads.insert(digest_bytes(&acl), acl.clone());
+        assert!(matches!(
+            store.publish(&manifest, &payloads),
+            Err(GenerationError::PayloadMismatch)
+        ));
+        payloads.insert(digest_bytes(label), label.to_vec());
+        store.publish(&manifest, &payloads).unwrap();
+        assert_eq!(store.verify_transaction(&manifest.transaction_id).unwrap(), manifest);
+        let index: serde_json::Value = serde_json::from_slice(
+            &fs::read(root_path.join("catalog/txn-generation-1.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(index["schema_version"], 2);
+        let index_path = root_path.join("catalog/txn-generation-1.json");
+        let mut link: CatalogLink =
+            serde_json::from_slice(&fs::read(&index_path).unwrap()).unwrap();
+        for incompatible in [0, 1, 3] {
+            link.schema_version = incompatible;
+            fs::set_permissions(&index_path, fs::Permissions::from_mode(0o600)).unwrap();
+            fs::write(&index_path, link.canonical_bytes().unwrap()).unwrap();
+            fs::set_permissions(&index_path, fs::Permissions::from_mode(0o400)).unwrap();
+            assert!(store.verify_transaction(&manifest.transaction_id).is_err());
+        }
+        link.schema_version = 2;
+        fs::set_permissions(&index_path, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&index_path, link.canonical_bytes().unwrap()).unwrap();
+        fs::set_permissions(&index_path, fs::Permissions::from_mode(0o400)).unwrap();
+        assert_eq!(store.verify_transaction(&manifest.transaction_id).unwrap(), manifest);
+        let serialized = String::from_utf8(manifest.canonical_bytes().unwrap()).unwrap();
+        assert!(!serialized.contains("synthetic_u"));
+        let label_path = root_path.join(format!(
+            "generations/gen-generation-1/payloads/{}.blob",
+            digest_bytes(label).as_str()
+        ));
+        assert_eq!(fs::read(&label_path).unwrap(), label);
+        assert_eq!(fs::metadata(&label_path).unwrap().permissions().mode() & 0o777, 0o400);
+        fs::set_permissions(&label_path, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&label_path, b"corrupt").unwrap();
+        fs::set_permissions(&label_path, fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(store.verify_transaction(&manifest.transaction_id).is_err());
+    }
+
+    #[test]
+    fn valid_hash_does_not_make_an_invalid_acl_encoding_publishable() {
+        let root_path = temp_root();
+        let store = test_store(&File::open(&root_path).unwrap());
+        let content = b"profile";
+        let invalid_acl = b"unrecognized ACL encoding";
+        let mut manifest = ready_manifest(content);
+        let EntryKind::RegularFile { metadata, .. } = &mut manifest.files[0].kind else {
+            unreachable!()
+        };
+        metadata.acl_sha256 = Some(digest_bytes(invalid_acl));
+        manifest.seal().unwrap();
+        let payloads = BTreeMap::from([
+            (digest_bytes(content), content.to_vec()),
+            (digest_bytes(invalid_acl), invalid_acl.to_vec()),
+        ]);
+        assert!(matches!(
+            store.publish(&manifest, &payloads),
+            Err(GenerationError::PayloadMismatch)
+        ));
+        assert!(store.verify_transaction(&manifest.transaction_id).is_err());
+    }
+
+    #[test]
+    fn full_inventory_can_have_more_metadata_blobs_than_declared_paths() {
+        let root_path = temp_root();
+        let store = test_store(&File::open(&root_path).unwrap());
+        let content = b"profile fixture";
+        let mut manifest = ready_manifest(content);
+        let mut payloads = BTreeMap::from([(digest_bytes(content), content.to_vec())]);
+        for index in 0..MAX_GENERATION_FILES {
+            let acl =
+                AclPayload { access: Some((index as u32).to_le_bytes().to_vec()), default: None }
+                    .encode()
+                    .unwrap()
+                    .unwrap();
+            let label = format!("synthetic-label-{index}").into_bytes();
+            let mut metadata = EntryMetadata {
+                mode: 0o700,
+                uid: 1000,
+                gid: 1000,
+                mtime_unix_ns: 1,
+                acl_sha256: Some(digest_bytes(&acl)),
+                extended: ExtendedMetadata::default(),
+            };
+            metadata.extended.values.insert(crate::XattrName::SelinuxLabel, digest_bytes(&label));
+            payloads.insert(digest_bytes(&acl), acl);
+            payloads.insert(digest_bytes(&label), label);
+            if index == 0 {
+                let EntryKind::RegularFile { metadata: first, .. } = &mut manifest.files[0].kind
+                else {
+                    unreachable!()
+                };
+                *first = metadata;
+            } else {
+                manifest
+                    .add_file(
+                        FileRecord::new(
+                            StateRoot::UserRyokuConfig,
+                            RelativePath::new(format!("directory-{index}")).unwrap(),
+                            EntryKind::Directory { metadata },
+                        )
+                        .unwrap(),
+                    )
+                    .unwrap();
+            }
+        }
+        manifest.seal().unwrap();
+        assert_eq!(payloads.len(), MAX_GENERATION_FILES * 2 + 1);
+        store.publish(&manifest, &payloads).unwrap();
+        assert_eq!(store.verify_transaction(&manifest.transaction_id).unwrap(), manifest);
     }
 
     #[test]
