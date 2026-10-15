@@ -17,6 +17,10 @@ use crate::{
 
 const MAX_STAGED_PAYLOAD_BYTES: usize = 64 * 1024 * 1024;
 
+#[cfg(test)]
+#[path = "inode_metadata_tests.rs"]
+mod inode_metadata_tests;
+
 /// One exact declared entry, with retained raw metadata and content. Shared
 /// digests use shared immutable allocations rather than per-path byte copies.
 pub struct StagedEntry {
@@ -118,7 +122,8 @@ pub fn stage_configuration(
         return Err(StageError::SystemOnlyScope);
     }
     let manifest = generation.manifest();
-    if plan.transaction_id != manifest.transaction_id
+    if manifest.manifest_sha256.as_ref() != Some(&plan.source_manifest_sha256)
+        || plan.transaction_id != manifest.transaction_id
         || plan.generation_id != manifest.generation_id
         || plan.snapper_config != manifest.snapper_config
         || plan.snapshot_id != manifest.snapper_snapshot_id
@@ -269,6 +274,10 @@ mod tests {
     }
 
     fn fixture() -> Fixture {
+        fixture_with_timestamp("2026-10-15T00:00:00Z")
+    }
+
+    fn fixture_with_timestamp(created_utc: &str) -> Fixture {
         let path = std::env::temp_dir().join(format!(
             "ryoku-configuration-stage-{}-{}",
             std::process::id(),
@@ -288,7 +297,7 @@ mod tests {
             )
             .unwrap(),
             OperationReason::ConfigurationRestore,
-            "2026-10-15T00:00:00Z",
+            created_utc,
         )
         .unwrap();
         let acl =
@@ -373,6 +382,7 @@ mod tests {
 
     fn plan(manifest: &RecoveryManifest) -> RestorePlan {
         RestorePlan {
+            source_manifest_sha256: manifest.manifest_sha256.clone().unwrap(),
             transaction_id: manifest.transaction_id.clone(),
             generation_id: manifest.generation_id.clone(),
             snapper_config: manifest.snapper_config.clone(),
@@ -433,6 +443,26 @@ mod tests {
             }
         }
         assert_eq!(fs::read(source.path.join("unrelated")).unwrap(), b"sentinel");
+    }
+
+    #[test]
+    fn resumed_plan_rejects_a_different_verified_manifest_with_identical_linkage() {
+        let original = fixture();
+        let selected = plan(&original.manifest);
+        let replacement = fixture_with_timestamp("2026-10-15T01:00:00Z");
+        let generation = replacement
+            .store
+            .open_verified_transaction(&replacement.manifest.transaction_id)
+            .unwrap();
+        assert_eq!(selected.transaction_id, generation.manifest().transaction_id);
+        assert_ne!(
+            Some(&selected.source_manifest_sha256),
+            generation.manifest().manifest_sha256.as_ref()
+        );
+        assert!(matches!(
+            stage_configuration(&generation, &selected),
+            Err(StageError::PlanMismatch)
+        ));
     }
 
     #[test]

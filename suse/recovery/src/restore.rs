@@ -79,6 +79,8 @@ pub enum SystemSnapshotStatus {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RestorePlan {
+    /// Exact immutable source chosen during preflight, retained across resume.
+    pub source_manifest_sha256: Sha256,
     pub transaction_id: Identifier,
     pub generation_id: Identifier,
     pub snapper_config: Identifier,
@@ -191,6 +193,10 @@ pub fn plan_restore(
     }
 
     Ok(RestorePlan {
+        source_manifest_sha256: manifest
+            .manifest_sha256
+            .clone()
+            .ok_or(PreflightError::ManifestInvalid)?,
         transaction_id: manifest.transaction_id.clone(),
         generation_id: manifest.generation_id.clone(),
         snapper_config: manifest.snapper_config.clone(),
@@ -249,7 +255,7 @@ impl RestoreJournal {
         current_state_manifest_sha256: Sha256,
     ) -> Self {
         Self {
-            schema_version: 1,
+            schema_version: 2,
             plan,
             current_state_generation,
             current_state_manifest_sha256,
@@ -480,7 +486,7 @@ fn read_journal(root: &File, name: &str) -> Result<RestoreJournal, JournalError>
     }
     let journal: RestoreJournal =
         serde_json::from_slice(&bytes).map_err(|_| JournalError::InvalidJournal)?;
-    if journal.schema_version != 1
+    if journal.schema_version != 2
         || journal_name(&journal.plan.transaction_id)? != name
         || !validate_plan(&journal.plan)
     {
@@ -724,5 +730,31 @@ mod tests {
         let (_path, fd) = root();
         fs::set_permissions(_path, fs::Permissions::from_mode(0o755)).unwrap();
         assert!(matches!(RestoreJournalStore::open(&fd), Err(JournalError::InvalidStore)));
+    }
+
+    #[test]
+    fn journal_pins_source_digest_and_rejects_unbound_legacy_plans() {
+        let (path, fd) = root();
+        let source = manifest();
+        let plan = plan_restore(&source, RestoreScope::CompleteLinked, &evidence()).unwrap();
+        assert_eq!(Some(&plan.source_manifest_sha256), source.manifest_sha256.as_ref());
+        let store = RestoreJournalStore::open(&fd).unwrap();
+        store.create(&journal(plan.clone())).unwrap();
+        assert_eq!(
+            store.load(&plan.transaction_id).unwrap().plan.source_manifest_sha256,
+            plan.source_manifest_sha256
+        );
+        let journal_path = path.join("txn-restore-1.json");
+        let original: serde_json::Value =
+            serde_json::from_slice(&fs::read(&journal_path).unwrap()).unwrap();
+        for (schema, remove_digest) in [(1, false), (1, true), (2, true)] {
+            let mut invalid = original.clone();
+            invalid["schema_version"] = schema.into();
+            if remove_digest {
+                invalid["plan"].as_object_mut().unwrap().remove("source_manifest_sha256");
+            }
+            fs::write(&journal_path, serde_json::to_vec(&invalid).unwrap()).unwrap();
+            assert!(matches!(store.load(&plan.transaction_id), Err(JournalError::InvalidJournal)));
+        }
     }
 }

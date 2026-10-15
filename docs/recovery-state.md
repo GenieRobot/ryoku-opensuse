@@ -753,7 +753,7 @@ on each read. Replacing a generation's directory name cannot redirect a handle
 to another directory; changing a referenced blob makes its next read fail.
 
 The `configuration_stage` module binds a restore plan to that handle's exact
-transaction, generation, Snapper config/snapshot, filesystem UUID, and declared
+manifest digest, transaction, generation, Snapper config/snapshot, filesystem UUID, and declared
 configuration count. It prepares file bytes, decoded access/default ACLs,
 allowlisted raw labels, directory metadata, symlink targets, hard-link group
 records, and explicit absences in one immutable in-memory bundle. Repeated
@@ -764,15 +764,51 @@ System-only plans and empty configuration scopes are rejected. Immutable
 exposed as writable configuration targets. A changed source or mismatched plan
 returns no bundle. Preparation performs no target writes or journal advances.
 
+The plan persists the originally selected source manifest digest, separately
+from the current-state checkpoint digest. Journal schema 2 requires this field;
+legacy schema-1 journals and plans without the digest are rejected rather than
+silently selecting a replacement source. Retain the current-state checkpoint
+when handling an unsupported old journal. A coherently rebuilt and verified
+generation with the same IDs and entry count still cannot satisfy the original
+plan if its manifest has changed. Manifest validation also requires every
+hard-link group to contain at least two regular records with identical content,
+size, metadata, and fixed root. Invalid groups cannot be sealed or verified,
+including groups linking system and user roots or singleton aliases.
+
 This preparation does not establish authorization, compatibility, or a current
 checkpoint, and an in-memory bundle is not durable `ContentStaged` evidence.
 Process restart must reopen the exact durable generation and repeat preparation
 against the recorded plan and manifest digest. Destructive restore must not
 infer missing stage contents or advance on an unchecked caller assertion.
 
+The `inode_metadata` module can now prepare exact metadata on caller-owned,
+exclusively held regular-file and directory staging descriptors. It checks
+file kind and bytes before changing metadata and refuses regular files with
+existing hard-link aliases. Ownership is set before mode, mode before ACLs,
+and timestamps last. Supported attributes absent from the source are removed;
+unrelated user xattrs are left alone. File/directory metadata and supported
+raw ACL/label values are read back after sync, so a filesystem normalization
+or an incompatible ACL/mode pair cannot be reported as an exact restore.
+Modification times use Euclidean division to preserve pre-epoch nanoseconds;
+the existing access time is not set by this operation. All pathname resolution
+and creation of protected staging inodes remain the caller's responsibility.
+
+This primitive accepts only immutable staged entries; it performs no live
+target publication or journal transition. Symlink metadata, hard-link alias
+creation, explicit-absence application, and durable configuration staging are
+still needed. A failed inode preparation may have partially changed its
+private staging inode, which must not be published. Linux tests on the WSL
+host prove content/mode/time checks, pinned-descriptor behavior, access/default
+ACL round trips and removal, preservation of unrelated user attributes, and
+rejection of mismatched content and existing hard links. Named-user ACL tests
+need the host's UID mappings rather than the restricted sandbox mapping.
+Cross-owner changes and real SELinux label restoration still require privileged
+Tumbleweed guest evidence; synthetic label payload verification does not prove
+kernel label application.
+
 This remains a preparation and journal slice. It does not create the current-state
-checkpoint or durable target staging, stop writers, invoke Snapper, restore targets or
-metadata, coordinate the root rollback, run health checks, or gate normal session
+checkpoint or durable target staging, stop writers, invoke Snapper, restore live
+targets, coordinate the root rollback, run health checks, or gate normal session
 startup. No offline console restore or interruption exercise has been recorded
 in a Tumbleweed VM. Issue #21 must remain open until those destructive restore
 steps and the required evidence are implemented and reviewed.
