@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
 use crate::{Identifier, RecoveryManifest, Sha256, StateRoot, ValidationError};
 
 const MAX_JOURNAL_BYTES: u64 = 16 * 1024;
+const MAX_CONFIGURATION_ENTRIES: u32 = 256;
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 /// The concrete content selected for restore.
@@ -79,6 +80,8 @@ pub enum SystemSnapshotStatus {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RestorePlan {
+    /// Exact immutable source chosen during preflight, retained across resume.
+    pub source_manifest_sha256: Sha256,
     pub transaction_id: Identifier,
     pub generation_id: Identifier,
     pub snapper_config: Identifier,
@@ -105,6 +108,7 @@ pub enum PreflightError {
     ConfigurationIncompatible,
     ConfigurationScopeEmpty,
     EntryCountOverflow,
+    ConfigurationScopeTooLarge,
 }
 
 impl std::fmt::Display for PreflightError {
@@ -152,6 +156,11 @@ pub fn plan_restore(
     let configuration_entries =
         u32::try_from(configuration_entries).map_err(|_| PreflightError::EntryCountOverflow)?;
     if matches!(scope, RestoreScope::ConfigurationOnly | RestoreScope::CompleteLinked)
+        && configuration_entries > MAX_CONFIGURATION_ENTRIES
+    {
+        return Err(PreflightError::ConfigurationScopeTooLarge);
+    }
+    if matches!(scope, RestoreScope::ConfigurationOnly | RestoreScope::CompleteLinked)
         && configuration_entries == 0
     {
         return Err(PreflightError::ConfigurationScopeEmpty);
@@ -191,6 +200,10 @@ pub fn plan_restore(
     }
 
     Ok(RestorePlan {
+        source_manifest_sha256: manifest
+            .manifest_sha256
+            .clone()
+            .ok_or(PreflightError::ManifestInvalid)?,
         transaction_id: manifest.transaction_id.clone(),
         generation_id: manifest.generation_id.clone(),
         snapper_config: manifest.snapper_config.clone(),
@@ -236,6 +249,8 @@ impl RestorePhase {
 #[serde(deny_unknown_fields)]
 pub struct RestoreJournal {
     pub schema_version: u16,
+    /// Fresh restore-attempt identity, distinct from the selected source transaction.
+    pub restore_id: Identifier,
     pub plan: RestorePlan,
     pub current_state_generation: Identifier,
     pub current_state_manifest_sha256: Sha256,
@@ -244,12 +259,14 @@ pub struct RestoreJournal {
 
 impl RestoreJournal {
     pub fn new(
+        restore_id: Identifier,
         plan: RestorePlan,
         current_state_generation: Identifier,
         current_state_manifest_sha256: Sha256,
     ) -> Self {
         Self {
-            schema_version: 1,
+            schema_version: 3,
+            restore_id,
             plan,
             current_state_generation,
             current_state_manifest_sha256,
@@ -341,8 +358,12 @@ impl RestoreJournalStore {
 
     /// Creates the initial durable phase without replacing existing state.
     pub fn create(&self, journal: &RestoreJournal) -> Result<(), JournalError> {
+        validate_journal(journal)?;
+        if journal.phase != RestorePhase::Planned {
+            return Err(JournalError::InvalidTransition);
+        }
         self.with_lock(|| {
-            let name = journal_name(&journal.plan.transaction_id)?;
+            let name = journal_name(&journal.restore_id)?;
             match read_journal(&self.root, &name) {
                 Ok(_) => return Err(JournalError::AlreadyExists),
                 Err(JournalError::Filesystem(Errno::NOENT)) => {}
@@ -353,8 +374,8 @@ impl RestoreJournalStore {
     }
 
     /// Reads and validates a journal, suitable for process-restart recovery.
-    pub fn load(&self, transaction_id: &Identifier) -> Result<RestoreJournal, JournalError> {
-        self.with_lock(|| read_journal(&self.root, &journal_name(transaction_id)?))
+    pub fn load(&self, restore_id: &Identifier) -> Result<RestoreJournal, JournalError> {
+        self.with_lock(|| read_journal(&self.root, &journal_name(restore_id)?))
     }
 
     /// Persists exactly one next phase before updating the caller's value.
@@ -367,7 +388,7 @@ impl RestoreJournalStore {
             if journal.phase.next() != Some(next) {
                 return Err(JournalError::InvalidTransition);
             }
-            let name = journal_name(&journal.plan.transaction_id)?;
+            let name = journal_name(&journal.restore_id)?;
             if read_journal(&self.root, &name)? != *journal {
                 return Err(JournalError::InvalidTransition);
             }
@@ -429,10 +450,20 @@ fn validate_plan(plan: &RestorePlan) -> bool {
         plan.filesystem_uuid.clone(),
     )
     .is_ok();
-    let config_scope_has_entries =
+    let config_scope_has_valid_count =
         !matches!(plan.scope, RestoreScope::ConfigurationOnly | RestoreScope::CompleteLinked)
-            || plan.configuration_entries > 0;
-    linked_snapshot_is_valid && config_scope_has_entries && plan.configuration_entries <= 256
+            || (1..=MAX_CONFIGURATION_ENTRIES).contains(&plan.configuration_entries);
+    linked_snapshot_is_valid && config_scope_has_valid_count
+}
+
+fn validate_journal(journal: &RestoreJournal) -> Result<(), JournalError> {
+    if journal.schema_version != 3
+        || journal.restore_id == journal.plan.transaction_id
+        || !validate_plan(&journal.plan)
+    {
+        return Err(JournalError::InvalidJournal);
+    }
+    Ok(())
 }
 
 fn create_temp(root: &File) -> Result<(String, File), JournalError> {
@@ -480,10 +511,8 @@ fn read_journal(root: &File, name: &str) -> Result<RestoreJournal, JournalError>
     }
     let journal: RestoreJournal =
         serde_json::from_slice(&bytes).map_err(|_| JournalError::InvalidJournal)?;
-    if journal.schema_version != 1
-        || journal_name(&journal.plan.transaction_id)? != name
-        || !validate_plan(&journal.plan)
-    {
+    validate_journal(&journal)?;
+    if journal_name(&journal.restore_id)? != name {
         return Err(JournalError::InvalidJournal);
     }
     Ok(journal)
@@ -582,6 +611,7 @@ mod tests {
 
     fn journal(plan: RestorePlan) -> RestoreJournal {
         RestoreJournal::new(
+            Identifier::new("restore-attempt-1").unwrap(),
             plan,
             Identifier::new("gen-current-1").unwrap(),
             Sha256::new("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
@@ -693,11 +723,11 @@ mod tests {
         // Simulate process death by reopening only the durable descriptor/state.
         drop(store);
         let reopened = RestoreJournalStore::open(&File::open(&path).unwrap()).unwrap();
-        let mut recovered = reopened.load(&Identifier::new("txn-restore-1").unwrap()).unwrap();
+        let mut recovered = reopened.load(&Identifier::new("restore-attempt-1").unwrap()).unwrap();
         assert_eq!(recovered.phase, RestorePhase::CheckpointVerified);
         reopened.advance(&mut recovered, RestorePhase::ContentStaged).unwrap();
         assert_eq!(
-            reopened.load(&Identifier::new("txn-restore-1").unwrap()).unwrap().phase,
+            reopened.load(&Identifier::new("restore-attempt-1").unwrap()).unwrap().phase,
             RestorePhase::ContentStaged
         );
     }
@@ -708,13 +738,13 @@ mod tests {
         let store = RestoreJournalStore::open(&fd).unwrap();
         let plan = plan_restore(&manifest(), RestoreScope::CompleteLinked, &evidence()).unwrap();
         store.create(&journal(plan)).unwrap();
-        let journal_path = path.join("txn-restore-1.json");
+        let journal_path = path.join("restore-attempt-1.json");
         let mut value: serde_json::Value =
             serde_json::from_slice(&fs::read(&journal_path).unwrap()).unwrap();
         value["plan"]["snapshot_id"] = serde_json::Value::String("../evil".into());
         fs::write(&journal_path, serde_json::to_vec(&value).unwrap()).unwrap();
         assert!(matches!(
-            store.load(&Identifier::new("txn-restore-1").unwrap()),
+            store.load(&Identifier::new("restore-attempt-1").unwrap()),
             Err(JournalError::InvalidJournal)
         ));
     }
@@ -724,5 +754,141 @@ mod tests {
         let (_path, fd) = root();
         fs::set_permissions(_path, fs::Permissions::from_mode(0o755)).unwrap();
         assert!(matches!(RestoreJournalStore::open(&fd), Err(JournalError::InvalidStore)));
+    }
+
+    #[test]
+    fn create_requires_valid_schema_plan_attempt_and_initial_phase() {
+        let (path, fd) = root();
+        let store = RestoreJournalStore::open(&fd).unwrap();
+        let valid =
+            journal(plan_restore(&manifest(), RestoreScope::CompleteLinked, &evidence()).unwrap());
+        let mut invalid = valid.clone();
+        invalid.schema_version = 2;
+        assert!(matches!(store.create(&invalid), Err(JournalError::InvalidJournal)));
+        invalid = valid.clone();
+        invalid.restore_id = invalid.plan.transaction_id.clone();
+        assert!(matches!(store.create(&invalid), Err(JournalError::InvalidJournal)));
+        invalid = valid.clone();
+        invalid.plan.configuration_entries = 257;
+        assert!(matches!(store.create(&invalid), Err(JournalError::InvalidJournal)));
+        for phase in [
+            RestorePhase::CheckpointVerified,
+            RestorePhase::ContentStaged,
+            RestorePhase::WritersStopped,
+            RestorePhase::RootRollbackComplete,
+            RestorePhase::ConfigurationRestored,
+            RestorePhase::HealthChecked,
+            RestorePhase::Complete,
+        ] {
+            invalid = valid.clone();
+            invalid.phase = phase;
+            assert!(matches!(store.create(&invalid), Err(JournalError::InvalidTransition)));
+        }
+        assert!(!path.join("restore-attempt-1.json").exists());
+        store.create(&valid).unwrap();
+        assert_eq!(store.load(&valid.restore_id).unwrap(), valid);
+    }
+
+    #[test]
+    fn preflight_rejects_configuration_counts_the_journal_cannot_persist() {
+        let mut source = manifest();
+        for index in 1..=MAX_CONFIGURATION_ENTRIES {
+            source
+                .add_file(
+                    FileRecord::new(
+                        StateRoot::EtcRyoku,
+                        RelativePath::new(format!("extra-{index}")).unwrap(),
+                        EntryKind::Absent,
+                    )
+                    .unwrap(),
+                )
+                .unwrap();
+        }
+        source.seal().unwrap();
+        for scope in [RestoreScope::ConfigurationOnly, RestoreScope::CompleteLinked] {
+            assert_eq!(
+                plan_restore(&source, scope, &evidence()),
+                Err(PreflightError::ConfigurationScopeTooLarge)
+            );
+        }
+        // Root-only recovery does not stage configuration, so neither its
+        // content availability nor its staging budget constrains this scope.
+        let mut facts = evidence();
+        facts.generation = ArtifactStatus::Missing;
+        facts.archive = ArtifactStatus::Missing;
+        facts.configuration_compatibility = CompatibilityStatus::Unknown;
+        let plan = plan_restore(&source, RestoreScope::SystemOnly, &facts).unwrap();
+        assert_eq!(plan.configuration_entries, MAX_CONFIGURATION_ENTRIES + 1);
+        let state = journal(plan);
+        let (path, fd) = root();
+        let store = RestoreJournalStore::open(&fd).unwrap();
+        store.create(&state).unwrap();
+        drop(store);
+        let reopened = RestoreJournalStore::open(&File::open(&path).unwrap()).unwrap();
+        assert_eq!(reopened.load(&state.restore_id).unwrap(), state);
+    }
+
+    #[test]
+    fn every_phase_reopens_under_attempt_identity_and_rejects_wrong_filename() {
+        let (path, fd) = root();
+        let store = RestoreJournalStore::open(&fd).unwrap();
+        let mut state =
+            journal(plan_restore(&manifest(), RestoreScope::CompleteLinked, &evidence()).unwrap());
+        store.create(&state).unwrap();
+        for phase in [
+            RestorePhase::CheckpointVerified,
+            RestorePhase::ContentStaged,
+            RestorePhase::WritersStopped,
+            RestorePhase::RootRollbackComplete,
+            RestorePhase::ConfigurationRestored,
+            RestorePhase::HealthChecked,
+            RestorePhase::Complete,
+        ] {
+            store.advance(&mut state, phase).unwrap();
+            let reopened = RestoreJournalStore::open(&File::open(&path).unwrap()).unwrap();
+            assert_eq!(reopened.load(&state.restore_id).unwrap(), state);
+        }
+        assert!(matches!(
+            store.advance(&mut state, RestorePhase::Complete),
+            Err(JournalError::InvalidTransition)
+        ));
+        fs::copy(path.join("restore-attempt-1.json"), path.join("wrong-attempt.json")).unwrap();
+        assert!(matches!(
+            store.load(&Identifier::new("wrong-attempt").unwrap()),
+            Err(JournalError::InvalidJournal)
+        ));
+    }
+
+    #[test]
+    fn journal_pins_source_digest_and_rejects_unbound_legacy_plans() {
+        let (path, fd) = root();
+        let source = manifest();
+        let plan = plan_restore(&source, RestoreScope::CompleteLinked, &evidence()).unwrap();
+        assert_eq!(Some(&plan.source_manifest_sha256), source.manifest_sha256.as_ref());
+        let store = RestoreJournalStore::open(&fd).unwrap();
+        store.create(&journal(plan.clone())).unwrap();
+        assert_eq!(
+            store
+                .load(&Identifier::new("restore-attempt-1").unwrap())
+                .unwrap()
+                .plan
+                .source_manifest_sha256,
+            plan.source_manifest_sha256
+        );
+        let journal_path = path.join("restore-attempt-1.json");
+        let original: serde_json::Value =
+            serde_json::from_slice(&fs::read(&journal_path).unwrap()).unwrap();
+        for (schema, remove_digest) in [(1, false), (1, true), (2, false), (2, true), (3, true)] {
+            let mut invalid = original.clone();
+            invalid["schema_version"] = schema.into();
+            if remove_digest {
+                invalid["plan"].as_object_mut().unwrap().remove("source_manifest_sha256");
+            }
+            fs::write(&journal_path, serde_json::to_vec(&invalid).unwrap()).unwrap();
+            assert!(matches!(
+                store.load(&Identifier::new("restore-attempt-1").unwrap()),
+                Err(JournalError::InvalidJournal)
+            ));
+        }
     }
 }

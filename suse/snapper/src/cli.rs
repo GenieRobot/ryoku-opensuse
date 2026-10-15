@@ -1,4 +1,4 @@
-//! Bounded read-only adapter for Snapper's JSON list output.
+//! Bounded Snapper inventory adapter and explicit single-checkpoint capability.
 
 use std::{
     io::{self, Read},
@@ -37,6 +37,8 @@ pub enum SnapperCliError {
     InvalidInventory,
     InvalidValue(ValueError),
     MutationUnavailable,
+    CheckpointAlreadyExists,
+    CheckpointNotVerified,
 }
 
 impl std::fmt::Display for SnapperCliError {
@@ -51,52 +53,7 @@ impl SnapperBackend for SnapperCliBackend {
     type Error = SnapperCliError;
 
     fn list(&self, config: &ConfigName) -> Result<Vec<SnapshotRecord>, Self::Error> {
-        let mut child = Command::new(SNAPPER)
-            .env_clear()
-            .env("LC_ALL", "C")
-            .env("PATH", "/usr/sbin:/usr/bin")
-            .args(snapper_list_args(config))
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|_| SnapperCliError::SpawnFailed)?;
-
-        let stdout = child.stdout.take().ok_or(SnapperCliError::SpawnFailed)?;
-        let stderr = child.stderr.take().ok_or(SnapperCliError::SpawnFailed)?;
-        // Both pipes are drained concurrently so a full stderr pipe cannot
-        // deadlock the child. Capture is capped while draining continues.
-        let stdout_reader = thread::spawn(move || read_capped(stdout, MAX_STDOUT_BYTES));
-        let stderr_reader = thread::spawn(move || read_capped(stderr, MAX_STDERR_BYTES));
-        let status = match wait_bounded(&mut child, COMMAND_TIMEOUT) {
-            Ok(status) => status,
-            Err(error) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                let _ = stdout_reader.join();
-                let _ = stderr_reader.join();
-                return Err(error);
-            }
-        };
-        let (stdout, stdout_overflow) = stdout_reader
-            .join()
-            .map_err(|_| SnapperCliError::CommandFailed)?
-            .map_err(|_| SnapperCliError::CommandFailed)?;
-        let (_, stderr_overflow) = stderr_reader
-            .join()
-            .map_err(|_| SnapperCliError::CommandFailed)?
-            .map_err(|_| SnapperCliError::CommandFailed)?;
-
-        if stdout_overflow {
-            return Err(SnapperCliError::OutputTooLarge);
-        }
-        if !status.success() {
-            // Do not return Snapper diagnostics: they may contain host paths,
-            // account names, or details supplied by configuration files.
-            let _ = stderr_overflow;
-            return Err(SnapperCliError::CommandFailed);
-        }
-        parse_snapper_json(config, &stdout)
+        parse_snapper_json(config, &run_snapper(&snapper_list_args(config))?)
     }
 
     fn create_pre(&mut self, _request: &SnapshotPairRequest) -> Result<SnapshotId, Self::Error> {
@@ -110,6 +67,139 @@ impl SnapperBackend for SnapperCliBackend {
     ) -> Result<SnapshotId, Self::Error> {
         Err(SnapperCliError::MutationUnavailable)
     }
+}
+
+/// Native single-snapshot creation for a privileged, authorized checkpoint
+/// coordinator. This does not authorize its caller or prove Btrfs UUID, boot
+/// coverage, generation linkage, or placement outside rollback scope.
+///
+/// Pair mutations on `SnapperCliBackend` remain unavailable. Keep this explicit
+/// capability out of read-only status/service request paths.
+#[derive(Debug, Default)]
+pub struct SnapperCheckpointBackend;
+
+impl SnapperCheckpointBackend {
+    /// Create a read-only single snapshot without automatic cleanup, tagged
+    /// with the exact transaction ID. A fresh inventory must confirm its ID,
+    /// type and tag before success. The caller must hold its mutation lock and
+    /// freeze relevant writers through configuration capture.
+    ///
+    /// Any failure after invoking create may have left a real snapshot. Never
+    /// retry blindly or delete that snapshot: reconcile its transaction tag.
+    pub fn create_single(
+        &mut self,
+        request: &SnapshotPairRequest,
+    ) -> Result<SnapshotId, SnapperCliError> {
+        create_single_with(request, run_snapper)
+    }
+}
+
+fn create_single_with(
+    request: &SnapshotPairRequest,
+    mut run: impl FnMut(&[String]) -> Result<Vec<u8>, SnapperCliError>,
+) -> Result<SnapshotId, SnapperCliError> {
+    let before = parse_snapper_json(&request.config, &run(&snapper_list_args(&request.config))?)?;
+    validate_inventory(&before)?;
+    if before.iter().any(|row| row.transaction_id.as_ref() == Some(&request.transaction_id)) {
+        return Err(SnapperCliError::CheckpointAlreadyExists);
+    }
+    let args = vec![
+        "--config".into(),
+        request.config.as_str().into(),
+        "create".into(),
+        "--type".into(),
+        "single".into(),
+        "--read-only".into(),
+        "--print-number".into(),
+        "--description".into(),
+        "Ryoku checkpoint".into(),
+        "--userdata".into(),
+        format!("{TRANSACTION_USERDATA_KEY}={}", request.transaction_id.as_str()),
+    ];
+    let output = run(&args)?;
+    let number =
+        std::str::from_utf8(&output).map_err(|_| SnapperCliError::CheckpointNotVerified)?;
+    let number = number.strip_suffix('\n').unwrap_or(number);
+    let numeric = number.parse::<u64>().map_err(|_| SnapperCliError::CheckpointNotVerified)?;
+    if numeric == 0 || numeric.to_string() != number {
+        return Err(SnapperCliError::CheckpointNotVerified);
+    }
+    let id = SnapshotId::new(number).map_err(SnapperCliError::InvalidValue)?;
+    let after = parse_snapper_json(&request.config, &run(&snapper_list_args(&request.config))?)?;
+    validate_inventory(&after)?;
+    let tagged: Vec<_> = after
+        .iter()
+        .filter(|row| row.transaction_id.as_ref() == Some(&request.transaction_id))
+        .collect();
+    if before.iter().any(|row| row.id == id)
+        || tagged.len() != 1
+        || tagged[0].id != id
+        || tagged[0].kind != SnapshotKind::Single
+    {
+        return Err(SnapperCliError::CheckpointNotVerified);
+    }
+    Ok(id)
+}
+
+fn validate_inventory(records: &[SnapshotRecord]) -> Result<(), SnapperCliError> {
+    let mut ids = std::collections::BTreeSet::new();
+    for row in records {
+        let value =
+            row.id.as_str().parse::<u64>().map_err(|_| SnapperCliError::InvalidInventory)?;
+        if value.to_string() != row.id.as_str() || !ids.insert(&row.id) {
+            return Err(SnapperCliError::InvalidInventory);
+        }
+    }
+    Ok(())
+}
+
+fn run_snapper(args: &[String]) -> Result<Vec<u8>, SnapperCliError> {
+    let mut child = Command::new(SNAPPER)
+        .env_clear()
+        .env("LC_ALL", "C")
+        .env("PATH", "/usr/sbin:/usr/bin")
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|_| SnapperCliError::SpawnFailed)?;
+
+    let stdout = child.stdout.take().ok_or(SnapperCliError::SpawnFailed)?;
+    let stderr = child.stderr.take().ok_or(SnapperCliError::SpawnFailed)?;
+    // Both pipes are drained concurrently so a full stderr pipe cannot
+    // deadlock the child. Capture is capped while draining continues.
+    let stdout_reader = thread::spawn(move || read_capped(stdout, MAX_STDOUT_BYTES));
+    let stderr_reader = thread::spawn(move || read_capped(stderr, MAX_STDERR_BYTES));
+    let status = match wait_bounded(&mut child, COMMAND_TIMEOUT) {
+        Ok(status) => status,
+        Err(error) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = stdout_reader.join();
+            let _ = stderr_reader.join();
+            return Err(error);
+        }
+    };
+    let (stdout, stdout_overflow) = stdout_reader
+        .join()
+        .map_err(|_| SnapperCliError::CommandFailed)?
+        .map_err(|_| SnapperCliError::CommandFailed)?;
+    let (_, stderr_overflow) = stderr_reader
+        .join()
+        .map_err(|_| SnapperCliError::CommandFailed)?
+        .map_err(|_| SnapperCliError::CommandFailed)?;
+
+    if stdout_overflow {
+        return Err(SnapperCliError::OutputTooLarge);
+    }
+    if !status.success() {
+        // Do not return Snapper diagnostics: they may contain host paths,
+        // account names, or details supplied by configuration files.
+        let _ = stderr_overflow;
+        return Err(SnapperCliError::CommandFailed);
+    }
+    Ok(stdout)
 }
 
 fn snapper_list_args(config: &ConfigName) -> [String; 4] {
@@ -220,6 +310,104 @@ mod tests {
     #[test]
     fn arguments_are_fixed_and_keep_config_as_one_argument() {
         assert_eq!(snapper_list_args(&config()), ["--jsonout", "--config", "root", "list"]);
+    }
+
+    fn checkpoint_request() -> SnapshotPairRequest {
+        SnapshotPairRequest {
+            config: config(),
+            transaction_id: TransactionId::new("restore-1").unwrap(),
+        }
+    }
+
+    #[test]
+    fn single_checkpoint_requires_fresh_native_inventory_and_fixed_creation_arguments() {
+        let mut calls = 0;
+        let id = create_single_with(&checkpoint_request(), |args| {
+            calls += 1;
+            match calls {
+                1 => {
+                    assert_eq!(args, snapper_list_args(&config()));
+                    Ok(br#"{"root":[{"number":0,"type":"single"}]}"#.to_vec())
+                }
+                2 => {
+                    assert_eq!(args, ["--config", "root", "create", "--type", "single",
+                        "--read-only", "--print-number", "--description", "Ryoku checkpoint",
+                        "--userdata", "ryoku-transaction-id=restore-1"]);
+                    Ok(b"42\n".to_vec())
+                }
+                3 => Ok(br#"{"root":[{"number":42,"type":"single","userdata":{"ryoku-transaction-id":"restore-1"}}]}"#.to_vec()),
+                _ => panic!("unexpected retry"),
+            }
+        }).unwrap();
+        assert_eq!(calls, 3);
+        assert_eq!(id.as_str(), "42");
+    }
+
+    #[test]
+    fn existing_transaction_or_invalid_inventory_never_invokes_create() {
+        for (inventory, error) in [
+            (br#"{"root":[{"number":42,"type":"pre","userdata":{"ryoku-transaction-id":"restore-1"}}]}"#.as_slice(), SnapperCliError::CheckpointAlreadyExists),
+            (br#"{"root":[{"number":42,"type":"single"},{"number":42,"type":"single"}]}"#.as_slice(), SnapperCliError::InvalidInventory),
+            (br#"{"root":[{"number":"042","type":"single"}]}"#.as_slice(), SnapperCliError::InvalidInventory),
+        ] {
+            let mut calls = 0;
+            assert_eq!(create_single_with(&checkpoint_request(), |_| {
+                calls += 1;
+                assert_eq!(calls, 1);
+                Ok(inventory.to_vec())
+            }), Err(error));
+        }
+    }
+
+    #[test]
+    fn reported_creation_is_not_success_without_matching_unique_single_snapshot() {
+        for after in [
+            br#"{"root":[]}"#.as_slice(),
+            br#"{"root":[{"number":42,"type":"single"}]}"#.as_slice(),
+            br#"{"root":[{"number":43,"type":"single","userdata":{"ryoku-transaction-id":"restore-1"}}]}"#.as_slice(),
+            br#"{"root":[{"number":42,"type":"pre","userdata":{"ryoku-transaction-id":"restore-1"}}]}"#.as_slice(),
+            br#"{"root":[{"number":42,"type":"single","userdata":{"ryoku-transaction-id":"restore-1"}},{"number":43,"type":"single","userdata":{"ryoku-transaction-id":"restore-1"}}]}"#.as_slice(),
+        ] {
+            let mut calls = 0;
+            assert_eq!(create_single_with(&checkpoint_request(), |_| {
+                calls += 1;
+                Ok(match calls { 1 => br#"{"root":[]}"#.to_vec(), 2 => b"42\n".to_vec(), 3 => after.to_vec(), _ => panic!("unexpected mutation/retry") })
+            }), Err(SnapperCliError::CheckpointNotVerified));
+            assert_eq!(calls, 3);
+        }
+    }
+
+    #[test]
+    fn uncertain_creation_is_returned_without_automatic_retry_or_cleanup() {
+        let mut calls = 0;
+        assert_eq!(
+            create_single_with(&checkpoint_request(), |_| {
+                calls += 1;
+                match calls {
+                    1 => Ok(br#"{"root":[]}"#.to_vec()),
+                    2 => Err(SnapperCliError::TimedOut),
+                    _ => panic!("must reconcile externally"),
+                }
+            }),
+            Err(SnapperCliError::TimedOut)
+        );
+        assert_eq!(calls, 2);
+        for output in
+            [b"0\n".as_slice(), b"042\n", b"42\n43\n", b"+42", b" 42", b"18446744073709551616"]
+        {
+            let mut calls = 0;
+            assert_eq!(
+                create_single_with(&checkpoint_request(), |_| {
+                    calls += 1;
+                    match calls {
+                        1 => Ok(br#"{"root":[]}"#.to_vec()),
+                        2 => Ok(output.to_vec()),
+                        _ => panic!("invalid result must not advance"),
+                    }
+                }),
+                Err(SnapperCliError::CheckpointNotVerified)
+            );
+        }
     }
 
     #[test]

@@ -23,6 +23,7 @@ use sha2::{Digest, Sha256 as Sha256Digest};
 use crate::{
     EntryKind, EntryMetadata, ExtendedMetadata, FileRecord, Identifier, RelativePath, Sha256,
     StateRoot, ValidationError,
+    metadata::{AclPayload, MAX_METADATA_VALUE_BYTES},
 };
 
 /// Hard upper bounds for one exact-file capture call.
@@ -103,6 +104,32 @@ struct Captured {
     links: u64,
 }
 
+/// Raw metadata accompanies records only inside the protected capture path.
+pub(crate) struct CapturedInventory {
+    pub records: Vec<FileRecord>,
+    pub metadata_payloads: BTreeMap<Sha256, Vec<u8>>,
+    pub source_bytes: u64,
+}
+
+pub(crate) fn capture_inventory(
+    root_fd: &File,
+    root: StateRoot,
+    declared: &[RelativePath],
+    limits: CaptureLimits,
+) -> Result<CapturedInventory, CaptureError> {
+    capture_inventory_with_xattrs(root_fd, root, declared, limits, &KernelXattrs)
+}
+
+#[cfg(test)]
+pub(crate) fn capture_inventory_without_xattrs_for_test(
+    root_fd: &File,
+    root: StateRoot,
+    declared: &[RelativePath],
+    limits: CaptureLimits,
+) -> Result<CapturedInventory, CaptureError> {
+    capture_inventory_with_xattrs(root_fd, root, declared, limits, &TestNoXattrs)
+}
+
 /// Captures exactly `declared` beneath the caller-opened `root_fd`.
 ///
 /// Missing final entries and missing intermediate directories produce absent
@@ -117,16 +144,6 @@ pub fn capture_declared(
     limits: CaptureLimits,
 ) -> Result<Vec<FileRecord>, CaptureError> {
     capture_declared_with_xattrs(root_fd, root, declared, limits, &KernelXattrs)
-}
-
-#[cfg(test)]
-pub(crate) fn capture_declared_without_xattrs_for_test(
-    root_fd: &File,
-    root: StateRoot,
-    declared: &[RelativePath],
-    limits: CaptureLimits,
-) -> Result<Vec<FileRecord>, CaptureError> {
-    capture_declared_with_xattrs(root_fd, root, declared, limits, &TestNoXattrs)
 }
 
 #[cfg(test)]
@@ -155,6 +172,17 @@ fn capture_declared_with_xattrs(
     limits: CaptureLimits,
     xattrs: &impl XattrReader,
 ) -> Result<Vec<FileRecord>, CaptureError> {
+    capture_inventory_with_xattrs(root_fd, root, declared, limits, xattrs)
+        .map(|inventory| inventory.records)
+}
+
+pub(crate) fn capture_inventory_with_xattrs(
+    root_fd: &File,
+    root: StateRoot,
+    declared: &[RelativePath],
+    limits: CaptureLimits,
+    xattrs: &impl XattrReader,
+) -> Result<CapturedInventory, CaptureError> {
     if limits.max_paths > HARD_MAX_PATHS
         || limits.max_file_bytes > HARD_MAX_FILE_BYTES
         || limits.max_total_bytes > HARD_MAX_TOTAL_BYTES
@@ -181,6 +209,7 @@ fn capture_declared_with_xattrs(
     ordered.sort();
     let mut captured = Vec::with_capacity(ordered.len());
     let mut total_bytes = 0_u64;
+    let mut metadata_payloads = BTreeMap::new();
 
     for path in ordered {
         let Some((parent, leaf)) = open_parent(root_fd, path.as_str())? else {
@@ -250,6 +279,7 @@ fn capture_declared_with_xattrs(
             if total_bytes > limits.max_total_bytes {
                 return Err(CaptureError::TotalCaptureTooLarge);
             }
+            metadata_payloads.extend(metadata.payloads);
             captured.push(Captured {
                 record: FileRecord::new(
                     root,
@@ -284,6 +314,7 @@ fn capture_declared_with_xattrs(
             return Err(CaptureError::TotalCaptureTooLarge);
         }
         let metadata_before = metadata_capture.entry;
+        metadata_payloads.extend(metadata_capture.payloads);
         let entry_kind = match kind {
             FileType::Directory => EntryKind::Directory { metadata: metadata_before.clone() },
             FileType::RegularFile => {
@@ -366,7 +397,11 @@ fn capture_declared_with_xattrs(
     }
 
     assign_hard_link_groups(&mut captured)?;
-    Ok(captured.into_iter().map(|entry| entry.record).collect())
+    Ok(CapturedInventory {
+        records: captured.into_iter().map(|entry| entry.record).collect(),
+        metadata_payloads,
+        source_bytes: total_bytes,
+    })
 }
 
 fn assign_hard_link_groups(captured: &mut [Captured]) -> Result<(), CaptureError> {
@@ -428,7 +463,7 @@ fn open_parent<'a>(
     Err(CaptureError::Validation(ValidationError::InvalidRelativePath))
 }
 
-trait XattrReader {
+pub(crate) trait XattrReader {
     fn read(&self, fd: &File, name: &'static str) -> Result<Option<Vec<u8>>, CaptureError>;
     fn read_symlink(
         &self,
@@ -461,6 +496,15 @@ impl XattrReader for KernelXattrs {
                 Ok(Some(buffer))
             }
             Err(error) if error == Errno::NODATA => Ok(None),
+            // Linux symlink inodes do not carry POSIX access/default ACLs.
+            // Their ACL lookup can report EOPNOTSUPP even on an ACL-capable
+            // filesystem; this is absence, not a missing capture provider.
+            Err(error)
+                if error == Errno::OPNOTSUPP
+                    && matches!(name, "system.posix_acl_access" | "system.posix_acl_default") =>
+            {
+                Ok(None)
+            }
             Err(error) if error == Errno::OPNOTSUPP || error == Errno::NOSYS => {
                 Err(CaptureError::UnsupportedMetadata(name))
             }
@@ -473,6 +517,7 @@ impl XattrReader for KernelXattrs {
 struct MetadataSnapshot {
     entry: EntryMetadata,
     source_bytes: u64,
+    payloads: BTreeMap<Sha256, Vec<u8>>,
 }
 
 fn capture_metadata(
@@ -494,32 +539,24 @@ fn metadata_from_xattrs(
 ) -> Result<MetadataSnapshot, CaptureError> {
     let acl_access_len = acl_access.as_ref().map_or(0, |value| value.len() as u64);
     let acl_default_len = acl_default.as_ref().map_or(0, |value| value.len() as u64);
-    let acl_sha256 = match (acl_access, acl_default) {
-        (None, None) => None,
-        (access, default) => {
-            let mut digest = Sha256Digest::new();
-            digest.update(b"ryoku-posix-acl-v1\0");
-            for (name, value) in
-                [("system.posix_acl_access", access), ("system.posix_acl_default", default)]
-            {
-                digest.update(name.as_bytes());
-                digest.update([0]);
-                if let Some(value) = value {
-                    digest.update([1]);
-                    digest.update((value.len() as u64).to_be_bytes());
-                    digest.update(value);
-                } else {
-                    digest.update([0]);
-                    digest.update(0_u64.to_be_bytes());
-                }
-            }
-            Some(hash(digest.finalize()))
-        }
-    };
+    let mut payloads = BTreeMap::new();
+    let acl_bytes = AclPayload { access: acl_access, default: acl_default }
+        .encode()
+        .map_err(|_| CaptureError::MetadataTooLarge)?;
+    let acl_sha256 = acl_bytes.map(|bytes| {
+        let digest = hash(Sha256Digest::digest(&bytes));
+        payloads.insert(digest.clone(), bytes);
+        digest
+    });
     let mut extended = ExtendedMetadata::default();
     let selinux_len = selinux.as_ref().map_or(0, |value| value.len() as u64);
     if let Some(selinux) = selinux {
-        extended.values.insert(crate::XattrName::SelinuxLabel, hash(Sha256Digest::digest(selinux)));
+        if selinux.len() > MAX_METADATA_VALUE_BYTES {
+            return Err(CaptureError::MetadataTooLarge);
+        }
+        let digest = hash(Sha256Digest::digest(&selinux));
+        extended.values.insert(crate::XattrName::SelinuxLabel, digest.clone());
+        payloads.insert(digest, selinux);
     }
     let source_bytes = acl_access_len.saturating_add(acl_default_len).saturating_add(selinux_len);
     let mtime_ns = i128::from(stat.st_mtime)
@@ -536,6 +573,7 @@ fn metadata_from_xattrs(
             extended,
         },
         source_bytes,
+        payloads,
     })
 }
 
@@ -555,7 +593,7 @@ fn get_xattr<Fd: AsFd>(fd: Fd, name: &'static str) -> Result<Option<Vec<u8>>, Ca
     }
 }
 
-const MAX_XATTR_BYTES: usize = 64 * 1024;
+const MAX_XATTR_BYTES: usize = MAX_METADATA_VALUE_BYTES;
 const HARD_MAX_PATHS: usize = 256;
 const HARD_MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
 const HARD_MAX_TOTAL_BYTES: u64 = 64 * 1024 * 1024;
