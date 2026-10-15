@@ -10,6 +10,11 @@ use std::{
 };
 
 pub(crate) fn install(root: &File, bytes: &[u8]) -> Result<(), Error> {
+    let directory = unit_directory(root)?;
+    publish(&directory, bytes, 0, 0)
+}
+
+fn unit_directory(root: &File) -> Result<File, Error> {
     let mut directory = root.try_clone()?;
     for component in ["etc", "systemd", "system"] {
         directory = File::from(openat2(
@@ -24,7 +29,42 @@ pub(crate) fn install(root: &File, bytes: &[u8]) -> Result<(), Error> {
             return Err(Error::UnsafeBootUnit);
         }
     }
-    publish(&directory, bytes, 0, 0)
+    Ok(directory)
+}
+
+/// Read-only check: neither publish a missing unit nor recreate enablement.
+pub(crate) fn verify_enabled(root: &File, bytes: &[u8]) -> Result<(), Error> {
+    let directory = unit_directory(root)?;
+    verify_enabled_in(&directory, bytes, 0, 0)
+}
+
+fn verify_enabled_in(directory: &File, bytes: &[u8], uid: u32, gid: u32) -> Result<(), Error> {
+    verify(&mut open(directory, STATE_MOUNT_UNIT)?, bytes, uid, gid)?;
+    let wants = File::from(openat2(
+        directory,
+        "local-fs.target.wants",
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+        Mode::empty(),
+        ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS,
+    )?);
+    let stat = fstat(&wants)?;
+    if stat.st_uid != uid || stat.st_gid != gid || stat.st_mode & 0o022 != 0 {
+        return Err(Error::UnsafeBootUnit);
+    }
+    let stat = rustix::fs::statat(&wants, STATE_MOUNT_UNIT, rustix::fs::AtFlags::SYMLINK_NOFOLLOW)?;
+    if FileType::from_raw_mode(stat.st_mode) != FileType::Symlink
+        || stat.st_uid != uid
+        || stat.st_gid != gid
+    {
+        return Err(Error::UnsafeBootUnit);
+    }
+    let target = rustix::fs::readlinkat(&wants, STATE_MOUNT_UNIT, Vec::new())?;
+    let relative = format!("../{STATE_MOUNT_UNIT}");
+    let absolute = format!("/etc/systemd/system/{STATE_MOUNT_UNIT}");
+    if target.as_bytes() != relative.as_bytes() && target.as_bytes() != absolute.as_bytes() {
+        return Err(Error::ConflictingBootUnit);
+    }
+    Ok(())
 }
 
 fn open(directory: &File, name: &str) -> Result<File, Errno> {
@@ -96,6 +136,46 @@ fn publish(directory: &File, bytes: &[u8], uid: u32, gid: u32) -> Result<(), Err
 mod tests {
     use super::*;
     use std::{fs, os::unix::fs::PermissionsExt};
+
+    #[test]
+    fn boot_check_requires_exact_unit_and_owned_enablement_without_repair() {
+        let path = std::env::temp_dir().join(format!("ryoku-boot-check-{}", std::process::id()));
+        fs::create_dir(&path).unwrap();
+        let directory = File::open(&path).unwrap();
+        let stat = fstat(&directory).unwrap();
+        let check = || verify_enabled_in(&directory, b"complete", stat.st_uid, stat.st_gid);
+        assert!(check().is_err());
+        assert_eq!(fs::read_dir(&path).unwrap().count(), 0);
+        publish(&directory, b"complete", stat.st_uid, stat.st_gid).unwrap();
+        assert!(check().is_err());
+        let wants = path.join("local-fs.target.wants");
+        fs::create_dir(&wants).unwrap();
+        fs::set_permissions(&wants, fs::Permissions::from_mode(0o755)).unwrap();
+        let link = wants.join(STATE_MOUNT_UNIT);
+        for target in
+            [format!("../{STATE_MOUNT_UNIT}"), format!("/etc/systemd/system/{STATE_MOUNT_UNIT}")]
+        {
+            std::os::unix::fs::symlink(target, &link).unwrap();
+            check().unwrap();
+            fs::remove_file(&link).unwrap();
+        }
+        std::os::unix::fs::symlink("../foreign.mount", &link).unwrap();
+        assert!(matches!(check(), Err(Error::ConflictingBootUnit)));
+        assert_eq!(fs::read_link(&link).unwrap(), std::path::Path::new("../foreign.mount"));
+        fs::remove_file(&link).unwrap();
+        fs::write(&link, b"foreign").unwrap();
+        assert!(matches!(check(), Err(Error::UnsafeBootUnit)));
+        assert_eq!(fs::read(&link).unwrap(), b"foreign");
+        fs::remove_file(&link).unwrap();
+        std::os::unix::fs::symlink(format!("../{STATE_MOUNT_UNIT}"), &link).unwrap();
+        fs::set_permissions(&wants, fs::Permissions::from_mode(0o777)).unwrap();
+        assert!(matches!(check(), Err(Error::UnsafeBootUnit)));
+        fs::set_permissions(&wants, fs::Permissions::from_mode(0o755)).unwrap();
+        fs::write(path.join(STATE_MOUNT_UNIT), b"changed!").unwrap();
+        assert!(check().is_err());
+        assert_eq!(fs::read(path.join(STATE_MOUNT_UNIT)).unwrap(), b"changed!");
+        fs::remove_dir_all(path).unwrap();
+    }
 
     #[test]
     fn publication_preserves_conflicts_and_resumes_only_complete_owned_pending_files() {

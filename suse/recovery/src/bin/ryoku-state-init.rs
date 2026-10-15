@@ -12,6 +12,7 @@ use ryoku_recovery::{
     state_mount::{StateMountError, collect_and_open_state_mount},
     state_provision::{
         CreatedStateSubvolume, STATE_MOUNT_UNIT, StateProvisionError, provisioning_root_uuid,
+        verify_recorded_state_mount_unit,
     },
 };
 use ryoku_snapper::{ConfigName, SnapperCheckpointBackend, SnapshotPairRequest, TransactionId};
@@ -90,6 +91,7 @@ fn initialize(action: Action) -> Result<()> {
             Ok(record) => {
                 collect_and_open_state_mount(&root, record.identity())?;
                 let _reader = GenerationReader::open_state_mount()?;
+                verify_recorded_state_mount_unit(&root)?;
                 println!("State store already initialized and available");
                 return Ok(());
             }

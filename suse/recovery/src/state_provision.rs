@@ -316,6 +316,18 @@ pub fn install_recorded_state_mount_unit(trusted_root: &File) -> Result<(), Stat
     crate::state_boot_unit::install(trusted_root, render_mount_unit(&record).as_bytes())
 }
 
+/// Verify the recorded unit and its fixed local-fs enablement without changing
+/// either. A currently mounted store alone does not prove next-boot setup.
+pub fn verify_recorded_state_mount_unit(trusted_root: &File) -> Result<(), StateProvisionError> {
+    crate::state_mount::validate_trusted_root(trusted_root)
+        .map_err(StateProvisionError::Observation)?;
+    let record = crate::machine_state::read_machine_state_record(trusted_root)
+        .map_err(StateProvisionError::Record)?;
+    crate::state_mount::collect_and_open_state_mount(trusted_root, record.identity())
+        .map_err(StateProvisionError::Observation)?;
+    crate::state_boot_unit::verify_enabled(trusted_root, render_mount_unit(&record).as_bytes())
+}
+
 /// Reopen only a mounted partner identified by a protected creation receipt.
 /// No ownership, mode, mount, or subvolume metadata is changed on mismatch.
 pub(crate) fn reopen_created_state_mount(

@@ -1,8 +1,11 @@
 # Managed state and profile recovery contract
 
-Status: M0 design contract for issue [#16](https://github.com/GenieRobot/ryoku-opensuse/issues/16).
-This is an implementation target, not evidence that dedicated storage or a
-boot recovery path has been exercised on Tumbleweed.
+Status: design contract for issue [#16](https://github.com/GenieRobot/ryoku-opensuse/issues/16),
+with partial recovery implementation and native evidence below. Dedicated-state
+initialization and reboot persistence have been exercised on Tumbleweed; complete
+linked restore and an independent boot recovery path remain unfinished. Progress
+notes below retain the scope of each historical build rather than attributing
+later changes to earlier VM results.
 
 The storage and profile decisions are recorded in
 [ADR 0002](adr/0002-linked-recovery-storage.md). That ADR is accepted design
@@ -1115,5 +1118,16 @@ Run11 passed all six controlled refusal/resume checks with the real initializer,
 then reopened the expected machine identity, kernel mount and generation reader.
 The [artifact](../infra/tumbleweed-lab/evidence/issue21-run11-unmounted-failure-resume.toml)
 records exact staged executables and log hashes; healthy repeat also passed.
-Reboot/reset completion is recorded only after it finishes. The later helper
+Reboot availability, bounded offline fixture restore, fresh-baseline reset and
+disposable disk/key cleanup also passed. The overall console result remains
+partial because desktop validation was skipped. The later helper
 startup constructor change is not attributed to the Run11 binaries.
+
+Healthy repeated initialization now also verifies the exact recorded mount-unit
+bytes and its owned `local-fs.target.wants` enablement link. A live mount alone
+cannot establish persistent boot setup. Missing, changed or unsafe unit/link
+state is refused without recreating or repairing it. Read-only checks cover
+absent files, foreign content, relative/absolute fixed link targets and writable
+enablement directories; recovery tests and Clippy pass. This additional check
+postdates Run11 and does not claim detection of every possible systemd override
+or replace native reboot validation.
