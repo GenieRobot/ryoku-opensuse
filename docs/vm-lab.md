@@ -77,6 +77,28 @@ desktop package, and Snapper configuration. The source image hash was unchanged
 and the harness removed its VM disks and temporary SSH keys. This proves the
 lab lifecycle and bounded fixture restore, not a linked system/Ryoku restore.
 
+The second WSL run, built from `4836a7cffa7e4b4f9da701f613868ed5de43698c`,
+installed `xf86-input-libinput-1.5.0-1.7` and passed native SDDM password login
+both before and after reboot. The assertions confirmed an ordinary, local,
+active Wayland session with Plasma and KWin and a connected compositor socket.
+Restricted-network controlled corruption and the bounded Snapper restore also
+passed. The final fresh XFS baseline had no fixture marker, desktop package,
+Snapper configuration, or sentinel. The image hash was unchanged, all run
+disks and SSH keys were removed, and the process exited 0 with
+`lifecycle_result=passed` and `lab_result=passed`. The independent optional
+result was `ui_visual_capture=blocked`; it is not credited as visual acceptance.
+This establishes the WSL lab lifecycle and KDE fallback, not the complete
+linked restore engine or the original cloud-only acceptance condition.
+
+New runs remove the disposable XFS migration overlay immediately after the
+standalone Btrfs disk boots and passes its base checks. The signed source image
+remains necessary for the final fresh-baseline reset. Optional GTK failures
+are retained in `ui-failure-private.log` before later SSH probes overwrite the
+rolling guest log. The guest launcher records GTK output in root-owned mode
+0600 logs, and a fixed diagnostic command retrieves at most 128 KiB per
+scenario into that private host log before disposal. These raw logs must not
+be published as sanitized acceptance evidence.
+
 ## Original cloud runner
 
 The selected resource is the existing managed cloud development workspace. No
