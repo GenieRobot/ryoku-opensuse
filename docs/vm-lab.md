@@ -55,6 +55,28 @@ fresh run's sanitized `evidence.txt` and retain private logs locally. The full
 WSL acceptance sequence is still being exercised; the inspection boot and
 unit tests are not a passing release or linked-recovery gate.
 
+The first automated WSL run used port commit
+`59245afcb4e00597cb91290a62439a9a76a2d2f7` and passed signed-input checks,
+XFS-to-Btrfs migration, sole-disk UEFI boot, SELinux/Snapper inspection, and
+reboot. KDE/SDDM provisioning completed with Plasma `6.7.5-1.1` and SDDM
+`0.21.0+git57-1.1`, but the ordinary-user login gate failed. Native Xorg logs
+reported `No input driver specified, ignoring this device` for the emulated
+keyboard and mouse; neither `xf86-input-libinput` nor `xf86-input-evdev` was
+installed. The minimal `--no-recommends` fixture therefore rendered a greeter
+without accepting its keyboard input. The fixture now explicitly installs
+and inventories `xf86-input-libinput` for the Xorg SDDM greeter. This change
+requires a fresh run; the failed login is not relabeled successful and no
+autologin, PAM bypass, or reduced session check is used.
+
+That run terminated with exit 1 and `lab_result=blocked` because login and UI
+capture did not pass. Its independent lifecycle result passed: boot identity
+changed on reboot; restricted-network recovery detected controlled corruption
+and Snapper restored the fixture bytes; a durable sentinel matched before
+discard, then was absent on a fresh XFS baseline together with the marker,
+desktop package, and Snapper configuration. The source image hash was unchanged
+and the harness removed its VM disks and temporary SSH keys. This proves the
+lab lifecycle and bounded fixture restore, not a linked system/Ryoku restore.
+
 ## Original cloud runner
 
 The selected resource is the existing managed cloud development workspace. No

@@ -127,6 +127,7 @@ pub fn setup(proxy: &str) -> Result<()> {
             "plasma6-session",
             "sddm",
             "xorg-x11-server",
+            "xf86-input-libinput",
         ],
     ] {
         run_zypper_with_timeout(
@@ -254,7 +255,7 @@ pub fn inspect() -> Result<()> {
 fn inspect_provisioned() -> Result<()> {
     inspect_base()?;
     command("systemctl", &["is-active", "display-manager"])?;
-    for package in ["plasma6-session", "sddm"] {
+    for package in ["plasma6-session", "sddm", "xf86-input-libinput"] {
         let version = command("rpm", &["-q", "--qf", "%{VERSION}-%{RELEASE}", package])?;
         println!("{package}={}", version.trim());
     }

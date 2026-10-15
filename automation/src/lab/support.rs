@@ -64,6 +64,7 @@ pub fn public_evidence(line: &str) -> bool {
         "grub2-snapper-plugin",
         "plasma6-session",
         "sddm",
+        "xf86-input-libinput",
         "snapshot",
         "arch",
         "root",
