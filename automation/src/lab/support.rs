@@ -93,6 +93,7 @@ pub fn public_evidence(line: &str) -> bool {
         "lifecycle_result",
         "reboot",
         "egress",
+        "egress_online_baseline",
         "controlled_corruption",
         "offline_snapper_restore",
         "fixture_marker_cleanup",
@@ -185,6 +186,7 @@ mod tests {
         assert!(!public_evidence("desktop_login_reason=private-session-id"));
         assert!(!public_evidence("desktop_login_reason=failed:raw-error"));
         assert!(public_evidence("offline_snapper_restore=matched"));
+        assert!(public_evidence("egress_online_baseline=reachable"));
         assert!(public_evidence("kernel-default-base=7.2.9-1.1.36.10"));
         assert!(public_evidence("reset_baseline=derived-btrfs-snapper"));
         assert!(public_evidence("reset_sentinel_before_discard=present"));
