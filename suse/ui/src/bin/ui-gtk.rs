@@ -118,6 +118,25 @@ fn main() {
             result.set_text(&render_result(&outcome));
         });
 
+        if capture_on_launch {
+            let painted = Rc::new(Cell::new(false));
+            window.connect_map(move |window| {
+                if let Some(clock) = window.frame_clock() {
+                    let window = window.downgrade();
+                    let painted = Rc::clone(&painted);
+                    clock.connect_after_paint(move |_| {
+                        if !painted.get()
+                            && window.upgrade().is_some_and(|window| {
+                                window.is_mapped() && window.width() > 0 && window.height() > 0
+                            })
+                        {
+                            painted.set(true);
+                            println!("gtk_proof_first_frame=painted");
+                        }
+                    });
+                }
+            });
+        }
         window.present();
         if capture_on_launch {
             refresh.emit_clicked();

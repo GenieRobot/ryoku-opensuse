@@ -792,6 +792,26 @@ fn ui_processes(uid: u32) -> Result<Vec<u32>> {
     Ok(processes)
 }
 
+fn painted_frame_marker(bytes: &[u8]) -> bool {
+    bytes.split(|byte| *byte == b'\n').any(|line| line == b"gtk_proof_first_frame=painted")
+}
+
+fn ui_painted(scenario: &str) -> Result<bool> {
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+        .open(format!("/var/log/ryoku-lab-ui-{scenario}-private.log"))?;
+    let metadata = file.metadata()?;
+    require(
+        metadata.is_file() && metadata.uid() == 0 && metadata.mode() & 0o7777 == 0o600,
+        "invalid private GTK readiness log",
+    )?;
+    let mut bytes = Vec::new();
+    file.take(128 * 1024 + 1).read_to_end(&mut bytes)?;
+    require(bytes.len() <= 128 * 1024, "GTK readiness log exceeded bound")?;
+    Ok(painted_frame_marker(&bytes))
+}
+
 /// Start the opt-in GTK proof inside the already authenticated Wayland user
 /// session. Only a fixed success/error scenario is accepted.
 pub fn launch_ui(scenario: &str) -> Result<()> {
@@ -810,17 +830,48 @@ pub fn launch_ui(scenario: &str) -> Result<()> {
     if scenario == "error" {
         command.arg("--service-unavailable");
     }
-    command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    // Keep renderer/runtime errors until the host retrieves them. A fresh
+    // root-owned file prevents following or replacing a pre-existing path.
+    let log = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(format!("/var/log/ryoku-lab-ui-{scenario}-private.log"))?;
+    command.stdin(Stdio::null()).stdout(log.try_clone()?).stderr(log);
     let _child = command.spawn()?;
-    let deadline = Instant::now() + Duration::from_secs(20);
+    let deadline = Instant::now() + Duration::from_secs(120);
     loop {
-        if !ui_processes(uid)?.is_empty() {
-            println!("gtk_proof_window=running\ngtk_proof_scenario={scenario}");
+        if !ui_processes(uid)?.is_empty() && ui_painted(scenario)? {
+            println!("gtk_proof_window=painted\ngtk_proof_scenario={scenario}");
             return Ok(());
         }
-        require(Instant::now() < deadline, "GTK proof window did not remain active")?;
+        require(Instant::now() < deadline, "GTK proof first mapped frame was not painted")?;
         thread::sleep(Duration::from_millis(200));
     }
+}
+
+/// Retrieve only the fixed proof logs, bounded independently of GTK output.
+/// The host retains these in its private run directory before discarding disks.
+pub fn ui_diagnostics() -> Result<()> {
+    guard()?;
+    let mut output = std::io::stdout().lock();
+    for scenario in ["success", "error"] {
+        let path = format!("/var/log/ryoku-lab-ui-{scenario}-private.log");
+        let file = match fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+            .open(path)
+        {
+            Ok(file) => file,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error.into()),
+        };
+        let metadata = file.metadata()?;
+        require(metadata.is_file() && metadata.uid() == 0, "invalid private GTK log")?;
+        writeln!(output, "--- GTK {scenario} ---")?;
+        std::io::copy(&mut file.take(128 * 1024), &mut output)?;
+    }
+    Ok(())
 }
 
 pub fn stop_ui() -> Result<()> {
@@ -842,6 +893,14 @@ pub fn stop_ui() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn process_and_renderer_diagnostics_do_not_substitute_for_a_painted_frame() {
+        assert!(!painted_frame_marker(b"gtk_proof_window=running\nMESA-EGL: renderer warning\n"));
+        assert!(!painted_frame_marker(b"prefix gtk_proof_first_frame=painted\n"));
+        assert!(!painted_frame_marker(b"gtk_proof_first_frame=painted-extra\n"));
+        assert!(painted_frame_marker(b"MESA-EGL: warning\ngtk_proof_first_frame=painted\n"));
+    }
 
     #[test]
     fn login_failure_reasons_are_static_and_stage_specific() {

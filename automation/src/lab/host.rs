@@ -1,6 +1,7 @@
 use crate::{
     definition::scalar,
     process::{self, BoundedOutput},
+    runner,
     support::{Result, desktop_login_reason, output, public_evidence, require, safe_component},
 };
 use std::{
@@ -124,9 +125,9 @@ fn retain_probe_result<T, E>(
 
 fn optional_ui_result(requested: bool, captured: bool) -> Option<&'static str> {
     requested.then_some(if captured {
-        "ui_visual_capture=passed"
+        "ui_framebuffer_capture=passed"
     } else {
-        "ui_visual_capture=blocked"
+        "ui_framebuffer_capture=blocked"
     })
 }
 
@@ -334,9 +335,7 @@ impl Lab {
     }
 
     fn tool(&self, binary: &str) -> Command {
-        let mut command = Command::new(self.assets.join("qemu/usr/bin").join(binary));
-        command.env("LD_LIBRARY_PATH", self.assets.join("qemu/usr/lib/x86_64-linux-gnu"));
-        command
+        runner::tool(&self.assets, binary)
     }
 
     fn evidence(&mut self, lines: &str) -> Result<()> {
@@ -359,10 +358,7 @@ impl Lab {
                 .arg(self.run.join("disk.qcow2"))
                 .arg(format!("{}G", scalar("disk_virtual_gib")?)),
         )?;
-        fs::copy(
-            self.assets.join("qemu/usr/share/OVMF/OVMF_VARS_4M.fd"),
-            self.run.join("OVMF_VARS.fd"),
-        )?;
+        fs::copy(runner::firmware(&self.assets, "OVMF_VARS_4M.fd"), self.run.join("OVMF_VARS.fd"))?;
         Ok(())
     }
 
@@ -373,17 +369,19 @@ impl Lab {
         // The pinned Debian package ships some PCI devices, including
         // virtio-vga, as modules under qemu-system-common. The assets are
         // extracted into a private directory rather than installed globally.
-        command.env("QEMU_MODULE_DIR", self.assets.join("qemu/usr/lib/x86_64-linux-gnu/qemu"));
+        if !runner::WSL {
+            command.env("QEMU_MODULE_DIR", self.assets.join("qemu/usr/lib/x86_64-linux-gnu/qemu"));
+        }
         // QMP screendumps use fixed relative names and stay below this private
         // mode-0700 directory. All other QEMU inputs use absolute paths.
         command.current_dir(&self.run);
         command
             .arg("-L")
-            .arg(self.assets.join("qemu/usr/share/qemu"))
+            .arg(runner::data(&self.assets))
             .arg("-drive")
             .arg(format!(
                 "if=pflash,format=raw,readonly=on,file={}",
-                self.assets.join("qemu/usr/share/OVMF/OVMF_CODE_4M.fd").display()
+                runner::firmware(&self.assets, "OVMF_CODE_4M.fd").display()
             ))
             .arg("-drive")
             .arg(format!("if=pflash,format=raw,file={}", self.run.join("OVMF_VARS.fd").display()))
@@ -418,10 +416,7 @@ impl Lab {
             // framebuffer. Runtime acceptance still requires the headed
             // ordinary-user session to render successfully.
             .arg("-device")
-            .arg(format!(
-                "virtio-vga,romfile={}",
-                self.assets.join("qemu/usr/share/seabios/vgabios-virtio.bin").display()
-            ))
+            .arg(format!("virtio-vga,romfile={}", runner::vgabios(&self.assets).display()))
             .args(["-display", "none", "-monitor", "none"])
             .arg("-qmp")
             .arg(format!("unix:{},server=on,wait=off", self.run.join("qmp-private.sock").display()))
@@ -684,7 +679,10 @@ impl Lab {
                 "-o",
             ])
             .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
-            .arg(std::env::current_exe()?)
+            // A concurrent Cargo build can replace the pathname returned by
+            // current_exe. Read this process's pinned executable instead.
+            // Use our PID: /proc/self/exe would refer to the scp child.
+            .arg(format!("/proc/{}/exe", std::process::id()))
             .arg("tester@127.0.0.1:/tmp/ryoku-vm-lab");
         self.run_private_child(
             &mut command,
@@ -1067,8 +1065,7 @@ impl Lab {
         Ok(())
     }
 
-    fn capture_screenshot(&self, filename: &str) -> Result<()> {
-        let mut control = qmp::QmpClient::connect(&self.run.join("qmp-private.sock"))?;
+    fn capture_screenshot(&self, control: &mut qmp::QmpClient, filename: &str) -> Result<()> {
         control.screendump(filename)?;
         let path = self.run.join(filename);
         let metadata = fs::symlink_metadata(&path)?;
@@ -1093,9 +1090,17 @@ impl Lab {
             let mut control = qmp::QmpClient::connect(&self.run.join("qmp-private.sock"))?;
             control.send_key("ret")?;
             thread::sleep(Duration::from_secs(2));
-            self.capture_screenshot(filename)?;
+            // QEMU serves one client on this monitor. Retain the same
+            // connection for input and capture; opening a second one while
+            // `control` is alive waits for a greeting that cannot arrive.
+            self.capture_screenshot(&mut control, filename)?;
             self.ssh("sudo /tmp/ryoku-vm-lab guest-ui-stop")?;
         }
+        // A framebuffer can be captured while the application is off-screen
+        // or has not rendered visibly. Keep runtime diagnostics on successful
+        // transport too, before reboot/reset discards the guest logs.
+        let diagnostics = self.ssh("sudo /tmp/ryoku-vm-lab guest-ui-diagnostics")?;
+        save_private_log(&self.run, "ui-runtime-private.log", diagnostics.as_bytes())?;
         Ok(())
     }
 
@@ -1124,13 +1129,16 @@ impl Lab {
         let public = fs::read_to_string(self.run.join("id_ed25519.pub"))?;
         let public = public.split_whitespace().take(2).collect::<Vec<_>>().join(" ");
         let mut config = format!(
-            "#cloud-config\nusers:\n  - name: tester\n    groups: [wheel]\n    sudo: 'ALL=(ALL) NOPASSWD:ALL'\n    shell: /bin/bash\n    lock_passwd: true\n    ssh_authorized_keys:\n      - {public}\ndisable_root: true\nssh_pwauth: false\nwrite_files:\n  - path: /etc/pki/trust/anchors/cloud-lab.crt\n    content: |\n"
+            "#cloud-config\nusers:\n  - name: tester\n    groups: [wheel]\n    sudo: 'ALL=(ALL) NOPASSWD:ALL'\n    shell: /bin/bash\n    lock_passwd: true\n    ssh_authorized_keys:\n      - {public}\ndisable_root: true\nssh_pwauth: false\nwrite_files:\n"
         );
-        for entry in fs::read_dir("/usr/local/share/ca-certificates")? {
-            let path = entry?.path();
-            if path.extension().is_some_and(|e| e == "crt") {
-                for line in fs::read_to_string(path)?.lines() {
-                    config.push_str(&format!("      {line}\n"));
+        if !runner::WSL {
+            config.push_str("  - path: /etc/pki/trust/anchors/cloud-lab.crt\n    content: |\n");
+            for entry in fs::read_dir("/usr/local/share/ca-certificates")? {
+                let path = entry?.path();
+                if path.extension().is_some_and(|e| e == "crt") {
+                    for line in fs::read_to_string(path)?.lines() {
+                        config.push_str(&format!("      {line}\n"));
+                    }
                 }
             }
         }
@@ -1326,10 +1334,6 @@ pub fn run(
         scalar("architecture")? == "x86_64" && scalar("accelerator")? == "tcg",
         "unsupported fixture architecture or accelerator",
     )?;
-    require(
-        std::env::var("RYOKU_LAB_AUTHORIZED").as_deref() == Ok("existing-cloud-workspace"),
-        "set RYOKU_LAB_AUTHORIZED=existing-cloud-workspace only on authorized existing cloud capacity",
-    )?;
     let assets = fs::canonicalize(assets)?;
     let ui_binary = ui_binary.map(fs::canonicalize).transpose()?;
     if let Some(binary) = &ui_binary {
@@ -1354,10 +1358,7 @@ pub fn run(
     require(run_path.is_absolute(), "run directory must be absolute")?;
     safe_component(run_path.file_name().and_then(|x| x.to_str()).ok_or("missing run name")?)?;
     let parent = fs::canonicalize(run_path.parent().ok_or("missing parent")?)?;
-    require(
-        parent.starts_with("/workspace") && !parent.starts_with(&assets),
-        "use separate authorized cloud workspace run directory",
-    )?;
+    runner::validate_host(&assets, &parent)?;
     fs::create_dir(run_path)?; // Never resume or delete an unowned existing directory.
     fs::set_permissions(run_path, fs::Permissions::from_mode(0o700))?;
     let checksum = output(Command::new("sha256sum").arg(assets.join(image)))?;
@@ -1368,8 +1369,7 @@ pub fn run(
         "signed checksum does not describe pinned base",
     )?;
     for (file, key) in FIRMWARE {
-        let digest =
-            output(Command::new("sha256sum").arg(assets.join("qemu/usr/share/OVMF").join(file)))?;
+        let digest = output(Command::new("sha256sum").arg(runner::firmware(&assets, file)))?;
         require(
             digest.split_whitespace().next() == Some(scalar(key)?),
             "firmware checksum mismatch",
@@ -1387,7 +1387,13 @@ pub fn run(
         signature.lines().any(|x| x.starts_with(&format!("[GNUPG:] VALIDSIG {signer} "))),
         "unexpected release signer",
     )?;
-    let address = ("proxy", 8080).to_socket_addrs()?.next().ok_or("managed proxy DNS missing")?;
+    let (network, offline_probe) = if runner::WSL {
+        ("direct".to_owned(), "1.1.1.1:443".to_owned())
+    } else {
+        let address =
+            ("proxy", 8080).to_socket_addrs()?.next().ok_or("managed proxy DNS missing")?;
+        (address.to_string(), address.to_string())
+    };
     let mut lab = Lab {
         assets,
         run: fs::canonicalize(run_path)?,
@@ -1398,7 +1404,8 @@ pub fn run(
         vm: None,
         report: fs::File::create(run_path.join("evidence.txt"))?,
     };
-    lab.evidence(&format!("fixture_sha256={hash}\nrelease_signer={signer}\nhost_runner=existing-managed-cloud\naccelerator=tcg\nvm_memory_mib={memory}\nvm_cpus={cpus}"))?;
+    let runner_name = if runner::WSL { "existing-opensuse-wsl" } else { "existing-managed-cloud" };
+    lab.evidence(&format!("fixture_sha256={hash}\nrelease_signer={signer}\nhost_runner={runner_name}\naccelerator=tcg\nvm_memory_mib={memory}\nvm_cpus={cpus}"))?;
     let version = output(lab.tool("qemu-system-x86_64").arg("--version"))?;
     require(
         version.starts_with(&format!("QEMU emulator version {qemu}")),
@@ -1418,18 +1425,23 @@ pub fn run(
     lab.evidence("fresh_boot=passed")?;
     lab.copy_binary()?;
     let migrated =
-        lab.ssh_migration_command(&format!("sudo /tmp/ryoku-vm-lab guest-migrate {address}"))?;
+        lab.ssh_migration_command(&format!("sudo /tmp/ryoku-vm-lab guest-migrate {network}"))?;
     lab.evidence(&migrated)?;
     lab.stop()?;
     fs::rename(lab.run.join("disk.qcow2"), lab.run.join("source-overlay.qcow2"))?;
     fs::rename(lab.run.join("migration.qcow2"), lab.run.join("disk.qcow2"))?;
-    fs::copy(lab.assets.join("qemu/usr/share/OVMF/OVMF_VARS_4M.fd"), lab.run.join("OVMF_VARS.fd"))?;
+    fs::copy(runner::firmware(&lab.assets, "OVMF_VARS_4M.fd"), lab.run.join("OVMF_VARS.fd"))?;
     lab.start(false)?;
     lab.copy_binary()?;
     let base = lab.ssh("sudo /tmp/ryoku-vm-lab guest-base-setup")?;
     lab.evidence(&base)?;
     lab.evidence("derived_btrfs_boot=passed")?;
-    let kde_installed = match lab.kde_setup(&address.to_string()) {
+    // The migrated disk is standalone and has now booted without the XFS
+    // source attached. Retain the signed base for the later reset check,
+    // but release the disposable migration source before desktop setup.
+    fs::remove_file(lab.run.join("source-overlay.qcow2"))?;
+    lab.evidence("migration_xfs_overlay=removed")?;
+    let kde_installed = match lab.kde_setup(&network) {
         Ok(setup) => {
             lab.evidence(&setup)?;
             true
@@ -1451,7 +1463,31 @@ pub fn run(
                 lab.evidence(&session)?;
                 kde_ready = true;
                 if lab.ui_binary.is_some() {
-                    ui_captured = lab.capture_ui_scenarios().is_ok();
+                    match lab.capture_ui_scenarios() {
+                        Ok(()) => ui_captured = true,
+                        Err(error) => {
+                            // Subsequent reboot probes replace guest-private.log.
+                            // Preserve the UI failure before continuing lifecycle checks.
+                            let mut failure = fs::OpenOptions::new()
+                                .write(true)
+                                .create(true)
+                                .truncate(true)
+                                .mode(0o600)
+                                .open(lab.run.join("ui-failure-private.log"))?;
+                            writeln!(failure, "{error}")?;
+                            if let Ok(guest_log) = fs::read(lab.run.join("guest-private.log")) {
+                                failure.write_all(b"\n--- last guest command ---\n")?;
+                                failure.write_all(&guest_log)?;
+                            }
+                            if let Ok(diagnostics) =
+                                lab.ssh("sudo /tmp/ryoku-vm-lab guest-ui-diagnostics")
+                            {
+                                failure.write_all(b"\n--- GTK runtime output ---\n")?;
+                                failure.write_all(diagnostics.as_bytes())?;
+                            }
+                            lab.evidence("ui_framebuffer_capture=blocked")?;
+                        }
+                    }
                 }
             }
             Err(_) => {
@@ -1576,10 +1612,18 @@ pub fn run(
         lab.terminate_owned_vm()?;
         lab.evidence("offline_recovery=skipped_provider_probe_overlay_discarded")?;
     } else {
+        let online =
+            lab.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-online-probe {offline_probe}"))?;
+        require(
+            online.trim() == "egress_online_baseline=reachable",
+            "online egress baseline missing",
+        )?;
+        lab.evidence(&online)?;
         lab.stop()?;
         lab.start(true)?;
         lab.copy_binary()?;
-        let recovered = lab.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-recover {address}"))?;
+        let recovered =
+            lab.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-recover {offline_probe}"))?;
         lab.evidence(&recovered)?;
         lab.stop()?;
     }
@@ -1596,7 +1640,6 @@ pub fn run(
     lab.stop()?;
     for name in [
         "disk.qcow2",
-        "source-overlay.qcow2",
         "OVMF_VARS.fd",
         "seed.iso",
         "user-data",
@@ -1885,8 +1928,8 @@ mod tests {
     #[test]
     fn optional_ui_result_remains_separate_from_login_and_lifecycle_results() {
         assert_eq!(optional_ui_result(false, false), None);
-        assert_eq!(optional_ui_result(true, false), Some("ui_visual_capture=blocked"));
-        assert_eq!(optional_ui_result(true, true), Some("ui_visual_capture=passed"));
+        assert_eq!(optional_ui_result(true, false), Some("ui_framebuffer_capture=blocked"));
+        assert_eq!(optional_ui_result(true, true), Some("ui_framebuffer_capture=passed"));
     }
 
     #[test]

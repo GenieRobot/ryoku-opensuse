@@ -3,7 +3,11 @@ use crate::support::Result;
 // This fixture deliberately uses unique scalar keys. Refuse ambiguous or
 // malformed values rather than silently using defaults or a moving URL.
 pub fn scalar(key: &str) -> Result<&'static str> {
-    let source = include_str!("../../../infra/tumbleweed-lab/fixture.toml");
+    let source = if cfg!(feature = "wsl-lab") {
+        include_str!("../../../infra/tumbleweed-lab/wsl-fixture.toml")
+    } else {
+        include_str!("../../../infra/tumbleweed-lab/fixture.toml")
+    };
     let mut values = source.lines().filter_map(|line| {
         let (name, value) = line.split_once('=')?;
         (name.trim() == key).then_some(value.trim())

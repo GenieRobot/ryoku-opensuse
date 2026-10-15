@@ -1,5 +1,153 @@
 # Disposable Tumbleweed cloud lab (#13)
 
+## Authorized openSUSE WSL runner
+
+The user authorized this existing openSUSE WSL VM for development and tests on
+2026-10-15. Build `vm-lab` with `--features wsl-lab` to select the separate
+[`wsl-fixture.toml`](../infra/tumbleweed-lab/wsl-fixture.toml) input set.
+The default build retains the original cloud fixture and proxy requirements.
+An all-features build also selects WSL; do not use an all-features binary for
+the original cloud run. Each host copies its own executable into the guest,
+so guest repository, package, and snapshot assertions use the same input set.
+
+This runner uses installed `/usr/bin` tools: QEMU 11.1.2, `qemu-img`, and
+`mkisofs`, plus native openSUSE OVMF firmware. Its code and variable-template
+hashes are checked before boot. It does not load the old extracted Debian
+tools or libraries. The ordinary-user host must identify as Tumbleweed under
+WSL and explicitly set `RYOKU_LAB_AUTHORIZED=existing-wsl-vm`. Fresh run
+directories must be under the invoking workspace or temporary directory and
+outside the asset directory. The same guest fixture marker, QEMU identity,
+blank second-disk checks, signed repository checks, login checks, offline
+network restriction, and reset requirements remain in force. WSL itself is
+never passed to the destructive guest operations.
+
+The WSL image is the exact signed Cloud appliance
+`openSUSE-Tumbleweed-Minimal-VM.x86_64-1.0.0-Cloud-Snapshot20261013.qcow2`,
+SHA-256 `b9dcb17c0c7e81e153a12d35ea4d86a516b4d2139c6a82ddd75aa6ce3cb9db3a`.
+On 2026-10-15 its checksum signature and all four repository metadata
+signatures verified with the installed openSUSE project public key,
+fingerprint `AD485664E901B867051AB15F35A2F86E29B700A4`. The initial native
+QEMU inspection boot completed cloud-init, authenticated the temporary SSH
+key, and reported snapshot `20261013`, kernel `7.2.9-1-default`, XFS root,
+`kernel-default-base-7.2.9-1.1.36.10`, and `grub2-2.16-1.1`. This base boot
+does not prove Btrfs migration, KDE login, offline recovery, or reset.
+
+Prepare an asset directory containing that exact image, `image.sha256`,
+`image.sha256.asc`, and an isolated `gnupg` directory with the installed
+openSUSE public keys. Preserve the signed checksum's original image filename.
+Never substitute a newer download for the hash pin. The WSL profile uses
+direct guest networking and imports no host custom certificate authorities;
+direct mode is rejected by a default cloud build. Proxy environment variables
+are explicitly cleared for fixture Zypper operations before applying any
+selected cloud proxy. Repository signatures and exact metadata digests remain
+mandatory for either network mode.
+
+```console
+cargo build --locked -p ryoku-automation --features wsl-lab --bin vm-lab
+RYOKU_LAB_AUTHORIZED=existing-wsl-vm target/debug/vm-lab run \
+  "$ASSET_DIRECTORY" "$PWD/target/wsl-lab-FRESH-NAME" \
+  --capture-ui "$PWD/target/debug/ryoku-ui-gtk"
+```
+
+Build the optional GTK binary first using the instructions in
+[`ui-integration.md`](ui-integration.md), or omit `--capture-ui`. Inspect the
+fresh run's sanitized `evidence.txt` and retain private logs locally. The full
+WSL acceptance sequence is still being exercised; the inspection boot and
+unit tests are not a passing release or linked-recovery gate.
+
+The first automated WSL run used port commit
+`59245afcb4e00597cb91290a62439a9a76a2d2f7` and passed signed-input checks,
+XFS-to-Btrfs migration, sole-disk UEFI boot, SELinux/Snapper inspection, and
+reboot. KDE/SDDM provisioning completed with Plasma `6.7.5-1.1` and SDDM
+`0.21.0+git57-1.1`, but the ordinary-user login gate failed. Native Xorg logs
+reported `No input driver specified, ignoring this device` for the emulated
+keyboard and mouse; neither `xf86-input-libinput` nor `xf86-input-evdev` was
+installed. The minimal `--no-recommends` fixture therefore rendered a greeter
+without accepting its keyboard input. The fixture now explicitly installs
+and inventories `xf86-input-libinput` for the Xorg SDDM greeter. This change
+requires a fresh run; the failed login is not relabeled successful and no
+autologin, PAM bypass, or reduced session check is used.
+
+That run terminated with exit 1 and `lab_result=blocked` because login and UI
+capture did not pass. Its independent lifecycle result passed: boot identity
+changed on reboot; restricted-network recovery detected controlled corruption
+and Snapper restored the fixture bytes; a durable sentinel matched before
+discard, then was absent on a fresh XFS baseline together with the marker,
+desktop package, and Snapper configuration. The source image hash was unchanged
+and the harness removed its VM disks and temporary SSH keys. This proves the
+lab lifecycle and bounded fixture restore, not a linked system/Ryoku restore.
+
+The second WSL run, built from `4836a7cffa7e4b4f9da701f613868ed5de43698c`,
+installed `xf86-input-libinput-1.5.0-1.7` and passed native SDDM password login
+both before and after reboot. The assertions confirmed an ordinary, local,
+active Wayland session with Plasma and KWin and a connected compositor socket.
+Restricted-network controlled corruption and the bounded Snapper restore also
+passed. The final fresh XFS baseline had no fixture marker, desktop package,
+Snapper configuration, or sentinel. The image hash was unchanged, all run
+disks and SSH keys were removed, and the process exited 0 with
+`lifecycle_result=passed` and `lab_result=passed`. The independent optional
+result was `ui_visual_capture=blocked`; it is not credited as visual acceptance.
+This establishes the WSL lab lifecycle and KDE fallback, not the complete
+linked restore engine or the original cloud-only acceptance condition.
+
+New runs remove the disposable XFS migration overlay immediately after the
+standalone Btrfs disk boots and passes its base checks. The signed source image
+remains necessary for the final fresh-baseline reset. Optional GTK failures
+are retained in `ui-failure-private.log` before later SSH probes overwrite the
+rolling guest log. The guest launcher records GTK output in root-owned mode
+0600 logs, and a fixed diagnostic command retrieves at most 128 KiB per
+scenario into that private host log before disposal. These raw logs must not
+be published as sanitized acceptance evidence.
+
+Run04's retained diagnostic identified the optional capture failure: the GTK
+success process was running, but a second QMP connection timed out while the
+input connection was still alive. The monitor serves one client at a time.
+The harness now sends input and requests the framebuffer on the same QMP
+connection. Both lab profiles pass 57 tests, including an input/capture sequence
+with distinct reply IDs on one socket, plus all-feature automation Clippy.
+Run04 uses the earlier executable and retains `ui_visual_capture=blocked`;
+a fresh run with the corrected harness is required for automated visual
+acceptance. Its reboot/offline/reset lifecycle was still running when this
+diagnosis was recorded. Native checkpoint and 20 Btrfs/SELinux staging tests
+were exercised separately in that guest and do not establish full restore.
+
+Run04 later terminated with signal 15 before its restricted-network/reset
+sequence completed. No task-owned VM process survived; its logs were retained
+and its disposable disks and keys were removed. Its reboot/login and native
+component results remain useful, but the full run is interrupted. Guest binary
+copies now use the running process's `/proc/<pid>/exe` rather than a build
+output pathname, so a concurrent Cargo rebuild cannot replace their source.
+
+Run05 completed standalone Btrfs boot, ordinary-user native SDDM/Wayland login
+before and after reboot, restricted-network fixture restoration and fresh XFS
+baseline reset. Its disks and keys were removed and the signed base was
+unchanged. The [Run05 evidence](../infra/tumbleweed-lab/evidence/issue13-wsl-run05.toml)
+separates this passing lifecycle from visual acceptance: the historical
+`ui_visual_capture=passed` flag only established that files were captured.
+Inspection of the scenario images did not establish a visible GTK proof window.
+
+New captures wait up to 120 seconds for a marker emitted after a mapped,
+nonzero-size GTK window completes a paint frame. Process existence and renderer
+diagnostics do not satisfy readiness. Automated output now uses
+`ui_framebuffer_capture`, and visual acceptance still requires reviewing the
+images. Runtime logs are retained even when transport succeeds. Both lab
+profiles pass 58 tests; the updated GTK proof emitted its paint marker under
+openSUSE WSLg with the existing Mesa warnings. That local result is not native
+KDE visual acceptance.
+
+The fresh [Run06 exercise](../infra/tumbleweed-lab/evidence/issue13-wsl-run06.toml)
+passed the full WSL lifecycle and both GTK demonstration scenarios. Both
+processes reported a painted first frame before capture; manual review confirmed
+a visible proof window with successful-refresh text and a visible unavailable
+error. The [success](../infra/tumbleweed-lab/evidence/issue13-wsl-run06-success.png)
+and [error](../infra/tumbleweed-lab/evidence/issue13-wsl-run06-error.png) images
+contain only the disposable test desktop and controlled demo data. All run disks
+and keys were removed after the fresh-baseline reset. This establishes KDE demo
+rendering; it does not establish live provider status, keyboard dispatch apart
+from programmatic refresh, accessibility or complete linked recovery.
+
+## Original cloud runner
+
 The selected resource is the existing managed cloud development workspace. No
 paid infrastructure, provider identity, private companion repository, or local
 user disk is needed. The cloud status API reports connected/running with an

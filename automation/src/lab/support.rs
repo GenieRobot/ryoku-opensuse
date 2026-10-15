@@ -64,6 +64,7 @@ pub fn public_evidence(line: &str) -> bool {
         "grub2-snapper-plugin",
         "plasma6-session",
         "sddm",
+        "xf86-input-libinput",
         "snapshot",
         "arch",
         "root",
@@ -92,6 +93,7 @@ pub fn public_evidence(line: &str) -> bool {
         "lifecycle_result",
         "reboot",
         "egress",
+        "egress_online_baseline",
         "controlled_corruption",
         "offline_snapper_restore",
         "fixture_marker_cleanup",
@@ -109,6 +111,7 @@ pub fn public_evidence(line: &str) -> bool {
         "base_unchanged",
         "reset_disk_and_keys",
         "ui_visual_capture",
+        "ui_framebuffer_capture",
         "zypp_experiment_is_not_a_protected_write_gate",
         "packagekit_cockpit_myrlyn_yast_write_paths",
         "zypp_inventory",
@@ -183,6 +186,7 @@ mod tests {
         assert!(!public_evidence("desktop_login_reason=private-session-id"));
         assert!(!public_evidence("desktop_login_reason=failed:raw-error"));
         assert!(public_evidence("offline_snapper_restore=matched"));
+        assert!(public_evidence("egress_online_baseline=reachable"));
         assert!(public_evidence("kernel-default-base=7.2.9-1.1.36.10"));
         assert!(public_evidence("reset_baseline=derived-btrfs-snapper"));
         assert!(public_evidence("reset_sentinel_before_discard=present"));
@@ -190,6 +194,7 @@ mod tests {
         assert!(public_evidence("reset_sentinel_bytes=matched"));
         assert!(public_evidence("reset_sentinel_sync=passed"));
         assert!(public_evidence("ui_visual_capture=passed"));
+        assert!(public_evidence("ui_framebuffer_capture=passed"));
         assert!(public_evidence("zypp_inventory_path_1=usr_lib64_zypp_plugins_commit"));
         assert!(public_evidence("zypp_inventory_kind_1=symlink"));
         assert!(public_evidence("zypp_inventory_symlink_target_1=usr_lib_systemd_systemd"));
