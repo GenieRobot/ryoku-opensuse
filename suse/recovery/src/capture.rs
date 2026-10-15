@@ -496,6 +496,15 @@ impl XattrReader for KernelXattrs {
                 Ok(Some(buffer))
             }
             Err(error) if error == Errno::NODATA => Ok(None),
+            // Linux symlink inodes do not carry POSIX access/default ACLs.
+            // Their ACL lookup can report EOPNOTSUPP even on an ACL-capable
+            // filesystem; this is absence, not a missing capture provider.
+            Err(error)
+                if error == Errno::OPNOTSUPP
+                    && matches!(name, "system.posix_acl_access" | "system.posix_acl_default") =>
+            {
+                Ok(None)
+            }
             Err(error) if error == Errno::OPNOTSUPP || error == Errno::NOSYS => {
                 Err(CaptureError::UnsupportedMetadata(name))
             }

@@ -793,10 +793,14 @@ Modification times use Euclidean division to preserve pre-epoch nanoseconds;
 the existing access time is not set by this operation. All pathname resolution
 and creation of protected staging inodes remain the caller's responsibility.
 
-This primitive accepts only immutable staged entries; it performs no live
-target publication or journal transition. Symlink metadata, hard-link alias
-creation, explicit-absence application, and durable configuration staging are
-still needed. A failed inode preparation may have partially changed its
+These primitives accept only immutable staged entries; they perform no live
+target publication or journal transition. Symlink preparation uses a pinned
+private parent descriptor, one fixed leaf, no-follow ownership/timestamp
+operations, and Linux `l*xattr` operations. It verifies the link identity,
+raw target, ownership, time, mode and supported metadata afterward; the link
+target is never followed. Linux's unsupported POSIX ACL lookup on symlinks
+means ACL absence, while unsupported SELinux capture still fails.
+A failed inode preparation may have partially changed its
 private staging inode, which must not be published. Linux tests on the WSL
 host prove content/mode/time checks, pinned-descriptor behavior, access/default
 ACL round trips and removal, preservation of unrelated user attributes, and
@@ -806,8 +810,39 @@ Cross-owner changes and real SELinux label restoration still require privileged
 Tumbleweed guest evidence; synthetic label payload verification does not prove
 kernel label application.
 
+`DiskStageStore` now materializes the immutable configuration bundle beneath a
+caller-validated persistent root-owned mode-0700 directory. Fixed flat object
+slots prevent manifest paths or raw symlink targets from participating in
+stage path resolution. Regular files and directories receive exact metadata;
+declared file aliases share one inode, symlinks retain their raw target, and
+explicitly absent entries have no object. The realization uses the capture
+limits: 256 paths, 16 MiB per file and 64 MiB of expanded file/target/metadata
+bytes, counting reused blobs per declared path before creating a directory.
+
+Before completion, staging syncs objects, directory entries and filesystem
+metadata, then recaptures and compares their content, metadata, absences and
+hard-link equivalence. Only then does it atomically publish and sync a mode-0600
+receipt containing the exact plan and records. Reopening after restart requires
+the same bundle reconstructed from its verified generation and persisted plan;
+it checks the receipt, complete object inventory and every object again.
+Missing completion, stale plans, changed bytes/metadata, broken links, extra
+objects, symlink substitutions and populated absent slots fail verification.
+An incomplete existing stage is never overwritten or promoted to complete;
+the coordinator must remain in recovery and explicitly discard/rebuild it.
+
+These are disk-backed stages, not live target changes. The coordinator must
+validate their mount outside rollback scope, retain the checkpoint and source,
+hold exclusive writer ownership, and match the verified stage plan before
+advancing `ContentStaged`. The store does not enforce that coordination or
+advance a journal. Stage files may live on a different filesystem/subvolume
+from final targets; a future writer must prepare destination-local inodes and
+verify them before publication rather than assume cross-filesystem renames.
+The Linux tests exercise actual generation capture/publication, stage creation,
+generation-based reopen and tamper/interruption rejection. No power-cut or
+linked Tumbleweed root rollback exercise is claimed by those local tests.
+
 This remains a preparation and journal slice. It does not create the current-state
-checkpoint or durable target staging, stop writers, invoke Snapper, restore live
+checkpoint, initialize the persistent staging mount, stop writers, invoke Snapper, restore live
 targets, coordinate the root rollback, run health checks, or gate normal session
 startup. No offline console restore or interruption exercise has been recorded
 in a Tumbleweed VM. Issue #21 must remain open until those destructive restore

@@ -21,6 +21,10 @@ const MAX_STAGED_PAYLOAD_BYTES: usize = 64 * 1024 * 1024;
 #[path = "inode_metadata_tests.rs"]
 mod inode_metadata_tests;
 
+#[cfg(test)]
+#[path = "disk_stage_tests.rs"]
+mod disk_stage_tests;
+
 /// One exact declared entry, with retained raw metadata and content. Shared
 /// digests use shared immutable allocations rather than per-path byte copies.
 pub struct StagedEntry {

@@ -8,19 +8,24 @@
 
 use std::{
     fs::File,
-    os::unix::fs::{FileExt, MetadataExt},
+    os::{
+        fd::AsRawFd,
+        unix::fs::{FileExt, MetadataExt},
+    },
 };
 
 use rustix::{
     fs::{
-        Gid, Mode, Timespec, Timestamps, UTIME_OMIT, Uid, XattrFlags, fchmod, fchown, fgetxattr,
-        fremovexattr, fsetxattr, fsync, futimens,
+        AtFlags, FileType, Gid, Mode, Timespec, Timestamps, UTIME_OMIT, Uid, XattrFlags, chownat,
+        fchmod, fchown, fgetxattr, fremovexattr, fsetxattr, fsync, futimens, lgetxattr,
+        lremovexattr, lsetxattr, readlinkat, statat, utimensat,
     },
     io::Errno,
 };
 
 use crate::{
-    EntryKind, XattrName, configuration_stage::StagedEntry, metadata::MAX_METADATA_VALUE_BYTES,
+    EntryKind, RelativePath, XattrName, configuration_stage::StagedEntry,
+    metadata::MAX_METADATA_VALUE_BYTES,
 };
 
 #[derive(Debug)]
@@ -202,4 +207,104 @@ fn verify_attribute(
         return Err(InodeMetadataError::ReadbackMismatch);
     }
     Ok(())
+}
+
+/// Prepare a symlink in a caller-owned, exclusively held private staging
+/// directory. `leaf` must be one component. Every operation treats the final
+/// link itself as the target; even an absolute link target is never followed.
+/// Live configuration parents and concurrent writers are unsupported.
+pub fn prepare_symlink_metadata(
+    parent: &File,
+    leaf: &RelativePath,
+    entry: &StagedEntry,
+) -> Result<(), InodeMetadataError> {
+    if leaf.as_str().contains('/') {
+        return Err(InodeMetadataError::InvalidMetadata);
+    }
+    let EntryKind::Symlink { metadata, target } = &entry.record().kind else {
+        return Err(InodeMetadataError::UnsupportedKind);
+    };
+    if metadata.mode != 0o777
+        || metadata.uid == u32::MAX
+        || metadata.gid == u32::MAX
+        || entry.acl().is_some()
+    {
+        return Err(InodeMetadataError::InvalidMetadata);
+    }
+    let seconds = metadata
+        .mtime_unix_ns
+        .div_euclid(1_000_000_000)
+        .try_into()
+        .map_err(|_| InodeMetadataError::InvalidMetadata)?;
+    let nanos = metadata.mtime_unix_ns.rem_euclid(1_000_000_000) as _;
+    let before = statat(parent, leaf.as_str(), AtFlags::SYMLINK_NOFOLLOW)?;
+    if FileType::from_raw_mode(before.st_mode) != FileType::Symlink
+        || readlinkat(parent, leaf.as_str(), Vec::new())?.as_bytes() != target.as_bytes()
+    {
+        return Err(InodeMetadataError::InodeMismatch);
+    }
+    if before.st_uid != metadata.uid || before.st_gid != metadata.gid {
+        chownat(
+            parent,
+            leaf.as_str(),
+            Some(Uid::from_raw(metadata.uid)),
+            Some(Gid::from_raw(metadata.gid)),
+            AtFlags::SYMLINK_NOFOLLOW,
+        )?;
+    }
+    // The parent descriptor is pinned and the single leaf is exclusively
+    // owned by this staging operation. Linux l*xattr never follows the leaf.
+    let path = format!("/proc/self/fd/{}/{}", parent.as_raw_fd(), leaf.as_str());
+    let attributes: Vec<_> = entry.xattrs().collect();
+    let label = attributes
+        .iter()
+        .find_map(|(name, value)| (*name == XattrName::SelinuxLabel).then_some(*value));
+    match label {
+        Some(value) => {
+            lsetxattr(&path, XattrName::SelinuxLabel.as_str(), value, XattrFlags::empty())?
+        }
+        None => {
+            if read_link_attribute(&path, XattrName::SelinuxLabel.as_str())?.is_some() {
+                lremovexattr(&path, XattrName::SelinuxLabel.as_str())?;
+            }
+        }
+    }
+    utimensat(
+        parent,
+        leaf.as_str(),
+        &Timestamps {
+            last_access: Timespec { tv_sec: 0, tv_nsec: UTIME_OMIT },
+            last_modification: Timespec { tv_sec: seconds, tv_nsec: nanos },
+        },
+        AtFlags::SYMLINK_NOFOLLOW,
+    )?;
+    fsync(parent)?;
+    let after = statat(parent, leaf.as_str(), AtFlags::SYMLINK_NOFOLLOW)?;
+    if after.st_dev != before.st_dev
+        || after.st_ino != before.st_ino
+        || after.st_uid != metadata.uid
+        || after.st_gid != metadata.gid
+        || after.st_mode & 0o7777 != metadata.mode
+        || i128::from(after.st_mtime) * 1_000_000_000 + i128::from(after.st_mtime_nsec)
+            != metadata.mtime_unix_ns
+        || readlinkat(parent, leaf.as_str(), Vec::new())?.as_bytes() != target.as_bytes()
+        || read_link_attribute(&path, XattrName::SelinuxLabel.as_str())?.as_deref() != label
+        || read_link_attribute(&path, "system.posix_acl_access")?.is_some()
+        || read_link_attribute(&path, "system.posix_acl_default")?.is_some()
+    {
+        return Err(InodeMetadataError::ReadbackMismatch);
+    }
+    Ok(())
+}
+
+fn read_link_attribute(path: &str, name: &str) -> Result<Option<Vec<u8>>, InodeMetadataError> {
+    let mut value = vec![0; MAX_METADATA_VALUE_BYTES];
+    match lgetxattr(path, name, &mut value) {
+        Ok(length) => {
+            value.truncate(length);
+            Ok(Some(value))
+        }
+        Err(Errno::NODATA | Errno::OPNOTSUPP) => Ok(None),
+        Err(error) => Err(error.into()),
+    }
 }
