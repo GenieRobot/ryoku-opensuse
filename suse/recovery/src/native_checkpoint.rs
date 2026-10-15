@@ -114,7 +114,10 @@ fn validate_identity(
     if root_fs != snapshot_fs || format_uuid(root_fs) != expected_fs || *root_fs == [0; 16] {
         return Err(NativeCheckpointError::IdentityMismatch);
     }
-    if snapshot.flags & u64::from(linux_raw_sys::btrfs::BTRFS_SUBVOL_RDONLY) == 0 {
+    // GET_SUBVOL_INFO returns root-item flags, not the SUBVOL_GETFLAGS /
+    // snapshot-creation flag namespace (BTRFS_SUBVOL_RDONLY has value 2).
+    // Linux fs/btrfs/ioctl.c assigns btrfs_root_flags(root_item) here.
+    if snapshot.flags & u64::from(linux_raw_sys::btrfs::BTRFS_ROOT_SUBVOL_RDONLY) == 0 {
         return Err(NativeCheckpointError::WritableSnapshot);
     }
     if root.uuid == [0; 16]
@@ -145,7 +148,7 @@ mod tests {
             parent_id: 5,
             dirid: 256,
             generation: 1,
-            flags: u64::from(linux_raw_sys::btrfs::BTRFS_SUBVOL_RDONLY),
+            flags: u64::from(linux_raw_sys::btrfs::BTRFS_ROOT_SUBVOL_RDONLY),
             uuid: [uuid; 16],
             parent_uuid: [parent; 16],
             received_uuid: [0; 16],
@@ -177,6 +180,13 @@ mod tests {
         }
         let mut writable = snapshot;
         writable.flags = 0;
+        assert_eq!(
+            validate_identity(&format_uuid(&fs), &fs, &fs, &root, &writable),
+            Err(NativeCheckpointError::WritableSnapshot)
+        );
+        // The similarly named ioctl-input flag cannot establish read-only
+        // status in a root-item flag field.
+        writable.flags = u64::from(linux_raw_sys::btrfs::BTRFS_SUBVOL_RDONLY);
         assert_eq!(
             validate_identity(&format_uuid(&fs), &fs, &fs, &root, &writable),
             Err(NativeCheckpointError::WritableSnapshot)

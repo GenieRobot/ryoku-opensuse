@@ -1,7 +1,8 @@
 //! Native creation/verification experiment, restricted to the seeded QEMU lab.
 use ryoku_recovery::{Identifier, SnapshotLink, native_checkpoint::verify_new_root_checkpoint};
 use ryoku_snapper::{
-    ConfigName, SnapperCheckpointBackend, SnapperCliError, SnapshotPairRequest, TransactionId,
+    ConfigName, SnapperBackend, SnapperCheckpointBackend, SnapperCliBackend, SnapperCliError,
+    SnapshotKind, SnapshotPairRequest, TransactionId,
 };
 use std::{
     fs::{self, File},
@@ -9,6 +10,12 @@ use std::{
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args: Vec<_> = std::env::args().skip(1).collect();
+    let verify_existing = match args.as_slice() {
+        [] => false,
+        [mode] if mode == "--verify-existing" => true,
+        _ => return Err("usage: native_checkpoint_probe [--verify-existing]".into()),
+    };
     if fs::read_to_string("/etc/ryoku-lab-fixture")? != "disposable-issue13\n"
         || fs::read_to_string("/sys/class/dmi/id/sys_vendor")?.trim() != "QEMU"
     {
@@ -28,7 +35,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map_err(|_| "invalid boot transaction token")?,
     };
     let mut backend = SnapperCheckpointBackend;
-    let id = backend.create_single(&request)?;
+    let id = if verify_existing {
+        let tagged: Vec<_> = SnapperCliBackend
+            .list(&request.config)?
+            .into_iter()
+            .filter(|row| row.transaction_id.as_ref() == Some(&request.transaction_id))
+            .collect();
+        if tagged.len() != 1 || tagged[0].kind != SnapshotKind::Single {
+            return Err("existing checkpoint is missing or ambiguous".into());
+        }
+        tagged[0].id.clone()
+    } else {
+        backend.create_single(&request)?
+    };
     let link = SnapshotLink::new(
         Identifier::new("root").map_err(|_| "invalid fixed config")?,
         id.as_str(),
@@ -48,6 +67,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "native_checkpoint_creation=passed\nnative_checkpoint_kernel_identity=passed\nnative_checkpoint_duplicate_guard=passed\nnative_checkpoint_wrong_uuid_guard=passed"
     );
+    println!("native_checkpoint_mode={}", if verify_existing { "reconciled" } else { "created" });
     println!("native_checkpoint_subvolume_id={}", checkpoint.subvolume_id);
     println!("native_checkpoint_subvolume_uuid={}", checkpoint.subvolume_uuid);
     Ok(())

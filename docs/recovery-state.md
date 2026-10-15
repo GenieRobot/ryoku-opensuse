@@ -911,7 +911,14 @@ transaction correlation, boot coverage and writer freezing remain independent
 requirements; the checkpoint backend and verifier are not yet wired into the
 installed privileged coordinator. Local tests cover rejected identity/flag
 observations and rejection of a directory masquerading as the process root;
-successful Btrfs ioctl verification still requires native VM evidence.
+successful native creation and Btrfs ioctl verification are now recorded in
+the [Run04 component evidence](../infra/tumbleweed-lab/evidence/issue21-run04-native-checkpoint.toml).
+The first VM invocation exposed a flag-namespace bug: `GET_SUBVOL_INFO` returns
+root-item flags, requiring `BTRFS_ROOT_SUBVOL_RDONLY`, rather than the similarly
+named snapshot-creation ioctl flag. Correcting that check allowed verification
+of the existing snapshot without creating a duplicate. A real read-write toggle
+of only that disposable snapshot was rejected; restoring read-only made the
+verification pass again. This component evidence does not prove full recovery.
 
 Build the fixture-only experiment with
 `cargo build --locked -p ryoku-recovery --example native_checkpoint_probe`.
@@ -922,5 +929,7 @@ before any mutation, creates a native checkpoint tagged with the guest boot
 ID, verifies its kernel identity, and exercises duplicate-transaction and
 wrong-filesystem rejection. It retains the snapshot for inspection until the
 disposable disk is discarded. Repeating it on the same boot fails rather than
-duplicating the checkpoint. This is a native component experiment, not a full
+duplicating the checkpoint. Use explicit `--verify-existing` to reconcile the
+unique transaction-tagged snapshot without creating one, including after a
+failed initial verification. This is a native component experiment, not a full
 linked restore or checkpoint acceptance gate.
