@@ -10,6 +10,8 @@
 #[cfg(target_os = "linux")]
 pub mod capture;
 #[cfg(target_os = "linux")]
+pub mod configuration_stage;
+#[cfg(target_os = "linux")]
 pub mod generation;
 #[cfg(target_os = "linux")]
 pub mod generation_capture;

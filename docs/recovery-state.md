@@ -745,8 +745,33 @@ linkage. The privileged caller remains responsible for deriving the typed
 compatibility evidence from installed package/profile state. Reload validates
 the persisted snapshot ID, filesystem UUID, and scope invariants.
 
-This is a planning and journal slice only. It does not create the current-state
-checkpoint, stage content, stop writers, invoke Snapper, restore targets or
+`GenerationStore` and the read-only `GenerationReader` can now open a
+`VerifiedGeneration` handle after validating the complete catalog linkage,
+manifest, and payload set. The handle pins its payload directory by descriptor,
+rejects unreferenced digests, and rechecks bytes against their digest and shape
+on each read. Replacing a generation's directory name cannot redirect a handle
+to another directory; changing a referenced blob makes its next read fail.
+
+The `configuration_stage` module binds a restore plan to that handle's exact
+transaction, generation, Snapper config/snapshot, filesystem UUID, and declared
+configuration count. It prepares file bytes, decoded access/default ACLs,
+allowlisted raw labels, directory metadata, symlink targets, hard-link group
+records, and explicit absences in one immutable in-memory bundle. Repeated
+content and metadata digests share allocations; raw payload loading is bounded
+to 64 MiB, with decoded ACL storage bounded by its corresponding raw payloads.
+System-only plans and empty configuration scopes are rejected. Immutable
+`state-generation` profile records remain in the durable source and are not
+exposed as writable configuration targets. A changed source or mismatched plan
+returns no bundle. Preparation performs no target writes or journal advances.
+
+This preparation does not establish authorization, compatibility, or a current
+checkpoint, and an in-memory bundle is not durable `ContentStaged` evidence.
+Process restart must reopen the exact durable generation and repeat preparation
+against the recorded plan and manifest digest. Destructive restore must not
+infer missing stage contents or advance on an unchecked caller assertion.
+
+This remains a preparation and journal slice. It does not create the current-state
+checkpoint or durable target staging, stop writers, invoke Snapper, restore targets or
 metadata, coordinate the root rollback, run health checks, or gate normal session
 startup. No offline console restore or interruption exercise has been recorded
 in a Tumbleweed VM. Issue #21 must remain open until those destructive restore

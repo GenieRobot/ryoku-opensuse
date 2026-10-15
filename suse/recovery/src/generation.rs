@@ -165,6 +165,36 @@ pub struct GenerationReader {
     catalog: File,
 }
 
+/// A fully verified generation with its payload directory pinned by descriptor.
+/// This is byte-integrity evidence, not authorization or compatibility proof.
+pub struct VerifiedGeneration {
+    manifest: RecoveryManifest,
+    payloads: File,
+}
+
+impl VerifiedGeneration {
+    pub fn manifest(&self) -> &RecoveryManifest {
+        &self.manifest
+    }
+
+    /// Reads only a digest referenced by this generation. Rechecks its hash
+    /// and shape on every read, even after the initial full verification.
+    pub fn read_payload(&self, digest: &Sha256) -> Result<Vec<u8>, GenerationError> {
+        if !required_payloads(&self.manifest)?.contains(digest) {
+            return Err(GenerationError::PayloadMismatch);
+        }
+        let bytes = read_file(
+            &self.payloads,
+            &format!("{}.blob", digest.as_str()),
+            MAX_GENERATION_FILE_BYTES,
+        )?;
+        if digest_bytes(&bytes) != *digest || !valid_payload_shape(&self.manifest, digest, &bytes) {
+            return Err(GenerationError::IncompletePublication);
+        }
+        Ok(bytes)
+    }
+}
+
 impl GenerationReader {
     /// Opens the fixed protected state mount after reading the installed
     /// machine identity from the root-owned record and matching live Btrfs
@@ -237,6 +267,13 @@ impl GenerationReader {
         transaction_id: &Identifier,
     ) -> Result<RecoveryManifest, GenerationError> {
         verify_transaction_from(&self.catalog, &self.generations, transaction_id)
+    }
+
+    pub fn open_verified_transaction(
+        &self,
+        transaction_id: &Identifier,
+    ) -> Result<VerifiedGeneration, GenerationError> {
+        open_verified_transaction_from(&self.catalog, &self.generations, transaction_id)
     }
 }
 
@@ -473,6 +510,28 @@ impl GenerationStore {
     ) -> Result<RecoveryManifest, GenerationError> {
         verify_transaction_from(&self.catalog, &self.generations, transaction_id)
     }
+
+    pub fn open_verified_transaction(
+        &self,
+        transaction_id: &Identifier,
+    ) -> Result<VerifiedGeneration, GenerationError> {
+        open_verified_transaction_from(&self.catalog, &self.generations, transaction_id)
+    }
+}
+
+fn open_verified_transaction_from(
+    catalog: &File,
+    generations: &File,
+    transaction_id: &Identifier,
+) -> Result<VerifiedGeneration, GenerationError> {
+    let expected = verify_transaction_from(catalog, generations, transaction_id)?;
+    let directory = open_dir(generations, expected.generation_id.as_str())?;
+    // Verify the pinned directory rather than relying on the previous path
+    // lookup. Any replacement with another manifest fails before return.
+    let manifest = verify_directory(&directory, Some(&expected), true)?;
+    let payloads = open_dir(&directory, "payloads")?;
+    require_sealed_directory(&payloads)?;
+    Ok(VerifiedGeneration { manifest, payloads })
 }
 
 fn verify_generation_from(
@@ -891,6 +950,72 @@ mod tests {
         )
         .unwrap();
         fs::remove_dir_all(root_path).unwrap();
+    }
+
+    #[test]
+    fn verified_payload_handle_refuses_unlisted_digests_and_rechecks_content() {
+        let root_path = temp_root();
+        let store = test_store(&File::open(&root_path).unwrap());
+        let content = b"original content";
+        let manifest = ready_manifest(content);
+        let digest = digest_bytes(content);
+        store.publish(&manifest, &BTreeMap::from([(digest.clone(), content.to_vec())])).unwrap();
+        let generation = store.open_verified_transaction(&manifest.transaction_id).unwrap();
+        assert_eq!(generation.manifest(), &manifest);
+        assert_eq!(generation.read_payload(&digest).unwrap(), content);
+        assert!(matches!(
+            generation.read_payload(&digest_bytes(b"unlisted")),
+            Err(GenerationError::PayloadMismatch)
+        ));
+        let path = root_path
+            .join(format!("generations/gen-generation-1/payloads/{}.blob", digest.as_str()));
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&path, b"tampered content").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(generation.read_payload(&digest).is_err());
+    }
+
+    #[test]
+    fn verified_payload_handle_is_bound_to_its_pinned_directory() {
+        let root_path = temp_root();
+        let store = test_store(&File::open(&root_path).unwrap());
+        let content = b"pinned content";
+        let manifest = ready_manifest(content);
+        let digest = digest_bytes(content);
+        store.publish(&manifest, &BTreeMap::from([(digest.clone(), content.to_vec())])).unwrap();
+        let root = File::open(&root_path).unwrap();
+        let reader =
+            GenerationReader::open_existing(&root, rustix::fs::fstat(&root).unwrap().st_uid)
+                .unwrap();
+        let generation = reader.open_verified_transaction(&manifest.transaction_id).unwrap();
+        let original = root_path.join("generations/gen-generation-1");
+        fs::rename(&original, root_path.join("generations/retained-generation")).unwrap();
+        fs::create_dir(&original).unwrap();
+        fs::create_dir(original.join("payloads")).unwrap();
+        fs::write(original.join(format!("payloads/{}.blob", digest.as_str())), b"replacement")
+            .unwrap();
+        assert_eq!(generation.read_payload(&digest).unwrap(), content);
+        assert!(reader.open_verified_transaction(&manifest.transaction_id).is_err());
+    }
+
+    #[test]
+    fn verified_payload_handle_does_not_follow_replaced_blob_symlinks() {
+        let root_path = temp_root();
+        let store = test_store(&File::open(&root_path).unwrap());
+        let content = b"original";
+        let manifest = ready_manifest(content);
+        let digest = digest_bytes(content);
+        store.publish(&manifest, &BTreeMap::from([(digest.clone(), content.to_vec())])).unwrap();
+        let generation = store.open_verified_transaction(&manifest.transaction_id).unwrap();
+        let directory = root_path.join("generations/gen-generation-1/payloads");
+        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700)).unwrap();
+        let path = directory.join(format!("{}.blob", digest.as_str()));
+        let outside = root_path.join("unrelated");
+        fs::write(&outside, b"unrelated sentinel").unwrap();
+        fs::remove_file(&path).unwrap();
+        std::os::unix::fs::symlink(&outside, &path).unwrap();
+        assert!(generation.read_payload(&digest).is_err());
+        assert_eq!(fs::read(&outside).unwrap(), b"unrelated sentinel");
     }
 
     #[test]
