@@ -23,6 +23,8 @@ pub mod inode_metadata;
 pub mod machine_state;
 pub mod metadata;
 #[cfg(target_os = "linux")]
+pub mod preparation;
+#[cfg(target_os = "linux")]
 pub mod restore;
 #[cfg(target_os = "linux")]
 pub mod state_mount;

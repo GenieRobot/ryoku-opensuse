@@ -1,4 +1,7 @@
 use super::*;
+
+#[path = "preparation_tests.rs"]
+mod preparation_tests;
 use crate::Identifier;
 use crate::{
     OperationReason, RecoveryManifest, SnapshotLink, VerificationStatus,

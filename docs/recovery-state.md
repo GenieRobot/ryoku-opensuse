@@ -765,8 +765,10 @@ exposed as writable configuration targets. A changed source or mismatched plan
 returns no bundle. Preparation performs no target writes or journal advances.
 
 The plan persists the originally selected source manifest digest, separately
-from the current-state checkpoint digest. Journal schema 2 requires this field;
-legacy schema-1 journals and plans without the digest are rejected rather than
+from the current-state checkpoint digest. Journal schema 3 requires this field
+and a separate fresh `restore_id`; its filename binds that restore attempt,
+so the same source checkpoint can be restored in more than one attempt.
+Legacy schema-1/schema-2 journals and plans without those identities are rejected rather than
 silently selecting a replacement source. Retain the current-state checkpoint
 when handling an unsupported old journal. A coherently rebuilt and verified
 generation with the same IDs and entry count still cannot satisfy the original
@@ -841,7 +843,39 @@ The Linux tests exercise actual generation capture/publication, stage creation,
 generation-based reopen and tamper/interruption rejection. No power-cut or
 linked Tumbleweed root rollback exercise is claimed by those local tests.
 
-This remains a preparation and journal slice. It does not create the current-state
+The `preparation` coordinator now composes the current configuration capture,
+verified generation publication, journal and disk stage. It requires a fresh
+independently preverified Snapper link and the caller's complete approved
+current-state inventory/provenance. Every affected configuration path must be
+covered before capture starts. The source is reopened and verified locally;
+the actual current bytes and metadata are captured, published and verified
+before their generation identity/digest enter the journal. The source system
+and configuration compatibility checks remain scope-specific. If a subsequent
+check fails, the new current-state generation is retained rather than deleted.
+
+The coordinator advances only `Planned` → `CheckpointVerified` → `ContentStaged`,
+after verifying their corresponding artifacts. On restart it reopens the exact
+source and current-state generations, validates their recorded identities and
+freshness relationship, requires the native current-state snapshot partner,
+and recaptures the approved live inventory. Changed content/metadata/alias
+relationships or a different inventory block readiness without recapturing
+over the saved checkpoint. It checks live state again after verifying the disk
+stage. An incomplete stage requires explicit discard/rebuild; a stage already
+recorded complete is never silently recreated. Later destructive phases are
+rejected by this preparation-only resume entry point. Initial journal creation
+now rejects invalid plans/schemas and every phase except `Planned`, matching
+the preflight inventory bound; low-level phase persistence is not evidence
+that the caller performed the corresponding native action.
+
+The privileged caller must authenticate the operator, validate persistent
+mounts and complete root inventory, derive native snapshot/compatibility facts,
+and freeze writers from native snapshot creation through handoff to recovery.
+The coordinator does not create the native Snapper checkpoint or prove the
+caller observations. Local tests use actual configuration capture, generation,
+stage and journal operations with synthetic preverified system-snapshot facts;
+they do not prove native system snapshot creation or writer quiescence.
+
+This remains a preparation and journal slice. It does not create the native system
 checkpoint, initialize the persistent staging mount, stop writers, invoke Snapper, restore live
 targets, coordinate the root rollback, run health checks, or gate normal session
 startup. No offline console restore or interruption exercise has been recorded

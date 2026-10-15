@@ -39,6 +39,10 @@ impl VerifiedSnapshotLink {
     pub fn from_preverified_link(snapshot: SnapshotLink) -> Self {
         Self(snapshot)
     }
+
+    pub(crate) fn link(&self) -> &SnapshotLink {
+        &self.0
+    }
 }
 
 /// Inputs needed to capture, seal, publish, and read back one generation.
