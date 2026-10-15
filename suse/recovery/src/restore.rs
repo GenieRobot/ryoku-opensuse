@@ -155,7 +155,9 @@ pub fn plan_restore(
         .count();
     let configuration_entries =
         u32::try_from(configuration_entries).map_err(|_| PreflightError::EntryCountOverflow)?;
-    if configuration_entries > MAX_CONFIGURATION_ENTRIES {
+    if matches!(scope, RestoreScope::ConfigurationOnly | RestoreScope::CompleteLinked)
+        && configuration_entries > MAX_CONFIGURATION_ENTRIES
+    {
         return Err(PreflightError::ConfigurationScopeTooLarge);
     }
     if matches!(scope, RestoreScope::ConfigurationOnly | RestoreScope::CompleteLinked)
@@ -448,12 +450,10 @@ fn validate_plan(plan: &RestorePlan) -> bool {
         plan.filesystem_uuid.clone(),
     )
     .is_ok();
-    let config_scope_has_entries =
+    let config_scope_has_valid_count =
         !matches!(plan.scope, RestoreScope::ConfigurationOnly | RestoreScope::CompleteLinked)
-            || plan.configuration_entries > 0;
-    linked_snapshot_is_valid
-        && config_scope_has_entries
-        && plan.configuration_entries <= MAX_CONFIGURATION_ENTRIES
+            || (1..=MAX_CONFIGURATION_ENTRIES).contains(&plan.configuration_entries);
+    linked_snapshot_is_valid && config_scope_has_valid_count
 }
 
 fn validate_journal(journal: &RestoreJournal) -> Result<(), JournalError> {
@@ -805,10 +805,27 @@ mod tests {
                 .unwrap();
         }
         source.seal().unwrap();
-        assert_eq!(
-            plan_restore(&source, RestoreScope::CompleteLinked, &evidence()),
-            Err(PreflightError::ConfigurationScopeTooLarge)
-        );
+        for scope in [RestoreScope::ConfigurationOnly, RestoreScope::CompleteLinked] {
+            assert_eq!(
+                plan_restore(&source, scope, &evidence()),
+                Err(PreflightError::ConfigurationScopeTooLarge)
+            );
+        }
+        // Root-only recovery does not stage configuration, so neither its
+        // content availability nor its staging budget constrains this scope.
+        let mut facts = evidence();
+        facts.generation = ArtifactStatus::Missing;
+        facts.archive = ArtifactStatus::Missing;
+        facts.configuration_compatibility = CompatibilityStatus::Unknown;
+        let plan = plan_restore(&source, RestoreScope::SystemOnly, &facts).unwrap();
+        assert_eq!(plan.configuration_entries, MAX_CONFIGURATION_ENTRIES + 1);
+        let state = journal(plan);
+        let (path, fd) = root();
+        let store = RestoreJournalStore::open(&fd).unwrap();
+        store.create(&state).unwrap();
+        drop(store);
+        let reopened = RestoreJournalStore::open(&File::open(&path).unwrap()).unwrap();
+        assert_eq!(reopened.load(&state.restore_id).unwrap(), state);
     }
 
     #[test]
