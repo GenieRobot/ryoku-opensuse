@@ -810,7 +810,14 @@ pub fn launch_ui(scenario: &str) -> Result<()> {
     if scenario == "error" {
         command.arg("--service-unavailable");
     }
-    command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    // Keep renderer/runtime errors until the host retrieves them. A fresh
+    // root-owned file prevents following or replacing a pre-existing path.
+    let log = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(format!("/var/log/ryoku-lab-ui-{scenario}-private.log"))?;
+    command.stdin(Stdio::null()).stdout(log.try_clone()?).stderr(log);
     let _child = command.spawn()?;
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
@@ -821,6 +828,30 @@ pub fn launch_ui(scenario: &str) -> Result<()> {
         require(Instant::now() < deadline, "GTK proof window did not remain active")?;
         thread::sleep(Duration::from_millis(200));
     }
+}
+
+/// Retrieve only the fixed proof logs, bounded independently of GTK output.
+/// The host retains these in its private run directory before discarding disks.
+pub fn ui_diagnostics() -> Result<()> {
+    guard()?;
+    let mut output = std::io::stdout().lock();
+    for scenario in ["success", "error"] {
+        let path = format!("/var/log/ryoku-lab-ui-{scenario}-private.log");
+        let file = match fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+            .open(path)
+        {
+            Ok(file) => file,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error.into()),
+        };
+        let metadata = file.metadata()?;
+        require(metadata.is_file() && metadata.uid() == 0, "invalid private GTK log")?;
+        writeln!(output, "--- GTK {scenario} ---")?;
+        std::io::copy(&mut file.take(128 * 1024), &mut output)?;
+    }
+    Ok(())
 }
 
 pub fn stop_ui() -> Result<()> {

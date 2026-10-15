@@ -15,7 +15,7 @@ default = []
 wsl-lab = []
 
 [dependencies]
-rustix = { version = "1.1.5", features = ["process"] }
+rustix = { version = "1.1.5", features = ["fs", "process"] }
 
 [[bin]]
 name = "vm-lab"

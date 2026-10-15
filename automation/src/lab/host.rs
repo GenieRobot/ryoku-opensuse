@@ -1469,6 +1469,12 @@ pub fn run(
                                 failure.write_all(b"\n--- last guest command ---\n")?;
                                 failure.write_all(&guest_log)?;
                             }
+                            if let Ok(diagnostics) =
+                                lab.ssh("sudo /tmp/ryoku-vm-lab guest-ui-diagnostics")
+                            {
+                                failure.write_all(b"\n--- GTK runtime output ---\n")?;
+                                failure.write_all(diagnostics.as_bytes())?;
+                            }
                             lab.evidence("ui_visual_capture=blocked")?;
                         }
                     }

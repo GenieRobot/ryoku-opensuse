@@ -36,6 +36,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some("guest-ui-install") if args.len() == 2 => guest::install_ui_runtime(),
         Some("guest-ui-launch") if args.len() == 3 => desktop::launch_ui(args[2].as_str()),
         Some("guest-ui-stop") if args.len() == 2 => desktop::stop_ui(),
+        Some("guest-ui-diagnostics") if args.len() == 2 => desktop::ui_diagnostics(),
         Some("guest-recover") if args.len() == 3 => guest::recover(&args[2]),
         Some("guest-marker-absent") => guest::marker_absent(),
         _ => Err("usage: vm-lab run ASSET_DIRECTORY FRESH_RUN_DIRECTORY [--capture-ui GTK_BINARY]"
