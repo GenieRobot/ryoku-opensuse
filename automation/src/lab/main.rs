@@ -51,6 +51,8 @@ pub(crate) struct RunOptions<'a> {
     state_probe: Option<&'a str>,
     state_initializer: Option<&'a str>,
     state_prepare: Option<&'a str>,
+    linked_probe: Option<&'a str>,
+    recovery_cli: Option<&'a str>,
     console_only: bool,
 }
 
@@ -64,11 +66,29 @@ fn run_options(args: &[String]) -> Result<RunOptions<'_>, &'static str> {
         state_probe: None,
         state_initializer: None,
         state_prepare: None,
+        linked_probe: None,
+        recovery_cli: None,
         console_only: false,
     };
     let mut index = 4;
     while index < args.len() {
         match args[index].as_str() {
+            "--linked-checkpoint-probe"
+                if options.linked_probe.is_none() && index + 1 < args.len() =>
+            {
+                if args[index + 1].is_empty() {
+                    return Err(usage());
+                }
+                options.linked_probe = Some(&args[index + 1]);
+                index += 2;
+            }
+            "--recovery-cli" if options.recovery_cli.is_none() && index + 1 < args.len() => {
+                if args[index + 1].is_empty() {
+                    return Err(usage());
+                }
+                options.recovery_cli = Some(&args[index + 1]);
+                index += 2;
+            }
             "--state-prepare-probe"
                 if options.state_prepare.is_none() && index + 1 < args.len() =>
             {
@@ -143,16 +163,50 @@ fn run_options(args: &[String]) -> Result<RunOptions<'_>, &'static str> {
     if options.state_prepare.is_some() && options.state_initializer.is_none() {
         return Err(usage());
     }
+    if options.linked_probe.is_some() != options.recovery_cli.is_some()
+        || (options.linked_probe.is_some()
+            && (!options.console_only || options.state_initializer.is_none()))
+    {
+        return Err(usage());
+    }
     Ok(options)
 }
 
 fn usage() -> &'static str {
-    "usage: vm-lab run ASSET_DIRECTORY FRESH_RUN_DIRECTORY [--capture-ui GTK_BINARY] [--zypp-probe PROBE_BINARY PACKAGE] [--state-probe PROBE_BINARY] [--state-initializer INITIALIZER_BINARY] [--state-prepare-probe PROBE_BINARY] [--console-only]"
+    "usage: vm-lab run ASSET_DIRECTORY FRESH_RUN_DIRECTORY [--capture-ui GTK_BINARY] [--zypp-probe PROBE_BINARY PACKAGE] [--state-probe PROBE_BINARY] [--state-initializer INITIALIZER_BINARY] [--state-prepare-probe PROBE_BINARY] [--linked-checkpoint-probe PROBE_BINARY --recovery-cli CLI_BINARY] [--console-only]"
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn linked_probe_requires_exact_binary_pair_and_initialized_console_fixture() {
+        let base =
+            ["vm-lab", "run", "assets", "run", "--console-only", "--state-initializer", "init"]
+                .map(str::to_owned);
+        let mut arguments = base.to_vec();
+        arguments.extend(["--linked-checkpoint-probe", "probe"].map(str::to_owned));
+        assert!(run_options(&arguments).is_err());
+        arguments.extend(["--recovery-cli", "cli"].map(str::to_owned));
+        assert_eq!(run_options(&arguments).unwrap().linked_probe, Some("probe"));
+        assert_eq!(run_options(&arguments).unwrap().recovery_cli, Some("cli"));
+        arguments.extend(["--recovery-cli", "other"].map(str::to_owned));
+        assert!(run_options(&arguments).is_err());
+        let absent_init = [
+            "vm-lab",
+            "run",
+            "assets",
+            "run",
+            "--console-only",
+            "--linked-checkpoint-probe",
+            "probe",
+            "--recovery-cli",
+            "cli",
+        ]
+        .map(str::to_owned);
+        assert!(run_options(&absent_init).is_err());
+    }
 
     #[test]
     fn console_probes_cannot_claim_desktop_capture_or_run_without_a_probe() {

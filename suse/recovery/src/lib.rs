@@ -20,6 +20,7 @@ pub mod generation;
 pub mod generation_capture;
 #[cfg(target_os = "linux")]
 pub mod inode_metadata;
+pub mod linked_checkpoint;
 #[cfg(target_os = "linux")]
 pub mod machine_state;
 pub mod metadata;
@@ -428,7 +429,7 @@ impl FileRecord {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryManifest {
-    /// Supported manifest schema. This model accepts version 1 only.
+    /// Schema 1 is legacy; schema 2 requires an original native root receipt.
     pub schema_version: u16,
     /// Idempotency identity for the operation.
     pub transaction_id: Identifier,
@@ -442,6 +443,10 @@ pub struct RecoveryManifest {
     pub snapper_snapshot_id: String,
     /// Lowercase canonical filesystem UUID.
     pub filesystem_uuid: String,
+    /// Original capture identity, sealed with the transaction and generation.
+    /// Absence in a legacy generation cannot be filled from later observations.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    root_snapshot_receipt: Option<native_checkpoint::RootSnapshotReceipt>,
     /// Operation reason and bounded RFC3339 UTC creation time.
     pub reason: OperationReason,
     pub created_utc: String,
@@ -487,6 +492,7 @@ impl RecoveryManifest {
             snapper_config: snapshot.snapper_config,
             snapper_snapshot_id: snapshot.snapper_snapshot_id,
             filesystem_uuid: snapshot.filesystem_uuid,
+            root_snapshot_receipt: None,
             reason,
             created_utc,
             package_revisions: Vec::new(),
@@ -499,6 +505,20 @@ impl RecoveryManifest {
             files: Vec::new(),
             file_keys: BTreeSet::new(),
         })
+    }
+
+    pub fn root_snapshot_receipt(&self) -> Option<&native_checkpoint::RootSnapshotReceipt> {
+        self.root_snapshot_receipt.as_ref()
+    }
+
+    pub(crate) fn attach_root_snapshot_receipt(
+        &mut self,
+        receipt: native_checkpoint::RootSnapshotReceipt,
+    ) -> Result<(), ValidationError> {
+        self.schema_version = 2;
+        self.root_snapshot_receipt = Some(receipt);
+        self.manifest_sha256 = None;
+        self.validate()
     }
 
     /// Adds one declared path, rejecting duplicate normalized root/path pairs.
@@ -587,11 +607,20 @@ impl RecoveryManifest {
         Ok(manifest)
     }
 
-    /// Validates the supported v1 schema and its cross-field invariants.
+    /// Validates the supported schemas and their cross-field invariants.
     /// This validates the typed value after construction or parsing.
     pub fn validate(&self) -> Result<(), ValidationError> {
-        if self.schema_version != 1 {
+        if !matches!(self.schema_version, 1 | 2) {
             return Err(ValidationError::UnsupportedSchemaVersion);
+        }
+        match (self.schema_version, &self.root_snapshot_receipt) {
+            (1, None) => {}
+            (2, Some(receipt))
+                if receipt.validate().is_ok()
+                    && receipt.link().snapper_config == self.snapper_config
+                    && receipt.link().snapper_snapshot_id == self.snapper_snapshot_id
+                    && receipt.link().filesystem_uuid == self.filesystem_uuid => {}
+            _ => return Err(ValidationError::InvalidSnapshotReceipt),
         }
         if self.snapper_snapshot_id.is_empty()
             || !self.snapper_snapshot_id.bytes().all(|byte| byte.is_ascii_digit())
@@ -718,6 +747,8 @@ pub enum ValidationError {
     InvalidSymlinkTarget,
     /// Snapper snapshot ID is not decimal text.
     InvalidSnapshotId,
+    /// Native receipt is missing, malformed, or bound to a different link.
+    InvalidSnapshotReceipt,
     /// Filesystem UUID is not canonical lowercase hexadecimal UUID text.
     InvalidFilesystemUuid,
     /// The same fixed root/path was declared more than once.
@@ -1162,7 +1193,7 @@ mod tests {
     #[test]
     fn manifest_serialization_revalidates_mutable_schema_fields() {
         let mut manifest = manifest();
-        manifest.schema_version = 2;
+        manifest.schema_version = 3;
         assert_eq!(manifest.validate(), Err(ValidationError::UnsupportedSchemaVersion));
         assert!(matches!(
             manifest.seal(),

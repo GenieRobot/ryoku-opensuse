@@ -15,6 +15,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[path = "linked_checkpoint.rs"]
+mod linked_checkpoint;
 #[path = "qmp.rs"]
 mod qmp;
 
@@ -359,6 +361,8 @@ struct Lab {
     state_probe: Option<PathBuf>,
     state_initializer: Option<PathBuf>,
     state_prepare: Option<PathBuf>,
+    linked_probe: Option<PathBuf>,
+    recovery_cli: Option<PathBuf>,
     zypp_package: Option<String>,
     port: Option<u16>,
     vm: Option<Child>,
@@ -1570,6 +1574,8 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         state_probe,
         state_initializer,
         state_prepare,
+        linked_probe,
+        recovery_cli,
         console_only,
     } = options;
     let image = scalar("image")?;
@@ -1587,6 +1593,11 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
     let state_probe = state_probe.map(fs::canonicalize).transpose()?;
     let state_initializer = state_initializer.map(fs::canonicalize).transpose()?;
     let state_prepare = state_prepare.map(fs::canonicalize).transpose()?;
+    let linked_probe = linked_probe.map(fs::canonicalize).transpose()?;
+    let recovery_cli = recovery_cli.map(fs::canonicalize).transpose()?;
+    for binary in [&linked_probe, &recovery_cli].into_iter().flatten() {
+        require(binary.is_file(), "linked checkpoint input is not a regular file")?;
+    }
     if let Some(binary) = &state_prepare {
         require(binary.is_file(), "state preparation probe is not a regular file")?;
     }
@@ -1632,6 +1643,12 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         .transpose()?;
     let state_prepare = state_prepare
         .map(|source| stage_input_binary(&source, &run_path.join("input-state-prepare")))
+        .transpose()?;
+    let linked_probe = linked_probe
+        .map(|source| stage_input_binary(&source, &run_path.join("input-linked-probe")))
+        .transpose()?;
+    let recovery_cli = recovery_cli
+        .map(|source| stage_input_binary(&source, &run_path.join("input-recovery-cli")))
         .transpose()?;
     let zypp_probe = zypp_probe
         .map(|(source, package)| {
@@ -1679,6 +1696,8 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         state_probe,
         state_initializer,
         state_prepare,
+        linked_probe,
+        recovery_cli,
         zypp_probe: zypp_probe.as_ref().map(|(binary, _)| binary.clone()),
         zypp_package: zypp_probe.as_ref().map(|(_, package)| package.clone()),
         port: None,
@@ -1698,6 +1717,8 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         ("state_probe_sha256", lab.state_probe.clone()),
         ("state_initializer_sha256", lab.state_initializer.clone()),
         ("state_prepare_sha256", lab.state_prepare.clone()),
+        ("linked_probe_sha256", lab.linked_probe.clone()),
+        ("recovery_cli_sha256", lab.recovery_cli.clone()),
         ("zypp_probe_sha256", lab.zypp_probe.clone()),
         ("orchestrator_sha256", Some(PathBuf::from(format!("/proc/{}/exe", std::process::id())))),
     ] {
@@ -1745,6 +1766,9 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
     }
     if lab.state_initializer.is_some() {
         lab.initialize_state()?;
+    }
+    if lab.linked_probe.is_some() {
+        lab.linked_capture()?;
     }
     let kde_installed = if console_only {
         lab.evidence("kde_provisioning=skipped_console_probe")?;
@@ -1827,6 +1851,9 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
     require(changed, "boot identity did not change within 600 seconds")?;
     lab.wait_ssh()?;
     lab.copy_binary()?;
+    if lab.linked_probe.is_some() {
+        lab.linked_after_reboot()?;
+    }
     if lab.state_initializer.is_some() {
         let result = lab.ssh("sudo /usr/local/sbin/ryoku-state-init initialize")?;
         require(
@@ -1994,6 +2021,8 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         &lab.state_probe,
         &lab.state_initializer,
         &lab.state_prepare,
+        &lab.linked_probe,
+        &lab.recovery_cli,
         &lab.zypp_probe,
     ]
     .into_iter()
