@@ -558,6 +558,31 @@ mod tests {
         );
     }
 
+    #[test]
+    fn input_and_screenshot_share_one_connection_with_distinct_reply_ids() {
+        let (client, server) = UnixStream::pair().unwrap();
+        let receiver = thread::spawn(move || {
+            let mut server = BufReader::new(server);
+            let mut requests = Vec::new();
+            for (id, reply) in [(1, "{}"), (2, "\"\"")] {
+                let mut request = String::new();
+                server.read_line(&mut request).unwrap();
+                requests.push(request);
+                writeln!(server.get_mut(), "{{\"id\":\"ryoku-qmp-{id}\",\"return\":{reply}}}")
+                    .unwrap();
+            }
+            requests
+        });
+        let mut client = QmpClient { reader: BufReader::new(client), next_id: 1 };
+        client.send_key("ret").unwrap();
+        client.screendump("ryoku-ui-success.ppm").unwrap();
+        let requests = receiver.join().unwrap();
+        assert!(requests[0].contains("\"execute\":\"send-key\""));
+        assert!(requests[0].contains("\"id\":\"ryoku-qmp-1\""));
+        assert!(requests[1].contains("screendump ryoku-ui-success.ppm"));
+        assert!(requests[1].contains("\"id\":\"ryoku-qmp-2\""));
+    }
+
     fn reply_client(reply: &[u8]) -> QmpClient {
         let (client, mut server) = UnixStream::pair().unwrap();
         server.write_all(reply).unwrap();

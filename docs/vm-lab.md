@@ -99,6 +99,18 @@ rolling guest log. The guest launcher records GTK output in root-owned mode
 scenario into that private host log before disposal. These raw logs must not
 be published as sanitized acceptance evidence.
 
+Run04's retained diagnostic identified the optional capture failure: the GTK
+success process was running, but a second QMP connection timed out while the
+input connection was still alive. The monitor serves one client at a time.
+The harness now sends input and requests the framebuffer on the same QMP
+connection. Both lab profiles pass 57 tests, including an input/capture sequence
+with distinct reply IDs on one socket, plus all-feature automation Clippy.
+Run04 uses the earlier executable and retains `ui_visual_capture=blocked`;
+a fresh run with the corrected harness is required for automated visual
+acceptance. Its reboot/offline/reset lifecycle was still running when this
+diagnosis was recorded. Native checkpoint and 20 Btrfs/SELinux staging tests
+were exercised separately in that guest and do not establish full restore.
+
 ## Original cloud runner
 
 The selected resource is the existing managed cloud development workspace. No

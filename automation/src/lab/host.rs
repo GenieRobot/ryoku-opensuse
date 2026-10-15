@@ -1062,8 +1062,7 @@ impl Lab {
         Ok(())
     }
 
-    fn capture_screenshot(&self, filename: &str) -> Result<()> {
-        let mut control = qmp::QmpClient::connect(&self.run.join("qmp-private.sock"))?;
+    fn capture_screenshot(&self, control: &mut qmp::QmpClient, filename: &str) -> Result<()> {
         control.screendump(filename)?;
         let path = self.run.join(filename);
         let metadata = fs::symlink_metadata(&path)?;
@@ -1088,7 +1087,10 @@ impl Lab {
             let mut control = qmp::QmpClient::connect(&self.run.join("qmp-private.sock"))?;
             control.send_key("ret")?;
             thread::sleep(Duration::from_secs(2));
-            self.capture_screenshot(filename)?;
+            // QEMU serves one client on this monitor. Retain the same
+            // connection for input and capture; opening a second one while
+            // `control` is alive waits for a greeting that cannot arrive.
+            self.capture_screenshot(&mut control, filename)?;
             self.ssh("sudo /tmp/ryoku-vm-lab guest-ui-stop")?;
         }
         Ok(())
