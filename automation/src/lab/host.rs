@@ -1426,6 +1426,11 @@ pub fn run(
     let base = lab.ssh("sudo /tmp/ryoku-vm-lab guest-base-setup")?;
     lab.evidence(&base)?;
     lab.evidence("derived_btrfs_boot=passed")?;
+    // The migrated disk is standalone and has now booted without the XFS
+    // source attached. Retain the signed base for the later reset check,
+    // but release the disposable migration source before desktop setup.
+    fs::remove_file(lab.run.join("source-overlay.qcow2"))?;
+    lab.evidence("migration_xfs_overlay=removed")?;
     let kde_installed = match lab.kde_setup(&network) {
         Ok(setup) => {
             lab.evidence(&setup)?;
@@ -1594,7 +1599,6 @@ pub fn run(
     lab.stop()?;
     for name in [
         "disk.qcow2",
-        "source-overlay.qcow2",
         "OVMF_VARS.fd",
         "seed.iso",
         "user-data",
