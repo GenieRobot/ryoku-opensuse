@@ -912,3 +912,15 @@ requirements; the checkpoint backend and verifier are not yet wired into the
 installed privileged coordinator. Local tests cover rejected identity/flag
 observations and rejection of a directory masquerading as the process root;
 successful Btrfs ioctl verification still requires native VM evidence.
+
+Build the fixture-only experiment with
+`cargo build --locked -p ryoku-recovery --example native_checkpoint_probe`.
+Copy `target/debug/examples/native_checkpoint_probe` into the existing seeded
+Tumbleweed QEMU guest after its standalone Btrfs boot and root Snapper setup,
+then invoke it with guest sudo. The probe checks the lab marker and QEMU DMI
+before any mutation, creates a native checkpoint tagged with the guest boot
+ID, verifies its kernel identity, and exercises duplicate-transaction and
+wrong-filesystem rejection. It retains the snapshot for inspection until the
+disposable disk is discarded. Repeating it on the same boot fails rather than
+duplicating the checkpoint. This is a native component experiment, not a full
+linked restore or checkpoint acceptance gate.
