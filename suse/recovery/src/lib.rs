@@ -9,12 +9,23 @@
 
 #[cfg(target_os = "linux")]
 pub mod capture;
+pub mod configuration_apply;
+#[cfg(target_os = "linux")]
+pub mod configuration_stage;
+#[cfg(target_os = "linux")]
+pub mod disk_stage;
 #[cfg(target_os = "linux")]
 pub mod generation;
 #[cfg(target_os = "linux")]
 pub mod generation_capture;
 #[cfg(target_os = "linux")]
+pub mod inode_metadata;
+#[cfg(target_os = "linux")]
 pub mod machine_state;
+pub mod metadata;
+pub mod native_checkpoint;
+#[cfg(target_os = "linux")]
+pub mod preparation;
 #[cfg(target_os = "linux")]
 pub mod restore;
 #[cfg(target_os = "linux")]
@@ -592,11 +603,22 @@ impl RecoveryManifest {
         }
 
         let mut file_keys = BTreeSet::new();
+        let mut link_groups = BTreeMap::new();
         for file in &self.files {
             file.validate()?;
             if !file_keys.insert((file.root, file.path.clone())) {
                 return Err(ValidationError::DuplicatePath);
             }
+            if let EntryKind::RegularFile { hard_link_group: Some(group), .. } = &file.kind {
+                let (first, count) = link_groups.entry(group).or_insert((file, 0_usize));
+                if first.root != file.root || first.kind != file.kind {
+                    return Err(ValidationError::InvalidHardLinkGroup);
+                }
+                *count += 1;
+            }
+        }
+        if link_groups.values().any(|(_, count)| *count < 2) {
+            return Err(ValidationError::InvalidHardLinkGroup);
         }
         if self
             .package_revisions
@@ -705,6 +727,8 @@ pub enum ValidationError {
     InvalidMode,
     /// Creation time is not a bounded RFC3339 UTC timestamp.
     InvalidTimestamp,
+    /// Hard-link groups require at least two identical inode records in one root.
+    InvalidHardLinkGroup,
 }
 
 /// Failure while parsing, validating, or canonically encoding a manifest.
@@ -939,6 +963,51 @@ mod tests {
             acl_sha256: None,
             extended: ExtendedMetadata::default(),
         }
+    }
+
+    #[test]
+    fn hard_link_groups_require_identical_inode_records_within_one_root() {
+        let first = FileRecord::new(
+            StateRoot::EtcRyoku,
+            RelativePath::new("a").unwrap(),
+            EntryKind::RegularFile {
+                metadata: metadata(),
+                size: 1,
+                sha256: Sha256::new("a".repeat(64)).unwrap(),
+                hard_link_group: Some(Identifier::new("group-a").unwrap()),
+            },
+        )
+        .unwrap();
+        let mut second = first.clone();
+        second.path = RelativePath::new("b").unwrap();
+        let mut singleton = manifest();
+        singleton.add_file(first.clone()).unwrap();
+        assert_eq!(singleton.validate(), Err(ValidationError::InvalidHardLinkGroup));
+        for variant in 0..4 {
+            let mut other = second.clone();
+            match (&mut other.kind, variant) {
+                (EntryKind::RegularFile { size, .. }, 0) => *size += 1,
+                (EntryKind::RegularFile { sha256, .. }, 1) => {
+                    *sha256 = Sha256::new("b".repeat(64)).unwrap()
+                }
+                (EntryKind::RegularFile { metadata, .. }, 2) => metadata.uid += 1,
+                (_, 3) => other.root = StateRoot::UserRyokuConfig,
+                _ => unreachable!(),
+            }
+            let mut invalid = singleton.clone();
+            invalid.add_file(other).unwrap();
+            assert_eq!(invalid.validate(), Err(ValidationError::InvalidHardLinkGroup));
+            assert!(matches!(
+                invalid.seal(),
+                Err(ManifestError::Validation(ValidationError::InvalidHardLinkGroup))
+            ));
+        }
+        singleton.add_file(second).unwrap();
+        singleton.seal().unwrap();
+        assert!(singleton.verify_digest().unwrap());
+        assert!(
+            RecoveryManifest::parse_verified_json(&singleton.canonical_bytes().unwrap()).is_ok()
+        );
     }
 
     #[test]

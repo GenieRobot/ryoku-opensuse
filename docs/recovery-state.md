@@ -392,6 +392,33 @@ The exact signed `mtime_unix_ns` value is encoded as a canonical decimal JSON st
 
 Generation payload filenames are their lowercase SHA-256 values. A generation contains only `manifest.json` and `payloads/<sha256>.blob`; duplicate file content is stored once, and any unlisted entry invalidates verification. The store enforces 256 manifest entries, 16 MiB per file, 64 MiB total payload data, and the existing 1 MiB manifest limit. The transaction catalog entry is compact canonical JSON containing schema version, transaction ID, generation ID, and manifest digest. The storage root and its `staging`, `generations`, and `catalog` directories must be root-owned mode `0700`; published generation directories are mode `0500`, and their files are mode `0400`. Publication writes only below directory descriptors, refuses symlinked store subdirectories, synchronizes files and directories, verifies every referenced blob against its size and digest, renames the complete staging directory into `generations/<generation-id>` without replacement, then publishes `catalog/<transaction-id>.json` without replacement. `verify_transaction` requires a canonical catalog link and revalidates the manifest and every referenced blob. Incomplete staging is never considered by readers. A verified generation means its supplied manifest and content agree; it does not by itself authorize a restore or mutation.
 
+The protected payload map also retains raw metadata needed by a future restore.
+Each present `acl_sha256` requires the exact canonical `ryoku-posix-acl-v1`
+bundle containing access/default names, presence bits, lengths, and raw values.
+This is the existing ACL digest preimage, so manifest hashes and schema-v1
+encoding stay unchanged. Metadata-bearing generations use catalog schema v2,
+which older readers reject explicitly. Content-only generations retain catalog
+schema v1, and the new reader checks that the catalog version matches its
+generation's metadata requirements. Each `extended.values` digest requires the
+raw value of its allowlisted xattr. Metadata for directories and symlinks is included,
+even without regular-file content. Raw values remain in mode-`0400` protected
+blobs; public manifests still contain only digests. The reader rejects malformed
+ACL encodings, missing/extra/corrupt blobs, and values over 64 KiB. The store
+allows at most 768 distinct blobs for 256 declared entries (file content, ACL
+bundle, and SELinux label per entry); total payload data remains capped at
+64 MiB. The initial space estimate includes metadata blobs and their allocation
+overhead. Source-byte limits include actual metadata bytes across every root;
+ACL serialization overhead counts toward stored bytes rather than source bytes.
+
+Previously published generations that declare metadata hashes without storing
+their raw blobs now fail verification. Their missing values cannot be inferred
+from current files; retain those artifacts as incomplete evidence and capture
+a new generation from an approved live inventory. No old metadata generation
+is silently relabeled complete. Metadata capture/persistence tests use synthetic
+ACL/label values; applying these values, preserving live Tumbleweed metadata
+through restore, and interruption/reboot recovery remain unimplemented or
+unverified. This change does not enable a restore command or provider write.
+
 The lower-level publisher still accepts a caller-supplied exact
 digest-to-bytes map. `capture_publish_verify` builds that map only from the
 records returned by the exact-file collector, reopens regular files beneath
@@ -409,8 +436,9 @@ any later write or synchronization failure still aborts capture, so callers
 must not authorize mutation unless publication and read-back verification both
 succeed. This check covers the generation store filesystem only; it does not
 estimate Snapper snapshot or provider package transaction space.
-Capture continues to fail closed on symlink entries pending race-free symlink
-metadata capture. Protected-content classification, the audited multi-layer
+Capture preserves safe relative symlink targets as text without following
+them and rejects escaping targets. Protected-content classification, the audited
+multi-layer
 inventory compiler, catalog reconstruction, journal/writer coordination,
 mount identity validation, and crash/reboot recovery evidence remain
 incomplete. Issue #18 stays open until customized multi-layer, corrupt-input,
@@ -418,7 +446,10 @@ interrupted-capture, and linked restore acceptance fixtures pass.
 The synthetic end-to-end unit fixture injects a test-only no-xattr reader
 because its temporary filesystem does not expose the required ACL xattrs;
 production capture still uses the kernel reader and rejects unsupported
-metadata.
+metadata. Additional injected-metadata fixtures verify preservation of access
+and default ACL bytes and SELinux labels for files, directories, and symlinks,
+metadata deduplication, cross-root byte limits, and a complete 256-entry
+inventory with more than 256 metadata blobs.
 
 Every transaction manifest records:
 
@@ -510,14 +541,15 @@ it never recurses, records absent entries, hashes bounded regular files, and
 captures owner, group, mode, nanosecond mtime, POSIX ACL digests, and
 SELinux-label digests through the opened file descriptor. It detects
 identity/content/metadata changes during capture and rejects special files,
-symlink leaves, incomplete hard-link sets, and filesystems that cannot supply
-required metadata. The `generation_capture` module accepts multiple distinct
+escaping symlinks, incomplete hard-link sets, and filesystems that cannot supply
+required metadata. Safe relative symlinks are captured separately without
+following their targets. The `generation_capture` module accepts multiple distinct
 fixed root selectors and explicit path lists, reads each regular payload
 beneath its matching descriptor with no-follow/no-cross-mount resolution,
 confirms the complete capture records are unchanged, then seals, publishes,
 and verifies the exact generation. The caller must freeze writers and
 attest an externally verified snapshot link; neither is established by this
-module. Symlink target capture, a reviewed multi-root enrollment compiler,
+module. A reviewed multi-root enrollment compiler,
 authorization, restore, and Tumbleweed runtime proof remain unimplemented.
 Neither collector nor generation capture is a privileged helper or can
 authorize a mutation by itself.
@@ -713,9 +745,199 @@ linkage. The privileged caller remains responsible for deriving the typed
 compatibility evidence from installed package/profile state. Reload validates
 the persisted snapshot ID, filesystem UUID, and scope invariants.
 
-This is a planning and journal slice only. It does not create the current-state
-checkpoint, stage content, stop writers, invoke Snapper, restore targets or
-metadata, coordinate the root rollback, run health checks, or gate normal session
+`GenerationStore` and the read-only `GenerationReader` can now open a
+`VerifiedGeneration` handle after validating the complete catalog linkage,
+manifest, and payload set. The handle pins its payload directory by descriptor,
+rejects unreferenced digests, and rechecks bytes against their digest and shape
+on each read. Replacing a generation's directory name cannot redirect a handle
+to another directory; changing a referenced blob makes its next read fail.
+
+The `configuration_stage` module binds a restore plan to that handle's exact
+manifest digest, transaction, generation, Snapper config/snapshot, filesystem UUID, and declared
+configuration count. It prepares file bytes, decoded access/default ACLs,
+allowlisted raw labels, directory metadata, symlink targets, hard-link group
+records, and explicit absences in one immutable in-memory bundle. Repeated
+content and metadata digests share allocations; raw payload loading is bounded
+to 64 MiB, with decoded ACL storage bounded by its corresponding raw payloads.
+System-only plans and empty configuration scopes are rejected. Immutable
+`state-generation` profile records remain in the durable source and are not
+exposed as writable configuration targets. A changed source or mismatched plan
+returns no bundle. Preparation performs no target writes or journal advances.
+
+The plan persists the originally selected source manifest digest, separately
+from the current-state checkpoint digest. Journal schema 3 requires this field
+and a separate fresh `restore_id`; its filename binds that restore attempt,
+so the same source checkpoint can be restored in more than one attempt.
+Legacy schema-1/schema-2 journals and plans without those identities are rejected rather than
+silently selecting a replacement source. Retain the current-state checkpoint
+when handling an unsupported old journal. A coherently rebuilt and verified
+generation with the same IDs and entry count still cannot satisfy the original
+plan if its manifest has changed. Manifest validation also requires every
+hard-link group to contain at least two regular records with identical content,
+size, metadata, and fixed root. Invalid groups cannot be sealed or verified,
+including groups linking system and user roots or singleton aliases.
+
+This preparation does not establish authorization, compatibility, or a current
+checkpoint, and an in-memory bundle is not durable `ContentStaged` evidence.
+Process restart must reopen the exact durable generation and repeat preparation
+against the recorded plan and manifest digest. Destructive restore must not
+infer missing stage contents or advance on an unchecked caller assertion.
+
+The `inode_metadata` module can now prepare exact metadata on caller-owned,
+exclusively held regular-file and directory staging descriptors. It checks
+file kind and bytes before changing metadata and refuses regular files with
+existing hard-link aliases. Ownership is set before mode, mode before ACLs,
+and timestamps last. Supported attributes absent from the source are removed;
+unrelated user xattrs are left alone. File/directory metadata and supported
+raw ACL/label values are read back after sync, so a filesystem normalization
+or an incompatible ACL/mode pair cannot be reported as an exact restore.
+Modification times use Euclidean division to preserve pre-epoch nanoseconds;
+the existing access time is not set by this operation. All pathname resolution
+and creation of protected staging inodes remain the caller's responsibility.
+
+These primitives accept only immutable staged entries; they perform no live
+target publication or journal transition. Symlink preparation uses a pinned
+private parent descriptor, one fixed leaf, no-follow ownership/timestamp
+operations, and Linux `l*xattr` operations. It verifies the link identity,
+raw target, ownership, time, mode and supported metadata afterward; the link
+target is never followed. Linux's unsupported POSIX ACL lookup on symlinks
+means ACL absence, while unsupported SELinux capture still fails.
+A failed inode preparation may have partially changed its
+private staging inode, which must not be published. Linux tests on the WSL
+host prove content/mode/time checks, pinned-descriptor behavior, access/default
+ACL round trips and removal, preservation of unrelated user attributes, and
+rejection of mismatched content and existing hard links. Named-user ACL tests
+need the host's UID mappings rather than the restricted sandbox mapping.
+Cross-owner changes and real SELinux label restoration still require privileged
+Tumbleweed guest evidence; synthetic label payload verification does not prove
+kernel label application.
+
+`DiskStageStore` now materializes the immutable configuration bundle beneath a
+caller-validated persistent root-owned mode-0700 directory. Fixed flat object
+slots prevent manifest paths or raw symlink targets from participating in
+stage path resolution. Regular files and directories receive exact metadata;
+declared file aliases share one inode, symlinks retain their raw target, and
+explicitly absent entries have no object. The realization uses the capture
+limits: 256 paths, 16 MiB per file and 64 MiB of expanded file/target/metadata
+bytes, counting reused blobs per declared path before creating a directory.
+
+Before completion, staging syncs objects, directory entries and filesystem
+metadata, then recaptures and compares their content, metadata, absences and
+hard-link equivalence. Only then does it atomically publish and sync a mode-0600
+receipt containing the exact plan and records. Reopening after restart requires
+the same bundle reconstructed from its verified generation and persisted plan;
+it checks the receipt, complete object inventory and every object again.
+Missing completion, stale plans, changed bytes/metadata, broken links, extra
+objects, symlink substitutions and populated absent slots fail verification.
+An incomplete existing stage is never overwritten or promoted to complete;
+the coordinator must remain in recovery and explicitly discard/rebuild it.
+
+These are disk-backed stages, not live target changes. The coordinator must
+validate their mount outside rollback scope, retain the checkpoint and source,
+hold exclusive writer ownership, and match the verified stage plan before
+advancing `ContentStaged`. The store does not enforce that coordination or
+advance a journal. Stage files may live on a different filesystem/subvolume
+from final targets; a future writer must prepare destination-local inodes and
+verify them before publication rather than assume cross-filesystem renames.
+The Linux tests exercise actual generation capture/publication, stage creation,
+generation-based reopen and tamper/interruption rejection. No power-cut or
+linked Tumbleweed root rollback exercise is claimed by those local tests.
+
+The `preparation` coordinator now composes the current configuration capture,
+verified generation publication, journal and disk stage. It requires a fresh
+independently preverified Snapper link and the caller's complete approved
+current-state inventory/provenance. Every affected configuration path must be
+covered before capture starts. The source is reopened and verified locally;
+the actual current bytes and metadata are captured, published and verified
+before their generation identity/digest enter the journal. The source system
+and configuration compatibility checks remain scope-specific. If a subsequent
+check fails, the new current-state generation is retained rather than deleted.
+
+The coordinator advances only `Planned` → `CheckpointVerified` → `ContentStaged`,
+after verifying their corresponding artifacts. On restart it reopens the exact
+source and current-state generations, validates their recorded identities and
+freshness relationship, requires the native current-state snapshot partner,
+and recaptures the approved live inventory. Changed content/metadata/alias
+relationships or a different inventory block readiness without recapturing
+over the saved checkpoint. It checks live state again after verifying the disk
+stage. An incomplete stage requires explicit discard/rebuild; a stage already
+recorded complete is never silently recreated. Later destructive phases are
+rejected by this preparation-only resume entry point. Initial journal creation
+now rejects invalid plans/schemas and every phase except `Planned`, matching
+the preflight inventory bound; low-level phase persistence is not evidence
+that the caller performed the corresponding native action.
+
+The privileged caller must authenticate the operator, validate persistent
+mounts and complete root inventory, derive native snapshot/compatibility facts,
+and freeze writers from native snapshot creation through handoff to recovery.
+The coordinator does not create the native Snapper checkpoint or prove the
+caller observations. Local tests use actual configuration capture, generation,
+stage and journal operations with synthetic preverified system-snapshot facts;
+they do not prove native system snapshot creation or writer quiescence.
+
+This remains a preparation and journal slice. It does not create the native system
+checkpoint, initialize the persistent staging mount, stop writers, invoke Snapper, restore live
+targets, coordinate the root rollback, run health checks, or gate normal session
 startup. No offline console restore or interruption exercise has been recorded
 in a Tumbleweed VM. Issue #21 must remain open until those destructive restore
 steps and the required evidence are implemented and reviewed.
+
+`ryoku_snapper::SnapperCheckpointBackend` now supplies a separate native
+single-checkpoint operation for that future privileged coordinator. It invokes
+the fixed `/usr/bin/snapper` binary with `create --type single --read-only`,
+no cleanup algorithm, and an exact transaction userdata tag. It rejects an
+already tagged transaction before creation and confirms the returned nonzero
+snapshot number, single type, and unique tag in a fresh inventory. Invalid
+inventories, ambiguous output and command failures block success. A timeout
+may leave a snapshot behind; callers must reconcile instead of automatically
+retrying or deleting it. The caller must hold the mutation lock throughout.
+
+This operation verifies Snapper inventory identity, not the underlying Btrfs
+UUID/read-only flag, root/boot coverage, or configuration-generation linkage.
+Those checks, authorization, writer freezing, console/helper integration and
+native VM acceptance are still required. The read-only `SnapperCliBackend`
+retains disabled pre/post mutation methods. Tests simulate command responses;
+they do not claim a native checkpoint was created on this WSL host.
+
+`native_checkpoint::verify_new_root_checkpoint` independently opens the fixed
+default-root `.snapshots/<number>/snapshot` beneath a descriptor verified as
+the process root, refusing symlinks. Btrfs ioctls must show matching filesystem
+UUIDs, distinct nonzero root/snapshot subvolume UUIDs and IDs, the read-only
+snapshot flag, and the running root UUID as snapshot parent UUID. The result
+retains the snapshot descriptor and supplies a verified generation-capture
+link. This check applies to a newly created checkpoint of the current root,
+not historical source availability after rollback. Snapper config mapping,
+transaction correlation, boot coverage and writer freezing remain independent
+requirements; the checkpoint backend and verifier are not yet wired into the
+installed privileged coordinator. Local tests cover rejected identity/flag
+observations and rejection of a directory masquerading as the process root;
+successful native creation and Btrfs ioctl verification are now recorded in
+the [Run04 component evidence](../infra/tumbleweed-lab/evidence/issue21-run04-native-checkpoint.toml).
+The first VM invocation exposed a flag-namespace bug: `GET_SUBVOL_INFO` returns
+root-item flags, requiring `BTRFS_ROOT_SUBVOL_RDONLY`, rather than the similarly
+named snapshot-creation ioctl flag. Correcting that check allowed verification
+of the existing snapshot without creating a duplicate. A real read-write toggle
+of only that disposable snapshot was rejected; restoring read-only made the
+verification pass again. This component evidence does not prove full recovery.
+
+Build the fixture-only experiment with
+`cargo build --locked -p ryoku-recovery --example native_checkpoint_probe`.
+Copy `target/debug/examples/native_checkpoint_probe` into the existing seeded
+Tumbleweed QEMU guest after its standalone Btrfs boot and root Snapper setup,
+then invoke it with guest sudo. The probe checks the lab marker and QEMU DMI
+before any mutation, creates a native checkpoint tagged with the guest boot
+ID, verifies its kernel identity, and exercises duplicate-transaction and
+wrong-filesystem rejection. It retains the snapshot for inspection until the
+disposable disk is discarded. Repeating it on the same boot fails rather than
+duplicating the checkpoint. Use explicit `--verify-existing` to reconcile the
+unique transaction-tagged snapshot without creating one, including after a
+failed initial verification. This is a native component experiment, not a full
+linked restore or checkpoint acceptance gate.
+
+The new [configuration application path](configuration-application.md) now
+publishes enrolled configuration inode types and absences through private
+destination-local stages, verifies read-back, and advances only to
+`ConfigurationRestored`. Durable-boundary replay, unrelated-file preservation,
+metadata and cross-filesystem tests cover the writer. Privileged console/native
+coordination, writer shutdown, health checks and the normal-session gate are
+still needed before issue #21 can be completed.

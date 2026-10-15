@@ -17,7 +17,7 @@ use crate::{
     EntryKind, Identifier, ManifestError, OperationReason, PackageRevision, ProfileRevision,
     ProviderRevision, RecoveryManifest, RelativePath, Sha256, SnapshotLink, StateRoot,
     ValidationError, VerificationStatus,
-    capture::{CaptureError, CaptureLimits, capture_declared},
+    capture::{CaptureError, CaptureLimits, CapturedInventory, capture_inventory},
     generation::{GenerationError, GenerationStore, Payloads},
 };
 
@@ -38,6 +38,10 @@ impl VerifiedSnapshotLink {
     /// and matching filesystem UUID against the intended root.
     pub fn from_preverified_link(snapshot: SnapshotLink) -> Self {
         Self(snapshot)
+    }
+
+    pub(crate) fn link(&self) -> &SnapshotLink {
+        &self.0
     }
 }
 
@@ -146,7 +150,7 @@ pub fn capture_publish_verify(
     store: &GenerationStore,
     request: GenerationCaptureRequest<'_>,
 ) -> Result<RecoveryManifest, GenerationCaptureError> {
-    capture_publish_verify_using(store, request, capture_declared)
+    capture_publish_verify_using(store, request, capture_inventory)
 }
 
 #[cfg(test)]
@@ -157,7 +161,7 @@ fn capture_publish_verify_without_xattrs_for_test(
     capture_publish_verify_using(
         store,
         request,
-        crate::capture::capture_declared_without_xattrs_for_test,
+        crate::capture::capture_inventory_without_xattrs_for_test,
     )
 }
 
@@ -169,7 +173,7 @@ fn capture_publish_verify_using(
         StateRoot,
         &[RelativePath],
         CaptureLimits,
-    ) -> Result<Vec<crate::FileRecord>, CaptureError>,
+    ) -> Result<CapturedInventory, CaptureError>,
 ) -> Result<RecoveryManifest, GenerationCaptureError> {
     capture_publish_verify_using_capacity(
         store,
@@ -189,30 +193,43 @@ fn capture_publish_verify_using_capacity(
         StateRoot,
         &[RelativePath],
         CaptureLimits,
-    ) -> Result<Vec<crate::FileRecord>, CaptureError>,
+    ) -> Result<CapturedInventory, CaptureError>,
     check_capacity: impl Fn(&GenerationStore, u64, usize) -> Result<(), GenerationError>,
 ) -> Result<RecoveryManifest, GenerationCaptureError> {
     validate_inventory(request.roots, request.limits)?;
     let roots = sorted_roots(request.roots)?;
 
     let mut records = Vec::new();
+    let mut metadata_payloads = Payloads::new();
+    let mut source_bytes = 0_u64;
     for root in &roots {
-        records.extend(capture_files(root.descriptor, root.root, root.paths, request.limits)?);
+        let inventory = capture_files(root.descriptor, root.root, root.paths, request.limits)?;
+        source_bytes = source_bytes
+            .checked_add(inventory.source_bytes)
+            .ok_or(GenerationCaptureError::InventoryTooLarge)?;
+        if source_bytes > request.limits.max_total_bytes {
+            return Err(GenerationCaptureError::InventoryTooLarge);
+        }
+        for (digest, bytes) in inventory.metadata_payloads {
+            insert_payload(&mut metadata_payloads, digest, bytes)?;
+        }
+        records.extend(inventory.records);
     }
     if records.is_empty() {
         return Err(GenerationCaptureError::EmptyInventory);
     }
 
-    let (payload_bytes, payload_file_count) = payload_storage_bound(&records)?;
+    let (payload_bytes, payload_file_count) = payload_storage_bound(&records, &metadata_payloads)?;
     check_capacity(store, payload_bytes, payload_file_count)?;
 
-    let payloads = collect_payloads(&roots, &records, request.limits)?;
+    let payloads = collect_payloads(&roots, &records, request.limits, metadata_payloads)?;
 
     // A second exact metadata/content capture brackets payload reading. A
     // mismatch means the source set changed after its initial capture.
     let mut confirmed = Vec::with_capacity(records.len());
     for root in &roots {
-        confirmed.extend(capture_files(root.descriptor, root.root, root.paths, request.limits)?);
+        confirmed
+            .extend(capture_files(root.descriptor, root.root, root.paths, request.limits)?.records);
     }
     if confirmed != records {
         return Err(GenerationCaptureError::VerificationMismatch);
@@ -256,13 +273,19 @@ fn capture_publish_verify_using_capacity(
 /// regular file is conservative and also bounds per-file allocation overhead.
 fn payload_storage_bound(
     records: &[crate::FileRecord],
+    metadata_payloads: &Payloads,
 ) -> Result<(u64, usize), GenerationCaptureError> {
-    records.iter().try_fold((0_u64, 0_usize), |(bytes, files), record| match &record.kind {
-        EntryKind::RegularFile { size, .. } => Ok((
-            bytes.checked_add(*size).ok_or(GenerationCaptureError::InventoryTooLarge)?,
-            files.checked_add(1).ok_or(GenerationCaptureError::InventoryTooLarge)?,
-        )),
-        _ => Ok((bytes, files)),
+    let metadata_bytes = metadata_payloads.values().try_fold(0_u64, |total, bytes| {
+        total.checked_add(bytes.len() as u64).ok_or(GenerationCaptureError::InventoryTooLarge)
+    })?;
+    records.iter().try_fold((metadata_bytes, metadata_payloads.len()), |(bytes, files), record| {
+        match &record.kind {
+            EntryKind::RegularFile { size, .. } => Ok((
+                bytes.checked_add(*size).ok_or(GenerationCaptureError::InventoryTooLarge)?,
+                files.checked_add(1).ok_or(GenerationCaptureError::InventoryTooLarge)?,
+            )),
+            _ => Ok((bytes, files)),
+        }
     })
 }
 
@@ -311,11 +334,14 @@ fn collect_payloads(
     roots: &[&DeclaredRoot<'_>],
     records: &[crate::FileRecord],
     limits: CaptureLimits,
+    mut payloads: Payloads,
 ) -> Result<Payloads, GenerationCaptureError> {
     let descriptors: BTreeMap<_, _> =
         roots.iter().map(|root| (root.root, root.descriptor)).collect();
-    let mut payloads = Payloads::new();
-    let mut total_bytes = 0u64;
+    // The initial inventory has already bounded all source bytes, including
+    // raw metadata, across roots. ACL encoding overhead belongs to the store's
+    // capacity estimate rather than the source capture-byte limit.
+    let mut total_bytes = 0_u64;
     for record in records {
         let EntryKind::RegularFile { size, sha256, .. } = &record.kind else {
             continue;
@@ -336,18 +362,27 @@ fn collect_payloads(
         if bytes.len() as u64 != *size || digest(&bytes) != *sha256 {
             return Err(GenerationCaptureError::PayloadMismatch);
         }
-        match payloads.entry(sha256.clone()) {
-            std::collections::btree_map::Entry::Vacant(entry) => {
-                entry.insert(bytes);
-            }
-            std::collections::btree_map::Entry::Occupied(entry) => {
-                if entry.get() != &bytes {
-                    return Err(GenerationCaptureError::PayloadMismatch);
-                }
+        insert_payload(&mut payloads, sha256.clone(), bytes)?;
+    }
+    Ok(payloads)
+}
+
+fn insert_payload(
+    payloads: &mut Payloads,
+    digest: Sha256,
+    bytes: Vec<u8>,
+) -> Result<(), GenerationCaptureError> {
+    match payloads.entry(digest) {
+        std::collections::btree_map::Entry::Vacant(entry) => {
+            entry.insert(bytes);
+        }
+        std::collections::btree_map::Entry::Occupied(entry) => {
+            if entry.get() != &bytes {
+                return Err(GenerationCaptureError::PayloadMismatch);
             }
         }
     }
-    Ok(payloads)
+    Ok(())
 }
 
 fn read_declared_file(
@@ -418,6 +453,49 @@ mod tests {
     use crate::SnapshotLink;
 
     static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
+
+    const LABEL: &[u8] = b"synthetic_u:object_r:ryoku_t:s0\0";
+    struct SyntheticMetadata;
+
+    impl crate::capture::XattrReader for SyntheticMetadata {
+        fn read(&self, fd: &File, name: &'static str) -> Result<Option<Vec<u8>>, CaptureError> {
+            Ok(match name {
+                "security.selinux" => Some(LABEL.to_vec()),
+                "system.posix_acl_access" => Some(vec![2, 0, 0, 0]),
+                "system.posix_acl_default"
+                    if FileType::from_raw_mode(fstat(fd).unwrap().st_mode)
+                        == FileType::Directory =>
+                {
+                    Some(vec![2, 0, 0, 0, 1, 0])
+                }
+                _ => None,
+            })
+        }
+
+        fn read_symlink(
+            &self,
+            _: &File,
+            _: &str,
+            name: &'static str,
+        ) -> Result<Option<Vec<u8>>, CaptureError> {
+            Ok((name == "security.selinux").then(|| LABEL.to_vec()))
+        }
+    }
+
+    fn capture_with_synthetic_metadata(
+        root: &File,
+        state: StateRoot,
+        paths: &[RelativePath],
+        limits: CaptureLimits,
+    ) -> Result<CapturedInventory, CaptureError> {
+        crate::capture::capture_inventory_with_xattrs(
+            root,
+            state,
+            paths,
+            limits,
+            &SyntheticMetadata,
+        )
+    }
 
     struct TempDir(PathBuf);
 
@@ -503,6 +581,77 @@ mod tests {
 
         assert!(manifest.is_mutation_ready());
         assert_eq!(manifest.files().len(), 3);
+        assert_eq!(store.verify_transaction(&manifest.transaction_id).unwrap(), manifest);
+    }
+
+    #[test]
+    fn capture_retains_acl_and_label_bytes_for_files_directories_and_symlinks() {
+        let source = TempDir::new("raw-metadata-source");
+        let store_root = TempDir::new("raw-metadata-store");
+        fs::create_dir(source.0.join("preferences")).unwrap();
+        fs::write(source.0.join("preferences/theme.json"), b"theme fixture").unwrap();
+        fs::write(source.0.join("unrelated"), b"sentinel").unwrap();
+        std::os::unix::fs::symlink("preferences/theme.json", source.0.join("current")).unwrap();
+        let source_fd = source.descriptor();
+        let store = GenerationStore::open_for_test(&store_root.descriptor()).unwrap();
+        let paths = ["current", "missing", "preferences", "preferences/theme.json"]
+            .map(|path| RelativePath::new(path).unwrap());
+        let roots = [DeclaredRoot {
+            root: StateRoot::UserRyokuConfig,
+            descriptor: &source_fd,
+            paths: &paths,
+        }];
+        let manifest =
+            capture_publish_verify_using(&store, request(&roots), capture_with_synthetic_metadata)
+                .unwrap();
+        let directory = store_root.0.join("generations/capture-generation-1/payloads");
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), 4);
+        for record in manifest.files() {
+            let Some(metadata) = crate::metadata::entry_metadata(&record.kind) else { continue };
+            let digest = &metadata.extended.values[&crate::XattrName::SelinuxLabel];
+            assert_eq!(
+                fs::read(directory.join(format!("{}.blob", digest.as_str()))).unwrap(),
+                LABEL
+            );
+            if let Some(digest) = &metadata.acl_sha256 {
+                let bytes = fs::read(directory.join(format!("{}.blob", digest.as_str()))).unwrap();
+                let acl = crate::metadata::AclPayload::decode(&bytes).unwrap();
+                assert_eq!(acl.access, Some(vec![2, 0, 0, 0]));
+                assert_eq!(
+                    acl.default.is_some(),
+                    matches!(record.kind, EntryKind::Directory { .. })
+                );
+            }
+        }
+        assert_eq!(store.verify_transaction(&manifest.transaction_id).unwrap(), manifest);
+        assert_eq!(fs::read(source.0.join("unrelated")).unwrap(), b"sentinel");
+    }
+
+    #[test]
+    fn metadata_bytes_count_across_roots_before_payload_reopen() {
+        let source = TempDir::new("multi-root-metadata");
+        let store_root = TempDir::new("multi-root-store");
+        fs::write(source.0.join("profile.json"), b"x").unwrap();
+        let source_fd = source.descriptor();
+        let store = GenerationStore::open_for_test(&store_root.descriptor()).unwrap();
+        let paths = [RelativePath::new("profile.json").unwrap()];
+        let roots = [StateRoot::UserRyokuConfig, StateRoot::UserRyokuProfile]
+            .map(|root| DeclaredRoot { root, descriptor: &source_fd, paths: &paths });
+        let mut input = request(&roots);
+        input.limits.max_total_bytes = LABEL.len() as u64 + 4 + 1;
+        assert!(matches!(
+            capture_publish_verify_using(&store, input, capture_with_synthetic_metadata),
+            Err(GenerationCaptureError::InventoryTooLarge)
+        ));
+        assert!(
+            store.verify_transaction(&Identifier::new("capture-transaction-1").unwrap()).is_err()
+        );
+        // One root exactly fits the source-byte budget even though the
+        // canonical ACL bundle adds storage-format overhead.
+        let mut single = request(&roots[..1]);
+        single.limits.max_total_bytes = LABEL.len() as u64 + 4 + 1;
+        let manifest =
+            capture_publish_verify_using(&store, single, capture_with_synthetic_metadata).unwrap();
         assert_eq!(store.verify_transaction(&manifest.transaction_id).unwrap(), manifest);
     }
 
@@ -640,7 +789,9 @@ mod tests {
             request(&roots),
             |root, state, paths, limits| {
                 captures.fetch_add(1, Ordering::SeqCst);
-                crate::capture::capture_declared_without_xattrs_for_test(root, state, paths, limits)
+                crate::capture::capture_inventory_without_xattrs_for_test(
+                    root, state, paths, limits,
+                )
             },
             |_, required_bytes, _| {
                 Err(GenerationError::InsufficientSpace {

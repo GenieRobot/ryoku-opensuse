@@ -133,7 +133,18 @@ diagnostics do not satisfy readiness. Automated output now uses
 images. Runtime logs are retained even when transport succeeds. Both lab
 profiles pass 58 tests; the updated GTK proof emitted its paint marker under
 openSUSE WSLg with the existing Mesa warnings. That local result is not native
-KDE visual acceptance; a fresh guest exercise remains required.
+KDE visual acceptance.
+
+The fresh [Run06 exercise](../infra/tumbleweed-lab/evidence/issue13-wsl-run06.toml)
+passed the full WSL lifecycle and both GTK demonstration scenarios. Both
+processes reported a painted first frame before capture; manual review confirmed
+a visible proof window with successful-refresh text and a visible unavailable
+error. The [success](../infra/tumbleweed-lab/evidence/issue13-wsl-run06-success.png)
+and [error](../infra/tumbleweed-lab/evidence/issue13-wsl-run06-error.png) images
+contain only the disposable test desktop and controlled demo data. All run disks
+and keys were removed after the fresh-baseline reset. This establishes KDE demo
+rendering; it does not establish live provider status, keyboard dispatch apart
+from programmatic refresh, accessibility or complete linked recovery.
 
 ## Original cloud runner
 
