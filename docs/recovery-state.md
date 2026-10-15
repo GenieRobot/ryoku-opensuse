@@ -881,3 +881,20 @@ targets, coordinate the root rollback, run health checks, or gate normal session
 startup. No offline console restore or interruption exercise has been recorded
 in a Tumbleweed VM. Issue #21 must remain open until those destructive restore
 steps and the required evidence are implemented and reviewed.
+
+`ryoku_snapper::SnapperCheckpointBackend` now supplies a separate native
+single-checkpoint operation for that future privileged coordinator. It invokes
+the fixed `/usr/bin/snapper` binary with `create --type single --read-only`,
+no cleanup algorithm, and an exact transaction userdata tag. It rejects an
+already tagged transaction before creation and confirms the returned nonzero
+snapshot number, single type, and unique tag in a fresh inventory. Invalid
+inventories, ambiguous output and command failures block success. A timeout
+may leave a snapshot behind; callers must reconcile instead of automatically
+retrying or deleting it. The caller must hold the mutation lock throughout.
+
+This operation verifies Snapper inventory identity, not the underlying Btrfs
+UUID/read-only flag, root/boot coverage, or configuration-generation linkage.
+Those checks, authorization, writer freezing, console/helper integration and
+native VM acceptance are still required. The read-only `SnapperCliBackend`
+retains disabled pre/post mutation methods. Tests simulate command responses;
+they do not claim a native checkpoint was created on this WSL host.

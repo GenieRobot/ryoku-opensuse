@@ -3,14 +3,15 @@
 //! The included [`SnapperCliBackend`] is read-only. Durable catalog storage
 //! uses a caller-supplied protected directory descriptor; placement outside
 //! rollback scope remains the caller's responsibility.
-//! Creating snapshots remains unavailable until an authorized helper and
-//! supported guest evidence exist.
+//! Native single-snapshot creation is a separate explicit capability for an
+//! authorized checkpoint coordinator; installed helper integration and guest
+//! acceptance remain incomplete.
 
 mod catalog;
 mod cli;
 
 pub use catalog::{CatalogStore, CatalogStoreError};
-pub use cli::{SnapperCliBackend, SnapperCliError, parse_snapper_json};
+pub use cli::{SnapperCheckpointBackend, SnapperCliBackend, SnapperCliError, parse_snapper_json};
 
 use std::collections::BTreeMap;
 
