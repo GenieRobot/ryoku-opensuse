@@ -30,3 +30,16 @@ readonly_restored_probe_log_sha256 = "153d80476b2a65f61a5605db1ae6d38ec22f1b136f
 private_logs = "retained in local mode-0700 run directory; not published"
 full_lab_result = "still running when this component result was recorded"
 full_restore = "not implemented or accepted"
+
+[configuration_staging]
+test_binary_sha256 = "ba6858a31fa0977a68cb65ace2839dfaf5f639de9c2cb3abdcc6d882184b9494"
+test_filter = "disk_stage_tests"
+test_threads = 1
+temporary_directory = "private root-owned directory under guest /var/tmp on Btrfs"
+selinux = "enforcing"
+passed = 20
+failed = 0
+duration_seconds = 22.09
+private_log_sha256 = "d90a3b1a5b5b41d42bbf7861e8f5dae9d1fa9f9dc87311164a13cf6a50fdd2bb"
+coverage = "actual generation capture/publication, inode staging/reopen, aliases, symlinks, absence, tamper checks and preparation resume/current-state retention"
+limitations = "preparation tests use synthetic snapshot observations; no native linked restore, root rollback or live target application"
