@@ -6,6 +6,7 @@ mod host;
 mod migration;
 mod process;
 mod repositories;
+mod runner;
 mod support;
 #[cfg(test)]
 mod zypp_plugin;

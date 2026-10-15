@@ -1,0 +1,43 @@
+# Separate signed input set for the explicitly authorized openSUSE WSL runner.
+# This does not replace or inherit the previous cloud fixture's evidence.
+schema = 1
+architecture = "x86_64"
+snapshot = "20261013"
+image = "openSUSE-Tumbleweed-Minimal-VM.x86_64-1.0.0-Cloud-Snapshot20261013.qcow2"
+provenance = "https://download.opensuse.org/tumbleweed/appliances/"
+sha256 = "b9dcb17c0c7e81e153a12d35ea4d86a516b4d2139c6a82ddd75aa6ce3cb9db3a"
+release_key_fingerprint = "AD485664E901B867051AB15F35A2F86E29B700A4"
+bootloader = "GRUB2 UEFI"
+filesystem = "Btrfs"
+source_filesystem = "XFS"
+kernel_package = "kernel-default-base"
+kernel_release = "7.2.9-1-default"
+kernel_package_version = "7.2.9-1.1.36.10"
+grub2_package_version = "2.16-1.1"
+root_default_subvolume = "@"
+snapshot_exclusions = ["@/home", "@/var"]
+derivation = "Rust-controlled root copy to blank second GPT/Btrfs disk; native grub2-install and dracut; actual sole-disk boot required"
+snapshot_provider = "Snapper"
+kde_packages = ["plasma6-session", "sddm", "xorg-x11-server"]
+package_recommendations = "excluded; hard dependencies and signatures remain enforced"
+repo_oss_url = "https://downloadcontent2.opensuse.org/history/20261013/tumbleweed/repo/oss/"
+repo_oss_repomd_sha256 = "c64c293f246a439f0b5e1881fe8adfc980ca44420a84935f31e223949810daa4"
+repo_non_oss_url = "https://downloadcontent2.opensuse.org/history/20261013/tumbleweed/repo/non-oss/"
+repo_non_oss_repomd_sha256 = "1612db0f0b581ae9450028bcf02c0a12fb3807cbd86dba357ff00ba032e73275"
+repo_codec_url = "https://codecs.opensuse.org/openh264/openSUSE_Tumbleweed/"
+repo_codec_repomd_sha256 = "57b42e1c830f50adf5fd3424b2ed0260671e3d709804f51064d71a446ceb9dd1"
+repo_update_url = "https://downloadcontent2.opensuse.org/update/tumbleweed/"
+repo_update_repomd_sha256 = "834b4de254c4b18ff5d47328ffa3965ace9673fe07189708abbf736c3ed0827d"
+repository_policy = "signed archived OSS/non-OSS and exact signed codec/update metadata; changed inputs fail closed"
+
+[hypervisor]
+qemu = "11.1.2"
+qemu_package = "qemu-x86-11.1.2-1.1"
+ovmf_package = "ovmf-202608-3.1"
+ovmf_code_sha256 = "72cf8e1a3653f031d2cf9dace93702b99cfa5c16b897a7d0a495c1bf03bf8690"
+ovmf_variables_sha256 = "5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e"
+machine = "q35"
+accelerator = "tcg"
+cpus = 2
+memory_mib = 6144
+disk_virtual_gib = 20

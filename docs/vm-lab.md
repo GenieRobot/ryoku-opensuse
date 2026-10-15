@@ -1,5 +1,62 @@
 # Disposable Tumbleweed cloud lab (#13)
 
+## Authorized openSUSE WSL runner
+
+The user authorized this existing openSUSE WSL VM for development and tests on
+2026-10-15. Build `vm-lab` with `--features wsl-lab` to select the separate
+[`wsl-fixture.toml`](../infra/tumbleweed-lab/wsl-fixture.toml) input set.
+The default build retains the original cloud fixture and proxy requirements.
+An all-features build also selects WSL; do not use an all-features binary for
+the original cloud run. Each host copies its own executable into the guest,
+so guest repository, package, and snapshot assertions use the same input set.
+
+This runner uses installed `/usr/bin` tools: QEMU 11.1.2, `qemu-img`, and
+`mkisofs`, plus native openSUSE OVMF firmware. Its code and variable-template
+hashes are checked before boot. It does not load the old extracted Debian
+tools or libraries. The ordinary-user host must identify as Tumbleweed under
+WSL and explicitly set `RYOKU_LAB_AUTHORIZED=existing-wsl-vm`. Fresh run
+directories must be under the invoking workspace or temporary directory and
+outside the asset directory. The same guest fixture marker, QEMU identity,
+blank second-disk checks, signed repository checks, login checks, offline
+network restriction, and reset requirements remain in force. WSL itself is
+never passed to the destructive guest operations.
+
+The WSL image is the exact signed Cloud appliance
+`openSUSE-Tumbleweed-Minimal-VM.x86_64-1.0.0-Cloud-Snapshot20261013.qcow2`,
+SHA-256 `b9dcb17c0c7e81e153a12d35ea4d86a516b4d2139c6a82ddd75aa6ce3cb9db3a`.
+On 2026-10-15 its checksum signature and all four repository metadata
+signatures verified with the installed openSUSE project public key,
+fingerprint `AD485664E901B867051AB15F35A2F86E29B700A4`. The initial native
+QEMU inspection boot completed cloud-init, authenticated the temporary SSH
+key, and reported snapshot `20261013`, kernel `7.2.9-1-default`, XFS root,
+`kernel-default-base-7.2.9-1.1.36.10`, and `grub2-2.16-1.1`. This base boot
+does not prove Btrfs migration, KDE login, offline recovery, or reset.
+
+Prepare an asset directory containing that exact image, `image.sha256`,
+`image.sha256.asc`, and an isolated `gnupg` directory with the installed
+openSUSE public keys. Preserve the signed checksum's original image filename.
+Never substitute a newer download for the hash pin. The WSL profile uses
+direct guest networking and imports no host custom certificate authorities;
+direct mode is rejected by a default cloud build. Proxy environment variables
+are explicitly cleared for fixture Zypper operations before applying any
+selected cloud proxy. Repository signatures and exact metadata digests remain
+mandatory for either network mode.
+
+```console
+cargo build --locked -p ryoku-automation --features wsl-lab --bin vm-lab
+RYOKU_LAB_AUTHORIZED=existing-wsl-vm target/debug/vm-lab run \
+  "$ASSET_DIRECTORY" "$PWD/target/wsl-lab-FRESH-NAME" \
+  --capture-ui "$PWD/target/debug/ryoku-ui-gtk"
+```
+
+Build the optional GTK binary first using the instructions in
+[`ui-integration.md`](ui-integration.md), or omit `--capture-ui`. Inspect the
+fresh run's sanitized `evidence.txt` and retain private logs locally. The full
+WSL acceptance sequence is still being exercised; the inspection boot and
+unit tests are not a passing release or linked-recovery gate.
+
+## Original cloud runner
+
 The selected resource is the existing managed cloud development workspace. No
 paid infrastructure, provider identity, private companion repository, or local
 user disk is needed. The cloud status API reports connected/running with an

@@ -1,6 +1,7 @@
 use crate::{
     definition::scalar,
     process::{self, BoundedOutput},
+    runner,
     support::{Result, desktop_login_reason, output, public_evidence, require, safe_component},
 };
 use std::{
@@ -334,9 +335,7 @@ impl Lab {
     }
 
     fn tool(&self, binary: &str) -> Command {
-        let mut command = Command::new(self.assets.join("qemu/usr/bin").join(binary));
-        command.env("LD_LIBRARY_PATH", self.assets.join("qemu/usr/lib/x86_64-linux-gnu"));
-        command
+        runner::tool(&self.assets, binary)
     }
 
     fn evidence(&mut self, lines: &str) -> Result<()> {
@@ -359,10 +358,7 @@ impl Lab {
                 .arg(self.run.join("disk.qcow2"))
                 .arg(format!("{}G", scalar("disk_virtual_gib")?)),
         )?;
-        fs::copy(
-            self.assets.join("qemu/usr/share/OVMF/OVMF_VARS_4M.fd"),
-            self.run.join("OVMF_VARS.fd"),
-        )?;
+        fs::copy(runner::firmware(&self.assets, "OVMF_VARS_4M.fd"), self.run.join("OVMF_VARS.fd"))?;
         Ok(())
     }
 
@@ -373,17 +369,19 @@ impl Lab {
         // The pinned Debian package ships some PCI devices, including
         // virtio-vga, as modules under qemu-system-common. The assets are
         // extracted into a private directory rather than installed globally.
-        command.env("QEMU_MODULE_DIR", self.assets.join("qemu/usr/lib/x86_64-linux-gnu/qemu"));
+        if !runner::WSL {
+            command.env("QEMU_MODULE_DIR", self.assets.join("qemu/usr/lib/x86_64-linux-gnu/qemu"));
+        }
         // QMP screendumps use fixed relative names and stay below this private
         // mode-0700 directory. All other QEMU inputs use absolute paths.
         command.current_dir(&self.run);
         command
             .arg("-L")
-            .arg(self.assets.join("qemu/usr/share/qemu"))
+            .arg(runner::data(&self.assets))
             .arg("-drive")
             .arg(format!(
                 "if=pflash,format=raw,readonly=on,file={}",
-                self.assets.join("qemu/usr/share/OVMF/OVMF_CODE_4M.fd").display()
+                runner::firmware(&self.assets, "OVMF_CODE_4M.fd").display()
             ))
             .arg("-drive")
             .arg(format!("if=pflash,format=raw,file={}", self.run.join("OVMF_VARS.fd").display()))
@@ -418,10 +416,7 @@ impl Lab {
             // framebuffer. Runtime acceptance still requires the headed
             // ordinary-user session to render successfully.
             .arg("-device")
-            .arg(format!(
-                "virtio-vga,romfile={}",
-                self.assets.join("qemu/usr/share/seabios/vgabios-virtio.bin").display()
-            ))
+            .arg(format!("virtio-vga,romfile={}", runner::vgabios(&self.assets).display()))
             .args(["-display", "none", "-monitor", "none"])
             .arg("-qmp")
             .arg(format!("unix:{},server=on,wait=off", self.run.join("qmp-private.sock").display()))
@@ -1124,13 +1119,16 @@ impl Lab {
         let public = fs::read_to_string(self.run.join("id_ed25519.pub"))?;
         let public = public.split_whitespace().take(2).collect::<Vec<_>>().join(" ");
         let mut config = format!(
-            "#cloud-config\nusers:\n  - name: tester\n    groups: [wheel]\n    sudo: 'ALL=(ALL) NOPASSWD:ALL'\n    shell: /bin/bash\n    lock_passwd: true\n    ssh_authorized_keys:\n      - {public}\ndisable_root: true\nssh_pwauth: false\nwrite_files:\n  - path: /etc/pki/trust/anchors/cloud-lab.crt\n    content: |\n"
+            "#cloud-config\nusers:\n  - name: tester\n    groups: [wheel]\n    sudo: 'ALL=(ALL) NOPASSWD:ALL'\n    shell: /bin/bash\n    lock_passwd: true\n    ssh_authorized_keys:\n      - {public}\ndisable_root: true\nssh_pwauth: false\nwrite_files:\n"
         );
-        for entry in fs::read_dir("/usr/local/share/ca-certificates")? {
-            let path = entry?.path();
-            if path.extension().is_some_and(|e| e == "crt") {
-                for line in fs::read_to_string(path)?.lines() {
-                    config.push_str(&format!("      {line}\n"));
+        if !runner::WSL {
+            config.push_str("  - path: /etc/pki/trust/anchors/cloud-lab.crt\n    content: |\n");
+            for entry in fs::read_dir("/usr/local/share/ca-certificates")? {
+                let path = entry?.path();
+                if path.extension().is_some_and(|e| e == "crt") {
+                    for line in fs::read_to_string(path)?.lines() {
+                        config.push_str(&format!("      {line}\n"));
+                    }
                 }
             }
         }
@@ -1326,10 +1324,6 @@ pub fn run(
         scalar("architecture")? == "x86_64" && scalar("accelerator")? == "tcg",
         "unsupported fixture architecture or accelerator",
     )?;
-    require(
-        std::env::var("RYOKU_LAB_AUTHORIZED").as_deref() == Ok("existing-cloud-workspace"),
-        "set RYOKU_LAB_AUTHORIZED=existing-cloud-workspace only on authorized existing cloud capacity",
-    )?;
     let assets = fs::canonicalize(assets)?;
     let ui_binary = ui_binary.map(fs::canonicalize).transpose()?;
     if let Some(binary) = &ui_binary {
@@ -1354,10 +1348,7 @@ pub fn run(
     require(run_path.is_absolute(), "run directory must be absolute")?;
     safe_component(run_path.file_name().and_then(|x| x.to_str()).ok_or("missing run name")?)?;
     let parent = fs::canonicalize(run_path.parent().ok_or("missing parent")?)?;
-    require(
-        parent.starts_with("/workspace") && !parent.starts_with(&assets),
-        "use separate authorized cloud workspace run directory",
-    )?;
+    runner::validate_host(&assets, &parent)?;
     fs::create_dir(run_path)?; // Never resume or delete an unowned existing directory.
     fs::set_permissions(run_path, fs::Permissions::from_mode(0o700))?;
     let checksum = output(Command::new("sha256sum").arg(assets.join(image)))?;
@@ -1368,8 +1359,7 @@ pub fn run(
         "signed checksum does not describe pinned base",
     )?;
     for (file, key) in FIRMWARE {
-        let digest =
-            output(Command::new("sha256sum").arg(assets.join("qemu/usr/share/OVMF").join(file)))?;
+        let digest = output(Command::new("sha256sum").arg(runner::firmware(&assets, file)))?;
         require(
             digest.split_whitespace().next() == Some(scalar(key)?),
             "firmware checksum mismatch",
@@ -1387,7 +1377,13 @@ pub fn run(
         signature.lines().any(|x| x.starts_with(&format!("[GNUPG:] VALIDSIG {signer} "))),
         "unexpected release signer",
     )?;
-    let address = ("proxy", 8080).to_socket_addrs()?.next().ok_or("managed proxy DNS missing")?;
+    let (network, offline_probe) = if runner::WSL {
+        ("direct".to_owned(), "1.1.1.1:443".to_owned())
+    } else {
+        let address =
+            ("proxy", 8080).to_socket_addrs()?.next().ok_or("managed proxy DNS missing")?;
+        (address.to_string(), address.to_string())
+    };
     let mut lab = Lab {
         assets,
         run: fs::canonicalize(run_path)?,
@@ -1398,7 +1394,8 @@ pub fn run(
         vm: None,
         report: fs::File::create(run_path.join("evidence.txt"))?,
     };
-    lab.evidence(&format!("fixture_sha256={hash}\nrelease_signer={signer}\nhost_runner=existing-managed-cloud\naccelerator=tcg\nvm_memory_mib={memory}\nvm_cpus={cpus}"))?;
+    let runner_name = if runner::WSL { "existing-opensuse-wsl" } else { "existing-managed-cloud" };
+    lab.evidence(&format!("fixture_sha256={hash}\nrelease_signer={signer}\nhost_runner={runner_name}\naccelerator=tcg\nvm_memory_mib={memory}\nvm_cpus={cpus}"))?;
     let version = output(lab.tool("qemu-system-x86_64").arg("--version"))?;
     require(
         version.starts_with(&format!("QEMU emulator version {qemu}")),
@@ -1418,18 +1415,18 @@ pub fn run(
     lab.evidence("fresh_boot=passed")?;
     lab.copy_binary()?;
     let migrated =
-        lab.ssh_migration_command(&format!("sudo /tmp/ryoku-vm-lab guest-migrate {address}"))?;
+        lab.ssh_migration_command(&format!("sudo /tmp/ryoku-vm-lab guest-migrate {network}"))?;
     lab.evidence(&migrated)?;
     lab.stop()?;
     fs::rename(lab.run.join("disk.qcow2"), lab.run.join("source-overlay.qcow2"))?;
     fs::rename(lab.run.join("migration.qcow2"), lab.run.join("disk.qcow2"))?;
-    fs::copy(lab.assets.join("qemu/usr/share/OVMF/OVMF_VARS_4M.fd"), lab.run.join("OVMF_VARS.fd"))?;
+    fs::copy(runner::firmware(&lab.assets, "OVMF_VARS_4M.fd"), lab.run.join("OVMF_VARS.fd"))?;
     lab.start(false)?;
     lab.copy_binary()?;
     let base = lab.ssh("sudo /tmp/ryoku-vm-lab guest-base-setup")?;
     lab.evidence(&base)?;
     lab.evidence("derived_btrfs_boot=passed")?;
-    let kde_installed = match lab.kde_setup(&address.to_string()) {
+    let kde_installed = match lab.kde_setup(&network) {
         Ok(setup) => {
             lab.evidence(&setup)?;
             true
@@ -1579,7 +1576,8 @@ pub fn run(
         lab.stop()?;
         lab.start(true)?;
         lab.copy_binary()?;
-        let recovered = lab.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-recover {address}"))?;
+        let recovered =
+            lab.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-recover {offline_probe}"))?;
         lab.evidence(&recovered)?;
         lab.stop()?;
     }

@@ -14,6 +14,16 @@ const ZYPPER_TIMEOUT: Duration = Duration::from_secs(20 * 60);
 const KDE_ZYPPER_TIMEOUT: Duration = Duration::from_secs(34 * 60);
 const ZYPPER_OUTPUT_LIMIT: usize = 1024 * 1024;
 
+/// Direct networking is an explicit WSL fixture choice, never a fallback for
+/// a malformed or unreachable managed-cloud proxy.
+pub(crate) fn proxy_address(value: &str) -> Result<Option<&str>> {
+    if cfg!(feature = "wsl-lab") && value == "direct" {
+        return Ok(None);
+    }
+    let _: std::net::SocketAddr = value.parse()?;
+    Ok(Some(value))
+}
+
 /// Run one fixed zypper operation with a hard child-process deadline. Output is
 /// emitted only into the host's mode-0600 private guest log; callers receive
 /// stable categories, never repository URLs or package-manager diagnostics.
@@ -35,6 +45,18 @@ fn run_zypper_with_timeout(
 ) -> Result<()> {
     let mut zypper = Command::new("zypper");
     zypper.args(args);
+    for name in [
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "NO_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+        "no_proxy",
+    ] {
+        zypper.env_remove(name);
+    }
     if let Some(proxy) = proxy {
         zypper.env("HTTP_PROXY", format!("http://{proxy}"));
         zypper.env("HTTPS_PROXY", format!("http://{proxy}"));
@@ -86,7 +108,7 @@ pub(crate) fn command(program: &str, args: &[&str]) -> Result<String> {
 pub fn setup(proxy: &str) -> Result<()> {
     base_setup()?;
     fixture_only()?;
-    let _: std::net::SocketAddr = proxy.parse()?;
+    let proxy = proxy_address(proxy)?;
     require(
         command("findmnt", &["-n", "-o", "FSTYPE", "--target", "/"])?.trim() == "btrfs",
         "fixture root must be Btrfs",
@@ -109,7 +131,7 @@ pub fn setup(proxy: &str) -> Result<()> {
     ] {
         run_zypper_with_timeout(
             &args,
-            Some(proxy),
+            proxy,
             KDE_ZYPPER_TIMEOUT,
             "KDE_PROVISIONING_TIMEOUT",
             "KDE_PROVISIONING_FAILED",
@@ -389,6 +411,17 @@ pub fn marker_absent() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn direct_networking_requires_the_explicit_wsl_build() {
+        assert_eq!(super::proxy_address("direct").is_ok(), cfg!(feature = "wsl-lab"));
+        assert_eq!(super::proxy_address("127.0.0.1:8080").unwrap(), Some("127.0.0.1:8080"));
+        assert_eq!(super::proxy_address("[::1]:8080").unwrap(), Some("[::1]:8080"));
+        for invalid in ["", "DIRECT", "direct ", "proxy:8080", "http://127.0.0.1:8080", "direct;id"]
+        {
+            assert!(super::proxy_address(invalid).is_err());
+        }
+    }
+
     use super::*;
 
     #[test]

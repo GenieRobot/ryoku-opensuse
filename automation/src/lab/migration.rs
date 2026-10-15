@@ -12,7 +12,7 @@ pub fn migrate(proxy: &str) -> Result<()> {
         Command::new("blkid").args(["--probe", "/dev/vdb"]).status()?.code() == Some(2),
         "migration target already has a signature or cannot be inspected",
     )?;
-    let _: std::net::SocketAddr = proxy.parse()?;
+    let proxy = crate::guest::proxy_address(proxy)?;
     require(
         command("findmnt", &["-n", "-o", "FSTYPE", "--target", "/"])?
             .trim()
@@ -47,7 +47,7 @@ pub fn migrate(proxy: &str) -> Result<()> {
             "grub2-snapper-plugin",
         ],
     ] {
-        run_zypper(&args, Some(proxy), "MIGRATION_ZYPPER_TIMEOUT", "MIGRATION_ZYPPER_FAILED")?;
+        run_zypper(&args, proxy, "MIGRATION_ZYPPER_TIMEOUT", "MIGRATION_ZYPPER_FAILED")?;
         if args.contains(&"refresh") {
             crate::repositories::verify_cache()?;
         }
