@@ -1453,7 +1453,25 @@ pub fn run(
                 lab.evidence(&session)?;
                 kde_ready = true;
                 if lab.ui_binary.is_some() {
-                    ui_captured = lab.capture_ui_scenarios().is_ok();
+                    match lab.capture_ui_scenarios() {
+                        Ok(()) => ui_captured = true,
+                        Err(error) => {
+                            // Subsequent reboot probes replace guest-private.log.
+                            // Preserve the UI failure before continuing lifecycle checks.
+                            let mut failure = fs::OpenOptions::new()
+                                .write(true)
+                                .create(true)
+                                .truncate(true)
+                                .mode(0o600)
+                                .open(lab.run.join("ui-failure-private.log"))?;
+                            writeln!(failure, "{error}")?;
+                            if let Ok(guest_log) = fs::read(lab.run.join("guest-private.log")) {
+                                failure.write_all(b"\n--- last guest command ---\n")?;
+                                failure.write_all(&guest_log)?;
+                            }
+                            lab.evidence("ui_visual_capture=blocked")?;
+                        }
+                    }
                 }
             }
             Err(_) => {
