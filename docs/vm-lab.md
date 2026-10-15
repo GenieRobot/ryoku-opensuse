@@ -111,6 +111,13 @@ acceptance. Its reboot/offline/reset lifecycle was still running when this
 diagnosis was recorded. Native checkpoint and 20 Btrfs/SELinux staging tests
 were exercised separately in that guest and do not establish full restore.
 
+Run04 later terminated with signal 15 before its restricted-network/reset
+sequence completed. No task-owned VM process survived; its logs were retained
+and its disposable disks and keys were removed. Its reboot/login and native
+component results remain useful, but the full run is interrupted. Guest binary
+copies now use the running process's `/proc/<pid>/exe` rather than a build
+output pathname, so a concurrent Cargo rebuild cannot replace their source.
+
 ## Original cloud runner
 
 The selected resource is the existing managed cloud development workspace. No

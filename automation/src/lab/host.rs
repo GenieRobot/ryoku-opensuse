@@ -679,7 +679,10 @@ impl Lab {
                 "-o",
             ])
             .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
-            .arg(std::env::current_exe()?)
+            // A concurrent Cargo build can replace the pathname returned by
+            // current_exe. Read this process's pinned executable instead.
+            // Use our PID: /proc/self/exe would refer to the scp child.
+            .arg(format!("/proc/{}/exe", std::process::id()))
             .arg("tester@127.0.0.1:/tmp/ryoku-vm-lab");
         self.run_private_child(
             &mut command,
