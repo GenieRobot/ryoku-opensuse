@@ -127,8 +127,19 @@ pub fn serve_helper_connection(
     stream.set_write_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
 
     // Read kernel credentials before parsing or dispatching a request. The
-    // validated request ID is used only to correlate the typed rejection.
+    // helper rejects unauthorized peers without parsing their request. Since
+    // no request ID is trusted yet, it uses a fixed correlation ID.
     let peer = PeerIdentity::from_unix_socket(&stream)?;
+    if authorize_helper_peer(&peer, service_uid).is_err() {
+        return write_helper_response(
+            stream,
+            HelperResponse {
+                version: HELPER_PROTOCOL_VERSION,
+                request_id: RequestId::new("invalid").expect("static request ID is valid"),
+                outcome: HelperOutcome::Rejected(ServiceError::Unauthorized),
+            },
+        );
+    }
     let envelope = match read_helper_envelope(&mut std::io::BufReader::new(&mut stream)) {
         Ok(envelope) => envelope,
         Err(ProtocolError::Malformed("incomplete helper request frame")) => {
@@ -156,15 +167,7 @@ pub fn serve_helper_connection(
         }
     };
 
-    let response = if authorize_helper_peer(&peer, service_uid).is_err() {
-        HelperResponse {
-            version: HELPER_PROTOCOL_VERSION,
-            request_id: envelope.request_id.clone(),
-            outcome: HelperOutcome::Rejected(ServiceError::Unauthorized),
-        }
-    } else {
-        dispatch_helper_request(&peer, service_uid, envelope)?
-    };
+    let response = dispatch_helper_request(&peer, service_uid, envelope)?;
     write_helper_response(stream, response)
 }
 
@@ -176,6 +179,16 @@ pub fn serve_operator_helper_connection(
     stream.set_read_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
     stream.set_write_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
     let peer = PeerIdentity::from_unix_socket(&stream)?;
+    if authorize_helper_operator(&peer, operator_gid).is_err() {
+        return write_helper_response(
+            stream,
+            HelperResponse {
+                version: HELPER_PROTOCOL_VERSION,
+                request_id: RequestId::new("invalid").expect("static request ID is valid"),
+                outcome: HelperOutcome::Rejected(ServiceError::Unauthorized),
+            },
+        );
+    }
     let envelope = match read_helper_envelope(&mut std::io::BufReader::new(&mut stream)) {
         Ok(envelope) => envelope,
         Err(ProtocolError::Malformed("incomplete helper request frame")) => {
@@ -544,10 +557,10 @@ mod tests {
     #[test]
     fn socket_handler_authenticates_then_writes_only_typed_rejections() {
         let (server, mut client) = UnixStream::pair().unwrap();
-        send_envelope(&mut client, &socket_request("unauthorized-req"));
+        client.write_all(b"not-json\n").unwrap();
         serve_helper_connection(server, u32::MAX).unwrap();
         let response = receive_response(&mut client);
-        assert_eq!(response.request_id.as_str(), "unauthorized-req");
+        assert_eq!(response.request_id.as_str(), "invalid");
         assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
 
         let (server, mut client) = UnixStream::pair().unwrap();
@@ -557,6 +570,16 @@ mod tests {
         let response = receive_response(&mut client);
         assert_eq!(response.request_id.as_str(), "known-req");
         assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unsupported));
+    }
+
+    #[test]
+    fn operator_socket_rejects_before_parsing_untrusted_request() {
+        let (server, mut client) = UnixStream::pair().unwrap();
+        client.write_all(b"not-json\n").unwrap();
+        serve_operator_helper_connection(server, u32::MAX).unwrap();
+        let response = receive_response(&mut client);
+        assert_eq!(response.request_id.as_str(), "invalid");
+        assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
     }
 
     #[test]
