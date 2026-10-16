@@ -3,6 +3,17 @@
 The source-backed architecture decision and Quickshell reuse assessment are in
 [`ADR 0001`](adr/0001-ui-and-service-integration.md).
 
+The existing pinned Ryoku launcher now has a narrow Rust executable provider
+for typed service discovery. Its native KWin/Plasma proof rendered the live
+service's actual `RecoveryUnavailable` result, then typed `Unavailable` after
+that owned service stopped. Both reviewed visible rows match actual native
+journal request/result IDs. The [provider contract](launcher-service-provider.md)
+documents the original argv/rofi extension, source attribution, invocation/cache
+limits, exact separate issue #17/#25 prerequisites and reproduction procedure.
+The [evidence record](../infra/tumbleweed-lab/evidence/issue14-native-launcher-service.toml)
+preserves source/binary/capture hashes. This focused change adds no session,
+VM automation, service runtime or RPM implementation and does not close #14.
+
 M0-05 adds an executable Rust proof in `suse/ui`: a typed dashboard status,
 one explicit `RefreshStatus` action, and typed success and service-error
 results. The action is read-only. The small terminal surface shows the
@@ -54,7 +65,9 @@ click **Refresh status** to issue `Discover`:
 cargo run --locked -p ryoku-ui --features gtk-ui --bin ryoku-ui-gtk -- --connect-service
 ```
 
-GTK remains the selected M0 proof candidate, while its Tumbleweed package and
+GTK remains an optional proof candidate. The revised ADR proposes the unchanged
+launcher plus Rust adapter for the existing-surface read boundary, pending
+architecture review. GTK's Tumbleweed package and
 runtime dependencies, Wayland behavior, accessibility, theme integration, and
 lifecycle handling still need guest validation. GitHub Rust checks install
 `libgtk-4-dev` so all-feature CI can compile and test the GTK target. KDE
@@ -71,7 +84,10 @@ the same authenticated protocol without project-owned QML/JavaScript glue.
 The GTK proof and opt-in service-discovery adapter are present. The
 `--connect-service` path has local protocol tests, but it has not yet been
 verified against the running daemon in a Tumbleweed desktop. Run18 installed
-KDE/SDDM, but its ordinary-user Wayland login check remained blocked. On a
+KDE/SDDM, but its ordinary-user Wayland login check remained blocked. The later
+launcher proof recorded above passed the native existing-surface discovery and
+real stopped-service error component; it used separately recorded service and
+session source, not a new capture option in this branch. On a
 disposable Tumbleweed graphical VM with a working login and the service
 available, build the native surface and demonstrate all of the following with
 sanitized evidence:
@@ -79,8 +95,9 @@ sanitized evidence:
 1. Launch and render typed backend status in a real desktop window under
    Hyprland, including keyboard navigation, screen-reader labels, and current
    desktop theme behavior.
-2. Dispatch the read-only refresh action and display both a successful typed
-   result and a typed service error.
+2. Preserve/review the completed KDE launcher read-only success/error evidence
+   and repeat the real request path for the other accepted session and packaged
+   lifecycle.
 3. Repeat launch, theme, accessibility, and action checks under the KDE
    fallback, including Wayland/XWayland behavior where relevant.
 4. Package and install the UI and required runtime dependencies through the
@@ -90,8 +107,9 @@ sanitized evidence:
    package and daemon activation must also be tested against the final
    transport decision in ADR 0001.
 
-Until this graphical proof is recorded, M0-05 remains incomplete and dependent
-graphical UI work remains blocked at the integration decision. The terminal
+Until the remaining graphical gates and architecture review pass, M0-05 remains
+incomplete and dependent graphical UI work remains blocked at the integration
+decision. The terminal
 contract tests and output are not substitutes for that proof.
 
 ### Disposable VM visual capture

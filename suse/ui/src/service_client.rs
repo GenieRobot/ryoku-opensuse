@@ -4,13 +4,13 @@
 //! not a selection of the final UI transport. It never sends managed actions.
 
 use std::{
-    io::{BufRead, BufReader, Read, Write},
+    io::{Read, Write},
     os::unix::{
         fs::{FileTypeExt, MetadataExt},
         net::UnixStream,
     },
     path::{Path, PathBuf},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use rustix::process::geteuid;
@@ -83,26 +83,60 @@ impl UnixServiceBackend {
         stream: &mut UnixStream,
         ui_request_id: RequestId,
     ) -> Result<UpdateState, BackendError> {
+        Self::exchange_with_timeout(stream, ui_request_id, IO_TIMEOUT)
+    }
+
+    fn exchange_with_timeout(
+        stream: &mut UnixStream,
+        ui_request_id: RequestId,
+        timeout: Duration,
+    ) -> Result<UpdateState, BackendError> {
+        let deadline = Instant::now() + timeout;
+        let remaining = || {
+            deadline
+                .checked_duration_since(Instant::now())
+                .filter(|duration| !duration.is_zero())
+                .ok_or(BackendError::Unavailable)
+        };
         let request_id = ServiceRequestId::new(format!("ui-{}", ui_request_id.0))
             .map_err(|_| BackendError::InvalidResponse)?;
-        stream.set_read_timeout(Some(IO_TIMEOUT)).map_err(|_| BackendError::Unavailable)?;
-        stream.set_write_timeout(Some(IO_TIMEOUT)).map_err(|_| BackendError::Unavailable)?;
         let envelope = Envelope {
             version: SERVICE_PROTOCOL_VERSION,
             request_id: request_id.clone(),
             request: Request::Discover,
         };
-        serde_json::to_writer(&mut *stream, &envelope)
-            .map_err(|_| BackendError::InvalidResponse)?;
-        stream.write_all(b"\n").map_err(|_| BackendError::Unavailable)?;
-        stream.flush().map_err(|_| BackendError::Unavailable)?;
+        let mut frame = serde_json::to_vec(&envelope).map_err(|_| BackendError::InvalidResponse)?;
+        frame.push(b'\n');
+        let mut pending = frame.as_slice();
+        while !pending.is_empty() {
+            stream.set_write_timeout(Some(remaining()?)).map_err(|_| BackendError::Unavailable)?;
+            match stream.write(pending) {
+                Ok(0) => return Err(BackendError::Unavailable),
+                Ok(count) => pending = &pending[count..],
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(_) => return Err(BackendError::Unavailable),
+            }
+        }
 
-        let mut reader = BufReader::new(stream.try_clone().map_err(|_| BackendError::Unavailable)?);
         let mut bytes = Vec::with_capacity(1024);
-        let mut limited = (&mut reader).take((MAX_RESPONSE_BYTES + 1) as u64);
-        limited.read_until(b'\n', &mut bytes).map_err(|_| BackendError::Unavailable)?;
-        if bytes.len() > MAX_RESPONSE_BYTES || bytes.last() != Some(&b'\n') {
-            return Err(BackendError::InvalidResponse);
+        let mut buffer = [0_u8; 1024];
+        loop {
+            stream.set_read_timeout(Some(remaining()?)).map_err(|_| BackendError::Unavailable)?;
+            let count = match stream.read(&mut buffer) {
+                Ok(0) => return Err(BackendError::InvalidResponse),
+                Ok(count) => count,
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(_) => return Err(BackendError::Unavailable),
+            };
+            let newline = buffer[..count].iter().position(|byte| *byte == b'\n');
+            let end = newline.map_or(count, |index| index + 1);
+            if bytes.len() + end > MAX_RESPONSE_BYTES {
+                return Err(BackendError::InvalidResponse);
+            }
+            bytes.extend_from_slice(&buffer[..end]);
+            if newline.is_some() {
+                break;
+            }
         }
         bytes.pop();
         let response: Response =
@@ -265,6 +299,35 @@ mod tests {
             UnixServiceBackend::exchange(&mut client, RequestId(17)),
             Err(BackendError::InvalidResponse)
         );
+        worker.join().unwrap();
+    }
+
+    #[test]
+    fn slow_trickle_cannot_extend_the_exchange_deadline() {
+        use std::time::{Duration, Instant};
+
+        let (mut server, mut client) = UnixStream::pair().unwrap();
+        let worker = thread::spawn(move || {
+            let mut request = String::new();
+            BufReader::new(server.try_clone().unwrap()).read_line(&mut request).unwrap();
+            for _ in 0..20 {
+                if server.write_all(b" ").is_err() {
+                    break;
+                }
+                thread::sleep(Duration::from_millis(50));
+            }
+        });
+        let started = Instant::now();
+        assert_eq!(
+            UnixServiceBackend::exchange_with_timeout(
+                &mut client,
+                RequestId(17),
+                Duration::from_millis(250)
+            ),
+            Err(BackendError::Unavailable)
+        );
+        assert!(started.elapsed() < Duration::from_millis(700));
+        drop(client);
         worker.join().unwrap();
     }
 
