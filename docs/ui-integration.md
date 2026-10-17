@@ -56,9 +56,22 @@ cargo run --locked -p ryoku-ui --features gtk-ui --bin ryoku-ui-gtk -- --connect
 
 GTK remains the selected M0 proof candidate, while its Tumbleweed package and
 runtime dependencies, Wayland behavior, accessibility, theme integration, and
-lifecycle handling still need guest validation. GitHub Rust checks install
+lifecycle handling still need guest validation. The declarative
+[`ryoku-ui-proof.spec`](../packaging/rpm/ryoku-ui-proof.spec) describes a
+separate experimental proof package with a GTK runtime dependency and
+Ryoku-owned desktop entry/icon paths. It does not establish an RPM install,
+removal, or dependency result. GitHub Rust checks install
 `libgtk-4-dev` so all-feature CI can compile and test the GTK target. KDE
 fallback must be included in the graphical test.
+
+The GTK control has an `_Refresh status` mnemonic (`Alt+R`) and remains
+the window's default button, so GTK also provides normal Tab focus and Enter
+activation. The status and request-result labels use GTK `Status` and `Alert`
+accessible roles, and the button publishes its label and mnemonic to GTK's
+accessibility API. These are source-level semantics only. Run06's refresh was
+dispatched programmatically, so it does not prove keyboard activation; neither
+Run06 nor the current CI proves focus visibility or announcements through
+AT-SPI/Orca.
 
 GTK's Rust bindings wrap a C toolkit internally, so keep the wrapper API at
 the presentation edge, do not expose GTK/GLib objects through workspace

@@ -78,3 +78,12 @@ commands normalize source ordering, timestamps, ownership, and gzip headers;
 the locked vendored dependency set lets the RPM build run offline. These steps
 make the inputs repeatable and auditable, but do not claim byte-identical RPM
 outputs across builders or replace the required clean-VM install evidence.
+
+`ryoku-ui-proof.spec` packages the experimental GTK status proof separately
+from the service/helper package. It owns only `ryoku-ui-gtk`, its uniquely
+named desktop entry, and its own hicolor SVG icon, and declares
+`libgtk-4-1` as its GTK runtime dependency. Its desktop entry launches the
+fixed-data demonstration backend by default. It does not enable or start a
+service and is not a production application. Build-time validation checks the
+desktop entry syntax; a clean Tumbleweed install/removal and runtime dependency
+check are still required before packaging acceptance.
