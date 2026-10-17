@@ -413,6 +413,12 @@ fn experiment() -> Result<(), Box<dyn std::error::Error>> {
     }
     let result = command.output()?;
     let elapsed = started.elapsed();
+    // Keep provider diagnostics in the runner's mode-0600 private log. They
+    // explain resolution failures that happen before libzypp invokes the
+    // plugin, but may contain repository details and must not enter public
+    // evidence. The host publishes only the parsed outcome fields below.
+    print_private_provider_output("stdout", &result.stdout);
+    print_private_provider_output("stderr", &result.stderr);
     let after = rpm_state()?;
     println!(
         "zypper_exit_code={}",
@@ -521,6 +527,16 @@ fn experiment() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
     Ok(())
+}
+
+fn print_private_provider_output(stream: &str, bytes: &[u8]) {
+    const MAX_BYTES: usize = 16 * 1024;
+    let end = bytes.len().min(MAX_BYTES);
+    let text = String::from_utf8_lossy(&bytes[..end]);
+    println!("zypper_{stream}_private={text:?}");
+    if end < bytes.len() {
+        println!("zypper_{stream}_private_truncated_bytes={}", bytes.len() - end);
+    }
 }
 
 /// A zombie has exited and cannot handle protocol input, even if a slow init
