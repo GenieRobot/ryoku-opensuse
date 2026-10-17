@@ -31,17 +31,26 @@ pub struct DeclaredRoot<'a> {
 /// Caller attestation for an independently verified exact Snapper/filesystem
 /// link. This wrapper does not contact Snapper or prove the attestation.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct VerifiedSnapshotLink(SnapshotLink);
+pub struct VerifiedSnapshotLink {
+    link: SnapshotLink,
+    receipt: Option<crate::native_checkpoint::RootSnapshotReceipt>,
+}
 
 impl VerifiedSnapshotLink {
     /// Construct only after a trusted caller verified the pre-change snapshot
     /// and matching filesystem UUID against the intended root.
     pub fn from_preverified_link(snapshot: SnapshotLink) -> Self {
-        Self(snapshot)
+        Self { link: snapshot, receipt: None }
+    }
+
+    pub(crate) fn from_native_receipt(
+        receipt: crate::native_checkpoint::RootSnapshotReceipt,
+    ) -> Self {
+        Self { link: receipt.link().clone(), receipt: Some(receipt) }
     }
 
     pub(crate) fn link(&self) -> &SnapshotLink {
-        &self.0
+        &self.link
     }
 }
 
@@ -239,10 +248,13 @@ fn capture_publish_verify_using_capacity(
         request.transaction_id,
         request.generation_id,
         request.parent_generation_id,
-        request.snapshot.0,
+        request.snapshot.link,
         request.reason,
         request.created_utc,
     )?;
+    if let Some(receipt) = request.snapshot.receipt {
+        manifest.attach_root_snapshot_receipt(receipt)?;
+    }
     for record in records {
         manifest.add_file(record)?;
     }
@@ -554,6 +566,38 @@ mod tests {
             roots,
             limits: CaptureLimits::default(),
         }
+    }
+
+    #[test]
+    fn native_capture_receipt_is_sealed_and_read_back_with_generation() {
+        let root = TempDir::new("receipt-root");
+        let state = TempDir::new("receipt-state");
+        let source = root.descriptor();
+        let paths = [RelativePath::new("missing.toml").unwrap()];
+        let roots =
+            [DeclaredRoot { root: StateRoot::EtcRyoku, descriptor: &source, paths: &paths }];
+        let store = GenerationStore::open_for_test(&state.descriptor()).unwrap();
+        let receipt: crate::native_checkpoint::RootSnapshotReceipt =
+            serde_json::from_value(serde_json::json!({
+                "schema": 1,
+                "link": {
+                    "snapper_config": "root",
+                    "snapper_snapshot_id": "42",
+                    "filesystem_uuid": "03030303-0303-0303-0303-030303030303"
+                },
+                "subvolume_id": 300,
+                "subvolume_uuid": "02020202-0202-0202-0202-020202020202",
+                "origin_root_uuid": "01010101-0101-0101-0101-010101010101"
+            }))
+            .unwrap();
+        let mut request = request(&roots);
+        request.snapshot = VerifiedSnapshotLink::from_native_receipt(receipt.clone());
+        let captured = capture_publish_verify_without_xattrs_for_test(&store, request).unwrap();
+        assert_eq!(captured.schema_version, 2);
+        assert_eq!(captured.root_snapshot_receipt(), Some(&receipt));
+        assert!(captured.verify_digest().unwrap());
+        let reopened = store.verify_transaction(&captured.transaction_id).unwrap();
+        assert_eq!(reopened.root_snapshot_receipt(), Some(&receipt));
     }
 
     #[test]

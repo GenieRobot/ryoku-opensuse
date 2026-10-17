@@ -55,6 +55,34 @@ fresh run's sanitized `evidence.txt` and retain private logs locally. The full
 WSL acceptance sequence is still being exercised; the inspection boot and
 unit tests are not a passing release or linked-recovery gate.
 
+Before launching, use `vm-lab preflight ASSET_DIRECTORY FRESH_RUN_DIRECTORY`
+with the same options, build feature, authorization environment and working
+directory intended for `run`. It reports all independently checkable host
+prerequisite failures together and creates no run directory, VM, disk or key.
+Both commands share the runner identity/path guards, signed image and firmware
+checks, source binary checks and QEMU version check. A successful preflight is
+an observation; `run` repeats the checks before creating its private directory.
+
+The host checks require executable native commands, readable executable x86_64
+ELF inputs and resolvable native shared libraries. Dependency inspection uses
+the known native loader's `--list` mode, never an input's main or an arbitrary
+ELF interpreter. Static x86_64 inputs are supported. Memory headroom is the
+configured guest RAM plus 1 GiB from `MemAvailable`; available disk space on
+the run filesystem must be at least 12 GiB plus staged input sizes. These
+checks reserve no resources and do not verify guest packages, guest library
+compatibility, networking, boot, or recovery behavior. The output explicitly
+keeps guest prerequisites unchecked and VM runtime unproven.
+
+The WSL build also accepts explicit `--accelerator kvm` on both commands;
+omitting it retains TCG. KVM preflight requires ordinary-user access to the
+native `/dev/kvm`, API version 12 and IRQCHIP/HLT/USER_MEMORY/SYNC_MMU support.
+It queries capabilities without creating a VM. KVM selects `-cpu host`; TCG
+retains `-cpu max`. Neither selection falls back to the other. The cloud build
+rejects KVM. Guest resources remain 6 GiB and two CPUs. Every actual boot,
+including reboot/reset, verifies the selected accelerator through its owned
+QMP connection and records `accelerator_runtime=verified` only after that
+check. Host capability queries alone establish no guest boot or recovery proof.
+
 The first automated WSL run used port commit
 `59245afcb4e00597cb91290a62439a9a76a2d2f7` and passed signed-input checks,
 XFS-to-Btrfs migration, sole-disk UEFI boot, SELinux/Snapper inspection, and
@@ -737,3 +765,16 @@ synthetic obstructions and invokes the real CLI resume, followed by ordinary
 repeat/reboot/offline/reset checks. Both executables are staged and hashed;
 raw failure/resume output remains private. This is not arbitrary-volume adoption
 or complete process-interruption coverage.
+
+## Native linked-partner result
+
+[Run15](../infra/tumbleweed-lab/evidence/issue19-run15-linked-partners.toml)
+used explicit KVM acceleration after the shared preflight passed. Its evidence
+window spans approximately three minutes. Signed-input checks, sole-disk
+Btrfs/UEFI boot under enforcing SELinux, initializer checks, exact linked-partner
+capture/read-back, four controlled partner refusals, actual recovery CLI queries,
+normal-reboot persistence, owning-journal cleanup, bounded offline fixture
+restoration and fresh-baseline reset/cleanup passed. Parent and independent
+worker audits confirmed no surviving VM, disk or key and an unchanged signed
+base. Desktop/login remained skipped and both overall result flags remain
+`partial`. This run does not prove changed-root rollback or complete Ryoku restore.

@@ -77,6 +77,11 @@ impl QmpClient {
         forwarded_port(&output)
     }
 
+    pub fn verify_accelerator(&mut self, expect_kvm: bool) -> io::Result<()> {
+        let response = self.request("query-kvm", None, Instant::now() + REQUEST_TIMEOUT)?;
+        verify_kvm_reply(response, expect_kvm)
+    }
+
     pub fn send_key(&mut self, qcode: &str) -> io::Result<()> {
         validate_qcode(qcode)?;
         let arguments = format!(r#"{{"keys":[{{"type":"qcode","data":"{qcode}"}}]}}"#);
@@ -267,8 +272,22 @@ enum Json {
     Array(Vec<Self>),
     String(String),
     Number,
-    Bool,
+    Bool(bool),
     Null,
+}
+
+fn verify_kvm_reply(response: Json, expect_kvm: bool) -> io::Result<()> {
+    let Json::Object(fields) = response else {
+        return Err(invalid("query-kvm response is not an object"));
+    };
+    match (fields.get("enabled"), fields.get("present")) {
+        (Some(Json::Bool(enabled)), Some(Json::Bool(present)))
+            if fields.len() == 2 && *enabled == expect_kvm && (!expect_kvm || *present) =>
+        {
+            Ok(())
+        }
+        _ => Err(invalid("QEMU accelerator does not match the explicit selection")),
+    }
 }
 
 struct Parser<'a> {
@@ -353,8 +372,8 @@ impl<'a> Parser<'a> {
                 Ok(Json::Array(items))
             }
             Some(b'"') => self.string().map(Json::String),
-            Some(b't') => self.literal(b"true", Json::Bool),
-            Some(b'f') => self.literal(b"false", Json::Bool),
+            Some(b't') => self.literal(b"true", Json::Bool(true)),
+            Some(b'f') => self.literal(b"false", Json::Bool(false)),
             Some(b'n') => self.literal(b"null", Json::Null),
             Some(b'-' | b'0'..=b'9') => self.number(),
             _ => Err(invalid("invalid JSON value")),
@@ -510,6 +529,25 @@ mod tests {
         assert!(Parser::parse(&[b'"', 0xff, b'"']).is_err());
         assert!(Parser::parse("[".repeat(MAX_DEPTH + 2).as_bytes()).is_err());
         assert!(Parser::parse(&vec![b' '; MAX_MESSAGE + 1]).is_err());
+    }
+
+    #[test]
+    fn accelerator_reply_rejects_fallback_missing_or_untyped_capabilities() {
+        for (text, kvm) in [
+            (r#"{"enabled":true,"present":true}"#, true),
+            (r#"{"enabled":false,"present":true}"#, false),
+            (r#"{"enabled":false,"present":false}"#, false),
+        ] {
+            verify_kvm_reply(Parser::parse(text.as_bytes()).unwrap(), kvm).unwrap();
+            assert!(verify_kvm_reply(Parser::parse(text.as_bytes()).unwrap(), !kvm).is_err());
+        }
+        for text in [
+            r#"{"enabled":true,"present":false}"#,
+            r#"{"enabled":"true","present":true}"#,
+            r#"{"present":true}"#,
+        ] {
+            assert!(verify_kvm_reply(Parser::parse(text.as_bytes()).unwrap(), true).is_err());
+        }
     }
 
     #[test]

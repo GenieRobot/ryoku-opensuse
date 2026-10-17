@@ -26,3 +26,130 @@ This crate does **not** complete issue #19. The following work and evidence rema
 6. Represent and demonstrate all required root/additional snapshot IDs without duplicate pairs, invalidation when either partner is missing, and configuration-only/unsupported behavior on actual layouts. This primitive catalog currently records one root snapshot ID per entry.
 
 No VM, Snapper command, system mutation, protected-mount placement, or rollback claim was used to validate this primitive slice. Unit tests exercise descriptor-relative durable replacement in a temporary directory. Keep #19 open until its listed acceptance evidence is attached.
+
+## Original native identity and linked historical lookup
+
+The recovery crate now carries the original kernel identity from
+`NativeRootCheckpoint::verified_link()` through generation capture into a
+schema-2 manifest. The sealed receipt records the exact root Snapper config
+and number, filesystem UUID, snapshot subvolume ID and UUID, and origin root
+UUID. Manifest validation requires those link fields to match the manifest;
+the manifest digest covers the receipt and transaction/generation identities.
+Its immutable transaction catalog link uses schema 3, so older readers refuse
+the new contract. Schema-1 manifests and catalog versions 1/2 remain readable,
+but cannot establish historical snapshot provenance. They are never upgraded
+from a later snapshot observation.
+
+`GenerationStore::open_historical_transaction` and its reader counterpart
+reopen the exact catalog link, verify the manifest and every payload, then
+open only `.snapshots/<recorded-number>/snapshot` beneath the actual process
+root without following symlinks. The native check matches the original
+filesystem UUID, subvolume ID/UUID, origin UUID and current read-only flag.
+It intentionally does not require the original parent UUID to equal the
+running root's UUID after rollback. `HistoricalRootCheckpoint` is distinct
+from a fresh `NativeRootCheckpoint` and cannot supply a fresh capture link.
+Snapshot identity alone, including a deserialized receipt supplied outside
+this protected association, is not historical provenance.
+
+Every lookup rechecks both partners. Missing generation/catalog/payload,
+corrupt linkage, absent original receipt, missing snapshot, substituted
+identity/path, and writable snapshot yield typed unavailable results. There
+is no newest-generation fallback, receipt repair, or replacement snapshot.
+Generation files must also have the parent directory's owner and exactly one
+hard link. Production callers use the state-mount-validated store/reader;
+offline directory readers do not prove placement outside rollback scope.
+
+The read-only `ryoku-recovery verify-linked TRANSACTION_ID` command exposes
+this check through the fixed protected store. Success reports the exact
+verified partners and explicitly leaves boot compatibility/restore readiness
+unassessed; a missing or invalid partner exits with a typed error. Existing
+`verify` checks generation integrity only. `inspect` now distinguishes a
+recorded original receipt from a legacy absence without asserting availability.
+
+Rust regressions cover receipt propagation through publication/read-back,
+canonical seals and config/number/filesystem binding, legacy refusal,
+catalog corruption/schema downgrade, missing generation, changed-root
+identity comparison, substituted snapshot ID/UUID/origin and read-only
+flags, and a missing partner on a second lookup. Kernel observations in the
+local association tests are synthetic. These checks do not establish boot
+coverage, supported layout discovery, cleanup/retention ownership, journal
+survival, actual root rollback, or installed helper integration. Those
+remaining issue #19 gates still require native fixture evidence.
+
+### Disposable native receipt experiment
+
+Build `cargo build --locked -p ryoku-recovery --example native_linked_checkpoint_probe`.
+The executable refuses non-root execution and requires both the seeded
+`/etc/ryoku-lab-fixture` marker and QEMU DMI. Run it only after the existing
+state initializer has installed and verified the dedicated state mount.
+The parent lab harness owns VM creation, root rollback/reboot, and cleanup.
+
+1. `native_linked_checkpoint_probe --capture` creates a fixed synthetic source
+   under `/run`, one transaction-tagged root checkpoint, its generation with
+   the original receipt, and a `Planned` journal on protected storage. It
+   reopens both partners and refuses duplicate checkpoint creation. An
+   interrupted or repeated capture requires explicit reconciliation; the
+   probe never replaces an existing source or silently retries creation.
+2. `--verify` reopens the recorded catalog/generation/native snapshot and exact
+   planned journal in a fresh process. Run this again after a reboot if desired.
+3. For actual root rollback evidence, the harness may perform its reviewed
+   disposable-guest rollback and reboot, then run `--verify-after-root-change`.
+   This requires historical lookup to pass while fresh-root ancestry
+   verification fails specifically because the running root changed. The
+   probe itself never rolls back root or asserts that boot files are covered.
+4. `--exercise-failures` temporarily makes only its recorded snapshot writable,
+   moves it aside to test absence, substitutes a second probe-owned native
+   snapshot at the recorded path, and temporarily moves the exact generation.
+   Each lookup must report its typed unavailable state. It restores the paths
+   and read-only flag before final read-back and leaves both snapshots for
+   inspection. An interrupted failure experiment preserves the fixture for
+   reconciliation; do not retry it blindly. This tests missing paths, not
+   Snapper's cleanup policy or deletion ownership.
+
+The journal is a synthetic `Planned` persistence fixture, not a prepared
+restore attempt or proof of a fresh current-state checkpoint. Capture uses a
+fixed synthetic timestamp and payload. Local build, Clippy, and unprivileged
+host refusal pass; native component evidence is linked below. Actual root
+rollback remains unproven. A returned historical handle is
+only an observation at lookup time: an eventual mutation executor must reopen
+and compare both catalog/generation and native snapshot under its cleanup and
+mutation lock immediately before use.
+
+The Rust VM harness now accepts the paired options
+`--linked-checkpoint-probe PROBE_BINARY --recovery-cli CLI_BINARY`, together
+with `--console-only --state-initializer INITIALIZER_BINARY`. It stages and
+hashes each input before starting, checks installed guest digests, and runs
+capture, the actual CLI's `pending`/`verify-linked`, partner failure checks,
+normal reboot, fresh-process read-back, and the same CLI commands again.
+All exact fixture markers are validated before being accepted as evidence.
+This path has no root-switch command or boot configuration changes.
+
+`--observe-layout` records bounded read-only observations of the original
+kernel command line, fstab, GRUB defaults/generated configuration, Snapper
+configuration/version/help, Btrfs default/root/snapshot namespace and mounted
+filesystems. Raw observations remain in private before/after logs; public
+evidence says only `recorded` and leaves root switching and boot compatibility
+`unproven`. Missing, oversized or unsuccessful observations are retained as
+unavailable rather than promoted to compatibility facts. Review actual
+rootflags and the separate snapshot namespace before planning any root switch.
+
+The harness retains the synthetic Planned journal through normal reboot and
+checks its exact linkage with the probe and the real `pending` command. Only
+then does `--cleanup-journal` reopen both partners, lock the protected journal
+directory, compare the fixed fixture record's type/owner/mode/link count and
+entire parsed contents, unlink that one matching record, and synchronize the
+directory. The harness requires `pending` to be empty before the initializer's
+healthy-repeat check. Other or changed journals are never deleted; failures
+preserve the disposable fixture for inspection. The local harness tests,
+build/Clippy and probe host-refusal checks pass.
+
+The [Run15 artifact](../infra/tumbleweed-lab/evidence/issue19-run15-linked-partners.toml)
+records actual KVM execution against the signed Tumbleweed 20261013 fixture:
+original receipt/catalog/generation verification, all four partner-refusal
+cases, real CLI queries, normal-reboot persistence and exact owning-journal
+cleanup passed. Offline fixture restoration and fresh-base reset/cleanup also
+passed. Console mode deliberately reports partial overall coverage because
+desktop provisioning and login were skipped. Before/after layout observations
+retain the same running root identity and subvolume `@`; this is normal-reboot
+persistence evidence. Root rollback, boot compatibility, retention ownership,
+installed writer capture and helper/restore execution remain unproven.
