@@ -209,6 +209,13 @@ impl StateRoot {
             Self::UserRyokuProfile => "user-ryoku-profile",
         }
     }
+
+    /// Whether records in this fixed root belong to the writable
+    /// configuration restore scope. The generation namespace is retained as
+    /// immutable source data and is never a configuration target.
+    pub const fn is_configuration_state(self) -> bool {
+        matches!(self, Self::EtcRyoku | Self::UserRyokuConfig | Self::UserRyokuProfile)
+    }
 }
 
 /// Only non-ACL xattr names captured by the initial contract; additions require review.
@@ -1207,6 +1214,14 @@ mod tests {
             .insert(XattrName::SelinuxLabel, Sha256::new("c".repeat(64)).unwrap());
         assert_eq!(metadata.extended.values.len(), 1);
         assert_eq!(StateRoot::UserRyokuProfile.manifest_name(), "user-ryoku-profile");
+    }
+
+    #[test]
+    fn configuration_restore_root_classification_excludes_generation_storage() {
+        assert!(StateRoot::EtcRyoku.is_configuration_state());
+        assert!(StateRoot::UserRyokuConfig.is_configuration_state());
+        assert!(StateRoot::UserRyokuProfile.is_configuration_state());
+        assert!(!StateRoot::StateGeneration.is_configuration_state());
     }
 
     #[test]

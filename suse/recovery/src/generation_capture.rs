@@ -585,6 +585,97 @@ mod tests {
     }
 
     #[test]
+    fn verified_multiroot_capture_stages_only_the_shared_configuration_scope() {
+        use crate::restore::{
+            ArtifactStatus, CompatibilityStatus, PreflightEvidence, RestoreScope,
+            SystemSnapshotStatus, plan_restore,
+        };
+
+        let source = TempDir::new("multiroot-stage-source");
+        let store_root = TempDir::new("multiroot-stage-store");
+        for (name, contents) in [
+            ("system.toml", b"system override".as_slice()),
+            ("user.toml", b"personal override".as_slice()),
+            ("profile.json", b"selected profile".as_slice()),
+            ("retained.json", b"immutable profile record".as_slice()),
+        ] {
+            fs::write(source.0.join(name), contents).unwrap();
+        }
+        let source_fd = source.descriptor();
+        let store = GenerationStore::open_for_test(&store_root.descriptor()).unwrap();
+        let system_paths = [RelativePath::new("system.toml").unwrap()];
+        let user_paths = [RelativePath::new("user.toml").unwrap()];
+        let profile_paths = [RelativePath::new("profile.json").unwrap()];
+        let retained_paths = [RelativePath::new("retained.json").unwrap()];
+        let roots = [
+            DeclaredRoot {
+                root: StateRoot::EtcRyoku,
+                descriptor: &source_fd,
+                paths: &system_paths,
+            },
+            DeclaredRoot {
+                root: StateRoot::UserRyokuConfig,
+                descriptor: &source_fd,
+                paths: &user_paths,
+            },
+            DeclaredRoot {
+                root: StateRoot::UserRyokuProfile,
+                descriptor: &source_fd,
+                paths: &profile_paths,
+            },
+            DeclaredRoot {
+                root: StateRoot::StateGeneration,
+                descriptor: &source_fd,
+                paths: &retained_paths,
+            },
+        ];
+
+        let captured =
+            capture_publish_verify_using(&store, request(&roots), capture_with_synthetic_metadata)
+                .unwrap();
+        let verified = store.open_verified_transaction(&captured.transaction_id).unwrap();
+        let configuration_entries =
+            captured.files().iter().filter(|record| record.root.is_configuration_state()).count();
+        assert_eq!(configuration_entries, 3);
+        assert_eq!(captured.files().len(), 4);
+
+        let plan = plan_restore(
+            &captured,
+            RestoreScope::ConfigurationOnly,
+            &PreflightEvidence {
+                generation: ArtifactStatus::Verified,
+                archive: ArtifactStatus::Verified,
+                current_state_checkpoint: ArtifactStatus::Verified,
+                system_snapshot: SystemSnapshotStatus::Missing,
+                system_compatibility: CompatibilityStatus::Unknown,
+                configuration_compatibility: CompatibilityStatus::Compatible,
+            },
+        )
+        .unwrap();
+        assert_eq!(plan.configuration_entries as usize, configuration_entries);
+        let staged = crate::configuration_stage::stage_configuration(&verified, &plan).unwrap();
+        assert_eq!(staged.entries().len(), configuration_entries);
+        assert!(staged.entries().iter().all(|entry| entry.record().root.is_configuration_state()));
+        let staged_content: BTreeMap<_, _> = staged
+            .entries()
+            .iter()
+            .map(|entry| {
+                let content = entry.content().unwrap();
+                (entry.record().root, content.to_vec())
+            })
+            .collect();
+        assert_eq!(staged_content[&StateRoot::EtcRyoku], b"system override");
+        assert_eq!(staged_content[&StateRoot::UserRyokuConfig], b"personal override");
+        assert_eq!(staged_content[&StateRoot::UserRyokuProfile], b"selected profile");
+        assert!(!staged_content.contains_key(&StateRoot::StateGeneration));
+        assert_eq!(
+            verified.manifest().files().len(),
+            staged.entries().len() + 1,
+            "immutable state-generation data remains verified in the source generation"
+        );
+    }
+
+    #[test]
     fn capture_retains_acl_and_label_bytes_for_files_directories_and_symlinks() {
         let source = TempDir::new("raw-metadata-source");
         let store_root = TempDir::new("raw-metadata-store");
