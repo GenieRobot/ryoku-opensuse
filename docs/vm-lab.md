@@ -689,3 +689,51 @@ packages. The
 experiment is Rust-only; a discovered commit plugin and direct zypper are not
 treated as integrated Ryoku authorization. PackageKit/Cockpit, Myrlyn and YaST
 write paths remain unsupported pending separate transaction-boundary proof.
+
+For storage and offline console component work, `--console-only` requires a
+configured `--state-probe`, `--state-initializer` or `--zypp-probe` and rejects GTK capture. It skips
+KDE package installation and login, records `skipped_console_probe`, and always
+reports `lifecycle_result=partial` and `lab_result=partial`. It retains signed
+input checks, standalone Btrfs/UEFI boot, enforcing SELinux, reboot, offline
+fixture recovery (except the destructive zypper experiment), fresh-base reset
+and disposable-disk/key cleanup. This mode does not satisfy desktop acceptance.
+
+`--state-probe /absolute/path/native_state_provision_probe` copies the compiled
+Rust fixture probe, verifies its exact component results, retains private raw
+output, installs/enables the state mount unit, and verifies its identity and
+store reopening after reboot. The current probe also exercises process death
+after a completed creation receipt. These checks are specific component proof,
+not full linked restore or complete interruption coverage. Run one VM at a time
+on the authorized WSL host, and discard the owned disposable disk after evidence
+capture rather than preserving another installed desktop image.
+
+`--state-initializer /absolute/path/ryoku-state-init --console-only` is a
+separate fresh-store test. It cannot be combined with the creation probe or
+zypper experiment. The harness runs the real initializer, requires its fresh
+success result, parses its bounded bootstrap transaction/snapshot receipt and
+invokes the explicit mounted-receipt resume command, then invokes initialization
+again to verify the recorded store remains available,
+and repeats that check after reboot. First, repeat and post-reboot output are
+retained privately. It still reports partial desktop/lifecycle acceptance.
+
+Supplied GTK/probe/initializer executables are copied from pinned open file
+descriptors into fresh mode-0700 files in the private run directory before
+booting. The harness records their staged SHA256 values and its own running
+executable hash. A later Cargo rebuild cannot replace the guest input through
+the original path. Staging opens the resolved source without following a
+replacement symlink and refuses existing destinations, empty or
+oversized inputs, and detected in-place changes during copying. Completed-run
+cleanup also removes these staged executables; failure artifacts stay private
+for inspection. This staging gate was added after Run09 started and is not
+credited to that earlier binary.
+
+Pair `--state-prepare-probe /absolute/path/native_state_init_failure_probe` with
+`--state-initializer` and `--console-only` to exercise unmounted receipt recovery.
+The fixture creates a verified checkpoint and complete creation receipt without
+the target mount. It requires a fresh retry to refuse without another initializer
+checkpoint, a poisoned UUID to remain refused and unrepaired, and foreign target
+data and a foreign mount unit to remain unchanged. It then removes only its own
+synthetic obstructions and invokes the real CLI resume, followed by ordinary
+repeat/reboot/offline/reset checks. Both executables are staged and hashed;
+raw failure/resume output remains private. This is not arbitrary-volume adoption
+or complete process-interruption coverage.

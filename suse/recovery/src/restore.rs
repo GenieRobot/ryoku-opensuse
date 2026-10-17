@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
 use crate::{Identifier, RecoveryManifest, Sha256, StateRoot, ValidationError};
 
 const MAX_JOURNAL_BYTES: u64 = 16 * 1024;
+const MAX_JOURNAL_DIRECTORY_ENTRIES: usize = 1024;
 const MAX_CONFIGURATION_ENTRIES: u32 = 256;
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -286,6 +287,8 @@ pub enum JournalError {
     Filesystem(Errno),
     Io(std::io::Error),
     Validation(ValidationError),
+    Machine(crate::machine_state::MachineStateError),
+    Mount(crate::state_mount::StateMountError),
 }
 
 impl std::fmt::Display for JournalError {
@@ -301,6 +304,8 @@ impl std::fmt::Display for JournalError {
             Self::Validation(error) => {
                 write!(f, "restore journal identifier is invalid: {error:?}")
             }
+            Self::Machine(error) => write!(f, "restore journal machine identity: {error}"),
+            Self::Mount(error) => write!(f, "restore journal state mount: {error}"),
         }
     }
 }
@@ -329,10 +334,67 @@ pub struct RestoreJournalStore {
 }
 
 impl RestoreJournalStore {
+    /// Open the fixed journal directory using independent machine identity and
+    /// live mount verification. Missing storage is an error, never an empty scan.
+    pub fn open_existing_state_mount() -> Result<Self, JournalError> {
+        let root = File::open("/")?;
+        let record = crate::machine_state::read_machine_state_record(&root)
+            .map_err(JournalError::Machine)?;
+        let (state, _) = crate::state_mount::collect_and_open_state_mount(&root, record.identity())
+            .map_err(JournalError::Mount)?;
+        Self::state_directory(&File::from(state), false)
+    }
+
+    /// Explicit provisioning only: create the private journal directory and
+    /// lock on a mount matching the caller's trusted creation identity.
+    pub fn initialize_state_mount(
+        expected: &crate::state_mount::StateMountIdentity,
+    ) -> Result<Self, JournalError> {
+        let root = File::open("/")?;
+        let (state, _) = crate::state_mount::collect_and_open_state_mount(&root, expected)
+            .map_err(JournalError::Mount)?;
+        Self::state_directory(&File::from(state), true)
+    }
+
+    fn state_directory(state: &File, create: bool) -> Result<Self, JournalError> {
+        if create {
+            match rustix::fs::mkdirat(state, "restore-journals", Mode::from_raw_mode(0o700)) {
+                Ok(()) => (),
+                Err(Errno::EXIST) => (),
+                Err(error) => return Err(error.into()),
+            }
+        }
+        let directory = File::from(openat2(
+            state,
+            "restore-journals",
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+            Mode::empty(),
+            ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_XDEV,
+        )?);
+        let stat = rustix::fs::fstat(&directory)?;
+        if stat.st_uid != 0 || stat.st_gid != 0 {
+            return Err(JournalError::InvalidStore);
+        }
+        let store = Self::open_directory(&directory, create)?;
+        if create {
+            fsync(state)?;
+        }
+        Ok(store)
+    }
+
     /// Takes an already-open directory descriptor on persistent storage outside
     /// rollback scope. Descriptor authorization and mount validation belong to
     /// the privileged caller and are intentionally not inferred from a path.
     pub fn open(trusted_root: &File) -> Result<Self, JournalError> {
+        Self::open_directory(trusted_root, true)
+    }
+
+    /// Open existing journal storage without creating a directory or lock file.
+    pub fn open_existing(trusted_root: &File) -> Result<Self, JournalError> {
+        Self::open_directory(trusted_root, false)
+    }
+
+    fn open_directory(trusted_root: &File, create: bool) -> Result<Self, JournalError> {
         let stat = rustix::fs::fstat(trusted_root)?;
         if rustix::fs::FileType::from_raw_mode(stat.st_mode) != rustix::fs::FileType::Directory
             || stat.st_mode & 0o7777 != 0o700
@@ -343,15 +405,25 @@ impl RestoreJournalStore {
         let lock_file = File::from(openat(
             &root,
             ".restore-journal.lock",
-            OFlags::RDWR | OFlags::CREATE | OFlags::CLOEXEC | OFlags::NOFOLLOW,
+            if create { OFlags::RDWR | OFlags::CREATE } else { OFlags::RDONLY }
+                | OFlags::CLOEXEC
+                | OFlags::NOFOLLOW
+                | OFlags::NONBLOCK,
             Mode::from_raw_mode(0o600),
         )?);
         let lock_stat = rustix::fs::fstat(&lock_file)?;
         if rustix::fs::FileType::from_raw_mode(lock_stat.st_mode)
             != rustix::fs::FileType::RegularFile
             || lock_stat.st_mode & 0o7777 != 0o600
+            || lock_stat.st_uid != stat.st_uid
+            || lock_stat.st_gid != stat.st_gid
+            || lock_stat.st_nlink != 1
         {
             return Err(JournalError::InvalidStore);
+        }
+        if create {
+            fsync(&lock_file)?;
+            fsync(&root)?;
         }
         Ok(Self { root, lock_file, process_lock: Mutex::new(()) })
     }
@@ -376,6 +448,40 @@ impl RestoreJournalStore {
     /// Reads and validates a journal, suitable for process-restart recovery.
     pub fn load(&self, restore_id: &Identifier) -> Result<RestoreJournal, JournalError> {
         self.with_lock(|| read_journal(&self.root, &journal_name(restore_id)?))
+    }
+
+    /// Discover unfinished attempts after process restart, without knowing IDs
+    /// from a previous client. The scan and reads share the journal writer lock.
+    /// Any unexpected entry (including an interrupted temporary publication),
+    /// corrupt record or excessive directory size refuses an all-clear result.
+    /// This is journal evidence only; callers must still validate the persistent
+    /// mount and enforce their session/recovery policy under the operation lock.
+    pub fn incomplete_attempts(&self) -> Result<Vec<RestoreJournal>, JournalError> {
+        self.with_lock(|| {
+            let mut entries = rustix::fs::Dir::read_from(&self.root)?;
+            let mut count = 0;
+            let mut pending = Vec::new();
+            for entry in &mut entries {
+                let entry = entry?;
+                let name = entry.file_name();
+                if matches!(name.to_bytes(), b"." | b".." | b".restore-journal.lock") {
+                    continue;
+                }
+                count += 1;
+                if count > MAX_JOURNAL_DIRECTORY_ENTRIES {
+                    return Err(JournalError::TooLarge);
+                }
+                let name = name.to_str().map_err(|_| JournalError::InvalidJournal)?;
+                let id = name.strip_suffix(".json").ok_or(JournalError::InvalidJournal)?;
+                Identifier::new(id).map_err(|_| JournalError::InvalidJournal)?;
+                let journal = read_journal(&self.root, name)?;
+                if journal.phase != RestorePhase::Complete {
+                    pending.push(journal);
+                }
+            }
+            pending.sort_by(|left, right| left.restore_id.cmp(&right.restore_id));
+            Ok(pending)
+        })
     }
 
     /// Persists exactly one next phase before updating the caller's value.
@@ -497,8 +603,12 @@ fn read_journal(root: &File, name: &str) -> Result<RestoreJournal, JournalError>
     )?;
     let file = File::from(fd);
     let stat = rustix::fs::fstat(&file)?;
+    let directory_stat = rustix::fs::fstat(root)?;
     if rustix::fs::FileType::from_raw_mode(stat.st_mode) != rustix::fs::FileType::RegularFile
         || stat.st_mode & 0o7777 != 0o600
+        || stat.st_uid != directory_stat.st_uid
+        || stat.st_gid != directory_stat.st_gid
+        || stat.st_nlink != 1
         || stat.st_size < 0
         || stat.st_size as u64 > MAX_JOURNAL_BYTES
     {
@@ -699,6 +809,116 @@ mod tests {
             plan_restore(&manifest, RestoreScope::ConfigurationOnly, &facts),
             Err(PreflightError::ConfigurationCompatibilityUnknown)
         );
+    }
+
+    #[test]
+    fn aliased_journal_is_not_accepted_as_restart_evidence() {
+        let (path, fd) = root();
+        let store = RestoreJournalStore::open(&fd).unwrap();
+        let plan = plan_restore(&manifest(), RestoreScope::CompleteLinked, &evidence()).unwrap();
+        let state = journal(plan);
+        store.create(&state).unwrap();
+        let record = path.join(journal_name(&state.restore_id).unwrap());
+        let alias = path.join("retained-alias");
+        fs::hard_link(&record, &alias).unwrap();
+        assert!(matches!(store.load(&state.restore_id), Err(JournalError::InvalidJournal)));
+        assert!(store.incomplete_attempts().is_err());
+        fs::remove_file(alias).unwrap();
+        assert_eq!(store.incomplete_attempts().unwrap(), [state]);
+        fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
+    fn existing_journal_open_never_creates_a_missing_lock_or_repairs_one() {
+        let (path, fd) = root();
+        assert!(RestoreJournalStore::open_existing(&fd).is_err());
+        assert_eq!(fs::read_dir(&path).unwrap().count(), 0);
+        drop(RestoreJournalStore::open(&fd).unwrap());
+        let existing = RestoreJournalStore::open_existing(&fd).unwrap();
+        assert!(existing.incomplete_attempts().unwrap().is_empty());
+        drop(existing);
+        let lock = path.join(".restore-journal.lock");
+        fs::set_permissions(&lock, fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(matches!(RestoreJournalStore::open_existing(&fd), Err(JournalError::InvalidStore)));
+        assert_eq!(fs::metadata(&lock).unwrap().permissions().mode() & 0o7777, 0o644);
+        fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
+    fn restart_discovery_retains_every_unfinished_phase_and_omits_only_complete() {
+        let (path, fd) = root();
+        let store = RestoreJournalStore::open(&fd).unwrap();
+        assert!(store.incomplete_attempts().unwrap().is_empty());
+        let plan = plan_restore(&manifest(), RestoreScope::CompleteLinked, &evidence()).unwrap();
+        let mut state = journal(plan);
+        store.create(&state).unwrap();
+        for phase in [
+            RestorePhase::Planned,
+            RestorePhase::CheckpointVerified,
+            RestorePhase::ContentStaged,
+            RestorePhase::WritersStopped,
+            RestorePhase::RootRollbackComplete,
+            RestorePhase::ConfigurationRestored,
+            RestorePhase::HealthChecked,
+            RestorePhase::Complete,
+        ] {
+            if state.phase != phase {
+                store.advance(&mut state, phase).unwrap();
+            }
+            let reopened = RestoreJournalStore::open(&fd).unwrap();
+            let expected =
+                if phase == RestorePhase::Complete { vec![] } else { vec![state.clone()] };
+            assert_eq!(reopened.incomplete_attempts().unwrap(), expected);
+        }
+        fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
+    fn restart_discovery_is_bounded_and_returns_stable_attempt_order() {
+        let (path, fd) = root();
+        let store = RestoreJournalStore::open(&fd).unwrap();
+        let plan = plan_restore(&manifest(), RestoreScope::CompleteLinked, &evidence()).unwrap();
+        let mut state = journal(plan);
+        for id in ["restore-z", "restore-a"] {
+            state.restore_id = Identifier::new(id).unwrap();
+            store.create(&state).unwrap();
+        }
+        assert_eq!(
+            store
+                .incomplete_attempts()
+                .unwrap()
+                .iter()
+                .map(|j| j.restore_id.as_str())
+                .collect::<Vec<_>>(),
+            ["restore-a", "restore-z"]
+        );
+        for index in 0..MAX_JOURNAL_DIRECTORY_ENTRIES {
+            state.restore_id = Identifier::new(format!("restore-bound-{index}")).unwrap();
+            let file = path.join(journal_name(&state.restore_id).unwrap());
+            fs::write(&file, serde_json::to_vec(&state).unwrap()).unwrap();
+            fs::set_permissions(file, fs::Permissions::from_mode(0o600)).unwrap();
+        }
+        assert!(matches!(store.incomplete_attempts(), Err(JournalError::TooLarge)));
+        fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
+    fn restart_discovery_refuses_corruption_unknown_entries_and_external_links() {
+        let (path, fd) = root();
+        let store = RestoreJournalStore::open(&fd).unwrap();
+        for name in [".restore-interrupted.tmp", "foreign-entry", "bad.json"] {
+            let entry = path.join(name);
+            fs::write(&entry, b"partial").unwrap();
+            fs::set_permissions(&entry, fs::Permissions::from_mode(0o600)).unwrap();
+            assert!(store.incomplete_attempts().is_err());
+            assert_eq!(fs::read(&entry).unwrap(), b"partial");
+            fs::remove_file(entry).unwrap();
+        }
+        std::os::unix::fs::symlink("/etc/passwd", path.join("external.json")).unwrap();
+        assert!(store.incomplete_attempts().is_err());
+        fs::remove_file(path.join("external.json")).unwrap();
+        assert!(store.incomplete_attempts().unwrap().is_empty());
+        fs::remove_dir_all(path).unwrap();
     }
 
     #[test]

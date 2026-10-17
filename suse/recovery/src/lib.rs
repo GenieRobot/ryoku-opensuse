@@ -28,8 +28,11 @@ pub mod native_checkpoint;
 pub mod preparation;
 #[cfg(target_os = "linux")]
 pub mod restore;
+mod state_boot_unit;
+pub mod state_creation;
 #[cfg(target_os = "linux")]
 pub mod state_mount;
+pub mod state_provision;
 
 use std::collections::{BTreeMap, BTreeSet};
 

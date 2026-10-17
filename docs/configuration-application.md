@@ -65,3 +65,35 @@ a complete linked console restore or real process-death/boot interruption gates.
 Run05 passed all 13 cases, including both native-only tests, on Tumbleweed
 20261013 with SELinux enforcing. The [component evidence](../infra/tumbleweed-lab/evidence/issue21-run05-configuration-apply.toml)
 records the exact test-binary/log hashes and remaining acceptance limits.
+
+Restart discovery now provides `RestoreJournalStore::incomplete_attempts`, a
+bounded scan under the same journal writer lock. It validates every record and
+returns every phase before `Complete`, in stable attempt-ID order, without
+requiring IDs remembered by a client. Corrupt records, external links, unknown
+entries, retained temporary publications and excessive directory size refuse
+an all-clear result. Tests reopen the store at every durable phase and cover
+those refusal cases. This API does not yet enforce a normal-session startup
+gate: the coordinator must validate the persistent mount, serialize operations,
+and consume the scan before session use. No issue acceptance claim is made
+from these component tests alone.
+
+The console now exposes `ryoku-recovery pending` through that scan. It reads
+the independent machine record, verifies the fixed Btrfs state mount, and
+opens `restore-journals` and its existing lock without creating either. Missing
+or unsafe journal storage is an error rather than an empty list. Explicit
+state initialization creates and synchronizes that directory/lock before
+machine identity publication; healthy repeated initialization refuses any
+unfinished attempt. This changes the initialization layout and still needs
+native validation with the new binaries; Run12 predates it. Existing partial
+development stores without this directory require explicit reconciliation.
+The helper/session startup gate and full restore executor remain unfinished.
+
+Run13 now proves the new journal directory/lock initialization, fixed-path
+discovery, missing-store refusal without recreation, retained partial-file
+refusal and discovery of a synthetic unfinished plan on native Btrfs. Healthy
+repeat, enforcing reboot, bounded offline fixture restore, fresh-baseline reset
+and disposable-resource cleanup passed. The [artifact](../infra/tumbleweed-lab/evidence/issue21-run13-journal-discovery.toml)
+records exact inputs and evidence hashes. It does not prove restore execution
+or session gating, and did not invoke the `ryoku-recovery pending` executable.
+The later journal owner/group/hard-link checks are covered by local tests and
+are not attributed to the Run13 binaries.

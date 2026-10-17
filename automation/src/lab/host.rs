@@ -38,6 +38,64 @@ const LOGIN_JOURNAL_TIMEOUT: Duration = Duration::from_secs(30);
 const ZYPP_PROBE_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 const MIGRATION_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 const SSH_TRANSFER_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+const STATE_PROBE_RESULTS: &[&str] = &[
+    "native_state_unmounted_receipt_resume=passed",
+    "native_state_resume_fresh_process=passed",
+    "native_state_creation_killed_process_resume=passed",
+    "native_state_creation=passed",
+    "native_state_existing_refused=passed",
+    "native_state_mount_identity=passed",
+    "native_state_wrong_identity_refused=passed",
+    "native_state_machine_record=passed",
+    "native_state_store_reopen=passed",
+    "native_state_boot_mount=unproven",
+    "native_state_interruption_resume=unproven",
+];
+
+fn validate_state_probe_results(output: &str) -> Result<()> {
+    let lines: Vec<_> = output.lines().collect();
+    require(lines == STATE_PROBE_RESULTS, "incomplete or unexpected state probe results")
+}
+
+const INITIALIZER_FAILURE_RESULTS: &[&str] = &[
+    "native_initializer_prior_attempt_refused=passed",
+    "native_initializer_wrong_uuid_refused=passed",
+    "native_initializer_bad_receipt_not_rewritten=passed",
+    "native_initializer_foreign_target_preserved=passed",
+    "native_initializer_foreign_unit_preserved=passed",
+    "native_initializer_unmounted_resume=passed",
+    "native_initializer_missing_boot_unit_refused=passed",
+    "native_initializer_changed_boot_unit_preserved=passed",
+    "native_initializer_missing_enablement_refused=passed",
+    "native_initializer_foreign_enablement_preserved=passed",
+    "native_journal_empty_scan=passed",
+    "native_journal_missing_store_refused=passed",
+    "native_journal_partial_record_preserved=passed",
+    "native_journal_pending_attempt_refused=passed",
+];
+
+fn validate_initializer_failure_results(output: &str) -> Result<()> {
+    require(
+        output.lines().collect::<Vec<_>>() == INITIALIZER_FAILURE_RESULTS,
+        "initializer failure/resume proof incomplete",
+    )
+}
+
+fn initializer_resume_request(log: &str) -> Result<(String, String)> {
+    let rows: Vec<_> =
+        log.lines().filter_map(|line| line.strip_prefix("Bootstrap checkpoint root:")).collect();
+    require(rows.len() == 1, "initializer bootstrap receipt missing or ambiguous")?;
+    let (snapshot, transaction) =
+        rows[0].split_once("; transaction ").ok_or("invalid bootstrap receipt")?;
+    let number = snapshot.parse::<u64>()?;
+    require(number > 0 && number.to_string() == snapshot, "invalid bootstrap snapshot")?;
+    require(
+        transaction.len() <= 128 && transaction.starts_with("state-initialize-"),
+        "invalid bootstrap transaction",
+    )?;
+    safe_component(transaction)?;
+    Ok((transaction.to_owned(), snapshot.to_owned()))
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum KdeProvisionFailure {
@@ -298,6 +356,9 @@ struct Lab {
     run: PathBuf,
     ui_binary: Option<PathBuf>,
     zypp_probe: Option<PathBuf>,
+    state_probe: Option<PathBuf>,
+    state_initializer: Option<PathBuf>,
+    state_prepare: Option<PathBuf>,
     zypp_package: Option<String>,
     port: Option<u16>,
     vm: Option<Child>,
@@ -718,6 +779,163 @@ impl Lab {
             "SSH_ZYPP_PROBE_COPY_FAILED",
         )?;
         self.ssh("sudo install -m 0755 /tmp/ryoku-zypp-hook-probe.upload /usr/local/sbin/ryoku-zypp-hook-probe")?;
+        Ok(())
+    }
+
+    fn state_probe(&mut self) -> Result<()> {
+        let binary = self.state_probe.as_ref().ok_or("no state probe configured")?;
+        let port = self.port.ok_or("owned QEMU SSH forwarding endpoint unknown")?;
+        let mut command = Command::new("scp");
+        command
+            .args(["-F", "/dev/null", "-i"])
+            .arg(self.run.join("id_ed25519"))
+            .args([
+                "-P",
+                &port.to_string(),
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=yes",
+                "-o",
+            ])
+            .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
+            .arg(binary)
+            .arg("tester@127.0.0.1:/tmp/ryoku-state-probe.upload");
+        self.run_private_child(
+            &mut command,
+            "state-probe-copy-private.log",
+            "SSH_STATE_PROBE_COPY_TIMEOUT",
+            "SSH_STATE_PROBE_COPY_FAILED",
+        )?;
+        self.ssh(
+            "sudo install -m 0755 /tmp/ryoku-state-probe.upload /usr/local/sbin/ryoku-state-probe",
+        )?;
+        self.ssh("sudo mkdir -m 0700 /run/ryoku-lab-top")?;
+        // The derived fixture always boots from its standalone /dev/vda disk.
+        // The probe independently checks the top mount's filesystem UUID and ID.
+        self.ssh(
+            "sudo mount -t btrfs -o subvolid=5,nodev,nosuid,noexec /dev/vda2 /run/ryoku-lab-top",
+        )?;
+        let result = self.ssh("sudo /usr/local/sbin/ryoku-state-probe");
+        let retained = self.run.join("state-probe-runtime-private.log");
+        fs::copy(self.run.join("guest-private.log"), &retained)?;
+        fs::set_permissions(&retained, fs::Permissions::from_mode(0o600))?;
+        let unmount = self.ssh("sudo umount /run/ryoku-lab-top");
+        let evidence = result?;
+        unmount?;
+        validate_state_probe_results(&evidence)?;
+        self.evidence(&evidence)?;
+        let boot = self.ssh("sudo /usr/local/sbin/ryoku-state-probe --install-boot-unit")?;
+        require(
+            boot.trim()
+                == "native_state_boot_unit_install=passed\nnative_state_boot_mount=awaiting_reboot",
+            "state boot-unit installation proof incomplete",
+        )?;
+        let retained = self.run.join("state-boot-install-private.log");
+        fs::copy(self.run.join("guest-private.log"), &retained)?;
+        fs::set_permissions(&retained, fs::Permissions::from_mode(0o600))?;
+        self.evidence(&boot)?;
+        Ok(())
+    }
+
+    fn initialize_state(&mut self) -> Result<()> {
+        let binary = self.state_initializer.as_ref().ok_or("no state initializer configured")?;
+        let port = self.port.ok_or("owned QEMU SSH endpoint unknown")?;
+        let mut copy = Command::new("scp");
+        copy.args(["-F", "/dev/null", "-i"])
+            .arg(self.run.join("id_ed25519"))
+            .args([
+                "-P",
+                &port.to_string(),
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=yes",
+                "-o",
+            ])
+            .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
+            .arg(binary)
+            .arg("tester@127.0.0.1:/tmp/ryoku-state-init.upload");
+        self.run_private_child(
+            &mut copy,
+            "initializer-copy-private.log",
+            "INITIALIZER_COPY_TIMEOUT",
+            "INITIALIZER_COPY_FAILED",
+        )?;
+        self.ssh(
+            "sudo install -m 0755 /tmp/ryoku-state-init.upload /usr/local/sbin/ryoku-state-init",
+        )?;
+        if self.state_prepare.is_some() {
+            self.prepare_and_resume_state()?;
+        } else {
+            let first = self.ssh("sudo /usr/local/sbin/ryoku-state-init initialize");
+            let retained = self.run.join("initializer-first-private.log");
+            fs::copy(self.run.join("guest-private.log"), &retained)?;
+            fs::set_permissions(&retained, fs::Permissions::from_mode(0o600))?;
+            require(
+                first?.trim() == "State store initialized; bootstrap checkpoint retained",
+                "fresh initializer result incomplete",
+            )?;
+            self.evidence("native_initializer_fresh=passed")?;
+            let (transaction, snapshot) =
+                initializer_resume_request(&fs::read_to_string(&retained)?)?;
+            let resumed = self.ssh(&format!(
+                "sudo /usr/local/sbin/ryoku-state-init resume {transaction} {snapshot}"
+            ))?;
+            require(
+                resumed.trim()
+                    == "State store initialization resumed; bootstrap checkpoint retained",
+                "initializer resume failed",
+            )?;
+            let retained = self.run.join("initializer-resume-private.log");
+            fs::copy(self.run.join("guest-private.log"), &retained)?;
+            fs::set_permissions(&retained, fs::Permissions::from_mode(0o600))?;
+            self.evidence("native_initializer_resume=passed")?;
+        }
+        let repeat = self.ssh("sudo /usr/local/sbin/ryoku-state-init initialize")?;
+        require(
+            repeat.trim() == "State store already initialized and available",
+            "repeat initializer unavailable",
+        )?;
+        let retained = self.run.join("initializer-repeat-private.log");
+        fs::copy(self.run.join("guest-private.log"), &retained)?;
+        fs::set_permissions(&retained, fs::Permissions::from_mode(0o600))?;
+        self.evidence("native_initializer_repeat=passed")?;
+        Ok(())
+    }
+
+    fn prepare_and_resume_state(&mut self) -> Result<()> {
+        let binary = self.state_prepare.as_ref().ok_or("state preparation probe missing")?;
+        let port = self.port.ok_or("owned SSH endpoint unknown")?;
+        let mut copy = Command::new("scp");
+        copy.args(["-F", "/dev/null", "-i"])
+            .arg(self.run.join("id_ed25519"))
+            .args([
+                "-P",
+                &port.to_string(),
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=yes",
+                "-o",
+            ])
+            .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
+            .arg(binary)
+            .arg("tester@127.0.0.1:/tmp/ryoku-state-prepare.upload");
+        self.run_private_child(
+            &mut copy,
+            "initializer-prepare-copy-private.log",
+            "STATE_PREPARE_COPY_TIMEOUT",
+            "STATE_PREPARE_COPY_FAILED",
+        )?;
+        self.ssh("sudo install -m 0755 /tmp/ryoku-state-prepare.upload /usr/local/sbin/ryoku-state-prepare")?;
+        let result = self.ssh("sudo /usr/local/sbin/ryoku-state-prepare");
+        let retained = self.run.join("initializer-failure-resume-private.log");
+        fs::copy(self.run.join("guest-private.log"), &retained)?;
+        fs::set_permissions(&retained, fs::Permissions::from_mode(0o600))?;
+        let evidence = result?;
+        validate_initializer_failure_results(&evidence)?;
+        self.evidence(&evidence)?;
         Ok(())
     }
 
@@ -1318,12 +1536,42 @@ fn desktop_password() -> Result<Vec<u8>> {
     Ok(password)
 }
 
-pub fn run(
-    assets: &str,
-    run: &str,
-    ui_binary: Option<&str>,
-    zypp_probe: Option<(&str, &str)>,
-) -> Result<()> {
+fn stage_input_binary(source: &Path, destination: &Path) -> Result<PathBuf> {
+    const LIMIT: u64 = 256 * 1024 * 1024;
+    let input = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as _)
+        .open(source)?;
+    let before = input.metadata()?;
+    require(
+        before.is_file() && before.len() > 0 && before.len() <= LIMIT,
+        "invalid input binary size or kind",
+    )?;
+    let mut output =
+        fs::OpenOptions::new().write(true).create_new(true).mode(0o700).open(destination)?;
+    output.set_permissions(fs::Permissions::from_mode(0o700))?;
+    let copied = std::io::copy(&mut (&input).take(LIMIT + 1), &mut output)?;
+    let after = input.metadata()?;
+    require(
+        copied == before.len()
+            && after.len() == before.len()
+            && after.modified()? == before.modified()?,
+        "input binary changed during staging",
+    )?;
+    output.sync_all()?;
+    fs::File::open(destination.parent().ok_or("input destination parent missing")?)?.sync_all()?;
+    Ok(destination.to_owned())
+}
+
+pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Result<()> {
+    let crate::RunOptions {
+        capture_ui: ui_binary,
+        zypp_probe,
+        state_probe,
+        state_initializer,
+        state_prepare,
+        console_only,
+    } = options;
     let image = scalar("image")?;
     let hash = scalar("sha256")?;
     let signer = scalar("release_key_fingerprint")?;
@@ -1336,6 +1584,18 @@ pub fn run(
     )?;
     let assets = fs::canonicalize(assets)?;
     let ui_binary = ui_binary.map(fs::canonicalize).transpose()?;
+    let state_probe = state_probe.map(fs::canonicalize).transpose()?;
+    let state_initializer = state_initializer.map(fs::canonicalize).transpose()?;
+    let state_prepare = state_prepare.map(fs::canonicalize).transpose()?;
+    if let Some(binary) = &state_prepare {
+        require(binary.is_file(), "state preparation probe is not a regular file")?;
+    }
+    if let Some(binary) = &state_initializer {
+        require(binary.is_file(), "state initializer is not a regular file")?;
+    }
+    if let Some(binary) = &state_probe {
+        require(binary.is_file(), "state probe binary is not a regular file")?;
+    }
     if let Some(binary) = &ui_binary {
         require(binary.is_file(), "GTK proof binary is not a regular file")?;
     }
@@ -1361,6 +1621,24 @@ pub fn run(
     runner::validate_host(&assets, &parent)?;
     fs::create_dir(run_path)?; // Never resume or delete an unowned existing directory.
     fs::set_permissions(run_path, fs::Permissions::from_mode(0o700))?;
+    let ui_binary = ui_binary
+        .map(|source| stage_input_binary(&source, &run_path.join("input-ui")))
+        .transpose()?;
+    let state_probe = state_probe
+        .map(|source| stage_input_binary(&source, &run_path.join("input-state-probe")))
+        .transpose()?;
+    let state_initializer = state_initializer
+        .map(|source| stage_input_binary(&source, &run_path.join("input-initializer")))
+        .transpose()?;
+    let state_prepare = state_prepare
+        .map(|source| stage_input_binary(&source, &run_path.join("input-state-prepare")))
+        .transpose()?;
+    let zypp_probe = zypp_probe
+        .map(|(source, package)| {
+            stage_input_binary(&source, &run_path.join("input-zypp-probe"))
+                .map(|binary| (binary, package))
+        })
+        .transpose()?;
     let checksum = output(Command::new("sha256sum").arg(assets.join(image)))?;
     require(checksum.split_whitespace().next() == Some(hash), "base checksum mismatch")?;
     let signed_sum = fs::read_to_string(assets.join("image.sha256"))?;
@@ -1398,6 +1676,9 @@ pub fn run(
         assets,
         run: fs::canonicalize(run_path)?,
         ui_binary,
+        state_probe,
+        state_initializer,
+        state_prepare,
         zypp_probe: zypp_probe.as_ref().map(|(binary, _)| binary.clone()),
         zypp_package: zypp_probe.as_ref().map(|(_, package)| package.clone()),
         port: None,
@@ -1412,6 +1693,24 @@ pub fn run(
         "unexpected QEMU version",
     )?;
     lab.evidence(&format!("qemu={qemu}\nimage_signature=verified"))?;
+    for (key, binary) in [
+        ("ui_binary_sha256", lab.ui_binary.clone()),
+        ("state_probe_sha256", lab.state_probe.clone()),
+        ("state_initializer_sha256", lab.state_initializer.clone()),
+        ("state_prepare_sha256", lab.state_prepare.clone()),
+        ("zypp_probe_sha256", lab.zypp_probe.clone()),
+        ("orchestrator_sha256", Some(PathBuf::from(format!("/proc/{}/exe", std::process::id())))),
+    ] {
+        if let Some(binary) = binary {
+            let digest = output(Command::new("sha256sum").arg(binary))?;
+            let digest = digest.split_whitespace().next().ok_or("missing binary checksum")?;
+            require(
+                digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit()),
+                "invalid binary checksum",
+            )?;
+            lab.evidence(&format!("{key}={digest}"))?;
+        }
+    }
     lab.seed()?;
     lab.overlay()?;
     output(
@@ -1441,17 +1740,28 @@ pub fn run(
     // but release the disposable migration source before desktop setup.
     fs::remove_file(lab.run.join("source-overlay.qcow2"))?;
     lab.evidence("migration_xfs_overlay=removed")?;
-    let kde_installed = match lab.kde_setup(&network) {
-        Ok(setup) => {
-            lab.evidence(&setup)?;
-            true
-        }
-        Err(failure) => {
-            lab.evidence(match failure {
-                KdeProvisionFailure::Timeout => "kde_provisioning=timeout",
-                KdeProvisionFailure::Failed => "kde_provisioning=blocked",
-            })?;
-            false
+    if lab.state_probe.is_some() {
+        lab.state_probe()?;
+    }
+    if lab.state_initializer.is_some() {
+        lab.initialize_state()?;
+    }
+    let kde_installed = if console_only {
+        lab.evidence("kde_provisioning=skipped_console_probe")?;
+        false
+    } else {
+        match lab.kde_setup(&network) {
+            Ok(setup) => {
+                lab.evidence(&setup)?;
+                true
+            }
+            Err(failure) => {
+                lab.evidence(match failure {
+                    KdeProvisionFailure::Timeout => "kde_provisioning=timeout",
+                    KdeProvisionFailure::Failed => "kde_provisioning=blocked",
+                })?;
+                false
+            }
         }
     };
     let mut password = desktop_password()?;
@@ -1495,7 +1805,11 @@ pub fn run(
             }
         }
     } else {
-        lab.evidence("desktop_login=blocked")?;
+        lab.evidence(if console_only {
+            "desktop_login=skipped_console_probe"
+        } else {
+            "desktop_login=blocked"
+        })?;
     }
     let before = lab.ssh("cat /proc/sys/kernel/random/boot_id")?;
     let _ = lab.ssh("sudo systemctl reboot");
@@ -1513,6 +1827,29 @@ pub fn run(
     require(changed, "boot identity did not change within 600 seconds")?;
     lab.wait_ssh()?;
     lab.copy_binary()?;
+    if lab.state_initializer.is_some() {
+        let result = lab.ssh("sudo /usr/local/sbin/ryoku-state-init initialize")?;
+        require(
+            result.trim() == "State store already initialized and available",
+            "initialized store unavailable after reboot",
+        )?;
+        let retained = lab.run.join("initializer-after-reboot-private.log");
+        fs::copy(lab.run.join("guest-private.log"), &retained)?;
+        fs::set_permissions(&retained, fs::Permissions::from_mode(0o600))?;
+        lab.evidence("native_initializer_after_reboot=passed")?;
+    }
+    if lab.state_probe.is_some() {
+        let boot = lab.ssh("sudo /usr/local/sbin/ryoku-state-probe --verify-boot")?;
+        require(
+            boot.trim()
+                == "native_state_boot_mount=passed\nnative_state_store_reopen_after_reboot=passed",
+            "state mount was not verified after reboot",
+        )?;
+        let retained = lab.run.join("state-after-reboot-private.log");
+        fs::copy(lab.run.join("guest-private.log"), &retained)?;
+        fs::set_permissions(&retained, fs::Permissions::from_mode(0o600))?;
+        lab.evidence(&boot)?;
+    }
     if kde_ready {
         match lab.login(&password) {
             Ok(session) => {
@@ -1652,8 +1989,20 @@ pub fn run(
     }
     let checksum = output(Command::new("sha256sum").arg(lab.assets.join(image)))?;
     require(checksum.split_whitespace().next() == Some(hash), "base changed during run")?;
+    for binary in [
+        &lab.ui_binary,
+        &lab.state_probe,
+        &lab.state_initializer,
+        &lab.state_prepare,
+        &lab.zypp_probe,
+    ]
+    .into_iter()
+    .flatten()
+    {
+        fs::remove_file(binary)?;
+    }
     lab.evidence("base_unchanged=passed\nreset_disk_and_keys=removed")?;
-    if zypp_probe.is_some() {
+    if zypp_probe.is_some() || console_only {
         lab.evidence("lifecycle_result=partial")?;
         if let Some(result) = optional_ui_result(lab.ui_binary.is_some(), ui_captured) {
             lab.evidence(result)?;
@@ -1678,6 +2027,80 @@ pub fn run(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn initializer_failure_fixture_requires_all_refusals_and_actual_unmounted_resume() {
+        let complete = INITIALIZER_FAILURE_RESULTS.join("\n") + "\n";
+        assert!(validate_initializer_failure_results(&complete).is_ok());
+        for invalid in [
+            complete.replace("native_initializer_wrong_uuid_refused=passed\n", ""),
+            complete.replace(
+                "native_initializer_unmounted_resume=passed",
+                "native_initializer_unmounted_resume=unproven",
+            ),
+            complete.clone() + "native_initializer_fresh=passed\n",
+        ] {
+            assert!(validate_initializer_failure_results(&invalid).is_err());
+        }
+    }
+
+    #[test]
+    fn initializer_resume_arguments_reject_ambiguous_receipts_and_shell_tokens() {
+        let valid =
+            "unrelated output\nBootstrap checkpoint root:42; transaction state-initialize-a\n";
+        assert_eq!(
+            initializer_resume_request(valid).unwrap(),
+            ("state-initialize-a".into(), "42".into())
+        );
+        for invalid in [
+            valid.repeat(2),
+            valid.replace("root:42", "root:042"),
+            valid.replace("state-initialize-a", "state-initialize-a;id"),
+            valid.replace("state-initialize-a", "../attempt"),
+            "unrelated output".into(),
+        ] {
+            assert!(initializer_resume_request(&invalid).is_err());
+        }
+    }
+
+    #[test]
+    fn staged_inputs_survive_source_replacement_and_never_replace_existing_outputs() {
+        let run = std::env::temp_dir().join(format!(
+            "ryoku-input-stage-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        fs::create_dir(&run).unwrap();
+        let source = run.join("source");
+        let staged = run.join("staged");
+        fs::write(&source, b"first-build").unwrap();
+        stage_input_binary(&source, &staged).unwrap();
+        assert_eq!(fs::metadata(&staged).unwrap().permissions().mode() & 0o777, 0o700);
+        fs::write(run.join("replacement"), b"second-build").unwrap();
+        fs::rename(run.join("replacement"), &source).unwrap();
+        assert_eq!(fs::read(&staged).unwrap(), b"first-build");
+        assert!(stage_input_binary(&source, &staged).is_err());
+        assert_eq!(fs::read(&staged).unwrap(), b"first-build");
+        fs::remove_file(&source).unwrap();
+        std::os::unix::fs::symlink(&staged, &source).unwrap();
+        assert!(stage_input_binary(&source, &run.join("rejected")).is_err());
+        assert!(!run.join("rejected").exists());
+        fs::remove_dir_all(run).unwrap();
+    }
+
+    #[test]
+    fn state_probe_requires_all_component_results_and_explicit_scope_limits() {
+        let complete = super::STATE_PROBE_RESULTS.join("\n") + "\n";
+        assert!(super::validate_state_probe_results(&complete).is_ok());
+        for invalid in [
+            complete.replace("native_state_creation=passed\n", ""),
+            complete.replace("native_state_boot_mount=unproven", "native_state_boot_mount=passed"),
+            complete.clone() + "native_state_store_reopen=passed\n",
+            String::new(),
+        ] {
+            assert!(super::validate_state_probe_results(&invalid).is_err());
+        }
+    }
+
     use super::*;
 
     #[test]

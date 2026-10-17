@@ -1,8 +1,11 @@
 # Managed state and profile recovery contract
 
-Status: M0 design contract for issue [#16](https://github.com/GenieRobot/ryoku-opensuse/issues/16).
-This is an implementation target, not evidence that dedicated storage or a
-boot recovery path has been exercised on Tumbleweed.
+Status: design contract for issue [#16](https://github.com/GenieRobot/ryoku-opensuse/issues/16),
+with partial recovery implementation and native evidence below. Dedicated-state
+initialization and reboot persistence have been exercised on Tumbleweed; complete
+linked restore and an independent boot recovery path remain unfinished. Progress
+notes below retain the scope of each historical build rather than attributing
+later changes to earlier VM results.
 
 The storage and profile decisions are recorded in
 [ADR 0002](adr/0002-linked-recovery-storage.md). That ADR is accepted design
@@ -941,3 +944,190 @@ destination-local stages, verifies read-back, and advances only to
 metadata and cross-filesystem tests cover the writer. Privileged console/native
 coordination, writer shutdown, health checks and the normal-session gate are
 still needed before issue #21 can be completed.
+
+The installation integration now includes a creation-side subvolume primitive
+(`state_provision`): it requires the running root descriptor and a matching
+Btrfs top-level descriptor, creates only `@ryoku-state`, and derives the
+expected identity from kernel read-back of that newly created volume. Existing
+names are never adopted. Its generated systemd mount unit pins the numeric
+subvolume ID. This is not yet an installed initializer: durable creation intent,
+bootstrap checkpoint coordination, mount/unit installation and interrupted
+provisioning reconciliation still need integration and native verification.
+
+Root-side machine identity publication uses a private pending file, file sync,
+no-replace rename and directory sync. Repeating publication can resume a
+complete matching pending record. Incomplete, unsafe or conflicting pending
+records are retained and refused; they never become the trusted startup
+identity. The provisioning caller must serialize publication. This closes the
+direct-to-final-file partial-write window without claiming that subvolume
+creation itself is yet resumable.
+
+`cargo build --locked -p ryoku-recovery --example native_state_provision_probe`
+builds a component experiment restricted to root in the seeded QEMU fixture.
+Before invoking it, the lab harness must mount the running root's Btrfs ID 5
+at `/run/ryoku-lab-top`. The probe creates and verifies a tagged Snapper
+checkpoint, creates the fixed state volume, checks duplicate refusal, mounts
+it by its created ID, checks expected and wrong identities, initializes the
+generation store, then publishes and reopens the independent machine record.
+It retains all resources for inspection until the disposable disk is discarded.
+The probe is built and host refusal is checked; native execution is pending.
+Its receipt is experimental and does not implement durable pre-creation intent.
+Boot mounting and interruption resume are explicitly reported as unproven.
+
+The creation proof can also install its generated mount unit through
+`install_mount_unit`. This checks that the supplied running root still has
+the created filesystem UUID and opens each fixed systemd directory without
+following symlinks. Publication checks owner, mode, link count and exact bytes,
+syncs a pending file, and renames without replacing existing content. A complete
+matching pending file is resumable; conflicting or partial files are retained.
+This writer does not relabel, enable or start the unit, and the current native
+probe does not exercise it yet. Boot persistence remains unverified.
+
+Run07's native creation probe completed in the SELinux-enforcing Btrfs guest.
+An evidence-filter omission dropped its success fields, so a separate
+`--inspect-existing` invocation read the protected machine record, verified its
+actual mounted partner, rejected a wrong expected identity and reopened the
+generation reader without mutation. The [read-back artifact](../infra/tumbleweed-lab/evidence/issue21-run07-state-readback.toml)
+records probe/log identities and these limits. Neither experiment establishes
+boot persistence, interruption resume or complete offline restore.
+
+The fixture probe also accepts `--install-boot-unit`: it verifies a new tagged
+root checkpoint, saves the origin boot ID, publishes the recorded-identity mount
+unit twice to check idempotence, relabels it and enables it through systemd.
+This completed in Run07. `--verify-boot` refuses the original boot and, only
+after a different boot ID, requires the independently recorded mount identity,
+enabled and active systemd unit, and readable generation store. The post-reboot
+check passed in Run07: a different boot ID, enabled/active mount unit, matching
+independent identity and reopened generation reader were verified. These are
+component experiments; production provisioning
+intent, locking and interruption reconciliation still need integration.
+
+The next creation probe uses `StateCreationTransaction`: a root-only guard
+revalidates the native bootstrap checkpoint, holds a protected provisioning
+lock, and syncs a creation intent before invoking the kernel creation operation.
+It then syncs the created filesystem/subvolume UUID and ID as a separate result.
+Any prior intent, complete or partial, refuses a fresh attempt and preserves
+evidence for reconciliation. The guard remains alive through mount and machine
+record publication. A crash between creation and result publication therefore
+cannot silently become a fresh attempt or authorize adopting an unknown volume.
+The local exclusive-publication regression passes; this new transaction has
+not yet been executed in a VM. Automated reconciliation and coordination with
+the global mutation lock remain unfinished.
+
+`resume_created` now supports the complete-result case: it locks provisioning,
+revalidates the supplied native bootstrap checkpoint, requires the exact saved
+intent and transaction, and parses bounded root-owned canonical result bytes.
+It compares the recorded filesystem/subvolume identity with the mounted partner
+and additionally checks the kernel subvolume UUID. Only that match returns a
+creation handle; no ownership or mount metadata is repaired on failure. Missing
+or partial results still require explicit reconciliation. Receipt regressions
+cover cross-transaction/filesystem mismatches and malformed encodings. Native
+resume and process-interruption coverage remain pending.
+
+The next creation probe includes a bounded process-death experiment after
+mounting the created state volume. It releases the original provisioning guard,
+starts a child that reopens the protected receipts and holds the lock, waits
+for its private readiness marker, kills only that owned child, then resumes in
+another fresh process. The parent also reopens the guard before publishing the
+machine identity. Child readiness is bounded to 30 seconds. This experiment
+builds and passes Clippy but has not run natively; Run07 predates the required
+creation-intent records. Even a successful run covers only this completed
+creation boundary, not every restore or provisioning interruption phase.
+
+Run08 executed that completed-creation process-death experiment successfully;
+the [component evidence](../infra/tumbleweed-lab/evidence/issue21-run08-creation-resume.toml)
+records exact binaries and retained runtime-log hashes. Desktop acceptance is
+intentionally skipped in this console fixture. Full lifecycle completion is
+recorded only after its remaining reset and cleanup finish.
+
+The uninstalled `ryoku-state-init initialize` binary now connects the fresh
+storage path: root-only kernel preflight, an initializer-wide lock before
+Snapper creation, protected config-to-root mapping checks, verified bootstrap
+checkpoint, durable creation intent/result, dedicated subvolume and mount unit,
+SELinux relabeling, enabled/mounted state, generation-store setup and independent
+machine identity published last. It removes only its own transient top mount;
+failures retain persistent resources. Healthy repeated invocation reopens the
+existing recorded store without changing its identity. Incomplete attempts are
+refused; automatic CLI reconciliation remains unfinished. It builds, its mapping
+regression and recovery tests pass, Clippy passes, and unprivileged host execution
+is refused. Run09 has now passed its fresh initialization and healthy repeat
+in the enforcing Tumbleweed guest; [evidence](../infra/tumbleweed-lab/evidence/issue21-run09-initializer.toml)
+records exact binary/log hashes. Post-reboot availability also passed; final
+reset and cleanup are still pending at this capture. RPM installation and automatic bootstrap
+capability remain disabled. It does not implement
+manual recovery checkpoints, restore or the global protected-mutation protocol.
+
+Machine identity reads also use nonblocking opens so unexpected special files
+can be rejected by inode-type checks without waiting for a FIFO writer. A
+bounded regression verifies that FIFO refusal alongside the existing identity
+publication and metadata checks. That hardening postdates the Run09 binary.
+
+The initializer now also accepts `resume TRANSACTION_ID SNAPSHOT_ID` for a
+complete creation receipt whose state volume is already mounted. It validates
+the supplied snapshot against the current root, matches protected intent/result
+records, reopens the matching kernel subvolume UUID under the provisioning
+lock, then completes unit/store/machine-record setup. It creates no replacement
+volume or checkpoint. Missing mounts, partial receipts and mismatches remain
+reconciliation failures. A fresh `initialize` detects prior intent/result/lock
+or pending-identity entries before creating another checkpoint, including
+partial files and dangling links. Argument and pending-entry regressions pass;
+the new CLI resume path is not yet exercised natively. Unmounted and ambiguous
+creation windows still need explicit reconciliation rather than automatic adoption.
+
+The next initializer build extends the complete-result case to a missing state
+mount. It opens a fresh private temporary ID-5 view, compares the fixed volume
+with the protected receipt's filesystem UUID, subvolume ID and UUID, and only
+then creates an absent target mountpoint and continues setup. An existing
+ordinary directory, foreign mount, missing result or mismatch still fails for
+reconciliation. The temporary directory uses an exclusive random name, so it
+does not reuse or unmount a killed attempt's old path. The lookup itself does
+not change volume metadata. Recovery regressions and Clippy pass; this new
+unmounted CLI branch remains unproven natively. The next creation probe also
+tests receipt reopening before mounting and rejects a foreign transaction.
+
+Run10 has passed the real initializer's fresh creation, explicit mounted-receipt
+resume in a fresh CLI process, healthy repeat and availability after reboot.
+The [artifact](../infra/tumbleweed-lab/evidence/issue21-run10-initializer-resume.toml)
+records the staged immutable binary and private-log hashes. Its resume followed
+healthy creation; it did not kill the initializer before identity publication.
+The later unmounted fallback and random temporary-mount changes are not credited
+to that binary. Run10 finished offline restore, fresh-baseline reset, unchanged
+signed-base verification, and removal of disposable disks, keys and staged input.
+
+`native_state_init_failure_probe` is a new fixture-only controller for the real
+unmounted CLI branch. It creates complete protected intent/result records and
+then requires: fresh retry refusal without another initializer checkpoint,
+wrong-UUID refusal without rewriting the poisoned receipt, unchanged foreign
+target data and mount-unit content, and successful CLI resume after explicit
+cleanup of those known synthetic obstructions. It reopens the independent
+machine record, kernel mount and generation reader afterward. The controller
+builds and passes Clippy and refuses unprivileged host execution; native results
+are pending. Its intentional receipt corruption belongs only to the seeded
+disposable QEMU fixture and is never production reconciliation behavior.
+
+Privileged helper startup now opens only an already-initialized generation
+store. Missing staging/generation/catalog directories fail before the request
+loop; startup does not create or synchronize replacement directories. The
+explicit initializer retains the creation-capable constructor for its verified
+transaction. A regression removes a catalog directory and confirms startup
+refuses without recreating it; protected-state identity forwarding checks pass.
+This storage-layout gate does not replace the unfinished restore-journal and
+normal-session health gates.
+
+Run11 passed all six controlled refusal/resume checks with the real initializer,
+then reopened the expected machine identity, kernel mount and generation reader.
+The [artifact](../infra/tumbleweed-lab/evidence/issue21-run11-unmounted-failure-resume.toml)
+records exact staged executables and log hashes; healthy repeat also passed.
+Reboot availability, bounded offline fixture restore, fresh-baseline reset and
+disposable disk/key cleanup also passed. The overall console result remains
+partial because desktop validation was skipped. The later helper
+startup constructor change is not attributed to the Run11 binaries.
+
+Healthy repeated initialization now also verifies the exact recorded mount-unit
+bytes and its owned `local-fs.target.wants` enablement link. A live mount alone
+cannot establish persistent boot setup. Missing, changed or unsafe unit/link
+state is refused without recreating or repairing it. Read-only checks cover
+absent files, foreign content, relative/absolute fixed link targets and writable
+enablement directories; recovery tests and Clippy pass. This additional check
+postdates Run11 and does not claim detection of every possible systemd override
+or replace native reboot validation.

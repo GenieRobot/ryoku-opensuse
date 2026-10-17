@@ -14,7 +14,10 @@ use std::{
 
 use rustix::{
     fd::AsFd,
-    fs::{FileType, Mode, OFlags, ResolveFlags, fchmod, fstat, fsync, mkdirat, openat, openat2},
+    fs::{
+        FileType, Mode, OFlags, RenameFlags, ResolveFlags, fchmod, fstat, fsync, mkdirat, openat,
+        openat2, renameat_with,
+    },
     io::Errno,
 };
 use serde::{Deserialize, Serialize};
@@ -164,8 +167,11 @@ pub fn read_machine_state_record(
 
 /// Provision the root-side expected identity from trusted identity facts
 /// obtained by the installation transaction. It creates the fixed file with
-/// `O_EXCL`, synchronizes both file and directory, and never replaces an
-/// existing record. Repeating the same provision request is idempotent.
+/// a private pending file with `O_EXCL`, synchronizes it, then publishes with
+/// a no-replace rename and synchronizes the directory. A complete pending file
+/// can be resumed; an incomplete or conflicting one requires reconciliation.
+/// Repeating the same provision request is idempotent. The caller holds the
+/// provisioning lock across this operation.
 pub fn provision_machine_state_record(
     trusted_root: &impl AsFd,
     record: &MachineStateRecord,
@@ -175,7 +181,7 @@ pub fn provision_machine_state_record(
     provision_in_directory(&parent, record, 0, 0)
 }
 
-fn open_record_directory(
+pub(crate) fn open_record_directory(
     trusted_root: &impl AsFd,
     create: bool,
 ) -> Result<File, MachineStateError> {
@@ -237,7 +243,7 @@ fn open_record_file(directory: &impl AsFd) -> Result<rustix::fd::OwnedFd, Machin
     Ok(openat2(
         directory,
         "state-machine.json",
-        OFlags::RDONLY | OFlags::CLOEXEC,
+        OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NONBLOCK,
         Mode::empty(),
         ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS,
     )?)
@@ -278,13 +284,14 @@ fn provision_in_directory(
     match openat2(
         directory,
         "state-machine.json",
-        OFlags::RDONLY | OFlags::CLOEXEC,
+        OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NONBLOCK,
         Mode::empty(),
         ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS,
     ) {
         Ok(existing) => {
             let existing = read_record_fd(&File::from(existing), expected_uid, expected_gid)?;
             return if existing == *record {
+                fsync(directory)?;
                 Ok(())
             } else {
                 Err(MachineStateError::AlreadyProvisioned)
@@ -294,16 +301,35 @@ fn provision_in_directory(
         Err(error) => return Err(error.into()),
     }
 
-    let raw_fd = openat(
+    let pending = "state-machine.pending";
+    let raw_fd = match openat(
         directory,
-        "state-machine.json",
+        pending,
         OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::CLOEXEC | OFlags::NOFOLLOW,
         Mode::from_bits_truncate(0o600),
-    )?;
-    fchmod(&raw_fd, Mode::from_bits_truncate(0o600))?;
-    let mut output = File::from(raw_fd);
-    output.write_all(&record.canonical_bytes()?)?;
-    output.sync_all()?;
+    ) {
+        Ok(raw_fd) => Some(raw_fd),
+        Err(Errno::EXIST) => None,
+        Err(error) => return Err(error.into()),
+    };
+    if let Some(raw_fd) = raw_fd {
+        fchmod(&raw_fd, Mode::from_bits_truncate(0o600))?;
+        let mut output = File::from(raw_fd);
+        output.write_all(&record.canonical_bytes()?)?;
+        output.sync_all()?;
+    }
+    let pending_fd = File::from(openat2(
+        directory,
+        pending,
+        OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NONBLOCK,
+        Mode::empty(),
+        ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS,
+    )?);
+    if read_record_fd(&pending_fd, expected_uid, expected_gid)? != *record {
+        return Err(MachineStateError::AlreadyProvisioned);
+    }
+    pending_fd.sync_all()?;
+    renameat_with(directory, pending, directory, "state-machine.json", RenameFlags::NOREPLACE)?;
     fsync(directory)?;
     Ok(())
 }
@@ -443,6 +469,38 @@ mod tests {
     }
 
     #[test]
+    fn interrupted_publication_resumes_only_a_complete_matching_pending_record() {
+        let path = temp_dir();
+        let directory = File::open(&path).unwrap();
+        let owner = fstat(&directory).unwrap();
+        let pending_path = path.join("state-machine.pending");
+        let mut pending = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&pending_path)
+            .unwrap();
+        pending.set_permissions(fs::Permissions::from_mode(0o600)).unwrap();
+        pending.write_all(b"{\"schema_version\":").unwrap();
+        pending.sync_all().unwrap();
+        assert!(provision_in_directory(&directory, &record(), owner.st_uid, owner.st_gid).is_err());
+        assert!(!path.join("state-machine.json").exists());
+        assert_eq!(fs::read(&pending_path).unwrap(), b"{\"schema_version\":");
+        // Simulate explicit reconciliation of this owned test transaction.
+        pending.set_len(0).unwrap();
+        drop(pending);
+        fs::write(&pending_path, record().canonical_bytes().unwrap()).unwrap();
+        provision_in_directory(&directory, &record(), owner.st_uid, owner.st_gid).unwrap();
+        assert!(!pending_path.exists());
+        assert_eq!(
+            fs::read(path.join("state-machine.json")).unwrap(),
+            record().canonical_bytes().unwrap()
+        );
+        provision_in_directory(&directory, &record(), owner.st_uid, owner.st_gid).unwrap();
+        fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
     fn reader_rejects_unsafe_mode() {
         let dir_path = temp_dir();
         let record = record();
@@ -461,6 +519,26 @@ mod tests {
             Err(MachineStateError::UnsafeRecord)
         );
         fs::remove_dir_all(dir_path).unwrap();
+    }
+
+    #[test]
+    fn fifo_record_is_refused_without_waiting_for_a_writer() {
+        let path = temp_dir();
+        let directory = File::open(&path).unwrap();
+        rustix::fs::mkfifoat(&directory, "state-machine.json", Mode::from_raw_mode(0o600)).unwrap();
+        let stat = fstat(&directory).unwrap();
+        let (send, receive) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let result = open_record_file(&directory)
+                .and_then(|fd| read_record_fd(&File::from(fd), stat.st_uid, stat.st_gid));
+            send.send(result).unwrap();
+        });
+        assert_eq!(
+            receive.recv_timeout(std::time::Duration::from_secs(5)).unwrap(),
+            Err(MachineStateError::UnsafeRecord)
+        );
+        worker.join().unwrap();
+        fs::remove_dir_all(path).unwrap();
     }
 
     #[test]
