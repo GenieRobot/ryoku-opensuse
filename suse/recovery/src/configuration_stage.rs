@@ -9,11 +9,14 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{
-    EntryKind, FileRecord, Sha256, StateRoot, XattrName,
+    EntryKind, FileRecord, Sha256, XattrName,
     generation::{GenerationError, VerifiedGeneration},
     metadata::{AclPayload, InvalidMetadataPayload, entry_metadata},
     restore::{RestorePlan, RestoreScope},
 };
+
+#[cfg(test)]
+use crate::StateRoot;
 
 const MAX_STAGED_PAYLOAD_BYTES: usize = 64 * 1024 * 1024;
 
@@ -135,16 +138,8 @@ pub fn stage_configuration(
     {
         return Err(StageError::PlanMismatch);
     }
-    let records: Vec<_> = manifest
-        .files()
-        .iter()
-        .filter(|record| {
-            matches!(
-                record.root,
-                StateRoot::EtcRyoku | StateRoot::UserRyokuConfig | StateRoot::UserRyokuProfile
-            )
-        })
-        .collect();
+    let records: Vec<_> =
+        manifest.files().iter().filter(|record| record.root.is_configuration_state()).collect();
     if records.len() != plan.configuration_entries as usize {
         return Err(StageError::PlanMismatch);
     }
@@ -218,7 +213,7 @@ mod tests {
     use super::*;
     use crate::{
         EntryMetadata, ExtendedMetadata, Identifier, OperationReason, RecoveryManifest,
-        RelativePath, SnapshotLink, VerificationStatus,
+        RelativePath, SnapshotLink, StateRoot, VerificationStatus,
         generation::{GenerationStore, Payloads},
     };
     use sha2::{Digest, Sha256 as Hash};
