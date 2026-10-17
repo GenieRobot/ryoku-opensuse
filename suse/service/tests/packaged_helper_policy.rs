@@ -22,7 +22,7 @@ fn section<'a>(unit: &'a str, name: &str) -> Vec<&'a str> {
 }
 
 fn has_directive(lines: &[&str], expected: &str) -> bool {
-    lines.iter().any(|line| *line == expected)
+    lines.contains(&expected)
 }
 
 fn rpm_section<'a>(spec: &'a str, name: &str) -> Vec<&'a str> {
