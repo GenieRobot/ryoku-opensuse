@@ -1,22 +1,29 @@
 # ADR 0001: Rust UI and Ryostore integration boundary
 
-- **Status:** Proposed for review; desktop and IPC choices remain provisional
-  until the Tumbleweed proof runs.
+- **Status:** Proposed for review; native KDE launcher read proof recorded,
+  with architecture, desktop and packaging acceptance still pending.
 - **Date:** 2026-10-13
+- **Evidence revision:** 2026-10-16
 - **Issue:** [M0-05, #14](https://github.com/GenieRobot/ryoku-opensuse/issues/14)
 - **Source baseline:** Ryoku commit
   [`98a0368253d9628be72b853985878a5db90e1547`](https://github.com/Ryoku-dev/ryoku/commit/98a0368253d9628be72b853985878a5db90e1547),
   recorded in [`upstream/ryoku.source.toml`](../../upstream/ryoku.source.toml).
 
-## Decision
+## Proposed decision
 
-Keep the current GTK4 Rust application as the project-owned UI proof and
-preserve a Rust-only typed backend contract behind it. Treat a versioned,
-authenticated D-Bus interface as the leading service transport candidate; the
-UI talks only to an unprivileged Rust service, and that service alone owns
-provider capabilities. The D-Bus choice is not final until its accessibility,
-runtime dependencies, session behavior, and Tumbleweed packaging pass the VM
-gate.
+Retain the pinned upstream shell/launcher unchanged as the existing-surface
+frontend, with supported reads connected through narrow project-owned Rust
+executables to the versioned, authenticated Rust service contract. Keep GTK as
+an optional Rust contract/diagnostic surface. The unchanged launcher has now
+rendered a live service discovery result and the real error after its owned
+service stopped. This supplies a representative read boundary, not acceptance
+of the complete shell, Hub, store or write controls.
+
+The tested prototype uses the existing authenticated per-user Unix socket.
+D-Bus remains an alternative requiring separate design and native validation;
+this proof does not select the final product transport. The UI and adapter stay
+unprivileged, and only the service owns provider capabilities. Accepting this
+proposal requires explicit review and the remaining issue #14 desktop gates.
 
 Do not import or modify the upstream Ryostore surface as part of M0-05. The
 reuse finding is: **a read-only slice is technically reusable without
@@ -165,11 +172,12 @@ project-owned screens.
   but the palette and scale depend on Ryoku singleton files. Preserve the whole
   visual/a11y dependency closure or replace it with a newly authored Rust
   surface; do not ship a partial broken QML module.
-- `noctalia-qs` is only a candidate Quickshell runtime in the inspected
-  Tumbleweed metadata. Its advertised binary provide does not prove support
-  for `Quickshell.Io`, `Ryoku.Ui`, or this source's APIs. Resolve and test every
-  import and runtime before packaging; the exact inspected package snapshot and
-  Qt module notes are in [`docs/tumbleweed-dependencies.md`](../tumbleweed-dependencies.md#source-compatibility-assessment).
+- Actual native launch rejected `noctalia-qs 0.0.12` at the unchanged shell's
+  `DefaultEnv` pragma. Unchanged upstream Quickshell 0.3.2, revision
+  `4f508be500dea6e5732cc3d50382a0048b17e7b1`, built against native Qt 6.11.2
+  and loaded the shell. The [runtime evidence](../../infra/tumbleweed-lab/evidence/issue14-real-ryoku-runtime.toml)
+  records source, dependency, plugin, font and accepted visible-result hashes.
+  This proves neither complete Hub/control compatibility nor RPM acceptance.
 - A Rust CLI adapter can avoid project-authored non-Rust glue, but it must not
   let legacy UI actions escape the accepted allowlist or recovery gates. Until
   it safely covers the visible action set, do not present unchanged Ryostore as
@@ -182,14 +190,26 @@ surface attributable and untouched. It does not preserve the complete Ryoku
 store experience yet. The current GTK sample remains backend-independent and
 cannot prove the selected service transport.
 
-The next reviewable implementation should connect a representative GTK view to
-the typed service interface, replacing fixed sample values with the real
-unprivileged backend while retaining one harmless read-only action. Only after
-that boundary exists should an issue decide whether to build a Rust CLI
-compatibility adapter for the untouched Quickshell surface or continue the
-native GTK surface.
+A [Rust executable provider](../launcher-service-provider.md) now uses the
+pinned shell's existing argv/rofi-script extension to render only typed
+`Discover` outcomes in the unchanged launcher. In the native KWin/Plasma guest,
+ordinary keyboard input produced actual `RecoveryUnavailable` from the active
+ordinary-user Rust service, then `Unavailable` after that exact owned service
+was stopped and reaped. Both reviewed visible rows match the actual provider's
+journal request/result IDs. No Go protocol listener or sample response supplied
+these results. The [native evidence](../../infra/tumbleweed-lab/evidence/issue14-native-launcher-service.toml)
+records the accepted captures and exact source/binary/log hashes.
+
+The service fixes from issue #17 at `9f2908c45e97ae443d72a5af2b3f56d0e15a812d`
+and session launcher from issue #25 at `2057a0fcada1630e24a8fde53970cbb73b6671f1`
+are separate tested-native prerequisites, not implementation changes in this
+focused provider publication. The provider's cached-query and informational
+selection limits remain explicit. This route implements a representative
+existing-surface read, while leaving Ryostore compatibility and this ADR's
+overall acceptance open.
 
 M0-05 cannot be accepted until a disposable Tumbleweed GUI run demonstrates the
-real request/result/error path, keyboard and screen-reader accessibility,
-theme/scale behavior, Hyprland and KDE fallback, and package install/removal.
-CI and screenshots from a demo backend do not close that gate.
+remaining keyboard/focus and screen-reader accessibility, theme/scale behavior,
+Hyprland and KDE fallback acceptance, and package install/removal. The native
+KDE read-only request/result/error component passed; architecture/public PR
+review, the remaining controls and full M0-05 acceptance remain pending.
