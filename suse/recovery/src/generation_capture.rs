@@ -67,6 +67,7 @@ pub enum GenerationCaptureError {
     EmptyInventory,
     TooManyRoots,
     DuplicateRoot,
+    ProtectedInternalRoot,
     InventoryTooLarge,
     PayloadMismatch,
     VerificationMismatch,
@@ -84,6 +85,9 @@ impl std::fmt::Display for GenerationCaptureError {
             Self::EmptyInventory => formatter.write_str("declared inventory is empty"),
             Self::TooManyRoots => formatter.write_str("declared root count exceeds fixed limit"),
             Self::DuplicateRoot => formatter.write_str("declared root is duplicated"),
+            Self::ProtectedInternalRoot => {
+                formatter.write_str("declared inventory cannot select protected store internals")
+            }
             Self::InventoryTooLarge => formatter.write_str("declared inventory exceeds limits"),
             Self::PayloadMismatch => {
                 formatter.write_str("captured payload does not match its record")
@@ -305,6 +309,9 @@ fn validate_inventory(
     let mut unique_roots = BTreeSet::new();
     let mut total_paths = 0usize;
     for root in roots {
+        if root.root == StateRoot::StateGeneration {
+            return Err(GenerationCaptureError::ProtectedInternalRoot);
+        }
         if !unique_roots.insert(root.root) {
             return Err(GenerationCaptureError::DuplicateRoot);
         }
@@ -733,6 +740,26 @@ mod tests {
         assert!(matches!(
             capture_publish_verify_without_xattrs_for_test(&store, request(&roots)),
             Err(GenerationCaptureError::DuplicateRoot)
+        ));
+    }
+
+    #[test]
+    fn protected_generation_root_is_rejected_before_capture() {
+        let source = TempDir::new("protected-inventory-source");
+        let store_root = TempDir::new("protected-inventory-store");
+        let source_fd = source.descriptor();
+        let store_fd = store_root.descriptor();
+        let store = GenerationStore::open_for_test(&store_fd).unwrap();
+        let paths = [RelativePath::new("catalog/transaction.json").unwrap()];
+        let roots = [DeclaredRoot {
+            root: StateRoot::StateGeneration,
+            descriptor: &source_fd,
+            paths: &paths,
+        }];
+
+        assert!(matches!(
+            capture_publish_verify_without_xattrs_for_test(&store, request(&roots)),
+            Err(GenerationCaptureError::ProtectedInternalRoot)
         ));
     }
 
