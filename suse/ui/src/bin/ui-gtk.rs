@@ -59,7 +59,10 @@ fn main() {
         gtk::Application::builder().application_id("org.ryoku.OpenSUSE.UiProof").build();
 
     application.connect_activate(move |application| {
-        let status = gtk::Label::new(Some("System status: waiting for refresh"));
+        let status = gtk::Label::builder()
+            .label("System status: waiting for refresh")
+            .accessible_role(gtk::AccessibleRole::Status)
+            .build();
         status.set_xalign(0.0);
         status.set_wrap(true);
 
@@ -70,7 +73,18 @@ fn main() {
         result.set_xalign(0.0);
         result.set_wrap(true);
 
-        let refresh = gtk::Button::builder().label("Refresh status").receives_default(true).build();
+        // Keep a standard GTK focus target and default activation for Tab/Enter,
+        // and provide an explicit mnemonic for keyboard users. The accessible
+        // shortcut property lets AT-SPI clients expose the same accelerator.
+        let refresh = gtk::Button::builder()
+            .label("_Refresh status")
+            .use_underline(true)
+            .receives_default(true)
+            .build();
+        refresh.update_property(&[
+            gtk::accessible::Property::Label("Refresh status"),
+            gtk::accessible::Property::KeyShortcuts("Alt+R"),
+        ]);
 
         let content = gtk::Box::new(gtk::Orientation::Vertical, 12);
         content.set_margin_top(24);

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Ryoku UI Integration Proof
+GenericName=User Interface Integration Proof
+Comment=Demonstrates Ryoku's typed, read-only status action
+Exec=ryoku-ui-gtk
+Icon=org.ryoku.OpenSUSE.UiProof
+Terminal=false
+Categories=System;Utility;
+StartupNotify=true
