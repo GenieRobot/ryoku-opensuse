@@ -119,6 +119,13 @@ current guest passes normal dependency/ABI resolution, install and reinstall.
 Record its original unsigned digest separately from any fixture-signed copy;
 do not describe it as rebuilt by the current PR.
 
+The tools, UI proof and desktop-runtime specs honor Cargo's standard
+`CARGO_TARGET_DIR` for both compilation and installation. An ordinary-user,
+native build-root cache outside rpmbuild's package build directories can be
+shared between those builds; Cargo still checks source fingerprints and the
+locked vendor closure. Record cache origin and complete logs. This does not
+reuse a host-built binary or bypass native BuildRequires.
+
 The explicit runtime set has ten packages: defaults, helper, UI proof,
 Quickshell, desktop, desktop-runtime, desktop-fonts, tools, tools-state-init
 and tools-launcher-status. Debug outputs are recorded separately. Collect
