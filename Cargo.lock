@@ -606,8 +606,10 @@ dependencies = [
 name = "ryoku-recovery"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "linux-raw-sys",
  "rustix",
+ "ryoku-profiles",
  "ryoku-snapper",
  "serde",
  "serde_json",

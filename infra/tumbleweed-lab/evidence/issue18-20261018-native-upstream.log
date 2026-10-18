@@ -1,0 +1,32 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running unittests src/lib.rs (/home/jin/src/ryoku-opensuse/target/issue18-focused/debug/deps/ryoku_recovery-f610b9532e41ffda)
+
+running 2 tests
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... test writer_protocol::tests::all_pinned_upstream_writer_routes_apply_without_fuzz ... ok
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 193 filtered out; finished in 0.16s
+
+test writer_protocol::tests::pinned_upstream_daemon_writes_are_quiesced ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 192 filtered out; finished in 0.17s
+
+     Running unittests src/bin/ryoku-recovery.rs (/home/jin/src/ryoku-opensuse/target/issue18-focused/debug/deps/ryoku_recovery-529a9e958a2e3981)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running unittests src/bin/ryoku-state-init.rs (/home/jin/src/ryoku-opensuse/target/issue18-focused/debug/deps/ryoku_state_init-fd8b90804338a734)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running unittests src/bin/ryoku-writer.rs (/home/jin/src/ryoku-opensuse/target/issue18-focused/debug/deps/ryoku_writer-c7c3c599caf06e2e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

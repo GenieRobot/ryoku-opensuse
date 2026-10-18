@@ -266,6 +266,8 @@ fn wait_ready(
 /// `.local/state/ryoku`. Environment variables cannot select a journal/socket.
 pub fn run_native() -> Result<(), String> {
     let (paths, listener, file) = crate::runtime_paths::RuntimePaths::open()?;
+    ryoku_recovery::writer_protocol::initialize_writer_namespace()
+        .map_err(|_| "account writer coordination namespace is unavailable")?;
     // Path validation happened before replay. Repeat after replay and before
     // each authenticated connection can query the in-memory operation state.
     let journal = OperationJournal::open(file).map_err(|_| "operation journal replay failed")?;

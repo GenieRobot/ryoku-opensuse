@@ -1,0 +1,16 @@
+{
+  "ryoku/shell/systemd/user/ryoku-shell.service": "ca96641ebc22b91b48868e02eecbf4546a7abbea",
+  "ryoku/shell/systemd/user/ryogami.service": "745de7223e0aa68fccfc4db332d949eef0952ff0",
+  "ryoku/shell/quickshell/shell/services/Capture.qml": "1619a10c03f8ebd4f1a7bdcd2145be53d357536f",
+  "ryoku/shell/quickshell/shell/modules/launcher/shared/providers/actions/catalog.js": "fbd385e6454d6d43b620d75b10b5b765cff23cf7",
+  "ryoku/shell/quickshell/shell/modules/bar/Frame.qml": "45d67bafa6385d3ecba88742fea49d8a444d378c",
+  "ryoku/shell/quickshell/ryopin/Pin.qml": "c83119cbb53e1d62be27f826eac1d6dbe4e35ed5",
+  "ryoku/hyprland/modules/ryoshot.lua": "e3ad688999b89bac7dd3b007f2968f2d71c3e7b3",
+  "ryoku/hyprland/modules/binds.lua": "2467e409df1e1d603c27b56277ab37ca841f42bf",
+  "ryoku/hyprland/modules/autostart.lua": "1d541a89ee8a74fe53132f7b375596a99ff486fd",
+  "ryoku/shell/ipc/daemon.go": "e919c76ac63842f1538c9cd99c39b9922f106a15",
+  "ryoku/shell/ipc/control.go": "87faafaca382ade0fcd6c1553e410ae8c2648d44",
+  "ryoku/shell/ryogami/daemon/process.go": "86e48836e29b37c794bf5350a19c05b8523e6fb2",
+  "ryoku/shell/ipc/actions.go": "a0c9379f4209d43c18968778381a361f24d6e6b7",
+  "ryoku/shell/ipc/bar.go": "4a8d5da3fe0824686c59b54f1a47d63b016221f5"
+}
