@@ -5,11 +5,52 @@
 //! supplied executable, path, shell text, or provider arguments. Mutations are
 //! rejected until an integration can supply verified linked-capture evidence.
 
+#[cfg(test)]
+pub(crate) fn test_unix_sockets_available() -> bool {
+    let (mut stream, _peer) = match std::os::unix::net::UnixStream::pair() {
+        Ok(pair) => pair,
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => return false,
+        Err(error) => panic!("UnixStream::pair failed unexpectedly: {error}"),
+    };
+    if let Err(error) = std::io::Write::write_all(&mut stream, b"probe") {
+        if error.kind() == std::io::ErrorKind::PermissionDenied {
+            return false;
+        }
+        panic!("UnixStream write probe failed: {error}");
+    }
+    match rustix::net::sockopt::socket_peercred(&stream) {
+        Ok(_) => true,
+        Err(error) if error == rustix::io::Errno::PERM => false,
+        Err(error) => panic!("SO_PEERCRED probe failed unexpectedly: {error}"),
+    }
+}
+
+#[cfg(test)]
+#[macro_export]
+macro_rules! test_unix_pair_or_skip {
+    () => {{
+        if !$crate::test_unix_sockets_available() {
+            eprintln!("skipping Unix socket test: socket I/O or SO_PEERCRED denied by sandbox");
+            return;
+        }
+        match std::os::unix::net::UnixStream::pair() {
+            Ok(pair) => pair,
+            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+                eprintln!("skipping Unix socket test: socketpair denied by sandbox");
+                return;
+            }
+            Err(error) => panic!("UnixStream::pair failed unexpectedly: {error}"),
+        }
+    }};
+}
+
 pub mod account_state;
 pub mod helper_protocol;
 pub mod mutation_gate;
 #[cfg(target_os = "linux")]
 pub mod protected_state;
+#[cfg(target_os = "linux")]
+pub mod recovery_gate;
 pub mod runtime;
 mod runtime_paths;
 
@@ -24,6 +65,7 @@ use serde::{Deserialize, Serialize};
 pub const PROTOCOL_VERSION: u16 = 1;
 pub const MAX_REQUEST_BYTES: usize = 64 * 1024;
 pub const MAX_JOURNAL_LINE_BYTES: usize = 16 * 1024;
+const MUTATION_JOURNAL_VERSION: u16 = 2;
 const MAX_OPERATION_ID_BYTES: usize = 96;
 
 /// Opaque client correlation identifier with a bounded, printable alphabet.
@@ -520,6 +562,7 @@ pub struct OperationJournal {
     file: File,
     current: BTreeMap<OperationId, OperationStatus>,
     write_failed: bool,
+    mutations: BTreeMap<OperationId, mutation_gate::MutationContext>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -527,6 +570,8 @@ pub struct OperationJournal {
 struct JournalRecord {
     version: u16,
     status: OperationStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    mutation: Option<mutation_gate::MutationContext>,
 }
 
 impl OperationJournal {
@@ -540,6 +585,7 @@ impl OperationJournal {
     ) -> Result<Self, JournalError> {
         use std::io::{Seek, SeekFrom};
         let mut current = BTreeMap::new();
+        let mut mutations = BTreeMap::new();
         let mut reader = BufReader::new(file.try_clone().map_err(|_| JournalError::Io)?);
         reader.seek(SeekFrom::Start(0)).map_err(|_| JournalError::Io)?;
         let mut line = Vec::new();
@@ -563,10 +609,21 @@ impl OperationJournal {
             }
             let record: JournalRecord = serde_json::from_slice(&line[..line.len() - 1])
                 .map_err(|_| JournalError::Corrupt)?;
-            if record.version != PROTOCOL_VERSION {
+            if !matches!(record.version, PROTOCOL_VERSION | MUTATION_JOURNAL_VERSION) {
                 return Err(JournalError::UnsupportedVersion(record.version));
             }
-            validate_transition(current.get(&record.status.operation_id), &record.status)?;
+            if (record.version == MUTATION_JOURNAL_VERSION) != record.mutation.is_some() {
+                return Err(JournalError::Corrupt);
+            }
+            validate_journal_record(
+                current.get(&record.status.operation_id),
+                mutations.get(&record.status.operation_id),
+                &record.status,
+                record.mutation.as_ref(),
+            )?;
+            if let Some(context) = record.mutation {
+                mutations.insert(record.status.operation_id.clone(), context);
+            }
             current.insert(record.status.operation_id.clone(), record.status);
             valid_len = valid_len.saturating_add(count as u64);
         }
@@ -574,7 +631,7 @@ impl OperationJournal {
         // earlier failed sync. Establish durability before publishing replayed
         // state, including on process restart and after truncating a torn tail.
         sync(&file).map_err(|_| JournalError::Io)?;
-        Ok(Self { file, current, write_failed: false })
+        Ok(Self { file, current, mutations, write_failed: false })
     }
 
     pub fn get(&self, id: &OperationId) -> Option<&OperationStatus> {
@@ -599,22 +656,77 @@ impl OperationJournal {
     pub(crate) fn simulate_uncertain_write_failure(&mut self) {
         self.write_failed = true;
     }
+    /// Detailed historical association; this never authorizes replay/apply.
+    pub fn mutation_context(&self, id: &OperationId) -> Option<&mutation_gate::MutationContext> {
+        self.mutations.get(id)
+    }
+
+    /// Reopen under the existing coordinator lock before accepting new work.
+    /// This refresh prevents a process from using a stale pre-lock journal view.
+    pub(crate) fn refresh(&mut self) -> Result<(), JournalError> {
+        *self = Self::open(self.file.try_clone().map_err(|_| JournalError::Io)?)?;
+        Ok(())
+    }
+
+    /// Unfinished work and failures that may have changed state require explicit
+    /// reconciliation. Legacy records retain their status but provide no missing
+    /// checkpoint proof; legacy failed operations are conservatively unresolved.
+    pub fn recovery_required(&self) -> Vec<&OperationStatus> {
+        self.current
+            .values()
+            .filter(|status| match status.phase {
+                OperationPhase::Succeeded => false,
+                OperationPhase::Failed => !matches!(
+                    self.mutations.get(&status.operation_id).and_then(|context| context.outcome),
+                    Some(
+                        mutation_gate::MutationOutcome::FailedBeforeChange
+                            | mutation_gate::MutationOutcome::CancelledBeforeChange
+                    )
+                ),
+                _ => true,
+            })
+            .collect()
+    }
+
     pub fn record(&mut self, status: OperationStatus) -> Result<(), JournalError> {
         self.record_with_sync(status, File::sync_all)
+    }
+
+    pub(crate) fn record_mutation(
+        &mut self,
+        status: OperationStatus,
+        context: mutation_gate::MutationContext,
+    ) -> Result<(), JournalError> {
+        self.record_inner(status, Some(context), File::sync_all)
     }
 
     fn record_with_sync(
         &mut self,
         status: OperationStatus,
+        sync: impl FnMut(&File) -> std::io::Result<()>,
+    ) -> Result<(), JournalError> {
+        self.record_inner(status, None, sync)
+    }
+
+    fn record_inner(
+        &mut self,
+        status: OperationStatus,
+        mutation: Option<mutation_gate::MutationContext>,
         mut sync: impl FnMut(&File) -> std::io::Result<()>,
     ) -> Result<(), JournalError> {
         if self.write_failed {
             return Err(JournalError::Io);
         }
-        validate_transition(self.current.get(&status.operation_id), &status)?;
+        validate_journal_record(
+            self.current.get(&status.operation_id),
+            self.mutations.get(&status.operation_id),
+            &status,
+            mutation.as_ref(),
+        )?;
         let mut record = serde_json::to_vec(&JournalRecord {
-            version: PROTOCOL_VERSION,
+            version: if mutation.is_some() { MUTATION_JOURNAL_VERSION } else { PROTOCOL_VERSION },
             status: status.clone(),
+            mutation: mutation.clone(),
         })
         .map_err(|_| JournalError::Io)?;
         if record.len() + 1 > MAX_JOURNAL_LINE_BYTES {
@@ -627,9 +739,31 @@ impl OperationJournal {
             self.write_failed = true;
             return Err(JournalError::Io);
         }
+        if let Some(context) = mutation {
+            self.mutations.insert(status.operation_id.clone(), context);
+        }
         self.current.insert(status.operation_id.clone(), status);
         Ok(())
     }
+}
+
+fn validate_journal_record(
+    previous: Option<&OperationStatus>,
+    old_context: Option<&mutation_gate::MutationContext>,
+    next: &OperationStatus,
+    context: Option<&mutation_gate::MutationContext>,
+) -> Result<(), JournalError> {
+    let valid = match (context, old_context, previous) {
+        (None, None, _) => return validate_transition(previous, next),
+        (Some(context), None, None) => context.initial() && context.valid_for(next),
+        (Some(context), Some(old_context), Some(previous)) => {
+            previous.action == next.action
+                && context.valid_for(next)
+                && context.follows(old_context)
+        }
+        _ => false,
+    };
+    if valid { Ok(()) } else { Err(JournalError::InvalidTransition) }
 }
 
 fn validate_transition(
@@ -1113,7 +1247,12 @@ mod tests {
         writeln!(
             file,
             "{}",
-            serde_json::to_string(&JournalRecord { version: 1, status: status.clone() }).unwrap()
+            serde_json::to_string(&JournalRecord {
+                version: 1,
+                status: status.clone(),
+                mutation: None
+            })
+            .unwrap()
         )
         .unwrap();
         file.write_all(b"{\"version\":1,\"status\":").unwrap();

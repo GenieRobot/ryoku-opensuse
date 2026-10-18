@@ -17,8 +17,8 @@ Requires:       rpm >= 4.19
 # package has no files owned by the group it declares.
 
 %description
-Installs Ryoku's socket-activated privileged helper boundary. The current
-helper rejects all valid operations and performs no system mutation. Access
+Installs Ryoku's socket-activated privileged helper and read-only recovery
+session gate. The helper rejects all valid protected operations in this build. Access
 to its socket is limited to explicitly selected members of ryoku-operators.
 
 This build includes only the implemented user service and deny-only helper.
@@ -44,6 +44,10 @@ install -D -m 0644 packaging/rpm/systemd/ryoku-helper.service \
     %{buildroot}%{_unitdir}/ryoku-helper.service
 install -D -m 0644 packaging/rpm/systemd/ryoku-helper.socket \
     %{buildroot}%{_unitdir}/ryoku-helper.socket
+install -D -m 0644 packaging/rpm/systemd/ryoku-recovery-gate.service \
+    %{buildroot}%{_unitdir}/ryoku-recovery-gate.service
+install -D -m 0644 packaging/rpm/systemd/ryoku-recovery-gate.socket \
+    %{buildroot}%{_unitdir}/ryoku-recovery-gate.socket
 install -D -m 0644 packaging/rpm/systemd/user/ryoku-service.service \
     %{buildroot}%{_userunitdir}/ryoku-service.service
 install -D -m 0644 packaging/rpm/sysusers.d/ryoku.conf \
@@ -55,6 +59,8 @@ install -D -m 0644 packaging/rpm/sysusers.d/ryoku.conf \
 %attr(0755,root,root) %{_libexecdir}/ryoku/ryoku-service
 %attr(0644,root,root) %{_unitdir}/ryoku-helper.service
 %attr(0644,root,root) %{_unitdir}/ryoku-helper.socket
+%attr(0644,root,root) %{_unitdir}/ryoku-recovery-gate.service
+%attr(0644,root,root) %{_unitdir}/ryoku-recovery-gate.socket
 %attr(0644,root,root) %{_userunitdir}/ryoku-service.service
 %attr(0644,root,root) %{_sysusersdir}/ryoku.conf
 
