@@ -1,0 +1,99 @@
+# Authorized disposable-run preflight only; no VM or run directory was created.
+schema = 1
+date = "2026-10-18"
+issue = 26
+status = "blocked at host preflight; no guest execution"
+runner = "authorized existing openSUSE WSL runner"
+required_signed_image = "openSUSE-Tumbleweed-Minimal-VM.x86_64-1.0.0-Cloud-Snapshot20261013.qcow2"
+required_memory_bytes = 7516192768
+required_run_filesystem_bytes = 12884901888
+guest_prerequisites = "not checked"
+vm_runtime = "unproven"
+retained_target_ryoku_development_touched = false
+authorization = "user explicitly allowed one fresh disposable QEMU run; runner preflight rejected launch"
+
+[[attempts]]
+run_path = "/tmp/ryoku-opensuse-fresh-oct18"
+asset_directory = "/workspace/opensuse-vm (missing)"
+available_memory_bytes = 6359871488
+available_run_filesystem_bytes = 298414080
+result = "failed: missing asset directory, insufficient memory and insufficient /tmp space"
+run_directory_created = false
+vm_created = false
+disk_created = false
+key_created = false
+
+[[attempts]]
+run_path = "/home/jin/src/ryoku-opensuse/target/ryoku-fresh-oct18"
+asset_directory = "/workspace/opensuse-vm (missing)"
+available_memory_bytes = 6321324032
+available_run_filesystem_bytes = 977646354432
+result = "failed: missing asset directory and insufficient memory; target filesystem space passed"
+run_directory_created = false
+vm_created = false
+disk_created = false
+key_created = false
+
+[[attempts]]
+run_path = "/home/jin/src/ryoku-opensuse/target/ryoku-fresh-oct18"
+asset_directory = "/home/jin/src/ryoku-opensuse/target/wsl-lab-assets-oct18"
+available_memory_bytes = 9131737088
+available_run_filesystem_bytes = 977645133824
+result = "failed: signed base image, signed checksum and release signature absent; RAM and run-space checks passed"
+run_directory_created = false
+vm_created = false
+disk_created = false
+key_created = false
+guest_prerequisites = "not checked"
+vm_runtime = "unproven"
+asset_fetch = "official moving URL, official archive URL and official-listed UMD mirror path returned HTTP 404; no alternate snapshot used"
+latest_asset_fetch_attempt = "exact pinned checksum returned HTTP 404 from download.opensuse.org/pub/opensuse/factory/appliances, openSUSE-listed mirror.umd.edu, openSUSE-listed ftp.fau.de and cdn.opensuse.org; the release-mirror index still lists the file but downloadable endpoints disagree"
+latest_asset_directory_check = "/workspace/opensuse-vm absent; target/wsl-lab-assets-oct18 now has opensuse-project.asc imported into its isolated GPG home with the pinned fingerprint AD485664E901B867051AB15F35A2F86E29B700A4; image, checksum and detached signature are absent"
+latest_official_index_result = "search-indexed official factory/appliance index lists Snapshot20261013 with matching size and mirrorlist SHA-256; direct fetches on all checked endpoints returned 404; no image was accepted"
+latest_mirrorlist_fetch = "authorized curl to the official /download/tumbleweed/...Snapshot20261013.qcow2.mirrorlist endpoint returned HTTP 425; HTTP/1.1 request to the official /pub/opensuse/factory/appliances/...mirrorlist path returned HTTP 404; no mirror URL or asset bytes were obtained"
+current_qemu_process = "none found; no guest launched"
+latest_host_memory_available_bytes = 9110007808
+latest_index_path = "official search indexed the exact Snapshot20261013 image, checksum, and signature under /tumbleweed/appliances (not the earlier /factory/appliances path)"
+latest_direct_fetch = "curl through the approved network boundary to the official /tumbleweed/appliances image path returned HTTP 404 before downloading bytes; no guest created"
+latest_officially_listed_mirror_attempt = "openSUSE search result listed opensuse.ipacct.com for the exact signed release; approved curl to its matching /tumbleweed/appliances path returned HTTP 404 with zero bytes"
+continuation_official_checksum_lookup = "openSUSE's exact image mirrorlist search result confirmed the fixture SHA-256 b9dcb17c0c7e81e153a12d35ea4d86a516b4d2139c6a82ddd75aa6ce3cb9db3a and size 304 MiB; this metadata is not a downloaded signed checksum"
+continuation_asset_fetch_attempts = "approved requests for the exact checksum returned HTTP 404 from download.opensuse.org /tumbleweed and /download paths, download-repositories.opensuse.org, cdn.opensuse.org, mirror.umd.edu, ftp.gwdg.de, ftp.tu-chemnitz.de, and opensuse.ipacct.com; no checksum, signature, or image bytes obtained"
+continuation_run = "not launched; detached checksum signature and image absent; no VM/disk/key/run directory created"
+
+[[attempts]]
+run_path = "/home/jin/src/ryoku-opensuse/target/ryoku-fresh-oct18b"
+asset_directory = "/home/jin/src/ryoku-opensuse/target/wsl-lab-assets-oct18"
+available_memory_bytes = 9083723776
+available_run_filesystem_bytes = 976274296832
+result = "built vm-lab with the wsl-lab feature and ran the exact WSL preflight; signed image, checksum and release signature are missing"
+run_directory_created = false
+vm_created = false
+disk_created = false
+key_created = false
+guest_prerequisites = "not checked"
+vm_runtime = "unproven"
+qemu_process = "none"
+latest_preflight_command = "RYOKU_LAB_AUTHORIZED=existing-wsl-vm target/debug/vm-lab preflight $PWD/target/wsl-lab-assets-oct18 $PWD/target/ryoku-fresh-oct18b"
+latest_preflight_result = "failed only the three signed input checks; memory and filesystem space passed; no run directory, VM, disk or key was created"
+latest_network_boundary_attempt = "escalated curl requests to the official /tumbleweed/appliances path, official /pub/opensuse/factory/appliances path, openSUSE-listed mirror.umd.edu path, and cdn.opensuse.org path each returned HTTP 404 for the exact pinned checksum; no bytes accepted"
+latest_official_index_recheck = "official search index still lists the exact Snapshot20261013 image (304 MiB), checksum, and detached signature, and reports the fixture image SHA-256; these index/mirrorlist metadata are not signed local assets"
+latest_corrected_umd_mirror_probe = "officially listed UMD mirror index root is /opensuse/tumbleweed/appliances/; HEAD for the exact Snapshot20261013 qcow2 at mirror.umd.edu/opensuse/tumbleweed/appliances returned HTTP 404; no bytes downloaded; earlier /tumbleweed/appliances path also returned 404"
+latest_corrected_umd_mirror_probe_time_utc = "2026-10-18T10:13:40Z"
+latest_run_authorization = "user authorized a fresh disposable QEMU run; pinned signed image/checksum/signature still unavailable, so preflight and launch were not repeated"
+latest_qemu_process_check = "no qemu-system-x86_64 process found"
+latest_official_metalink_attempt = "escalated requests for the exact Snapshot20261013 .meta4 and .metalink files returned HTTP 404; no mirror metadata or bytes obtained"
+continuation_preflight_command = "RYOKU_LAB_AUTHORIZED=existing-wsl-vm target/debug/vm-lab preflight /home/jin/src/ryoku-opensuse/target/wsl-lab-assets-oct18 /home/jin/src/ryoku-opensuse/target/ryoku-fresh-authorized-preflight-oct18"
+continuation_preflight_result = "failed (exit 1) with exactly three missing prerequisites: signed base image is not a regular readable file, image.sha256 is absent, and release signature verification fails"
+continuation_preflight_output = "host_preflight=failed; runner=wsl; accelerator=tcg; guest_prerequisites=not_checked; vm_runtime=unproven; no run directory, VM, disk, or key was created"
+continuation_authorization = "user explicitly authorized a fresh disposable QEMU run; the lab exact-input preflight blocks launch until the signed pinned image bundle is present"
+current_official_appliance_index = "2026-10-18 live official factory/appliances index lists Snapshot20261014 artifacts and no Snapshot20261013 entries; browser lines 241-246 show the current snapshot and sidecars"
+current_official_exact_asset_open = "direct official checksum/signature and mirrorlist fetches returned cache-miss errors through the web fetcher; no bytes were downloaded"
+asset_retrieval_status = "pinned 20261013 release is no longer listed in the current official appliance index; do not substitute 20261014 without updating the approved fixture baseline"
+latest_continuation_preflight_command = "RYOKU_LAB_AUTHORIZED=existing-wsl-vm target/debug/vm-lab preflight /workspace/opensuse-vm $PWD/target/ryoku-fresh-continuation-20261018"
+latest_continuation_preflight_result = "failed solely because /workspace/opensuse-vm does not exist; no run directory, VM, disk or key was created"
+latest_continuation_preflight_exit_code = 1
+current_search_cache_audit = "web search still returns cached 20261013 appliance and mirrorlist metadata, but live official factory/appliances open dated today lists 20261014 as current and find reports no 20261013 match; exact mirrorlist opens report cache miss, so search results do not change asset_retrieval_status"
+oct18_direct_download_recheck = "approved curl for the exact image at download.opensuse.org/tumbleweed/appliances returned HTTP 404; the official /download mirrorlist endpoint returned HTTP 425; direct probes for the image at mirror.umd.edu, ftp.fau.de and download.opensuse.org/pub/opensuse/factory/appliances returned HTTP 404; no asset bytes were downloaded"
+oct18_official_index_recheck = "live official factory/appliances index lists Snapshot20261014 QCOW2 and signed checksum files; it has no Snapshot20261013 entry; search metadata still advertises stale 20261013 mirrorlist metadata"
+oct18_asset_status = "exact pinned signed base image is unavailable from checked official endpoints; retain baseline hash b9dcb17c0c7e81e153a12d35ea4d86a516b4d2139c6a82ddd75aa6ce3cb9db3a and request user-provided original bundle; do not substitute newer snapshot"
+oct18_qemu_status = "not launched; exact signed image, checksum and detached signature are absent; no VM, disk, key or run directory created"
