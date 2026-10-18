@@ -1,0 +1,80 @@
+schema = 1
+date = "2026-10-18"
+issue = 19
+pull_request = 139
+base_commit = "adc6ec0602ecdaec45eeb1fd65e17b999bac885f"
+runtime_patch_sha256 = "b93f10428baf08175a7fd55503b8c85b8b51fb2d9dbe03c2f0523e6e479d6cd1"
+runtime_patch_command = "git diff --binary adc6ec0602ecdaec45eeb1fd65e17b999bac885f -- automation suse Cargo.toml Cargo.lock rust-toolchain.toml | sha256sum"
+scope = "original sealed native receipt propagation, exact historical partner lookup, read-only verify-linked CLI, and the optional linked-probe harness; broad launch-preflight/KVM support removed"
+toolchain = "Rust/Cargo 1.99.0; CARGO_BUILD_JOBS=2; locked offline dependencies"
+
+[host_validation]
+specific_commands = ["cargo test --locked --offline -p ryoku-recovery linked_checkpoint", "cargo test --locked --offline -p ryoku-recovery native_checkpoint", "cargo test --locked --offline -p ryoku-recovery native_capture_receipt"]
+specific_result = "passed: 5 linked tests, 5 native-checkpoint tests, 1 receipt-capture test"
+specific_log_sha256 = "8be1d1a3a8f1498b89c0ee6c70abcf424d3d31fca864173e13bbbc0b3aae8037"
+workspace_command = "cargo test --locked --offline --workspace --all-features"
+workspace_result = "failed only at confirmed main baseline: generation_capture::tests::verified_multiroot_capture_stages_only_the_shared_configuration_scope; ProtectedInternalRoot at generation_capture.rs:686; recovery 152 passed, 1 failed, 2 ignored"
+workspace_log_sha256 = "d4ef829b400bed92b6789be6af94a435c9716dd8946623536017aeeb350716d9"
+baseline_command = "cargo test --manifest-path /tmp/issue19-main-baseline/Cargo.toml --locked --offline -p ryoku-recovery verified_multiroot_capture_stages_only_the_shared_configuration_scope"
+baseline_result = "same test failed on clean git archive of adc6ec0 at generation_capture.rs:642 with ProtectedInternalRoot; test supplies prohibited StateGeneration inventory; baseline source unmodified"
+baseline_log_sha256 = "f9c13464966f8bc6ee4c4dd657962a2126b4d700a4ad6dfd05173fd7930f8813"
+remaining_workspace_command = "cargo test --locked --offline --workspace --all-features -- --skip verified_multiroot_capture_stages_only_the_shared_configuration_scope"
+remaining_workspace_result = "passed: 479 tests including doctest; 3 native tests ignored; only the confirmed baseline test excluded"
+remaining_workspace_log_sha256 = "fbf02ac41ae7ed35f09f60d2876ad579ede52cdb0162a5b0209bd1e8751722e2"
+socket_access = "workspace tests ran with native Unix socket access; initial restricted-sandbox QMP failures were not accepted as source failures or passing proof"
+clippy_command = "cargo clippy --locked --offline --workspace --all-targets --all-features -- -D warnings"
+clippy_result = "passed"
+clippy_log_sha256 = "79166eb7db9f7d7e178f0e3b05c4c026fc58e86ef4eee769072364ed82e85182"
+dependency_command = "cargo deny --offline --all-features check"
+dependency_result = "passed: advisories, bans, licenses, sources; native access used for existing advisory database lock"
+dependency_log_sha256 = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+format_command = "cargo fmt --all -- --check"
+format_result = "passed"
+diff_command = "git diff --check"
+diff_result = "passed"
+
+[native_validation]
+guest = "reused already-running Tumbleweed 20261016 QEMU guest; no new VM, disk or run directory"
+transport = "strict SSH verification against previously recorded ED25519 key with HostKeyAlias across forwarded-port change"
+kernel = "7.2.10-1-default"
+snapper = "0.13.1; libsnapper 8.0.0"
+selinux = "Enforcing"
+observed_layout = "root Btrfs @; protected state Btrfs @ryoku-state; helper socket/service inactive before probe"
+build_command = "cargo build --locked --offline -p ryoku-recovery --bin ryoku-recovery --example native_linked_checkpoint_probe"
+probe_sha256 = "a5e2c4ae9cd8b3ca76fa28ca0259f36b710e8e33f0d5246393707cee345c63dc"
+cli_sha256 = "e600a56e35482d0350dd072555746ee9beccf4c60d76459205b9089228ea460d"
+baseline_cli_sha256 = "625b333a7afb19e0c0d71c568a93474ba39c559a429d9c68597243dff7f9e105"
+stage_log_sha256 = "ddb5bb29cbef56247cdbfea7e811f51917b104a73d055b1384fa83cd5d65001b"
+transaction = "issue19-linked-probe"
+generation = "issue19-linked-generation"
+journal = "issue19-linked-journal"
+snapshot = "root:6"
+substitute_snapshot = "root:7; transaction tag issue19-linked-substitute"
+commands = ["native_linked_checkpoint_probe --capture", "ryoku-recovery verify-linked issue19-linked-probe", "native_linked_checkpoint_probe --exercise-failures", "native_linked_checkpoint_probe --verify", "ryoku-recovery inspect issue19-linked-probe", "native_linked_checkpoint_probe --cleanup-journal", "ryoku-recovery verify-linked issue19-linked-probe"]
+capture = "passed: fresh unique namespace, original sealed receipt, exact generation/payload/catalog/native snapshot, own schema-3 Planned journal, duplicate transaction refusal"
+failures = "passed: writable snapshot, missing snapshot, substituted read-only native snapshot and missing generation refused; original paths and read-only flags restored before final verification"
+cli = "passed: actual verify-linked named exact transaction/generation/root:6 and left boot compatibility and restore readiness unassessed; inspect reported recorded original receipt"
+probe_log_sha256 = "5928a752752b8d6db2aae07f050af8bde044e78ad66333846d5f1630e3347d18"
+own_journal_cleanup = "passed: exact verified schema-3 Planned journal removed under journal lock; neither pre-existing journal changed"
+cleanup_log_sha256 = "804aa7feef31a666e8218ea571d8a2a05fc059f980d1ccf591169e91e64de6fa"
+reboot = "not performed in this current-source check; Run15 normal-reboot result remains historical"
+root_rollback = "not performed; current changed-root persistence unproven"
+
+[journal_compatibility]
+observed = "the two pre-existing #22 journals use schema 4; unchanged adc6ec0 and this PR accept schema 3 and both reject pending with identical invalid-or-corrupt error, exit 2; existing guest CLI understands schema 4"
+reason = "unchanged restore.rs validate_journal requires schema_version == 3; no #19 change to journal schema or pending path"
+comparison = "unchanged-main CLI built from clean adc6ec0 archive; read-only schema inspection and both journal hashes compared"
+baseline_pending_log_sha256 = "ea522f4f91abd4bfad6f16e80e7ef0be0a09c9ab1bf9125f62d52705219fc1f1"
+original_planned_journal_sha256 = "3d61ecd6b876e60aa5d7c2580c19227082a46e49652b6c4008dd0e06c554c0f4"
+original_restore_attempt_sha256 = "2fd86ef4f26fc5ded8df72ba0f4f4ec294843baffa4b46f8923a142977617e75"
+preservation = "both hashes unchanged after probe and final cleanup; no migration, rewriting or deletion; retained native-linked-probe root:2 still passes current verify-linked"
+
+[cleanup_and_limits]
+guest_cleanup = "own staged probe/CLI/baseline CLI and /run/ryoku-issue19-linked-source removed; own journal removed; existing guest and prior assets remain running/intact"
+final_guest_log_sha256 = "7ce1113637839ab4604f129d076b2be36de4621e9d95d2478c45639849908e75"
+retained_artifacts = ["/.snapshots/6/snapshot (read-only original)", "/.snapshots/7/snapshot (read-only substitute at restored path)", "/var/lib/ryoku-state/generations/issue19-linked-generation", "/var/lib/ryoku-state/catalog/issue19-linked-probe.json"]
+retained_reason = "exact native identity/association evidence retained for coordinator inspection; no retention-policy or deletion-ownership claim"
+host_cleanup = "temporary build output and baseline archive/build removed after final validation; no coordinator source modified"
+acceptance = "partial #19 slice; keep PR draft and issue open for coordinator review"
+unproven = ["supported layout discovery", "root/additional snapshot IDs", "actual package-hook pair correlation", "catalog and journal persistence across changed-root rollback", "manual/known-working retention and cleanup ownership", "integrated writer capture", "complete linked restoration", "boot compatibility"]
+historical_evidence = "issue19-run14-linked-partners.toml and issue19-run15-linked-partners.toml retain their original source/input hashes and limits; their broad KVM/preflight code is excluded from this PR"

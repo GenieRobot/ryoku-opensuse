@@ -48,6 +48,26 @@ pub fn public_evidence(line: &str) -> bool {
         "state_probe_sha256",
         "state_initializer_sha256",
         "state_prepare_sha256",
+        "linked_probe_sha256",
+        "recovery_cli_sha256",
+        "native_linked_layout_observed",
+        "native_linked_root_switch",
+        "native_linked_boot_compatibility",
+        "native_linked_restore_execution",
+        "native_linked_duplicate_checkpoint_refused",
+        "native_linked_original_identity_recorded",
+        "native_linked_catalog_generation_readback",
+        "native_linked_exact_snapshot_readback",
+        "native_linked_planned_journal_readback",
+        "native_linked_writable_snapshot_refused",
+        "native_linked_missing_snapshot_refused",
+        "native_linked_substituted_snapshot_refused",
+        "native_linked_missing_generation_refused",
+        "native_linked_owning_journal_cleanup",
+        "native_linked_cli_pending",
+        "native_linked_cli_verify",
+        "native_linked_normal_reboot_readback",
+        "native_linked_cli_empty_after_cleanup",
         "zypp_probe_sha256",
         "orchestrator_sha256",
         "image_signature",
@@ -216,6 +236,10 @@ mod tests {
             assert!(!public_evidence(line));
         }
         assert!(public_evidence("snapper=0.12.1-1.2"));
+        assert!(public_evidence("native_linked_root_switch=unproven"));
+        assert!(public_evidence("native_linked_normal_reboot_readback=passed"));
+        assert!(!public_evidence("boot_fact={\"file\":\"/proc/cmdline\"}"));
+        assert!(!public_evidence("native_linked_snapshot_id=42"));
         assert!(public_evidence("sddm=0.21.0+git57-1.1"));
         assert!(public_evidence("desktop_authentication=sddm-pam"));
         assert!(public_evidence("desktop_login_reason=active_session_absent_or_mismatch"));

@@ -436,7 +436,7 @@ impl GenerationStore {
         }
         .canonical_bytes()?;
         let catalog_name = format!("{tx}.json");
-        match read_file(&self.catalog, &catalog_name, 256) {
+        match read_file(&self.catalog, &catalog_name, 4096) {
             Ok(existing) => {
                 if existing != index {
                     return Err(GenerationError::GenerationCollision);
@@ -508,7 +508,7 @@ impl GenerationStore {
         match write_new_file(&self.catalog, &temp_name, &index) {
             Ok(()) => {}
             Err(GenerationError::Filesystem(Errno::EXIST)) => {
-                if read_file(&self.catalog, &temp_name, 256)? != index {
+                if read_file(&self.catalog, &temp_name, 4096)? != index {
                     return Err(GenerationError::GenerationCollision);
                 }
             }
@@ -584,7 +584,7 @@ fn verify_transaction_from(
     let link_bytes = read_file(catalog, &format!("{}.json", transaction_id.as_str()), 4096)?;
     let link: CatalogLink = serde_json::from_slice(&link_bytes)
         .map_err(|error| GenerationError::Io(std::io::Error::other(error)))?;
-    if !matches!(link.schema_version, 1 | 2)
+    if !matches!(link.schema_version, 1..=3)
         || &link.transaction_id != transaction_id
         || link.canonical_bytes()? != link_bytes
     {
@@ -604,6 +604,11 @@ fn verify_transaction_from(
 // readers reject catalog v2 before interpreting the new generation format;
 // content-only generations remain compatible with the v1 catalog contract.
 fn catalog_schema(manifest: &RecoveryManifest) -> u16 {
+    // Readers predating native receipts must reject these links rather than
+    // present incomplete historical identity as a verified restore partner.
+    if manifest.root_snapshot_receipt().is_some() {
+        return 3;
+    }
     if manifest.files().iter().any(|record| {
         entry_metadata(&record.kind).is_some_and(|metadata| {
             metadata.acl_sha256.is_some() || !metadata.extended.values.is_empty()
@@ -802,8 +807,11 @@ fn read_file(parent: &File, name: &str, limit: u64) -> Result<Vec<u8>, Generatio
     )?;
     let file = File::from(fd);
     let stat = rustix::fs::fstat(&file)?;
+    let parent_stat = rustix::fs::fstat(parent)?;
     if rustix::fs::FileType::from_raw_mode(stat.st_mode) != rustix::fs::FileType::RegularFile
         || stat.st_mode & 0o7777 != 0o400
+        || stat.st_uid != parent_stat.st_uid
+        || stat.st_nlink != 1
     {
         return Err(GenerationError::InvalidEntryType);
     }
