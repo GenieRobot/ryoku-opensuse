@@ -9,7 +9,11 @@ later changes to earlier VM results.
 
 The storage and profile decisions are recorded in
 [ADR 0002](adr/0002-linked-recovery-storage.md). That ADR is accepted design
-only; implementation and live rollback proof remain outstanding.
+with partial implementation; complete linked rollback proof remains outstanding.
+The [local profile contract](local-profile-contract.md) completes layer storage,
+filename separation, absence and migration requirements. Historical implementation
+notes below describe their recorded builds; the issue checklist summarizes the
+remaining acceptance boundary.
 
 ## Decision: linked generations outside root rollback
 
@@ -109,13 +113,21 @@ The intended on-volume layout is:
   generations/<generation-id>/ immutable manifest + declared payload blobs
   journal/operations.log       append-only, synchronized phase records
   staging/<transaction-id>/    private incomplete publication, never a restore source
-  writer.lock                  machine-wide writer coordination
+  mutation.lock                machine-wide writer coordination
 
 /etc/ryoku/state-machine.json  root:root 0600, expected identity installed
                                from trusted subvolume-creation facts
 ```
 
-A transaction holds the writer lock from inventory freeze through publication.
+This is the required protected placement, not a claim that the current
+unprivileged service's local operation log already lives here. Its user-state
+log is not the authoritative machine recovery journal and cannot replace one
+after root rollback. Integration must use one protected machine lock identity;
+independently named locks in different directories do not coordinate writers.
+
+A transaction holds the writer lock from inventory freeze through publication,
+provider mutation and post-change accounting. Every enrolled user/provider writer
+must participate or be quiesced; an advisory lock alone does not freeze them.
 It validates that every requested record belongs to an approved path set,
 captures declared entries without following symlinks, creates the Snapper
 pre-change snapshot, then writes the manifest and content into a private
@@ -177,6 +189,7 @@ siblings or recurse into a directory.
 | Manifest root | Candidate record path | Owner and writer contract | Entry and mode policy | Metadata policy |
 |---|---|---|---|---|
 | `user-ryoku-config` | `profile.json` | The target ordinary account (resolved UID and primary GID); written by a user session. The pinned upstream profile writer requests mode `0644`; this is source behavior, not measured openSUSE state. | Regular file only in v1 enrollment. Preserve and verify source mode; reject unexpected ownership or special bits. | Record size, SHA-256, UID/GID, mode, mtime, ACL digest, and present allowlisted xattr digests. |
+| `user-ryoku-config` | `opensuse-profile.json` (reserved production name; not currently enrolled) | Target account; future port-owned typed personal writer. Distinct from the opaque upstream Hub document above. | Regular file, new file `0600`; existing validated `0600` or `0644` and supported metadata preserved. | Exact file or explicit absence; no use of the prototype loader on upstream Hub data. See the [local contract](local-profile-contract.md). |
 | `user-ryoku-config` | `theme.json`, `shell.json`, `launcher.json` | Same user ownership and session writer boundary; source-backed candidate names, not proof these files are installed or used by the openSUSE UI. | Regular files only; each path must be explicitly enrolled by the feature that writes it. | Same as `profile.json`; no xattr values or file contents are copied into public inventory documentation. |
 | `user-ryoku-profile` | No v1 record is approved. The upstream `profile/hero.*` path needs explicit format and size rules before enrollment. | Same resolved target account; files in this class remain user-owned. | No wildcard or directory enrollment. | Same metadata requirements if an exact file is later approved. |
 | `etc-ryoku` | No v1 record is approved yet. `appearance.toml` is a synthetic schema example only. | Would require an audited root-owned writer and exact packaged path ownership first. | No system path is admitted based on the proposed `/etc/ryoku` namespace alone. | Capture must fail closed on any unavailable required metadata. |
@@ -607,8 +620,10 @@ responsible for securely obtaining the trusted root descriptor; this API does
 not discover config paths. Companion retrieval and credential handling are
 outside this crate.
 
-For the v1 recovery inventory, that document maps to the exact
-`user-ryoku-config/profile.json` candidate in the inventory table. It stores a
+The prototype loader's `profile.json` must not be mapped onto the upstream Hub's
+same-named file: their schemas differ. The production contract reserves
+`user-ryoku-config/opensuse-profile.json` for the typed document; loader adaptation
+and enrollment remain downstream work. It stores a
 local profile identity and typed settings, but does not label itself as one of
 the four resolution layers. The caller must explicitly map its values to the
 intended layer; it cannot silently treat this file as defaults, system
@@ -675,11 +690,11 @@ package-manager commands, or provider authorization.
 
 | Scenario | Required behavior | Current evidence |
 |---|---|---|
-| Root Snapper rollback with valid linked generation | Keep catalog, journal, and matching immutable generation available; restore exact declared state. | Design only; dedicated state mount and linked restore remain unverified. |
+| Root Snapper rollback with valid linked generation | Keep catalog, journal, and matching immutable generation available; restore exact declared state. | Dedicated initialization and reboot component evidence exists in Run11; complete linked root rollback remains unverified. |
 | Root rollback with missing/corrupt generation or catalog link | Refuse silent fallback; report recovery unavailable/inconsistent and preserve evidence. | Design only. |
 | Offline boot and recovery | Use local catalog, generation, and supported system tools; do not require a Git host, credentials, or companion. | Existing VM lab evidence covers offline recovery fixture mechanics; not this manifest-backed profile store. |
 | Configuration-only recovery where compatible Snapper state is absent | Offer only a clearly labeled configuration restore when its generation and file metadata verify; never claim system rollback. | Design only. |
-| Btrfs root plus Snapper snapshots | Supported target when root and state subvolumes are separately validated and the restore order is implemented. | Tumbleweed subvolume exploration exists; Ryoku state subvolume linkage not yet validated. |
+| Btrfs root plus Snapper snapshots | Supported target when root and state subvolumes are separately validated and the restore order is implemented. | [Run11](../infra/tumbleweed-lab/evidence/issue21-run11-unmounted-failure-resume.toml) validates independent state identity, initializer resume and reboot availability; it is not complete linked restore proof. |
 | Non-Btrfs root, unknown boot layout, firmware, partitioning, or arbitrary root edits | Out of supported restore scope; block integrated system mutation or require manual recovery. | Explicit exclusion. |
 | Unrelated home content, secrets, external media, and undeclared provider files | Never traverse, capture, overwrite, or delete. | Contract; needs adversarial path and metadata tests. |
 
@@ -688,12 +703,20 @@ partition tables, bootloader installation, arbitrary root-owned state,
 unrelated home files, or external devices. Boot recovery must be independently
 authenticated and must validate that the linked generation is compatible
 with the observed root snapshot before restore.
+The [ADR boot-layout matrix](adr/0002-linked-recovery-storage.md#snapshot-and-boot-combinations)
+defines GRUB2 UEFI target eligibility, external ESP/boot exclusions, read-only
+snapshot boot, older recovery binaries and configuration-only prerequisites.
 
 ## Remaining proof before acceptance
 
-- Implement the dedicated subvolume setup/validation and prove it survives
-  actual Snapper root rollback and reboot on the disposable Tumbleweed VM.
-- Add race-injection and supported-filesystem ACL/SELinux capture tests; implement safe raw-target symlink capture or keep symlinks out of v1 enrolled paths. Immutable publication has focused unit tests, and the service has a private-directory `MutationLock` plus durable operation journal. Those service pieces are not yet wired through inventory freeze, generation publication, restore, and recovery; coordinated interrupted-transaction handling and schema migration remain unimplemented. The current unit tests exercise capture against synthetic temporary trees; they do not prove live Tumbleweed metadata capture.
+- Extend the committed dedicated subvolume setup/validation and reboot evidence
+  to actual Snapper root rollback retaining catalog, journal and matching user
+  generation on the disposable Tumbleweed VM.
+- Add supported-filesystem ACL/SELinux capture and race evidence for the final
+  enrolled inventory. Safe relative symlink capture exists, but no live managed
+  symlink path is approved. The service has a `MutationLock` and durable journal;
+  coordinated interrupted transactions across capture, mutation and recovery
+  still need integration proof. Temporary-tree tests do not prove live metadata.
 - Exercise successful and deliberately corrupted linked generations offline,
   including configuration-only fallback and preservation of an unrelated home
   sentinel.
@@ -711,13 +734,25 @@ corresponding implementation and disposable-guest evidence are linked.
 | Issue #16 item | Current repository evidence | Still needed |
 |---|---|---|
 | Inventory Ryoku config, app/theme/shell state, provider state and profile layers | Pinned upstream paths, an explicit v1 exact-file enrollment boundary, ownership/mode policy, symlink/xattr rules and declared exclusions above; typed local profile layers | Exact Tumbleweed ownership/mode/metadata audit for integrated Ryoku paths and final package/session inventory after login support succeeds. |
-| Define manifest IDs, reason/time, checksums, metadata, package/upstream/profile revisions and verification | Typed v1 manifest, canonical JSON/SHA-256 seal/verify, explicit package/provider revisions, profile revisions, metadata fields, bounded parser, and exact-file Linux capture for regular files/directories/absence | Supported-filesystem ACL/SELinux integration proof, safe symlink target capture, schema migration implementation/tests, and live Tumbleweed metadata capture. |
-| Protect catalog/generations outside root rollback; validate subvolume, writer coordination and privilege split | Storage ADR specifies the dedicated subvolume, validation and user/helper responsibilities | Setup/startup validation, locking/journal/publication implementation, and linked root rollback/reboot proof on Tumbleweed. |
-| Define profile precedence, absent entries and compatible migrations | Rust local resolver, strict schema-v1 local document parser/serializer, synthetic doctest, absent-file records, and explicit reject-until-migrated policy | Persistent profile/catalog storage, any future schema migration implementation/tests, and offline linked restore proof. |
-| Document snapshot/boot combinations, fallback and exclusions | Scenario matrix and explicit firmware, partitioning, arbitrary-root and undeclared-home exclusions | Exercise manifest-linked rollback, corruption handling and configuration-only fallback offline. |
-| ADR retains catalog, journal and matching generation across root rollback | [ADR 0002](adr/0002-linked-recovery-storage.md) specifies the separate subvolume, identity validation, transaction link, profile contract, fallback behavior, and exclusions | Actual dedicated mount plus Snapper rollback/reboot evidence. |
+| Define manifest IDs, reason/time, checksums, metadata, package/upstream/profile revisions and verification | Typed v1 manifest, canonical JSON/SHA-256 seal/verify, package/provider and profile revisions, bounded parser, exact-file capture including safe symlinks, raw metadata payloads and catalog v1/v2 compatibility | Supported-filesystem ACL/SELinux integration proof for the final inventory. Future schema converters require explicit fixtures; no conversion is implied by this contract. |
+| Protect catalog/generations outside root rollback; validate subvolume, writer coordination and privilege split | Storage ADR plus native state validation, initializer and reboot component evidence; explicit full-operation writer/quiescence boundary | Complete capture/mutation/recovery coordination and linked root rollback retaining all protected objects on Tumbleweed. |
+| Define profile precedence, absent entries and compatible migrations | [Local profile contract](local-profile-contract.md), Rust resolver/parser/loader, synthetic examples, exact absent-file records and explicit reject-until-migrated policy | Installed profile publication/selection and trusted caller integration are downstream work; no arbitrary Hub JSON migration or remote dependency is allowed. |
+| Document snapshot/boot combinations, fallback and exclusions | [Boot-layout matrix](adr/0002-linked-recovery-storage.md#snapshot-and-boot-combinations), configuration-only prerequisites and explicit external boot/root/home exclusions | Exercise manifest-linked rollback, corruption handling and configuration-only fallback offline. |
+| ADR retains catalog, journal and matching generation across root rollback | [ADR 0002](adr/0002-linked-recovery-storage.md) specifies separate storage, independently provisioned identity, exact linkage and older-reader behavior; Run11 shows reboot availability | Actual linked Snapper rollback retaining catalog, journal and matching Ryoku generation remains unproven. |
 | Inventory ownership, modes, symlinks, extended metadata and external paths without traversal | Typed metadata schema; exact v1 candidate inventory; no-follow regular/directory capture, ACL/SELinux digests, absent records, hard-link checks, safe declared symlink capture, and rejection of the internal `state-generation` selector for external capture | Exact runtime ownership/mode/ACL/xattr evidence for integrated Ryoku state, an enforced audited allowlist, race-injection tests, and live Tumbleweed metadata capture are needed. Run19 provider paths do not constitute a Ryoku-owned path set. |
 | Profile interface works locally without remotes/credentials; public examples synthetic | Pure Rust resolver, bounded v1 parser, and fixed-name no-follow loader from a supplied descriptor; synthetic four-layer doctest and temporary-file validation tests | Caller integration for securely obtaining the intended config-root descriptor and persistence/writer coordination; companion persistence/sync remains out of scope. |
+
+The contract history is traceable through merged PRs
+[#59](https://github.com/GenieRobot/ryoku-opensuse/pull/59) (manifest model),
+[#62](https://github.com/GenieRobot/ryoku-opensuse/pull/62) (upstream inventory),
+[#92](https://github.com/GenieRobot/ryoku-opensuse/pull/92) (local schema),
+[#95](https://github.com/GenieRobot/ryoku-opensuse/pull/95) (bounded loader),
+[#112](https://github.com/GenieRobot/ryoku-opensuse/pull/112) (metadata semantics),
+[#124](https://github.com/GenieRobot/ryoku-opensuse/pull/124) (storage ADR), and
+[#142](https://github.com/GenieRobot/ryoku-opensuse/pull/142) (protected inventory
+boundary). The documents and synthetic examples address issue #16's contract
+deliverables. They do not close its remaining live inventory/evidence gaps or
+implement the downstream issues #17–#22.
 
 ## Issue #21 restore journal implementation status
 
