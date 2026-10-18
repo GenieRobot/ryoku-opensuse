@@ -109,7 +109,7 @@ GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOWORK=off CGO_ENABLED=0 \
     go build -trimpath -mod=vendor -buildvcs=false -o ../../../../ryogami .
 cd ../../../..
 mkdir -p licenses/go
-cp -a "$(go env GOROOT)/LICENSE" licenses/go/LICENSE
+cp -a %{_docdir}/go/"$(basename "$(go env GOROOT)")"/LICENSE licenses/go/LICENSE
 find ryoku -path '*/vendor/*' -type f \
     \( -iname '*license*' -o -iname '*copying*' -o -iname '*notice*' \) \
     -exec cp --parents -t licenses {} +
