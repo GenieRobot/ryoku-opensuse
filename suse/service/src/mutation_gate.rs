@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     JournalError, ManagedActionKind, OperationId, OperationJournal, OperationPhase,
-    OperationStatus, ServiceError,
+    OperationStatus, Progress, ServiceError,
 };
 
 /// Identity pair for the system snapshot and Ryoku/configuration generation.
@@ -226,7 +226,9 @@ pub struct MutationContext {
 
 impl MutationContext {
     pub(crate) fn valid_for(&self, status: &OperationStatus) -> bool {
-        if !self.plan.valid() || status.progress.is_some() {
+        if !self.plan.valid()
+            || status.progress.as_ref().is_some_and(|progress| !progress.is_valid())
+        {
             return false;
         }
         let needs_checkpoint =
@@ -349,6 +351,37 @@ impl<'a> JournaledOperation<'a> {
         Self { journal, operation_id, action, context: None }
     }
 
+    /// Caller holds the common writer guard. Replaying the protected journal
+    /// happens before acceptance; an unresolved operation never authorizes retry.
+    pub(crate) fn begin(&mut self, planned: &PlannedChange) -> Result<(), GateError> {
+        if !planned.valid() {
+            return Err(GateError::InvalidPlan);
+        }
+        self.journal.refresh().map_err(GateError::Journal)?;
+        if !self.journal.recovery_required().is_empty() {
+            return Err(GateError::RecoveryRequired);
+        }
+        self.context = Some(MutationContext {
+            plan: planned.clone(),
+            checkpoint: None,
+            post_checkpoint: None,
+            stage: MutationStage::Preflight,
+            outcome: None,
+        });
+        self.record(OperationPhase::Accepted, None)
+    }
+
+    pub(crate) fn captured(&mut self, reference: LinkedGeneration) -> Result<(), GateError> {
+        self.context.as_mut().expect("accepted operation has context").checkpoint = Some(reference);
+        self.advance(MutationStage::Revalidating)
+    }
+
+    pub(crate) fn complete(&mut self, reference: LinkedGeneration) -> Result<(), GateError> {
+        self.context.as_mut().expect("accepted operation has context").post_checkpoint =
+            Some(reference);
+        self.advance(MutationStage::Complete)
+    }
+
     fn record(
         &mut self,
         phase: OperationPhase,
@@ -368,7 +401,23 @@ impl<'a> JournaledOperation<'a> {
             .map_err(GateError::Journal)
     }
 
-    fn fail(&mut self, category: ServiceError, cause: GateError) -> GateError {
+    fn report_progress(&mut self, progress: Progress) -> Result<(), GateError> {
+        let context = self.context.as_ref().ok_or(GateError::InvalidPlan)?;
+        self.journal
+            .record_mutation(
+                OperationStatus {
+                    operation_id: self.operation_id.clone(),
+                    action: self.action,
+                    phase: context.stage.phase(),
+                    progress: Some(progress),
+                    error: None,
+                },
+                context.clone(),
+            )
+            .map_err(GateError::Journal)
+    }
+
+    pub(crate) fn fail(&mut self, category: ServiceError, cause: GateError) -> GateError {
         let context = self.context.as_mut().expect("accepted operation has context");
         context.outcome =
             Some(if cause == GateError::CancelledBeforeChange && context.stage.before_change() {
@@ -386,7 +435,7 @@ impl<'a> JournaledOperation<'a> {
         }
     }
 
-    fn advance(&mut self, stage: MutationStage) -> Result<(), GateError> {
+    pub(crate) fn advance(&mut self, stage: MutationStage) -> Result<(), GateError> {
         self.context.as_mut().expect("accepted operation has context").stage = stage;
         self.record(stage.phase(), None)
     }
@@ -394,7 +443,7 @@ impl<'a> JournaledOperation<'a> {
 
 /// Persist pre-change failures using only error codes already defined by
 /// protocol v1. This keeps old clients able to deserialize operation status.
-fn pre_change_error(cause: &GateError) -> ServiceError {
+pub(crate) fn pre_change_error(cause: &GateError) -> ServiceError {
     match cause {
         GateError::Lock(_) => ServiceError::Busy,
         GateError::PlanChanged => ServiceError::StaleRequest,
@@ -521,23 +570,38 @@ pub fn with_verified_prechange<T>(
 /// Boolean attestations remain an integration boundary, not native evidence.
 pub trait MutationIntegration {
     type Output;
-    fn preflight(&mut self, plan: &PlannedChange) -> Result<(), GateError>;
-    fn capture(&mut self, plan: &PlannedChange) -> Result<CheckpointEvidence, GateError>;
+    fn preflight(
+        &mut self,
+        plan: &PlannedChange,
+        report_progress: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+    ) -> Result<(), GateError>;
+    fn capture(
+        &mut self,
+        plan: &PlannedChange,
+        report_progress: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+    ) -> Result<CheckpointEvidence, GateError>;
     fn revalidate(
         &mut self,
         plan: &PlannedChange,
         checkpoint: &VerifiedLinkedGeneration,
+        report_progress: &mut dyn FnMut(Progress) -> Result<(), GateError>,
     ) -> Result<bool, GateError>;
-    fn apply(&mut self, checkpoint: &VerifiedLinkedGeneration) -> Result<Self::Output, GateError>;
+    fn apply(
+        &mut self,
+        checkpoint: &VerifiedLinkedGeneration,
+        report_progress: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+    ) -> Result<Self::Output, GateError>;
     fn health_check(
         &mut self,
         result: &Self::Output,
         checkpoint: &VerifiedLinkedGeneration,
+        report_progress: &mut dyn FnMut(Progress) -> Result<(), GateError>,
     ) -> Result<(), GateError>;
     fn capture_post_change(
         &mut self,
         result: &Self::Output,
         checkpoint: &VerifiedLinkedGeneration,
+        report_progress: &mut dyn FnMut(Progress) -> Result<(), GateError>,
     ) -> Result<VerifiedPostChangeGeneration, GateError>;
     fn cancellation_requested(&self) -> bool {
         false
@@ -562,29 +626,26 @@ pub fn coordinate_mutation<I: MutationIntegration>(
     // lock across every phase, preventing records or provider work from
     // interleaving around one operation.
     let _writer = lock.acquire()?;
-    operation.journal.refresh().map_err(GateError::Journal)?;
-    if !operation.journal.recovery_required().is_empty() {
-        return Err(GateError::RecoveryRequired);
-    }
-    operation.context = Some(MutationContext {
-        plan: planned.clone(),
-        checkpoint: None,
-        post_checkpoint: None,
-        stage: MutationStage::Preflight,
-        outcome: None,
-    });
-    operation.record(OperationPhase::Accepted, None)?;
+    operation.begin(planned)?;
     if integration.cancellation_requested() {
         return Err(operation.fail(ServiceError::Failed, GateError::CancelledBeforeChange));
     }
-    if let Err(error) = integration.preflight(planned) {
+    let preflight = {
+        let mut report = |progress| operation.report_progress(progress);
+        integration.preflight(planned, &mut report)
+    };
+    if let Err(error) = preflight {
         return Err(operation.fail(pre_change_error(&error), error));
     }
     if integration.cancellation_requested() {
         return Err(operation.fail(ServiceError::Failed, GateError::CancelledBeforeChange));
     }
     operation.advance(MutationStage::Capturing)?;
-    let evidence = match integration.capture(planned) {
+    let captured = {
+        let mut report = |progress| operation.report_progress(progress);
+        integration.capture(planned, &mut report)
+    };
+    let evidence = match captured {
         Ok(evidence) => evidence,
         Err(error) => {
             let category = pre_change_error(&error);
@@ -598,13 +659,15 @@ pub fn coordinate_mutation<I: MutationIntegration>(
             return Err(operation.fail(category, error));
         }
     };
-    operation.context.as_mut().expect("accepted operation has context").checkpoint =
-        Some(proof.linked().clone());
-    operation.advance(MutationStage::Revalidating)?;
+    operation.captured(proof.linked().clone())?;
     if integration.cancellation_requested() {
         return Err(operation.fail(ServiceError::Failed, GateError::CancelledBeforeChange));
     }
-    let still_matches = match integration.revalidate(planned, &proof) {
+    let revalidated = {
+        let mut report = |progress| operation.report_progress(progress);
+        integration.revalidate(planned, &proof, &mut report)
+    };
+    let still_matches = match revalidated {
         Ok(value) => value,
         Err(error) => {
             let category = pre_change_error(&error);
@@ -622,7 +685,11 @@ pub fn coordinate_mutation<I: MutationIntegration>(
 
     // If this durable write fails, the mutation callback is never entered.
     operation.advance(MutationStage::Applying)?;
-    let result = match integration.apply(&proof) {
+    let applied = {
+        let mut report = |progress| operation.report_progress(progress);
+        integration.apply(&proof, &mut report)
+    };
+    let result = match applied {
         Ok(result) => result,
         Err(error) => return Err(operation.fail(ServiceError::Failed, error)),
     };
@@ -631,18 +698,24 @@ pub fn coordinate_mutation<I: MutationIntegration>(
     // providers may already have changed state and cannot be safely unwound by
     // a cancellation flag. Their errors are classified as recovery-required.
     operation.advance(MutationStage::HealthChecking)?;
-    if let Err(error) = integration.health_check(&result, &proof) {
+    let health = {
+        let mut report = |progress| operation.report_progress(progress);
+        integration.health_check(&result, &proof, &mut report)
+    };
+    if let Err(error) = health {
         return Err(operation.fail(ServiceError::Failed, error));
     }
     operation.advance(MutationStage::PostChangeCapture)?;
-    let post = match integration.capture_post_change(&result, &proof) {
+    let post_capture = {
+        let mut report = |progress| operation.report_progress(progress);
+        integration.capture_post_change(&result, &proof, &mut report)
+    };
+    let post = match post_capture {
         Ok(post) if post.preimage == *proof.linked() => post,
         Ok(_) => return Err(operation.fail(ServiceError::Failed, GateError::PostChangeFailed)),
         Err(error) => return Err(operation.fail(ServiceError::Failed, error)),
     };
-    operation.context.as_mut().expect("accepted operation has context").post_checkpoint =
-        Some(post.linked);
-    operation.advance(MutationStage::Complete)?;
+    operation.complete(post.linked)?;
     Ok(result)
 }
 
@@ -673,29 +746,48 @@ fn with_journaled_verified_mutation<T>(
         V: FnOnce(&T, &VerifiedLinkedGeneration) -> Result<(), GateError>,
     {
         type Output = T;
-        fn preflight(&mut self, _: &PlannedChange) -> Result<(), GateError> {
+        fn preflight(
+            &mut self,
+            _: &PlannedChange,
+            _: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+        ) -> Result<(), GateError> {
             Ok(())
         }
-        fn capture(&mut self, _: &PlannedChange) -> Result<CheckpointEvidence, GateError> {
+        fn capture(
+            &mut self,
+            _: &PlannedChange,
+            _: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+        ) -> Result<CheckpointEvidence, GateError> {
             self.checkpoint.create_and_verify()
         }
         fn revalidate(
             &mut self,
             plan: &PlannedChange,
             _: &VerifiedLinkedGeneration,
+            _: &mut dyn FnMut(Progress) -> Result<(), GateError>,
         ) -> Result<bool, GateError> {
             self.revalidator.still_matches(plan)
         }
-        fn apply(&mut self, proof: &VerifiedLinkedGeneration) -> Result<T, GateError> {
+        fn apply(
+            &mut self,
+            proof: &VerifiedLinkedGeneration,
+            _: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+        ) -> Result<T, GateError> {
             self.apply.take().unwrap()(proof)
         }
-        fn health_check(&mut self, _: &T, _: &VerifiedLinkedGeneration) -> Result<(), GateError> {
+        fn health_check(
+            &mut self,
+            _: &T,
+            _: &VerifiedLinkedGeneration,
+            _: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+        ) -> Result<(), GateError> {
             Ok(())
         }
         fn capture_post_change(
             &mut self,
             result: &T,
             proof: &VerifiedLinkedGeneration,
+            _: &mut dyn FnMut(Progress) -> Result<(), GateError>,
         ) -> Result<VerifiedPostChangeGeneration, GateError> {
             self.post.take().unwrap()(result, proof)?;
             let mut linked = proof.linked().clone();

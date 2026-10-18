@@ -169,12 +169,22 @@ impl Instrumented {
 }
 impl MutationIntegration for Instrumented {
     type Output = ();
-    fn preflight(&mut self, _: &PlannedChange) -> Result<(), GateError> {
+    fn preflight(
+        &mut self,
+        _: &PlannedChange,
+        _: &mut dyn FnMut(crate::Progress) -> Result<(), GateError>,
+    ) -> Result<(), GateError> {
         self.enter(MutationStage::Preflight);
         self.finish(MutationStage::Preflight, GateError::InsufficientSpace)
     }
-    fn capture(&mut self, _: &PlannedChange) -> Result<CheckpointEvidence, GateError> {
+    fn capture(
+        &mut self,
+        _: &PlannedChange,
+        report_progress: &mut dyn FnMut(crate::Progress) -> Result<(), GateError>,
+    ) -> Result<CheckpointEvidence, GateError> {
         self.enter(MutationStage::Capturing);
+        report_progress(crate::Progress { completed: 0, total: Some(2) })?;
+        report_progress(crate::Progress { completed: 1, total: Some(2) })?;
         if let Some((ready, release)) = self.capture_block.take() {
             ready.send(()).unwrap();
             release.recv_timeout(std::time::Duration::from_secs(3)).unwrap();
@@ -191,18 +201,30 @@ impl MutationIntegration for Instrumented {
         &mut self,
         _: &PlannedChange,
         _: &VerifiedLinkedGeneration,
+        _: &mut dyn FnMut(crate::Progress) -> Result<(), GateError>,
     ) -> Result<bool, GateError> {
         self.enter(MutationStage::Revalidating);
         self.finish(MutationStage::Revalidating, GateError::PlanChanged)?;
         Ok(true)
     }
-    fn apply(&mut self, proof: &VerifiedLinkedGeneration) -> Result<(), GateError> {
+    fn apply(
+        &mut self,
+        proof: &VerifiedLinkedGeneration,
+        report_progress: &mut dyn FnMut(crate::Progress) -> Result<(), GateError>,
+    ) -> Result<(), GateError> {
         self.enter(MutationStage::Applying);
         assert_eq!(proof.linked(), &linked());
+        report_progress(crate::Progress { completed: 1, total: Some(3) })?;
+        report_progress(crate::Progress { completed: 2, total: Some(3) })?;
         fs::write(self.path.with_file_name("provider-state"), b"changed").unwrap();
         self.finish(MutationStage::Applying, GateError::ApplyFailed)
     }
-    fn health_check(&mut self, _: &(), _: &VerifiedLinkedGeneration) -> Result<(), GateError> {
+    fn health_check(
+        &mut self,
+        _: &(),
+        _: &VerifiedLinkedGeneration,
+        _: &mut dyn FnMut(crate::Progress) -> Result<(), GateError>,
+    ) -> Result<(), GateError> {
         self.enter(MutationStage::HealthChecking);
         self.finish(MutationStage::HealthChecking, GateError::ApplyFailed)
     }
@@ -210,6 +232,7 @@ impl MutationIntegration for Instrumented {
         &mut self,
         _: &(),
         before: &VerifiedLinkedGeneration,
+        _: &mut dyn FnMut(crate::Progress) -> Result<(), GateError>,
     ) -> Result<VerifiedPostChangeGeneration, GateError> {
         self.enter(MutationStage::PostChangeCapture);
         self.finish(MutationStage::PostChangeCapture, GateError::PostChangeFailed)?;
@@ -243,6 +266,13 @@ fn exact_plan_and_link_are_durable_before_first_mutation() {
     let mut integration = scenario.integration();
     scenario.run(&mut integration).unwrap();
     assert_eq!(integration.stages, STAGES);
+    let progress: Vec<_> = std::fs::read_to_string(&scenario.path)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+        .filter_map(|record| record.get("status")?.get("progress")?.get("completed")?.as_u64())
+        .collect();
+    assert_eq!(progress, [0, 1, 1, 2]);
     let reopened = journal(&scenario.path);
     let context = reopened.mutation_context(&id()).unwrap();
     assert_eq!(context.plan, plan());
@@ -476,12 +506,14 @@ fn common_lock_serializes_whole_operations_using_independent_stale_journals() {
         .lines()
         .map(|line| serde_json::from_str(line).unwrap())
         .collect();
-    assert_eq!(records.len(), 14);
+    assert_eq!(records.len(), 22);
     assert!(
-        records[..7].iter().all(|record| record.status.operation_id.as_str() == "operation-first")
+        records[..11].iter().all(|record| record.status.operation_id.as_str() == "operation-first")
     );
     assert!(
-        records[7..].iter().all(|record| record.status.operation_id.as_str() == "operation-second")
+        records[11..]
+            .iter()
+            .all(|record| record.status.operation_id.as_str() == "operation-second")
     );
     assert!(journal(&scenario.path).recovery_required().is_empty());
 }

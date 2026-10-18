@@ -710,9 +710,14 @@ fn validate_journal_record(
         (None, None, _) => return validate_transition(previous, next),
         (Some(context), None, None) => context.initial() && context.valid_for(next),
         (Some(context), Some(old_context), Some(previous)) => {
+            let progressed_in_place = context == old_context
+                && old_context.stage != mutation_gate::MutationStage::Complete
+                && old_context.outcome.is_none()
+                && previous.phase == next.phase
+                && valid_progress_update(previous.progress.as_ref(), next.progress.as_ref());
             previous.action == next.action
                 && context.valid_for(next)
-                && context.follows(old_context)
+                && (context.follows(old_context) || progressed_in_place)
         }
         _ => false,
     };

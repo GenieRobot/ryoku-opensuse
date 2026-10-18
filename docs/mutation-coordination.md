@@ -30,6 +30,13 @@ its protocol-v1 coarse status; journal schema 2 adds the detailed context.
 | PostChangeCapture | verifying | Capture and verify the required post-change state |
 | Complete | succeeded | Persist the verified post-change checkpoint reference and return the result |
 
+Each integration hook may report bounded progress while it runs. A report is
+appended and synchronized with the unchanged plan/checkpoint context before the
+report call returns; the service can then return that exact durable progress to
+a reconnecting client. Progress starts fresh for each detailed stage, may only
+advance, and cannot clear a known total. A hook must propagate a progress-journal
+error and stop its work; it cannot continue on status it could not persist.
+
 Every record binds the same operation ID, action, bounded operation key and two
 canonical SHA-256 fingerprints: the reviewed plan and affected-state inventory.
 Before revalidation, the coordinator also persists the exact transaction ID,
@@ -52,8 +59,10 @@ attestations rather than independent native proof.
 
 The plan, operation/action association and checkpoint reference cannot change
 across later phases or replay. Replay rejects missing checkpoint context after
-capture, changed associations, skipped/repeated phases, invalid fingerprint or
+capture, changed associations, skipped stage transitions, invalid fingerprint or
 snapshot shapes, terminal transitions and inconsistent failure classifications.
+Within an active stage, replay accepts only valid monotonic progress records; these
+do not count as repeated stage transitions.
 Every line is read and written through a 16 KiB bound; operation keys are at most
 256 printable ASCII bytes and snapshot numbers are canonical nonzero `u64`s.
 
