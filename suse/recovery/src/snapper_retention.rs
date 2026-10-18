@@ -48,17 +48,6 @@ pub fn observe_retention_partners<B: SnapperBackend>(
     )
 }
 
-#[cfg(test)]
-pub(crate) fn observe_retention_partners_with_verifier<B: SnapperBackend>(
-    catalog: &CatalogIndex,
-    generations: &GenerationReader,
-    snapper: &B,
-    trusted_root: &File,
-    verify_snapshot: impl FnMut(&File, &ryoku_snapper::CatalogEntry, &RootSnapshotReceipt) -> bool,
-) -> Result<Vec<RetentionPartnerObservation>, RetentionObservationError<B::Error>> {
-    observe_with_snapshot_verifier(catalog, generations, snapper, trusted_root, verify_snapshot)
-}
-
 fn observe_with_snapshot_verifier<B: SnapperBackend>(
     catalog: &CatalogIndex,
     generations: &GenerationReader,
