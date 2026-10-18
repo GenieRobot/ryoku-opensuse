@@ -1,12 +1,12 @@
 use super::*;
 use ryoku_profiles::{Density, Desktop, ProfileDocument, ProfileLayers, Theme};
 use std::io::Write;
-const DEFAULTS: &[u8] = br#"{"schema_version":1,"id":"generic-desktop","settings":{"desktop":"hyprland","theme":"ryoku_dark","density":"comfortable"}}"#;
+const DEFAULTS: &[u8] = include_bytes!("../../../packaging/rpm/defaults/profile.json");
 fn inventory() -> Vec<u8> {
     format!("PKG\tryoku-profile-defaults\t0\t0.1.0\t1.1\tnoarch\t8\nFILE\t/usr/share/ryoku\t\t16877\troot\troot\t0\t0\nFILE\t{DEFAULTS_PATH}\t{}\t33188\troot\troot\t{}\t0\nFILE\t/usr/share/licenses/ryoku-profile-defaults/LICENSE\t{}\t33188\troot\troot\t35000\t128\n", digest(DEFAULTS).as_str(), DEFAULTS.len(), "a".repeat(64)).into_bytes()
 }
 #[test]
-fn generic_default_fixture_resolves_without_companion() {
+fn packaged_payload_is_port_owned_complete_generic_data_without_companion() {
     let document = ProfileDocument::parse(DEFAULTS).unwrap();
     assert_eq!(document.id.as_str(), "generic-desktop");
     let settings = ProfileLayers { defaults: document.settings, ..Default::default() }.resolve();

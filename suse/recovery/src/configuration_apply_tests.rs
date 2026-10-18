@@ -3,7 +3,15 @@ use crate::{
     configuration_apply::{ConfigurationApplyError, ConfigurationDestination, apply_with_owner},
     restore::{RestoreJournal, RestoreJournalStore, RestorePhase},
 };
-use std::ops::ControlFlow;
+use std::{
+    io::{BufRead, Write},
+    ops::ControlFlow,
+    os::unix::process::ExitStatusExt,
+    process::{Command, Stdio},
+    sync::mpsc,
+    thread,
+    time::Duration,
+};
 
 fn ready(f: &Fixture, advance: bool) -> (RestoreJournalStore, Identifier) {
     let path = f.path.join("journals");
@@ -23,7 +31,6 @@ fn ready(f: &Fixture, advance: bool) -> (RestoreJournalStore, Identifier) {
             RestorePhase::CheckpointVerified,
             RestorePhase::ContentStaged,
             RestorePhase::WritersStopped,
-            RestorePhase::RootRollbackComplete,
         ] {
             store.advance(&mut journal, phase).unwrap();
         }
@@ -39,6 +46,21 @@ fn live_root(f: &Fixture) -> File {
     fs::write(path.join("directory/unrelated"), b"preserve child").unwrap();
     symlink(f.path.join("unrelated"), path.join("link")).unwrap();
     fs::write(path.join("missing"), b"remove enrolled file").unwrap();
+    let config = f.path.join("config");
+    fs::create_dir(&config).unwrap();
+    fs::write(config.join("shell.json"), b"corrupt shell settings").unwrap();
+    fs::write(config.join("matugen.json"), b"corrupt Matugen settings").unwrap();
+    fs::write(config.join("profile.json"), b"corrupt profile selection").unwrap();
+    fs::create_dir(config.join("profile")).unwrap();
+    fs::write(config.join("profile/hero.png"), b"corrupt hero asset").unwrap();
+    fs::write(config.join("profile/unselected.png"), b"destination-only user asset").unwrap();
+    let home = f.path.join("home");
+    fs::create_dir(&home).unwrap();
+    fs::write(home.join("unrelated"), b"unrelated home sentinel").unwrap();
+    fs::create_dir_all(home.join(".local/state/ryoku")).unwrap();
+    fs::write(home.join(".local/state/ryoku/flags.json"), b"corrupt session preferences").unwrap();
+    fs::write(home.join(".local/state/ryoku/stage-walls.json"), b"corrupt Stage preferences")
+        .unwrap();
     File::open(path).unwrap()
 }
 fn apply(
@@ -48,12 +70,21 @@ fn apply(
     id: &Identifier,
     progress: impl FnMut(usize) -> ControlFlow<()>,
 ) -> Result<RestoreJournal, ConfigurationApplyError> {
+    let home = File::open(f.path.join("home")).unwrap();
+    let configuration = File::open(f.path.join("config")).unwrap();
     apply_with_owner(
         &f.source,
         &f.store(),
         journals,
         id,
-        &[ConfigurationDestination { root: StateRoot::EtcRyoku, directory: live }],
+        &[
+            ConfigurationDestination { root: StateRoot::EtcRyoku, directory: live },
+            ConfigurationDestination {
+                root: StateRoot::UserRyokuConfig,
+                directory: &configuration,
+            },
+            ConfigurationDestination { root: StateRoot::UserRyokuState, directory: &home },
+        ],
         progress,
         live.metadata().unwrap().uid(),
     )
@@ -68,6 +99,81 @@ fn check(f: &Fixture) {
     assert_eq!(fs::read_link(live.join("link")).unwrap(), Path::new("a"));
     assert!(!live.join("missing").exists());
     assert_eq!(fs::read(f.path.join("unrelated")).unwrap(), b"home sentinel");
+    assert_eq!(fs::read(f.path.join("home/unrelated")).unwrap(), b"unrelated home sentinel");
+    let shell = f.path.join("config/shell.json");
+    let matugen = f.path.join("config/matugen.json");
+    if f.source.entries().iter().any(|entry| {
+        entry.record().root == StateRoot::UserRyokuConfig
+            && entry.record().path.as_str() == "shell.json"
+    }) {
+        assert_eq!(
+            fs::read(shell).unwrap(),
+            br#"{"theme":{"theme":"Tokyo Night"},"wallpaper":{"enabled":false}}"#
+        );
+        assert_eq!(
+            fs::read(matugen).unwrap(),
+            br#"{"mode":"dark","contrast":0.0,"appTheme":false}"#
+        );
+    } else {
+        assert_eq!(fs::read(shell).unwrap(), b"corrupt shell settings");
+        assert_eq!(fs::read(matugen).unwrap(), b"corrupt Matugen settings");
+    }
+    if f.source.entries().iter().any(|entry| {
+        entry.record().root == StateRoot::UserRyokuConfig
+            && entry.record().path.as_str() == "profile.json"
+    }) {
+        assert_eq!(
+            fs::read(f.path.join("config/profile.json")).unwrap(),
+            br#"{"hero":{"kind":"custom","source":"hero.png"}}"#
+        );
+        assert_eq!(
+            fs::read(f.path.join("config/profile/hero.png")).unwrap(),
+            b"saved custom hero bytes"
+        );
+        let profile = fs::metadata(f.path.join("config/profile")).unwrap();
+        let selection = fs::metadata(f.path.join("config/profile.json")).unwrap();
+        let hero = fs::metadata(f.path.join("config/profile/hero.png")).unwrap();
+        assert_eq!(profile.mode() & 0o7777, 0o700);
+        assert_eq!(selection.mode() & 0o7777, 0o644);
+        assert_eq!(hero.mode() & 0o7777, 0o644);
+        let source_hero = fs::metadata(f.path.join("source/profile/hero.png")).unwrap();
+        assert_eq!((hero.uid(), hero.gid()), (source_hero.uid(), source_hero.gid()));
+    } else {
+        assert_eq!(
+            fs::read(f.path.join("config/profile.json")).unwrap(),
+            b"corrupt profile selection"
+        );
+        assert_eq!(
+            fs::read(f.path.join("config/profile/hero.png")).unwrap(),
+            b"corrupt hero asset"
+        );
+    }
+    assert_eq!(
+        fs::read(f.path.join("config/profile/unselected.png")).unwrap(),
+        b"destination-only user asset"
+    );
+    let flags = f.path.join("home/.local/state/ryoku/flags.json");
+    if f.source.entries().iter().any(|entry| entry.record().root == StateRoot::UserRyokuState) {
+        assert_eq!(
+            fs::read(flags).unwrap(),
+            br#"{"dnd":true,"keepAwake":false,"keepAwakeSince":0,"gameMode":false,"gameDndPrev":false}"#
+        );
+        assert_eq!(
+            fs::read(f.path.join("home/.local/state/ryoku/stage-walls.json")).unwrap(),
+            br#"{"current":"/home/alice/Pictures/wall.jpg","walls":{"/home/alice/Pictures/wall.jpg":{"effect":{"enabled":true,"depth":0.4},"layers":[]}}}"#
+        );
+        assert_eq!(
+            fs::metadata(f.path.join("home/.local/state/ryoku/stage-walls.json")).unwrap().mode()
+                & 0o7777,
+            0o600
+        );
+    } else {
+        assert_eq!(fs::read(flags).unwrap(), b"corrupt session preferences");
+        assert_eq!(
+            fs::read(f.path.join("home/.local/state/ryoku/stage-walls.json")).unwrap(),
+            b"corrupt Stage preferences"
+        );
+    }
     assert_eq!(fs::read(live.join("directory/unrelated")).unwrap(), b"preserve child");
     assert!(!live.join(".ryoku-restore-apply-attempt").exists());
 }
@@ -96,6 +202,90 @@ fn applies_all_inode_kinds_and_absence_without_mutating_unrelated_peers() {
 }
 
 #[test]
+fn configuration_apply_restores_exact_base_default_acl() {
+    use rustix::fs::{XattrFlags, fgetxattr, fsetxattr};
+
+    let acl = [
+        2_u32.to_le_bytes().as_slice(),
+        &[
+            1, 0, 7, 0, 255, 255, 255, 255, // ACL_USER_OBJ: rwx
+            4, 0, 0, 0, 255, 255, 255, 255, // ACL_GROUP_OBJ: ---
+            16, 0, 0, 0, 255, 255, 255, 255, // ACL_MASK: ---
+            32, 0, 0, 0, 255, 255, 255, 255, // ACL_OTHER: ---
+        ][..],
+    ]
+    .concat();
+    let fixture = Fixture::with_extra(&[], |source| {
+        let source_directory = File::open(source.join("directory")).unwrap();
+        fsetxattr(&source_directory, "system.posix_acl_default", &acl, XattrFlags::empty())
+            .unwrap();
+        let mut source_acl = vec![0_u8; acl.len()];
+        let source_length =
+            fgetxattr(&source_directory, "system.posix_acl_default", &mut source_acl).unwrap();
+        source_acl.truncate(source_length);
+        assert_eq!(source_acl, acl, "fixture filesystem must retain the base default ACL");
+    });
+
+    let live = live_root(&fixture);
+    let (journals, id) = ready(&fixture, true);
+    fixture.store().create(&fixture.source).unwrap();
+    apply(&fixture, &live, &journals, &id, |_| ControlFlow::Continue(())).unwrap();
+    check(&fixture);
+
+    let restored = File::open(fixture.path.join("live/directory")).unwrap();
+    let mut actual = vec![0_u8; acl.len()];
+    let length = fgetxattr(&restored, "system.posix_acl_default", &mut actual).unwrap();
+    actual.truncate(length);
+    assert_eq!(actual, acl);
+}
+
+#[test]
+fn aliased_destination_roots_are_rejected_before_any_restore_write() {
+    let f = Fixture::new();
+    let live = live_root(&f);
+    let aliased_live = File::open(f.path.join("live")).unwrap();
+    let home = File::open(f.path.join("home")).unwrap();
+    let (journals, id) = ready(&f, true);
+    f.store().create(&f.source).unwrap();
+
+    let result = apply_with_owner(
+        &f.source,
+        &f.store(),
+        &journals,
+        &id,
+        &[
+            ConfigurationDestination { root: StateRoot::EtcRyoku, directory: &live },
+            ConfigurationDestination { root: StateRoot::UserRyokuConfig, directory: &aliased_live },
+            ConfigurationDestination { root: StateRoot::UserRyokuState, directory: &home },
+        ],
+        |_| ControlFlow::Continue(()),
+        live.metadata().unwrap().uid(),
+    );
+    assert!(matches!(result, Err(ConfigurationApplyError::InvalidInventory)));
+
+    let live_path = f.path.join("live");
+    assert_eq!(fs::read(live_path.join("a")).unwrap(), b"home sentinel");
+    assert_eq!(fs::read(live_path.join("b")).unwrap(), b"corrupt b");
+    assert_eq!(fs::read(f.path.join("config/shell.json")).unwrap(), b"corrupt shell settings");
+    assert!(!live_path.join(".ryoku-restore-apply-attempt").exists());
+    assert_eq!(journals.load(&id).unwrap().phase, RestorePhase::WritersStopped);
+}
+
+#[test]
+fn restores_pinned_session_preferences_under_the_separate_home_root() {
+    let f = Fixture::with_state_preferences();
+    assert!(!f.source.entries().iter().any(|entry| {
+        entry.record().root == StateRoot::UserRyokuConfig
+            && entry.record().path.as_str() == "profile/unselected.png"
+    }));
+    let live = live_root(&f);
+    let (journals, id) = ready(&f, true);
+    f.store().create(&f.source).unwrap();
+    apply(&f, &live, &journals, &id, |_| ControlFlow::Continue(())).unwrap();
+    check(&f);
+}
+
+#[test]
 fn every_durable_boundary_can_reopen_and_replay_without_losing_checkpoint() {
     for boundary in 1..=6 {
         let f = Fixture::new();
@@ -110,7 +300,7 @@ fn every_durable_boundary_can_reopen_and_replay_without_losing_checkpoint() {
             }),
             Err(ConfigurationApplyError::Cancelled)
         ));
-        assert_eq!(journals.load(&id).unwrap().phase, RestorePhase::RootRollbackComplete);
+        assert_eq!(journals.load(&id).unwrap().phase, RestorePhase::WritersStopped);
         drop(journals);
         let reopened =
             RestoreJournalStore::open(&File::open(f.path.join("journals")).unwrap()).unwrap();
@@ -118,6 +308,142 @@ fn every_durable_boundary_can_reopen_and_replay_without_losing_checkpoint() {
         assert_eq!(state.current_state_generation.as_str(), "retained-current-generation");
         check(&f);
     }
+}
+
+#[test]
+fn process_exit_after_each_durable_apply_boundary_replays_the_same_checkpoint() {
+    const CHILD_TEST: &str = "configuration_stage::disk_stage_tests::configuration_apply_tests::exit_after_durable_apply_boundary_child";
+
+    for boundary in 1..=6 {
+        let f = Fixture::new();
+        let live = live_root(&f);
+        let (journals, id) = ready(&f, true);
+        f.store().create(&f.source).unwrap();
+        drop(journals);
+
+        let status = Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", CHILD_TEST, "--ignored", "--nocapture"])
+            .env("RYOKU_APPLY_CHILD_ROOT", &f.path)
+            .env("RYOKU_APPLY_CHILD_BOUNDARY", boundary.to_string())
+            .status()
+            .unwrap();
+        assert_eq!(status.code(), Some(77), "child did not exit at boundary {boundary}");
+
+        let reopened =
+            RestoreJournalStore::open(&File::open(f.path.join("journals")).unwrap()).unwrap();
+        let state = apply(&f, &live, &reopened, &id, |_| ControlFlow::Continue(())).unwrap();
+        assert_eq!(state.phase, RestorePhase::ConfigurationRestored);
+        assert_eq!(state.current_state_generation.as_str(), "retained-current-generation");
+        check(&f);
+    }
+}
+
+#[test]
+fn sigkill_after_each_durable_apply_boundary_replays_the_same_checkpoint() {
+    const CHILD_TEST: &str = "configuration_stage::disk_stage_tests::configuration_apply_tests::sigkill_after_durable_apply_boundary_child";
+    for boundary in 1..=6 {
+        let f = Fixture::new();
+        let live = live_root(&f);
+        let (journals, id) = ready(&f, true);
+        f.store().create(&f.source).unwrap();
+        drop(journals);
+        let mut child = Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", CHILD_TEST, "--ignored", "--nocapture"])
+            .env("RYOKU_APPLY_CHILD_ROOT", &f.path)
+            .env("RYOKU_APPLY_CHILD_BOUNDARY", boundary.to_string())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let stdout = child.stdout.take().unwrap();
+        let (sender, receiver) = mpsc::channel();
+        thread::spawn(move || {
+            for line in std::io::BufReader::new(stdout).lines() {
+                if sender.send(line).is_err() {
+                    return;
+                }
+            }
+        });
+        let marker = format!("RYOKU_APPLY_DURABLE_BOUNDARY={boundary}");
+        loop {
+            match receiver.recv_timeout(Duration::from_secs(15)) {
+                Ok(Ok(line)) if line == marker => break,
+                Ok(Ok(_)) => continue,
+                Ok(Err(error)) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    panic!("failed reading child boundary output: {error}");
+                }
+                Err(error) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    panic!("child did not reach durable boundary {boundary}: {error}");
+                }
+            }
+        }
+
+        child.kill().unwrap();
+        let status = child.wait().unwrap();
+        assert_eq!(status.signal(), Some(9), "child was expected to receive SIGKILL at {boundary}");
+
+        let reopened =
+            RestoreJournalStore::open(&File::open(f.path.join("journals")).unwrap()).unwrap();
+        assert_eq!(reopened.load(&id).unwrap().phase, RestorePhase::WritersStopped);
+        apply(&f, &live, &reopened, &id, |_| ControlFlow::Continue(())).unwrap();
+        check(&f);
+    }
+}
+
+#[test]
+#[ignore = "spawned by the process-exit replay test"]
+fn exit_after_durable_apply_boundary_child() {
+    let (Ok(root), Ok(boundary)) =
+        (std::env::var("RYOKU_APPLY_CHILD_ROOT"), std::env::var("RYOKU_APPLY_CHILD_BOUNDARY"))
+    else {
+        return;
+    };
+    let boundary = boundary.parse::<usize>().unwrap();
+    let f = Fixture::reopen(PathBuf::from(root));
+    let live = File::open(f.path.join("live")).unwrap();
+    let journals =
+        RestoreJournalStore::open(&File::open(f.path.join("journals")).unwrap()).unwrap();
+    let id = Identifier::new("apply-attempt").unwrap();
+    let _ = apply(&f, &live, &journals, &id, |step| {
+        if step == boundary {
+            // Exit bypasses Rust destructors and leaves only the durable journal
+            // and filesystem writes for the parent to reopen and reconcile.
+            std::process::exit(77);
+        }
+        ControlFlow::Continue(())
+    });
+    panic!("configuration apply returned before the selected boundary");
+}
+
+#[test]
+#[ignore]
+fn sigkill_after_durable_apply_boundary_child() {
+    let (Ok(root), Ok(boundary)) =
+        (std::env::var("RYOKU_APPLY_CHILD_ROOT"), std::env::var("RYOKU_APPLY_CHILD_BOUNDARY"))
+    else {
+        return;
+    };
+    let boundary = boundary.parse::<usize>().unwrap();
+    let f = Fixture::reopen(PathBuf::from(root));
+    let live = File::open(f.path.join("live")).unwrap();
+    let journals =
+        RestoreJournalStore::open(&File::open(f.path.join("journals")).unwrap()).unwrap();
+    let id = Identifier::new("apply-attempt").unwrap();
+    let _ = apply(&f, &live, &journals, &id, |step| {
+        if step == boundary {
+            println!("RYOKU_APPLY_DURABLE_BOUNDARY={step}");
+            std::io::stdout().flush().unwrap();
+            loop {
+                std::thread::park_timeout(std::time::Duration::from_secs(60));
+            }
+        }
+        ControlFlow::Continue(())
+    });
+    panic!("configuration apply returned before the selected boundary");
 }
 
 #[test]
@@ -153,7 +479,7 @@ fn nonempty_directory_removal_preserves_undeclared_children_in_recovery() {
     f.store().create(&f.source).unwrap();
     assert!(apply(&f, &live, &journals, &id, |_| ControlFlow::Continue(())).is_err());
     assert_eq!(fs::read(f.path.join("live/missing/unrelated")).unwrap(), b"keep me");
-    assert_eq!(journals.load(&id).unwrap().phase, RestorePhase::RootRollbackComplete);
+    assert_eq!(journals.load(&id).unwrap().phase, RestorePhase::WritersStopped);
 }
 
 #[test]

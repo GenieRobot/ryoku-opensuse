@@ -13,6 +13,9 @@ use rustix::{
     io::Errno,
     ioctl::{Getter, ioctl},
 };
+use ryoku_snapper::{
+    BootLayout, ConfigState, FilesystemKind, LayoutAssessment, LayoutObservation, assess_layout,
+};
 use std::{
     fs::File,
     io::{Read, Take},
@@ -20,6 +23,10 @@ use std::{
 
 /// The one supported state location.
 pub const STATE_MOUNTPOINT: &str = "/var/lib/ryoku-state";
+/// Shared advisory lock inode used to serialize Ryoku protected mutations
+/// and short-lived recovery-state readers. Created only by explicit state
+/// initialization.
+pub const MUTATION_LOCK_NAME: &str = "mutation.lock";
 const STATE_RELATIVE_PATH: &str = "var/lib/ryoku-state";
 const MAX_MOUNTINFO_BYTES: u64 = 4 * 1024 * 1024;
 
@@ -45,6 +52,13 @@ pub struct MountEvidence {
     pub filesystem_root: String,
     pub mount_id: u64,
     pub filesystem_type: String,
+    /// Kernel-reported filesystem source; its stable identity is checked with
+    /// the Btrfs UUID read from the pinned descriptor below.
+    pub mount_source: String,
+    /// Per-mount flags from the sixth field in `/proc/self/mountinfo`.
+    pub mount_options: Vec<String>,
+    /// Superblock options from the final mountinfo field.
+    pub super_options: Vec<String>,
     pub filesystem_uuid: String,
     pub subvolume_id: Option<u64>,
     pub parent_subvolume_id: Option<u64>,
@@ -68,6 +82,7 @@ pub enum StateMountError {
     MountInfoTooLarge,
     NotBtrfsSubvolume,
     NotSubvolumeRoot,
+    UnsafeMountOptions,
     Filesystem(Errno),
 }
 
@@ -90,6 +105,9 @@ impl std::fmt::Display for StateMountError {
             Self::MountInfoTooLarge => "kernel mount table exceeds the inspection bound",
             Self::NotBtrfsSubvolume => "protected state directory is not a Btrfs subvolume root",
             Self::NotSubvolumeRoot => "protected state mount is not at the Btrfs subvolume root",
+            Self::UnsafeMountOptions => {
+                "protected state mount options differ from the required safe subvolume policy"
+            }
             Self::Filesystem(_) => "protected state mount inspection failed",
         })
     }
@@ -108,6 +126,24 @@ impl std::error::Error for StateMountError {}
 pub fn collect_and_open_state_mount(
     trusted_root: &impl AsFd,
     expected: &StateMountIdentity,
+) -> Result<(rustix::fd::OwnedFd, MountEvidence), StateMountError> {
+    collect_and_open_state_mount_with_access(trusted_root, expected, true)
+}
+
+/// Validate and pin the same dedicated state mount for readers that operate
+/// inside a read-only filesystem sandbox. Identity checks remain identical;
+/// only the requirement that the mount be writable is omitted.
+pub fn collect_and_open_state_mount_readonly(
+    trusted_root: &impl AsFd,
+    expected: &StateMountIdentity,
+) -> Result<(rustix::fd::OwnedFd, MountEvidence), StateMountError> {
+    collect_and_open_state_mount_with_access(trusted_root, expected, false)
+}
+
+fn collect_and_open_state_mount_with_access(
+    trusted_root: &impl AsFd,
+    expected: &StateMountIdentity,
+    require_writable: bool,
 ) -> Result<(rustix::fd::OwnedFd, MountEvidence), StateMountError> {
     validate_trusted_root(trusted_root)?;
     let state_fd = openat2(
@@ -139,9 +175,6 @@ pub fn collect_and_open_state_mount(
     if mount.filesystem_type != "btrfs" {
         return Err(StateMountError::WrongFilesystem);
     }
-    if mount.read_only {
-        return Err(StateMountError::ReadOnly);
-    }
     validate_btrfs_root_inode(fstat(&state_fd).map_err(StateMountError::Filesystem)?.st_ino)?;
 
     let fs_info = read_btrfs_fs_info(&state_fd)?;
@@ -151,12 +184,19 @@ pub fn collect_and_open_state_mount(
         filesystem_root: mount.root,
         mount_id: statx.stx_mnt_id,
         filesystem_type: mount.filesystem_type,
+        mount_source: mount.source,
+        mount_options: mount.mount_options,
+        super_options: mount.super_options,
         filesystem_uuid: format_uuid(&fs_info.fsid),
         subvolume_id: Some(subvolume_info.treeid),
         parent_subvolume_id: Some(subvolume_info.parent_id),
         read_only: mount.read_only,
     };
-    validate_evidence(&evidence, expected)?;
+    if require_writable {
+        validate_evidence(&evidence, expected)?;
+    } else {
+        validate_readonly_evidence(&evidence, expected)?;
+    }
     Ok((state_fd, evidence))
 }
 
@@ -175,11 +215,15 @@ fn validate_state_descriptor<Fd: AsFd>(fd: Fd) -> Result<(), StateMountError> {
 
 #[derive(Debug, Eq, PartialEq)]
 struct ParsedMountInfo {
+    mount_id: u64,
     /// Root path inside the mounted filesystem. For Btrfs subvolume mounts
     /// this may name the subvolume path, so it is not necessarily `/`.
     root: String,
     mountpoint: String,
     filesystem_type: String,
+    source: String,
+    mount_options: Vec<String>,
+    super_options: Vec<String>,
     read_only: bool,
 }
 
@@ -220,9 +264,15 @@ fn parse_mountinfo_for_id(
             return Err(StateMountError::InvalidMountInfo);
         }
         let mountpoint = decode_mount_field(before[4])?;
+        let mount_options = parse_mount_options(before[5])?;
+        let source = decode_mount_field(after[1])?;
+        if source.is_empty() {
+            return Err(StateMountError::InvalidMountInfo);
+        }
+        let super_options = parse_mount_options(after[2])?;
         let mut ro = false;
         let mut rw = false;
-        for option in before[5].split(',') {
+        for option in &mount_options {
             ro |= option == "ro";
             rw |= option == "rw";
         }
@@ -230,9 +280,13 @@ fn parse_mountinfo_for_id(
             return Err(StateMountError::InvalidMountInfo);
         }
         let parsed = ParsedMountInfo {
+            mount_id,
             root,
             mountpoint,
             filesystem_type: after[0].to_string(),
+            source,
+            mount_options,
+            super_options,
             read_only: ro,
         };
         if found.replace(parsed).is_some() {
@@ -240,6 +294,141 @@ fn parse_mountinfo_for_id(
         }
     }
     found.ok_or(StateMountError::MissingMount)
+}
+
+fn parse_mount_options(value: &str) -> Result<Vec<String>, StateMountError> {
+    if value.is_empty() {
+        return Err(StateMountError::InvalidMountInfo);
+    }
+    let options: Vec<_> = value.split(',').map(str::to_owned).collect();
+    if options.iter().any(|option| option.is_empty()) {
+        return Err(StateMountError::InvalidMountInfo);
+    }
+    Ok(options)
+}
+
+/// Inspect the live root and `/boot` mounts and classify only protection that
+/// can be established from the current mount namespace and Snapper. A
+/// separately mounted `/boot` is conservatively unsupported until its own
+/// snapshot coverage is proven. This root/boot probe does not assess the Ryoku
+/// state filesystem; callers must validate it through the machine-state record
+/// and linked-generation reader instead of inferring coverage from this result.
+///
+/// This is an observation, not authorization or a checkpoint. Callers must
+/// still verify a fresh linked pre-change checkpoint before any protected
+/// mutation.
+pub fn detect_host_layout() -> Result<LayoutAssessment, StateMountError> {
+    let root = File::open("/").map_err(|_| StateMountError::KernelObservationUnavailable)?;
+    validate_trusted_root(&root)?;
+    let root_id = mount_id(&root)?;
+    let boot = match openat2(
+        &root,
+        "boot",
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+        rustix::fs::Mode::empty(),
+        ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_MAGICLINKS,
+    ) {
+        Ok(boot) => Some(File::from(boot)),
+        Err(Errno::NOENT) => None,
+        Err(error) => return Err(StateMountError::Filesystem(error)),
+    };
+    let mountinfo = read_mountinfo()?;
+    let root_mount = parse_mountinfo_for_id(&mountinfo, root_id)?;
+    let boot_id = boot.as_ref().map(mount_id).transpose()?;
+    let boot_mount = boot_id.map(|id| parse_mountinfo_for_id(&mountinfo, id)).transpose()?;
+    let nested_boot_mount = has_distinct_mount_under_boot(&mountinfo, root_id)?;
+
+    let root_is_btrfs_subvolume = if root_mount.filesystem_type == "btrfs" {
+        let info = read_btrfs_subvolume_info(&root)?;
+        fstat(&root).map_err(StateMountError::Filesystem)?.st_ino == 256 && info.treeid >= 256
+    } else {
+        false
+    };
+    let root_snapper = if root_mount.filesystem_type == "btrfs" {
+        let fs_info = read_btrfs_fs_info(&root)?;
+        if crate::root_capture_mapping::RootCaptureMapping::open(&format_uuid(&fs_info.fsid))
+            .is_ok()
+        {
+            ConfigState::Ready
+        } else {
+            ConfigState::Unknown
+        }
+    } else {
+        ConfigState::Missing
+    };
+    Ok(assess_host_mounts(
+        &root_mount,
+        boot_mount.as_ref(),
+        nested_boot_mount,
+        root_is_btrfs_subvolume,
+        root_snapper,
+    ))
+}
+
+fn assess_host_mounts(
+    root: &ParsedMountInfo,
+    boot: Option<&ParsedMountInfo>,
+    nested_boot_mount: bool,
+    root_is_btrfs_subvolume: bool,
+    root_snapper: ConfigState,
+) -> LayoutAssessment {
+    let root_filesystem =
+        if root.filesystem_type == "btrfs" { FilesystemKind::Btrfs } else { FilesystemKind::Other };
+    let boot_layout = if nested_boot_mount {
+        BootLayout::SeparateUnsnapshotted
+    } else if boot.is_some_and(|mount| mount.mount_id == root.mount_id) {
+        BootLayout::IncludedInRoot
+    } else if boot.is_some_and(|mount| mount.mountpoint == "/boot") {
+        BootLayout::SeparateUnsnapshotted
+    } else {
+        BootLayout::Unknown
+    };
+    assess_layout(LayoutObservation {
+        root_filesystem,
+        root_is_btrfs_subvolume,
+        root_snapper,
+        // This probe reports only root/boot protection; configuration-only
+        // coverage is deliberately withheld and stated separately by callers.
+        ryoku_config_filesystem: FilesystemKind::Other,
+        ryoku_config_snapper: ConfigState::Missing,
+        boot: boot_layout,
+    })
+}
+
+/// A root snapshot does not cover a distinct mount nested below `/boot`, even
+/// when `/boot` itself resolves to the root mount (for example, a separately
+/// mounted EFI system partition at `/boot/efi`).
+fn has_distinct_mount_under_boot(
+    contents: &str,
+    root_mount_id: u64,
+) -> Result<bool, StateMountError> {
+    let mut found = false;
+    for line in contents.lines() {
+        let Some((before, after)) = line.split_once(" - ") else {
+            return Err(StateMountError::InvalidMountInfo);
+        };
+        let before: Vec<_> = before.split_ascii_whitespace().collect();
+        let after: Vec<_> = after.split_ascii_whitespace().collect();
+        if before.len() < 6 || after.len() < 3 {
+            return Err(StateMountError::InvalidMountInfo);
+        }
+        let mount_id: u64 = before[0].parse().map_err(|_| StateMountError::InvalidMountInfo)?;
+        let mountpoint = decode_mount_field(before[4])?;
+        if mount_id != root_mount_id && (mountpoint == "/boot" || mountpoint.starts_with("/boot/"))
+        {
+            found = true;
+        }
+    }
+    Ok(found)
+}
+
+fn mount_id(descriptor: &File) -> Result<u64, StateMountError> {
+    let observed = statx(descriptor, "", AtFlags::EMPTY_PATH, StatxFlags::MNT_ID)
+        .map_err(|_| StateMountError::KernelObservationUnavailable)?;
+    if observed.stx_mask & StatxFlags::MNT_ID.bits() == 0 || observed.stx_mnt_id == 0 {
+        return Err(StateMountError::KernelObservationUnavailable);
+    }
+    Ok(observed.stx_mnt_id)
 }
 
 /// Btrfs assigns inode 256 to the root directory of every subvolume. The
@@ -390,17 +579,31 @@ pub fn validate_evidence(
     evidence: &MountEvidence,
     expected: &StateMountIdentity,
 ) -> Result<(), StateMountError> {
+    if evidence.read_only {
+        return Err(StateMountError::ReadOnly);
+    }
+    validate_readonly_evidence(evidence, expected)
+}
+
+/// Validate mount identity for operations that never mutate protected state.
+pub fn validate_readonly_evidence(
+    evidence: &MountEvidence,
+    expected: &StateMountIdentity,
+) -> Result<(), StateMountError> {
     if evidence.mountpoint != STATE_MOUNTPOINT {
         return Err(StateMountError::WrongMountpoint);
     }
     if !evidence.filesystem_root.starts_with('/') {
         return Err(StateMountError::InvalidMountInfo);
     }
+    if evidence.mount_source.is_empty() {
+        return Err(StateMountError::InvalidMountInfo);
+    }
     if evidence.filesystem_type != "btrfs" {
         return Err(StateMountError::WrongFilesystem);
     }
-    if evidence.read_only {
-        return Err(StateMountError::ReadOnly);
+    if !safe_mount_options(evidence, expected) {
+        return Err(StateMountError::UnsafeMountOptions);
     }
     let parent = evidence.parent_subvolume_id.ok_or(StateMountError::MissingSubvolumeParent)?;
     let subvolume = evidence.subvolume_id.ok_or(StateMountError::MissingSubvolumeParent)?;
@@ -414,11 +617,33 @@ pub fn validate_evidence(
     Ok(())
 }
 
+fn safe_mount_options(evidence: &MountEvidence, expected: &StateMountIdentity) -> bool {
+    let has_once = |options: &[String], name: &str| {
+        options.iter().filter(|option| option.as_str() == name).count() == 1
+    };
+    let has_never =
+        |options: &[String], name: &str| options.iter().all(|option| option.as_str() != name);
+    let subvolume_options: Vec<_> = evidence
+        .super_options
+        .iter()
+        .filter_map(|option| option.strip_prefix("subvolid="))
+        .collect();
+    let expected_subvolume = expected.subvolume_id.to_string();
+    has_once(&evidence.mount_options, "nodev")
+        && has_once(&evidence.mount_options, "nosuid")
+        && has_once(&evidence.mount_options, "noexec")
+        && has_never(&evidence.mount_options, "dev")
+        && has_never(&evidence.mount_options, "suid")
+        && has_never(&evidence.mount_options, "exec")
+        && subvolume_options.len() == 1
+        && subvolume_options[0] == expected_subvolume
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const MOUNTINFO_FIXTURE: &str = "25 1 0:22 / /var/lib/ryoku-state rw,nosuid,nodev shared:1 - btrfs /dev/vda2 rw,space_cache=v2\n";
+    const MOUNTINFO_FIXTURE: &str = "25 1 0:22 / /var/lib/ryoku-state rw,nosuid,nodev,noexec shared:1 - btrfs /dev/vda2 rw,space_cache=v2,subvolid=256\n";
 
     fn expected() -> StateMountIdentity {
         StateMountIdentity {
@@ -434,6 +659,9 @@ mod tests {
             filesystem_root: "/".into(),
             mount_id: 41,
             filesystem_type: "btrfs".into(),
+            mount_source: "/dev/vda2".into(),
+            mount_options: vec!["rw".into(), "nosuid".into(), "nodev".into(), "noexec".into()],
+            super_options: vec!["rw".into(), "space_cache=v2".into(), "subvolid=256".into()],
             filesystem_uuid: expected().filesystem_uuid,
             subvolume_id: Some(256),
             parent_subvolume_id: Some(5),
@@ -519,6 +747,38 @@ mod tests {
     }
 
     #[test]
+    fn mount_options_must_match_the_hardened_unit_and_exact_subvolume() {
+        let mut observed = evidence();
+        observed.mount_options.retain(|option| option != "nodev");
+        assert_eq!(
+            validate_evidence(&observed, &expected()),
+            Err(StateMountError::UnsafeMountOptions)
+        );
+
+        observed = evidence();
+        observed.mount_options.push("exec".into());
+        assert_eq!(
+            validate_evidence(&observed, &expected()),
+            Err(StateMountError::UnsafeMountOptions)
+        );
+
+        observed = evidence();
+        observed.super_options.retain(|option| option != "subvolid=256");
+        observed.super_options.push("subvolid=257".into());
+        assert_eq!(
+            validate_evidence(&observed, &expected()),
+            Err(StateMountError::UnsafeMountOptions)
+        );
+
+        observed = evidence();
+        observed.super_options.push("subvolid=256".into());
+        assert_eq!(
+            validate_evidence(&observed, &expected()),
+            Err(StateMountError::UnsafeMountOptions)
+        );
+    }
+
+    #[test]
     fn missing_parent_fails_closed() {
         let mut observed = evidence();
         observed.parent_subvolume_id = None;
@@ -534,6 +794,11 @@ mod tests {
         assert_eq!(parsed.mountpoint, STATE_MOUNTPOINT);
         assert_eq!(parsed.root, "/");
         assert_eq!(parsed.filesystem_type, "btrfs");
+        assert_eq!(parsed.source, "/dev/vda2");
+        assert!(parsed.mount_options.contains(&"nodev".into()));
+        assert!(parsed.mount_options.contains(&"nosuid".into()));
+        assert!(parsed.mount_options.contains(&"noexec".into()));
+        assert!(parsed.super_options.contains(&"subvolid=256".into()));
         assert!(!parsed.read_only);
         assert_eq!(
             parse_mountinfo_for_id(MOUNTINFO_FIXTURE, 26),
@@ -575,6 +840,60 @@ mod tests {
         assert_eq!(parse_mountinfo_for_id(both, 25), Err(StateMountError::InvalidMountInfo));
         let malformed = "25 1 0:22 / /var/lib/ryoku-state rw -\n";
         assert_eq!(parse_mountinfo_for_id(malformed, 25), Err(StateMountError::InvalidMountInfo));
+    }
+
+    #[test]
+    fn host_layout_requires_verified_root_snapper_and_boot_coverage() {
+        let root = ParsedMountInfo {
+            mount_id: 1,
+            root: "/@".into(),
+            mountpoint: "/".into(),
+            filesystem_type: "btrfs".into(),
+            source: "/dev/root".into(),
+            mount_options: vec!["rw".into()],
+            super_options: vec!["rw".into()],
+            read_only: false,
+        };
+        let covered = assess_host_mounts(&root, Some(&root), false, true, ConfigState::Ready);
+        assert_eq!(covered.capability, ryoku_snapper::LayoutCapability::FullSystem);
+
+        let separate_boot = ParsedMountInfo {
+            mount_id: 2,
+            root: "/@boot".into(),
+            mountpoint: "/boot".into(),
+            filesystem_type: "btrfs".into(),
+            source: "/dev/boot".into(),
+            mount_options: vec!["rw".into()],
+            super_options: vec!["rw".into()],
+            read_only: false,
+        };
+        let assessment =
+            assess_host_mounts(&root, Some(&separate_boot), false, true, ConfigState::Ready);
+        assert_eq!(assessment.capability, ryoku_snapper::LayoutCapability::Unsupported);
+
+        let assessment = assess_host_mounts(&root, Some(&root), true, true, ConfigState::Ready);
+        assert_eq!(assessment.capability, ryoku_snapper::LayoutCapability::Unsupported);
+
+        let assessment = assess_host_mounts(&root, Some(&root), false, true, ConfigState::Unknown);
+        assert_eq!(assessment.capability, ryoku_snapper::LayoutCapability::Unsupported);
+    }
+
+    #[test]
+    fn detects_nested_efi_mounts_without_matching_prefixes_or_same_root_mounts() {
+        let root_and_efi = concat!(
+            "1 0 0:1 /@ / rw - btrfs /dev/root rw\n",
+            "2 1 0:2 / /boot/efi rw - vfat /dev/efi rw\n",
+        );
+        assert_eq!(has_distinct_mount_under_boot(root_and_efi, 1), Ok(true));
+
+        let same_root_only = "1 0 0:1 /@ / rw - btrfs /dev/root rw\n";
+        assert_eq!(has_distinct_mount_under_boot(same_root_only, 1), Ok(false));
+
+        let sibling_prefix = "2 1 0:2 / /booted rw - vfat /dev/other rw\n";
+        assert_eq!(has_distinct_mount_under_boot(sibling_prefix, 1), Ok(false));
+
+        let escaped_mountpoint = "2 1 0:2 / /boot/efi\\040partition rw - vfat /dev/efi rw\n";
+        assert_eq!(has_distinct_mount_under_boot(escaped_mountpoint, 1), Ok(true));
     }
 
     #[test]

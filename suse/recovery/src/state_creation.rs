@@ -111,6 +111,47 @@ fn pending_in_directory(directory: &File) -> Result<bool, CreationError> {
 }
 
 impl StateCreationTransaction {
+    /// Revalidate the bootstrap snapshot and the exact provisioning lock before
+    /// a caller performs another protected-state write under this transaction.
+    pub fn revalidate(&self) -> Result<(), CreationError> {
+        let checkpoint =
+            verify_new_root_checkpoint(&self.root, self.intent.bootstrap_checkpoint.clone())
+                .map_err(CreationError::Checkpoint)?;
+        if checkpoint.subvolume_uuid != self.intent.bootstrap_subvolume_uuid {
+            return Err(CreationError::CheckpointChanged);
+        }
+
+        let current_directory =
+            open_record_directory(&self.root, false).map_err(CreationError::Machine)?;
+        let directory_stat = fstat(&self.directory)?;
+        let current_directory_stat = fstat(&current_directory)?;
+        if directory_stat.st_dev != current_directory_stat.st_dev
+            || directory_stat.st_ino != current_directory_stat.st_ino
+        {
+            return Err(CreationError::UnsafeLock);
+        }
+
+        let named_lock = File::from(openat(
+            &self.directory,
+            ".state-creation.lock",
+            OFlags::RDWR | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+            Mode::empty(),
+        )?);
+        let held_stat = fstat(&self._lock)?;
+        let named_stat = fstat(&named_lock)?;
+        if FileType::from_raw_mode(named_stat.st_mode) != FileType::RegularFile
+            || named_stat.st_uid != 0
+            || named_stat.st_gid != 0
+            || named_stat.st_mode & 0o7777 != 0o600
+            || named_stat.st_nlink != 1
+            || held_stat.st_dev != named_stat.st_dev
+            || held_stat.st_ino != named_stat.st_ino
+        {
+            return Err(CreationError::UnsafeLock);
+        }
+        Ok(())
+    }
+
     /// Revalidate a native root checkpoint before any provisioning writes.
     /// Caller separately establishes authorization, supported boot layout and
     /// serialization with other protected operations, including snapshot creation.

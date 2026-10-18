@@ -74,6 +74,9 @@ fn entry(file: &File, directory: bool, acl: Option<AclPayload>) -> StagedEntry {
 }
 
 // Linux POSIX ACL xattr v2: owner rw, named user r, group none, mask r, other none.
+// The named user ID must be mapped in this process's user namespace. Test
+// callers use the fixture owner's mapped UID so the ACL behavior is exercised
+// even in single-ID build containers.
 fn access_acl(uid: u32) -> Vec<u8> {
     let mut bytes = 2_u32.to_le_bytes().to_vec();
     for (tag, permissions, id) in [
@@ -126,7 +129,7 @@ fn pinned_inode_roundtrip_preserves_content_offset_and_replacement_path() {
 fn regular_file_acl_is_restored_then_absence_clears_it_without_touching_user_xattrs() {
     let fixture = Fixture::new();
     let file = fixture.file();
-    let acl = access_acl(file.metadata().unwrap().uid() + 1);
+    let acl = access_acl(file.metadata().unwrap().uid());
     let staged = entry(&file, false, Some(AclPayload { access: Some(acl.clone()), default: None }));
     fsetxattr(&file, "user.ryoku-test", b"unrelated", XattrFlags::empty()).unwrap();
     prepare_inode_metadata(&file, &staged).unwrap();
@@ -141,7 +144,7 @@ fn directory_access_and_default_acls_restore_and_clear_exactly() {
     let fixture = Fixture::new();
     fs::create_dir(fixture.0.join("directory")).unwrap();
     let file = File::open(fixture.0.join("directory")).unwrap();
-    let acl = access_acl(file.metadata().unwrap().uid() + 1);
+    let acl = access_acl(file.metadata().unwrap().uid());
     let staged = entry(
         &file,
         true,
@@ -201,7 +204,7 @@ fn unrepresentable_timestamp_and_invalid_owner_fail_before_mutation() {
 fn incompatible_acl_mode_is_rejected_by_exact_readback() {
     let fixture = Fixture::new();
     let file = fixture.file();
-    let acl = access_acl(file.metadata().unwrap().uid() + 1);
+    let acl = access_acl(file.metadata().unwrap().uid());
     let mut staged = entry(&file, false, Some(AclPayload { access: Some(acl), default: None }));
     if let EntryKind::RegularFile { metadata, .. } = &mut staged.record.kind {
         metadata.mode = 0o600;
