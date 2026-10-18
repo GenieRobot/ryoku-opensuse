@@ -15,6 +15,7 @@ default = []
 wsl-lab = []
 
 [dependencies]
+serde_json = "1"
 rustix = { version = "1.1.5", features = ["fs", "process"] }
 
 [[bin]]

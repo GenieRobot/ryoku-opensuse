@@ -1,0 +1,7 @@
+/usr/share/doc/packages/ryoku-profile-defaults	drwxr-xr-x	root	root		(none)
+/usr/share/doc/packages/ryoku-profile-defaults/README.md	-rw-r--r--	root	root	c501a68393bef73026d7928d6d79c4f485653f89e72ece5e489237414ae5dc6f	(none)
+/usr/share/licenses/ryoku-profile-defaults	drwxr-xr-x	root	root		(none)
+/usr/share/licenses/ryoku-profile-defaults/LICENSE	-rw-r--r--	root	root	3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986	(none)
+/usr/share/ryoku	drwxr-xr-x	root	root		(none)
+/usr/share/ryoku/config	drwxr-xr-x	root	root		(none)
+/usr/share/ryoku/config/profile.json	-rw-r--r--	root	root	605ac095a781ee4b3908272591f15b56f3a9f5d9a251e177e7d60dbbade02ba5	(none)

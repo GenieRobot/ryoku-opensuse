@@ -1,0 +1,78 @@
+Building target platforms: noarch
+Building for target noarch
+Executing(%mkbuilddir): /usr/bin/bash -e /tmp/rpm-tmp.25nHfI
+Executing(%prep): /usr/bin/bash -e /tmp/rpm-tmp.1om2uC
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build
++ cd <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build
++ rm -rf ryoku-opensuse-0.1.0
++ /usr/lib/rpm/rpmuncompress -x <RPM_TOPDIR>/SOURCES/ryoku-opensuse-0.1.0.tar.gz
++ STATUS=0
++ '[' 0 -ne 0 ']'
++ cd ryoku-opensuse-0.1.0
++ /usr/bin/chmod -Rf a+rX,u+w,g-w,o-w .
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%build): /usr/bin/bash -e /tmp/rpm-tmp.wW8RTW
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build
++ /usr/bin/rm -rf <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build/BUILDROOT
+++ dirname <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build/BUILDROOT
++ /usr/bin/mkdir -p <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build
++ /usr/bin/mkdir <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build/BUILDROOT
++ cd ryoku-opensuse-0.1.0
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%install): /usr/bin/bash -e /tmp/rpm-tmp.Fa1obk
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build
++ /usr/bin/rm -rf <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build/BUILDROOT
++ /usr/bin/mkdir -p <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build
++ /usr/bin/mkdir <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build/BUILDROOT
++ cd ryoku-opensuse-0.1.0
++ install -D -m 0644 packaging/rpm/defaults/profile.json <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build/BUILDROOT/usr/share/ryoku/config/profile.json
++ /usr/lib/rpm/brp-compress
++ /usr/lib/rpm/brp-suse
+Processing files: ryoku-profile-defaults-0.1.0-3.noarch
+Executing(%doc): /usr/bin/bash -e /tmp/rpm-tmp.7myeoE
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build
++ cd ryoku-opensuse-0.1.0
++ DOCDIR=<RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-profile-defaults
++ export LC_ALL=C.UTF-8
++ LC_ALL=C.UTF-8
++ export DOCDIR
++ /usr/bin/mkdir -p <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-profile-defaults
++ cp -pr <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build/ryoku-opensuse-0.1.0/packaging/rpm/defaults/README.md <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-profile-defaults
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%license): /usr/bin/bash -e /tmp/rpm-tmp.U6Fhjm
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build
++ cd ryoku-opensuse-0.1.0
++ LICENSEDIR=<RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-profile-defaults
++ export LC_ALL=C.UTF-8
++ LC_ALL=C.UTF-8
++ export LICENSEDIR
++ /usr/bin/mkdir -p <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-profile-defaults
++ cp -pr <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build/ryoku-opensuse-0.1.0/LICENSE <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-profile-defaults
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Provides: ryoku-profile-defaults = 0.1.0-3
+Requires(rpmlib): rpmlib(CompressedFileNames) <= 3.0.4-1 rpmlib(FileDigests) <= 4.6.0-1 rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+Checking for unpackaged file(s): /usr/lib/rpm/check-files <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build/BUILDROOT
+Wrote: <RPM_TOPDIR>/SRPMS/ryoku-profile-defaults-0.1.0-3.src.rpm
+Wrote: <RPM_TOPDIR>/RPMS/noarch/ryoku-profile-defaults-0.1.0-3.noarch.rpm
+Executing(rmbuild): /usr/bin/bash -e /tmp/rpm-tmp.T2QQtx
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build
++ test -d <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build
++ /usr/bin/chmod -Rf a+rX,u+w,g-w,o-w <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build
++ rm -rf <RPM_TOPDIR>/BUILD/ryoku-profile-defaults-0.1.0-build
++ RPM_EC=0
+++ jobs -p
++ exit 0
