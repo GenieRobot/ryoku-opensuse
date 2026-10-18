@@ -26,6 +26,8 @@ Requires:       systemd
 Requires:       util-linux
 Requires:       coreutils
 Requires:       policycoreutils
+Requires:       zypper
+Requires:       rpm >= 4.19
 
 %description state-init
 Installs the existing Rust ryoku-state-init administrator command. When
