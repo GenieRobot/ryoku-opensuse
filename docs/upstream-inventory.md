@@ -75,8 +75,10 @@ repository. Keep any future adaptation small and auditable:
 5. Run the owning issue's Rust, package, and VM acceptance checks after every
    sync; a source revision change alone is not evidence of a compatible port.
 
-Current patch set: `upstream/patches/issue18-writer-launch.patch`, limited to
-supported writer launch coordination and the pinned Quickshell executable path.
+The source manifest records the issue #18 writer launch patch and the prepared
+issue #25 clipboard and equalizer routing patches. The issue #25 patch manifests
+under `upstream/patches/` record exact base and result hashes; desktop RPM
+selection and native VM acceptance remain pending.
 The exact pinned shell-unit test fixture is retained under
 `suse/recovery/tests/fixtures/` with upstream LICENSE and NOTICE. No desktop
 runtime source tree is vendored. See [#18 writer integration](issue18-writer-coordination.md).

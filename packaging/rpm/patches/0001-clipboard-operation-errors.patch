@@ -1,0 +1,109 @@
+--- a/shell/quickshell/shell/services/Clipboard.qml
++++ b/shell/quickshell/shell/services/Clipboard.qml
+@@ -17,8 +17,30 @@
+     id: root
+ 
+     property var entries: []
++    property string lastError: ""
+-    readonly property string sockPath: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/ryoku-shell.sock"
++    readonly property string sockPath: (Quickshell.env("XDG_RUNTIME_DIR") || "/run/ryoku-opensuse-clipboard-unavailable") + "/ryoku-clipboard.sock"
+ 
++    Timer {
++        id: errorExpiry
++        interval: 5000
++        onTriggered: root.lastError = ""
++    }
++
++    function applyResult(line) {
++        try {
++            const result = JSON.parse(line);
++            if (result && result.ok === true) {
++                root.lastError = "";
++                errorExpiry.stop();
++                return;
++            }
++            root.lastError = String((result && result.error) || "Clipboard operation failed");
++        } catch (e) {
++            root.lastError = "Clipboard provider returned an invalid response";
++        }
++        errorExpiry.restart();
++    }
++
+     function apply(line) {
+         try {
+             const frame = JSON.parse(line);
+@@ -55,10 +77,13 @@
+         Component.onCompleted: connected = true
+         onConnectionStateChanged: {
+             if (connected) {
++                root.lastError = "";
+                 write("subscribe clipboard\n");
+                 flush();
+             } else {
+                 root.entries = [];
++                root.lastError = "Clipboard provider unavailable";
++                errorExpiry.restart();
+                 retry.restart();
+             }
+         }
+@@ -76,6 +101,7 @@
+         id: ctl
+         path: root.sockPath
+         property string queued: ""
++        parser: SplitParser { onRead: line => root.applyResult(line) }
+ 
+         function flushQueued() {
+             if (queued.length === 0)
+--- a/shell/quickshell/shell/modules/clipboard/ClipboardSurface.qml
++++ b/shell/quickshell/shell/modules/clipboard/ClipboardSurface.qml
+@@ -168,7 +168,8 @@
+                 // Plain x/width arithmetic -- anchor lines do not subtract.
+                 width: Math.min(Math.round(260 * pane.s),
+                                 Math.max(Math.round(96 * pane.s),
+-                                         countChip.x - (titleRow.x + titleRow.width) - Math.round(24 * pane.s)))
++                                         (errorChip.visible ? errorChip.x : countChip.x) -
++                                         (titleRow.x + titleRow.width) - Math.round(24 * pane.s)))
+                 color: Qt.rgba(Theme.onSurface.r, Theme.onSurface.g, Theme.onSurface.b, input.activeFocus ? 0.10 : 0.05)
+                 border.width: 1
+                 border.color: input.activeFocus
+@@ -264,7 +265,7 @@
+                 id: countChip
+                 anchors.right: parent.right
+                 anchors.verticalCenter: parent.verticalCenter
+-                visible: pane.items.length > 0
++                visible: pane.items.length > 0 && !errorChip.visible
+                 height: Math.round(20 * pane.s)
+                 width: Math.max(height, cnt.implicitWidth + Math.round(12 * pane.s))
+                 radius: height / 2
+@@ -280,6 +281,31 @@
+                     font.weight: Font.DemiBold
+                 }
+             }
++
++            Rectangle {
++                id: errorChip
++                anchors.right: parent.right
++                anchors.verticalCenter: parent.verticalCenter
++                visible: pane.searchable && Clipboard.lastError.length > 0
++                height: Math.round(20 * pane.s)
++                width: Math.min(parent.width * 0.48, Math.max(height, errorText.implicitWidth + Math.round(12 * pane.s)))
++                radius: height / 2
++                color: Qt.rgba(Theme.onSurface.r, Theme.onSurface.g, Theme.onSurface.b, 0.10)
++
++                Text {
++                    id: errorText
++                    anchors.fill: parent
++                    anchors.leftMargin: Math.round(6 * pane.s)
++                    anchors.rightMargin: Math.round(6 * pane.s)
++                    verticalAlignment: Text.AlignVCenter
++                    horizontalAlignment: Text.AlignHCenter
++                    text: Clipboard.lastError
++                    color: Theme.onSurfaceVariant
++                    font.family: Theme.fontPrimary
++                    font.pixelSize: Math.round((Theme.fontSm - 2) * pane.s)
++                    elide: Text.ElideRight
++                }
++            }
+         }
+ 
+         Rectangle {

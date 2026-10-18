@@ -17,7 +17,12 @@ license = "GPL-3.0"
 license_file = "LICENSE"
 notice_file = "NOTICE"
 source_policy = "Runtime source is not vendored; the exact shell-unit test fixture retains upstream LICENSE/NOTICE. Imported components must retain applicable file-level notices."
-patches = ["patches/issue18-writer-launch.patch"]
+patches = [
+  "patches/issue18-writer-launch.patch",
+  "../packaging/rpm/patches/0001-clipboard-operation-errors.patch",
+  "patches/0003-rust-equalizer-adapter.patch",
+  "../packaging/rpm/patches/0004-disable-upstream-clipboard-history.patch",
+]
 vendored_paths = ["suse/recovery/tests/fixtures/issue18-pinned-ryoku-shell.service", "suse/recovery/tests/fixtures/issue18-upstream-LICENSE", "suse/recovery/tests/fixtures/issue18-upstream-NOTICE"]
 
 [[components]]

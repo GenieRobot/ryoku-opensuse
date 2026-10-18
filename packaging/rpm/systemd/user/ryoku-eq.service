@@ -1,0 +1,12 @@
+[Unit]
+Description=Ryoku equalizer PipeWire smart filter
+After=pipewire.service
+PartOf=pipewire.service
+ConditionPathExists=%t/ryoku/eq/filter-chain.conf
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/pipewire -c %t/ryoku/eq/filter-chain.conf
+Restart=on-failure
+RestartSec=2
+Slice=session.slice

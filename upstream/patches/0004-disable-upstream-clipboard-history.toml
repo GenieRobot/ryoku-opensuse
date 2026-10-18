@@ -1,0 +1,14 @@
+schema = 1
+patch = "packaging/rpm/patches/0004-disable-upstream-clipboard-history.patch"
+patch_sha256 = "bd1cd3468a598da3805c2287b0d5aa9dcb8344ffed0ba98660e9daf103e84d92"
+upstream_revision = "98a0368253d9628be72b853985878a5db90e1547"
+source_archive_sha256 = "5bbc37c047becef72b9f62793a28abedb6147540e616624bd4bc21386a657610"
+status = "prepared for desktop RPM integration alongside the Rust clipboard provider; native clipboard acceptance pending"
+purpose = "prevent the pinned upstream daemon from starting its clipboard-history topic and wl-paste watcher when the Rust provider owns the existing clipboard surface"
+new_project_owned_executable_code = false
+
+[[files]]
+path = "ryoku/shell/ipc/daemon.go"
+before_sha256 = "7e332112e954010f8d3c7b05a64f771f6fcd4ed33d8b5183aed1c47e5986fbfe"
+after_sha256 = "64c9b53b5b46a42e2e1790b64a774f9b769b5ee5681767042b5745443d34181e"
+change = "remove the single unconditional d.startClipboard() call from daemon.bootstrap and update its comment; other upstream daemon behavior remains unchanged"

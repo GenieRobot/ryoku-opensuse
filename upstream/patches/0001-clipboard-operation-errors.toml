@@ -1,0 +1,20 @@
+schema = 1
+patch = "packaging/rpm/patches/0001-clipboard-operation-errors.patch"
+patch_sha256 = "9004032b14def1ba2a32536d51262f1f5a36699e78b6d0cae2c91ecfd32a8970"
+upstream_revision = "98a0368253d9628be72b853985878a5db90e1547"
+runtime_archive_sha256 = "81151cef1a613b01ad8e6187df2e93cbfed70e1621de0ee2e7455d2904fc3e74"
+status = "prepared for desktop RPM integration; native VM UI acceptance pending"
+purpose = "route only the original clipboard surface to the Rust history provider's dedicated socket and display provider/operation errors"
+new_service_or_backend_logic_in_qml = false
+
+[[files]]
+path = "shell/quickshell/shell/services/Clipboard.qml"
+before_sha256 = "64c88c4fd44a0ed77674ff357fb3aa6f7c0f83381eda8012614f84c4bef79993"
+after_sha256 = "ba999e96290ac4755805db29e38d72347f9b7a3a086cf684aace609b416bd244"
+
+[[files]]
+path = "shell/quickshell/shell/modules/clipboard/ClipboardSurface.qml"
+before_sha256 = "fea69fc108b08f3325f83e87cd1fb885f453ced67d8b93db9bde77949e28a102"
+after_sha256 = "95b06d335ed3dd1257be3d2b5e72b42acdf552636b992e67732b1fab5f186f3e"
+
+limitations = ["full-size bounded image data is currently used as the preview file; image downscaling remains open", "VM clipboard integration, copy-back and operation-error feedback remain unverified"]
