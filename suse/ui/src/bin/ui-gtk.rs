@@ -1,7 +1,7 @@
 //! Minimal GTK4 desktop proof for the typed, read-only UI action contract.
 //!
-//! This binary deliberately uses a demonstration backend. It does not contact
-//! a system service or expose provider and privileged operations.
+//! The default backend uses demonstration data. Opt-in service mode sends only
+//! typed, read-only Discover requests and exposes no privileged operations.
 
 use gtk::prelude::*;
 use ryoku_ui::{
@@ -59,18 +59,31 @@ fn main() {
         gtk::Application::builder().application_id("org.ryoku.OpenSUSE.UiProof").build();
 
     application.connect_activate(move |application| {
+        // The summary stays available for navigation, while only the complete
+        // result below is a live region. Announcing both repeats successful state.
         let status = gtk::Label::new(Some("System status: waiting for refresh"));
         status.set_xalign(0.0);
         status.set_wrap(true);
 
         let result = gtk::Label::builder()
             .label("Choose Refresh status to request an update.")
-            .accessible_role(gtk::AccessibleRole::Alert)
+            .accessible_role(gtk::AccessibleRole::Status)
             .build();
         result.set_xalign(0.0);
         result.set_wrap(true);
 
-        let refresh = gtk::Button::builder().label("Refresh status").receives_default(true).build();
+        // Keep a standard GTK focus target and default activation for Tab/Enter,
+        // and provide an explicit mnemonic for keyboard users. The accessible
+        // shortcut property lets AT-SPI clients expose the same accelerator.
+        let refresh = gtk::Button::builder()
+            .label("_Refresh status")
+            .use_underline(true)
+            .receives_default(true)
+            .build();
+        refresh.update_property(&[
+            gtk::accessible::Property::Label("Refresh status"),
+            gtk::accessible::Property::KeyShortcuts("Alt+R"),
+        ]);
 
         let content = gtk::Box::new(gtk::Orientation::Vertical, 12);
         content.set_margin_top(24);
@@ -114,6 +127,8 @@ fn main() {
             let outcome = dispatch(&mut *backend_for_refresh.borrow_mut(), request);
             if let Ok(ActionResult::StatusRefreshed(state)) = &outcome {
                 status.set_text(&render_status(state));
+            } else {
+                status.set_text("Ryoku service: status unavailable");
             }
             result.set_text(&render_result(&outcome));
         });

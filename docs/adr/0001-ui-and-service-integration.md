@@ -3,7 +3,7 @@
 - **Status:** Proposed for review; native KDE launcher read proof recorded,
   with architecture, desktop and packaging acceptance still pending.
 - **Date:** 2026-10-13
-- **Evidence revision:** 2026-10-16
+- **Evidence revision:** 2026-10-18
 - **Issue:** [M0-05, #14](https://github.com/GenieRobot/ryoku-opensuse/issues/14)
 - **Source baseline:** Ryoku commit
   [`98a0368253d9628be72b853985878a5db90e1547`](https://github.com/Ryoku-dev/ryoku/commit/98a0368253d9628be72b853985878a5db90e1547),
@@ -199,6 +199,11 @@ was stopped and reaped. Both reviewed visible rows match the actual provider's
 journal request/result IDs. No Go protocol listener or sample response supplied
 these results. The [native evidence](../../infra/tumbleweed-lab/evidence/issue14-native-launcher-service.toml)
 records the accepted captures and exact source/binary/log hashes.
+The implementation and evidence were accepted in
+[PR #145](https://github.com/GenieRobot/ryoku-opensuse/pull/145), integrated at
+`3e1bba87a9aef57adb0a6ba53b46d2aa9da7eb6d`. Both retained captures were
+viewed again on 18 October and their hashes, and the accepted journal hash,
+matched the manifest. This is a recheck of that native proof, not a new guest run.
 
 The service fixes from issue #17 at `9f2908c45e97ae443d72a5af2b3f56d0e15a812d`
 and session launcher from issue #25 at `2057a0fcada1630e24a8fde53970cbb73b6671f1`
@@ -206,10 +211,21 @@ are separate tested-native prerequisites, not implementation changes in this
 focused provider publication. The provider's cached-query and informational
 selection limits remain explicit. This route implements a representative
 existing-surface read, while leaving Ryostore compatibility and this ADR's
-overall acceptance open.
+overall acceptance open. The optional GTK follow-up in
+[PR #143](https://github.com/GenieRobot/ryoku-opensuse/pull/143) keeps only its
+complete request-result label as a polite `Status` live region. The separate
+summary is an ordinary label, avoiding duplicate routine announcements and
+assertive success alerts. Its Alt+R mnemonic and declared package dependencies
+are source and metadata evidence; no AT-SPI/Orca or RPM lifecycle result is
+inferred from them.
 
-M0-05 cannot be accepted until a disposable Tumbleweed GUI run demonstrates the
-remaining keyboard/focus and screen-reader accessibility, theme/scale behavior,
-Hyprland and KDE fallback acceptance, and package install/removal. The native
-KDE read-only request/result/error component passed; architecture/public PR
-review, the remaining controls and full M0-05 acceptance remain pending.
+The issue #14 representative read-only request/result/error proof passed on the
+selected native Tumbleweed KDE stack and its public implementation PR was
+accepted. This ADR still needs architecture review. The issue requires recording
+accessibility, theme, packaging and FFI constraints; recording those constraints
+does not accept the full product. Screen-reader and complete keyboard/focus
+behavior, theme/scale, Hyprland/KDE lifecycle and RPM install/removal remain
+product validation gates. Full Ryostore and dependent mutation UI work stay
+blocked by the documented provider/surface conflict. The coordinator decides
+issue acceptance from its stated criteria and linked proof, without inferring
+completion of those broader product gates.
