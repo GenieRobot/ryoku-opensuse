@@ -1,0 +1,85 @@
+schema = 1
+issue = 23
+date = "2026-10-18"
+source_commit = "2487d3848cb2577f41bd16c539015d402a2d6331"
+source_tree = "ec5be93e2c12994f87090bd9839399a9b3fdf74e"
+base_commit = "8029459b6fa6df817e7f725d9c901cdd3a24beb5"
+scope = "Focused RPM definitions and source validation; native defaults RPM built on the existing WSL host. Full native package builds, clean-VM dependency resolution and installation remain incomplete."
+issue_complete = false
+
+[extraction]
+original_branch_tip = "77f42c506506a84b9e81b5f3d4b9caaa7344ef9c"
+preservation = "Original complete branch history saved in a verified local Git bundle before rebuilding the same feature branch on current main."
+source_changes = "RPM specs, package documentation, immutable defaults and pinned upstream source provenance only; no Rust, session, recovery or service implementation changes."
+dependency_boundary = "Issue 25 depends on issue 23. No suse/session crate, session executable, login entry, session unit or Hyprland default is included."
+ui_owner = "Existing ryoku-ui-proof package remains the sole owner of ryoku-ui-gtk and its proof application entry/icon."
+service_units = "Packaging retains the exact system/user units accepted on the base commit under issue 17."
+
+[inputs]
+source_date_epoch = 1792340396
+cargo_lock_sha256 = "8f798d8feab896dca13308d5673c9c324dcea4d37e0d430eef06f9333372e9ad"
+source_archive_sha256 = "6270296bdee21d7aa710ed6bd7d9d5dd3c15f06f6caf4108fc74c47e565c1082"
+vendor_archive_sha256 = "dbfae376caaacdfc86c67f95bc9ce75054c94b7cb1e09447f0b8c14159cddc0c"
+vendor_command = "cargo vendor --locked --offline --manifest-path Cargo.toml VENDOR_DIRECTORY"
+vendor_archive = "GNU tar, sorted names, source commit epoch, numeric owner/group zero; xz compression. Regenerated from this lockfile rather than reusing the older candidate vendor archive."
+ryoku_revision = "98a0368253d9628be72b853985878a5db90e1547"
+runtime_archive_sha256 = "81151cef1a613b01ad8e6187df2e93cbfed70e1621de0ee2e7455d2904fc3e74"
+runtime_source_file_checks = 1249
+runtime_file_check_command = "sha256sum --check --status SHA256SUMS"
+runtime_file_check_exit = 0
+quickshell_revision = "4f508be500dea6e5732cc3d50382a0048b17e7b1"
+quickshell_archive_sha256 = "5e8a7b7a1a1e40de641ee6cfd24f40aa612e13c27353e5746fc79b2861ca9fd0"
+external_archive_policy = "Copied unchanged from retained, checksum-verified official source inputs; both specs verify the fixed archive checksum before extraction."
+
+[source_checks]
+rpm_version = "4.20.1"
+spec_parse = "All six specs pass rpmspec --parse without macro overrides."
+declared_runtime_packages = ["ryoku-helper", "ryoku-profile-defaults", "ryoku-ui-proof", "ryoku-tools", "ryoku-tools-state-init", "ryoku-tools-launcher-status", "ryoku-quickshell", "ryoku-desktop", "ryoku-desktop-runtime", "ryoku-desktop-fonts"]
+rust_source_build = "cargo build --locked --offline -p ryoku-service --bin ryoku-helper --bin ryoku-service -p ryoku-recovery --bin ryoku-recovery --bin ryoku-state-init -p ryoku-ui --features gtk-ui --bin ryoku-launcher-status --bin ryoku-ui-gtk"
+rust_source_build_exit = 0
+rust_source_build_elapsed_seconds = 59.54
+rust_source_build_boundary = "Host Cargo proves the declared Rust targets exist and compile. It does not satisfy native RPM BuildRequires or prove RPM/VM installation."
+whitespace = "git diff --check passed."
+
+[defaults_host_build]
+host = "Existing ordinary-user openSUSE Tumbleweed WSL build host, VERSION_ID 20260723; not the chosen clean 20261016 guest."
+command = "rpmbuild -ba --define '_topdir RPM_TOPDIR' --define '_tmppath /tmp' RPM_TOPDIR/SPECS/ryoku-profile-defaults.spec"
+exit = 0
+dependency_bypass = false
+rpm_sha256 = "687006683b41980948997b56aad964106c667f5303b69eba961903cba25a132a"
+source_rpm_sha256 = "ee98153489d0996610ad9c5bcf6b18a41dd88b79e21b125c830508f9cb6f0781"
+raw_local_build_log_sha256 = "2375a8ce241847b5f035aa0d6f6cfa50e35d8916df31fe516c42270fad09e463"
+public_build_log = "issue23-focused-20261018/defaults-build.log"
+public_build_log_sha256 = "8274c14c2bb5b7a543ee3c4bd8c710907641bfab82ae71f0c8e9a46f725ebb3a"
+public_log_sanitization = "Replaced the absolute host build directory with <RPM_TOPDIR>; no other lines changed."
+file_manifest = "issue23-focused-20261018/defaults-files.tsv"
+file_manifest_sha256 = "174ea3c79c9b31b7203f4689b5a912db28d45990777bdcd722299b0344f9ee43"
+dependency_manifest = "issue23-focused-20261018/defaults-requires.txt"
+dependency_manifest_sha256 = "6d09084ba8967b1b5a4985f2459a652b97f0b8a95373576b53a0957426aa5766"
+integrity = "rpmkeys --checksig reports digests OK; experimental unsigned output, not a trusted signed-release package."
+metadata = "Seven file records: root:root directories 0755 and data/docs/license files 0644; no home, etc, var or run paths, executable payload, set-ID bits or file capabilities."
+profile_file_sha256 = "605ac095a781ee4b3908272591f15b56f3a9f5d9a251e177e7d60dbbade02ba5"
+scripts_and_triggers = "rpm -qp --scripts --triggers returned no output."
+host_installation = "None."
+
+[clean_vm_preflight]
+chosen_snapshot = "20261016"
+signed_image_sha256 = "ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231"
+runner_sha256 = "7d1ef25b6cb026688cd38a92c02ef7976fffe613a93df552d0fa331646f98681"
+runner_source = "Existing integration checkout runner used only as a test utility; source not part of this packaging change."
+command = "RYOKU_LAB_AUTHORIZED=existing-wsl-vm vm-lab preflight ASSET_DIRECTORY FRESH_RUN_DIRECTORY --development-desktop --accelerator tcg"
+result = "Failed available-memory guard; launch stopped."
+required_available_bytes = 7516192768
+observed_available_bytes = 6082899968
+new_vm = false
+new_disk = false
+new_run_directory = false
+memory_guard_bypass = false
+
+[remaining_acceptance]
+native_builds = "Build and inspect helper, UI proof, recovery tools, Quickshell and desktop RPMs from the exact focused source with native installed BuildRequires; current source checks do not replace these builds."
+clean_dependency_resolution = "Incomplete; requires sufficient memory for the guarded chosen-image VM run."
+clean_installation = "Incomplete; sign reviewed experimental artifacts with a dedicated VM test key, retain its public fingerprint, validate signatures and perform native conflict/install checks without bypasses."
+user_state_preservation = "Incomplete; verify actual clean install/reinstall preserves explicit user override fixtures and unrelated home files."
+group_creation = "Incomplete; prove native sysusers trigger creates the previously absent group before socket activation."
+release_signature_policy = "Production signing and promotion remain separate release tasks; no unsigned artifact is an accepted install input."

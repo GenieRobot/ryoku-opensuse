@@ -1,0 +1,14 @@
+LICENSE
+NOTICE
+ryoku/shell/ipc
+ryoku/shell/ryogami/daemon
+ryoku/shell/ryogami/wall-ui
+ryoku/wm
+ryoku/hub/backend
+ryoku/shell/quickshell
+ryoku/hub/quickshell
+ryoku/shell/systemd/user/ryoku-shell.service
+ryoku/shell/systemd/user/ryogami.service
+ryoku/hyprland/modules/ryoshot.lua
+ryoku/hyprland/modules/binds.lua
+ryoku/hyprland/modules/autostart.lua
