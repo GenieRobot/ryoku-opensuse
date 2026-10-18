@@ -48,17 +48,17 @@ fn rpm_section<'a>(spec: &'a str, name: &str) -> Vec<&'a str> {
 }
 
 #[test]
-fn helper_is_an_explicit_root_scoped_deny_only_service() {
+fn helper_is_an_explicit_root_scoped_read_only_service() {
     let service = section(HELPER_SERVICE, "Service");
     assert!(has_directive(&service, "User=root"));
     assert!(has_directive(&service, "Group=root"));
     assert!(has_directive(&service, "NoNewPrivileges=yes"));
     let capabilities: Vec<_> =
         service.iter().copied().filter(|line| line.starts_with("CapabilityBoundingSet=")).collect();
-    assert_eq!(capabilities, ["CapabilityBoundingSet=CAP_DAC_READ_SEARCH"]);
+    assert_eq!(capabilities, ["CapabilityBoundingSet="]);
     assert!(has_directive(&service, "AmbientCapabilities="));
     assert!(has_directive(&service, "ProtectSystem=strict"));
-    assert!(has_directive(&service, "ReadWritePaths=/var/lib/ryoku-state"));
+    assert!(!service.iter().any(|line| line.starts_with("ReadWritePaths=")));
     assert!(has_directive(&service, "ProtectHome=read-only"));
     assert!(has_directive(&service, "RestrictAddressFamilies=AF_UNIX"));
     assert!(has_directive(&service, "ExecStart=/usr/libexec/ryoku/ryoku-helper"));

@@ -96,11 +96,11 @@ transaction; startup reads that independent record and passes its identity to
 unsupported/unknown/duplicate fields, non-top-level parents, oversized or
 noncanonical JSON, symlinked paths, and files without root:root mode `0600`.
 The privileged helper now reads this record and opens
-`GenerationStore::open_state_mount` before entering its request loop. A missing
+`GenerationReader::open_state_mount` before entering its request loop. A missing
 or corrupt record, absent or mismatched mount, or unsafe store prevents the
 helper from serving requests; the validated store descriptor stays pinned for
-the helper lifetime. The helper still rejects every action, and no protected
-operation consumes this store yet. Installer provisioning is not wired, so the
+the helper lifetime. The helper uses the pinned reader for exact read-only linked-checkpoint
+verification; package and restore mutations remain rejected. Installer provisioning is not wired, so the
 record must currently be installed by a trusted external provisioning step.
 Target Tumbleweed ioctl behavior still needs VM proof. Mount source and
 non-read-only mount options are not yet compared to the machine record.
@@ -1205,7 +1205,7 @@ machine/mount validation, the root writer lock, RPM-verified defaults, protected
 bundle creation and account writer leases. Its boundary checks run at entry,
 before publication and on completion. A lost lease cannot return a verified
 mutation-ready receipt. This constructor is a helper-side primitive; #17's
-transport remains deny-only, and #20 owns durable mutation/activation.
+transport exposes only read-only verification, and #20 owns durable mutation/activation.
 
 Supported upstream writers run under the unprivileged Rust `ryoku-writer`.
 Each wrapper holds a shared lock before creating children and exposes an

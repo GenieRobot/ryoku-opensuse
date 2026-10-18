@@ -6,7 +6,7 @@ other custom implementations. Build behavior must come from the Rust workspace
 or retained upstream components. Package names, dependencies, scriptlets, and
 service policy are introduced with the task that implements each capability.
 
-The deny-only service boundary installs the helper's
+The read-only service boundary installs the helper's
 `systemd/ryoku-helper.socket` and `systemd/ryoku-helper.service`, plus the
 user-scoped `systemd/user/ryoku-service.service` and `sysusers.d/ryoku.conf`.
 The socket is root-owned and group-readable/writable by the opt-in
@@ -14,15 +14,15 @@ The socket is root-owned and group-readable/writable by the opt-in
 provisions the group but adds no users. Administrators must select users
 explicitly. The socket is installed but not enabled by the package. The
 per-user daemon connects to this fixed socket with a typed
-`CheckAvailability` request. The helper checks the kernel peer UID, primary
+`CheckAvailability` or exact linked-checkpoint verification request. The helper checks the kernel peer UID, primary
 GID, and supplementary group IDs against the local `ryoku-operators` GID, and
-independently denies root. It returns `unsupported` for every valid request
-and does not read user files, persist journal records, or mutate the system.
-The `ryoku-helper.spec` builds and installs the service and deny-only helper,
+independently denies root. It returns read-only evidence for an exact cataloged linked checkpoint and
+`unsupported` for mutation requests. It does not read user files, persist
+journal records, or mutate the system. The `ryoku-helper.spec` builds and
+installs the service and read-only helper,
 units, and sysusers file. Both executables and package metadata are explicitly
 root-owned; the socket's runtime group is `ryoku-operators`, while user
-configuration and journals remain owned by each user. The recovery crate is a
-library and has no recovery executable target to package. This definition does
+configuration and journals remain owned by each user. The recovery crate also has offline recovery executable targets packaged separately. This definition does
 not claim an installed Tumbleweed result or bit-for-bit reproducible binaries;
 RPM build/install validation still requires an openSUSE RPM build environment.
 No unit is enabled by the package. To opt in, an administrator adds selected

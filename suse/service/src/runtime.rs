@@ -168,18 +168,39 @@ fn serve_connection_until(
             deadline,
         );
     }
+    let helper_deadline = deadline.checked_sub(RESPONSE_RESERVE).unwrap_or(deadline);
     let body = match envelope.request {
-        Request::Discover => ResponseBody::Discovery(discovery(false)),
+        Request::Discover => {
+            let available = matches!(
+                crate::helper_protocol::check_action_availability_until(
+                    helper_socket_path,
+                    crate::ManagedActionKind::CreateCheckpoint,
+                    helper_deadline,
+                ),
+                ServiceError::Unsupported
+            );
+            ResponseBody::Discovery(discovery(available))
+        }
         Request::GetOperation { operation_id } => journal
             .get(&operation_id)
             .cloned()
             .map(ResponseBody::Operation)
             .unwrap_or(ResponseBody::Error(ServiceError::NotFound)),
+        Request::VerifyLinkedCheckpoint { transaction_id, generation_id } => {
+            crate::helper_protocol::verify_linked_checkpoint_until(
+                helper_socket_path,
+                &transaction_id,
+                &generation_id,
+                helper_deadline,
+            )
+            .map(ResponseBody::LinkedCheckpoint)
+            .unwrap_or_else(ResponseBody::Error)
+        }
         Request::Start { action } => {
             ResponseBody::Error(crate::helper_protocol::check_action_availability_until(
                 helper_socket_path,
                 (&action).into(),
-                deadline.checked_sub(RESPONSE_RESERVE).unwrap_or(deadline),
+                helper_deadline,
             ))
         }
     };
@@ -492,6 +513,78 @@ mod tests {
         assert_eq!(
             exchange_with_helper_path(&mut journal, Request::Start { action }, &socket_path,),
             ResponseBody::Error(expected)
+        );
+        helper_thread.join().unwrap();
+        assert_eq!(std::fs::metadata(&journal_path).unwrap().len(), 0);
+        drop(journal);
+        std::fs::remove_file(journal_path).unwrap();
+        std::fs::remove_file(socket_path).unwrap();
+    }
+
+    #[test]
+    fn user_service_returns_only_correlated_linked_checkpoint_evidence() {
+        let _pair_probe = crate::test_unix_pair_or_skip!();
+        let socket_path =
+            std::env::temp_dir().join(format!("ryoku-linked-helper-{}.sock", std::process::id()));
+        let journal_path =
+            std::env::temp_dir().join(format!("ryoku-linked-helper-{}.log", std::process::id()));
+        let listener = crate::test_unix_listener_or_skip!(&socket_path);
+        let helper_thread = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let request =
+                crate::helper_protocol::read_helper_envelope(&mut BufReader::new(&mut stream))
+                    .unwrap();
+            assert_eq!(
+                request.request,
+                crate::HelperRequest::VerifyLinkedCheckpoint {
+                    transaction_id: "txn-1".into(),
+                    generation_id: "generation-1".into(),
+                }
+            );
+            let response = crate::helper_protocol::HelperResponse {
+                version: crate::helper_protocol::HELPER_PROTOCOL_VERSION,
+                request_id: request.request_id,
+                outcome: crate::helper_protocol::HelperOutcome::VerifiedLinkedCheckpoint(
+                    crate::helper_protocol::VerifiedLinkedCheckpoint {
+                        transaction_id: "txn-1".into(),
+                        generation_id: "generation-1".into(),
+                        manifest_sha256: "a".repeat(64),
+                        snapper_config: "root".into(),
+                        snapshot_id: "42".into(),
+                        filesystem_uuid: "01234567-89ab-cdef-0123-456789abcdef".into(),
+                    },
+                ),
+            };
+            serde_json::to_writer(&mut stream, &response).unwrap();
+            stream.write_all(b"\n").unwrap();
+        });
+
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .read(true)
+            .write(true)
+            .open(&journal_path)
+            .unwrap();
+        let mut journal = OperationJournal::open(file).unwrap();
+        let response = exchange_with_helper_path(
+            &mut journal,
+            Request::VerifyLinkedCheckpoint {
+                transaction_id: "txn-1".into(),
+                generation_id: "generation-1".into(),
+            },
+            &socket_path,
+        );
+        assert_eq!(
+            response,
+            ResponseBody::LinkedCheckpoint(crate::helper_protocol::VerifiedLinkedCheckpoint {
+                transaction_id: "txn-1".into(),
+                generation_id: "generation-1".into(),
+                manifest_sha256: "a".repeat(64),
+                snapper_config: "root".into(),
+                snapshot_id: "42".into(),
+                filesystem_uuid: "01234567-89ab-cdef-0123-456789abcdef".into(),
+            })
         );
         helper_thread.join().unwrap();
         assert_eq!(std::fs::metadata(&journal_path).unwrap().len(), 0);

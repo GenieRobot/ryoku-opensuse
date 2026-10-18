@@ -2,7 +2,9 @@ use std::os::fd::FromRawFd;
 use std::os::unix::net::UnixListener;
 use std::path::Path;
 
-use ryoku_service::helper_protocol::{HELPER_SOCKET_PATH, serve_operator_helper_connection};
+use ryoku_service::helper_protocol::{
+    HELPER_SOCKET_PATH, serve_protected_operator_helper_connection,
+};
 use ryoku_service::operator_group_gid;
 use ryoku_service::recovery_gate::serve_recovery_gate_listener;
 
@@ -42,17 +44,19 @@ fn run() -> Result<(), String> {
     if path != Path::new(HELPER_SOCKET_PATH) {
         return Err("activated listener has unexpected socket path".into());
     }
-    // Keep the validated state directory descriptor alive for the helper's
-    // entire request lifetime. Identity or live-mount failures abort startup,
-    // so no helper request can reach a protected operation without this gate.
-    let _protected_state = ryoku_service::protected_state::ProtectedState::open()
+    // Pin the validated read-only generation store for the helper lifetime.
+    let recovery_reader = ryoku_recovery::generation::GenerationReader::open_state_mount()
         .map_err(|error| format!("protected recovery state unavailable: {error}"))?;
     let operator_gid =
         operator_group_gid().map_err(|_| "ryoku-operators group is missing or invalid")?;
     for accepted in listener.incoming() {
         match accepted {
             Ok(stream) => {
-                let _ = serve_operator_helper_connection(stream, operator_gid);
+                let _ = serve_protected_operator_helper_connection(
+                    stream,
+                    operator_gid,
+                    &recovery_reader,
+                );
             }
             Err(error) => eprintln!("ryoku-helper: accept failed: {error}"),
         }

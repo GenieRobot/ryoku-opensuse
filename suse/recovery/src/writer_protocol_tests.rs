@@ -379,7 +379,7 @@ fn pinned_daemon_launch_patch_covers_the_supervised_native_surface_tree() {
     assert!(unit.contains("ExecStart=/usr/libexec/ryoku/ryoku-writer daemon daemon\n"));
     assert!(!unit.contains("ExecStart=/usr/bin/ryoku-shell daemon\n"));
     let helper = include_str!("../../../packaging/rpm/systemd/ryoku-helper.service");
-    assert!(helper.contains("CapabilityBoundingSet=CAP_DAC_READ_SEARCH\n"));
+    assert!(helper.contains("CapabilityBoundingSet=\n"));
     assert!(!helper.contains("CAP_SYS_PTRACE"));
 }
 

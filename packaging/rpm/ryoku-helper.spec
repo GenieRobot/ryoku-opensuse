@@ -1,7 +1,7 @@
 Name:           ryoku-helper
 Version:        0.1.0
-Release:        1%{?dist}
-Summary:        Deny-only privileged helper boundary for Ryoku
+Release:        2%{?dist}
+Summary:        Read-only recovery gate and privileged boundary for Ryoku
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse
 Source0:        ryoku-opensuse-%{version}.tar.gz
@@ -18,12 +18,12 @@ Requires:       rpm >= 4.19
 
 %description
 Installs Ryoku's socket-activated privileged helper and read-only recovery
-session gate. The helper rejects all valid protected operations in this build. Access
-to its socket is limited to explicitly selected members of ryoku-operators.
+session gate. The helper verifies exact linked checkpoints and rejects
+mutation requests. Access to its socket is limited to explicitly selected
+members of ryoku-operators.
 
-This build includes only the implemented user service and deny-only helper.
-The recovery crate currently has no executable target and is not a standalone
-recovery command.
+This build includes the user service, read-only linked-checkpoint helper, and
+session recovery gate. Offline recovery commands are packaged separately.
 
 %prep
 %autosetup -n ryoku-opensuse-%{version} -a 1

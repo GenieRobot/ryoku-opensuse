@@ -44,6 +44,25 @@ macro_rules! test_unix_pair_or_skip {
     }};
 }
 
+#[cfg(test)]
+#[macro_export]
+macro_rules! test_unix_listener_or_skip {
+    ($path:expr) => {{
+        if !$crate::test_unix_sockets_available() {
+            eprintln!("skipping Unix socket test: socket I/O or SO_PEERCRED denied by sandbox");
+            return;
+        }
+        match std::os::unix::net::UnixListener::bind($path) {
+            Ok(listener) => listener,
+            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+                eprintln!("skipping Unix socket test: listener bind denied by sandbox");
+                return;
+            }
+            Err(error) => panic!("UnixListener::bind failed unexpectedly: {error}"),
+        }
+    }};
+}
+
 pub mod account_state;
 pub mod helper_protocol;
 pub mod mutation_gate;
@@ -62,7 +81,8 @@ use std::os::fd::{AsFd, AsRawFd};
 use rustix::net::sockopt::socket_peercred;
 use serde::{Deserialize, Serialize};
 
-pub const PROTOCOL_VERSION: u16 = 1;
+pub const PROTOCOL_VERSION: u16 = 2;
+const LEGACY_JOURNAL_VERSION: u16 = 1;
 pub const MAX_REQUEST_BYTES: usize = 64 * 1024;
 pub const MAX_JOURNAL_LINE_BYTES: usize = 16 * 1024;
 const MUTATION_JOURNAL_VERSION: u16 = 2;
@@ -104,7 +124,20 @@ impl TryFrom<String> for RequestId {
 pub enum Request {
     Discover,
     GetOperation { operation_id: OperationId },
+    VerifyLinkedCheckpoint { transaction_id: String, generation_id: String },
     Start { action: ManagedAction },
+}
+
+impl Request {
+    fn validate(&self) -> Result<(), ProtocolError> {
+        if let Self::VerifyLinkedCheckpoint { transaction_id, generation_id } = self
+            && (ryoku_recovery::Identifier::new(transaction_id.clone()).is_err()
+                || ryoku_recovery::Identifier::new(generation_id.clone()).is_err())
+        {
+            return Err(ProtocolError::Malformed("invalid recovery reference"));
+        }
+        Ok(())
+    }
 }
 
 /// Only named product operations can cross the service boundary.
@@ -205,6 +238,7 @@ pub struct Envelope {
 pub enum ResponseBody {
     Discovery(Discovery),
     Operation(OperationStatus),
+    LinkedCheckpoint(crate::helper_protocol::VerifiedLinkedCheckpoint),
     Accepted { operation_id: OperationId },
     Error(ServiceError),
 }
@@ -368,6 +402,7 @@ pub fn read_envelope(reader: &mut impl BufRead) -> Result<Envelope, ProtocolErro
     if envelope.version != PROTOCOL_VERSION {
         return Err(ProtocolError::UnsupportedVersion(envelope.version));
     }
+    envelope.request.validate()?;
     Ok(envelope)
 }
 
@@ -383,16 +418,16 @@ pub enum HelperRequest {
     },
     VerifyLinkedCheckpoint {
         transaction_id: String,
-        manifest_id: String,
+        generation_id: String,
     },
     ApplyPackageTransaction {
         transaction_id: String,
-        manifest_id: String,
+        generation_id: String,
         packages: Vec<PackageId>,
     },
     RestoreCheckpoint {
         transaction_id: String,
-        manifest_id: String,
+        generation_id: String,
         checkpoint_id: CheckpointId,
     },
 }
@@ -401,10 +436,10 @@ impl HelperRequest {
     pub fn validate(&self) -> Result<(), ProtocolError> {
         let (transaction, manifest) = match self {
             Self::CheckAvailability { .. } => return Ok(()),
-            Self::VerifyLinkedCheckpoint { transaction_id, manifest_id }
-            | Self::ApplyPackageTransaction { transaction_id, manifest_id, .. }
-            | Self::RestoreCheckpoint { transaction_id, manifest_id, .. } => {
-                (transaction_id, manifest_id)
+            Self::VerifyLinkedCheckpoint { transaction_id, generation_id }
+            | Self::ApplyPackageTransaction { transaction_id, generation_id, .. }
+            | Self::RestoreCheckpoint { transaction_id, generation_id, .. } => {
+                (transaction_id, generation_id)
             }
         };
         if !valid_token(transaction, 96) || !valid_token(manifest, 96) {
@@ -609,7 +644,7 @@ impl OperationJournal {
             }
             let record: JournalRecord = serde_json::from_slice(&line[..line.len() - 1])
                 .map_err(|_| JournalError::Corrupt)?;
-            if !matches!(record.version, PROTOCOL_VERSION | MUTATION_JOURNAL_VERSION) {
+            if !matches!(record.version, LEGACY_JOURNAL_VERSION | MUTATION_JOURNAL_VERSION) {
                 return Err(JournalError::UnsupportedVersion(record.version));
             }
             if (record.version == MUTATION_JOURNAL_VERSION) != record.mutation.is_some() {
@@ -724,7 +759,11 @@ impl OperationJournal {
             mutation.as_ref(),
         )?;
         let mut record = serde_json::to_vec(&JournalRecord {
-            version: if mutation.is_some() { MUTATION_JOURNAL_VERSION } else { PROTOCOL_VERSION },
+            version: if mutation.is_some() {
+                MUTATION_JOURNAL_VERSION
+            } else {
+                LEGACY_JOURNAL_VERSION
+            },
             status: status.clone(),
             mutation: mutation.clone(),
         })
@@ -880,7 +919,7 @@ mod tests {
     #[test]
     fn versioned_request_round_trips_and_rejects_unknown_fields() {
         let env = Envelope {
-            version: 1,
+            version: PROTOCOL_VERSION,
             request_id: RequestId::new("req-1").unwrap(),
             request: Request::Discover,
         };
@@ -916,13 +955,13 @@ mod tests {
     fn helper_language_has_no_arbitrary_command_fields_and_validates_ids() {
         let request = HelperRequest::ApplyPackageTransaction {
             transaction_id: "txn-1".into(),
-            manifest_id: "manifest-1".into(),
+            generation_id: "manifest-1".into(),
             packages: vec![PackageId::new("firefox").unwrap()],
         };
         assert!(request.validate().is_ok());
         let bad = HelperRequest::VerifyLinkedCheckpoint {
             transaction_id: "../escape".into(),
-            manifest_id: "m".into(),
+            generation_id: "m".into(),
         };
         assert!(bad.validate().is_err());
         assert!(!helper_action_available(&request));
