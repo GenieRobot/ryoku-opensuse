@@ -5,11 +5,13 @@
 //! supplied executable, path, shell text, or provider arguments. Mutations are
 //! rejected until an integration can supply verified linked-capture evidence.
 
+pub mod account_state;
 pub mod helper_protocol;
 pub mod mutation_gate;
 #[cfg(target_os = "linux")]
 pub mod protected_state;
 pub mod runtime;
+mod runtime_paths;
 
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -233,6 +235,30 @@ pub struct OperationStatus {
     pub phase: OperationPhase,
     pub progress: Option<Progress>,
     pub error: Option<ServiceError>,
+}
+
+impl OperationStatus {
+    /// Whether the phase, progress, and error fields describe a valid
+    /// reconnectable service state. Consumers must reject invalid remote
+    /// statuses instead of presenting them as authoritative operation state.
+    pub fn is_valid(&self) -> bool {
+        if self.progress.as_ref().is_some_and(|progress| !progress.is_valid()) {
+            return false;
+        }
+        match self.phase {
+            OperationPhase::Accepted => self.progress.is_none() && self.error.is_none(),
+            OperationPhase::Capturing | OperationPhase::Applying | OperationPhase::Verifying => {
+                self.error.is_none()
+            }
+            OperationPhase::Succeeded => {
+                self.error.is_none()
+                    && self.progress.as_ref().is_none_or(|progress| {
+                        progress.total.is_none_or(|total| progress.completed == total)
+                    })
+            }
+            OperationPhase::Failed => self.error.is_some(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -493,6 +519,7 @@ fn parse_operator_group_gid(contents: &str) -> Result<u32, ProtocolError> {
 pub struct OperationJournal {
     file: File,
     current: BTreeMap<OperationId, OperationStatus>,
+    write_failed: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -504,6 +531,13 @@ struct JournalRecord {
 
 impl OperationJournal {
     pub fn open(file: File) -> Result<Self, JournalError> {
+        Self::open_with_sync(file, File::sync_all)
+    }
+
+    fn open_with_sync(
+        file: File,
+        mut sync: impl FnMut(&File) -> std::io::Result<()>,
+    ) -> Result<Self, JournalError> {
         use std::io::{Seek, SeekFrom};
         let mut current = BTreeMap::new();
         let mut reader = BufReader::new(file.try_clone().map_err(|_| JournalError::Io)?);
@@ -512,7 +546,11 @@ impl OperationJournal {
         let mut valid_len = 0u64;
         loop {
             line.clear();
-            let count = reader.read_until(b'\n', &mut line).map_err(|_| JournalError::Io)?;
+            let count = reader
+                .by_ref()
+                .take((MAX_JOURNAL_LINE_BYTES + 1) as u64)
+                .read_until(b'\n', &mut line)
+                .map_err(|_| JournalError::Io)?;
             if count == 0 {
                 break;
             }
@@ -521,7 +559,6 @@ impl OperationJournal {
             }
             if line.last() != Some(&b'\n') {
                 file.set_len(valid_len).map_err(|_| JournalError::Io)?;
-                file.sync_all().map_err(|_| JournalError::Io)?;
                 break;
             }
             let record: JournalRecord = serde_json::from_slice(&line[..line.len() - 1])
@@ -533,14 +570,47 @@ impl OperationJournal {
             current.insert(record.status.operation_id.clone(), record.status);
             valid_len = valid_len.saturating_add(count as u64);
         }
-        Ok(Self { file, current })
+        // Readable complete records may still be in the page cache after an
+        // earlier failed sync. Establish durability before publishing replayed
+        // state, including on process restart and after truncating a torn tail.
+        sync(&file).map_err(|_| JournalError::Io)?;
+        Ok(Self { file, current, write_failed: false })
     }
 
     pub fn get(&self, id: &OperationId) -> Option<&OperationStatus> {
         self.current.get(id)
     }
 
+    pub(crate) fn refresh_after_write_failure(&mut self) -> Result<(), JournalError> {
+        self.refresh_with_sync(File::sync_all)
+    }
+
+    fn refresh_with_sync(
+        &mut self,
+        sync: impl FnMut(&File) -> std::io::Result<()>,
+    ) -> Result<(), JournalError> {
+        if self.write_failed {
+            *self =
+                Self::open_with_sync(self.file.try_clone().map_err(|_| JournalError::Io)?, sync)?;
+        }
+        Ok(())
+    }
+    #[cfg(test)]
+    pub(crate) fn simulate_uncertain_write_failure(&mut self) {
+        self.write_failed = true;
+    }
     pub fn record(&mut self, status: OperationStatus) -> Result<(), JournalError> {
+        self.record_with_sync(status, File::sync_all)
+    }
+
+    fn record_with_sync(
+        &mut self,
+        status: OperationStatus,
+        mut sync: impl FnMut(&File) -> std::io::Result<()>,
+    ) -> Result<(), JournalError> {
+        if self.write_failed {
+            return Err(JournalError::Io);
+        }
         validate_transition(self.current.get(&status.operation_id), &status)?;
         let mut record = serde_json::to_vec(&JournalRecord {
             version: PROTOCOL_VERSION,
@@ -553,8 +623,10 @@ impl OperationJournal {
         record.push(b'\n');
         use std::io::{Seek, SeekFrom};
         self.file.seek(SeekFrom::End(0)).map_err(|_| JournalError::Io)?;
-        self.file.write_all(&record).map_err(|_| JournalError::Io)?;
-        self.file.sync_all().map_err(|_| JournalError::Io)?;
+        if self.file.write_all(&record).is_err() || sync(&self.file).is_err() {
+            self.write_failed = true;
+            return Err(JournalError::Io);
+        }
         self.current.insert(status.operation_id.clone(), status);
         Ok(())
     }
@@ -564,7 +636,7 @@ fn validate_transition(
     previous: Option<&OperationStatus>,
     next: &OperationStatus,
 ) -> Result<(), JournalError> {
-    if !valid_operation_status(next) {
+    if !next.is_valid() {
         return Err(JournalError::InvalidTransition);
     }
     let valid = match previous {
@@ -577,6 +649,26 @@ fn validate_transition(
         Some(old) if matches!(old.phase, OperationPhase::Succeeded | OperationPhase::Failed) => {
             false
         }
+        Some(old)
+            if old.phase == next.phase
+                && matches!(
+                    old.phase,
+                    OperationPhase::Capturing
+                        | OperationPhase::Applying
+                        | OperationPhase::Verifying
+                ) =>
+        {
+            next.is_valid() && valid_progress_update(old.progress.as_ref(), next.progress.as_ref())
+        }
+        Some(old)
+            if old.phase == OperationPhase::Verifying
+                && next.phase == OperationPhase::Succeeded =>
+        {
+            next.is_valid()
+                && old.progress.as_ref().is_none_or(|progress| {
+                    progress.total.is_none_or(|total| progress.completed == total)
+                })
+        }
         Some(old) => matches!(
             (old.phase, next.phase),
             (OperationPhase::Accepted, OperationPhase::Capturing | OperationPhase::Failed)
@@ -588,20 +680,21 @@ fn validate_transition(
     if valid { Ok(()) } else { Err(JournalError::InvalidTransition) }
 }
 
-/// Reject impossible progress and phase/error combinations both when writing
-/// and when replaying durable state. These checks keep malformed internal
-/// records from being exposed as authoritative reconnect status.
-fn valid_operation_status(status: &OperationStatus) -> bool {
-    if status.progress.as_ref().is_some_and(|progress| !progress.is_valid()) {
-        return false;
-    }
-    match status.phase {
-        OperationPhase::Accepted => status.progress.is_none() && status.error.is_none(),
-        OperationPhase::Capturing | OperationPhase::Applying | OperationPhase::Verifying => {
-            status.error.is_none()
+/// Progress may advance within an active phase, but cannot disappear, regress,
+/// or change a previously declared total. An unknown total may become known.
+fn valid_progress_update(previous: Option<&Progress>, next: Option<&Progress>) -> bool {
+    match (previous, next) {
+        (None, Some(_)) => true,
+        (Some(previous), Some(next)) => {
+            next != previous
+                && next.completed >= previous.completed
+                && match (previous.total, next.total) {
+                    (Some(previous), Some(next)) => previous == next,
+                    (Some(_), None) => false,
+                    (None, _) => true,
+                }
         }
-        OperationPhase::Succeeded => status.error.is_none(),
-        OperationPhase::Failed => status.error.is_some(),
+        (None, None) | (Some(_), None) => false,
     }
 }
 
@@ -745,6 +838,187 @@ mod tests {
         .unwrap();
         assert_eq!(reopened.get(&id), Some(&capturing));
         std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn journal_refuses_appends_until_replay_after_uncertain_write() {
+        let path =
+            std::env::temp_dir().join(format!("ryoku-journal-poison-{}", std::process::id()));
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let mut journal = OperationJournal::open(file).unwrap();
+        let durable_id = OperationId::new("durable-before-error").unwrap();
+        let durable_status = OperationStatus {
+            operation_id: durable_id.clone(),
+            action: ManagedActionKind::CreateCheckpoint,
+            phase: OperationPhase::Accepted,
+            progress: None,
+            error: None,
+        };
+        journal.record(durable_status.clone()).unwrap();
+        let valid_len = std::fs::metadata(&path).unwrap().len();
+        // Model the bytes left behind when a previous append failed midway.
+        let mut interrupted = std::fs::OpenOptions::new().append(true).open(&path).unwrap();
+        interrupted.write_all(b"{\"version\":1,\"status\":").unwrap();
+        interrupted.sync_all().unwrap();
+        drop(interrupted);
+        journal.write_failed = true;
+        let status = OperationStatus {
+            operation_id: OperationId::new("after-uncertain-write").unwrap(),
+            action: ManagedActionKind::InstallPackage,
+            phase: OperationPhase::Accepted,
+            progress: None,
+            error: None,
+        };
+        assert_eq!(journal.record(status.clone()), Err(JournalError::Io));
+        let torn_len = std::fs::metadata(&path).unwrap().len();
+        assert!(torn_len > 0);
+
+        journal.refresh_after_write_failure().unwrap();
+        assert!(!journal.write_failed);
+        assert_eq!(std::fs::metadata(&path).unwrap().len(), valid_len);
+        assert_eq!(journal.get(&durable_id), Some(&durable_status));
+        journal.record(status).unwrap();
+        assert!(std::fs::metadata(&path).unwrap().len() > 0);
+        drop(journal);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn complete_record_after_failed_sync_requires_successful_sync_before_replay() {
+        let path = std::env::temp_dir().join(format!("ryoku-sync-failure-{}", std::process::id()));
+        let file = std::fs::OpenOptions::new()
+            .create_new(true)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let mut journal = OperationJournal::open(file).unwrap();
+        let accepted = OperationStatus {
+            operation_id: OperationId::new("uncertain-sync").unwrap(),
+            action: ManagedActionKind::CreateCheckpoint,
+            phase: OperationPhase::Accepted,
+            progress: None,
+            error: None,
+        };
+        journal.record(accepted.clone()).unwrap();
+        let capturing = OperationStatus { phase: OperationPhase::Capturing, ..accepted.clone() };
+        let fail_sync = |_: &File| Err(std::io::Error::other("injected sync failure"));
+        assert_eq!(journal.record_with_sync(capturing.clone(), fail_sync), Err(JournalError::Io));
+        let bytes = std::fs::read(&path).unwrap();
+        assert_eq!(bytes.last(), Some(&b'\n'));
+        assert_eq!(journal.get(&accepted.operation_id), Some(&accepted));
+        for _ in 0..2 {
+            assert_eq!(journal.refresh_with_sync(fail_sync), Err(JournalError::Io));
+            assert!(journal.write_failed);
+            assert_eq!(journal.get(&accepted.operation_id), Some(&accepted));
+            assert_eq!(journal.record(capturing.clone()), Err(JournalError::Io));
+        }
+        // A fresh process must also establish durability, not trust readable bytes.
+        assert!(matches!(
+            OperationJournal::open_with_sync(File::open(&path).unwrap(), fail_sync),
+            Err(JournalError::Io)
+        ));
+        journal.refresh_with_sync(File::sync_all).unwrap();
+        assert!(!journal.write_failed);
+        assert_eq!(journal.get(&accepted.operation_id), Some(&capturing));
+        journal.record(OperationStatus { phase: OperationPhase::Applying, ..capturing }).unwrap();
+        drop(journal);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn failed_append_poison_is_set_by_actual_io_error() {
+        let path =
+            std::env::temp_dir().join(format!("ryoku-readonly-journal-{}", std::process::id()));
+        std::fs::write(&path, []).unwrap();
+        let mut journal = OperationJournal::open(File::open(&path).unwrap()).unwrap();
+        let status = OperationStatus {
+            operation_id: OperationId::new("cannot-write").unwrap(),
+            action: ManagedActionKind::CreateCheckpoint,
+            phase: OperationPhase::Accepted,
+            progress: None,
+            error: None,
+        };
+        assert_eq!(journal.record(status.clone()), Err(JournalError::Io));
+        assert!(journal.write_failed);
+        assert_eq!(journal.get(&status.operation_id), None);
+        assert_eq!(journal.record(status), Err(JournalError::Io));
+        assert_eq!(std::fs::metadata(&path).unwrap().len(), 0);
+        drop(journal);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn journal_rejects_regressing_progress_without_changing_disk() {
+        let path = std::env::temp_dir().join(format!("ryoku-progress-{}", std::process::id()));
+        let file = std::fs::OpenOptions::new()
+            .create_new(true)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let mut journal = OperationJournal::open(file).unwrap();
+        let mut status = OperationStatus {
+            operation_id: OperationId::new("progress").unwrap(),
+            action: ManagedActionKind::CreateCheckpoint,
+            phase: OperationPhase::Accepted,
+            progress: None,
+            error: None,
+        };
+        journal.record(status.clone()).unwrap();
+        status.phase = OperationPhase::Capturing;
+        status.progress = Some(Progress { completed: 1, total: Some(3) });
+        journal.record(status.clone()).unwrap();
+        let length = std::fs::metadata(&path).unwrap().len();
+        for progress in [
+            None,
+            Some(Progress { completed: 0, total: Some(3) }),
+            Some(Progress { completed: 2, total: Some(4) }),
+            Some(Progress { completed: 2, total: None }),
+        ] {
+            assert_eq!(
+                journal.record(OperationStatus { progress, ..status.clone() }),
+                Err(JournalError::InvalidTransition)
+            );
+        }
+        assert_eq!(std::fs::metadata(&path).unwrap().len(), length);
+        drop(journal);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn journal_rejects_success_when_the_last_verification_total_is_incomplete() {
+        let id = OperationId::new("incomplete-final-progress").unwrap();
+        let verifying = OperationStatus {
+            operation_id: id.clone(),
+            action: ManagedActionKind::RestoreCheckpoint,
+            phase: OperationPhase::Verifying,
+            progress: Some(Progress { completed: 2, total: Some(3) }),
+            error: None,
+        };
+        let succeeded = OperationStatus {
+            operation_id: id.clone(),
+            action: ManagedActionKind::RestoreCheckpoint,
+            phase: OperationPhase::Succeeded,
+            progress: None,
+            error: None,
+        };
+        assert_eq!(
+            validate_transition(Some(&verifying), &succeeded),
+            Err(JournalError::InvalidTransition)
+        );
+
+        let completed = OperationStatus {
+            progress: Some(Progress { completed: 3, total: Some(3) }),
+            ..verifying.clone()
+        };
+        assert_eq!(validate_transition(Some(&completed), &succeeded), Ok(()));
     }
 
     #[test]

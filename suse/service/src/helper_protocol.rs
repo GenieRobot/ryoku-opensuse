@@ -2,10 +2,16 @@
 //! The installed helper currently rejects all requests and has no mutation
 //! runner.
 
-use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use rustix::{
+    event::{PollFd, PollFlags, Timespec, poll},
+    io::Errno,
+    net::sockopt::socket_error,
+    net::{AddressFamily, SocketAddrUnix, SocketFlags, SocketType, connect, socket_with},
+};
+use std::io::{BufRead, Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::Path;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
@@ -16,8 +22,30 @@ use crate::{
 
 pub const HELPER_PROTOCOL_VERSION: u16 = 1;
 pub const MAX_HELPER_REQUEST_BYTES: usize = 64 * 1024;
+pub const MAX_HELPER_RESPONSE_BYTES: usize = 64 * 1024;
 const HELPER_IO_TIMEOUT: Duration = Duration::from_secs(5);
 pub const HELPER_SOCKET_PATH: &str = "/run/ryoku/helper.sock";
+
+/// Resolve only the authenticated operator's fixed configuration root.
+/// This preflight grants no capture, mutation, or protected-history access.
+pub fn prepare_operator_account(
+    peer: &PeerIdentity,
+    operator_gid: u32,
+) -> Result<crate::account_state::AccountStateRoot, ServiceError> {
+    with_operator_account(peer, operator_gid, crate::account_state::AccountStateRoot::for_peer)
+}
+
+fn with_operator_account<T>(
+    peer: &PeerIdentity,
+    operator_gid: u32,
+    resolve: impl FnOnce(&PeerIdentity) -> Result<T, crate::account_state::AccountStateError>,
+) -> Result<T, ServiceError> {
+    authorize_helper_operator(peer, operator_gid)?;
+    resolve(peer).map_err(|error| match error {
+        crate::account_state::AccountStateError::LookupBusy => ServiceError::Busy,
+        _ => ServiceError::RecoveryUnavailable,
+    })
+}
 
 /// One helper request frame. The request language is the explicit
 /// [`HelperRequest`] enum; unknown fields are rejected during decoding.
@@ -123,24 +151,52 @@ pub fn serve_helper_connection(
     mut stream: UnixStream,
     service_uid: u32,
 ) -> Result<(), ProtocolError> {
-    stream.set_read_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
-    stream.set_write_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
+    let deadline = Instant::now() + HELPER_IO_TIMEOUT;
+    stream.set_nonblocking(true).map_err(|_| ProtocolError::Io)?;
 
     // Read kernel credentials before parsing or dispatching a request. The
     // helper rejects unauthorized peers without parsing their request. Since
     // no request ID is trusted yet, it uses a fixed correlation ID.
     let peer = PeerIdentity::from_unix_socket(&stream)?;
     if authorize_helper_peer(&peer, service_uid).is_err() {
-        return write_helper_response(
-            stream,
+        return write_helper_response_until(
+            &mut stream,
             HelperResponse {
                 version: HELPER_PROTOCOL_VERSION,
                 request_id: RequestId::new("invalid").expect("static request ID is valid"),
                 outcome: HelperOutcome::Rejected(ServiceError::Unauthorized),
             },
+            deadline,
         );
     }
-    let envelope = match read_helper_envelope(&mut std::io::BufReader::new(&mut stream)) {
+    let frame = match read_helper_frame_until(&mut stream, deadline) {
+        Ok(frame) => frame,
+        Err(error @ ProtocolError::Malformed("incomplete helper request frame")) => {
+            return Err(error);
+        }
+        Err(ProtocolError::Io) => return Err(ProtocolError::Io),
+        Err(error) => {
+            let outcome = match error {
+                ProtocolError::UnsupportedVersion(_) => {
+                    HelperOutcome::Rejected(ServiceError::Unsupported)
+                }
+                ProtocolError::Malformed(_) | ProtocolError::TooLarge => HelperOutcome::Rejected(
+                    ServiceError::Malformed("invalid helper request".into()),
+                ),
+                ProtocolError::Io => unreachable!(),
+            };
+            return write_helper_response_until(
+                &mut stream,
+                HelperResponse {
+                    version: HELPER_PROTOCOL_VERSION,
+                    request_id: RequestId::new("invalid").expect("static request ID is valid"),
+                    outcome,
+                },
+                deadline,
+            );
+        }
+    };
+    let envelope = match read_helper_envelope(&mut std::io::Cursor::new(frame)) {
         Ok(envelope) => envelope,
         Err(ProtocolError::Malformed("incomplete helper request frame")) => {
             return Err(ProtocolError::Malformed("incomplete helper request frame"));
@@ -156,19 +212,20 @@ pub fn serve_helper_connection(
                 ),
                 ProtocolError::Io => unreachable!("I/O errors returned above"),
             };
-            return write_helper_response(
-                stream,
+            return write_helper_response_until(
+                &mut stream,
                 HelperResponse {
                     version: HELPER_PROTOCOL_VERSION,
                     request_id: RequestId::new("invalid").expect("static request ID is valid"),
                     outcome,
                 },
+                deadline,
             );
         }
     };
 
     let response = dispatch_helper_request(&peer, service_uid, envelope)?;
-    write_helper_response(stream, response)
+    write_helper_response_until(&mut stream, response, deadline)
 }
 
 /// Serve one connection from the opt-in group-owned helper socket.
@@ -176,20 +233,48 @@ pub fn serve_operator_helper_connection(
     mut stream: UnixStream,
     operator_gid: u32,
 ) -> Result<(), ProtocolError> {
-    stream.set_read_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
-    stream.set_write_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
+    let deadline = Instant::now() + HELPER_IO_TIMEOUT;
+    stream.set_nonblocking(true).map_err(|_| ProtocolError::Io)?;
     let peer = PeerIdentity::from_unix_socket(&stream)?;
     if authorize_helper_operator(&peer, operator_gid).is_err() {
-        return write_helper_response(
-            stream,
+        return write_helper_response_until(
+            &mut stream,
             HelperResponse {
                 version: HELPER_PROTOCOL_VERSION,
                 request_id: RequestId::new("invalid").expect("static request ID is valid"),
                 outcome: HelperOutcome::Rejected(ServiceError::Unauthorized),
             },
+            deadline,
         );
     }
-    let envelope = match read_helper_envelope(&mut std::io::BufReader::new(&mut stream)) {
+    let frame = match read_helper_frame_until(&mut stream, deadline) {
+        Ok(frame) => frame,
+        Err(error @ ProtocolError::Malformed("incomplete helper request frame")) => {
+            return Err(error);
+        }
+        Err(ProtocolError::Io) => return Err(ProtocolError::Io),
+        Err(error) => {
+            let outcome = match error {
+                ProtocolError::UnsupportedVersion(_) => {
+                    HelperOutcome::Rejected(ServiceError::Unsupported)
+                }
+                ProtocolError::Malformed(_) | ProtocolError::TooLarge => HelperOutcome::Rejected(
+                    ServiceError::Malformed("invalid helper request".into()),
+                ),
+                ProtocolError::Io => unreachable!(),
+            };
+            return write_helper_response_until(
+                &mut stream,
+                HelperResponse {
+                    version: HELPER_PROTOCOL_VERSION,
+                    request_id: RequestId::new("invalid").expect("static request ID is valid"),
+                    outcome,
+                },
+                deadline,
+            );
+        }
+    };
+    let envelope = match read_helper_envelope(&mut std::io::Cursor::new(frame)) {
         Ok(envelope) => envelope,
         Err(ProtocolError::Malformed("incomplete helper request frame")) => {
             return Err(ProtocolError::Malformed("incomplete helper request frame"));
@@ -205,23 +290,21 @@ pub fn serve_operator_helper_connection(
                 ),
                 ProtocolError::Io => unreachable!("I/O errors returned above"),
             };
-            return write_helper_response(
-                stream,
+            return write_helper_response_until(
+                &mut stream,
                 HelperResponse {
                     version: HELPER_PROTOCOL_VERSION,
                     request_id: RequestId::new("invalid").expect("static request ID is valid"),
                     outcome,
                 },
+                deadline,
             );
         }
     };
     let response = dispatch_operator_request(peer, operator_gid, envelope)?;
-    write_helper_response(stream, response)
+    write_helper_response_until(&mut stream, response, deadline)
 }
 
-/// Ask the installed helper whether a named action is available. This probe
-/// has no operation identifier, payload path, or mutation semantics. Until a
-/// reviewed provider is installed the only valid response is Unsupported.
 pub fn check_action_availability(action: ManagedActionKind) -> ServiceError {
     check_action_availability_at(Path::new(HELPER_SOCKET_PATH), action)
 }
@@ -230,48 +313,216 @@ pub(crate) fn check_action_availability_at(
     socket_path: &Path,
     action: ManagedActionKind,
 ) -> ServiceError {
-    let mut stream = match UnixStream::connect(socket_path) {
+    let deadline = Instant::now() + HELPER_IO_TIMEOUT;
+    check_action_availability_until(socket_path, action, deadline)
+}
+
+pub(crate) fn check_action_availability_until(
+    socket_path: &Path,
+    action: ManagedActionKind,
+    deadline: Instant,
+) -> ServiceError {
+    let mut stream = match connect_helper_until(socket_path, deadline) {
         Ok(stream) => stream,
-        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
-            return ServiceError::Unauthorized;
-        }
-        Err(_) => return ServiceError::Unsupported,
+        Err(error) => return helper_connect_error(error.kind()),
     };
     let result = (|| -> Result<ServiceError, ProtocolError> {
-        stream.set_read_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
-        stream.set_write_timeout(Some(HELPER_IO_TIMEOUT)).map_err(|_| ProtocolError::Io)?;
         let request = HelperEnvelope {
             version: HELPER_PROTOCOL_VERSION,
             request_id: RequestId::new("availability").expect("static request ID is valid"),
             request: HelperRequest::CheckAvailability { action },
         };
-        serde_json::to_writer(&mut stream, &request).map_err(|_| ProtocolError::Io)?;
-        stream.write_all(b"\n").map_err(|_| ProtocolError::Io)?;
-        let mut line = String::new();
-        BufReader::new(stream).read_line(&mut line).map_err(|_| ProtocolError::Io)?;
-        let response: HelperResponse = serde_json::from_str(&line)
-            .map_err(|_| ProtocolError::Malformed("invalid helper response"))?;
+        let response = exchange_helper_until(&mut stream, &request, deadline)?;
         if response.version != HELPER_PROTOCOL_VERSION || response.request_id != request.request_id
         {
             return Err(ProtocolError::Malformed("helper response correlation mismatch"));
         }
-        let HelperOutcome::Rejected(error) = response.outcome;
-        Ok(error)
+        match response.outcome {
+            HelperOutcome::Rejected(error) => Ok(error),
+        }
     })();
     match result {
         Ok(error) => error,
-        Err(_) => ServiceError::Unsupported,
+        Err(_) => ServiceError::RecoveryUnavailable,
     }
 }
 
-fn write_helper_response(
-    stream: UnixStream,
-    response: HelperResponse,
+fn exchange_helper_until(
+    stream: &mut UnixStream,
+    request: &HelperEnvelope,
+    deadline: Instant,
+) -> Result<HelperResponse, ProtocolError> {
+    stream.set_nonblocking(true).map_err(|_| ProtocolError::Io)?;
+    let mut frame = serde_json::to_vec(request).map_err(|_| ProtocolError::Io)?;
+    frame.push(b'\n');
+    let mut pending = frame.as_slice();
+    while !pending.is_empty() {
+        wait_helper_ready(stream, PollFlags::OUT, deadline)?;
+        match stream.write(pending) {
+            Ok(0) => return Err(ProtocolError::Io),
+            Ok(count) => pending = &pending[count..],
+            Err(error)
+                if error.kind() == std::io::ErrorKind::Interrupted
+                    || error.kind() == std::io::ErrorKind::WouldBlock =>
+            {
+                continue;
+            }
+            Err(_) => return Err(ProtocolError::Io),
+        }
+    }
+    let bytes = read_helper_frame_until(stream, deadline)?;
+    read_helper_response(&mut bytes.as_slice())
+}
+
+fn read_helper_response(reader: &mut impl BufRead) -> Result<HelperResponse, ProtocolError> {
+    let mut bytes = Vec::with_capacity(1024);
+    reader
+        .take((MAX_HELPER_RESPONSE_BYTES + 2) as u64)
+        .read_until(b'\n', &mut bytes)
+        .map_err(|_| ProtocolError::Io)?;
+    if bytes.len() > MAX_HELPER_RESPONSE_BYTES + 1 {
+        return Err(ProtocolError::TooLarge);
+    }
+    if bytes.last() != Some(&b'\n') {
+        return Err(ProtocolError::Malformed("incomplete helper response frame"));
+    }
+    bytes.pop();
+    serde_json::from_slice(&bytes).map_err(|_| ProtocolError::Malformed("invalid helper response"))
+}
+
+fn remaining(deadline: Instant) -> Result<Duration, ProtocolError> {
+    deadline
+        .checked_duration_since(Instant::now())
+        .filter(|duration| !duration.is_zero())
+        .ok_or(ProtocolError::Io)
+}
+
+fn wait_helper_ready(
+    stream: &UnixStream,
+    flags: PollFlags,
+    deadline: Instant,
 ) -> Result<(), ProtocolError> {
-    let mut writer = BufWriter::new(stream);
-    serde_json::to_writer(&mut writer, &response).map_err(|_| ProtocolError::Io)?;
-    writer.write_all(b"\n").map_err(|_| ProtocolError::Io)?;
-    writer.flush().map_err(|_| ProtocolError::Io)
+    loop {
+        let timeout = Timespec::try_from(remaining(deadline)?).map_err(|_| ProtocolError::Io)?;
+        let mut descriptors = [PollFd::new(stream, flags)];
+        match poll(&mut descriptors, Some(&timeout)) {
+            Ok(0) => return Err(ProtocolError::Io),
+            Ok(_) => return Ok(()),
+            Err(Errno::INTR) => continue,
+            Err(_) => return Err(ProtocolError::Io),
+        }
+    }
+}
+
+fn connect_helper_until(path: &Path, deadline: Instant) -> std::io::Result<UnixStream> {
+    remaining(deadline).map_err(|_| std::io::Error::from(std::io::ErrorKind::TimedOut))?;
+    let socket = socket_with(
+        AddressFamily::UNIX,
+        SocketType::STREAM,
+        SocketFlags::CLOEXEC.union(SocketFlags::NONBLOCK),
+        None,
+    )
+    .map_err(|error| std::io::Error::from_raw_os_error(error.raw_os_error()))?;
+    let address = SocketAddrUnix::new(path)
+        .map_err(|error| std::io::Error::from_raw_os_error(error.raw_os_error()))?;
+    match connect(&socket, &address) {
+        Ok(()) => {}
+        Err(Errno::INPROGRESS | Errno::AGAIN) => loop {
+            let timeout = Timespec::try_from(
+                remaining(deadline)
+                    .map_err(|_| std::io::Error::from(std::io::ErrorKind::TimedOut))?,
+            )
+            .map_err(|_| std::io::Error::from(std::io::ErrorKind::TimedOut))?;
+            let mut descriptors = [PollFd::new(&socket, PollFlags::OUT)];
+            match poll(&mut descriptors, Some(&timeout)) {
+                Ok(0) => return Err(std::io::Error::from(std::io::ErrorKind::TimedOut)),
+                Ok(_) => match socket_error(&socket) {
+                    Ok(Ok(())) => break,
+                    Ok(Err(error)) => {
+                        return Err(std::io::Error::from_raw_os_error(error.raw_os_error()));
+                    }
+                    Err(error) => {
+                        return Err(std::io::Error::from_raw_os_error(error.raw_os_error()));
+                    }
+                },
+                Err(Errno::INTR) => continue,
+                Err(error) => return Err(std::io::Error::from_raw_os_error(error.raw_os_error())),
+            }
+        },
+        Err(error) => return Err(std::io::Error::from_raw_os_error(error.raw_os_error())),
+    }
+    remaining(deadline).map_err(|_| std::io::Error::from(std::io::ErrorKind::TimedOut))?;
+    Ok(UnixStream::from(socket))
+}
+
+fn read_helper_frame_until(
+    stream: &mut UnixStream,
+    deadline: Instant,
+) -> Result<Vec<u8>, ProtocolError> {
+    let mut bytes = Vec::with_capacity(1024);
+    let mut buffer = [0_u8; 1024];
+    loop {
+        wait_helper_ready(stream, PollFlags::IN, deadline)?;
+        let count = match stream.read(&mut buffer) {
+            Ok(0) => return Err(ProtocolError::Malformed("incomplete helper request frame")),
+            Ok(count) => count,
+            Err(error)
+                if error.kind() == std::io::ErrorKind::Interrupted
+                    || error.kind() == std::io::ErrorKind::WouldBlock =>
+            {
+                continue;
+            }
+            Err(_) => return Err(ProtocolError::Io),
+        };
+        let newline = buffer[..count].iter().position(|byte| *byte == b'\n');
+        let end = newline.map_or(count, |index| index + 1);
+        if newline.is_some_and(|index| index + 1 != count) {
+            return Err(ProtocolError::Malformed("multiple helper request frames"));
+        }
+        if bytes.len() + end > MAX_HELPER_REQUEST_BYTES + 1 {
+            return Err(ProtocolError::TooLarge);
+        }
+        bytes.extend_from_slice(&buffer[..end]);
+        if newline.is_some() {
+            return Ok(bytes);
+        }
+    }
+}
+
+fn write_helper_response_until(
+    stream: &mut UnixStream,
+    response: HelperResponse,
+    deadline: Instant,
+) -> Result<(), ProtocolError> {
+    let mut frame = serde_json::to_vec(&response).map_err(|_| ProtocolError::Io)?;
+    if frame.len() + 1 > MAX_HELPER_RESPONSE_BYTES {
+        return Err(ProtocolError::TooLarge);
+    }
+    frame.push(b'\n');
+    let mut pending = frame.as_slice();
+    while !pending.is_empty() {
+        wait_helper_ready(stream, PollFlags::OUT, deadline)?;
+        match stream.write(pending) {
+            Ok(0) => return Err(ProtocolError::Io),
+            Ok(count) => pending = &pending[count..],
+            Err(error)
+                if error.kind() == std::io::ErrorKind::Interrupted
+                    || error.kind() == std::io::ErrorKind::WouldBlock =>
+            {
+                continue;
+            }
+            Err(_) => return Err(ProtocolError::Io),
+        }
+    }
+    Ok(())
+}
+
+fn helper_connect_error(kind: std::io::ErrorKind) -> ServiceError {
+    if kind == std::io::ErrorKind::PermissionDenied {
+        ServiceError::Unauthorized
+    } else {
+        ServiceError::RecoveryUnavailable
+    }
 }
 
 #[cfg(test)]
@@ -280,6 +531,66 @@ mod tests {
     use crate::{CheckpointId, ManagedActionKind, PackageId, authorize_helper_operator};
     use std::io::{BufRead, BufReader};
     use std::os::unix::net::UnixStream;
+
+    #[test]
+    fn account_resolution_occurs_only_after_operator_authorization() {
+        let peer = PeerIdentity { uid: 1000, gid: 1000, supplementary_gids: vec![], pid: None };
+        let result: Result<(), _> = with_operator_account(&peer, 4242, |_| {
+            panic!("unauthorized caller reached account lookup")
+        });
+        assert_eq!(result, Err(ServiceError::Unauthorized));
+        let peer = PeerIdentity { supplementary_gids: vec![4242], ..peer };
+        assert_eq!(with_operator_account(&peer, 4242, |resolved| Ok(resolved.uid())), Ok(1000));
+    }
+
+    #[test]
+    fn helper_response_frame_has_a_bounded_size_and_requires_newline() {
+        let oversized = vec![b'x'; MAX_HELPER_RESPONSE_BYTES + 2];
+        assert_eq!(read_helper_response(&mut oversized.as_slice()), Err(ProtocolError::TooLarge));
+        assert!(matches!(read_helper_response(&mut &b"{}"[..]), Err(ProtocolError::Malformed(_))));
+    }
+
+    #[test]
+    fn trickling_input_cannot_extend_the_absolute_helper_deadline() {
+        let (mut client, mut server) = UnixStream::pair().unwrap();
+        server.set_nonblocking(true).unwrap();
+        let writer = std::thread::spawn(move || {
+            for _ in 0..40 {
+                if client.write_all(b"x").is_err() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        });
+        let started = Instant::now();
+        assert_eq!(
+            read_helper_frame_until(&mut server, started + Duration::from_millis(50)),
+            Err(ProtocolError::Io)
+        );
+        assert!(started.elapsed() < Duration::from_secs(2));
+        drop(server);
+        writer.join().unwrap();
+    }
+
+    #[test]
+    fn expired_helper_deadline_fails_before_socket_io() {
+        let (_peer, mut stream) = UnixStream::pair().unwrap();
+        stream.set_nonblocking(true).unwrap();
+        let deadline = Instant::now() - Duration::from_millis(1);
+        assert_eq!(read_helper_frame_until(&mut stream, deadline), Err(ProtocolError::Io));
+        assert_eq!(
+            write_helper_response_until(
+                &mut stream,
+                HelperResponse {
+                    version: HELPER_PROTOCOL_VERSION,
+                    request_id: RequestId::new("expired").unwrap(),
+                    outcome: HelperOutcome::Rejected(ServiceError::Unsupported),
+                },
+                deadline,
+            ),
+            Err(ProtocolError::Io)
+        );
+    }
 
     fn valid_envelope(request: HelperRequest) -> HelperEnvelope {
         HelperEnvelope {
