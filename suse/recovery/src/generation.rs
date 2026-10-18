@@ -76,6 +76,7 @@ pub enum GenerationError {
     Validation(crate::ValidationError),
     MachineState(MachineStateError),
     StateMount(StateMountError),
+    SnapperCatalog(ryoku_snapper::CatalogStoreError),
 }
 
 impl std::fmt::Display for GenerationError {
@@ -110,11 +111,18 @@ impl std::fmt::Display for GenerationError {
                 write!(f, "trusted machine identity is unavailable: {error}")
             }
             Self::StateMount(error) => write!(f, "protected state mount is unavailable: {error}"),
+            Self::SnapperCatalog(error) => write!(f, "Snapper retention catalog failed: {error}"),
         }
     }
 }
 
 impl std::error::Error for GenerationError {}
+
+impl From<ryoku_snapper::CatalogStoreError> for GenerationError {
+    fn from(value: ryoku_snapper::CatalogStoreError) -> Self {
+        Self::SnapperCatalog(value)
+    }
+}
 
 impl From<ManifestError> for GenerationError {
     fn from(value: ManifestError) -> Self {
@@ -151,9 +159,11 @@ impl From<crate::ValidationError> for GenerationError {
 /// Publish immutable generations below the fixed, validated state subvolume.
 /// Production construction validates that mount before opening store paths.
 pub struct GenerationStore {
+    root: File,
     staging: File,
     generations: File,
     catalog: File,
+    expected_uid: u32,
 }
 
 /// Read-only access to an existing generation store. Unlike [`GenerationStore`],
@@ -161,8 +171,10 @@ pub struct GenerationStore {
 /// recovery state. It validates the directory owner/modes but does not prove
 /// the protected mount identity or authorize restore.
 pub struct GenerationReader {
+    root: File,
     generations: File,
     catalog: File,
+    expected_uid: u32,
 }
 
 /// A fully verified generation with its payload directory pinned by descriptor.
@@ -231,7 +243,30 @@ impl GenerationReader {
         let generations = existing_directory(&root, "generations", expected_uid)?;
         let catalog = existing_directory(&root, "catalog", expected_uid)?;
         drop(staging);
-        Ok(Self { generations, catalog })
+        Ok(Self { root, generations, catalog, expected_uid })
+    }
+
+    /// Opens the fixed optional Snapper catalog beneath the validated state root.
+    pub fn open_snapper_catalog_directory(&self) -> Result<File, GenerationError> {
+        let directory = existing_directory(&self.root, "snapper-catalog", self.expected_uid)?;
+        let stat = rustix::fs::fstat(&directory)?;
+        let root_stat = rustix::fs::fstat(&self.root)?;
+        if stat.st_gid != root_stat.st_gid {
+            return Err(GenerationError::InvalidStore);
+        }
+        Ok(directory)
+    }
+
+    /// Reads the existing catalog without creating a lock or repairing state.
+    pub fn open_snapper_catalog_reader(
+        &self,
+    ) -> Result<ryoku_snapper::CatalogReader, GenerationError> {
+        let directory = self.open_snapper_catalog_directory()?;
+        Ok(ryoku_snapper::CatalogReader::open(&directory, self.expected_uid)?)
+    }
+
+    pub(crate) fn expected_uid(&self) -> u32 {
+        self.expected_uid
     }
 
     /// Lists committed transaction catalog names in stable order. Each ID is
@@ -309,6 +344,30 @@ impl GenerationStore {
         Self::open_owned(&state_root, 0)
     }
 
+    /// Initialize the rollback-independent catalog during explicit state provisioning.
+    pub fn initialize_snapper_catalog(&self) -> Result<(), GenerationError> {
+        let directory = directory(&self.root, "snapper-catalog", self.expected_uid)?;
+        rustix::fs::fsync(&directory)?;
+        rustix::fs::fsync(&self.root)?;
+        let store = ryoku_snapper::CatalogStore::open(&directory, self.expected_uid)?;
+        match store.load() {
+            Ok(_) => Ok(()),
+            Err(ryoku_snapper::CatalogStoreError::Filesystem(Errno::NOENT)) => {
+                store.replace(&ryoku_snapper::CatalogIndex::default())?;
+                Ok(())
+            }
+            Err(error) => Err(error.into()),
+        }
+    }
+
+    /// Open only an existing catalog for an authorized coordinator.
+    pub fn open_snapper_catalog_store(
+        &self,
+    ) -> Result<ryoku_snapper::CatalogStore, GenerationError> {
+        let directory = existing_directory(&self.root, "snapper-catalog", self.expected_uid)?;
+        Ok(ryoku_snapper::CatalogStore::open_existing(&directory, self.expected_uid)?)
+    }
+
     /// Fail closed unless the generation's payload, bounded manifest and
     /// per-file allocation overhead fit on the filesystem backing `staging`.
     /// This is a preflight estimate, not a reservation: callers must still
@@ -360,7 +419,7 @@ impl GenerationStore {
         fsync(&generations)?;
         fsync(&catalog)?;
         fsync(&root)?;
-        Ok(Self { staging, generations, catalog })
+        Ok(Self { root, staging, generations, catalog, expected_uid })
     }
 
     fn open_initialized(root: &File, expected_uid: u32) -> Result<Self, GenerationError> {
@@ -372,9 +431,11 @@ impl GenerationStore {
             return Err(GenerationError::InvalidStore);
         }
         Ok(Self {
+            root: duplicate(root)?,
             staging: existing_directory(root, "staging", expected_uid)?,
             generations: existing_directory(root, "generations", expected_uid)?,
             catalog: existing_directory(root, "catalog", expected_uid)?,
+            expected_uid,
         })
     }
 

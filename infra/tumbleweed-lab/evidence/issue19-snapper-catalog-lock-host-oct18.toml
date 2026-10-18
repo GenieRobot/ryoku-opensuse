@@ -1,0 +1,23 @@
+# Host compile evidence for Snapper catalog lock metadata; no native storage mutation.
+schema_version = 1
+issue = 19
+date = "2026-10-18"
+source_origin = "current dirty worktree"
+source_file = "suse/snapper/src/catalog.rs"
+source_sha256 = "c352eb88c8b47dfff35649df072fe4d7143307e8eff7b1ab326de4d115b1776e"
+invariant = "catalog lock and catalog data must be regular, owned by expected UID, match the protected directory GID, have exact mode 0600, and have one hard link; the lock path must retain its opened device/inode across acquisition"
+command = "cargo check --locked --offline -p ryoku-snapper --all-targets"
+result = "passed; exit 0"
+lock_revalidation = "checks descriptor/path identity before flock and after acquisition; unlocks and fails closed when replaced while waiting"
+catalog_data_validation = "read path revalidates private directory owner/mode and requires catalog file group to match directory and link count 1"
+format_command = "cargo fmt --all -- --check"
+format_result = "passed"
+diff_check_result = "git diff --check passed"
+tests_run = false
+disposable_vm = false
+scope_limit = "host compilation only; no catalog lock corruption fixture or native Tumbleweed operation was executed"
+retention_planner_file = "suse/snapper/src/lib.rs"
+retention_planner_sha256 = "8eca4517cfe7ec7378d3e04be927de17ec7a59a65237aca28705ecb890dbb24e"
+manual_checkpoint_root_policy = "manual checkpoint marking requires root Snapper config; existing pinned rows with another config are classified for reconciliation, never prune"
+pair_correlation_policy = "any single snapshot carrying the exact requested config and transaction tag makes the pair ambiguous and requires reconciliation"
+catalog_lock_open_flags = "RDWR|CLOEXEC|NOFOLLOW|NONBLOCK for both create and existing paths"

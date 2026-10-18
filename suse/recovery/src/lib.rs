@@ -41,6 +41,8 @@ pub mod preparation;
 pub mod restore;
 #[cfg(target_os = "linux")]
 pub mod rpm_defaults;
+#[cfg(target_os = "linux")]
+pub mod snapper_retention;
 mod state_boot_unit;
 pub mod state_creation;
 #[cfg(target_os = "linux")]

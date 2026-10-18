@@ -59,7 +59,7 @@ fn execute(
             let reader = GenerationReader::open_state_mount().map_err(|error| error.to_string())?;
             let root = File::open("/").map_err(|error| error.to_string())?;
             let linked = reader
-                .open_historical_transaction(&root, &transaction)
+                .open_cataloged_transaction(&root, &transaction)
                 .map_err(|error| error.to_string())?;
             let manifest = linked.generation().manifest();
             writeln!(

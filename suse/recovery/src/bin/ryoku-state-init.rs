@@ -209,7 +209,8 @@ fn configure_created(
     fsync(&wants)?;
     fsync(&system)?;
     collect_and_open_state_mount(root, created.machine_record().identity())?;
-    let _store = GenerationStore::open_state_mount(created.machine_record().identity())?;
+    let store = GenerationStore::open_state_mount(created.machine_record().identity())?;
+    store.initialize_snapper_catalog()?;
     let _journals =
         RestoreJournalStore::initialize_state_mount(created.machine_record().identity())?;
     run_command("/usr/sbin/restorecon", &["-R", "/var/lib/ryoku-state"])?;

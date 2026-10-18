@@ -15,6 +15,10 @@ use crate::{
         verify_historical_root_checkpoint,
     },
 };
+use ryoku_snapper::{
+    CatalogEntry, CatalogReader, PartnerState, SnapperBackend, SnapperCliBackend, SnapshotKind,
+    SnapshotRecord, TransactionId,
+};
 
 /// Both exact partners were available when reopened. This is deliberately
 /// distinct from a fresh checkpoint and cannot supply a new capture link.
@@ -33,6 +37,28 @@ impl HistoricalLinkedGeneration {
     }
 }
 
+/// A historical linked generation whose durable Snapper catalog row and live
+/// tagged snapshot were also checked. This still does not establish boot
+/// compatibility or permission to restore.
+pub struct CatalogedLinkedGeneration {
+    linked: HistoricalLinkedGeneration,
+    entry: CatalogEntry,
+}
+
+impl CatalogedLinkedGeneration {
+    pub fn generation(&self) -> &VerifiedGeneration {
+        self.linked.generation()
+    }
+
+    pub fn snapshot(&self) -> &HistoricalRootCheckpoint {
+        self.linked.snapshot()
+    }
+
+    pub fn catalog_entry(&self) -> &CatalogEntry {
+        &self.entry
+    }
+}
+
 /// A failed partner check invalidates linked availability. No error selects
 /// another generation or snapshot, repairs state, or creates a replacement.
 #[derive(Debug)]
@@ -44,6 +70,10 @@ pub enum HistoricalLookupError {
     SnapshotMismatch,
     SnapshotWritable,
     SnapshotUnavailable(NativeCheckpointError),
+    CatalogUnavailable,
+    CatalogEntryMissing,
+    CatalogMismatch,
+    SnapperInventoryUnavailable,
 }
 
 impl std::fmt::Display for HistoricalLookupError {
@@ -66,6 +96,62 @@ impl GenerationReader {
         })
         .map(|(generation, snapshot)| HistoricalLinkedGeneration { generation, snapshot })
     }
+
+    /// Reopens both generation and root snapshot partners, then requires the
+    /// exact protected Snapper catalog row and a current unique tagged single
+    /// snapshot. A stored `Verified` marker alone is never treated as current.
+    pub fn open_cataloged_transaction(
+        &self,
+        trusted_root: &File,
+        transaction: &Identifier,
+    ) -> Result<CatalogedLinkedGeneration, HistoricalLookupError> {
+        let linked = self.open_historical_transaction(trusted_root, transaction)?;
+        let directory = self
+            .open_snapper_catalog_directory()
+            .map_err(|_| HistoricalLookupError::CatalogUnavailable)?;
+        let catalog = CatalogReader::open(&directory, self.expected_uid())
+            .map_err(|_| HistoricalLookupError::CatalogUnavailable)?;
+        let index = catalog.load().map_err(|_| HistoricalLookupError::CatalogUnavailable)?;
+        let snapper_transaction = TransactionId::new(transaction.as_str())
+            .map_err(|_| HistoricalLookupError::CatalogMismatch)?;
+        let entry =
+            index.get(&snapper_transaction).ok_or(HistoricalLookupError::CatalogEntryMissing)?;
+        let manifest = linked.generation().manifest();
+        if !catalog_entry_matches_manifest(entry, manifest) {
+            return Err(HistoricalLookupError::CatalogMismatch);
+        }
+        let records = SnapperCliBackend
+            .list(&entry.root_config)
+            .map_err(|_| HistoricalLookupError::SnapperInventoryUnavailable)?;
+        if !live_partner_matches(entry, &records) {
+            return Err(HistoricalLookupError::SnapshotMissing);
+        }
+        Ok(CatalogedLinkedGeneration { linked, entry: entry.clone() })
+    }
+}
+
+fn catalog_entry_matches_manifest(
+    entry: &CatalogEntry,
+    manifest: &crate::RecoveryManifest,
+) -> bool {
+    entry.transaction_id.as_str() == manifest.transaction_id.as_str()
+        && entry.generation_id.as_str() == manifest.generation_id.as_str()
+        && entry.root_config.as_str() == manifest.snapper_config.as_str()
+        && entry.root_snapshot.as_str() == manifest.snapper_snapshot_id
+        && entry.partner == PartnerState::Verified
+}
+
+fn live_partner_matches(entry: &CatalogEntry, records: &[SnapshotRecord]) -> bool {
+    records
+        .iter()
+        .filter(|record| {
+            record.config == entry.root_config
+                && record.id == entry.root_snapshot
+                && record.kind == SnapshotKind::Single
+                && record.transaction_id.as_ref() == Some(&entry.transaction_id)
+        })
+        .count()
+        == 1
 }
 
 impl GenerationStore {
@@ -220,6 +306,54 @@ mod tests {
         );
         manifest.seal().unwrap();
         manifest
+    }
+
+    fn catalog_entry(manifest: &RecoveryManifest) -> CatalogEntry {
+        CatalogEntry {
+            transaction_id: TransactionId::new(manifest.transaction_id.as_str()).unwrap(),
+            root_config: ryoku_snapper::ConfigName::new(manifest.snapper_config.as_str()).unwrap(),
+            root_snapshot: ryoku_snapper::SnapshotId::new(manifest.snapper_snapshot_id.as_str())
+                .unwrap(),
+            generation_id: ryoku_snapper::GenerationId::new(manifest.generation_id.as_str())
+                .unwrap(),
+            capability: ryoku_snapper::LayoutCapability::ConfigurationOnly,
+            partner: PartnerState::Verified,
+            manual_checkpoint: false,
+            known_working: false,
+        }
+    }
+
+    #[test]
+    fn cataloged_link_verification_requires_exact_persisted_and_live_partners() {
+        let manifest = manifest(true);
+        let entry = catalog_entry(&manifest);
+        let record = SnapshotRecord {
+            config: entry.root_config.clone(),
+            id: entry.root_snapshot.clone(),
+            kind: SnapshotKind::Single,
+            pre_snapshot: None,
+            transaction_id: Some(entry.transaction_id.clone()),
+        };
+        assert!(catalog_entry_matches_manifest(&entry, &manifest));
+        assert!(live_partner_matches(&entry, std::slice::from_ref(&record)));
+
+        let mut wrong_generation = entry.clone();
+        wrong_generation.generation_id =
+            ryoku_snapper::GenerationId::new("other-generation").unwrap();
+        assert!(!catalog_entry_matches_manifest(&wrong_generation, &manifest));
+
+        let mut unverified = entry.clone();
+        unverified.partner = PartnerState::Missing;
+        assert!(!catalog_entry_matches_manifest(&unverified, &manifest));
+        assert!(!live_partner_matches(&entry, &[]));
+        assert!(!live_partner_matches(&entry, &[record.clone(), record.clone()]));
+
+        let mut wrong_kind = record.clone();
+        wrong_kind.kind = SnapshotKind::Pre;
+        assert!(!live_partner_matches(&entry, &[wrong_kind]));
+        let mut wrong_transaction = record;
+        wrong_transaction.transaction_id = None;
+        assert!(!live_partner_matches(&entry, &[wrong_transaction]));
     }
 
     #[test]
