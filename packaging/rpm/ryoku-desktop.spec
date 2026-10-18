@@ -166,6 +166,7 @@ cmake --build blobs-build --parallel %{_smp_build_ncpus}
 
 %install
 install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-session" %{buildroot}%{_bindir}/ryoku-session
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-profile" %{buildroot}%{_bindir}/ryoku-profile
 install -D -m 0644 packaging/rpm/wayland-sessions/ryoku-opensuse.desktop %{buildroot}%{_datadir}/wayland-sessions/ryoku-opensuse.desktop
 install -D -m 0644 packaging/rpm/systemd/user/ryoku-desktop-session.target %{buildroot}%{_userunitdir}/ryoku-desktop-session.target
 install -D -m 0644 packaging/rpm/systemd/user/ryoku-desktop-shell.service %{buildroot}%{_userunitdir}/ryoku-desktop-shell.service
@@ -214,6 +215,7 @@ cp -a runtime/fonts/. %{buildroot}%{font_root}/
 %files
 %defattr(-,root,root)
 %attr(0755,root,root) %{_bindir}/ryoku-session
+%attr(0755,root,root) %{_bindir}/ryoku-profile
 %attr(0644,root,root) %{_datadir}/wayland-sessions/ryoku-opensuse.desktop
 %attr(0644,root,root) %{_userunitdir}/ryoku-desktop-session.target
 %attr(0644,root,root) %{_userunitdir}/ryoku-desktop-shell.service

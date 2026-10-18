@@ -623,6 +623,7 @@ version = "0.1.0"
 dependencies = [
  "libc",
  "rustix",
+ "ryoku-profiles",
  "ryoku-recovery",
  "serde",
  "serde_json",
@@ -633,6 +634,8 @@ name = "ryoku-session"
 version = "0.1.0"
 dependencies = [
  "rustix",
+ "ryoku-profiles",
+ "ryoku-ui",
  "serde",
  "serde_json",
  "sha2",
@@ -654,6 +657,7 @@ version = "0.1.0"
 dependencies = [
  "gtk4",
  "rustix",
+ "ryoku-profiles",
  "ryoku-service",
  "serde_json",
 ]

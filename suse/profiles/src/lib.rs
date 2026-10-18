@@ -42,15 +42,48 @@ use serde::{Deserialize, Deserializer, Serialize};
 use sha2::{Digest, Sha256};
 
 mod local;
-pub use local::{LOCAL_PROFILE_FILE, ProfileLoadError, ProfileOwner, load_local_profile};
+pub use local::{
+    LOCAL_PROFILE_FILE, ProfileLoadError, ProfileMigrationError, ProfileOwner, ProfileSaveError,
+    load_local_profile, migrate_legacy_local_profile, save_local_profile,
+};
 
 /// The only profile document schema currently accepted by this crate.
 pub const PROFILE_SCHEMA_VERSION: u16 = 1;
 /// Bound local profile input before parsing it.
 pub const MAX_PROFILE_DOCUMENT_BYTES: usize = 64 * 1024;
-/// Fixed personal-profile capture writer identity and accepted file modes.
+/// Exact persistence policy shared by the scoped native writer and capture.
+/// This is personal declarative state, not a desktop/provider activation API.
 pub const PERSONAL_PROFILE_WRITER_ID: &str = "native-personal-profile-v1";
 pub const PERSONAL_PROFILE_MODES: &[u32] = &[0o600, 0o644];
+pub const PERSONAL_PROFILE_CREATE_MODE: u32 = 0o600;
+pub const GENERIC_PROFILE_ID: &str = "generic-desktop";
+
+/// A byte-exact legacy profile emitted by the Rust prototype at the old
+/// `profile.json` path. This is only a classification result; callers must
+/// preserve the source and use the authenticated same-user writer to create
+/// the new port-owned preferences path.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LegacyProfileCandidate {
+    pub document: ProfileDocument,
+    pub source_sha256: String,
+}
+
+/// Recognize only the canonical schema-1 document produced by the old Rust
+/// writer. Upstream Hub documents, reformatted JSON, and unknown schemas are
+/// not migration candidates.
+pub fn classify_legacy_personal_profile(bytes: &[u8]) -> Option<LegacyProfileCandidate> {
+    if bytes.len() > MAX_PROFILE_DOCUMENT_BYTES {
+        return None;
+    }
+    let document = ProfileDocument::parse(bytes).ok()?;
+    if document.id.as_str() != GENERIC_PROFILE_ID
+        || document.canonical_bytes().ok()?.as_slice() != bytes
+    {
+        return None;
+    }
+    let source_sha256 = Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect();
+    Some(LegacyProfileCandidate { document, source_sha256 })
+}
 
 /// Stable identifier for a locally installed profile.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
@@ -201,6 +234,47 @@ impl std::fmt::Display for ProfileDocumentError {
 }
 
 impl std::error::Error for ProfileDocumentError {}
+
+#[cfg(test)]
+mod migration_tests {
+    use super::*;
+
+    fn legacy_bytes() -> Vec<u8> {
+        ProfileDocument::new(ProfileId::new(GENERIC_PROFILE_ID).unwrap(), SettingsLayer::default())
+            .canonical_bytes()
+            .unwrap()
+    }
+
+    #[test]
+    fn classifies_only_canonical_port_owned_legacy_document() {
+        let bytes = legacy_bytes();
+        let candidate = classify_legacy_personal_profile(&bytes).unwrap();
+        assert_eq!(candidate.document.id.as_str(), GENERIC_PROFILE_ID);
+        assert_eq!(candidate.source_sha256.len(), 64);
+        assert!(candidate.source_sha256.bytes().all(|byte| byte.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn does_not_classify_upstream_hub_profile_or_reformatted_port_json() {
+        let upstream = br#"{"hero":{"kind":"builtin","source":"ryoku"}}"#;
+        assert!(classify_legacy_personal_profile(upstream).is_none());
+
+        let reformatted = format!(" {}", String::from_utf8(legacy_bytes()).unwrap());
+        assert!(classify_legacy_personal_profile(reformatted.as_bytes()).is_none());
+    }
+
+    #[test]
+    fn does_not_classify_other_identity_or_oversized_input() {
+        let other =
+            ProfileDocument::new(ProfileId::new("workstation").unwrap(), SettingsLayer::default())
+                .canonical_bytes()
+                .unwrap();
+        assert!(classify_legacy_personal_profile(&other).is_none());
+        assert!(
+            classify_legacy_personal_profile(&vec![b' '; MAX_PROFILE_DOCUMENT_BYTES + 1]).is_none()
+        );
+    }
+}
 
 /// Inputs are applied in the fixed order declared by the public contract:
 /// profile defaults, system overrides, optional companion, personal overrides.

@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 
 use crate::{
     OperationJournal, PROTOCOL_VERSION, PeerIdentity, ProtocolError, Request, RequestId, Response,
-    ResponseBody, ServiceError, authorize_helper_peer, discovery,
+    ResponseBody, ServiceError, account_state::AccountHomeRoot, authorize_helper_peer, discovery,
 };
 
 const IO_TIMEOUT: Duration = Duration::from_secs(5);
@@ -175,6 +175,9 @@ fn serve_connection_until(
             .cloned()
             .map(ResponseBody::Operation)
             .unwrap_or(ResponseBody::Error(ServiceError::NotFound)),
+        request @ (Request::GetLocalProfile
+        | Request::SetLocalProfile { .. }
+        | Request::MigrateLegacyLocalProfile) => handle_local_profile_request(&request, &peer, uid),
         Request::Start { action } => {
             ResponseBody::Error(crate::helper_protocol::check_action_availability_until(
                 helper_socket_path,
@@ -187,6 +190,116 @@ fn serve_connection_until(
         &mut stream,
         Response { version: PROTOCOL_VERSION, request_id: id, body },
         deadline,
+    )
+}
+
+fn handle_local_profile_request(request: &Request, peer: &PeerIdentity, uid: u32) -> ResponseBody {
+    let account = match AccountHomeRoot::for_peer(peer) {
+        Ok(account) if account.uid() == uid => account,
+        _ => return ResponseBody::Error(ServiceError::RecoveryUnavailable),
+    };
+    handle_local_profile_for_account(request, &account)
+}
+
+fn handle_local_profile_for_account(request: &Request, account: &AccountHomeRoot) -> ResponseBody {
+    let owner = ryoku_profiles::ProfileOwner { uid: account.uid(), gid: account.primary_gid() };
+    if account.revalidate().is_err() {
+        return ResponseBody::Error(ServiceError::StaleRequest);
+    }
+
+    let create = matches!(request, Request::SetLocalProfile { .. });
+    let root = match account.configuration(create) {
+        Ok(root) => root,
+        Err(_) => return ResponseBody::Error(ServiceError::RecoveryUnavailable),
+    };
+    let response = handle_local_profile_with_optional_root(request, root.as_ref(), owner);
+    if account.revalidate().is_err() {
+        return ResponseBody::Error(ServiceError::StaleRequest);
+    }
+    response
+}
+
+fn handle_local_profile_with_optional_root(
+    request: &Request,
+    root: Option<&std::fs::File>,
+    owner: ryoku_profiles::ProfileOwner,
+) -> ResponseBody {
+    match (request, root) {
+        (Request::GetLocalProfile, None) => ResponseBody::LocalProfile(default_local_profile()),
+        (Request::MigrateLegacyLocalProfile, None) => ResponseBody::Error(ServiceError::NotFound),
+        (_, Some(root)) => handle_local_profile_at_root(request, root, owner),
+        _ => ResponseBody::Error(ServiceError::RecoveryUnavailable),
+    }
+}
+
+fn handle_local_profile_at_root(
+    request: &Request,
+    root: &std::fs::File,
+    owner: ryoku_profiles::ProfileOwner,
+) -> ResponseBody {
+    let document = match request {
+        Request::GetLocalProfile => match ryoku_profiles::load_local_profile(root, owner) {
+            Ok(document) => document,
+            Err(ryoku_profiles::ProfileLoadError::Filesystem(Errno::NOENT)) => {
+                default_local_profile()
+            }
+            Err(_) => return ResponseBody::Error(ServiceError::RecoveryUnavailable),
+        },
+        Request::SetLocalProfile { settings } => {
+            match ryoku_profiles::load_local_profile(root, owner) {
+                Ok(existing) if existing.id.as_str() != ryoku_profiles::GENERIC_PROFILE_ID => {
+                    return ResponseBody::Error(ServiceError::Unsupported);
+                }
+                Ok(_) => (),
+                Err(ryoku_profiles::ProfileLoadError::Filesystem(Errno::NOENT)) => (),
+                Err(_) => return ResponseBody::Error(ServiceError::RecoveryUnavailable),
+            }
+            let document = default_local_profile_with(*settings);
+            match ryoku_profiles::save_local_profile(root, owner, &document) {
+                Ok(()) => document,
+                Err(ryoku_profiles::ProfileSaveError::DirectorySyncFailed(_)) => {
+                    return ResponseBody::Error(ServiceError::Failed);
+                }
+                Err(_) => return ResponseBody::Error(ServiceError::RecoveryUnavailable),
+            }
+        }
+        Request::MigrateLegacyLocalProfile => {
+            match ryoku_profiles::migrate_legacy_local_profile(root, owner) {
+                Ok(document) => document,
+                Err(ryoku_profiles::ProfileMigrationError::InvalidLegacy) => {
+                    return ResponseBody::Error(ServiceError::Unsupported);
+                }
+                Err(ryoku_profiles::ProfileMigrationError::DestinationExists) => {
+                    return ResponseBody::Error(ServiceError::StaleRequest);
+                }
+                Err(ryoku_profiles::ProfileMigrationError::Load(
+                    ryoku_profiles::ProfileLoadError::Filesystem(Errno::NOENT),
+                )) => return ResponseBody::Error(ServiceError::NotFound),
+                Err(ryoku_profiles::ProfileMigrationError::Save(
+                    ryoku_profiles::ProfileSaveError::DirectorySyncFailed(_),
+                )) => return ResponseBody::Error(ServiceError::Failed),
+                Err(_) => return ResponseBody::Error(ServiceError::RecoveryUnavailable),
+            }
+        }
+        _ => unreachable!("local profile handler received a different request"),
+    };
+    if document.id.as_str() != ryoku_profiles::GENERIC_PROFILE_ID {
+        return ResponseBody::Error(ServiceError::Unsupported);
+    }
+    ResponseBody::LocalProfile(document)
+}
+
+fn default_local_profile() -> ryoku_profiles::ProfileDocument {
+    default_local_profile_with(ryoku_profiles::SettingsLayer::default())
+}
+
+fn default_local_profile_with(
+    settings: ryoku_profiles::SettingsLayer,
+) -> ryoku_profiles::ProfileDocument {
+    ryoku_profiles::ProfileDocument::new(
+        ryoku_profiles::ProfileId::new(ryoku_profiles::GENERIC_PROFILE_ID)
+            .expect("the built-in generic profile id is valid"),
+        settings,
     )
 }
 
@@ -747,5 +860,70 @@ mod tests {
         assert_eq!(std::fs::metadata(&path).unwrap().len(), 0);
         drop(journal);
         std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn local_settings_route_saves_and_reads_without_a_journal() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        let path = std::env::temp_dir().join(format!(
+            "ryoku-profile-route-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        std::fs::create_dir(&path).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let root = std::fs::File::open(&path).unwrap();
+        let meta = std::fs::metadata(&path).unwrap();
+        let owner = ryoku_profiles::ProfileOwner { uid: meta.uid(), gid: meta.gid() };
+        assert_eq!(
+            handle_local_profile_at_root(&Request::GetLocalProfile, &root, owner),
+            ResponseBody::LocalProfile(default_local_profile())
+        );
+        let settings = ryoku_profiles::SettingsLayer {
+            theme: Some(ryoku_profiles::Theme::System),
+            ..Default::default()
+        };
+        assert_eq!(
+            handle_local_profile_at_root(&Request::SetLocalProfile { settings }, &root, owner),
+            ResponseBody::LocalProfile(default_local_profile_with(settings))
+        );
+        assert_eq!(
+            handle_local_profile_at_root(&Request::GetLocalProfile, &root, owner),
+            ResponseBody::LocalProfile(default_local_profile_with(settings))
+        );
+        drop(root);
+        std::fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
+    fn legacy_route_preserves_source_and_refuses_unknown_documents() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        let path = std::env::temp_dir().join(format!(
+            "ryoku-profile-migrate-route-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        std::fs::create_dir(&path).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let root = std::fs::File::open(&path).unwrap();
+        let meta = std::fs::metadata(&path).unwrap();
+        let owner = ryoku_profiles::ProfileOwner { uid: meta.uid(), gid: meta.gid() };
+        let legacy_path = path.join("profile.json");
+        std::fs::write(&legacy_path, b"{\"hero\":{}}").unwrap();
+        std::fs::set_permissions(&legacy_path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        assert_eq!(
+            handle_local_profile_at_root(&Request::MigrateLegacyLocalProfile, &root, owner),
+            ResponseBody::Error(ServiceError::Unsupported)
+        );
+        assert!(!path.join(ryoku_profiles::LOCAL_PROFILE_FILE).exists());
+        let bytes = default_local_profile().canonical_bytes().unwrap();
+        std::fs::write(&legacy_path, &bytes).unwrap();
+        assert_eq!(
+            handle_local_profile_at_root(&Request::MigrateLegacyLocalProfile, &root, owner),
+            ResponseBody::LocalProfile(default_local_profile())
+        );
+        assert_eq!(std::fs::read(&legacy_path).unwrap(), bytes);
+        assert_eq!(std::fs::read(path.join(ryoku_profiles::LOCAL_PROFILE_FILE)).unwrap(), bytes);
+        drop(root);
+        std::fs::remove_dir_all(path).unwrap();
     }
 }

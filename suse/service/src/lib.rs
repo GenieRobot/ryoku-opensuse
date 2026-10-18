@@ -104,6 +104,9 @@ impl TryFrom<String> for RequestId {
 pub enum Request {
     Discover,
     GetOperation { operation_id: OperationId },
+    GetLocalProfile,
+    SetLocalProfile { settings: ryoku_profiles::SettingsLayer },
+    MigrateLegacyLocalProfile,
     Start { action: ManagedAction },
 }
 
@@ -205,6 +208,7 @@ pub struct Envelope {
 pub enum ResponseBody {
     Discovery(Discovery),
     Operation(OperationStatus),
+    LocalProfile(ryoku_profiles::ProfileDocument),
     Accepted { operation_id: OperationId },
     Error(ServiceError),
 }

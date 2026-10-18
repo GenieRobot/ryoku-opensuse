@@ -1,7 +1,8 @@
-//! Opt-in client for the service's read-only discovery request.
+//! Client for service discovery and typed local preferences.
 //!
 //! This adapter is a proof against the current Unix-socket service runtime,
-//! not a selection of the final UI transport. It never sends managed actions.
+//! not a selection of the final UI transport. Personal preference requests stay
+//! in the authenticated user daemon and never invoke privileged actions.
 
 use std::{
     io::{Read, Write},
@@ -27,7 +28,7 @@ use crate::{
 const IO_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_RESPONSE_BYTES: usize = 64 * 1024;
 
-/// Read-only UI adapter that queries service state through its fixed runtime
+/// UI adapter that queries service state and personal preferences through its fixed runtime
 /// socket. Construct it from `XDG_RUNTIME_DIR`; callers cannot supply a socket
 /// path from UI data or a request.
 #[derive(Clone, Debug)]
@@ -77,6 +78,59 @@ impl UnixServiceBackend {
             return Err(BackendError::Unauthorized);
         }
         Self::exchange(&mut stream, request_id)
+    }
+
+    pub fn get_local_profile(
+        &self,
+        request_id: RequestId,
+    ) -> Result<ryoku_profiles::ProfileDocument, BackendError> {
+        self.profile_request(request_id, Request::GetLocalProfile)
+    }
+    pub fn set_local_profile(
+        &self,
+        request_id: RequestId,
+        settings: ryoku_profiles::SettingsLayer,
+    ) -> Result<ryoku_profiles::ProfileDocument, BackendError> {
+        self.profile_request(request_id, Request::SetLocalProfile { settings })
+    }
+    pub fn migrate_legacy_local_profile(
+        &self,
+        request_id: RequestId,
+    ) -> Result<ryoku_profiles::ProfileDocument, BackendError> {
+        self.profile_request(request_id, Request::MigrateLegacyLocalProfile)
+    }
+
+    fn profile_request(
+        &self,
+        request_id: RequestId,
+        request: Request,
+    ) -> Result<ryoku_profiles::ProfileDocument, BackendError> {
+        let runtime = self.socket_path.parent().ok_or(BackendError::Unavailable)?;
+        let runtime_metadata =
+            std::fs::symlink_metadata(runtime).map_err(|_| BackendError::Unavailable)?;
+        if !runtime_metadata.file_type().is_dir()
+            || runtime_metadata.uid() == 0
+            || runtime_metadata.uid() != geteuid().as_raw()
+            || runtime_metadata.mode() & 0o022 != 0
+        {
+            return Err(BackendError::Unauthorized);
+        }
+        let socket_metadata =
+            std::fs::symlink_metadata(&self.socket_path).map_err(|_| BackendError::Unavailable)?;
+        if !socket_metadata.file_type().is_socket()
+            || socket_metadata.uid() != runtime_metadata.uid()
+            || socket_metadata.mode() & 0o077 != 0
+        {
+            return Err(BackendError::Unauthorized);
+        }
+        let mut stream =
+            UnixStream::connect(&self.socket_path).map_err(|_| BackendError::Unavailable)?;
+        let peer =
+            PeerIdentity::from_unix_socket(&stream).map_err(|_| BackendError::Unauthorized)?;
+        if peer.uid() != runtime_metadata.uid() {
+            return Err(BackendError::Unauthorized);
+        }
+        Self::exchange_profile(&mut stream, request_id, request)
     }
 
     fn exchange(
@@ -161,6 +215,86 @@ impl UnixServiceBackend {
             ResponseBody::Error(ServiceError::Unsupported) => {
                 Err(BackendError::UnsupportedOperation)
             }
+            _ => Err(BackendError::InvalidResponse),
+        }
+    }
+    fn exchange_profile(
+        stream: &mut UnixStream,
+        ui_request_id: RequestId,
+        request: Request,
+    ) -> Result<ryoku_profiles::ProfileDocument, BackendError> {
+        let deadline = Instant::now() + IO_TIMEOUT;
+        let remaining = || {
+            deadline
+                .checked_duration_since(Instant::now())
+                .filter(|duration| !duration.is_zero())
+                .ok_or(BackendError::Unavailable)
+        };
+        let request_id = ServiceRequestId::new(format!("ui-{}", ui_request_id.0))
+            .map_err(|_| BackendError::InvalidResponse)?;
+        let envelope =
+            Envelope { version: SERVICE_PROTOCOL_VERSION, request_id: request_id.clone(), request };
+        let mut frame = serde_json::to_vec(&envelope).map_err(|_| BackendError::InvalidResponse)?;
+        frame.push(b'\n');
+        let mut pending = frame.as_slice();
+        while !pending.is_empty() {
+            stream.set_write_timeout(Some(remaining()?)).map_err(|_| BackendError::Unavailable)?;
+            match stream.write(pending) {
+                Ok(0) => return Err(BackendError::Unavailable),
+                Ok(count) => pending = &pending[count..],
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(_) => return Err(BackendError::Unavailable),
+            }
+        }
+
+        let mut bytes = Vec::with_capacity(1024);
+        let mut buffer = [0_u8; 1024];
+        loop {
+            stream.set_read_timeout(Some(remaining()?)).map_err(|_| BackendError::Unavailable)?;
+            let count = match stream.read(&mut buffer) {
+                Ok(0) => return Err(BackendError::InvalidResponse),
+                Ok(count) => count,
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(_) => return Err(BackendError::Unavailable),
+            };
+            let newline = buffer[..count].iter().position(|byte| *byte == b'\n');
+            let end = newline.map_or(count, |index| index + 1);
+            if bytes.len() + end > MAX_RESPONSE_BYTES {
+                return Err(BackendError::InvalidResponse);
+            }
+            bytes.extend_from_slice(&buffer[..end]);
+            if newline.is_some() {
+                break;
+            }
+        }
+        bytes.pop();
+        let response: Response =
+            serde_json::from_slice(&bytes).map_err(|_| BackendError::InvalidResponse)?;
+        if response.version != SERVICE_PROTOCOL_VERSION {
+            return Err(BackendError::UnsupportedProtocol);
+        }
+        if response.request_id != request_id {
+            return Err(BackendError::MismatchedRequestId);
+        }
+        match response.body {
+            ResponseBody::LocalProfile(document)
+                if document.id.as_str() == ryoku_profiles::GENERIC_PROFILE_ID
+                    && document.canonical_bytes().is_ok() =>
+            {
+                Ok(document)
+            }
+            ResponseBody::Error(ServiceError::Unauthorized) => Err(BackendError::Unauthorized),
+            ResponseBody::Error(ServiceError::NotFound) => Err(BackendError::NotFound),
+            ResponseBody::Error(ServiceError::Unsupported) => {
+                Err(BackendError::UnsupportedOperation)
+            }
+            ResponseBody::Error(ServiceError::StaleRequest) => Err(BackendError::StaleRequest),
+            ResponseBody::Error(ServiceError::RecoveryUnavailable) => {
+                Err(BackendError::RecoveryUnavailable)
+            }
+            ResponseBody::Error(ServiceError::Busy) => Err(BackendError::Busy),
+            ResponseBody::Error(ServiceError::Failed) => Err(BackendError::Failed),
+            ResponseBody::Error(ServiceError::Malformed(_)) => Err(BackendError::MalformedRequest),
             _ => Err(BackendError::InvalidResponse),
         }
     }
@@ -363,5 +497,39 @@ mod tests {
         );
         worker.join().unwrap();
         fs::remove_dir_all(runtime).unwrap();
+    }
+    #[test]
+    fn local_profile_exchange_sends_typed_request_and_validates_response() {
+        use std::io::{BufRead, BufReader};
+        let (server, mut client) = UnixStream::pair().unwrap();
+        let settings = ryoku_profiles::SettingsLayer {
+            theme: Some(ryoku_profiles::Theme::System),
+            ..Default::default()
+        };
+        let worker = thread::spawn(move || {
+            let mut line = String::new();
+            BufReader::new(&server).read_line(&mut line).unwrap();
+            let request: Envelope = serde_json::from_str(&line).unwrap();
+            assert_eq!(request.request, Request::SetLocalProfile { settings });
+            let profile = ryoku_profiles::ProfileDocument::new(
+                ryoku_profiles::ProfileId::new(ryoku_profiles::GENERIC_PROFILE_ID).unwrap(),
+                settings,
+            );
+            let response = Response {
+                version: SERVICE_PROTOCOL_VERSION,
+                request_id: request.request_id,
+                body: ResponseBody::LocalProfile(profile.clone()),
+            };
+            serde_json::to_writer(&mut &server, &response).unwrap();
+            (&server).write_all(b"\n").unwrap();
+            profile
+        });
+        let got = UnixServiceBackend::exchange_profile(
+            &mut client,
+            RequestId(31),
+            Request::SetLocalProfile { settings },
+        )
+        .unwrap();
+        assert_eq!(got, worker.join().unwrap());
     }
 }

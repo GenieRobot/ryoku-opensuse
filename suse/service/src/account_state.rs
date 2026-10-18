@@ -1,7 +1,7 @@
 //! Account-bound default configuration root; not authorization or enrollment.
 //! No client environment or manifest path participates in root selection.
 use crate::PeerIdentity;
-use rustix::fs::{FileType, Mode, OFlags, ResolveFlags, fstat, openat2};
+use rustix::fs::{FileType, Mode, OFlags, ResolveFlags, fstat, fsync, mkdirat, openat2};
 use std::{
     fs::File,
     mem::MaybeUninit,
@@ -135,11 +135,45 @@ impl AccountHomeRoot {
         })
     }
 
+    /// Resolve a kernel-authenticated ordinary account's existing home. Unlike
+    /// `AccountStateRoot`, this does not require a Ryoku configuration
+    /// directory to exist, which lets profile reads return built-in defaults
+    /// and lets the explicit settings writer create the fixed directories.
+    pub(crate) fn for_peer(peer: &PeerIdentity) -> Result<Self, AccountStateError> {
+        let uid = peer.uid();
+        if uid == 0 || uid == u32::MAX {
+            return Err(AccountStateError::UnsupportedAccount);
+        }
+        account_worker().run(move || {
+            let account = lookup(uid)?;
+            let root = File::open("/").map_err(|_| AccountStateError::LookupFailed)?;
+            let home = open_directory(&root, &account.home[1..], false)?;
+            validate_owner(&home, &account)?;
+            Ok(Self { account, home })
+        })
+    }
+
     pub(crate) fn uid(&self) -> u32 {
         self.account.uid
     }
+    pub(crate) fn primary_gid(&self) -> u32 {
+        self.account.gid
+    }
     pub(crate) fn home(&self) -> &File {
         &self.home
+    }
+
+    /// Open the fixed `.config/ryoku` root. Reads pass `create = false` and
+    /// receive `None` when either directory is absent. The local settings
+    /// writer passes `create = true`; only those two user-owned directories
+    /// may be created, each with private mode, relative to pinned descriptors.
+    pub(crate) fn configuration(&self, create: bool) -> Result<Option<File>, AccountStateError> {
+        let config =
+            match open_or_create_account_directory(&self.home, ".config", &self.account, create)? {
+                Some(directory) => directory,
+                None => return Ok(None),
+            };
+        open_or_create_account_directory(&config, "ryoku", &self.account, create)
     }
     pub(crate) fn revalidate(&self) -> Result<(), AccountStateError> {
         let account = self.account.clone();
@@ -155,6 +189,33 @@ impl AccountHomeRoot {
             require_same_directory(&home, &current_home)
         })
     }
+}
+
+fn open_or_create_account_directory(
+    parent: &File,
+    name: &str,
+    account: &Account,
+    create: bool,
+) -> Result<Option<File>, AccountStateError> {
+    let directory = match open_directory(parent, name, true) {
+        Ok(directory) => directory,
+        Err(AccountStateError::Filesystem(rustix::io::Errno::NOENT)) if !create => return Ok(None),
+        Err(AccountStateError::Filesystem(rustix::io::Errno::NOENT)) => {
+            match mkdirat(parent, name, Mode::from_raw_mode(0o700)) {
+                Ok(()) | Err(rustix::io::Errno::EXIST) => (),
+                Err(error) => return Err(error.into()),
+            }
+            // Persist the parent entry before any profile bytes can be
+            // acknowledged beneath a newly created directory hierarchy.
+            fsync(parent)?;
+            let directory = open_directory(parent, name, true)?;
+            fsync(&directory)?;
+            directory
+        }
+        Err(error) => return Err(error),
+    };
+    validate_owner(&directory, account)?;
+    Ok(Some(directory))
 }
 
 /// Pins the selected account's existing default Ryoku directory. It does not

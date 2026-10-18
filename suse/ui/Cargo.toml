@@ -15,6 +15,7 @@ gtk-ui = ["dep:gtk"]
 gtk = { package = "gtk4", version = "0.10", optional = true }
 rustix = { version = "1.1.5", features = ["process"] }
 ryoku-service = { version = "0.1.0", path = "../service" }
+ryoku-profiles = { version = "0.1.0", path = "../profiles" }
 serde_json = "1"
 
 [[bin]]

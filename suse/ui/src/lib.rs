@@ -50,6 +50,12 @@ impl UiRequest {
 pub enum BackendError {
     Unavailable,
     Unauthorized,
+    NotFound,
+    MalformedRequest,
+    StaleRequest,
+    RecoveryUnavailable,
+    Busy,
+    Failed,
     InvalidResponse,
     UnsupportedProtocol,
     UnsupportedOperation,
@@ -125,6 +131,14 @@ pub fn render_result(result: &Result<ActionResult, BackendError>) -> String {
         Err(BackendError::Unauthorized) => {
             "Refresh failed: the Ryoku service rejected this user.".to_owned()
         }
+        Err(
+            BackendError::NotFound
+            | BackendError::MalformedRequest
+            | BackendError::StaleRequest
+            | BackendError::RecoveryUnavailable
+            | BackendError::Busy
+            | BackendError::Failed,
+        ) => "Refresh failed: the Ryoku service could not complete the request.".to_owned(),
         Err(BackendError::InvalidResponse) => {
             "Refresh failed: the Ryoku service returned invalid status.".to_owned()
         }
