@@ -1,0 +1,78 @@
+# This is a blocked-run receipt, not passing acceptance evidence.
+issue = 22
+observed_date = "2026-10-18"
+status = "blocked"
+source_commit = "a351f64e6d9968eeb3428e4c520ddaabb77b6be1"
+source_dirty = true
+probe_sha256 = "0b2bfcf75b16350241d71d00dfabf71d7fea6a69828c74ed569959f527a8e6bb"
+validator_sha256 = "25cae053fe8ddba85d8070b8703c4f5fc939a829732ae69dcc0248bafda26237"
+
+[fixture]
+snapshot = "20261016"
+image_sha256 = "ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231"
+signature = "verified by retained runner receipt"
+signer = "AD485664E901B867051AB15F35A2F86E29B700A4"
+architecture = "x86_64"
+kernel = "7.2.10-1-default"
+kernel_package = "7.2.10-1.1.36.11"
+grub2 = "2.16-2.1"
+snapper = "0.13.1-3.4"
+root = "derived Btrfs; source appliance root was XFS"
+boot = "UEFI-GRUB2"
+state = "dedicated /@ryoku-state direct child of filesystem top level"
+selinux = "enforcing"
+accelerator = "TCG"
+display = "headless"
+reused = true
+new_vm_created_for_this_inspection = false
+
+[observations]
+ssh_live = true
+running_kernel_readback = "7.2.10-1-default"
+pending_source_fixture = "native-linked-journal: Planned"
+pending_restore = "native-linked-restore-attempt: ContentStaged"
+source_generation_present = true
+current_state_generation_present = true
+current_state_catalog_link_present = true
+source_snapshot = "root:2"
+current_state_snapshot = "root:4"
+restore_target_present_after_guest_reboot = false
+unrelated_home_sentinel_present = true
+restore_child_exit = 1
+restore_child_last_step = "checkpoint_generation"
+restore_child_error = "Filesystem: ENOENT"
+ordinary_verify_exit = 1
+ordinary_verify_error = "ENOENT"
+retained_failure_log_sha256 = "f8c6cc97cd6603ce38d7e5f3b2455e6d53386f545048f6dd3f7c0b5b309565f8"
+destructive_retry_performed = false
+
+[local_checks]
+validator_command = "cargo test --locked --offline -p ryoku-automation --bin vm-lab linked_checkpoint"
+validator_passed = 4
+validator_failed = 0
+validator_filtered = 102
+probe_command = "cargo check --locked --offline -p ryoku-recovery --example native_linked_checkpoint_probe"
+probe_exit = 101
+probe_compile_errors = 4
+missing_dependency_apis = [
+  "state_mount::MUTATION_LOCK_NAME",
+  "GenerationStore::open_snapper_catalog_store",
+  "PreparationStores::execute_configuration_restore (two call sites)",
+]
+diff_check = "clean"
+
+[acceptance]
+required_backup_failure_prevents_every_supported_mutation = "unproven"
+root_and_ryoku_restore_as_verified_pair = "unproven"
+catalog_survives_root_rollback = "unproven"
+storage_exhaustion = "unproven"
+capture_interruption = "unproven"
+all_implemented_restore_phase_interruptions = "unproven"
+complete_managed_fixture_and_unrelated_home_comparison = "unproven"
+boot_compatibility = "unproven"
+issue_closure_allowed = false
+
+[next_action]
+dependency = "Integrate and accept issue #21 recovery executor and its prerequisite APIs before rerunning the complete issue #22 gate."
+fixture = "Preserve this guest and durable journals. Reconcile the lost /run target with a reviewed restart fixture; do not delete the pending attempt or automatically recreate its target."
+publication = "The two modified Rust files are retained uncommitted because they fail to compile on their branch. This receipt does not make those files ready for integration."
