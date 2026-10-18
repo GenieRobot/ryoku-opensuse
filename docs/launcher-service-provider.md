@@ -135,5 +135,9 @@ of sample counts, bounded directive-free rows and slow-trickle deadline
 enforcement. Neither those tests nor the native read proof establish accessibility,
 theme/scale, Hyprland login, RPM installation/removal, full Hub/store integration,
 or acceptance of the remaining exposed upstream controls. This extension proves
-only a narrow existing-surface read boundary. Overall acceptance still requires
-architecture review and the remaining issue #14 checks, including a public PR.
+only a narrow existing-surface read boundary. Its public implementation and
+native evidence were accepted in
+[PR #145](https://github.com/GenieRobot/ryoku-opensuse/pull/145). Overall
+acceptance still requires architecture review and the remaining issue #14 checks;
+the [acceptance evidence map](ui-integration.md#acceptance-evidence-for-issue-14)
+keeps those limits explicit.

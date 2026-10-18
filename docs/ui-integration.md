@@ -11,8 +11,12 @@ journal request/result IDs. The [provider contract](launcher-service-provider.md
 documents the original argv/rofi extension, source attribution, invocation/cache
 limits, exact separate issue #17/#25 prerequisites and reproduction procedure.
 The [evidence record](../infra/tumbleweed-lab/evidence/issue14-native-launcher-service.toml)
-preserves source/binary/capture hashes. This focused change adds no session,
-VM automation, service runtime or RPM implementation and does not close #14.
+preserves source/binary/capture hashes. The provider was accepted in
+[PR #145](https://github.com/GenieRobot/ryoku-opensuse/pull/145), integrated at
+`3e1bba87a9aef57adb0a6ba53b46d2aa9da7eb6d`. The
+[proof follow-up PR #143](https://github.com/GenieRobot/ryoku-opensuse/pull/143)
+records the optional GTK keyboard and package metadata and its accessibility
+review correction. This follow-up does not close #14.
 
 M0-05 adds an executable Rust proof in `suse/ui`: a typed dashboard status,
 one explicit `RefreshStatus` action, and typed success and service-error
@@ -69,9 +73,54 @@ GTK remains an optional proof candidate. The revised ADR proposes the unchanged
 launcher plus Rust adapter for the existing-surface read boundary, pending
 architecture review. GTK's Tumbleweed package and
 runtime dependencies, Wayland behavior, accessibility, theme integration, and
-lifecycle handling still need guest validation. GitHub Rust checks install
+lifecycle handling still need guest validation. The declarative
+[`ryoku-ui-proof.spec`](../packaging/rpm/ryoku-ui-proof.spec) describes a
+separate experimental proof package with a GTK runtime dependency and
+Ryoku-owned desktop entry/icon paths. It does not establish an RPM install,
+removal, or dependency result. GitHub Rust checks install
 `libgtk-4-dev` so all-feature CI can compile and test the GTK target. KDE
 fallback must be included in the graphical test.
+
+The GTK control has an `_Refresh status` mnemonic (`Alt+R`) and remains
+the window's default button, so GTK also provides normal Tab focus and Enter
+activation. The request-result label is the only live region, with GTK's polite
+`Status` role for successful and failed read requests. The separate summary is
+an ordinary label: a success is announced once, and failures clear stale
+summary text. The button publishes its label and mnemonic to GTK's accessibility
+API. These are source-level semantics only. Run06's refresh was
+dispatched programmatically, so it does not prove keyboard activation; neither
+Run06 nor the current CI proves focus visibility or announcements through
+AT-SPI/Orca.
+
+## Acceptance evidence for issue #14
+
+The native component proof uses Tumbleweed Snapshot 20261013, Plasma/KWin
+Wayland, pinned Ryoku `98a0368253d9628be72b853985878a5db90e1547` and unchanged
+Quickshell 0.3.2 at `4f508be500dea6e5732cc3d50382a0048b17e7b1`.
+The [runtime evidence](../infra/tumbleweed-lab/evidence/issue14-real-ryoku-runtime.toml)
+records that dependency closure; the
+[launcher evidence](../infra/tumbleweed-lab/evidence/issue14-native-launcher-service.toml)
+records ordinary keyboard dispatch, actual service success and stopped-service
+error, and matching visible request IDs. On 18 October, both retained screenshots
+were viewed again and their SHA-256 values and the journal digest matched the
+record. This rechecks existing evidence; it is not a new VM run.
+
+| Issue requirement | Evidence and limit |
+| --- | --- |
+| Inspect pinned UI boundaries and candidates | [ADR 0001](adr/0001-ui-and-service-integration.md) compares the original launcher extension, Ryostore child-process boundary and optional Rust GTK surface. |
+| Typed state and a non-destructive existing-surface action | [PR #145](https://github.com/GenieRobot/ryoku-opensuse/pull/145) implements only `RefreshStatus`/`Discover`; native success is `RecoveryUnavailable`, then a genuinely stopped service produces typed `Unavailable`. |
+| Rust integration and upstream attribution | The provider and client are Rust. The pinned launcher/QML/JavaScript remain unchanged with their notices; native JSON selects the existing argv extension. No Go protocol impersonation or new executable glue is introduced. |
+| Accessibility, theme, packaging and FFI constraints | [ADR constraints](adr/0001-ui-and-service-integration.md#ui-accessibility-theme-ffi-and-packaging-constraints) record these limits. This PR adds optional declarative proof RPM metadata and one GTK result live region; it supplies no screen-reader or package install/removal acceptance. |
+| Surface conflict and architecture decision | ADR 0001 remains proposed. Full Ryostore mutation controls lack an approved Rust provider path; dependent full-surface work remains blocked until that conflict is resolved. The launcher read path is the demonstrated scope. |
+
+The representative existing-surface request/result/error component gate has
+passed. Architecture acceptance and the issue's completion decision remain with
+the coordinator; broader product accessibility, theme, Hyprland and package
+lifecycle validation remain explicitly unclaimed.
+The [18 October review evidence](../infra/tumbleweed-lab/evidence/issue14-pr143-review-oct18.toml)
+records the GTK feature build, all 17 UI/protocol tests without skips, Clippy,
+RPM spec parsing, resolved host libraries and the unavailable desktop entry
+validator, alongside the original capture digest recheck.
 
 GTK's Rust bindings wrap a C toolkit internally, so keep the wrapper API at
 the presentation edge, do not expose GTK/GLib objects through workspace
@@ -79,7 +128,7 @@ contracts, and do not add project-owned unsafe FFI. The service boundary must
 remain usable by a retained upstream surface only if that surface can consume
 the same authenticated protocol without project-owned QML/JavaScript glue.
 
-## Remaining validation
+## Product validation beyond the read proof
 
 The GTK proof and opt-in service-discovery adapter are present. The
 `--connect-service` path has local protocol tests, but it has not yet been
@@ -107,10 +156,12 @@ sanitized evidence:
    package and daemon activation must also be tested against the final
    transport decision in ADR 0001.
 
-Until the remaining graphical gates and architecture review pass, M0-05 remains
-incomplete and dependent graphical UI work remains blocked at the integration
-decision. The terminal
-contract tests and output are not substitutes for that proof.
+These checks are product acceptance work beyond the demonstrated representative
+read proof. Issue #14 requires its constraints to be recorded, and its
+architecture decision still needs review. Dependent full-surface mutation UI
+work remains blocked by the documented Ryostore/provider conflict. The terminal
+contract tests and demonstration output do not replace native proof for any
+additional supported surface.
 
 ### Disposable VM visual capture
 

@@ -1,0 +1,57 @@
+# Review follow-up and recheck of retained native evidence; no new VM run.
+schema_version = 1
+issue = 14
+date = "2026-10-18"
+proof_pr = "https://github.com/GenieRobot/ryoku-opensuse/pull/145"
+followup_pr = "https://github.com/GenieRobot/ryoku-opensuse/pull/143"
+base_commit = "3e1bba87a9aef57adb0a6ba53b46d2aa9da7eb6d"
+branch = "codex/issue14-accessibility"
+review_thread = "https://github.com/GenieRobot/ryoku-opensuse/pull/143#discussion_r4304588337"
+review_fix = "Only the full request-result label is a polite GTK Status live region; the summary is an ordinary label. No assertive success alert or second explicit announcement is used. Failure clears stale summary state."
+gtk_source_sha256 = "544e3d9e26bda83cb5c2232fd840324560c5a43f9534a89b7183b6d2d6c8d4d5"
+lockfile_sha256 = "8f798d8feab896dca13308d5673c9c324dcea4d37e0d430eef06f9333372e9ad"
+host = "openSUSE Tumbleweed 20260723 WSL host; rustc/cargo 1.99.0; GTK 4.22.5; RPM 4.20.1"
+
+[native_evidence_recheck]
+manifest = "infra/tumbleweed-lab/evidence/issue14-native-launcher-service.toml"
+runtime_manifest = "infra/tumbleweed-lab/evidence/issue14-real-ryoku-runtime.toml"
+adr = "docs/adr/0001-ui-and-service-integration.md"
+snapshot = "20261013"
+desktop = "KWin/Plasma Wayland hosting unchanged pinned Ryoku launcher"
+screenshots_viewed_again = true
+success = "Discover succeeded: RecoveryUnavailable [ui-18036823369823806583]"
+success_screen_sha256 = "9ab83c33d4c417b766aee23f65b7394abc8e807c04e01da01e6197f3cb98b430"
+error = "Discover failed: Unavailable [ui-1337329264371427103]"
+error_screen_sha256 = "2d3b863b2ffb73814aeec6f431c83f3c641e2ca06d1a6aaee47adc3647bc94cc"
+accepted_journal_sha256 = "7c26c47de42bd6f7fb7eebd9494eb3b885699ca628b9108c85e8662a834c44dc"
+hash_check = "sha256sum of both retained screenshots and the accepted journal matched the original manifest exactly"
+attribution = "git diff origin/main -- upstream is empty; no pinned upstream code, notices or source manifests changed"
+guest_action = "none; coordinator directed reuse of accepted proof without resuming or modifying retained guest/disk"
+
+[validation]
+target_directory = "target/issue14-pr143-validation"
+test_command = "cargo test --locked --offline -p ryoku-ui --all-features -- --nocapture"
+test_result = "passed: 17 tests, 0 failures, 0 ignored; GTK binary and other binary/doc-test targets compiled"
+test_environment = "required escalation to permit local Unix sockets; initial sandbox run denied bind/write with EPERM and was terminated; unrestricted rerun exercised all 17 tests without skips"
+clippy_command = "cargo clippy --locked --offline -p ryoku-ui --all-features --all-targets -- -D warnings"
+clippy_result = "passed"
+build_command = "cargo build --locked --offline -p ryoku-ui --features gtk-ui --bin ryoku-ui-gtk"
+build_result = "passed"
+binary_sha256 = "ba3d2b62e5e6b99a0981860b80ee0fa727f0d35c3af7f9c8e06ef0e24ce9884a"
+dynamic_dependency_command = "ldd target/issue14-pr143-validation/debug/ryoku-ui-gtk"
+dynamic_dependency_result = "passed: all linked libraries resolve on this host; not guest runtime acceptance"
+format_command = "cargo fmt --all -- --check"
+format_result = "passed"
+diff_command = "git diff --check"
+diff_result = "passed"
+rpm_command = "rpmspec --parse packaging/rpm/ryoku-ui-proof.spec"
+rpm_result = "passed"
+desktop_entry_command = "desktop-file-validate packaging/rpm/applications/org.ryoku.OpenSUSE.UiProof.desktop"
+desktop_entry_result = "unavailable: command not installed on this host; native RPM build declares desktop-file-utils and runs this check"
+
+[scope]
+component_gate = "native representative existing-surface Rust request/result/error proof passed in accepted PR145"
+constraints_recorded = "accessibility, theme, packaging, FFI and full Ryostore mutation/provider conflict in ADR0001"
+acceptance_pending = "coordinator architecture review and issue acceptance decision"
+unclaimed_product_validation = "screen-reader behavior, full keyboard/focus/theme/scale coverage, Hyprland/KDE product lifecycle, RPM build/install/removal, full Hub/store/mutation controls"
+issue_closed = false
