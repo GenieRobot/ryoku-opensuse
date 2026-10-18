@@ -41,6 +41,28 @@ Until those gaps pass, #17 remains open and all managed writes remain disabled.
 
 ## Focused boundary evidence (18 October 2026)
 
+The PR #147 review fixes require a successful `sync_all` after journal replay,
+even when all records are complete. A failed append sync leaves the previous
+durable view and write refusal intact until a later sync succeeds; process
+restart applies the same rule. Regression tests inject repeated sync failures
+after writing a complete record and verify that progress cannot be exposed or
+extended until durability is established.
+
+The user service passes its original absolute deadline into the helper probe,
+reserving 250 ms for the correlated response. A stalled helper therefore produces
+a typed `RecoveryUnavailable` within the service budget. If the response reserve
+is already reached, the service does not connect to the helper.
+
+The packaged root helper retains only `CAP_DAC_READ_SEARCH` so account preflight
+can read and traverse an authorized account's private `0700` directories. It
+has no DAC write override, ownership-changing or identity-switch capabilities;
+`ProtectHome=read-only`, `ProtectSystem=strict`, empty ambient capabilities and
+the existing kernel UID/group gates remain enforced by the unit/policy. The
+package test pins the single capability assignment, and account tests preserve
+private directory modes through binding/revalidation. Actual root execution
+with this capability set remains unverified: the local runner requires a sudo
+password. No native packaged-activation claim follows from these tests.
+
 The [host evidence record](../infra/tumbleweed-lab/evidence/issue17-service-boundary-focused.toml)
 records native socket and filesystem checks on the openSUSE Tumbleweed WSL runner,
 using Rust/Cargo 1.99.0. Socket tests run outside the restricted execution sandbox

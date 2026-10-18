@@ -53,7 +53,9 @@ fn helper_is_an_explicit_root_scoped_deny_only_service() {
     assert!(has_directive(&service, "User=root"));
     assert!(has_directive(&service, "Group=root"));
     assert!(has_directive(&service, "NoNewPrivileges=yes"));
-    assert!(has_directive(&service, "CapabilityBoundingSet="));
+    let capabilities: Vec<_> =
+        service.iter().copied().filter(|line| line.starts_with("CapabilityBoundingSet=")).collect();
+    assert_eq!(capabilities, ["CapabilityBoundingSet=CAP_DAC_READ_SEARCH"]);
     assert!(has_directive(&service, "AmbientCapabilities="));
     assert!(has_directive(&service, "ProtectSystem=strict"));
     assert!(has_directive(&service, "ProtectHome=read-only"));

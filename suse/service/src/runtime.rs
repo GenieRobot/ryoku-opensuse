@@ -19,6 +19,7 @@ use crate::{
 };
 
 const IO_TIMEOUT: Duration = Duration::from_secs(5);
+const RESPONSE_RESERVE: Duration = Duration::from_millis(250);
 
 /// Serve requests until the listener is closed. Connections are processed
 /// serially and each connection carries exactly one bounded request frame.
@@ -65,13 +66,24 @@ fn serve_connection_with_helper_path(
 }
 
 fn serve_connection_checked(
-    mut stream: UnixStream,
+    stream: UnixStream,
     journal: &mut OperationJournal,
     uid: u32,
     helper_socket_path: &Path,
     validate_paths: impl Fn() -> Result<(), ServiceError>,
 ) -> Result<(), ProtocolError> {
     let deadline = Instant::now() + IO_TIMEOUT;
+    serve_connection_until(stream, journal, uid, helper_socket_path, validate_paths, deadline)
+}
+
+fn serve_connection_until(
+    mut stream: UnixStream,
+    journal: &mut OperationJournal,
+    uid: u32,
+    helper_socket_path: &Path,
+    validate_paths: impl Fn() -> Result<(), ServiceError>,
+    deadline: Instant,
+) -> Result<(), ProtocolError> {
     stream.set_nonblocking(true).map_err(|_| ProtocolError::Io)?;
     let peer = PeerIdentity::from_unix_socket(&stream)?;
     if authorize_helper_peer(&peer, uid).is_err() {
@@ -164,9 +176,10 @@ fn serve_connection_checked(
             .map(ResponseBody::Operation)
             .unwrap_or(ResponseBody::Error(ServiceError::NotFound)),
         Request::Start { action } => {
-            ResponseBody::Error(crate::helper_protocol::check_action_availability_at(
+            ResponseBody::Error(crate::helper_protocol::check_action_availability_until(
                 helper_socket_path,
                 (&action).into(),
+                deadline.checked_sub(RESPONSE_RESERVE).unwrap_or(deadline),
             ))
         }
     };
@@ -272,6 +285,102 @@ mod tests {
     use std::io::{BufRead, BufReader, Write};
     use std::os::unix::net::UnixListener;
     use std::thread;
+
+    #[test]
+    fn stalled_helper_returns_typed_error_within_the_original_service_deadline() {
+        let path =
+            std::env::temp_dir().join(format!("ryoku-shared-deadline-{}", std::process::id()));
+        let socket = path.with_extension("sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        let (release, wait) = std::sync::mpsc::channel();
+        let helper = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+            let mut frame = String::new();
+            BufReader::new(&stream).read_line(&mut frame).unwrap();
+            assert!(frame.contains("check_availability"));
+            wait.recv_timeout(Duration::from_secs(3)).unwrap();
+        });
+        let file = std::fs::OpenOptions::new()
+            .create_new(true)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let mut journal = OperationJournal::open(file).unwrap();
+        let (server, mut client) = UnixStream::pair().unwrap();
+        let uid = rustix::process::geteuid().as_raw();
+        let deadline = Instant::now() + Duration::from_secs(1);
+        let request = Envelope {
+            version: PROTOCOL_VERSION,
+            request_id: RequestId::new("stalled-helper").unwrap(),
+            request: Request::Start { action: ManagedAction::CreateCheckpoint },
+        };
+        let client_thread = thread::spawn(move || {
+            // Framing has already consumed part of the service's budget.
+            thread::sleep(Duration::from_millis(100));
+            serde_json::to_writer(&mut client, &request).unwrap();
+            client.write_all(b"\n").unwrap();
+            client.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+            let mut line = String::new();
+            BufReader::new(client).read_line(&mut line).unwrap();
+            serde_json::from_str::<Response>(&line).unwrap()
+        });
+        serve_connection_until(server, &mut journal, uid, &socket, || Ok(()), deadline).unwrap();
+        assert!(Instant::now() < deadline);
+        let response = client_thread.join().unwrap();
+        assert_eq!(response.request_id.as_str(), "stalled-helper");
+        assert_eq!(response.body, ResponseBody::Error(ServiceError::RecoveryUnavailable));
+        assert_eq!(std::fs::metadata(&path).unwrap().len(), 0);
+        release.send(()).unwrap();
+        helper.join().unwrap();
+        drop(journal);
+        std::fs::remove_file(path).unwrap();
+        std::fs::remove_file(socket).unwrap();
+    }
+
+    #[test]
+    fn response_reserve_exhausted_skips_helper_and_still_returns_typed_error() {
+        let path =
+            std::env::temp_dir().join(format!("ryoku-deadline-reserve-{}", std::process::id()));
+        let socket = path.with_extension("sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let file = std::fs::OpenOptions::new()
+            .create_new(true)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let mut journal = OperationJournal::open(file).unwrap();
+        let (server, mut client) = UnixStream::pair().unwrap();
+        let envelope = Envelope {
+            version: PROTOCOL_VERSION,
+            request_id: RequestId::new("late").unwrap(),
+            request: Request::Start { action: ManagedAction::CreateCheckpoint },
+        };
+        serde_json::to_writer(&mut client, &envelope).unwrap();
+        client.write_all(b"\n").unwrap();
+        serve_connection_until(
+            server,
+            &mut journal,
+            rustix::process::geteuid().as_raw(),
+            &socket,
+            || Ok(()),
+            Instant::now() + Duration::from_millis(200),
+        )
+        .unwrap();
+        let mut line = String::new();
+        BufReader::new(client).read_line(&mut line).unwrap();
+        assert_eq!(
+            serde_json::from_str::<Response>(&line).unwrap().body,
+            ResponseBody::Error(ServiceError::RecoveryUnavailable)
+        );
+        assert_eq!(listener.accept().unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
+        drop(journal);
+        std::fs::remove_file(path).unwrap();
+        std::fs::remove_file(socket).unwrap();
+    }
 
     #[test]
     fn expired_socket_deadlines_fail_before_reading_or_writing() {
@@ -456,6 +565,7 @@ mod tests {
         )
         .unwrap();
         client.write_all(b"\n").unwrap();
+        client.shutdown(std::net::Shutdown::Both).unwrap();
         drop(client);
         // Losing the status response does not own or cancel the journal.
         assert!(

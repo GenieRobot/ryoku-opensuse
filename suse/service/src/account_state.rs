@@ -550,6 +550,38 @@ mod tests {
     }
 
     #[test]
+    fn private_account_directories_remain_private_after_binding_and_revalidation() {
+        let path =
+            std::env::temp_dir().join(format!("ryoku-private-account-{}", std::process::id()));
+        let config = path.join("home/alice/.config/ryoku");
+        fs::create_dir_all(&config).unwrap();
+        for directory in [path.join("home/alice"), path.join("home/alice/.config"), config.clone()]
+        {
+            fs::set_permissions(directory, fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        let root = File::open(&path).unwrap();
+        let metadata = fstat(&root).unwrap();
+        let account = Account {
+            uid: metadata.st_uid,
+            gid: metadata.st_gid,
+            name: "alice".into(),
+            home: "/home/alice".into(),
+        };
+        let (home, configuration_parent, configuration) = open_roots(&root, &account).unwrap();
+        let binding = AccountStateRoot {
+            account: account.clone(),
+            home,
+            configuration_parent,
+            configuration,
+        };
+        binding.revalidate_at(&root, &account).unwrap();
+        for directory in [&binding.home, &binding.configuration_parent, &binding.configuration] {
+            assert_eq!(fstat(directory).unwrap().st_mode & 0o7777, 0o700);
+        }
+        fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
     fn native_nss_lookup_copies_the_running_ordinary_account() {
         let uid = rustix::process::getuid().as_raw();
         if uid == 0 {

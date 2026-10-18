@@ -9,7 +9,10 @@ User=root
 Group=root
 ExecStart=/usr/libexec/ryoku/ryoku-helper
 NoNewPrivileges=yes
-CapabilityBoundingSet=
+# Read/search authority is needed for private 0700 account directories;
+# request policy separately pins the authenticated account's fixed paths.
+# No DAC write override, ownership change, or identity-switch capability.
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
 AmbientCapabilities=
 ProtectSystem=strict
 ProtectHome=read-only

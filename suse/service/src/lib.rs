@@ -531,6 +531,13 @@ struct JournalRecord {
 
 impl OperationJournal {
     pub fn open(file: File) -> Result<Self, JournalError> {
+        Self::open_with_sync(file, File::sync_all)
+    }
+
+    fn open_with_sync(
+        file: File,
+        mut sync: impl FnMut(&File) -> std::io::Result<()>,
+    ) -> Result<Self, JournalError> {
         use std::io::{Seek, SeekFrom};
         let mut current = BTreeMap::new();
         let mut reader = BufReader::new(file.try_clone().map_err(|_| JournalError::Io)?);
@@ -552,7 +559,6 @@ impl OperationJournal {
             }
             if line.last() != Some(&b'\n') {
                 file.set_len(valid_len).map_err(|_| JournalError::Io)?;
-                file.sync_all().map_err(|_| JournalError::Io)?;
                 break;
             }
             let record: JournalRecord = serde_json::from_slice(&line[..line.len() - 1])
@@ -564,6 +570,10 @@ impl OperationJournal {
             current.insert(record.status.operation_id.clone(), record.status);
             valid_len = valid_len.saturating_add(count as u64);
         }
+        // Readable complete records may still be in the page cache after an
+        // earlier failed sync. Establish durability before publishing replayed
+        // state, including on process restart and after truncating a torn tail.
+        sync(&file).map_err(|_| JournalError::Io)?;
         Ok(Self { file, current, write_failed: false })
     }
 
@@ -572,8 +582,16 @@ impl OperationJournal {
     }
 
     pub(crate) fn refresh_after_write_failure(&mut self) -> Result<(), JournalError> {
+        self.refresh_with_sync(File::sync_all)
+    }
+
+    fn refresh_with_sync(
+        &mut self,
+        sync: impl FnMut(&File) -> std::io::Result<()>,
+    ) -> Result<(), JournalError> {
         if self.write_failed {
-            *self = Self::open(self.file.try_clone().map_err(|_| JournalError::Io)?)?;
+            *self =
+                Self::open_with_sync(self.file.try_clone().map_err(|_| JournalError::Io)?, sync)?;
         }
         Ok(())
     }
@@ -582,6 +600,14 @@ impl OperationJournal {
         self.write_failed = true;
     }
     pub fn record(&mut self, status: OperationStatus) -> Result<(), JournalError> {
+        self.record_with_sync(status, File::sync_all)
+    }
+
+    fn record_with_sync(
+        &mut self,
+        status: OperationStatus,
+        mut sync: impl FnMut(&File) -> std::io::Result<()>,
+    ) -> Result<(), JournalError> {
         if self.write_failed {
             return Err(JournalError::Io);
         }
@@ -597,7 +623,7 @@ impl OperationJournal {
         record.push(b'\n');
         use std::io::{Seek, SeekFrom};
         self.file.seek(SeekFrom::End(0)).map_err(|_| JournalError::Io)?;
-        if self.file.write_all(&record).is_err() || self.file.sync_all().is_err() {
+        if self.file.write_all(&record).is_err() || sync(&self.file).is_err() {
             self.write_failed = true;
             return Err(JournalError::Io);
         }
@@ -859,6 +885,49 @@ mod tests {
         assert_eq!(journal.get(&durable_id), Some(&durable_status));
         journal.record(status).unwrap();
         assert!(std::fs::metadata(&path).unwrap().len() > 0);
+        drop(journal);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn complete_record_after_failed_sync_requires_successful_sync_before_replay() {
+        let path = std::env::temp_dir().join(format!("ryoku-sync-failure-{}", std::process::id()));
+        let file = std::fs::OpenOptions::new()
+            .create_new(true)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let mut journal = OperationJournal::open(file).unwrap();
+        let accepted = OperationStatus {
+            operation_id: OperationId::new("uncertain-sync").unwrap(),
+            action: ManagedActionKind::CreateCheckpoint,
+            phase: OperationPhase::Accepted,
+            progress: None,
+            error: None,
+        };
+        journal.record(accepted.clone()).unwrap();
+        let capturing = OperationStatus { phase: OperationPhase::Capturing, ..accepted.clone() };
+        let fail_sync = |_: &File| Err(std::io::Error::other("injected sync failure"));
+        assert_eq!(journal.record_with_sync(capturing.clone(), fail_sync), Err(JournalError::Io));
+        let bytes = std::fs::read(&path).unwrap();
+        assert_eq!(bytes.last(), Some(&b'\n'));
+        assert_eq!(journal.get(&accepted.operation_id), Some(&accepted));
+        for _ in 0..2 {
+            assert_eq!(journal.refresh_with_sync(fail_sync), Err(JournalError::Io));
+            assert!(journal.write_failed);
+            assert_eq!(journal.get(&accepted.operation_id), Some(&accepted));
+            assert_eq!(journal.record(capturing.clone()), Err(JournalError::Io));
+        }
+        // A fresh process must also establish durability, not trust readable bytes.
+        assert!(matches!(
+            OperationJournal::open_with_sync(File::open(&path).unwrap(), fail_sync),
+            Err(JournalError::Io)
+        ));
+        journal.refresh_with_sync(File::sync_all).unwrap();
+        assert!(!journal.write_failed);
+        assert_eq!(journal.get(&accepted.operation_id), Some(&capturing));
+        journal.record(OperationStatus { phase: OperationPhase::Applying, ..capturing }).unwrap();
         drop(journal);
         std::fs::remove_file(path).unwrap();
     }

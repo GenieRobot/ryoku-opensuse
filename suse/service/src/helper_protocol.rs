@@ -314,6 +314,14 @@ pub(crate) fn check_action_availability_at(
     action: ManagedActionKind,
 ) -> ServiceError {
     let deadline = Instant::now() + HELPER_IO_TIMEOUT;
+    check_action_availability_until(socket_path, action, deadline)
+}
+
+pub(crate) fn check_action_availability_until(
+    socket_path: &Path,
+    action: ManagedActionKind,
+    deadline: Instant,
+) -> ServiceError {
     let mut stream = match connect_helper_until(socket_path, deadline) {
         Ok(stream) => stream,
         Err(error) => return helper_connect_error(error.kind()),
@@ -407,6 +415,7 @@ fn wait_helper_ready(
 }
 
 fn connect_helper_until(path: &Path, deadline: Instant) -> std::io::Result<UnixStream> {
+    remaining(deadline).map_err(|_| std::io::Error::from(std::io::ErrorKind::TimedOut))?;
     let socket = socket_with(
         AddressFamily::UNIX,
         SocketType::STREAM,
