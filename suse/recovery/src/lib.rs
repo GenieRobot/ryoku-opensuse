@@ -192,7 +192,9 @@ pub enum StateRoot {
     EtcRyoku,
     /// Declared per-user Ryoku configuration below its resolved config root.
     UserRyokuConfig,
-    /// Immutable generations below the dedicated Ryoku state volume.
+    /// Reserved internal selector for immutable generations. External capture
+    /// inventories cannot select it; the recovery service may use it for
+    /// verified internal generation staging records.
     StateGeneration,
     /// User-owned profile selection below the resolved Ryoku config root.
     UserRyokuProfile,
