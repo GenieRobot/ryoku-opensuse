@@ -11,10 +11,12 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+libc = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
-rustix = { version = "1.1.5", features = ["fs", "process"] }
+rustix = { version = "1.1.5", features = ["fs", "process", "net"] }
 linux-raw-sys = { version = "0.12.1", features = ["btrfs", "ioctl"] }
 
 ryoku-snapper = { path = "../snapper", version = "0.1.0" }
+ryoku-profiles = { path = "../profiles", version = "0.1.0" }

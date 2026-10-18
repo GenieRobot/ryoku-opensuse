@@ -7,8 +7,12 @@
 //! generation publication, and recovery properties before using a manifest to
 //! authorize a mutation.
 
+pub mod account_principal;
 #[cfg(target_os = "linux")]
 pub mod capture;
+pub use account_principal::AccountPrincipal;
+#[cfg(target_os = "linux")]
+pub mod capture_session;
 pub mod configuration_apply;
 #[cfg(target_os = "linux")]
 pub mod configuration_stage;
@@ -20,6 +24,12 @@ pub mod generation;
 pub mod generation_capture;
 #[cfg(target_os = "linux")]
 pub mod inode_metadata;
+#[cfg(target_os = "linux")]
+pub mod installed_capture;
+#[cfg(target_os = "linux")]
+pub mod installed_inventory;
+#[cfg(target_os = "linux")]
+pub mod installed_profiles;
 pub mod linked_checkpoint;
 #[cfg(target_os = "linux")]
 pub mod machine_state;
@@ -29,11 +39,17 @@ pub mod native_checkpoint;
 pub mod preparation;
 #[cfg(target_os = "linux")]
 pub mod restore;
+#[cfg(target_os = "linux")]
+pub mod rpm_defaults;
 mod state_boot_unit;
 pub mod state_creation;
 #[cfg(target_os = "linux")]
 pub mod state_mount;
 pub mod state_provision;
+#[cfg(target_os = "linux")]
+mod writer_freeze;
+#[cfg(target_os = "linux")]
+pub mod writer_protocol;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -199,6 +215,9 @@ pub enum StateRoot {
     StateGeneration,
     /// User-owned profile selection below the resolved Ryoku config root.
     UserRyokuProfile,
+    /// Exact compiled preference paths beneath the authenticated account home.
+    /// This never grants recursive access to unrelated home contents.
+    UserHome,
 }
 
 impl StateRoot {
@@ -210,6 +229,7 @@ impl StateRoot {
             Self::UserRyokuConfig => "user-ryoku-config",
             Self::StateGeneration => "state-generation",
             Self::UserRyokuProfile => "user-ryoku-profile",
+            Self::UserHome => "user-home",
         }
     }
 
@@ -217,7 +237,10 @@ impl StateRoot {
     /// configuration restore scope. The generation namespace is retained as
     /// immutable source data and is never a configuration target.
     pub const fn is_configuration_state(self) -> bool {
-        matches!(self, Self::EtcRyoku | Self::UserRyokuConfig | Self::UserRyokuProfile)
+        matches!(
+            self,
+            Self::EtcRyoku | Self::UserRyokuConfig | Self::UserRyokuProfile | Self::UserHome
+        )
     }
 }
 
@@ -456,6 +479,10 @@ pub struct RecoveryManifest {
     /// Absence in a legacy generation cannot be filled from later observations.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     root_snapshot_receipt: Option<native_checkpoint::RootSnapshotReceipt>,
+    /// Original account association. Legacy absence remains unproven, even
+    /// when the only per-user records describe absent files.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    account_principal: Option<AccountPrincipal>,
     /// Operation reason and bounded RFC3339 UTC creation time.
     pub reason: OperationReason,
     pub created_utc: String,
@@ -502,6 +529,7 @@ impl RecoveryManifest {
             snapper_snapshot_id: snapshot.snapper_snapshot_id,
             filesystem_uuid: snapshot.filesystem_uuid,
             root_snapshot_receipt: None,
+            account_principal: None,
             reason,
             created_utc,
             package_revisions: Vec::new(),
@@ -518,6 +546,16 @@ impl RecoveryManifest {
 
     pub fn root_snapshot_receipt(&self) -> Option<&native_checkpoint::RootSnapshotReceipt> {
         self.root_snapshot_receipt.as_ref()
+    }
+
+    pub fn account_principal(&self) -> Option<&AccountPrincipal> {
+        self.account_principal.as_ref()
+    }
+
+    /// Capture-only association; never filled from later restore observations.
+    pub(crate) fn attach_account_principal(&mut self, principal: AccountPrincipal) {
+        self.account_principal = Some(principal);
+        self.manifest_sha256 = None;
     }
 
     pub(crate) fn attach_root_snapshot_receipt(
@@ -758,6 +796,8 @@ pub enum ValidationError {
     InvalidSnapshotId,
     /// Native receipt is missing, malformed, or bound to a different link.
     InvalidSnapshotReceipt,
+    /// Account association is malformed or uses an unsupported version.
+    InvalidAccountPrincipal,
     /// Filesystem UUID is not canonical lowercase hexadecimal UUID text.
     InvalidFilesystemUuid,
     /// The same fixed root/path was declared more than once.

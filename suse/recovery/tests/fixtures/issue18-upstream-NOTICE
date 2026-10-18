@@ -1,0 +1,34 @@
+Ryoku
+
+Ryoku is distributed under the GNU General Public License version 3.
+
+Ryoku's alpha series (through v0.1.1-alpha) began as a fork of Omarchy, created by
+David Heinemeier Hansson and contributors (https://github.com/basecamp/omarchy).
+From the beta series onward the tree was pruned and rebuilt from an empty root, and
+no Omarchy code or assets remain: the installer, shell, theming, boot art, tooling,
+and system definition are Ryoku's own.
+
+The Ryoku shell is an original, custom shell. Its frame-blob rendering (the
+Ryoku.Blobs QML/C++ plugin) and parts of its animation and motion curves are
+adapted from the Caelestia shell:
+
+  https://github.com/caelestia-dots/shell
+
+Caelestia is released under the GNU General Public License version 3; the adapted
+portions remain under that license, compatible with Ryoku's GPL-3.
+
+Portions of the Ryoku display configuration UI are adapted from
+DankMaterialShell, created by Avenge Media LLC and contributors:
+
+  https://github.com/AvengeMedia/DankMaterialShell
+
+DankMaterialShell is released under the MIT License. Copyright (c) 2025
+Avenge Media LLC.
+
+The configurable frame-bar layout, bounded rail/widget catalogue organisation,
+and Bar Studio workflow are adapted from OkShell by John Oberhauser:
+
+ https://github.com/JohnOberhauser/OkShell/tree/87a9d09d923163cd03f396a395be3bb02b335b6e
+
+OkShell is released under the GNU General Public License version 3. The adapted
+frame-bar areas remain GPL-3.0-compatible with Ryoku's GPL-3 distribution.

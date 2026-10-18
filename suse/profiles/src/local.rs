@@ -5,7 +5,7 @@ use rustix::fs::{FileType, OFlags, ResolveFlags, fstat, openat2};
 use crate::{MAX_PROFILE_DOCUMENT_BYTES, ProfileDocument, ProfileDocumentError};
 
 /// The only profile document name this loader can open beneath its root.
-pub const LOCAL_PROFILE_FILE: &str = "profile.json";
+pub const LOCAL_PROFILE_FILE: &str = "opensuse-profile.json";
 
 /// Expected identity for the supplied user-owned profile root and document.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

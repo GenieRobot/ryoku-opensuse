@@ -73,6 +73,7 @@ pub struct GenerationCaptureRequest<'a> {
 /// returned as a verified result.
 #[derive(Debug)]
 pub enum GenerationCaptureError {
+    CoordinationLost,
     EmptyInventory,
     TooManyRoots,
     DuplicateRoot,
@@ -86,11 +87,14 @@ pub enum GenerationCaptureError {
     Io(std::io::Error),
     Validation(ValidationError),
     Manifest(ManifestError),
+    Inventory(crate::installed_capture::InventoryError),
+    ProfileStore(crate::installed_profiles::ProfileStoreError),
 }
 
 impl std::fmt::Display for GenerationCaptureError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::CoordinationLost => formatter.write_str("capture writer coordination was lost"),
             Self::EmptyInventory => formatter.write_str("declared inventory is empty"),
             Self::TooManyRoots => formatter.write_str("declared root count exceeds fixed limit"),
             Self::DuplicateRoot => formatter.write_str("declared root is duplicated"),
@@ -110,6 +114,8 @@ impl std::fmt::Display for GenerationCaptureError {
             Self::Io(error) => write!(formatter, "capture payload read failed: {error}"),
             Self::Validation(error) => write!(formatter, "manifest construction failed: {error:?}"),
             Self::Manifest(error) => write!(formatter, "manifest verification failed: {error}"),
+            Self::Inventory(error) => write!(formatter, "installed inventory rejected: {error}"),
+            Self::ProfileStore(error) => write!(formatter, "installed profile rejected: {error}"),
         }
     }
 }
@@ -209,6 +215,40 @@ fn capture_publish_verify_using_capacity(
     ) -> Result<CapturedInventory, CaptureError>,
     check_capacity: impl Fn(&GenerationStore, u64, usize) -> Result<(), GenerationError>,
 ) -> Result<RecoveryManifest, GenerationCaptureError> {
+    capture_publish_verify_checked(
+        store,
+        request,
+        capture_files,
+        check_capacity,
+        |_, _, profile| {
+            Ok(CaptureProvenance { profile_revision: profile, account_principal: None })
+        },
+    )
+}
+
+/// Trusted inventory/profile validation runs on the exact payloads to be
+/// published, after the second live capture and before any store publication.
+pub(crate) struct CaptureProvenance {
+    pub profile_revision: Option<ProfileRevision>,
+    pub account_principal: Option<crate::AccountPrincipal>,
+}
+
+pub(crate) fn capture_publish_verify_checked(
+    store: &GenerationStore,
+    request: GenerationCaptureRequest<'_>,
+    capture_files: impl Fn(
+        &File,
+        StateRoot,
+        &[RelativePath],
+        CaptureLimits,
+    ) -> Result<CapturedInventory, CaptureError>,
+    check_capacity: impl Fn(&GenerationStore, u64, usize) -> Result<(), GenerationError>,
+    validate: impl FnOnce(
+        &[crate::FileRecord],
+        &Payloads,
+        Option<ProfileRevision>,
+    ) -> Result<CaptureProvenance, GenerationCaptureError>,
+) -> Result<RecoveryManifest, GenerationCaptureError> {
     validate_inventory(request.roots, request.limits)?;
     let roots = sorted_roots(request.roots)?;
 
@@ -248,6 +288,8 @@ fn capture_publish_verify_using_capacity(
         return Err(GenerationCaptureError::VerificationMismatch);
     }
 
+    let provenance = validate(&records, &payloads, request.profile_revision)?;
+
     let mut manifest = RecoveryManifest::new(
         request.transaction_id,
         request.generation_id,
@@ -265,8 +307,11 @@ fn capture_publish_verify_using_capacity(
     manifest.set_provenance(
         request.package_revisions,
         request.provider_revision,
-        request.profile_revision,
+        provenance.profile_revision,
     )?;
+    if let Some(principal) = provenance.account_principal {
+        manifest.attach_account_principal(principal);
+    }
     manifest.set_verification(
         VerificationStatus::Verified,
         VerificationStatus::Verified,
@@ -648,7 +693,6 @@ mod tests {
             ("system.toml", b"system override".as_slice()),
             ("user.toml", b"personal override".as_slice()),
             ("profile.json", b"selected profile".as_slice()),
-            ("retained.json", b"immutable profile record".as_slice()),
         ] {
             fs::write(source.0.join(name), contents).unwrap();
         }
@@ -657,7 +701,6 @@ mod tests {
         let system_paths = [RelativePath::new("system.toml").unwrap()];
         let user_paths = [RelativePath::new("user.toml").unwrap()];
         let profile_paths = [RelativePath::new("profile.json").unwrap()];
-        let retained_paths = [RelativePath::new("retained.json").unwrap()];
         let roots = [
             DeclaredRoot {
                 root: StateRoot::EtcRyoku,
@@ -674,11 +717,6 @@ mod tests {
                 descriptor: &source_fd,
                 paths: &profile_paths,
             },
-            DeclaredRoot {
-                root: StateRoot::StateGeneration,
-                descriptor: &source_fd,
-                paths: &retained_paths,
-            },
         ];
 
         let captured =
@@ -688,7 +726,7 @@ mod tests {
         let configuration_entries =
             captured.files().iter().filter(|record| record.root.is_configuration_state()).count();
         assert_eq!(configuration_entries, 3);
-        assert_eq!(captured.files().len(), 4);
+        assert_eq!(captured.files().len(), 3);
 
         let plan = plan_restore(
             &captured,
@@ -721,8 +759,8 @@ mod tests {
         assert!(!staged_content.contains_key(&StateRoot::StateGeneration));
         assert_eq!(
             verified.manifest().files().len(),
-            staged.entries().len() + 1,
-            "immutable state-generation data remains verified in the source generation"
+            staged.entries().len(),
+            "protected store internals cannot appear as captured file records"
         );
     }
 

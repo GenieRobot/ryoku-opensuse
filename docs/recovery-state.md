@@ -1178,3 +1178,50 @@ absent files, foreign content, relative/absolute fixed link targets and writable
 enablement directories; recovery tests and Clippy pass. This additional check
 postdates Run11 and does not claim detection of every possible systemd override
 or replace native reboot validation.
+
+### Issue #18: complete verified capture
+
+`InstalledInventory::for_home` compiles the exact reviewed account-home paths
+in `suse/recovery/src/installed_inventory.rs`. Every entry, including absence,
+must appear once. Unknown preference files in the managed `ryoku` and
+`ryogami-wall` namespaces, unsupported sparse overrides/assets, alternate XDG
+roots and relocated wallpaper persistence refuse capture. Unrelated home files,
+credentials, application data and arbitrary media references are never walked.
+The fixed wallpaper `outputs.json`/`state.json` files are preferences despite
+upstream placing them in `.cache`; other caches remain excluded. The upstream
+opaque `profile.json` and port-owned typed `opensuse-profile.json` are separate.
+
+Records preserve actual checksums, type, UID/GID, mode, mtime, safe symlink target,
+ACL and SELinux metadata. Unsafe links/parents, hard links, unsupported types,
+missing required metadata or changed files fail. Read-back verification and a
+second collection precede immutable generation/catalog publication. Account
+principal and package/profile revisions are sealed into the manifest. The
+protected bundle retains original defaults/system/companion bytes, raw hashes
+and semantic revisions, allowing offline resolution with the captured personal
+layer and no remote fetch. See [local storage](local-profile-storage.md).
+
+`NativeCaptureSession` composes authenticated account/home descriptors, native
+machine/mount validation, the root writer lock, RPM-verified defaults, protected
+bundle creation and account writer leases. Its boundary checks run at entry,
+before publication and on completion. A lost lease cannot return a verified
+mutation-ready receipt. This constructor is a helper-side primitive; #17's
+transport remains deny-only, and #20 owns durable mutation/activation.
+
+Supported upstream writers run under the unprivileged Rust `ryoku-writer`.
+Each wrapper holds a shared lock before creating children and exposes an
+account-owned, peer-authenticated socket. Capture pauses each wrapper's existing
+child/thread tree, then takes the exclusive lock before collection. New launches
+wait before creating their writer. Only a same-account parent uses ptrace on its
+own descendants; the root helper does not trace and gains no capabilities.
+Nested wrappers coordinate independently. Disconnect/helper SIGKILL releases
+leases; wrapper death triggers kernel detach/resume, invalidates capture and
+leaves a blocking stale endpoint. Existing user SIGSTOP is preserved/refused;
+concurrent SIGSTOP/SIGCONT and termination forwarding have native tests. No
+cgroup freeze or persistent frozen user slice is used.
+
+The complete pinned launch patch, role matrix, source blob checks and RPM
+installation interface are in [writer coordination](issue18-writer-coordination.md).
+RPM ownership belongs to #23; installed desktop/session acceptance belongs to
+its owning issues. Issue #18 evidence distinguishes real upstream Go IPC writes,
+native process/metadata tests and QML launch-contract validation; it does not
+claim a headed Qt/boot acceptance run.
