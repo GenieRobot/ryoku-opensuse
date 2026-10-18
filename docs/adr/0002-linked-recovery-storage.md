@@ -63,6 +63,14 @@ schema rejects unknown versions and fields until an explicit local migration
 exists. Private companion content and identifiers are not stored in public
 examples or source.
 
+The [local profile contract](../local-profile-contract.md) defines storage
+ownership, the distinct port/upstream profile filenames, exact local input
+retention, absence semantics and migration publication. All supported integrated
+profile writes retain the verified linked pre-change requirement from issue #1.
+The machine lock must remain held through provider mutation and post-change
+accounting, including coordination with every writer of the enrolled user files.
+An advisory lock without that coordination does not establish a frozen inventory.
+
 ## Supported scope and compatibility assumptions
 
 | Observed system state | Recovery scope | Contract |
@@ -72,6 +80,35 @@ examples or source.
 | Supported root snapshot but missing, corrupt, or mismatched state subvolume/catalog/generation | No automatic restore | Fail closed, preserve evidence, and report recovery unavailable or inconsistent. |
 | Non-Btrfs root, unknown or unsnapshotted boot layout, mismatched filesystem identity, or read-only/substituted state mount | No integrated mutation; manual recovery | Do not infer protection or silently fall back to another storage location. |
 | Firmware/EFI variables, partition tables, arbitrary root edits, unrelated home files, external media, plugin payloads, caches, or unreviewed provider files | Excluded | Never enumerate or modify them as part of a Ryoku generation. |
+
+### Snapshot and boot combinations
+
+No complete boot-recovery combination is release-validated by this ADR. The
+initial target is the pinned x86_64 Tumbleweed Btrfs/Snapper root with GRUB2 UEFI;
+the [WSL QEMU fixture](../../infra/tumbleweed-lab/wsl-fixture.toml) records exact
+image, kernel, bootloader and subvolume inputs. Its `/home` and `/var` exclusions
+explain why a root snapshot alone is insufficient. Separate state initialization
+and availability after reboot are evidenced by
+[Run11](../../infra/tumbleweed-lab/evidence/issue21-run11-unmounted-failure-resume.toml);
+that run does not prove linked Ryoku root rollback or independent boot recovery.
+
+| Root / boot layout | Eligibility and required proof |
+|---|---|
+| Btrfs root, Snapper `root` mapping, GRUB2 UEFI, kernel/initramfs and required `/boot` files inside the captured root | Initial linked-recovery target. Verify actual filesystem/subvolume identity, boot artifacts, exact snapshot/generation link, independent authenticated recovery entry and reboot into the selected root. A successful snapshot command or GRUB entry alone is insufficient. |
+| Same root with a separate ESP, firmware variables or bootloader installation outside the snapshot | Those components remain outside linked coverage. Only operations whose declared write set leaves them unchanged can be eligible. Changes to ESP/firmware/bootloader installation require a separately reviewed recovery mechanism and are unavailable under this contract. |
+| Separate unsnapshotted `/boot`, systemd-boot/UKI, Limine, legacy BIOS, encrypted or multi-device layout not in the tested matrix | No integrated system mutation or advertised complete boot rollback until that exact layout has a reviewed coverage map and VM evidence. Do not extrapolate from GRUB2 UEFI or Btrfs presence. |
+| Read-only boot of a historical Snapper snapshot | Inspection/recovery environment only. Establish the exact selected snapshot and compatible local recovery reader; do not treat mounting it or observing the same filesystem UUID as completed rollback. Supported promotion to a writable root and subsequent health checks need separate proof. |
+| Compatible generation but missing matching system snapshot | Explicit configuration-only recovery may restore only declared configuration after compatibility and payload checks. It must obtain the required verified current-state checkpoint before a destructive write; if that cannot be obtained, offer inspection/manual recovery only. Never downgrade a requested linked restore automatically. |
+| Root snapshot predates state-machine record or has incompatible recovery tools | The state subvolume may still exist, but ordinary startup must refuse adoption. An independently authenticated compatible recovery environment must validate original provisioning evidence; it cannot recreate or trust identity from the observed mount alone. |
+
+Kernel/initramfs compatibility, package and provider revisions, the actual
+selected boot root and profile schema are separate checks. Restoring root files
+does not restore running processes or the currently loaded kernel. Completion
+requires the prescribed reboot and health checks with the matching user
+generation restored before normal Ryoku writers resume. Snapper retention must
+not delete either partner of a retained linked point, and profile retention must
+keep its referenced local inputs. Reconciliation reports missing partners; it
+does not substitute another snapshot or generation.
 
 Compatibility means that the saved profile schema is supported and the
 required package, upstream, provider, and profile revisions are locally
