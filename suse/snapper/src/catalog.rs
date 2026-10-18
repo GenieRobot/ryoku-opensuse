@@ -11,8 +11,8 @@ use std::{
 
 use rustix::{
     fs::{
-        FlockOperation, Mode, OFlags, RenameFlags, ResolveFlags, fchmod, flock, fsync, openat,
-        openat2, renameat_with,
+        AtFlags, FlockOperation, Mode, OFlags, RenameFlags, ResolveFlags, fchmod, flock, fsync,
+        openat, openat2, renameat_with, statat,
     },
     io::Errno,
 };
@@ -73,9 +73,17 @@ pub struct CatalogStore {
     expected_uid: u32,
 }
 
-impl CatalogStore {
-    /// Duplicates an already-open protected directory descriptor. The
-    /// directory must be owned by `expected_uid` and have exact mode 0700.
+/// Read-only view of a validated Snapper catalog. Atomic rename lets readers
+/// observe either the complete old file or the complete new file without
+/// opening the writer lock for mutation.
+pub struct CatalogReader {
+    root: File,
+    expected_uid: u32,
+}
+
+impl CatalogReader {
+    /// Duplicates an already-open private directory descriptor. This method
+    /// never creates a lock file or changes the directory.
     pub fn open(trusted_root: &File, expected_uid: u32) -> Result<Self, CatalogStoreError> {
         let stat = rustix::fs::fstat(trusted_root)?;
         if rustix::fs::FileType::from_raw_mode(stat.st_mode) != rustix::fs::FileType::Directory
@@ -85,20 +93,52 @@ impl CatalogStore {
             return Err(CatalogStoreError::InvalidStore);
         }
         let root = File::from(rustix::io::dup(trusted_root)?);
-        let lock_file = File::from(openat(
-            &root,
-            LOCK_NAME,
-            OFlags::RDWR | OFlags::CREATE | OFlags::CLOEXEC | OFlags::NOFOLLOW,
-            Mode::from_raw_mode(0o600),
-        )?);
-        let lock_stat = rustix::fs::fstat(&lock_file)?;
-        if rustix::fs::FileType::from_raw_mode(lock_stat.st_mode)
-            != rustix::fs::FileType::RegularFile
-            || lock_stat.st_uid != expected_uid
-            || lock_stat.st_mode & 0o7777 != 0o600
+        Ok(Self { root, expected_uid })
+    }
+
+    /// Reads, bounds, hashes, parses, versions, and validates the catalog.
+    pub fn load(&self) -> Result<CatalogIndex, CatalogStoreError> {
+        read_catalog(&self.root, self.expected_uid)
+    }
+}
+
+impl CatalogStore {
+    /// Duplicates an already-open protected directory descriptor. The
+    /// directory must be owned by `expected_uid` and have exact mode 0700.
+    pub fn open(trusted_root: &File, expected_uid: u32) -> Result<Self, CatalogStoreError> {
+        Self::open_with_lock(trusted_root, expected_uid, true)
+    }
+
+    /// Opens an existing catalog writer without creating or repairing its
+    /// lock inode. Use this on normal recovery and transaction paths; reserve
+    /// [`Self::open`] for explicit state provisioning.
+    pub fn open_existing(
+        trusted_root: &File,
+        expected_uid: u32,
+    ) -> Result<Self, CatalogStoreError> {
+        Self::open_with_lock(trusted_root, expected_uid, false)
+    }
+
+    fn open_with_lock(
+        trusted_root: &File,
+        expected_uid: u32,
+        create_lock: bool,
+    ) -> Result<Self, CatalogStoreError> {
+        let stat = rustix::fs::fstat(trusted_root)?;
+        if rustix::fs::FileType::from_raw_mode(stat.st_mode) != rustix::fs::FileType::Directory
+            || stat.st_uid != expected_uid
+            || stat.st_mode & 0o7777 != 0o700
         {
             return Err(CatalogStoreError::InvalidStore);
         }
+        let root = File::from(rustix::io::dup(trusted_root)?);
+        let flags = OFlags::RDWR | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK;
+        let lock_file = File::from(if create_lock {
+            openat(&root, LOCK_NAME, flags | OFlags::CREATE, Mode::from_raw_mode(0o600))?
+        } else {
+            openat(&root, LOCK_NAME, flags, Mode::empty())?
+        });
+        validate_lock_path(&root, &lock_file, expected_uid)?;
         Ok(Self { root, lock_file, process_lock: Mutex::new(()), expected_uid })
     }
 
@@ -122,7 +162,12 @@ impl CatalogStore {
     ) -> Result<T, CatalogStoreError> {
         let _process_guard =
             self.process_lock.lock().map_err(|_| CatalogStoreError::InvalidStore)?;
+        validate_lock_path(&self.root, &self.lock_file, self.expected_uid)?;
         flock(&self.lock_file, FlockOperation::LockExclusive)?;
+        if let Err(error) = validate_lock_path(&self.root, &self.lock_file, self.expected_uid) {
+            let _ = flock(&self.lock_file, FlockOperation::Unlock);
+            return Err(error);
+        }
         let result = operation();
         let unlock =
             flock(&self.lock_file, FlockOperation::Unlock).map_err(CatalogStoreError::from);
@@ -155,6 +200,36 @@ impl CatalogStore {
         }
         result
     }
+}
+
+/// Require the fixed lock name to keep referring to the inode we opened.
+/// Checking again after `flock` catches a replacement while acquisition waited
+/// and prevents cooperating writers from serializing on different inodes.
+fn validate_lock_path(
+    root: &File,
+    lock_file: &File,
+    expected_uid: u32,
+) -> Result<(), CatalogStoreError> {
+    let root_stat = rustix::fs::fstat(root)?;
+    if rustix::fs::FileType::from_raw_mode(root_stat.st_mode) != rustix::fs::FileType::Directory
+        || root_stat.st_uid != expected_uid
+        || root_stat.st_mode & 0o7777 != 0o700
+    {
+        return Err(CatalogStoreError::InvalidStore);
+    }
+    let lock_stat = rustix::fs::fstat(lock_file)?;
+    let path_stat = statat(root, LOCK_NAME, AtFlags::SYMLINK_NOFOLLOW)?;
+    if rustix::fs::FileType::from_raw_mode(lock_stat.st_mode) != rustix::fs::FileType::RegularFile
+        || lock_stat.st_uid != expected_uid
+        || lock_stat.st_gid != root_stat.st_gid
+        || lock_stat.st_mode & 0o7777 != 0o600
+        || lock_stat.st_nlink != 1
+        || path_stat.st_dev != lock_stat.st_dev
+        || path_stat.st_ino != lock_stat.st_ino
+    {
+        return Err(CatalogStoreError::InvalidStore);
+    }
+    Ok(())
 }
 
 #[derive(Serialize, Deserialize)]
@@ -221,6 +296,13 @@ fn encode_catalog(catalog: &CatalogIndex) -> Result<Vec<u8>, CatalogStoreError> 
 }
 
 fn read_catalog(root: &File, expected_uid: u32) -> Result<CatalogIndex, CatalogStoreError> {
+    let root_stat = rustix::fs::fstat(root)?;
+    if rustix::fs::FileType::from_raw_mode(root_stat.st_mode) != rustix::fs::FileType::Directory
+        || root_stat.st_uid != expected_uid
+        || root_stat.st_mode & 0o7777 != 0o700
+    {
+        return Err(CatalogStoreError::InvalidStore);
+    }
     let fd = openat2(
         root,
         STORE_NAME,
@@ -235,7 +317,9 @@ fn read_catalog(root: &File, expected_uid: u32) -> Result<CatalogIndex, CatalogS
     let stat = rustix::fs::fstat(&file)?;
     if rustix::fs::FileType::from_raw_mode(stat.st_mode) != rustix::fs::FileType::RegularFile
         || stat.st_uid != expected_uid
+        || stat.st_gid != root_stat.st_gid
         || stat.st_mode & 0o7777 != 0o600
+        || stat.st_nlink != 1
         || stat.st_size < 0
     {
         return Err(CatalogStoreError::InvalidCatalog);
@@ -412,6 +496,39 @@ mod tests {
 
     fn store(dir: &File, owner: u32) -> CatalogStore {
         CatalogStore::open(dir, owner).unwrap()
+    }
+
+    #[test]
+    fn read_only_catalog_reader_does_not_create_a_writer_lock() {
+        let (path, dir, owner) = root();
+        let reader = CatalogReader::open(&dir, owner).unwrap();
+        assert!(matches!(reader.load(), Err(CatalogStoreError::Filesystem(Errno::NOENT))));
+        assert!(
+            rustix::fs::statat(&dir, LOCK_NAME, rustix::fs::AtFlags::SYMLINK_NOFOLLOW).is_err()
+        );
+        drop(reader);
+        drop(dir);
+        fs::remove_dir(path).unwrap();
+    }
+
+    #[test]
+    fn existing_catalog_writer_refuses_to_create_a_missing_lock() {
+        let (path, dir, owner) = root();
+        assert!(matches!(
+            CatalogStore::open_existing(&dir, owner),
+            Err(CatalogStoreError::Filesystem(Errno::NOENT))
+        ));
+        assert!(
+            rustix::fs::statat(&dir, LOCK_NAME, rustix::fs::AtFlags::SYMLINK_NOFOLLOW).is_err()
+        );
+        let created = CatalogStore::open(&dir, owner).unwrap();
+        created.replace(&CatalogIndex::default()).unwrap();
+        drop(created);
+        let existing = CatalogStore::open_existing(&dir, owner).unwrap();
+        assert!(existing.load().unwrap().entries().next().is_none());
+        drop(existing);
+        drop(dir);
+        fs::remove_dir_all(path).unwrap();
     }
 
     #[test]
