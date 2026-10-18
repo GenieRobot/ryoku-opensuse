@@ -1,0 +1,25 @@
+# Integration check for the #23 tree after the focused PR #149 packaging commits.
+schema = 1
+issue = 23
+date = "2026-10-18"
+base_commit = "2122001298b63458dad5a7e2f1a8518b8275e329"
+base_tree = "09d1cf762f30ef0e6058af24cd7cc46a73a9bf29"
+source_archive_sha256 = "8fa5438f23c6c87906e93519f4e573abd0ffcd661dc29cc6f4f24688ec5447d1"
+vendor_archive_sha256 = "9f3e3007eb45a38668e67a7f87d00505801ed4ee887f176b62c2d23d419574d9"
+source = "git archive of base_commit; vendor regenerated offline from its exact Cargo.lock"
+
+[residual_review]
+result = "No root working-tree #23 implementation or source input is compatible with the focused package tree without replacing its coordinated writer and package ownership contracts. No root file was copied."
+root_rpm_specs = "The dirty desktop/tools/helper specs describe later session, recovery and installer binaries and different package releases. The focused tree retains its own six specs and ten-package ownership map."
+root_upstream_inputs = "The two untracked upstream source archives and their manifests describe the earlier separate daemon/provider layout. The focused tree instead uses the checksum-verified ryoku-writers-98a0368.tar.xz source closure and the reviewed issue18 writer launch patch."
+root_patches = "Untracked screenshot, equalizer and clipboard patches target the earlier session package layout; the focused desktop spec does not select them."
+root_evidence = "Nine untracked issue23 October 18 TOML records identify dirty a351f64 development snapshots, earlier RPM releases or a five-spec parse. They are historical local results, not evidence for the six-spec focused tree."
+
+[checks]
+spec_parse = "All six focused specs passed rpmspec --parse."
+desktop_prep = "rpmbuild -bp --nodeps passed: exact source and vendor extracted, runtime and writer archive SHA-256 checks passed, runtime file manifest passed, issue18 patch applied."
+quickshell_prep = "rpmbuild -bp --nodeps passed with the pinned Quickshell source hash."
+rust_builds = "rpmbuild -bb --nodeps passed for profile-defaults, helper and tools; five non-debug binary RPMs emitted."
+payload = "The five emitted non-debug RPMs have 24 unique non-directory paths and zero mutual path conflicts; rpm -qp --scripts --triggers reported no package scriptlets or triggers."
+build_boundary = "--nodeps bypassed native BuildRequires resolution. No desktop or Quickshell binary RPM, dependency solve, signed install, guest run or VM acceptance was performed."
+issue_complete = false
