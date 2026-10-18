@@ -1,0 +1,13 @@
+schema = 1
+patch = "upstream/patches/0003-rust-equalizer-adapter.patch"
+patch_sha256 = "36bde7eab1b966d5c39b991cb921539f7a5724686d9194a6a311cbb107dd41d4"
+upstream_revision = "98a0368253d9628be72b853985878a5db90e1547"
+source_archive_sha256 = "bf6790f07f643dc7b3f282b0ce3b918b7f0efdb5c343a7572c5dd5ab9477feed"
+status = "selected by the desktop RPM; native audio graph acceptance pending"
+purpose = "route the original 10-band equalizer UI to the Rust PipeWire smart-filter adapter"
+new_service_or_backend_logic_in_qml = false
+
+[[files]]
+path = "shell/quickshell/shell/services/Equalizer.qml"
+before_sha256 = "4c44bbf1b9a9328025a8d18f2052542b410d93f3e7327218d5504c95d39d7ae7"
+after_sha256 = "359fc3a8d784c31cae77ba156fbab17c6d612298173fea349d5c7a69b7412782"

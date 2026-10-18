@@ -1,0 +1,19 @@
+--- a/ryoku/shell/ipc/daemon.go
++++ b/ryoku/shell/ipc/daemon.go
+@@ -424,12 +424,11 @@
+ // bootstrap brings the shell up: the settings store (sole writer of shell.json,
+-// served over the settings topic), the clipboard history and its selection
+-// watcher, the tray host, the keyring prompter, the theme workers, the in-shell
+-// wallpaper surface and the first wallpaper, then the persistent Quickshell
+-// components.
++// served over the settings topic), the tray host, the keyring prompter, the
++// theme workers, the in-shell wallpaper surface and the first wallpaper, then
++// the persistent Quickshell components. The openSUSE port connects its Rust
++// clipboard provider separately.
+ func (d *daemon) bootstrap() {
+ 	d.startSettings()
+ 	d.startKeypress()
+-	d.startClipboard()
+ 	d.startTray()
+ 	d.startWeather()
+ 	d.startMusic()

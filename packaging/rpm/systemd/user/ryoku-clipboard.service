@@ -1,0 +1,16 @@
+[Unit]
+Description=Ryoku per-user clipboard history
+PartOf=ryoku-desktop-session.target
+After=ryoku-desktop-shell.service
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/ryoku/ryoku-clipboard serve
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=no
+PrivateUsers=no
+RestrictAddressFamilies=AF_UNIX
+Restart=on-failure
+RestartSec=2s

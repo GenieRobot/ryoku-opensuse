@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "suse/session",
     "suse/adapters",
     "suse/service",
     "suse/recovery",

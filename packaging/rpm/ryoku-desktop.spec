@@ -1,10 +1,12 @@
 %global payload_root %{_datadir}/ryoku
 %global qml_root %{_libdir}/qt6/qml/Ryoku
 %global font_root %{_datadir}/fonts/truetype/ryoku-opensuse
+# The already published sibling packages remain at release 3.
+%global dependency_release 3%{?dist}
 
 Name:           ryoku-desktop
 Version:        0.1.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Pinned upstream Ryoku desktop package set
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse
@@ -25,9 +27,9 @@ BuildRequires:  qt6-declarative-devel = 6.11.2
 BuildRequires:  qt6-shadertools-devel = 6.11.2
 BuildRequires:  qt6-multimedia-devel = 6.11.2
 Requires:       ryoku-desktop-runtime = %{version}-%{release}
-Requires:       ryoku-helper = %{version}-%{release}
-Requires:       ryoku-profile-defaults = %{version}-%{release}
-Requires:       ryoku-tools = %{version}-%{release}
+Requires:       ryoku-helper = %{version}-%{dependency_release}
+Requires:       ryoku-profile-defaults = %{version}-%{dependency_release}
+Requires:       ryoku-tools = %{version}-%{dependency_release}
 
 %description
 Selects the pinned upstream runtime and the implemented Rust service, recovery
@@ -48,6 +50,15 @@ Requires:       google-noto-sans-cjk-fonts
 Requires:       systemd
 Requires:       util-linux
 Requires:       dbus-1-tools
+Requires:       hyprlock >= 0.9.6
+Requires:       hypridle >= 0.1.8
+Requires:       wl-clipboard
+Requires:       grim
+Requires:       libnotify-tools
+Requires:       pipewire
+Requires:       pipewire-tools
+Requires:       procps
+Requires:       coreutils
 
 %description runtime
 Preserves the shell, Hub, Ryoku.Ui, FrameBars, PluginKit, Hyprland QML bridges
@@ -55,11 +66,12 @@ and translations at
 Ryoku revision 98a0368253d9628be72b853985878a5db90e1547. The native Blobs
 plugin is built from unchanged source against native Qt. The shell, Hyprland
 provider, Hub and Ryogami Go executables retain their pinned source and vendor
-closure with only the reviewed issue 18 launch patch. Public aliases enter the
-Rust writer coordinator; native payloads are private. The patch also routes
-direct QML launches through the same coordinator. No unit is installed or
-enabled, and no Arch installer, package actuator or privileged Go helper is
-added. Installing these files does not authorize unsupported upstream actions.
+closure with the reviewed issue 18 launch patch and issue 25 clipboard,
+equalizer and capture surface patches. Public aliases enter the Rust writer
+coordinator; native payloads are private. The clipboard watcher and screenshot
+capture use Rust adapters. The units are installed without being enabled, and
+no Arch installer, package actuator or privileged Go helper is added.
+Installing these files does not authorize unsupported upstream actions.
 
 %package fonts
 Summary:        Pinned fonts for the preserved Ryoku desktop
@@ -86,12 +98,24 @@ printf 'bf6790f07f643dc7b3f282b0ce3b918b7f0efdb5c343a7572c5dd5ab9477feed  %%s\n'
 mkdir upstream-writers
 tar -xJf %{SOURCE3} -C upstream-writers
 patch --batch --forward -p1 -d upstream-writers < upstream/patches/issue18-writer-launch.patch
+printf 'fc821d6c8fbc0453b1922ca6f41e9151b3a48a89ee65997e288adc0929589fe1  %%s\n' 'upstream/patches/0002-rust-screenshot-adapter.patch' | sha256sum --check --status
+patch --batch --forward -p1 -d upstream-writers/ryoku < upstream/patches/0002-rust-screenshot-adapter.patch
+printf '36bde7eab1b966d5c39b991cb921539f7a5724686d9194a6a311cbb107dd41d4  %%s\n' 'upstream/patches/0003-rust-equalizer-adapter.patch' | sha256sum --check --status
+patch --batch --forward -p1 -d upstream-writers/ryoku < upstream/patches/0003-rust-equalizer-adapter.patch
+printf '9004032b14def1ba2a32536d51262f1f5a36699e78b6d0cae2c91ecfd32a8970  %%s\n' 'packaging/rpm/patches/0001-clipboard-operation-errors.patch' | sha256sum --check --status
+patch --batch --forward -p1 -d upstream-writers/ryoku < packaging/rpm/patches/0001-clipboard-operation-errors.patch
+printf '16837b3f08edd4e5a42c418e477441e13f3ec9e71a20d17e262248d4bebcbb59  %%s\n' 'packaging/rpm/patches/0004-disable-upstream-clipboard-history.patch' | sha256sum --check --status
+patch --batch --forward -p1 -d upstream-writers < packaging/rpm/patches/0004-disable-upstream-clipboard-history.patch
 
 %build
 CARGO_NET_OFFLINE=true cargo \
     --config 'source.crates-io.replace-with="vendored-sources"' \
     --config 'source.vendored-sources.directory="vendor"' \
     build --offline --locked --release -p ryoku-recovery --bin ryoku-writer
+CARGO_NET_OFFLINE=true cargo \
+    --config 'source.crates-io.replace-with="vendored-sources"' \
+    --config 'source.vendored-sources.directory="vendor"' \
+    build --offline --locked --release -p ryoku-session --bins
 cd upstream-writers/ryoku/shell/ipc
 GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOWORK=off CGO_ENABLED=0 \
     go build -trimpath -mod=vendor -buildvcs=false -o ../../../ryoku-shell .
@@ -131,6 +155,14 @@ cp -a upstream-writers/ryoku/wm/hyprland/qml %{buildroot}%{qml_root}/Wm/Hyprland
 install -d %{buildroot}%{_datadir}/ryogami
 cp -a upstream-writers/ryoku/shell/ryogami/wall-ui/. %{buildroot}%{_datadir}/ryogami/
 install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-writer" %{buildroot}%{_libexecdir}/ryoku/ryoku-writer
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-capture" %{buildroot}%{_bindir}/ryoku-capture
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-eq" %{buildroot}%{_bindir}/ryoku-eq
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-clipboard" %{buildroot}%{_libexecdir}/ryoku/ryoku-clipboard
+install -D -m 0644 packaging/rpm/systemd/user/ryoku-clipboard.service %{buildroot}%{_userunitdir}/ryoku-clipboard.service
+install -D -m 0644 packaging/rpm/systemd/user/ryoku-eq.service %{buildroot}%{_userunitdir}/ryoku-eq.service
+install -D -m 0644 packaging/rpm/systemd/user/ryoku-hypridle.service %{buildroot}%{_userunitdir}/ryoku-hypridle.service
+install -D -m 0644 packaging/rpm/session/hypridle.conf %{buildroot}%{_datadir}/ryoku-opensuse/session/hypridle.conf
+install -D -m 0644 packaging/rpm/session/hyprlock.conf %{buildroot}%{_datadir}/ryoku-opensuse/session/hyprlock.conf
 install -D -m 0755 upstream-writers/ryoku-shell %{buildroot}%{_libexecdir}/ryoku/upstream/ryoku-shell
 install -D -m 0755 upstream-writers/ryoku-wm-hyprland %{buildroot}%{_libexecdir}/ryoku/upstream/ryoku-wm-hyprland
 install -D -m 0755 upstream-writers/ryoku-hub %{buildroot}%{_libexecdir}/ryoku/upstream/ryoku-hub
@@ -167,6 +199,14 @@ cp -a runtime/fonts/. %{buildroot}%{font_root}/
 %{qml_root}/
 %dir %{_libexecdir}/ryoku
 %{_libexecdir}/ryoku/ryoku-writer
+%{_libexecdir}/ryoku/ryoku-clipboard
+%{_bindir}/ryoku-capture
+%{_bindir}/ryoku-eq
+%{_userunitdir}/ryoku-clipboard.service
+%{_userunitdir}/ryoku-eq.service
+%{_userunitdir}/ryoku-hypridle.service
+%dir %{_datadir}/ryoku-opensuse
+%{_datadir}/ryoku-opensuse/session/
 %{_libexecdir}/ryoku/upstream/
 %dir %{_libexecdir}/ryoku/quickshell
 %{_libexecdir}/ryoku/quickshell/qs

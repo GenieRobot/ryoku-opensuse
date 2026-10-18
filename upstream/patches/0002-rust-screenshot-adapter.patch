@@ -1,0 +1,61 @@
+--- a/shell/quickshell/shell/services/Capture.qml
++++ b/shell/quickshell/shell/services/Capture.qml
+@@ -138,46 +138,20 @@
+         onTriggered: root._run()
+     }
+ 
+-    // UTC capture stamp, matching ryoshot's filename pattern. Resolved in QML (not
+-    // the shell) so the beautify hand-off already knows the exact path to open.
+-    function _stamp() {
+-        var d = new Date();
+-        function p(n) { return (n < 10 ? "0" : "") + n; }
+-        return d.getUTCFullYear() + "_" + p(d.getUTCMonth() + 1) + "_" + p(d.getUTCDate())
+-            + "_" + p(d.getUTCHours()) + "_" + p(d.getUTCMinutes()) + "_" + p(d.getUTCSeconds());
+-    }
+-
++    // The Rust adapter owns output naming, safe file creation, grim argv,
++    // clipboard result handling, notifications and the optional editor handoff.
+     function _run() {
+         if (!root._pending)
+             return;
+-        // Save to the Screenshots folder for file / both, or whenever beautify
+-        // needs a real file to hand off; a pure clipboard shot writes a throwaway.
+-        var saveToFolder = root._save !== "clipboard" || root._beautify;
+-        root._outPath = saveToFolder
+-            ? (root.shotsDir + "/" + root._stamp() + "_screenshot.png")
+-            : "/tmp/ryoku-shot-clipboard.png";
+-        // Detached so wl-copy's clipboard daemon outlives this call: a managed
+-        // Process reaps its child tree on exit, which kills that daemon and the
+-        // selection vanishes even though grim's file is written. grim, the
+-        // clipboard write, the shutter cue, the toast and the beautify hand-off all
+-        // run in one detached shell. A failed grim is silent (matches the
+-        // reference). $1 flag, $2 value, $3 out, $4 mode, $5 clip, $6 beautify.
+-        var script = [
+-            'FLAG="$1"; VAL="$2"; OUT="$3"; MODE="$4"; CLIP="$5"; BEAUTIFY="$6"',
+-            'mkdir -p "$(dirname "$OUT")" 2>/dev/null || true',
+-            'if [ -n "$FLAG" ]; then grim "$FLAG" "$VAL" "$OUT"; else grim "$OUT"; fi || exit 0',
+-            '[ -n "$CLIP" ] && ryoku-shell clip-copy image/png "$OUT"',
+-            'ryoku-shell sound shutter >/dev/null 2>&1 || true',
+-            'case "$MODE" in',
+-            'clipboard) notify-send -a ryoku "Screenshot copied to clipboard" >/dev/null 2>&1 || true ;;',
+-            'file) notify-send -a ryoku "Screenshot saved" "Saved to $OUT" >/dev/null 2>&1 || true ;;',
+-            '*) notify-send -a ryoku "Screenshot saved & copied" "Saved to $OUT" >/dev/null 2>&1 || true ;;',
+-            'esac',
+-            '[ -n "$BEAUTIFY" ] && RYOSHOT_OPEN="$OUT" flock -n -o /tmp/ryoshot.lock /usr/libexec/ryoku/ryoku-writer ryoshot >/dev/null 2>&1 || true'
+-        ].join("\n");
+-        Spawn.run(["sh", "-c", script, "sh",
+-            root._pending.flag, root._pending.val, root._outPath, root._save,
+-            (root._save === "both" || root._save === "clipboard") ? "1" : "",
+-            root._beautify ? "1" : ""]);
++        var args = ["/usr/bin/ryoku-capture", "--save", root._save];
++        if (root._beautify)
++            args.push("--beautify");
++        if (root._pending.flag === "-o")
++            args.push("--monitor", root._pending.val);
++        else if (root._pending.flag === "-g")
++            args.push("--region", root._pending.val);
++        else
++            args.push("--all");
++        Spawn.run(args);
+     }
+ }

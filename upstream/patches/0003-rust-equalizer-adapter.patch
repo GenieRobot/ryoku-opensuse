@@ -1,0 +1,22 @@
+--- a/shell/quickshell/shell/services/Equalizer.qml
++++ b/shell/quickshell/shell/services/Equalizer.qml
+@@ -16,9 +16,7 @@
+ Singleton {
+     id: root
+ 
+-    readonly property string bin: (Quickshell.env("RYOKU_SHELL_DIR") || "").length > 0
+-        ? Quickshell.env("RYOKU_SHELL_DIR") + "/scripts/ryoku-eq"
+-        : "ryoku-eq"
++    readonly property string bin: "/usr/bin/ryoku-eq"
+ 
+     readonly property int bandCount: 10
+     // ISO octave centres, the labels the card prints under each slider.
+@@ -32,6 +30,8 @@
+     // The filter is in the graph. Distinct from `on`: the script starts the node
+     // asynchronously, so the UI reads `on` for intent and this for the truth.
+     property bool running: false
++    property int expectedCancelledExits: 0
++    property bool failureNoticePending: false
+ 
+     function gainAt(i) {
+         var g = root.gains;

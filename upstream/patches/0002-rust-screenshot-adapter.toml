@@ -1,0 +1,13 @@
+schema = 1
+patch = "upstream/patches/0002-rust-screenshot-adapter.patch"
+patch_sha256 = "fc821d6c8fbc0453b1922ca6f41e9151b3a48a89ee65997e288adc0929589fe1"
+upstream_revision = "98a0368253d9628be72b853985878a5db90e1547"
+source_archive_sha256 = "bf6790f07f643dc7b3f282b0ce3b918b7f0efdb5c343a7572c5dd5ab9477feed"
+status = "selected for the default RPM; native VM acceptance pending"
+purpose = "route the original screenshot UI through the Rust capture adapter, with checked file and clipboard results"
+new_service_or_backend_logic_in_qml = false
+
+[[files]]
+path = "shell/quickshell/shell/services/Capture.qml"
+before_sha256 = "0c4f37431c8333d14ec58216d0299619b95070ab2b7477246e53fda2c124bf7c"
+after_sha256 = "df26824617d3d4e195b39cbe6442d923ac514b5e23df4575596c570454084143"

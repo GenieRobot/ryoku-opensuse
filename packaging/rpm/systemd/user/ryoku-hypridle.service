@@ -1,0 +1,13 @@
+[Unit]
+Description=Ryoku Hyprland idle and session-lock manager
+PartOf=ryoku-desktop-session.target
+After=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+StartLimitIntervalSec=60s
+StartLimitBurst=3
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/hypridle --config /usr/share/ryoku-opensuse/session/hypridle.conf
+Restart=on-failure
+RestartSec=2s
