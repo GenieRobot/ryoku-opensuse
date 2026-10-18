@@ -110,3 +110,7 @@ Extended pass markers are emitted on stderr into the private fixture log,
 keeping compatibility with the existing runner's strict public marker schema.
 Publish only their fixed names/results and log hashes. Do not publish arbitrary
 guest diagnostics. The empty-journal marker describes the initial phase only.
+
+The [18 October installed acceptance record](../infra/tumbleweed-lab/evidence/issue17-installed-acceptance-20261018.toml)
+links the passing current-snapshot run, source tree, installed binary hashes,
+focused host checks and the precise limits of each native assertion.
