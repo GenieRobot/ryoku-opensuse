@@ -130,7 +130,7 @@ install -d %{buildroot}%{qml_root}/Wm
 cp -a upstream-writers/ryoku/wm/hyprland/qml %{buildroot}%{qml_root}/Wm/Hyprland
 install -d %{buildroot}%{_datadir}/ryogami
 cp -a upstream-writers/ryoku/shell/ryogami/wall-ui/. %{buildroot}%{_datadir}/ryogami/
-install -D -m 0755 target/release/ryoku-writer %{buildroot}%{_libexecdir}/ryoku/ryoku-writer
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-writer" %{buildroot}%{_libexecdir}/ryoku/ryoku-writer
 install -D -m 0755 upstream-writers/ryoku-shell %{buildroot}%{_libexecdir}/ryoku/upstream/ryoku-shell
 install -D -m 0755 upstream-writers/ryoku-wm-hyprland %{buildroot}%{_libexecdir}/ryoku/upstream/ryoku-wm-hyprland
 install -D -m 0755 upstream-writers/ryoku-hub %{buildroot}%{_libexecdir}/ryoku/upstream/ryoku-hub

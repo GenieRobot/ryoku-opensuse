@@ -63,11 +63,11 @@ CARGO_NET_OFFLINE=true cargo \
     --bin ryoku-launcher-status
 
 %install
-install -D -m 0755 target/release/ryoku-recovery \
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-recovery" \
     %{buildroot}%{_bindir}/ryoku-recovery
-install -D -m 0755 target/release/ryoku-state-init \
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-state-init" \
     %{buildroot}%{_sbindir}/ryoku-state-init
-install -D -m 0755 target/release/ryoku-launcher-status \
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-launcher-status" \
     %{buildroot}%{_libexecdir}/ryoku/ryoku-launcher-status
 
 %files
