@@ -4,6 +4,7 @@
 //! eventual asynchronous service client can reject stale or mismatched replies.
 //! The only action in this proof is a read-only status refresh.
 
+pub mod launcher_provider;
 pub mod service_client;
 
 /// Version understood by this UI/service contract.

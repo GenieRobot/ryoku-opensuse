@@ -1,0 +1,7 @@
+[
+  {
+    "keyword": "ryoku",
+    "name": "Ryoku service discovery",
+    "exec": ["/usr/libexec/ryoku/ryoku-launcher-status"]
+  }
+]
