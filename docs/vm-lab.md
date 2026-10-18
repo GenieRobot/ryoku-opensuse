@@ -737,3 +737,12 @@ synthetic obstructions and invokes the real CLI resume, followed by ordinary
 repeat/reboot/offline/reset checks. Both executables are staged and hashed;
 raw failure/resume output remains private. This is not arbitrary-volume adoption
 or complete process-interruption coverage.
+
+## Historical linked-partner run
+
+[Run15](../infra/tumbleweed-lab/evidence/issue19-run15-linked-partners.toml)
+records the earlier KVM console experiment and its limits. PR #139 now retains
+only the linked-partner probe/CLI harness integration; the shared preflight and
+KVM launch changes used by that historical build are excluded. Current checks
+reuse an already running guest and are recorded in the
+[18 October evidence](../infra/tumbleweed-lab/evidence/issue19-current-main-linked-partners-20261018.toml).

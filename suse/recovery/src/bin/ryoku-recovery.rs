@@ -1,12 +1,13 @@
 use std::{
     env,
+    fs::File,
     io::{self, Write},
     process::ExitCode,
 };
 
 use ryoku_recovery::{Identifier, generation::GenerationReader, restore::RestoreJournalStore};
 
-const USAGE: &str = "Usage:\n  ryoku-recovery list\n  ryoku-recovery pending\n  ryoku-recovery inspect TRANSACTION_ID\n  ryoku-recovery verify TRANSACTION_ID\n";
+const USAGE: &str = "Usage:\n  ryoku-recovery list\n  ryoku-recovery pending\n  ryoku-recovery inspect TRANSACTION_ID\n  ryoku-recovery verify TRANSACTION_ID\n  ryoku-recovery verify-linked TRANSACTION_ID\n";
 
 fn main() -> ExitCode {
     match execute(env::args().skip(1), &mut io::stdout()) {
@@ -52,6 +53,28 @@ fn execute(
             }
             Ok(())
         }
+        [command, transaction_id] if command == "verify-linked" => {
+            let transaction = Identifier::new(transaction_id.clone())
+                .map_err(|error| format!("invalid transaction ID: {error:?}"))?;
+            let reader = GenerationReader::open_state_mount().map_err(|error| error.to_string())?;
+            let root = File::open("/").map_err(|error| error.to_string())?;
+            let linked = reader
+                .open_historical_transaction(&root, &transaction)
+                .map_err(|error| error.to_string())?;
+            let manifest = linked.generation().manifest();
+            writeln!(
+                output,
+                "partners-verified transaction={} generation={} snapshot={}:{}",
+                manifest.transaction_id.as_str(),
+                manifest.generation_id.as_str(),
+                manifest.snapper_config.as_str(),
+                manifest.snapper_snapshot_id,
+            )
+            .map_err(|error| error.to_string())?;
+            writeln!(output, "Boot compatibility and restore readiness are not assessed")
+                .map_err(|error| error.to_string())?;
+            Ok(())
+        }
         [command, transaction_id] if command == "inspect" || command == "verify" => {
             let reader = GenerationReader::open_state_mount().map_err(|error| error.to_string())?;
             let transaction = Identifier::new(transaction_id.clone())
@@ -69,6 +92,12 @@ fn execute(
                 .map_err(|error| error.to_string())?;
             } else {
                 writeln!(output, "Integrity: verified").map_err(|error| error.to_string())?;
+                writeln!(
+                    output,
+                    "Original native receipt: {} (partner availability unchecked)",
+                    if manifest.root_snapshot_receipt().is_some() { "recorded" } else { "absent" }
+                )
+                .map_err(|error| error.to_string())?;
                 writeln!(output, "Transaction: {}", manifest.transaction_id.as_str())
                     .map_err(|error| error.to_string())?;
                 writeln!(output, "Generation: {}", manifest.generation_id.as_str())
@@ -115,5 +144,17 @@ mod tests {
         let mut output = Vec::new();
         assert!(execute(["list".into(), "/tmp".into()], &mut output).is_err());
         assert!(String::from_utf8(output).unwrap().is_empty());
+    }
+
+    #[test]
+    fn linked_verification_rejects_malformed_ids_and_path_overrides() {
+        let mut output = Vec::new();
+        let result = execute(["verify-linked".into(), "../outside".into()], &mut output);
+        assert!(result.unwrap_err().starts_with("invalid transaction ID:"));
+        assert_eq!(
+            execute(["verify-linked".into(), "txn-1".into(), "/tmp".into()], &mut output),
+            Err(USAGE.into())
+        );
+        assert!(output.is_empty());
     }
 }
