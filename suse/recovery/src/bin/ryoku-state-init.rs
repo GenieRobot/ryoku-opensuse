@@ -91,7 +91,8 @@ fn initialize(action: Action) -> Result<()> {
         match read_machine_state_record(&root) {
             Ok(record) => {
                 collect_and_open_state_mount(&root, record.identity())?;
-                let _reader = GenerationReader::open_state_mount()?;
+                let generations = GenerationStore::open_initialized_state_mount(record.identity())?;
+                generations.open_snapper_catalog_store()?.load()?;
                 verify_recorded_state_mount_unit(&root)?;
                 if !RestoreJournalStore::open_existing_state_mount()?
                     .incomplete_attempts()?
