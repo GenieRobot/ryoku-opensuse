@@ -9,7 +9,9 @@ enroll a user, initialize state or invoke recovery.
 proof application entry/icon. `ryoku-tools.spec` builds the recovery inspector,
 explicit administrator initializer and lightweight launcher provider from the
 existing workspace. Its launcher provider uses `--no-default-features` so it
-does not acquire GTK dependencies. The launcher configuration example is only
+does not acquire GTK dependencies. The inspector, initializer and provider
+build in one Cargo invocation so the service's additional Rustix `event`
+feature is unified once, avoiding duplicate dependency/recovery compilation. The launcher configuration example is only
 documentation; installation never writes a live user configuration.
 
 All executables are root:root mode 0755, without file capabilities or set-ID
