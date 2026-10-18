@@ -54,13 +54,9 @@ is documentation and is never copied into a user's launcher configuration.
 CARGO_NET_OFFLINE=true cargo \
     --config 'source.crates-io.replace-with="vendored-sources"' \
     --config 'source.vendored-sources.directory="vendor"' \
-    build --offline --locked --release -p ryoku-recovery \
-    --bin ryoku-recovery --bin ryoku-state-init
-CARGO_NET_OFFLINE=true cargo \
-    --config 'source.crates-io.replace-with="vendored-sources"' \
-    --config 'source.vendored-sources.directory="vendor"' \
-    build --offline --locked --release -p ryoku-ui --no-default-features \
-    --bin ryoku-launcher-status
+    build --offline --locked --release --no-default-features \
+    -p ryoku-recovery -p ryoku-ui \
+    --bin ryoku-recovery --bin ryoku-state-init --bin ryoku-launcher-status
 
 %install
 install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-recovery" \
