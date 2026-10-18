@@ -9,14 +9,11 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{
-    EntryKind, FileRecord, Sha256, XattrName,
+    EntryKind, FileRecord, Sha256, StateRoot, XattrName,
     generation::{GenerationError, VerifiedGeneration},
     metadata::{AclPayload, InvalidMetadataPayload, entry_metadata},
     restore::{RestorePlan, RestoreScope},
 };
-
-#[cfg(test)]
-use crate::StateRoot;
 
 const MAX_STAGED_PAYLOAD_BYTES: usize = 64 * 1024 * 1024;
 
@@ -138,8 +135,19 @@ pub fn stage_configuration(
     {
         return Err(StageError::PlanMismatch);
     }
-    let records: Vec<_> =
-        manifest.files().iter().filter(|record| record.root.is_configuration_state()).collect();
+    let records: Vec<_> = manifest
+        .files()
+        .iter()
+        .filter(|record| {
+            matches!(
+                record.root,
+                StateRoot::EtcRyoku
+                    | StateRoot::UserRyokuConfig
+                    | StateRoot::UserRyokuState
+                    | StateRoot::UserRyokuProfile
+            )
+        })
+        .collect();
     if records.len() != plan.configuration_entries as usize {
         return Err(StageError::PlanMismatch);
     }
@@ -213,7 +221,7 @@ mod tests {
     use super::*;
     use crate::{
         EntryMetadata, ExtendedMetadata, Identifier, OperationReason, RecoveryManifest,
-        RelativePath, SnapshotLink, StateRoot, VerificationStatus,
+        RelativePath, SnapshotLink, VerificationStatus,
         generation::{GenerationStore, Payloads},
     };
     use sha2::{Digest, Sha256 as Hash};
@@ -306,9 +314,14 @@ mod tests {
                 .encode()
                 .unwrap()
                 .unwrap();
-        for (name, kind) in [
-            ("settings", EntryKind::Directory { metadata: metadata(Some(digest(&directory_acl))) }),
+        for (root, name, kind) in [
             (
+                StateRoot::UserRyokuConfig,
+                "settings",
+                EntryKind::Directory { metadata: metadata(Some(digest(&directory_acl))) },
+            ),
+            (
+                StateRoot::UserRyokuConfig,
                 "settings/theme.json",
                 EntryKind::RegularFile {
                     metadata: metadata(Some(digest(&acl))),
@@ -318,6 +331,7 @@ mod tests {
                 },
             ),
             (
+                StateRoot::UserRyokuConfig,
                 "settings/theme.backup",
                 EntryKind::RegularFile {
                     metadata: metadata(Some(digest(&acl))),
@@ -327,23 +341,17 @@ mod tests {
                 },
             ),
             (
+                StateRoot::UserRyokuConfig,
                 "current",
                 EntryKind::Symlink {
                     metadata: metadata(None),
                     target: "settings/theme.json".into(),
                 },
             ),
-            ("settings/unused", EntryKind::Absent),
+            (StateRoot::UserRyokuState, ".local/state/ryoku/flags.json", EntryKind::Absent),
         ] {
             manifest
-                .add_file(
-                    FileRecord::new(
-                        StateRoot::UserRyokuConfig,
-                        RelativePath::new(name).unwrap(),
-                        kind,
-                    )
-                    .unwrap(),
-                )
+                .add_file(FileRecord::new(root, RelativePath::new(name).unwrap(), kind).unwrap())
                 .unwrap();
         }
         manifest
@@ -402,6 +410,10 @@ mod tests {
         assert_eq!(staged.plan(), &plan);
         assert_eq!(Some(staged.manifest_sha256()), source.manifest.manifest_sha256.as_ref());
         assert_eq!(staged.entries().len(), 5);
+        assert!(staged.entries().iter().any(|entry| {
+            entry.record().root == StateRoot::UserRyokuState
+                && entry.record().path.as_str() == ".local/state/ryoku/flags.json"
+        }));
         let expected_bytes: usize = source
             .payloads
             .iter()

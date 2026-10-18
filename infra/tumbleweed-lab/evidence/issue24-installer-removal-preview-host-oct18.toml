@@ -1,0 +1,17 @@
+# Host fixture coverage for the read-only issue #24 removal preview.
+schema_version = 1
+issue = 24
+date = "2026-10-18"
+scope = "RPM ownership classification used by removal-preview; no package mutation"
+command = "cargo test --locked --offline -p ryoku-recovery --bin ryoku-install"
+result = "passed: 14 passed, 0 failed"
+added_case = "shared installed files/directories are retained, exclusive directories are labeled remove-if-empty, and missing or foreign package ownership fails closed"
+additional_checks = [
+  "cargo clippy --locked --offline -p ryoku-recovery --bin ryoku-install -- -D warnings",
+  "cargo fmt --all",
+  "git diff --check",
+]
+disposable_vm = false
+rpm_transaction = false
+issue_24_complete = false
+remaining = "protected executor and checkpoint integration remain gated on issue #22 and issue #23; clean install, removal, migration and reinstall acceptance require the disposable Tumbleweed VM"

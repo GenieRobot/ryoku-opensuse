@@ -631,6 +631,7 @@ mod tests {
         fs::{self, File},
         os::unix::fs::symlink,
         path::PathBuf,
+        sync::atomic::{AtomicBool, Ordering},
         time::{SystemTime, UNIX_EPOCH},
     };
 
@@ -725,6 +726,29 @@ mod tests {
             name: &'static str,
         ) -> Result<Option<Vec<u8>>, CaptureError> {
             Err(CaptureError::UnsupportedMetadata(name))
+        }
+    }
+
+    struct ConcurrentWriter {
+        path: PathBuf,
+        changed: AtomicBool,
+    }
+
+    impl super::XattrReader for ConcurrentWriter {
+        fn read(&self, _fd: &File, name: &'static str) -> Result<Option<Vec<u8>>, CaptureError> {
+            if name == "security.selinux" && !self.changed.swap(true, Ordering::SeqCst) {
+                fs::write(&self.path, b"concurrent replacement with a different size").unwrap();
+            }
+            Ok(None)
+        }
+
+        fn read_symlink(
+            &self,
+            _parent: &File,
+            _leaf: &str,
+            _name: &'static str,
+        ) -> Result<Option<Vec<u8>>, CaptureError> {
+            Ok(None)
         }
     }
 
@@ -857,6 +881,27 @@ mod tests {
             capture_without_xattrs(&root, &[path("single")], limits),
             Err(CaptureError::FileTooLarge)
         ));
+    }
+
+    #[test]
+    fn concurrent_file_change_aborts_capture_without_returning_a_generation_record() {
+        let temp = TempDir::new();
+        let file_path = temp.0.join("profile.json");
+        fs::write(&file_path, b"original profile").unwrap();
+        let root = root_file(&temp.0);
+        let writer = ConcurrentWriter { path: file_path.clone(), changed: AtomicBool::new(false) };
+
+        let result = super::capture_declared_with_xattrs(
+            &root,
+            StateRoot::UserRyokuConfig,
+            &[path("profile.json")],
+            CaptureLimits::default(),
+            &writer,
+        );
+
+        assert!(matches!(result, Err(CaptureError::ConcurrentModification)));
+        assert!(writer.changed.load(Ordering::SeqCst));
+        assert_eq!(fs::read(file_path).unwrap(), b"concurrent replacement with a different size");
     }
 
     #[test]

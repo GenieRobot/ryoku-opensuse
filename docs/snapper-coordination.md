@@ -207,3 +207,31 @@ availability invalidation only. This PR neither enables an integrated writer
 nor proves complete linked restoration, boot compatibility or protected
 known-working cleanup. The unrelated baseline test failure is recorded
 separately from these issue #19 gaps.
+
+## Isolated integration cleanup (18 October 2026)
+
+The Snapper crate also exposes separate, explicitly selected mutation backends
+for pre/post pairs and classic root rollback. They use fixed Snapper arguments,
+exact transaction tags, fresh inventory checks, and no automatic retry after an
+uncertain mutation. Rollback receipts distinguish the retained backup from the
+writable default target; read-only checks separately validate reboot handoff
+and the running target. Calling these APIs requires an authorized coordinator,
+the common mutation lock, durable journaling, and writer coordination. This
+slice does not dispatch them through the helper or recovery CLI.
+
+Pair correlation validates the post snapshot's pre-number and rejects ambiguous
+single/pair mixtures. Catalog readers do not create writer locks, and normal
+writers can require an existing lock. Lock and catalog files require exact
+private metadata, matching directory group, and one link; lock acquisition
+checks path/descriptor identity before and after flock.
+
+The pure retention planner requires complete fresh observations, preserves
+manual and known-working pins, and sends missing or ambiguous partners for
+reconciliation. A manual pin records retention intent without claiming full
+system protection. No cleanup actor is wired to enforce this plan.
+
+These APIs and their host fixtures are partial issue #19 work. Supported live
+layout/additional-snapshot discovery, package-hook integration, catalog and
+journal survival through actual root rollback, and native cleanup ownership
+still require acceptance evidence. Existing native linked-partner evidence
+remains a separate slice; this host validation does not establish boot safety.

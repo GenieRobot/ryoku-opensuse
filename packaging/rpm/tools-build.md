@@ -7,9 +7,9 @@ enroll a user, initialize state or invoke recovery.
 
 `ryoku-ui-proof.spec` remains the sole owner of `/usr/bin/ryoku-ui-gtk` and its
 proof application entry/icon. `ryoku-tools.spec` builds the recovery inspector,
-explicit administrator initializer and lightweight launcher provider from the
-existing workspace. Its launcher provider uses `--no-default-features` so it
-does not acquire GTK dependencies. The inspector, initializer and provider
+explicit administrator initializer, read-only installer preflight and lightweight
+launcher provider from the existing workspace. Its launcher provider uses `--no-default-features` so it
+does not acquire GTK dependencies. The inspector, initializer, preflight and provider
 build in one Cargo invocation so the service's additional Rustix `event`
 feature is unified once, avoiding duplicate dependency/recovery compilation. The launcher configuration example is only
 documentation; installation never writes a live user configuration.
@@ -23,7 +23,7 @@ recovery, restoration or any protected mutation.
 
 The desktop-runtime package separately owns the issue #18 Rust writer wrapper
 and its private native payloads. The recovery inspector/state initializer build
-selects those two binaries explicitly and never duplicates writer ownership.
+selects its binaries explicitly and never duplicates writer ownership.
 
 The three Rust service/UI/tools specs use the same exact port source archive and Cargo vendor
 archive, built with `--locked --offline`. Dependencies come from `Cargo.lock`;

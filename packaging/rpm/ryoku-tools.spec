@@ -31,6 +31,9 @@ Requires:       policycoreutils
 Installs the existing Rust ryoku-state-init administrator command. When
 explicitly invoked as root it verifies the supported Btrfs/Snapper layout,
 creates and records dedicated state, and supports its typed resume protocol.
+It also installs the read-only ryoku-install preflight command for local RPM,
+removal and legacy-profile migration previews. The preflight does not apply a
+package transaction or migrate user data.
 Installation does not invoke it, create a subvolume, write a machine identity,
 enable a mount, or authorize a caller. No set-ID mode or file capability is
 assigned. The command's runtime checks remain mandatory.
@@ -56,13 +59,15 @@ CARGO_NET_OFFLINE=true cargo \
     --config 'source.vendored-sources.directory="vendor"' \
     build --offline --locked --release --no-default-features \
     -p ryoku-recovery -p ryoku-ui \
-    --bin ryoku-recovery --bin ryoku-state-init --bin ryoku-launcher-status
+    --bin ryoku-recovery --bin ryoku-state-init --bin ryoku-install --bin ryoku-launcher-status
 
 %install
 install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-recovery" \
     %{buildroot}%{_bindir}/ryoku-recovery
 install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-state-init" \
     %{buildroot}%{_sbindir}/ryoku-state-init
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-install" \
+    %{buildroot}%{_sbindir}/ryoku-install
 install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-launcher-status" \
     %{buildroot}%{_libexecdir}/ryoku/ryoku-launcher-status
 
@@ -75,8 +80,9 @@ install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-launcher-status" \
 %files state-init
 %defattr(-,root,root)
 %attr(0755,root,root) %{_sbindir}/ryoku-state-init
+%attr(0755,root,root) %{_sbindir}/ryoku-install
 %license LICENSE
-%doc docs/recovery-state.md packaging/rpm/tools-build.md
+%doc docs/recovery-state.md docs/installer-preflight.md packaging/rpm/tools-build.md
 
 %files launcher-status
 %defattr(-,root,root)

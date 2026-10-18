@@ -30,7 +30,7 @@ fn entries() -> Vec<Enrollment> {
         .iter()
         .map(|path| Enrollment {
             root: USER,
-            path,
+            path: Cow::Borrowed(*path),
             writer: "fixture-profile-writer",
             owner: Owner::Account,
             kind: Kind::Regular,
@@ -40,7 +40,7 @@ fn entries() -> Vec<Enrollment> {
         })
         .chain([Enrollment {
             root: USER,
-            path: "missing.json",
+            path: Cow::Borrowed("missing.json"),
             writer: "fixture-settings-writer",
             owner: Owner::Account,
             kind: Kind::Regular,
@@ -61,6 +61,7 @@ fn plan() -> InstalledInventory {
 struct Fixture {
     path: PathBuf,
     source: File,
+    home: File,
     store: GenerationStore,
     account: CaptureAccount,
 }
@@ -72,17 +73,19 @@ impl Fixture {
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir(&path).unwrap();
-        for name in ["source", "store"] {
+        for name in ["source", "home", "store"] {
             fs::create_dir(path.join(name)).unwrap();
             fs::set_permissions(path.join(name), fs::Permissions::from_mode(0o700)).unwrap();
         }
         let source = File::open(path.join("source")).unwrap();
+        let home = File::open(path.join("home")).unwrap();
         let store =
             GenerationStore::open_for_test(&File::open(path.join("store")).unwrap()).unwrap();
         let stat = fstat(&source).unwrap();
         let result = Self {
             path,
             source,
+            home,
             store,
             account: CaptureAccount {
                 uid: stat.st_uid,
@@ -122,8 +125,8 @@ impl Fixture {
     }
     fn roots(&self) -> InstalledRoots<'_> {
         InstalledRoots {
+            user_home: &self.home,
             user_configuration: &self.source,
-            account_home: None,
             system_configuration: None,
             account: self.account.clone(),
         }
@@ -135,12 +138,639 @@ impl Fixture {
     ) -> Result<RecoveryManifest, GenerationCaptureError> {
         capture_installed_configuration_using(&self.store, plan, self.roots(), request(id), collect)
     }
+    fn capture_with_bundle(
+        &self,
+        plan: &InstalledInventory,
+        id: &str,
+        bundle: &crate::installed_profiles::VerifiedProfileBundle,
+    ) -> Result<RecoveryManifest, GenerationCaptureError> {
+        let mut capture_request = request(id);
+        let package = crate::installed_profiles::tests::package();
+        capture_request.package_revisions = vec![crate::PackageRevision {
+            package_name: package.name,
+            before_nevra: Some(package.nevra),
+            after_nevra: None,
+            upstream_revision: package.upstream_revision,
+        }];
+        capture_installed_configuration_using_profile(
+            &self.store,
+            plan,
+            self.roots(),
+            capture_request,
+            collect,
+            Some(bundle),
+        )
+    }
     fn no_publication(&self, id: &str) {
         assert!(self.store.verify_transaction(&Identifier::new(id).unwrap()).is_err());
         assert_eq!(fs::read_dir(self.path.join("store/generations")).unwrap().count(), 0);
         assert_eq!(fs::read_dir(self.path.join("store/catalog")).unwrap().count(), 0);
     }
 }
+
+#[test]
+fn session_preference_inventory_captures_only_declared_preferences() {
+    let protected = crate::installed_profiles::tests::Fixture::new();
+    let bundle = protected
+        .store
+        .publish_candidate_for_test(
+            &Identifier::new("session-profile-bundle").unwrap(),
+            &crate::installed_profiles::tests::bundle(),
+        )
+        .unwrap();
+    let fixture = Fixture::new();
+    let inventory = InstalledInventory::session_preferences().unwrap();
+    let missing_bundle = fixture.capture(&inventory, "session-preferences-no-bundle").unwrap_err();
+    assert!(
+        matches!(
+            &missing_bundle,
+            GenerationCaptureError::Inventory(InventoryError::MissingProfileDefaults)
+        ),
+        "unexpected missing-bundle result: {missing_bundle:?}"
+    );
+    fixture.no_publication("session-preferences-no-bundle");
+    let first =
+        fixture.capture_with_bundle(&inventory, "session-preferences-absent", &bundle).unwrap();
+    assert_eq!(first.files().len(), 32);
+    for (root, path) in [
+        (StateRoot::UserRyokuState, ".local/state/ryoku/weather-loc.json"),
+        (StateRoot::UserRyokuState, ".local/state/ryoku/weather-cache.json"),
+        (StateRoot::UserRyokuState, ".local/state/ryoku/events.json"),
+        (StateRoot::UserRyokuState, ".local/state/ryoku/screentime.json"),
+        (StateRoot::UserRyokuState, ".local/state/ryoku/stage/progress"),
+        (StateRoot::UserRyokuConfig, "plugins.json"),
+        (StateRoot::UserRyokuConfig, "desktop.json"),
+    ] {
+        assert!(
+            first.files().iter().all(|record| record.root != root || record.path.as_str() != path),
+            "sensitive or unreviewed Ryoku path entered the session checkpoint: {path}"
+        );
+    }
+    assert!(first.files().iter().any(|record| {
+        record.root == StateRoot::UserRyokuState
+            && record.path.as_str() == ".local/state/ryoku/flags.json"
+            && matches!(record.kind, EntryKind::Absent)
+    }));
+    assert!(first.files().iter().any(|record| {
+        record.root == StateRoot::UserRyokuState
+            && record.path.as_str() == ".local/state/ryoku/capture.json"
+            && matches!(record.kind, EntryKind::Absent)
+    }));
+    assert!(first.files().iter().any(|record| {
+        record.root == StateRoot::UserRyokuState
+            && record.path.as_str() == ".local/state/ryoku/record.json"
+            && matches!(record.kind, EntryKind::Absent)
+    }));
+    assert!(first.files().iter().any(|record| {
+        record.root == StateRoot::UserRyokuState
+            && record.path.as_str() == ".local/state/ryoku/nvibrant-value"
+            && matches!(record.kind, EntryKind::Absent)
+    }));
+    for path in [
+        ".local/state/ryoku/backlight",
+        ".local/state/ryoku/touchpad.disabled",
+        ".local/state/ryoku-nightlight",
+        ".local/state/ryoku-nightlight-enabled",
+        ".local/state/ryoku-nightlight-schedule.json",
+        ".local/state/ryoku/stage-walls.json",
+    ] {
+        assert!(first.files().iter().any(|record| {
+            record.root == StateRoot::UserRyokuState
+                && record.path.as_str() == path
+                && matches!(record.kind, EntryKind::Absent)
+        }));
+    }
+    assert!(first.files().iter().any(|record| {
+        record.root == StateRoot::UserRyokuConfig
+            && record.path.as_str() == "shell.json"
+            && matches!(record.kind, EntryKind::Absent)
+    }));
+    assert!(first.files().iter().any(|record| {
+        record.root == StateRoot::UserRyokuConfig
+            && record.path.as_str() == "matugen.json"
+            && matches!(record.kind, EntryKind::Absent)
+    }));
+    assert!(first.files().iter().any(|record| {
+        record.root == StateRoot::UserRyokuConfig
+            && record.path.as_str() == "profile.json"
+            && matches!(record.kind, EntryKind::Absent)
+    }));
+    for path in [
+        "theme.json",
+        "brand.json",
+        "launcher.json",
+        "widgets.json",
+        "performance.json",
+        "recording.json",
+        "visualizer.json",
+        "stage.json",
+        "camera.json",
+        "ryoshot-beautify.json",
+        "ryoshot.json",
+        "equalizer.json",
+        "power.json",
+        "power-profile.json",
+        "keypresses.json",
+    ] {
+        assert!(first.files().iter().any(|record| {
+            record.root == StateRoot::UserRyokuConfig
+                && record.path.as_str() == path
+                && matches!(record.kind, EntryKind::Absent)
+        }));
+    }
+
+    let flags = fixture.path.join("home/.local/state/ryoku");
+    fs::create_dir_all(&flags).unwrap();
+    fs::write(flags.join("desktop-notes.txt"), "a private note that is not in the recovery scope")
+        .unwrap();
+    fs::set_permissions(flags.parent().unwrap(), fs::Permissions::from_mode(0o700)).unwrap();
+    fs::set_permissions(
+        flags.parent().unwrap().parent().unwrap(),
+        fs::Permissions::from_mode(0o700),
+    )
+    .unwrap();
+    fs::write(
+        flags.join("flags.json"),
+        br#"{"dnd":true,"keepAwake":false,"keepAwakeSince":0,"gameMode":false,"gameDndPrev":false}"#,
+    )
+    .unwrap();
+    fs::set_permissions(flags.join("flags.json"), fs::Permissions::from_mode(0o600)).unwrap();
+    fs::write(flags.join("record.json"), br#"{"desktopAudio":true,"mic":false,"edit":false}"#)
+        .unwrap();
+    fs::set_permissions(flags.join("record.json"), fs::Permissions::from_mode(0o600)).unwrap();
+    let vibrance = b"72\n";
+    fs::write(flags.join("nvibrant-value"), vibrance).unwrap();
+    fs::set_permissions(flags.join("nvibrant-value"), fs::Permissions::from_mode(0o600)).unwrap();
+    let device_preferences =
+        [("backlight", b"1200".as_slice()), ("touchpad.disabled", b"".as_slice())];
+    for (name, payload) in device_preferences {
+        fs::write(flags.join(name), payload).unwrap();
+        fs::set_permissions(flags.join(name), fs::Permissions::from_mode(0o600)).unwrap();
+    }
+    let nightlight_preferences = [
+        ("ryoku-nightlight", b"4200".as_slice()),
+        ("ryoku-nightlight-enabled", b"".as_slice()),
+        ("ryoku-nightlight-schedule.json", br#"{"mode":"sun","marginMin":45}"#.as_slice()),
+    ];
+    for (name, payload) in nightlight_preferences {
+        fs::write(fixture.path.join("home/.local/state").join(name), payload).unwrap();
+        fs::set_permissions(
+            fixture.path.join("home/.local/state").join(name),
+            fs::Permissions::from_mode(0o600),
+        )
+        .unwrap();
+    }
+    let stage_walls = br#"{"current":"/home/alice/Pictures/wall.jpg","walls":{"/home/alice/Pictures/wall.jpg":{"effect":{"enabled":true,"depth":0.4},"layers":[]}}}"#;
+    fs::write(flags.join("stage-walls.json"), stage_walls).unwrap();
+    fs::set_permissions(flags.join("stage-walls.json"), fs::Permissions::from_mode(0o600)).unwrap();
+    let shell_settings = br#"{"theme":{"theme":"Tokyo Night"},"wallpaper":{"enabled":false}}"#;
+    fs::write(fixture.path.join("source/shell.json"), shell_settings).unwrap();
+    fs::set_permissions(fixture.path.join("source/shell.json"), fs::Permissions::from_mode(0o644))
+        .unwrap();
+    let matugen_settings = br#"{"mode":"dark","contrast":0.0,"appTheme":false}"#;
+    fs::write(fixture.path.join("source/matugen.json"), matugen_settings).unwrap();
+    fs::set_permissions(
+        fixture.path.join("source/matugen.json"),
+        fs::Permissions::from_mode(0o644),
+    )
+    .unwrap();
+    let upstream_profile = br#"{"profile":"default","hero":{"kind":"default","source":""}}"#;
+    fs::write(fixture.path.join("source/profile.json"), upstream_profile).unwrap();
+    fs::set_permissions(
+        fixture.path.join("source/profile.json"),
+        fs::Permissions::from_mode(0o644),
+    )
+    .unwrap();
+    let ryoshot_settings = br##"{"blurRadius":48,"mosaicBlock":16,"zoomFactor":1.75,"copyOnSave":true,"saveDir":"/home/alice/Pictures","toolStyle":{"arrow":{"color":"#ffffff","width":3,"filled":false}}}"##;
+    fs::write(fixture.path.join("source/ryoshot.json"), ryoshot_settings).unwrap();
+    fs::set_permissions(
+        fixture.path.join("source/ryoshot.json"),
+        fs::Permissions::from_mode(0o600),
+    )
+    .unwrap();
+    let power_settings =
+        br#"{"profiles":{"balanced":{"governor":"powersave"}},"applyDelayMs":400}"#;
+    fs::write(fixture.path.join("source/power.json"), power_settings).unwrap();
+    fs::set_permissions(fixture.path.join("source/power.json"), fs::Permissions::from_mode(0o600))
+        .unwrap();
+    let selected_power_profile = br#"{"profile":"balanced"}"#;
+    fs::write(fixture.path.join("source/power-profile.json"), selected_power_profile).unwrap();
+    fs::set_permissions(
+        fixture.path.join("source/power-profile.json"),
+        fs::Permissions::from_mode(0o600),
+    )
+    .unwrap();
+    let second =
+        fixture.capture_with_bundle(&inventory, "session-preferences-present", &bundle).unwrap();
+    let record = second
+        .files()
+        .iter()
+        .find(|record| {
+            record.root == StateRoot::UserRyokuState
+                && record.path.as_str() == ".local/state/ryoku/flags.json"
+        })
+        .unwrap();
+    assert!(matches!(record.kind, EntryKind::RegularFile { .. }));
+    assert_eq!(second.files().len(), 32);
+    let recording_record = second
+        .files()
+        .iter()
+        .find(|record| {
+            record.root == StateRoot::UserRyokuState
+                && record.path.as_str() == ".local/state/ryoku/record.json"
+        })
+        .unwrap();
+    assert!(matches!(recording_record.kind, EntryKind::RegularFile { .. }));
+    let vibrance_record = second
+        .files()
+        .iter()
+        .find(|record| {
+            record.root == StateRoot::UserRyokuState
+                && record.path.as_str() == ".local/state/ryoku/nvibrant-value"
+        })
+        .unwrap();
+    let EntryKind::RegularFile { metadata, sha256, size, .. } = &vibrance_record.kind else {
+        panic!("device vibrance preference was not captured as a regular file");
+    };
+    assert_eq!(*size, vibrance.len() as u64);
+    assert_eq!(metadata.mode & 0o7777, 0o600);
+    assert_eq!(metadata.uid, fixture.account.uid);
+    assert_eq!(metadata.gid, fixture.account.gid);
+    assert_eq!(
+        fixture
+            .store
+            .open_verified_transaction(&second.transaction_id)
+            .unwrap()
+            .read_payload(sha256)
+            .unwrap(),
+        vibrance
+    );
+    let shell_record = second
+        .files()
+        .iter()
+        .find(|record| {
+            record.root == StateRoot::UserRyokuConfig && record.path.as_str() == "shell.json"
+        })
+        .unwrap();
+    assert!(
+        matches!(shell_record.kind, EntryKind::RegularFile { size, .. } if size == shell_settings.len() as u64)
+    );
+    let matugen_record = second
+        .files()
+        .iter()
+        .find(|record| {
+            record.root == StateRoot::UserRyokuConfig && record.path.as_str() == "matugen.json"
+        })
+        .unwrap();
+    assert!(
+        matches!(matugen_record.kind, EntryKind::RegularFile { size, .. } if size == matugen_settings.len() as u64)
+    );
+    let upstream_profile_record = second
+        .files()
+        .iter()
+        .find(|record| {
+            record.root == StateRoot::UserRyokuConfig && record.path.as_str() == "profile.json"
+        })
+        .unwrap();
+    let EntryKind::RegularFile { sha256, size, .. } = &upstream_profile_record.kind else {
+        panic!("upstream profile selection was not captured as an opaque file");
+    };
+    assert_eq!(*size, upstream_profile.len() as u64);
+    assert_eq!(
+        fixture
+            .store
+            .open_verified_transaction(&second.transaction_id)
+            .unwrap()
+            .read_payload(sha256)
+            .unwrap(),
+        upstream_profile
+    );
+    let ryoshot_record = second
+        .files()
+        .iter()
+        .find(|record| {
+            record.root == StateRoot::UserRyokuConfig && record.path.as_str() == "ryoshot.json"
+        })
+        .unwrap();
+    let EntryKind::RegularFile { metadata, sha256, size, .. } = &ryoshot_record.kind else {
+        panic!("Ryoshot preferences were not captured as a regular file");
+    };
+    assert_eq!(*size, ryoshot_settings.len() as u64);
+    assert_eq!(metadata.mode & 0o7777, 0o600);
+    assert_eq!(metadata.uid, fixture.account.uid);
+    assert_eq!(metadata.gid, fixture.account.gid);
+    assert_eq!(
+        fixture
+            .store
+            .open_verified_transaction(&second.transaction_id)
+            .unwrap()
+            .read_payload(sha256)
+            .unwrap(),
+        ryoshot_settings
+    );
+    for (path, expected) in [
+        ("power.json", power_settings.as_slice()),
+        ("power-profile.json", selected_power_profile.as_slice()),
+    ] {
+        let record = second
+            .files()
+            .iter()
+            .find(|record| {
+                record.root == StateRoot::UserRyokuConfig && record.path.as_str() == path
+            })
+            .unwrap();
+        let EntryKind::RegularFile { metadata, sha256, size, .. } = &record.kind else {
+            panic!("power preference was not captured as a regular file: {path}");
+        };
+        assert_eq!(*size, expected.len() as u64);
+        assert_eq!(metadata.mode & 0o7777, 0o600);
+        assert_eq!(metadata.uid, fixture.account.uid);
+        assert_eq!(metadata.gid, fixture.account.gid);
+        assert_eq!(
+            fixture
+                .store
+                .open_verified_transaction(&second.transaction_id)
+                .unwrap()
+                .read_payload(sha256)
+                .unwrap(),
+            expected
+        );
+    }
+    let stage_walls_record = second
+        .files()
+        .iter()
+        .find(|record| {
+            record.root == StateRoot::UserRyokuState
+                && record.path.as_str() == ".local/state/ryoku/stage-walls.json"
+        })
+        .unwrap();
+    let EntryKind::RegularFile { metadata, sha256, size, .. } = &stage_walls_record.kind else {
+        panic!("Stage wall layout was not captured as a regular file");
+    };
+    assert_eq!(*size, stage_walls.len() as u64);
+    assert_eq!(metadata.mode & 0o7777, 0o600);
+    assert_eq!(metadata.uid, fixture.account.uid);
+    assert_eq!(metadata.gid, fixture.account.gid);
+    assert_eq!(
+        fixture
+            .store
+            .open_verified_transaction(&second.transaction_id)
+            .unwrap()
+            .read_payload(sha256)
+            .unwrap(),
+        stage_walls
+    );
+    for (path, expected) in [
+        (".local/state/ryoku/backlight", b"1200".as_slice()),
+        (".local/state/ryoku/touchpad.disabled", b"".as_slice()),
+        (".local/state/ryoku-nightlight", b"4200".as_slice()),
+        (".local/state/ryoku-nightlight-enabled", b"".as_slice()),
+        (
+            ".local/state/ryoku-nightlight-schedule.json",
+            br#"{"mode":"sun","marginMin":45}"#.as_slice(),
+        ),
+    ] {
+        let record = second
+            .files()
+            .iter()
+            .find(|record| record.root == StateRoot::UserRyokuState && record.path.as_str() == path)
+            .unwrap();
+        let EntryKind::RegularFile { metadata, sha256, size, .. } = &record.kind else {
+            panic!("device preference was not captured as a regular file: {path}");
+        };
+        assert_eq!(*size, expected.len() as u64);
+        assert_eq!(metadata.mode & 0o7777, 0o600);
+        assert_eq!(metadata.uid, fixture.account.uid);
+        assert_eq!(metadata.gid, fixture.account.gid);
+        assert_eq!(
+            fixture
+                .store
+                .open_verified_transaction(&second.transaction_id)
+                .unwrap()
+                .read_payload(sha256)
+                .unwrap(),
+            expected
+        );
+    }
+    assert!(second.files().iter().any(|record| {
+        record.root == StateRoot::UserRyokuState
+            && record.path.as_str() == ".local/state/ryoku"
+            && matches!(record.kind, EntryKind::Directory { .. })
+    }));
+    assert!(!second.files().iter().any(|record| record.path.as_str().contains("clipboard")));
+    assert!(!second.files().iter().any(|record| {
+        record.root == StateRoot::UserRyokuState
+            && record.path.as_str() == ".local/state/ryoku/desktop-notes.txt"
+    }));
+
+    let unsafe_fixture = Fixture::new();
+    let outside = unsafe_fixture.path.join("outside");
+    fs::create_dir(&outside).unwrap();
+    symlink(&outside, unsafe_fixture.path.join("home/.local")).unwrap();
+    let error = unsafe_fixture
+        .capture_with_bundle(&inventory, "session-preferences-symlink", &bundle)
+        .unwrap_err();
+    assert!(
+        matches!(error, GenerationCaptureError::Capture(CaptureError::UnsupportedEntryType)),
+        "unexpected symlink result: {error:?}"
+    );
+    unsafe_fixture.no_publication("session-preferences-symlink");
+}
+
+#[test]
+fn manual_session_checkpoint_seals_fixed_inventory_and_preserves_raw_profile_bytes() {
+    let fixture = Fixture::new();
+    let profile_fixture = crate::installed_profiles::tests::Fixture::new();
+    let profile_package = crate::installed_profiles::tests::package();
+    let bundle = profile_fixture
+        .store
+        .publish_candidate_for_test(
+            &Identifier::new("manual-session-profile-bundle").unwrap(),
+            &crate::installed_profiles::tests::bundle(),
+        )
+        .unwrap();
+    assert!(fixture.store.open_snapper_catalog_store().is_err());
+    fixture.store.initialize_snapper_catalog().unwrap();
+    assert!(
+        fixture
+            .store
+            .open_snapper_catalog_store()
+            .unwrap()
+            .load()
+            .unwrap()
+            .entries()
+            .next()
+            .is_none()
+    );
+    fixture.write(ryoku_profiles::LOCAL_PROFILE_FILE, b"{invalid current profile", 0o600);
+    fixture.write("profile.json", br#"{"hero":{"kind":"custom","source":"hero.png"}}"#, 0o644);
+    let hero_dir = fixture.path.join("source/profile");
+    fs::create_dir(&hero_dir).unwrap();
+    fs::set_permissions(&hero_dir, fs::Permissions::from_mode(0o700)).unwrap();
+    let hero_bytes = b"bounded custom hero fixture";
+    fs::write(hero_dir.join("hero.png"), hero_bytes).unwrap();
+    fs::set_permissions(hero_dir.join("hero.png"), fs::Permissions::from_mode(0o600)).unwrap();
+    let manifest = capture_session_preference_checkpoint(
+        &fixture.store,
+        fixture.roots(),
+        SessionPreferenceCheckpointRequest {
+            transaction_id: Identifier::new("manual-session-checkpoint").unwrap(),
+            generation_id: Identifier::new("manual-session-generation").unwrap(),
+            snapshot: crate::generation_capture::VerifiedSnapshotLink::from_preverified_link(
+                crate::SnapshotLink::new(
+                    Identifier::new("root").unwrap(),
+                    "42",
+                    "00000000-0000-0000-0000-000000000000",
+                )
+                .unwrap(),
+            ),
+            created_utc: "2026-10-18T00:00:00Z".into(),
+            package_revisions: vec![crate::PackageRevision {
+                package_name: profile_package.name,
+                before_nevra: Some(profile_package.nevra),
+                after_nevra: None,
+                upstream_revision: profile_package.upstream_revision,
+            }],
+            reason: crate::OperationReason::Other(Identifier::new("manual-checkpoint").unwrap()),
+        },
+        &bundle,
+    )
+    .unwrap();
+
+    assert_eq!(manifest.account_principal(), Some(&fixture.account.principal));
+    assert_eq!(manifest.files().len(), 34);
+    let generation = fixture.store.open_verified_transaction(&manifest.transaction_id).unwrap();
+    let profile = manifest
+        .files()
+        .iter()
+        .find(|record| record.path.as_str() == ryoku_profiles::LOCAL_PROFILE_FILE)
+        .unwrap();
+    let sha256 = match &profile.kind {
+        EntryKind::RegularFile { sha256, .. } => sha256,
+        _ => panic!("profile file should be captured as raw bytes"),
+    };
+    assert_eq!(generation.read_payload(sha256).unwrap(), b"{invalid current profile");
+    let hero =
+        manifest.files().iter().find(|record| record.path.as_str() == "profile/hero.png").unwrap();
+    let EntryKind::RegularFile { sha256, size, .. } = &hero.kind else {
+        panic!("selected custom hero was not captured as a file");
+    };
+    assert_eq!(*size, hero_bytes.len() as u64);
+    assert_eq!(generation.read_payload(sha256).unwrap(), hero_bytes);
+    assert!(manifest.files().iter().any(|record| {
+        record.path.as_str() == "profile" && matches!(record.kind, EntryKind::Directory { .. })
+    }));
+
+    let unsafe_fixture = Fixture::new();
+    unsafe_fixture.write(
+        "profile.json",
+        br#"{"hero":{"kind":"custom","source":"hero.png/../../outside"}}"#,
+        0o644,
+    );
+    let package = crate::installed_profiles::tests::package();
+    let error = capture_session_preference_checkpoint(
+        &unsafe_fixture.store,
+        unsafe_fixture.roots(),
+        SessionPreferenceCheckpointRequest {
+            transaction_id: Identifier::new("manual-session-unsafe-hero").unwrap(),
+            generation_id: Identifier::new("manual-session-unsafe-hero-generation").unwrap(),
+            snapshot: VerifiedSnapshotLink::from_preverified_link(
+                SnapshotLink::new(
+                    Identifier::new("root").unwrap(),
+                    "42",
+                    "00000000-0000-0000-0000-000000000000",
+                )
+                .unwrap(),
+            ),
+            created_utc: "2026-10-18T00:00:00Z".into(),
+            package_revisions: vec![crate::PackageRevision {
+                package_name: package.name,
+                before_nevra: Some(package.nevra),
+                after_nevra: None,
+                upstream_revision: package.upstream_revision,
+            }],
+            reason: crate::OperationReason::Other(Identifier::new("unsafe-hero").unwrap()),
+        },
+        &bundle,
+    )
+    .unwrap_err();
+    assert!(matches!(error, GenerationCaptureError::Inventory(InventoryError::InvalidProfile)));
+    unsafe_fixture.no_publication("manual-session-unsafe-hero");
+
+    unsafe_fixture.write(
+        "profile.json",
+        br#"{"hero":{"kind":"custom","source":"hero.png"}}"#,
+        0o644,
+    );
+    let package = crate::installed_profiles::tests::package();
+    let error = capture_session_preference_checkpoint(
+        &unsafe_fixture.store,
+        unsafe_fixture.roots(),
+        SessionPreferenceCheckpointRequest {
+            transaction_id: Identifier::new("manual-session-missing-hero").unwrap(),
+            generation_id: Identifier::new("manual-session-missing-hero-generation").unwrap(),
+            snapshot: VerifiedSnapshotLink::from_preverified_link(
+                SnapshotLink::new(
+                    Identifier::new("root").unwrap(),
+                    "42",
+                    "00000000-0000-0000-0000-000000000000",
+                )
+                .unwrap(),
+            ),
+            created_utc: "2026-10-18T00:00:00Z".into(),
+            package_revisions: vec![crate::PackageRevision {
+                package_name: package.name,
+                before_nevra: Some(package.nevra),
+                after_nevra: None,
+                upstream_revision: package.upstream_revision,
+            }],
+            reason: crate::OperationReason::Other(Identifier::new("missing-hero").unwrap()),
+        },
+        &bundle,
+    )
+    .unwrap_err();
+    assert!(matches!(error, GenerationCaptureError::Inventory(InventoryError::EntryPolicy)));
+    unsafe_fixture.no_publication("manual-session-missing-hero");
+}
+
+#[test]
+fn oversized_pinned_settings_fail_before_generation_publication() {
+    let protected = crate::installed_profiles::tests::Fixture::new();
+    let bundle = protected
+        .store
+        .publish_candidate_for_test(
+            &Identifier::new("oversize-settings-profile-bundle").unwrap(),
+            &crate::installed_profiles::tests::bundle(),
+        )
+        .unwrap();
+    let fixture = Fixture::new();
+    let settings = fixture.path.join("source/shell.json");
+    fs::write(&settings, vec![b' '; 1024 * 1024 + 1]).unwrap();
+    fs::set_permissions(&settings, fs::Permissions::from_mode(0o644)).unwrap();
+    assert!(matches!(
+        fixture.capture_with_bundle(
+            &InstalledInventory::session_preferences().unwrap(),
+            "oversized-shell-settings",
+            &bundle,
+        ),
+        Err(GenerationCaptureError::Inventory(InventoryError::EntryPolicy))
+    ));
+    fixture.no_publication("oversized-shell-settings");
+
+    let profile = fixture.path.join("source/profile.json");
+    fs::write(&profile, vec![b' '; 1024 * 1024 + 1]).unwrap();
+    fs::set_permissions(&profile, fs::Permissions::from_mode(0o644)).unwrap();
+    assert!(matches!(
+        fixture.capture_with_bundle(
+            &InstalledInventory::session_preferences().unwrap(),
+            "oversized-upstream-profile",
+            &bundle,
+        ),
+        Err(GenerationCaptureError::Inventory(InventoryError::EntryPolicy))
+    ));
+    fixture.no_publication("oversized-upstream-profile");
+}
+
 impl Drop for Fixture {
     fn drop(&mut self) {
         fn writable(path: &Path) {
@@ -206,10 +836,7 @@ fn request(id: &str) -> InstalledCaptureRequest {
 
 #[test]
 fn installed_candidates_remain_unavailable_and_enrollment_is_exact() {
-    assert_eq!(
-        InstalledInventory::current().unwrap().entries.len(),
-        crate::installed_inventory::PREFERENCES.len()
-    );
+    assert!(matches!(InstalledInventory::current(), Err(InventoryError::NoAuditedWriters)));
     let mut candidates = entries();
     assert!(matches!(
         InstalledInventory::compile(
@@ -220,7 +847,7 @@ fn installed_candidates_remain_unavailable_and_enrollment_is_exact() {
         Err(InventoryError::IncompleteWriterCoverage)
     ));
     for invalid in ["../outside", "/etc/passwd", "nested/../../outside"] {
-        candidates[0].path = invalid;
+        candidates[0].path = Cow::Owned(invalid.to_owned());
         assert!(matches!(
             InstalledInventory::compile(
                 &["fixture-profile-writer", "fixture-settings-writer"],
@@ -243,7 +870,7 @@ fn installed_candidates_remain_unavailable_and_enrollment_is_exact() {
         ));
     }
     let mut candidates = entries();
-    candidates.push(candidates[0]);
+    candidates.push(candidates[0].clone());
     assert!(matches!(
         InstalledInventory::compile(
             &["fixture-profile-writer", "fixture-settings-writer"],
@@ -490,7 +1117,7 @@ fn directory_and_symlink_require_explicit_enrollment_and_preserve_link_text() {
     entries.extend([
         Enrollment {
             root: USER,
-            path: "directory",
+            path: Cow::Borrowed("directory"),
             writer: "fixture-settings-writer",
             owner: Owner::Account,
             kind: Kind::Directory,
@@ -500,7 +1127,7 @@ fn directory_and_symlink_require_explicit_enrollment_and_preserve_link_text() {
         },
         Enrollment {
             root: USER,
-            path: "link",
+            path: Cow::Borrowed("link"),
             writer: "fixture-settings-writer",
             owner: Owner::Account,
             kind: Kind::Symlink,
@@ -542,7 +1169,7 @@ fn hardlinks_and_unproven_system_roots_fail_closed() {
     let mut entries = entries();
     entries.push(Enrollment {
         root: StateRoot::EtcRyoku,
-        path: "fixture-system.json",
+        path: Cow::Borrowed("fixture-system.json"),
         writer: "fixture-settings-writer",
         owner: Owner::System,
         kind: Kind::Regular,
@@ -585,14 +1212,20 @@ fn capture_binds_exact_protected_bundle_without_restoring_packaged_defaults() {
     let protected = profile_test::Fixture::new();
     let verified = protected
         .store
-        .publish_candidate(&Identifier::new("import-bundle").unwrap(), &profile_test::bundle())
+        .publish_candidate_for_test(
+            &Identifier::new("import-bundle").unwrap(),
+            &profile_test::bundle(),
+        )
         .unwrap();
     fixture.write(
-        "opensuse-profile.json",
+        ryoku_profiles::LOCAL_PROFILE_FILE,
         br#"{"schema_version":1,"id":"generic-desktop","settings":{"density":"compact"}}"#,
         0o600,
     );
-    let entry = Enrollment { path: "opensuse-profile.json", ..entries()[0] };
+    let entry = Enrollment {
+        path: Cow::Borrowed(ryoku_profiles::LOCAL_PROFILE_FILE),
+        ..entries()[0].clone()
+    };
     let plan = InstalledInventory::compile(&["fixture-profile-writer"], &[entry], None).unwrap();
     let mut request = request("bundle-capture");
     let package = profile_test::package();
@@ -612,16 +1245,17 @@ fn capture_binds_exact_protected_bundle_without_restoring_packaged_defaults() {
     )
     .unwrap();
     assert_eq!(manifest.files().len(), 1);
-    assert_eq!(manifest.files()[0].path.as_str(), "opensuse-profile.json");
+    assert_eq!(manifest.files()[0].path.as_str(), ryoku_profiles::LOCAL_PROFILE_FILE);
     assert!(manifest.files().iter().all(|file| file.root == USER));
     let provenance = manifest.profile_revision.as_ref().unwrap();
     assert!(provenance.profile_revision.as_str().starts_with("bundle-sha256-"));
     let reopened = protected.store.load_revision(&provenance.profile_revision).unwrap();
-    let personal = fs::read(fixture.path.join("source/opensuse-profile.json")).unwrap();
+    let personal =
+        fs::read(fixture.path.join("source").join(ryoku_profiles::LOCAL_PROFILE_FILE)).unwrap();
     assert_eq!(reopened.bundle().resolve(Some(&personal)).unwrap().provenance, *provenance);
     assert!(reopened.bundle().matches_packages(&manifest.package_revisions));
     let generation = fixture.store.open_verified_transaction(&manifest.transaction_id).unwrap();
-    fs::remove_file(fixture.path.join("source/opensuse-profile.json")).unwrap();
+    fs::remove_file(fixture.path.join("source").join(ryoku_profiles::LOCAL_PROFILE_FILE)).unwrap();
     // Recovery reads archived personal bytes and the immutable local bundle;
     // neither the live profile nor an original companion source is needed.
     let resolved = protected.store.resolve_generation(&generation).unwrap();
@@ -642,9 +1276,15 @@ fn missing_bundle_namespace_or_mismatched_package_cannot_publish_capture() {
     let protected = profile_test::Fixture::new();
     let verified = protected
         .store
-        .publish_candidate(&Identifier::new("import-bundle").unwrap(), &profile_test::bundle())
+        .publish_candidate_for_test(
+            &Identifier::new("import-bundle").unwrap(),
+            &profile_test::bundle(),
+        )
         .unwrap();
-    let entry = Enrollment { path: "opensuse-profile.json", ..entries()[0] };
+    let entry = Enrollment {
+        path: Cow::Borrowed(ryoku_profiles::LOCAL_PROFILE_FILE),
+        ..entries()[0].clone()
+    };
     let plan = InstalledInventory::compile(&["fixture-profile-writer"], &[entry], None).unwrap();
     assert!(matches!(
         capture_installed_configuration_using_profile(
@@ -692,141 +1332,21 @@ fn missing_bundle_namespace_or_mismatched_package_cannot_publish_capture() {
 }
 
 #[test]
-fn compiled_inventory_preserves_preferences_links_absence_metadata_and_offline_layers() {
-    use crate::installed_profiles::tests as profile_test;
-    let fixture = Fixture::new();
-    let protected = profile_test::Fixture::new();
-    let verified = protected
-        .store
-        .publish_candidate(&Identifier::new("compiled-inputs").unwrap(), &profile_test::bundle())
-        .unwrap();
-    let root = fixture.path.join("source");
-    fs::create_dir_all(root.join(".config/ryoku")).unwrap();
-    fs::create_dir_all(root.join(".local/state/ryoku")).unwrap();
-    fixture.write(
-        crate::installed_inventory::PERSONAL_PROFILE,
-        br#"{"schema_version":1,"id":"generic-desktop","settings":{"density":"compact"}}"#,
-        0o600,
-    );
-    fixture.write(".config/ryoku/profile.json", b"opaque upstream Hub data", 0o640);
-    fixture.write(".config/ryoku/theme.json", b"customized theme", 0o640);
-    fixture.write(".local/state/ryoku/stage-walls.json", b"opaque wall settings", 0o600);
-    symlink("theme.json", root.join(".config/ryoku/shell.json")).unwrap();
-    let plan = InstalledInventory::current().unwrap();
-    let mut req = request("compiled-capture");
-    let package = profile_test::package();
-    req.package_revisions = vec![crate::PackageRevision {
-        package_name: package.name,
-        before_nevra: Some(package.nevra),
-        after_nevra: None,
-        upstream_revision: package.upstream_revision,
-    }];
-    let mut roots = fixture.roots();
-    roots.account_home = Some(&fixture.source);
-    let manifest = capture_installed_configuration_using_profile(
-        &fixture.store,
-        &plan,
-        roots,
-        req,
-        collect,
-        Some(&verified),
-    )
-    .unwrap();
-    assert_eq!(manifest.files().len(), crate::installed_inventory::PREFERENCES.len());
-    assert!(manifest.files().iter().all(|r| r.root == StateRoot::UserHome));
-    assert!(manifest.files().iter().any(|r| r.path.as_str() == ".config/ryoku/shell.json"
-        && matches!(&r.kind, EntryKind::Symlink { target, .. } if target == "theme.json")));
-    let theme =
-        manifest.files().iter().find(|r| r.path.as_str() == ".config/ryoku/theme.json").unwrap();
-    let EntryKind::RegularFile { metadata, sha256, .. } = &theme.kind else {
-        panic!("regular preference required")
-    };
-    assert_eq!(
-        (metadata.uid, metadata.gid, metadata.mode),
-        (fixture.account.uid, fixture.account.gid, 0o640)
-    );
-    assert!(metadata.acl_sha256.is_some());
-    assert!(manifest.files().iter().any(|r| matches!(r.kind, EntryKind::Absent)));
-    let generation = fixture.store.open_verified_transaction(&manifest.transaction_id).unwrap();
-    assert_eq!(generation.read_payload(sha256).unwrap(), b"customized theme");
-    fs::remove_file(root.join(crate::installed_inventory::PERSONAL_PROFILE)).unwrap();
-    let resolved = protected.store.resolve_generation(&generation).unwrap();
-    assert_eq!(resolved.settings.density, Some(Density::Compact));
-    assert_eq!(resolved.provenance, *manifest.profile_revision.as_ref().unwrap());
-    assert_eq!(fs::read(root.join("unrelated-private")).unwrap(), b"must not be archived");
-}
-
-#[test]
-fn compiled_inventory_rejects_external_links_unsafe_parents_and_typed_upstream_confusion() {
-    let fixture = Fixture::new();
-    let root = fixture.path.join("source");
-    fs::create_dir_all(root.join(".config/ryoku")).unwrap();
-    symlink("../../outside", root.join(".config/ryoku/theme.json")).unwrap();
-    let plan = InstalledInventory::current().unwrap();
-    let mut roots = fixture.roots();
-    roots.account_home = Some(&fixture.source);
-    assert!(
-        capture_installed_configuration_using_profile(
-            &fixture.store,
-            &plan,
-            roots,
-            request("unsafe-compiled"),
-            collect,
-            None
-        )
-        .is_err()
-    );
-    fixture.no_publication("unsafe-compiled");
-    fs::remove_file(root.join(".config/ryoku/theme.json")).unwrap();
-    fs::remove_dir(root.join(".config/ryoku")).unwrap();
-    symlink("../", root.join(".config/ryoku")).unwrap();
-    let mut roots = fixture.roots();
-    roots.account_home = Some(&fixture.source);
-    assert!(
-        capture_installed_configuration_using_profile(
-            &fixture.store,
-            &plan,
-            roots,
-            request("unsafe-parent"),
-            collect,
-            None
-        )
-        .is_err()
-    );
-    fixture.no_publication("unsafe-parent");
-}
-
-#[test]
-fn lost_writer_lease_before_publication_cannot_create_a_mutation_ready_generation() {
-    let fixture = Fixture::new();
-    let checks = std::cell::Cell::new(0);
-    let result = capture_installed_configuration_checked(
-        &fixture.store,
-        &plan(),
-        fixture.roots(),
-        request("lost-writer-lease"),
-        collect,
-        None,
-        || {
-            checks.set(checks.get() + 1);
-            if checks.get() == 1 { Ok(()) } else { Err(GenerationCaptureError::CoordinationLost) }
-        },
-    );
-    assert!(matches!(result, Err(GenerationCaptureError::CoordinationLost)));
-    assert_eq!(checks.get(), 2);
-    fixture.no_publication("lost-writer-lease");
-}
-
-#[test]
 fn absent_personal_profile_still_seals_the_original_account_principal() {
     use crate::installed_profiles::tests as profile_test;
     let fixture = Fixture::new();
     let protected = profile_test::Fixture::new();
     let bundle = protected
         .store
-        .publish_candidate(&Identifier::new("import-principal").unwrap(), &profile_test::bundle())
+        .publish_candidate_for_test(
+            &Identifier::new("import-principal").unwrap(),
+            &profile_test::bundle(),
+        )
         .unwrap();
-    let entry = Enrollment { path: "opensuse-profile.json", ..entries()[0] };
+    let entry = Enrollment {
+        path: Cow::Borrowed(ryoku_profiles::LOCAL_PROFILE_FILE),
+        ..entries()[0].clone()
+    };
     let plan = InstalledInventory::compile(&["fixture-profile-writer"], &[entry], None).unwrap();
     let mut request = request("absent-principal");
     let package = profile_test::package();
@@ -865,31 +1385,56 @@ fn absent_personal_profile_still_seals_the_original_account_principal() {
 }
 
 #[test]
-fn managed_namespace_and_wallpaper_state_locations_cannot_be_silently_omitted() {
+fn personal_writer_scope_covers_absence_and_guard_failure_prevents_publication() {
+    use crate::installed_profiles::tests as profile_test;
     let fixture = Fixture::new();
-    let root = fixture.path.join("source");
-    fs::create_dir_all(root.join(".config/ryoku")).unwrap();
-    fixture.write(".config/ryoku/ryogami.json", br#"{"paths":{"cache":""}}"#, 0o644);
-    assert!(InstalledInventory::for_home(&fixture.source).is_ok());
-    fixture.write(".config/ryoku/ryogami.json", br#"{"paths":{"cache":"/outside"}}"#, 0o644);
-    assert!(InstalledInventory::for_home(&fixture.source).is_err());
-    fixture.write(
-        ".config/ryoku/ryogami.json",
-        br#"{"paths":{"cache":"~/.cache/ryogami"}}"#,
-        0o644,
+    let protected = profile_test::Fixture::new();
+    let verified = protected
+        .store
+        .publish_candidate_for_test(
+            &Identifier::new("scoped-import").unwrap(),
+            &profile_test::bundle(),
+        )
+        .unwrap();
+    let plan = InstalledInventory::personal_profile_writer().unwrap();
+    assert_eq!(plan.entries.len(), 1);
+    assert_eq!(plan.entries[0].writer, ryoku_profiles::PERSONAL_PROFILE_WRITER_ID);
+    assert_eq!(plan.entries[0].path, ryoku_profiles::LOCAL_PROFILE_FILE);
+    assert!(matches!(InstalledInventory::current(), Err(InventoryError::NoAuditedWriters)));
+    let mut request = request("scoped-refused");
+    let package = profile_test::package();
+    request.package_revisions = vec![crate::PackageRevision {
+        package_name: package.name,
+        before_nevra: Some(package.nevra),
+        after_nevra: None,
+        upstream_revision: package.upstream_revision,
+    }];
+    let calls = std::cell::Cell::new(0);
+    let captured = std::cell::Cell::new(0);
+    let result = capture_installed_configuration_guarded(
+        &fixture.store,
+        &plan,
+        fixture.roots(),
+        request,
+        |root, state, paths, limits| {
+            captured.set(captured.get() + 1);
+            assert_eq!(paths, [RelativePath::new(ryoku_profiles::LOCAL_PROFILE_FILE).unwrap()]);
+            let inventory = collect(root, state, paths, limits)?;
+            assert!(matches!(inventory.records[0].kind, EntryKind::Absent));
+            Ok(inventory)
+        },
+        Some(&verified),
+        || {
+            calls.set(calls.get() + 1);
+            if calls.get() == 2 {
+                assert_eq!(captured.get(), 2);
+                Err(GenerationCaptureError::VerificationMismatch)
+            } else {
+                Ok(())
+            }
+        },
     );
-    assert!(InstalledInventory::for_home(&fixture.source).is_ok());
-    fixture.write(".config/ryoku/new-preference.json", b"unknown managed preference", 0o644);
-    assert!(matches!(
-        InstalledInventory::for_home(&fixture.source),
-        Err(GenerationCaptureError::Inventory(InventoryError::UnsupportedManagedState))
-    ));
-    fs::remove_file(root.join(".config/ryoku/new-preference.json")).unwrap();
-    fs::create_dir_all(root.join(".config/ryoku/output-profiles")).unwrap();
-    fixture.write(
-        ".config/ryoku/output-profiles/docked.json",
-        b"unsupported dynamic saved profile",
-        0o644,
-    );
-    assert!(InstalledInventory::for_home(&fixture.source).is_err());
+    assert!(matches!(result, Err(GenerationCaptureError::VerificationMismatch)));
+    assert_eq!(calls.get(), 2);
+    fixture.no_publication("scoped-refused");
 }

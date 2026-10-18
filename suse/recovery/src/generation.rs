@@ -12,8 +12,8 @@ use std::{
 
 use rustix::{
     fs::{
-        Dir, Mode, OFlags, RenameFlags, ResolveFlags, fchmod, fstatvfs, fsync, mkdirat, openat,
-        openat2, renameat_with,
+        Dir, Gid, Mode, OFlags, RenameFlags, ResolveFlags, Uid, fchmod, fchown, fstat, fstatvfs,
+        fsync, mkdirat, openat, openat2, renameat_with,
     },
     io::Errno,
 };
@@ -76,6 +76,7 @@ pub enum GenerationError {
     Validation(crate::ValidationError),
     MachineState(MachineStateError),
     StateMount(StateMountError),
+    SnapperCatalog(ryoku_snapper::CatalogStoreError),
 }
 
 impl std::fmt::Display for GenerationError {
@@ -110,6 +111,7 @@ impl std::fmt::Display for GenerationError {
                 write!(f, "trusted machine identity is unavailable: {error}")
             }
             Self::StateMount(error) => write!(f, "protected state mount is unavailable: {error}"),
+            Self::SnapperCatalog(error) => write!(f, "Snapper retention catalog failed: {error}"),
         }
     }
 }
@@ -142,6 +144,11 @@ impl From<MachineStateError> for GenerationError {
         Self::MachineState(value)
     }
 }
+impl From<ryoku_snapper::CatalogStoreError> for GenerationError {
+    fn from(value: ryoku_snapper::CatalogStoreError) -> Self {
+        Self::SnapperCatalog(value)
+    }
+}
 impl From<crate::ValidationError> for GenerationError {
     fn from(value: crate::ValidationError) -> Self {
         Self::Validation(value)
@@ -151,9 +158,11 @@ impl From<crate::ValidationError> for GenerationError {
 /// Publish immutable generations below the fixed, validated state subvolume.
 /// Production construction validates that mount before opening store paths.
 pub struct GenerationStore {
+    root: File,
     staging: File,
     generations: File,
     catalog: File,
+    expected_uid: u32,
 }
 
 /// Read-only access to an existing generation store. Unlike [`GenerationStore`],
@@ -161,8 +170,10 @@ pub struct GenerationStore {
 /// recovery state. It validates the directory owner/modes but does not prove
 /// the protected mount identity or authorize restore.
 pub struct GenerationReader {
+    root: File,
     generations: File,
     catalog: File,
+    expected_uid: u32,
 }
 
 /// A fully verified generation with its payload directory pinned by descriptor.
@@ -231,7 +242,52 @@ impl GenerationReader {
         let generations = existing_directory(&root, "generations", expected_uid)?;
         let catalog = existing_directory(&root, "catalog", expected_uid)?;
         drop(staging);
-        Ok(Self { generations, catalog })
+        Ok(Self { root, generations, catalog, expected_uid })
+    }
+
+    /// Opens the fixed, optional Snapper retention catalog below the same
+    /// validated state root. The returned descriptor is read-only; this does
+    /// not create a missing catalog or repair an unsafe path.
+    pub fn open_snapper_catalog_directory(&self) -> Result<File, GenerationError> {
+        let descriptor = openat2(
+            &self.root,
+            "snapper-catalog",
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC | OFlags::NOFOLLOW,
+            Mode::empty(),
+            ResolveFlags::BENEATH
+                | ResolveFlags::NO_SYMLINKS
+                | ResolveFlags::NO_MAGICLINKS
+                | ResolveFlags::NO_XDEV,
+        )?;
+        let directory = File::from(descriptor);
+        let stat = rustix::fs::fstat(&directory)?;
+        let root_stat = fstat(&self.root)?;
+        if rustix::fs::FileType::from_raw_mode(stat.st_mode) != rustix::fs::FileType::Directory
+            || stat.st_uid != self.expected_uid
+            || stat.st_gid != root_stat.st_gid
+            || stat.st_mode & 0o7777 != 0o700
+        {
+            return Err(GenerationError::InvalidStore);
+        }
+        Ok(directory)
+    }
+
+    /// Opens an atomic read-only view of the existing Snapper catalog. This
+    /// does not create or lock files and is suitable only for advisory status;
+    /// any decision followed by a write must reacquire the common mutation
+    /// lock and reobserve all partners.
+    pub fn open_snapper_catalog_reader(
+        &self,
+    ) -> Result<ryoku_snapper::CatalogReader, GenerationError> {
+        let directory = self.open_snapper_catalog_directory()?;
+        Ok(ryoku_snapper::CatalogReader::open(&directory, self.expected_uid)?)
+    }
+
+    /// Owner identity already checked for the pinned generation store. Other
+    /// readers of fixed child directories must carry this exact identity
+    /// forward instead of independently assuming an owner.
+    pub(crate) fn expected_uid(&self) -> u32 {
+        self.expected_uid
     }
 
     /// Lists committed transaction catalog names in stable order. Each ID is
@@ -309,6 +365,34 @@ impl GenerationStore {
         Self::open_owned(&state_root, 0)
     }
 
+    /// Create the rollback-independent Snapper retention catalog during the
+    /// explicit state-provisioning transaction. Existing valid catalog data
+    /// is retained; corrupt or partial state is never replaced.
+    pub fn initialize_snapper_catalog(&self) -> Result<(), GenerationError> {
+        let directory = directory(&self.root, "snapper-catalog", self.expected_uid)?;
+        fsync(&directory)?;
+        fsync(&self.root)?;
+        let store = ryoku_snapper::CatalogStore::open(&directory, self.expected_uid)?;
+        match store.load() {
+            Ok(_) => Ok(()),
+            Err(ryoku_snapper::CatalogStoreError::Filesystem(Errno::NOENT)) => {
+                store.replace(&ryoku_snapper::CatalogIndex::default())?;
+                Ok(())
+            }
+            Err(error) => Err(error.into()),
+        }
+    }
+
+    /// Open the existing protected Snapper retention catalog for an atomic
+    /// linked-generation update. Normal operation never creates its directory,
+    /// lock inode, or catalog file.
+    pub fn open_snapper_catalog_store(
+        &self,
+    ) -> Result<ryoku_snapper::CatalogStore, GenerationError> {
+        let directory = existing_directory(&self.root, "snapper-catalog", self.expected_uid)?;
+        Ok(ryoku_snapper::CatalogStore::open_existing(&directory, self.expected_uid)?)
+    }
+
     /// Fail closed unless the generation's payload, bounded manifest and
     /// per-file allocation overhead fit on the filesystem backing `staging`.
     /// This is a preflight estimate, not a reservation: callers must still
@@ -360,7 +444,7 @@ impl GenerationStore {
         fsync(&generations)?;
         fsync(&catalog)?;
         fsync(&root)?;
-        Ok(Self { staging, generations, catalog })
+        Ok(Self { root, staging, generations, catalog, expected_uid })
     }
 
     fn open_initialized(root: &File, expected_uid: u32) -> Result<Self, GenerationError> {
@@ -372,9 +456,11 @@ impl GenerationStore {
             return Err(GenerationError::InvalidStore);
         }
         Ok(Self {
+            root: duplicate(root)?,
             staging: existing_directory(root, "staging", expected_uid)?,
             generations: existing_directory(root, "generations", expected_uid)?,
             catalog: existing_directory(root, "catalog", expected_uid)?,
+            expected_uid,
         })
     }
 
@@ -392,6 +478,53 @@ impl GenerationStore {
         &self,
         manifest: &RecoveryManifest,
         payloads: &Payloads,
+    ) -> Result<(), GenerationError> {
+        self.publish_with_hooks(
+            manifest,
+            payloads,
+            |payload_bytes, payload_files| {
+                self.ensure_available_space(payload_bytes, payload_files)
+            },
+            write_new_file,
+            |_| {},
+        )
+    }
+
+    #[cfg(test)]
+    fn publish_with_space_check(
+        &self,
+        manifest: &RecoveryManifest,
+        payloads: &Payloads,
+        ensure_space: impl FnOnce(u64, usize) -> Result<(), GenerationError>,
+    ) -> Result<(), GenerationError> {
+        self.publish_with_hooks(manifest, payloads, ensure_space, write_new_file, |_| {})
+    }
+
+    #[cfg(test)]
+    fn publish_with_payload_writer(
+        &self,
+        manifest: &RecoveryManifest,
+        payloads: &Payloads,
+        write_payload: impl FnMut(&File, &str, &[u8]) -> Result<(), GenerationError>,
+    ) -> Result<(), GenerationError> {
+        self.publish_with_hooks(
+            manifest,
+            payloads,
+            |payload_bytes, payload_files| {
+                self.ensure_available_space(payload_bytes, payload_files)
+            },
+            write_payload,
+            |_| {},
+        )
+    }
+
+    fn publish_with_hooks(
+        &self,
+        manifest: &RecoveryManifest,
+        payloads: &Payloads,
+        ensure_space: impl FnOnce(u64, usize) -> Result<(), GenerationError>,
+        mut write_payload: impl FnMut(&File, &str, &[u8]) -> Result<(), GenerationError>,
+        mut after_durable_boundary: impl FnMut(usize),
     ) -> Result<(), GenerationError> {
         if !manifest.is_mutation_ready() {
             return Err(GenerationError::NotMutationReady);
@@ -421,7 +554,7 @@ impl GenerationStore {
                 return Err(GenerationError::PayloadMismatch);
             }
         }
-        self.ensure_available_space(total, payloads.len())?;
+        ensure_space(total, payloads.len())?;
 
         let tx = manifest.transaction_id.as_str();
         let generation = manifest.generation_id.as_str();
@@ -467,7 +600,7 @@ impl GenerationStore {
                         let payload_dir = create_directory(&stage, "payloads")?;
                         write_new_file(&stage, "manifest.json", &manifest_bytes)?;
                         for (digest, bytes) in payloads {
-                            write_new_file(
+                            write_payload(
                                 &payload_dir,
                                 &format!("{}.blob", digest.as_str()),
                                 bytes,
@@ -475,6 +608,8 @@ impl GenerationStore {
                         }
                         fsync(&payload_dir)?;
                         fsync(&stage)?;
+                        fsync(&self.staging)?;
+                        after_durable_boundary(1);
                         verify_directory(&stage, Some(manifest), false)?;
                         stage
                     }
@@ -487,6 +622,9 @@ impl GenerationStore {
                     generation,
                     RenameFlags::NOREPLACE,
                 )?;
+                fsync(&self.staging)?;
+                fsync(&self.generations)?;
+                after_durable_boundary(2);
                 let _ = stage;
             }
             Err(error) => return Err(error.into()),
@@ -501,6 +639,7 @@ impl GenerationStore {
         verify_directory(&generation_dir, Some(manifest), true)?;
         fsync(&self.staging)?;
         fsync(&self.generations)?;
+        after_durable_boundary(3);
 
         let temp_name = format!("{}.tmp", manifest.transaction_id.as_str());
         // Never replace an existing transaction index. Reuse is accepted only
@@ -514,6 +653,8 @@ impl GenerationStore {
             }
             Err(error) => return Err(error),
         }
+        fsync(&self.catalog)?;
+        after_durable_boundary(4);
         if let Err(error) = renameat_with(
             &self.catalog,
             temp_name.as_str(),
@@ -524,6 +665,7 @@ impl GenerationStore {
             return Err(error.into());
         }
         fsync(&self.catalog)?;
+        after_durable_boundary(5);
         Ok(())
     }
 
@@ -733,7 +875,15 @@ fn digest_bytes(bytes: &[u8]) -> Sha256 {
 
 fn directory(parent: &File, name: &str, expected_uid: u32) -> Result<File, GenerationError> {
     match mkdirat(parent, name, Mode::from_raw_mode(0o700)) {
-        Ok(()) | Err(Errno::EXIST) => {
+        Ok(()) => {
+            let dir = open_created_directory(parent, name)?;
+            let stat = rustix::fs::fstat(&dir)?;
+            if stat.st_uid != expected_uid || stat.st_mode & 0o7777 != 0o700 {
+                return Err(GenerationError::InvalidStore);
+            }
+            Ok(dir)
+        }
+        Err(Errno::EXIST) => {
             let dir = open_dir(parent, name)?;
             let stat = rustix::fs::fstat(&dir)?;
             if stat.st_uid != expected_uid || stat.st_mode & 0o7777 != 0o700 {
@@ -763,7 +913,7 @@ fn existing_directory(
 
 fn create_directory(parent: &File, name: &str) -> Result<File, Errno> {
     mkdirat(parent, name, Mode::from_raw_mode(0o700))?;
-    open_dir(parent, name)
+    open_created_directory(parent, name)
 }
 
 fn open_dir(parent: &File, name: &str) -> Result<File, Errno> {
@@ -777,7 +927,41 @@ fn open_dir(parent: &File, name: &str) -> Result<File, Errno> {
             | ResolveFlags::NO_MAGICLINKS
             | ResolveFlags::NO_XDEV,
     )?;
-    Ok(File::from(fd))
+    let directory = File::from(fd);
+    let parent_stat = fstat(parent)?;
+    let directory_stat = fstat(&directory)?;
+    if directory_stat.st_uid != parent_stat.st_uid || directory_stat.st_gid != parent_stat.st_gid {
+        return Err(Errno::PERM);
+    }
+    Ok(directory)
+}
+
+fn open_created_directory(parent: &File, name: &str) -> Result<File, Errno> {
+    let fd = openat2(
+        parent,
+        name,
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC | OFlags::NOFOLLOW,
+        Mode::empty(),
+        ResolveFlags::BENEATH
+            | ResolveFlags::NO_SYMLINKS
+            | ResolveFlags::NO_MAGICLINKS
+            | ResolveFlags::NO_XDEV,
+    )?;
+    let directory = File::from(fd);
+    let parent_stat = fstat(parent)?;
+    let mut directory_stat = fstat(&directory)?;
+    if directory_stat.st_uid != parent_stat.st_uid || directory_stat.st_gid != parent_stat.st_gid {
+        fchown(
+            &directory,
+            Some(Uid::from_raw(parent_stat.st_uid)),
+            Some(Gid::from_raw(parent_stat.st_gid)),
+        )?;
+        directory_stat = fstat(&directory)?;
+    }
+    if directory_stat.st_uid != parent_stat.st_uid || directory_stat.st_gid != parent_stat.st_gid {
+        return Err(Errno::PERM);
+    }
+    Ok(directory)
 }
 
 fn write_new_file(parent: &File, name: &str, bytes: &[u8]) -> Result<(), GenerationError> {
@@ -788,6 +972,19 @@ fn write_new_file(parent: &File, name: &str, bytes: &[u8]) -> Result<(), Generat
         Mode::from_raw_mode(0o600),
     )?;
     let mut file = File::from(fd);
+    let parent_stat = fstat(parent)?;
+    let file_stat = fstat(&file)?;
+    if file_stat.st_uid != parent_stat.st_uid || file_stat.st_gid != parent_stat.st_gid {
+        fchown(
+            &file,
+            Some(Uid::from_raw(parent_stat.st_uid)),
+            Some(Gid::from_raw(parent_stat.st_gid)),
+        )?;
+    }
+    let file_stat = fstat(&file)?;
+    if file_stat.st_uid != parent_stat.st_uid || file_stat.st_gid != parent_stat.st_gid {
+        return Err(GenerationError::InvalidStore);
+    }
     file.write_all(bytes)?;
     fchmod(&file, Mode::from_raw_mode(0o400))?;
     file.sync_all()?;
@@ -811,6 +1008,7 @@ fn read_file(parent: &File, name: &str, limit: u64) -> Result<Vec<u8>, Generatio
     if rustix::fs::FileType::from_raw_mode(stat.st_mode) != rustix::fs::FileType::RegularFile
         || stat.st_mode & 0o7777 != 0o400
         || stat.st_uid != parent_stat.st_uid
+        || stat.st_gid != parent_stat.st_gid
         || stat.st_nlink != 1
     {
         return Err(GenerationError::InvalidEntryType);
@@ -871,18 +1069,26 @@ mod tests {
         EntryMetadata, ExtendedMetadata, FileRecord, OperationReason, RelativePath, SnapshotLink,
         StateRoot, VerificationStatus,
     };
+    use ryoku_snapper::{
+        CatalogEntry, ConfigName, GenerationId, LayoutCapability, PartnerState, SnapperBackend,
+        SnapshotId, SnapshotKind, SnapshotPairRequest, SnapshotRecord, TransactionId,
+    };
     use std::{
         fs,
         os::unix::fs::{PermissionsExt, symlink},
+        process::Command,
         sync::atomic::{AtomicUsize, Ordering},
     };
 
     static NEXT: AtomicUsize = AtomicUsize::new(0);
 
     fn temp_root() -> std::path::PathBuf {
+        let nonce =
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
         let path = std::env::temp_dir().join(format!(
-            "ryoku-generation-{}-{}",
+            "ryoku-generation-{}-{}-{}",
             std::process::id(),
+            nonce,
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir(&path).unwrap();
@@ -952,6 +1158,173 @@ mod tests {
         );
         manifest.seal().unwrap();
         manifest
+    }
+
+    struct RetentionSnapper(Vec<SnapshotRecord>);
+    impl SnapperBackend for RetentionSnapper {
+        type Error = &'static str;
+
+        fn list(&self, _config: &ConfigName) -> Result<Vec<SnapshotRecord>, Self::Error> {
+            Ok(self.0.clone())
+        }
+        fn create_pre(&mut self, _: &SnapshotPairRequest) -> Result<SnapshotId, Self::Error> {
+            Err("mutation must not be called")
+        }
+        fn create_post(
+            &mut self,
+            _: &SnapshotPairRequest,
+            _: &SnapshotId,
+        ) -> Result<SnapshotId, Self::Error> {
+            Err("mutation must not be called")
+        }
+    }
+
+    fn retention_entry(generation_id: &str) -> CatalogEntry {
+        CatalogEntry {
+            transaction_id: TransactionId::new("txn-generation-1").unwrap(),
+            root_config: ConfigName::new("root").unwrap(),
+            root_snapshot: SnapshotId::new("42").unwrap(),
+            generation_id: GenerationId::new(generation_id).unwrap(),
+            capability: LayoutCapability::FullSystem,
+            partner: PartnerState::Verified,
+            manual_checkpoint: false,
+            known_working: false,
+        }
+    }
+
+    fn retention_snapshot(kind: SnapshotKind) -> SnapshotRecord {
+        retention_snapshot_with_transaction(kind, "txn-generation-1")
+    }
+
+    fn retention_snapshot_with_transaction(
+        kind: SnapshotKind,
+        transaction_id: &str,
+    ) -> SnapshotRecord {
+        SnapshotRecord {
+            config: ConfigName::new("root").unwrap(),
+            id: SnapshotId::new("42").unwrap(),
+            kind,
+            pre_snapshot: None,
+            transaction_id: Some(TransactionId::new(transaction_id).unwrap()),
+        }
+    }
+
+    fn retention_manifest() -> RecoveryManifest {
+        let mut manifest = ready_manifest(b"retained");
+        let filesystem_uuid = "11111111-1111-1111-1111-111111111111";
+        manifest.schema_version = 2;
+        manifest.filesystem_uuid = filesystem_uuid.into();
+        manifest.manifest_sha256 = None;
+        let receipt: crate::native_checkpoint::RootSnapshotReceipt =
+            serde_json::from_value(serde_json::json!({
+                "schema": 1,
+                "link": {
+                    "snapper_config": "root",
+                    "snapper_snapshot_id": "42",
+                    "filesystem_uuid": filesystem_uuid,
+                },
+                "subvolume_id": 256,
+                "subvolume_uuid": "22222222-2222-2222-2222-222222222222",
+                "origin_root_uuid": "33333333-3333-3333-3333-333333333333",
+            }))
+            .unwrap();
+        manifest.attach_root_snapshot_receipt(receipt).unwrap();
+        manifest.seal().unwrap();
+        manifest
+    }
+
+    #[test]
+    fn retention_observer_checks_exact_generation_and_single_snapshot_partners() {
+        let root_path = temp_root();
+        let root = File::open(&root_path).unwrap();
+        let store = test_store(&root);
+        let manifest = retention_manifest();
+        store
+            .publish(
+                &manifest,
+                &BTreeMap::from([(digest_bytes(b"retained"), b"retained".to_vec())]),
+            )
+            .unwrap();
+        let owner = rustix::fs::fstat(&root).unwrap().st_uid;
+        let reader = GenerationReader::open_existing(&root, owner).unwrap();
+
+        let mut catalog = ryoku_snapper::CatalogIndex::default();
+        catalog.insert(retention_entry("gen-generation-1")).unwrap();
+        let valid = crate::snapper_retention::observe_retention_partners_with_verifier(
+            &catalog,
+            &reader,
+            &RetentionSnapper(vec![retention_snapshot(SnapshotKind::Single)]),
+            &root,
+            |_, _, _| true,
+        )
+        .unwrap();
+        assert_eq!(valid.len(), 1);
+        assert!(valid[0].generation_present_and_verified);
+        assert!(valid[0].snapper_partner_present_and_verified);
+
+        let mut wrong_generation_catalog = ryoku_snapper::CatalogIndex::default();
+        wrong_generation_catalog.insert(retention_entry("gen-other-generation")).unwrap();
+        let wrong_generation = crate::snapper_retention::observe_retention_partners_with_verifier(
+            &wrong_generation_catalog,
+            &reader,
+            &RetentionSnapper(vec![retention_snapshot(SnapshotKind::Single)]),
+            &root,
+            |_, _, _| true,
+        )
+        .unwrap();
+        assert!(!wrong_generation[0].generation_present_and_verified);
+        assert!(!wrong_generation[0].snapper_partner_present_and_verified);
+
+        let wrong_snapshot = crate::snapper_retention::observe_retention_partners_with_verifier(
+            &catalog,
+            &reader,
+            &RetentionSnapper(vec![retention_snapshot(SnapshotKind::Pre)]),
+            &root,
+            |_, _, _| true,
+        )
+        .unwrap();
+        assert!(wrong_snapshot[0].generation_present_and_verified);
+        assert!(!wrong_snapshot[0].snapper_partner_present_and_verified);
+
+        let wrong_transaction = crate::snapper_retention::observe_retention_partners_with_verifier(
+            &catalog,
+            &reader,
+            &RetentionSnapper(vec![retention_snapshot_with_transaction(
+                SnapshotKind::Single,
+                "txn-other",
+            )]),
+            &root,
+            |_, _, _| true,
+        )
+        .unwrap();
+        assert!(wrong_transaction[0].generation_present_and_verified);
+        assert!(!wrong_transaction[0].snapper_partner_present_and_verified);
+
+        let failed_native_identity =
+            crate::snapper_retention::observe_retention_partners_with_verifier(
+                &catalog,
+                &reader,
+                &RetentionSnapper(vec![retention_snapshot(SnapshotKind::Single)]),
+                &root,
+                |_, _, _| false,
+            )
+            .unwrap();
+        assert!(failed_native_identity[0].generation_present_and_verified);
+        assert!(!failed_native_identity[0].snapper_partner_present_and_verified);
+
+        drop(reader);
+        drop(store);
+        fs::set_permissions(
+            root_path.join("generations/gen-generation-1"),
+            fs::Permissions::from_mode(0o700),
+        )
+        .unwrap();
+        fs::set_permissions(
+            root_path.join("generations/gen-generation-1/payloads"),
+            fs::Permissions::from_mode(0o700),
+        )
+        .unwrap();
+        fs::remove_dir_all(root_path).unwrap();
     }
 
     #[test]
@@ -1364,6 +1737,182 @@ mod tests {
         assert!(matches!(store.publish(&manifest, &wrong), Err(GenerationError::PayloadMismatch)));
         assert!(!root_path.join("generations/gen-generation-1").exists());
         fs::remove_dir_all(root_path).unwrap();
+    }
+
+    #[test]
+    fn insufficient_checkpoint_space_leaves_no_partial_generation_or_catalog_entry() {
+        let root_path = temp_root();
+        let root = File::open(&root_path).unwrap();
+        let store = test_store(&root);
+        let content = b"content";
+        let manifest = ready_manifest(content);
+        let payloads = BTreeMap::from([(digest_bytes(content), content.to_vec())]);
+
+        assert!(matches!(
+            store.publish_with_space_check(&manifest, &payloads, |required_bytes, _| {
+                Err(GenerationError::InsufficientSpace { required_bytes, available_bytes: 0 })
+            }),
+            Err(GenerationError::InsufficientSpace { available_bytes: 0, .. })
+        ));
+        assert!(!root_path.join("staging/txn-generation-1.stage").exists());
+        assert!(!root_path.join("generations/gen-generation-1").exists());
+        assert!(!root_path.join("catalog/txn-generation-1.json").exists());
+
+        fs::remove_dir_all(root_path).unwrap();
+    }
+
+    struct EnospcAfterPrefix {
+        file: File,
+        remaining: usize,
+    }
+
+    impl Write for EnospcAfterPrefix {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            if self.remaining == 0 {
+                return Err(std::io::Error::from_raw_os_error(28));
+            }
+            let written = self.file.write(&bytes[..bytes.len().min(self.remaining)])?;
+            self.remaining -= written;
+            Ok(written)
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.file.flush()
+        }
+    }
+
+    #[test]
+    fn payload_write_enospc_never_publishes_a_generation_or_catalog_entry() {
+        let root_path = temp_root();
+        let root = File::open(&root_path).unwrap();
+        let store = test_store(&root);
+        let content = b"capture bytes";
+        let manifest = ready_manifest(content);
+        let payloads = BTreeMap::from([(digest_bytes(content), content.to_vec())]);
+
+        let result =
+            store.publish_with_payload_writer(&manifest, &payloads, |parent, name, bytes| {
+                let fd = openat(
+                    parent,
+                    name,
+                    OFlags::WRONLY
+                        | OFlags::CREATE
+                        | OFlags::EXCL
+                        | OFlags::CLOEXEC
+                        | OFlags::NOFOLLOW,
+                    Mode::from_raw_mode(0o600),
+                )?;
+                let mut writer =
+                    EnospcAfterPrefix { file: File::from(fd), remaining: bytes.len() / 2 };
+                // Exercise `write_all`'s handling of a partial write followed
+                // by the same ENOSPC error returned by the kernel.
+                writer.write_all(bytes)?;
+                Ok(())
+            });
+        assert!(matches!(
+            result,
+            Err(GenerationError::Io(error))
+                if error.raw_os_error() == Some(28)
+                    && error.kind() == std::io::ErrorKind::StorageFull
+        ));
+        assert!(root_path.join("staging/txn-generation-1.stage/payloads").exists());
+        assert!(!root_path.join("generations/gen-generation-1").exists());
+        assert!(!root_path.join("catalog/txn-generation-1.json").exists());
+        assert!(matches!(
+            store.verify_transaction(&manifest.transaction_id),
+            Err(GenerationError::Filesystem(Errno::NOENT))
+        ));
+        // A retry cannot mistake a partial capture for a valid checkpoint or
+        // repair it implicitly; reconciliation is required before retry.
+        let retry = store.publish(&manifest, &payloads);
+        assert!(matches!(retry, Err(GenerationError::InvalidEntryType)), "{retry:?}");
+
+        drop(store);
+        drop(root);
+        fs::remove_dir_all(root_path).unwrap();
+    }
+
+    #[test]
+    fn capture_process_exit_at_each_publication_boundary_is_reconciled_explicitly() {
+        const CHILD_TEST: &str = "generation::tests::publish_process_exit_child";
+
+        for boundary in 1..=5 {
+            let root_path = temp_root();
+            let content = b"capture bytes";
+            let manifest = ready_manifest(content);
+            let payloads = BTreeMap::from([(digest_bytes(content), content.to_vec())]);
+            let root = File::open(&root_path).unwrap();
+            let store = test_store(&root);
+            drop(store);
+            drop(root);
+
+            let status = Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", CHILD_TEST, "--ignored", "--nocapture"])
+                .env("RYOKU_GENERATION_CHILD_ROOT", &root_path)
+                .env("RYOKU_GENERATION_CHILD_BOUNDARY", boundary.to_string())
+                .status()
+                .unwrap();
+            assert_eq!(status.code(), Some(77), "child missed boundary {boundary}");
+
+            let root = File::open(&root_path).unwrap();
+            let resumed = test_store(&root);
+            match (boundary, resumed.verify_transaction(&manifest.transaction_id)) {
+                (5, Ok(_)) => {}
+                (1..=4, Err(GenerationError::Filesystem(Errno::NOENT))) => {}
+                (_, result) => {
+                    panic!("unexpected transaction state at boundary {boundary}: {result:?}")
+                }
+            }
+            resumed.publish(&manifest, &payloads).unwrap();
+            assert_eq!(resumed.verify_transaction(&manifest.transaction_id).unwrap(), manifest);
+
+            fn make_directories_writable(path: &std::path::Path) {
+                if fs::symlink_metadata(path).unwrap().is_dir() {
+                    fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
+                    for entry in fs::read_dir(path).unwrap() {
+                        let entry = entry.unwrap();
+                        if entry.file_type().unwrap().is_dir() {
+                            make_directories_writable(&entry.path());
+                        }
+                    }
+                }
+            }
+            drop(resumed);
+            drop(root);
+            make_directories_writable(&root_path);
+            fs::remove_dir_all(root_path).unwrap();
+        }
+    }
+
+    #[test]
+    #[ignore = "spawned by capture_process_exit_at_each_publication_boundary_is_reconciled_explicitly"]
+    fn publish_process_exit_child() {
+        let (Ok(root_path), Ok(boundary)) = (
+            std::env::var("RYOKU_GENERATION_CHILD_ROOT"),
+            std::env::var("RYOKU_GENERATION_CHILD_BOUNDARY"),
+        ) else {
+            return;
+        };
+        let boundary = boundary.parse::<usize>().unwrap();
+        let root = File::open(root_path).unwrap();
+        let store = test_store(&root);
+        let content = b"capture bytes";
+        let manifest = ready_manifest(content);
+        let payloads = BTreeMap::from([(digest_bytes(content), content.to_vec())]);
+        let _ = store.publish_with_hooks(
+            &manifest,
+            &payloads,
+            |bytes, files| store.ensure_available_space(bytes, files),
+            write_new_file,
+            |step| {
+                if step == boundary {
+                    // Leave only synchronized filesystem state for the parent
+                    // to reopen; do not run destructors or implicit cleanup.
+                    std::process::exit(77);
+                }
+            },
+        );
+        panic!("generation publication returned before the selected boundary");
     }
 
     #[test]
