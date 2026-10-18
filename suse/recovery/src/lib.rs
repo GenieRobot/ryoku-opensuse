@@ -27,8 +27,6 @@ pub mod inode_metadata;
 #[cfg(target_os = "linux")]
 pub mod installed_capture;
 #[cfg(target_os = "linux")]
-pub mod installed_inventory;
-#[cfg(target_os = "linux")]
 pub mod installed_profiles;
 pub mod linked_checkpoint;
 #[cfg(target_os = "linux")]
@@ -39,8 +37,11 @@ pub mod native_checkpoint;
 pub mod preparation;
 #[cfg(target_os = "linux")]
 pub mod restore;
+pub mod root_capture_mapping;
 #[cfg(target_os = "linux")]
 pub mod rpm_defaults;
+#[cfg(target_os = "linux")]
+pub mod snapper_retention;
 mod state_boot_unit;
 pub mod state_creation;
 #[cfg(target_os = "linux")]
@@ -209,15 +210,12 @@ pub enum StateRoot {
     EtcRyoku,
     /// Declared per-user Ryoku configuration below its resolved config root.
     UserRyokuConfig,
-    /// Reserved internal selector for immutable generations. External capture
-    /// inventories cannot select it; the recovery service may use it for
-    /// verified internal generation staging records.
+    /// Exact per-user Ryoku session state below the account's resolved home.
+    UserRyokuState,
+    /// Immutable generations below the dedicated Ryoku state volume.
     StateGeneration,
     /// User-owned profile selection below the resolved Ryoku config root.
     UserRyokuProfile,
-    /// Exact compiled preference paths beneath the authenticated account home.
-    /// This never grants recursive access to unrelated home contents.
-    UserHome,
 }
 
 impl StateRoot {
@@ -227,20 +225,10 @@ impl StateRoot {
         match self {
             Self::EtcRyoku => "etc-ryoku",
             Self::UserRyokuConfig => "user-ryoku-config",
+            Self::UserRyokuState => "user-ryoku-state",
             Self::StateGeneration => "state-generation",
             Self::UserRyokuProfile => "user-ryoku-profile",
-            Self::UserHome => "user-home",
         }
-    }
-
-    /// Whether records in this fixed root belong to the writable
-    /// configuration restore scope. The generation namespace is retained as
-    /// immutable source data and is never a configuration target.
-    pub const fn is_configuration_state(self) -> bool {
-        matches!(
-            self,
-            Self::EtcRyoku | Self::UserRyokuConfig | Self::UserRyokuProfile | Self::UserHome
-        )
     }
 }
 
@@ -300,7 +288,8 @@ pub struct ProfileRevision {
     pub personal_override_revision: Option<Revision>,
 }
 
-/// Identity and before/after revisions for one changed package.
+/// Identity and before/after revisions for one package in an operation.
+/// Equal values represent a verified unchanged package during a checkpoint.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PackageRevision {
@@ -1287,14 +1276,6 @@ mod tests {
             .insert(XattrName::SelinuxLabel, Sha256::new("c".repeat(64)).unwrap());
         assert_eq!(metadata.extended.values.len(), 1);
         assert_eq!(StateRoot::UserRyokuProfile.manifest_name(), "user-ryoku-profile");
-    }
-
-    #[test]
-    fn configuration_restore_root_classification_excludes_generation_storage() {
-        assert!(StateRoot::EtcRyoku.is_configuration_state());
-        assert!(StateRoot::UserRyokuConfig.is_configuration_state());
-        assert!(StateRoot::UserRyokuProfile.is_configuration_state());
-        assert!(!StateRoot::StateGeneration.is_configuration_state());
     }
 
     #[test]

@@ -1,0 +1,11 @@
+[Unit]
+Description=Ryoku openSUSE experimental desktop session
+Requires=ryoku-desktop-shell.service
+After=ryoku-desktop-shell.service
+Wants=ryoku-service.service
+Wants=hyprpolkitagent.service
+After=hyprpolkitagent.service
+Wants=ryoku-hypridle.service
+After=ryoku-hypridle.service
+Wants=ryoku-clipboard.service
+After=ryoku-clipboard.service

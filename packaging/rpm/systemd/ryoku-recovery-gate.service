@@ -1,0 +1,25 @@
+[Unit]
+Description=Ryoku read-only recovery session gate
+Requires=ryoku-recovery-gate.socket
+After=ryoku-recovery-gate.socket
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/libexec/ryoku/ryoku-helper --recovery-gate
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native

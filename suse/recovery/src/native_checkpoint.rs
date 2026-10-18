@@ -6,6 +6,7 @@
 use crate::{
     SnapshotLink,
     generation_capture::VerifiedSnapshotLink,
+    restore::{RestoreJournal, RestorePhase, RestoreScope},
     state_mount::{
         self, StateMountError, format_uuid, read_btrfs_fs_info, read_btrfs_subvolume_info,
     },
@@ -104,6 +105,9 @@ pub enum NativeCheckpointError {
     IdentityMismatch,
     WritableSnapshot,
     NotCurrentRootSnapshot,
+    RollbackTargetNotBooted,
+    RollbackTargetMismatch,
+    Snapper(ryoku_snapper::SnapperCliError),
     Observation(StateMountError),
     Filesystem(rustix::io::Errno),
 }
@@ -114,6 +118,211 @@ impl std::fmt::Display for NativeCheckpointError {
     }
 }
 impl std::error::Error for NativeCheckpointError {}
+
+/// Opaque evidence that the machine has rebooted into the exact writable
+/// target recorded for a pending root rollback attempt.
+pub struct VerifiedRunningRollbackTarget {
+    restore_id: crate::Identifier,
+    target_snapshot: String,
+    filesystem_uuid: String,
+}
+
+impl VerifiedRunningRollbackTarget {
+    pub fn restore_id(&self) -> &crate::Identifier {
+        &self.restore_id
+    }
+
+    pub fn target_snapshot(&self) -> &str {
+        &self.target_snapshot
+    }
+
+    pub fn filesystem_uuid(&self) -> &str {
+        &self.filesystem_uuid
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn test_running_rollback_target(
+    restore_id: crate::Identifier,
+    target_snapshot: String,
+    filesystem_uuid: String,
+) -> VerifiedRunningRollbackTarget {
+    VerifiedRunningRollbackTarget { restore_id, target_snapshot, filesystem_uuid }
+}
+
+/// Confirm after reboot that the actual running `/` is the exact writable
+/// Snapper target associated with the original verified source. This remains
+/// valid through later linked/system restore phases so retries can revalidate
+/// the root before completing health checks or retention updates. The retained
+/// source, target, and backup are reopened beneath the trusted root without
+/// symlink traversal and checked with Btrfs ioctls.
+pub fn verify_running_root_rollback(
+    trusted_root: &File,
+    journal: &RestoreJournal,
+    source_receipt: &RootSnapshotReceipt,
+) -> Result<VerifiedRunningRollbackTarget, NativeCheckpointError> {
+    let result =
+        journal.root_rollback.as_ref().ok_or(NativeCheckpointError::RollbackTargetMismatch)?;
+    if !rollback_verification_phase_supported(journal.plan.scope, journal.phase)
+        || journal.plan.snapper_config.as_str() != "root"
+        || source_receipt.link.snapper_config.as_str() != journal.plan.snapper_config.as_str()
+        || source_receipt.link.snapper_snapshot_id != journal.plan.snapshot_id
+        || source_receipt.link.filesystem_uuid != journal.plan.filesystem_uuid
+    {
+        return Err(NativeCheckpointError::RollbackTargetMismatch);
+    }
+    let historical = verify_historical_root_checkpoint(trusted_root, source_receipt)?;
+    let target_link = SnapshotLink::new(
+        journal.plan.snapper_config.clone(),
+        result.target_snapshot(),
+        journal.plan.filesystem_uuid.clone(),
+    )
+    .map_err(|_| NativeCheckpointError::UnsupportedLink)?;
+    let backup_link = SnapshotLink::new(
+        journal.plan.snapper_config.clone(),
+        result.backup_snapshot(),
+        journal.plan.filesystem_uuid.clone(),
+    )
+    .map_err(|_| NativeCheckpointError::UnsupportedLink)?;
+    let target = open_snapshot_descriptor(trusted_root, &target_link)?;
+    let backup = open_snapshot_descriptor(trusted_root, &backup_link)?;
+    let root_fs = read_btrfs_fs_info(trusted_root).map_err(NativeCheckpointError::Observation)?;
+    let source_fs =
+        read_btrfs_fs_info(historical.descriptor()).map_err(NativeCheckpointError::Observation)?;
+    let target_fs = read_btrfs_fs_info(&target).map_err(NativeCheckpointError::Observation)?;
+    let backup_fs = read_btrfs_fs_info(&backup).map_err(NativeCheckpointError::Observation)?;
+    let root_info =
+        read_btrfs_subvolume_info(trusted_root).map_err(NativeCheckpointError::Observation)?;
+    let source_info = read_btrfs_subvolume_info(historical.descriptor())
+        .map_err(NativeCheckpointError::Observation)?;
+    let target_info =
+        read_btrfs_subvolume_info(&target).map_err(NativeCheckpointError::Observation)?;
+    let backup_info =
+        read_btrfs_subvolume_info(&backup).map_err(NativeCheckpointError::Observation)?;
+    validate_running_rollback_identity(
+        journal,
+        source_receipt,
+        &root_fs.fsid,
+        &source_fs.fsid,
+        &target_fs.fsid,
+        &backup_fs.fsid,
+        &root_info,
+        &source_info,
+        &target_info,
+        &backup_info,
+    )?;
+    let config = ryoku_snapper::ConfigName::new("root")
+        .map_err(|_| NativeCheckpointError::RollbackTargetMismatch)?;
+    let target = ryoku_snapper::SnapshotId::new(result.target_snapshot())
+        .map_err(|_| NativeCheckpointError::RollbackTargetMismatch)?;
+    let transaction = crate::restore::root_rollback_tag(&journal.restore_id)
+        .map_err(|_| NativeCheckpointError::RollbackTargetMismatch)?;
+    ryoku_snapper::SnapperRollbackBackend
+        .verify_running_target(&config, &target, &transaction)
+        .map_err(NativeCheckpointError::Snapper)?;
+    Ok(VerifiedRunningRollbackTarget {
+        restore_id: journal.restore_id.clone(),
+        target_snapshot: result.target_snapshot().to_owned(),
+        filesystem_uuid: journal.plan.filesystem_uuid.clone(),
+    })
+}
+
+fn rollback_verification_phase_supported(scope: RestoreScope, phase: RestorePhase) -> bool {
+    match scope {
+        RestoreScope::SystemOnly => matches!(
+            phase,
+            RestorePhase::WritersStopped
+                | RestorePhase::RootRollbackComplete
+                | RestorePhase::HealthChecked
+                | RestorePhase::Complete
+        ),
+        RestoreScope::CompleteLinked => matches!(
+            phase,
+            RestorePhase::WritersStopped
+                | RestorePhase::RootRollbackComplete
+                | RestorePhase::ConfigurationRestored
+                | RestorePhase::HealthChecked
+                | RestorePhase::Complete
+        ),
+        RestoreScope::ConfigurationOnly => false,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_running_rollback_identity(
+    journal: &RestoreJournal,
+    source_receipt: &RootSnapshotReceipt,
+    root_fs: &[u8; 16],
+    source_fs: &[u8; 16],
+    target_fs: &[u8; 16],
+    backup_fs: &[u8; 16],
+    root: &linux_raw_sys::btrfs::btrfs_ioctl_get_subvol_info_args,
+    source: &linux_raw_sys::btrfs::btrfs_ioctl_get_subvol_info_args,
+    target: &linux_raw_sys::btrfs::btrfs_ioctl_get_subvol_info_args,
+    backup: &linux_raw_sys::btrfs::btrfs_ioctl_get_subvol_info_args,
+) -> Result<(), NativeCheckpointError> {
+    let readonly = u64::from(linux_raw_sys::btrfs::BTRFS_ROOT_SUBVOL_RDONLY);
+    let result =
+        journal.root_rollback.as_ref().ok_or(NativeCheckpointError::RollbackTargetMismatch)?;
+    validate_rollback_objects_identity(
+        journal,
+        source_receipt,
+        source_fs,
+        target_fs,
+        backup_fs,
+        source,
+        target,
+        backup,
+    )?;
+    let fs_uuid = format_uuid(root_fs);
+    if *root_fs == [0; 16]
+        || root_fs != source_fs
+        || fs_uuid != journal.plan.filesystem_uuid
+        || root.flags & readonly != 0
+        || root.treeid == 0
+    {
+        return Err(NativeCheckpointError::RollbackTargetMismatch);
+    }
+    if root.treeid != target.treeid || root.uuid != target.uuid {
+        return Err(NativeCheckpointError::RollbackTargetNotBooted);
+    }
+    if result.backup_snapshot() == result.target_snapshot() {
+        return Err(NativeCheckpointError::RollbackTargetMismatch);
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_rollback_objects_identity(
+    journal: &RestoreJournal,
+    source_receipt: &RootSnapshotReceipt,
+    source_fs: &[u8; 16],
+    target_fs: &[u8; 16],
+    backup_fs: &[u8; 16],
+    source: &linux_raw_sys::btrfs::btrfs_ioctl_get_subvol_info_args,
+    target: &linux_raw_sys::btrfs::btrfs_ioctl_get_subvol_info_args,
+    backup: &linux_raw_sys::btrfs::btrfs_ioctl_get_subvol_info_args,
+) -> Result<(), NativeCheckpointError> {
+    let readonly = u64::from(linux_raw_sys::btrfs::BTRFS_ROOT_SUBVOL_RDONLY);
+    let result =
+        journal.root_rollback.as_ref().ok_or(NativeCheckpointError::RollbackTargetMismatch)?;
+    if *source_fs == [0; 16]
+        || source_fs != target_fs
+        || source_fs != backup_fs
+        || format_uuid(source_fs) != journal.plan.filesystem_uuid
+        || format_uuid(&source.uuid) != source_receipt.subvolume_uuid
+        || target.treeid == source.treeid
+        || target.flags & readonly != 0
+        || target.parent_uuid != source.uuid
+        || backup.flags & readonly == 0
+        || backup.treeid == source.treeid
+        || backup.treeid == target.treeid
+        || result.backup_snapshot() == result.target_snapshot()
+    {
+        return Err(NativeCheckpointError::RollbackTargetMismatch);
+    }
+    Ok(())
+}
 
 /// Verify `.snapshots/<number>/snapshot` beneath the actual process root,
 /// without following any symlink. Only the default root layout is supported.
@@ -208,6 +417,54 @@ pub fn verify_historical_root_checkpoint(
     Ok(HistoricalRootCheckpoint { descriptor, receipt: receipt.clone() })
 }
 
+/// Recheck immediately before rollback that the writable root is still the
+/// exact subvolume from which the retained current-state checkpoint was made.
+/// This prevents using a valid old checkpoint after an intervening root
+/// switch or replacement.
+pub fn verify_checkpoint_origin_is_running_root(
+    trusted_root: &File,
+    receipt: &RootSnapshotReceipt,
+) -> Result<(), NativeCheckpointError> {
+    let historical = verify_historical_root_checkpoint(trusted_root, receipt)?;
+    let root_fs = read_btrfs_fs_info(trusted_root).map_err(NativeCheckpointError::Observation)?;
+    let checkpoint_fs =
+        read_btrfs_fs_info(historical.descriptor()).map_err(NativeCheckpointError::Observation)?;
+    let root =
+        read_btrfs_subvolume_info(trusted_root).map_err(NativeCheckpointError::Observation)?;
+    let checkpoint = read_btrfs_subvolume_info(historical.descriptor())
+        .map_err(NativeCheckpointError::Observation)?;
+    validate_checkpoint_origin_identity(
+        receipt,
+        &root_fs.fsid,
+        &checkpoint_fs.fsid,
+        &root,
+        &checkpoint,
+    )
+}
+
+fn validate_checkpoint_origin_identity(
+    receipt: &RootSnapshotReceipt,
+    root_fs: &[u8; 16],
+    checkpoint_fs: &[u8; 16],
+    root: &linux_raw_sys::btrfs::btrfs_ioctl_get_subvol_info_args,
+    checkpoint: &linux_raw_sys::btrfs::btrfs_ioctl_get_subvol_info_args,
+) -> Result<(), NativeCheckpointError> {
+    let readonly = u64::from(linux_raw_sys::btrfs::BTRFS_ROOT_SUBVOL_RDONLY);
+    if root_fs != checkpoint_fs
+        || *root_fs == [0; 16]
+        || format_uuid(root_fs) != receipt.link.filesystem_uuid
+        || format_uuid(&root.uuid) != receipt.origin_root_uuid
+        || root.treeid < 256
+        || root.treeid == checkpoint.treeid
+        || root.flags & readonly != 0
+        || checkpoint.flags & readonly == 0
+        || checkpoint.parent_uuid != root.uuid
+    {
+        return Err(NativeCheckpointError::NotCurrentRootSnapshot);
+    }
+    Ok(())
+}
+
 fn validate_historical_identity(
     receipt: &RootSnapshotReceipt,
     root_fs: &[u8; 16],
@@ -262,6 +519,10 @@ fn validate_identity(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        Sha256,
+        restore::{RestorePlan, RestoreScope, RootRollbackResult},
+    };
     use linux_raw_sys::btrfs::{
         btrfs_ioctl_get_subvol_info_args as Info, btrfs_ioctl_timespec as Time,
     };
@@ -305,6 +566,173 @@ mod tests {
         }
     }
 
+    fn rollback_journal() -> RestoreJournal {
+        let config = crate::Identifier::new("root").unwrap();
+        let source_snapshot = ryoku_snapper::SnapshotId::new("42").unwrap();
+        let restore_id = crate::Identifier::new("restore-attempt-1").unwrap();
+        let receipt = ryoku_snapper::RootRollbackReceipt {
+            config: ryoku_snapper::ConfigName::new("root").unwrap(),
+            source_snapshot,
+            previous_default_snapshot: ryoku_snapper::SnapshotId::new("43").unwrap(),
+            backup_snapshot: ryoku_snapper::SnapshotId::new("44").unwrap(),
+            rollback_target_snapshot: ryoku_snapper::SnapshotId::new("45").unwrap(),
+            transaction_id: ryoku_snapper::TransactionId::new("restore-attempt-1:rollback")
+                .unwrap(),
+        };
+        let plan = RestorePlan {
+            source_manifest_sha256: Sha256::new(
+                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            )
+            .unwrap(),
+            transaction_id: crate::Identifier::new("txn-source-1").unwrap(),
+            generation_id: crate::Identifier::new("gen-source-1").unwrap(),
+            snapper_config: config,
+            snapshot_id: "42".into(),
+            filesystem_uuid: format_uuid(&[3; 16]),
+            scope: RestoreScope::CompleteLinked,
+            configuration_entries: 1,
+        };
+        let mut journal = RestoreJournal::new(
+            restore_id,
+            plan,
+            crate::Identifier::new("gen-current-1").unwrap(),
+            Sha256::new("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+                .unwrap(),
+        );
+        journal.phase = RestorePhase::WritersStopped;
+        journal.root_rollback = Some(RootRollbackResult::from_snapper(&receipt).unwrap());
+        journal
+    }
+
+    #[test]
+    fn running_rollback_verification_remains_available_through_completion_phases() {
+        for (scope, accepted, rejected) in [
+            (
+                RestoreScope::SystemOnly,
+                vec![
+                    RestorePhase::WritersStopped,
+                    RestorePhase::RootRollbackComplete,
+                    RestorePhase::HealthChecked,
+                    RestorePhase::Complete,
+                ],
+                vec![
+                    RestorePhase::Planned,
+                    RestorePhase::CheckpointVerified,
+                    RestorePhase::ContentStaged,
+                    RestorePhase::ConfigurationRestored,
+                ],
+            ),
+            (
+                RestoreScope::CompleteLinked,
+                vec![
+                    RestorePhase::WritersStopped,
+                    RestorePhase::RootRollbackComplete,
+                    RestorePhase::ConfigurationRestored,
+                    RestorePhase::HealthChecked,
+                    RestorePhase::Complete,
+                ],
+                vec![
+                    RestorePhase::Planned,
+                    RestorePhase::CheckpointVerified,
+                    RestorePhase::ContentStaged,
+                ],
+            ),
+            (
+                RestoreScope::ConfigurationOnly,
+                vec![],
+                vec![
+                    RestorePhase::WritersStopped,
+                    RestorePhase::RootRollbackComplete,
+                    RestorePhase::ConfigurationRestored,
+                    RestorePhase::HealthChecked,
+                    RestorePhase::Complete,
+                ],
+            ),
+        ] {
+            for phase in accepted {
+                assert!(rollback_verification_phase_supported(scope, phase), "{scope:?} {phase:?}");
+            }
+            for phase in rejected {
+                assert!(
+                    !rollback_verification_phase_supported(scope, phase),
+                    "{scope:?} {phase:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn booted_root_rollback_requires_exact_writable_target_and_readonly_backup() {
+        let journal = rollback_journal();
+        let source_receipt = receipt();
+        let fs = [3; 16];
+        let mut root = info(500, 5, 2);
+        root.flags = 0;
+        let source = info(300, 2, 1);
+        let target = root;
+        let backup = info(501, 6, 4);
+        assert_eq!(
+            validate_running_rollback_identity(
+                &journal,
+                &source_receipt,
+                &fs,
+                &fs,
+                &fs,
+                &fs,
+                &root,
+                &source,
+                &target,
+                &backup,
+            ),
+            Ok(())
+        );
+
+        let mut wrong_root = root;
+        wrong_root.treeid += 1;
+        let mut readonly_target = target;
+        readonly_target.flags = u64::from(linux_raw_sys::btrfs::BTRFS_ROOT_SUBVOL_RDONLY);
+        let wrong_parent = info(500, 5, 9);
+        let mut writable_backup = backup;
+        writable_backup.flags = 0;
+        assert_eq!(
+            validate_running_rollback_identity(
+                &journal,
+                &source_receipt,
+                &fs,
+                &fs,
+                &fs,
+                &fs,
+                &wrong_root,
+                &source,
+                &target,
+                &backup,
+            ),
+            Err(NativeCheckpointError::RollbackTargetNotBooted)
+        );
+        for (bad_root, bad_target, bad_backup, bad_fs) in [
+            (root, readonly_target, backup, fs),
+            (root, wrong_parent, backup, fs),
+            (root, target, writable_backup, fs),
+            (root, target, backup, [4; 16]),
+        ] {
+            assert_eq!(
+                validate_running_rollback_identity(
+                    &journal,
+                    &source_receipt,
+                    &bad_fs,
+                    &fs,
+                    &fs,
+                    &fs,
+                    &bad_root,
+                    &source,
+                    &bad_target,
+                    &bad_backup,
+                ),
+                Err(NativeCheckpointError::RollbackTargetMismatch)
+            );
+        }
+    }
+
     #[test]
     fn historical_identity_survives_changed_root_but_never_substitution() {
         let receipt = receipt();
@@ -337,6 +765,42 @@ mod tests {
             validate_historical_identity(&receipt, &fs, &fs, &writable),
             Err(NativeCheckpointError::WritableSnapshot)
         );
+    }
+
+    #[test]
+    fn current_checkpoint_cannot_be_reused_after_the_running_root_changes() {
+        let receipt = receipt();
+        let fs = [3; 16];
+        let mut root = info(500, 1, 0);
+        root.flags = 0;
+        let checkpoint = info(300, 2, 1);
+        assert_eq!(
+            validate_checkpoint_origin_identity(&receipt, &fs, &fs, &root, &checkpoint),
+            Ok(())
+        );
+
+        let mut substituted_root = root;
+        substituted_root.uuid = [9; 16];
+        let mut readonly_root = root;
+        readonly_root.flags = u64::from(linux_raw_sys::btrfs::BTRFS_ROOT_SUBVOL_RDONLY);
+        let wrong_parent = info(300, 2, 4);
+        for (candidate_root, candidate_checkpoint, candidate_fs) in [
+            (substituted_root, checkpoint, fs),
+            (readonly_root, checkpoint, fs),
+            (root, wrong_parent, fs),
+            (root, checkpoint, [4; 16]),
+        ] {
+            assert_eq!(
+                validate_checkpoint_origin_identity(
+                    &receipt,
+                    &candidate_fs,
+                    &fs,
+                    &candidate_root,
+                    &candidate_checkpoint,
+                ),
+                Err(NativeCheckpointError::NotCurrentRootSnapshot)
+            );
+        }
     }
 
     #[test]

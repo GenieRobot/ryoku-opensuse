@@ -48,6 +48,9 @@ pub use local::{LOCAL_PROFILE_FILE, ProfileLoadError, ProfileOwner, load_local_p
 pub const PROFILE_SCHEMA_VERSION: u16 = 1;
 /// Bound local profile input before parsing it.
 pub const MAX_PROFILE_DOCUMENT_BYTES: usize = 64 * 1024;
+/// Fixed personal-profile capture writer identity and accepted file modes.
+pub const PERSONAL_PROFILE_WRITER_ID: &str = "native-personal-profile-v1";
+pub const PERSONAL_PROFILE_MODES: &[u32] = &[0o600, 0o644];
 
 /// Stable identifier for a locally installed profile.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]

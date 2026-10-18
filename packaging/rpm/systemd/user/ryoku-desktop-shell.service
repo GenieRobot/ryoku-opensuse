@@ -1,0 +1,19 @@
+[Unit]
+Description=Ryoku shell and ordinary-settings daemon
+PartOf=ryoku-desktop-session.target
+After=ryoku-service.service
+ConditionEnvironment=WAYLAND_DISPLAY
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=exec
+ExecStartPre=/usr/bin/ryoku-session recovery-check
+ExecStart=/usr/bin/ryoku-shell daemon
+Environment=RYOKU_SHELL_DIR=/usr/share/ryoku/shell
+Environment=PATH=/usr/libexec/ryoku/quickshell/bin:/usr/bin:/bin
+UnsetEnvironment=RYOKU_POLKIT_AGENT
+NoNewPrivileges=yes
+Restart=on-failure
+RestartSec=2
+Slice=session.slice

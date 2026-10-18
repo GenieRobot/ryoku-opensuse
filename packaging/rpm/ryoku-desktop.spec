@@ -6,7 +6,7 @@
 
 Name:           ryoku-desktop
 Version:        0.1.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Pinned upstream Ryoku desktop package set
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse
@@ -30,12 +30,33 @@ Requires:       ryoku-desktop-runtime = %{version}-%{release}
 Requires:       ryoku-helper = %{version}-%{dependency_release}
 Requires:       ryoku-profile-defaults = %{version}-%{dependency_release}
 Requires:       ryoku-tools = %{version}-%{dependency_release}
+Requires:       hyprland >= 0.56.2
+Requires:       hyprland-guiutils >= 0.2.1
+Requires:       hyprpolkitagent >= 0.2.0
+Requires:       xdg-desktop-portal >= 1.22.1
+Requires:       xdg-desktop-portal-hyprland >= 1.4.1
+Requires:       xdg-desktop-portal-gtk >= 1.15.3
+Requires:       plasma6-session >= 6.7.5
+Requires:       xdg-desktop-portal-kde6 >= 6.7.5
+Requires:       breeze6-wallpapers >= 6.7.5
+Requires:       sddm
+Requires:       xorg-x11-server
+Requires:       xf86-input-libinput
+Requires:       konsole
+Requires:       dolphin
+Requires:       curl
+Requires:       pipewire-pulseaudio
+Requires:       wireplumber
+Requires:       pulseaudio-utils
+Requires:       NetworkManager
+Requires:       bluez
 
 %description
 Selects the pinned upstream runtime and the implemented Rust service, recovery
-and immutable defaults packages. It does not install a login session, activate
-services or invoke upstream controls. Session adapters and login configuration
-are implemented separately by issue 25, which depends on this package set.
+and immutable defaults packages. Installs a separately selectable Ryoku
+Hyprland login session and the independent KDE fallback. Session startup checks
+the read-only recovery gate before launching the compositor and the shell.
+Installing this package does not enable the Ryoku user units or recovery gate.
 
 %package runtime
 Summary:        Pinned Ryoku surfaces and coordinated native writers
@@ -144,6 +165,12 @@ cmake -S runtime/native/ryoku-blobs -B blobs-build -G Ninja \
 cmake --build blobs-build --parallel %{_smp_build_ncpus}
 
 %install
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-session" %{buildroot}%{_bindir}/ryoku-session
+install -D -m 0644 packaging/rpm/wayland-sessions/ryoku-opensuse.desktop %{buildroot}%{_datadir}/wayland-sessions/ryoku-opensuse.desktop
+install -D -m 0644 packaging/rpm/systemd/user/ryoku-desktop-session.target %{buildroot}%{_userunitdir}/ryoku-desktop-session.target
+install -D -m 0644 packaging/rpm/systemd/user/ryoku-desktop-shell.service %{buildroot}%{_userunitdir}/ryoku-desktop-shell.service
+install -D -m 0644 packaging/rpm/session/hyprland.conf %{buildroot}%{_datadir}/ryoku-opensuse/session/hyprland.conf
+install -D -m 0644 packaging/rpm/session/hyprland-nested.conf %{buildroot}%{_datadir}/ryoku-opensuse/session/hyprland-nested.conf
 install -d %{buildroot}%{payload_root}/shell %{buildroot}%{payload_root}/hub %{buildroot}%{payload_root}/i18n
 cp -a upstream-writers/ryoku/shell/quickshell %{buildroot}%{payload_root}/shell/
 cp -a upstream-writers/ryoku/hub/quickshell %{buildroot}%{payload_root}/hub/
@@ -186,6 +213,12 @@ cp -a runtime/fonts/. %{buildroot}%{font_root}/
 
 %files
 %defattr(-,root,root)
+%attr(0755,root,root) %{_bindir}/ryoku-session
+%attr(0644,root,root) %{_datadir}/wayland-sessions/ryoku-opensuse.desktop
+%attr(0644,root,root) %{_userunitdir}/ryoku-desktop-session.target
+%attr(0644,root,root) %{_userunitdir}/ryoku-desktop-shell.service
+%attr(0644,root,root) %{_datadir}/ryoku-opensuse/session/hyprland.conf
+%attr(0644,root,root) %{_datadir}/ryoku-opensuse/session/hyprland-nested.conf
 %license LICENSE
 %doc packaging/rpm/desktop-build.md
 
@@ -206,7 +239,9 @@ cp -a runtime/fonts/. %{buildroot}%{font_root}/
 %{_userunitdir}/ryoku-eq.service
 %{_userunitdir}/ryoku-hypridle.service
 %dir %{_datadir}/ryoku-opensuse
-%{_datadir}/ryoku-opensuse/session/
+%dir %{_datadir}/ryoku-opensuse/session
+%{_datadir}/ryoku-opensuse/session/hypridle.conf
+%{_datadir}/ryoku-opensuse/session/hyprlock.conf
 %{_libexecdir}/ryoku/upstream/
 %dir %{_libexecdir}/ryoku/quickshell
 %{_libexecdir}/ryoku/quickshell/qs

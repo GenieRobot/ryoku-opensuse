@@ -1,0 +1,24 @@
+schema_version = 1
+issue = 22
+date = "2026-10-18"
+source = "isolated codex/issue22-residual branch, based on issue 21 console and issue 20 mutation coordinator commits"
+fixture_snapshot = "20261013"
+fixture_image = "openSUSE-Tumbleweed-Minimal-VM.x86_64-1.0.0-Cloud-Snapshot20261013.qcow2"
+fixture_image_sha256 = "b9dcb17c0c7e81e153a12d35ea4d86a516b4d2139c6a82ddd75aa6ce3cb9db3a"
+fixture_layout = "GPT/Btrfs derived root disk, @ root subvolume, @/home and @/var excluded, second disk for recovery state"
+host_gate_tests = "cargo test --locked --offline -p ryoku-service --lib recovery_gate: 5 passed"
+native_probe_compile = "cargo check --locked --offline -p ryoku-recovery --example native_linked_checkpoint_probe: passed"
+workspace_clippy = "cargo clippy --workspace --all-features --all-targets --locked --offline -- -D warnings: passed"
+workspace_format = "cargo fmt --all -- --check: passed"
+host_validator_tests = "cargo test --locked --offline -p ryoku-automation --bin vm-lab linked_checkpoint::tests: 4 passed"
+full_workspace_command = "cargo test --workspace --all-features --locked --offline"
+full_workspace_status = "passed with exit code 0 on the isolated branch outside the restricted socket sandbox"
+native_guest_status = "not run for this isolated branch"
+unsupported_cases = [
+  "boot compatibility after root switch",
+  "native root restore execution and reboot",
+  "actual filesystem exhaustion",
+  "concurrent external writers outside the Ryoku advisory lock",
+  "session startup integration, which depends on the later desktop session package",
+]
+completion_status = "incomplete: issue 22 acceptance requires passing disposable-VM failure and restore comparison evidence"

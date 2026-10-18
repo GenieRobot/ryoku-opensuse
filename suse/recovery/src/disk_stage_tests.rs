@@ -8,14 +8,17 @@ use crate::Identifier;
 use crate::{
     OperationReason, RecoveryManifest, SnapshotLink, VerificationStatus,
     capture::{CaptureLimits, capture_inventory},
+    configuration_stage::stage_configuration,
     disk_stage::{DiskStageError, DiskStageStore},
     generation::{GenerationStore, Payloads},
     inode_metadata::prepare_inode_metadata,
+    restore::{RestorePlan, RestoreScope},
 };
 use std::{
     fs::{self, File, OpenOptions},
     os::unix::fs::{MetadataExt, PermissionsExt, symlink},
     path::{Path, PathBuf},
+    process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -25,10 +28,36 @@ struct Fixture {
     source: StagedConfiguration,
 }
 impl Fixture {
+    fn reopen(path: PathBuf) -> Self {
+        let generation =
+            GenerationStore::open_for_test(&File::open(path.join("generation")).unwrap()).unwrap();
+        let verified = generation
+            .open_verified_transaction(&Identifier::new("transaction-disk-stage").unwrap())
+            .unwrap();
+        let plan = RestorePlan {
+            source_manifest_sha256: verified.manifest().manifest_sha256.clone().unwrap(),
+            transaction_id: verified.manifest().transaction_id.clone(),
+            generation_id: verified.manifest().generation_id.clone(),
+            snapper_config: verified.manifest().snapper_config.clone(),
+            snapshot_id: verified.manifest().snapper_snapshot_id.clone(),
+            filesystem_uuid: verified.manifest().filesystem_uuid.clone(),
+            scope: RestoreScope::ConfigurationOnly,
+            configuration_entries: verified.manifest().files().len() as u32,
+        };
+        let source = stage_configuration(&verified, &plan).unwrap();
+        Self { path, generation, source }
+    }
+
     fn new() -> Self {
         Self::with_extra(&[], |_| {})
     }
     fn with_extra(extra: &[&str], populate: impl FnOnce(&Path)) -> Self {
+        Self::build(extra, populate, false)
+    }
+    fn with_state_preferences() -> Self {
+        Self::build(&[], |_| {}, true)
+    }
+    fn build(extra: &[&str], populate: impl FnOnce(&Path), state_preferences: bool) -> Self {
         let path = std::env::temp_dir().join(format!(
             "ryoku-disk-stage-{}-{}",
             std::process::id(),
@@ -44,6 +73,74 @@ impl Fixture {
         fs::hard_link(path.join("source/a"), path.join("source/b")).unwrap();
         fs::create_dir(path.join("source/directory")).unwrap();
         symlink("a", path.join("source/link")).unwrap();
+        if state_preferences {
+            for directory in [".local", ".local/state", ".local/state/ryoku"] {
+                fs::create_dir_all(path.join("source").join(directory)).unwrap();
+                fs::set_permissions(
+                    path.join("source").join(directory),
+                    fs::Permissions::from_mode(0o700),
+                )
+                .unwrap();
+            }
+            fs::write(
+                path.join("source/.local/state/ryoku/flags.json"),
+                br#"{"dnd":true,"keepAwake":false,"keepAwakeSince":0,"gameMode":false,"gameDndPrev":false}"#,
+            )
+            .unwrap();
+            fs::set_permissions(
+                path.join("source/.local/state/ryoku/flags.json"),
+                fs::Permissions::from_mode(0o600),
+            )
+            .unwrap();
+            fs::write(
+                path.join("source/.local/state/ryoku/stage-walls.json"),
+                br#"{"current":"/home/alice/Pictures/wall.jpg","walls":{"/home/alice/Pictures/wall.jpg":{"effect":{"enabled":true,"depth":0.4},"layers":[]}}}"#,
+            )
+            .unwrap();
+            fs::set_permissions(
+                path.join("source/.local/state/ryoku/stage-walls.json"),
+                fs::Permissions::from_mode(0o600),
+            )
+            .unwrap();
+            fs::write(
+                path.join("source/shell.json"),
+                br#"{"theme":{"theme":"Tokyo Night"},"wallpaper":{"enabled":false}}"#,
+            )
+            .unwrap();
+            fs::set_permissions(path.join("source/shell.json"), fs::Permissions::from_mode(0o644))
+                .unwrap();
+            fs::write(
+                path.join("source/matugen.json"),
+                br#"{"mode":"dark","contrast":0.0,"appTheme":false}"#,
+            )
+            .unwrap();
+            fs::set_permissions(
+                path.join("source/matugen.json"),
+                fs::Permissions::from_mode(0o644),
+            )
+            .unwrap();
+            fs::create_dir(path.join("source/profile")).unwrap();
+            fs::set_permissions(path.join("source/profile"), fs::Permissions::from_mode(0o700))
+                .unwrap();
+            fs::write(
+                path.join("source/profile.json"),
+                br#"{"hero":{"kind":"custom","source":"hero.png"}}"#,
+            )
+            .unwrap();
+            fs::set_permissions(
+                path.join("source/profile.json"),
+                fs::Permissions::from_mode(0o644),
+            )
+            .unwrap();
+            fs::write(path.join("source/profile/hero.png"), b"saved custom hero bytes").unwrap();
+            fs::set_permissions(
+                path.join("source/profile/hero.png"),
+                fs::Permissions::from_mode(0o644),
+            )
+            .unwrap();
+            fs::write(path.join("source/profile/unselected.png"), b"source-only unselected asset")
+                .unwrap();
+        }
         fs::write(path.join("unrelated"), b"home sentinel").unwrap();
         populate(&path.join("source"));
         let paths: Vec<_> = ["a", "b", "directory", "link", "missing"]
@@ -81,6 +178,63 @@ impl Fixture {
                 );
             }
             manifest.add_file(record).unwrap();
+        }
+        if state_preferences {
+            let state_paths: Vec<_> = [
+                ".local",
+                ".local/state",
+                ".local/state/ryoku",
+                ".local/state/ryoku/flags.json",
+                ".local/state/ryoku/stage-walls.json",
+            ]
+            .into_iter()
+            .map(|name| crate::RelativePath::new(name).unwrap())
+            .collect();
+            let state_inventory = capture_inventory(
+                &File::open(path.join("source")).unwrap(),
+                StateRoot::UserRyokuState,
+                &state_paths,
+                CaptureLimits::default(),
+            )
+            .unwrap();
+            for (digest, bytes) in state_inventory.metadata_payloads {
+                payloads.insert(digest, bytes);
+            }
+            for record in state_inventory.records {
+                if let EntryKind::RegularFile { sha256, .. } = &record.kind {
+                    payloads.insert(
+                        sha256.clone(),
+                        fs::read(path.join("source").join(record.path.as_str())).unwrap(),
+                    );
+                }
+                manifest.add_file(record).unwrap();
+            }
+            let settings_paths = [
+                crate::RelativePath::new("shell.json").unwrap(),
+                crate::RelativePath::new("matugen.json").unwrap(),
+                crate::RelativePath::new("profile.json").unwrap(),
+                crate::RelativePath::new("profile").unwrap(),
+                crate::RelativePath::new("profile/hero.png").unwrap(),
+            ];
+            let settings_inventory = capture_inventory(
+                &File::open(path.join("source")).unwrap(),
+                StateRoot::UserRyokuConfig,
+                &settings_paths,
+                CaptureLimits::default(),
+            )
+            .unwrap();
+            for (digest, bytes) in settings_inventory.metadata_payloads {
+                payloads.insert(digest, bytes);
+            }
+            for record in settings_inventory.records {
+                if let EntryKind::RegularFile { sha256, .. } = &record.kind {
+                    payloads.insert(
+                        sha256.clone(),
+                        fs::read(path.join("source").join(record.path.as_str())).unwrap(),
+                    );
+                }
+                manifest.add_file(record).unwrap();
+            }
         }
         manifest.set_verification(
             VerificationStatus::Verified,
@@ -126,6 +280,129 @@ impl Drop for Fixture {
         writable(&self.path);
         fs::remove_dir_all(&self.path).unwrap();
     }
+}
+
+#[test]
+fn stage_capture_process_exit_never_adopts_incomplete_objects() {
+    const CHILD_TEST: &str =
+        "configuration_stage::disk_stage_tests::stage_capture_process_exit_child";
+
+    for boundary in 1..=4 {
+        let fixture = Fixture::new();
+        let status = Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", CHILD_TEST, "--ignored", "--nocapture"])
+            .env("RYOKU_STAGE_CHILD_ROOT", &fixture.path)
+            .env("RYOKU_STAGE_CHILD_BOUNDARY", boundary.to_string())
+            .status()
+            .unwrap();
+        assert_eq!(status.code(), Some(77), "child missed boundary {boundary}");
+
+        let store = fixture.store();
+        let reopened = store.open_verified(&fixture.source);
+        if boundary == 4 {
+            assert!(reopened.is_ok(), "completed stage was not verified");
+            assert!(store.discard_incomplete(&fixture.source).is_err());
+            assert!(store.open_verified(&fixture.source).is_ok());
+        } else {
+            assert!(reopened.is_err(), "incomplete stage was accepted at {boundary}");
+            assert!(matches!(
+                store.create(&fixture.source),
+                Err(DiskStageError::Filesystem(rustix::io::Errno::EXIST))
+            ));
+            store.discard_incomplete(&fixture.source).unwrap();
+            assert!(!fixture.stage().exists());
+            let created = store.create(&fixture.source).unwrap();
+            drop(created);
+            assert!(store.open_verified(&fixture.source).is_ok());
+        }
+    }
+}
+
+#[test]
+#[ignore = "spawned by stage_capture_process_exit_never_adopts_incomplete_objects"]
+fn stage_capture_process_exit_child() {
+    let (Ok(root), Ok(boundary)) =
+        (std::env::var("RYOKU_STAGE_CHILD_ROOT"), std::env::var("RYOKU_STAGE_CHILD_BOUNDARY"))
+    else {
+        return;
+    };
+    let boundary = boundary.parse::<usize>().unwrap();
+    let fixture = Fixture::reopen(PathBuf::from(root));
+    let store = fixture.store();
+    let _ = store.create_with_hook(&fixture.source, |step| {
+        if step == boundary {
+            // Leave only synchronized fixture state for the parent to inspect.
+            std::process::exit(77);
+        }
+    });
+    panic!("disk stage creation returned before the selected boundary");
+}
+
+fn leave_populated_stage_without_receipt(fixture: &Fixture) {
+    let store = fixture.store();
+    let interrupted = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _ = store.create_with_hook(&fixture.source, |boundary| {
+            if boundary == 2 {
+                panic!("simulated interruption before publishing the stage receipt");
+            }
+        });
+    }));
+    assert!(interrupted.is_err());
+}
+
+#[test]
+fn incomplete_stage_discard_refuses_unknown_objects_and_symlink_substitutions() {
+    let fixture = Fixture::new();
+    let stage = fixture.stage();
+    fs::create_dir(&stage).unwrap();
+    fs::set_permissions(&stage, fs::Permissions::from_mode(0o700)).unwrap();
+    fs::write(stage.join("unexpected"), b"retain unexpected data").unwrap();
+    let store = fixture.store();
+    assert!(matches!(
+        store.discard_incomplete(&fixture.source),
+        Err(DiskStageError::IncompleteOrChanged)
+    ));
+    assert_eq!(fs::read(stage.join("unexpected")).unwrap(), b"retain unexpected data");
+    fs::remove_file(stage.join("unexpected")).unwrap();
+    fs::remove_dir(&stage).unwrap();
+
+    fs::create_dir(&stage).unwrap();
+    fs::set_permissions(&stage, fs::Permissions::from_mode(0o700)).unwrap();
+    let outside = fixture.path.join("unrelated");
+    symlink(&outside, stage.join("object-000")).unwrap();
+    assert!(matches!(
+        store.discard_incomplete(&fixture.source),
+        Err(DiskStageError::IncompleteOrChanged)
+    ));
+    assert_eq!(fs::read(&outside).unwrap(), b"home sentinel");
+    assert!(stage.join("object-000").is_symlink());
+}
+
+#[test]
+fn incomplete_stage_discard_refuses_external_hardlinks_modes_and_populated_directories() {
+    let fixture = Fixture::new();
+    leave_populated_stage_without_receipt(&fixture);
+    let outside_link = fixture.path.join("unrelated-link");
+    fs::hard_link(fixture.stage().join("object-000"), &outside_link).unwrap();
+    assert!(fixture.store().discard_incomplete(&fixture.source).is_err());
+    assert!(fixture.stage().join("object-000").exists());
+    assert!(outside_link.exists());
+    drop(fixture);
+
+    let fixture = Fixture::new();
+    leave_populated_stage_without_receipt(&fixture);
+    fs::set_permissions(fixture.stage().join("object-000"), fs::Permissions::from_mode(0o600))
+        .unwrap();
+    assert!(fixture.store().discard_incomplete(&fixture.source).is_err());
+    assert!(fixture.stage().join("object-000").exists());
+    drop(fixture);
+
+    let fixture = Fixture::new();
+    leave_populated_stage_without_receipt(&fixture);
+    let directory = fixture.stage().join("object-002");
+    fs::write(directory.join("unexpected-child"), b"retain child").unwrap();
+    assert!(fixture.store().discard_incomplete(&fixture.source).is_err());
+    assert_eq!(fs::read(directory.join("unexpected-child")).unwrap(), b"retain child");
 }
 
 #[test]

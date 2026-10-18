@@ -1,0 +1,14 @@
+[Unit]
+Description=Ryoku recovery session gate socket
+
+[Socket]
+ListenStream=/run/ryoku/recovery-gate.sock
+SocketUser=root
+SocketGroup=root
+SocketMode=0666
+DirectoryMode=0755
+Accept=no
+Service=ryoku-recovery-gate.service
+
+[Install]
+WantedBy=sockets.target

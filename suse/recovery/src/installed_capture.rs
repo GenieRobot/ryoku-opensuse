@@ -1,10 +1,11 @@
 //! Code-owned enrollment and captured-profile provenance for complete capture.
 //!
 //! `InstalledInventory` cannot be deserialized or constructed from a client's
-//! paths. The installed catalogue enumerates bounded preferences from the
-//! pinned upstream runtime and the port-owned typed personal profile. Referenced
-//! wallpaper/media paths, credentials, caches and unrelated home data are never
-//! followed. Immutable local bundles retain all profile layer inputs offline.
+//! paths. The full installed catalogue remains unavailable. A separate explicit
+//! personal-profile scope covers its Rust writer only. Adding an enrollment
+//! requires a reviewed writer, exact paths/metadata policy, and local profile
+//! persistence contract. Tests use private synthetic catalogues, not runtime
+//! exceptions. The low-level declared capture API remains a trusted primitive.
 //!
 //! The service must resolve these descriptors (the user descriptor comes from
 //! its authenticated account resolver), validate the protected store, and hold
@@ -13,12 +14,18 @@
 //! quiesces upstream writers. No paths or profile values come from a manifest.
 
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, BTreeSet},
     fs::File,
+    io::Read,
 };
 
-use rustix::fs::{FileType, fstat};
+use rustix::{
+    fs::{FileType, Mode, OFlags, ResolveFlags, fstat, openat2},
+    io::Errno,
+};
 use ryoku_profiles::{ProfileDocument, ProfileLayers, ResolvedSettings};
+use serde::Deserialize;
 use sha2::{Digest, Sha256 as Sha256Digest};
 
 use crate::{
@@ -32,6 +39,23 @@ use crate::{
     },
 };
 
+const MAX_UPSTREAM_PROFILE_BYTES: usize = 1024 * 1024;
+const MAX_UPSTREAM_HERO_BYTES: u64 = 16 * 1024 * 1024;
+
+#[derive(Deserialize)]
+struct UpstreamProfileSelection {
+    #[serde(default)]
+    hero: Option<UpstreamHeroSelection>,
+}
+
+#[derive(Deserialize)]
+struct UpstreamHeroSelection {
+    #[serde(default)]
+    kind: String,
+    #[serde(default)]
+    source: String,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum InventoryError {
     NoAuditedWriters,
@@ -44,7 +68,6 @@ pub enum InventoryError {
     MissingProfileDefaults,
     InvalidProfile,
     ProfileIdentityMismatch,
-    UnsupportedManagedState,
 }
 impl std::fmt::Display for InventoryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -59,26 +82,24 @@ impl From<InventoryError> for GenerationCaptureError {
     }
 }
 
+#[allow(dead_code)] // Constructors become live only with audited installed writers.
 #[derive(Clone, Copy)]
 enum Owner {
     Account,
-    #[cfg(test)]
     System,
 }
+#[allow(dead_code)] // No candidate is silently promoted to an installed entry.
 #[derive(Clone, Copy)]
 enum Kind {
     Regular,
-    Preference,
-    #[cfg(test)]
     Directory,
-    #[cfg(test)]
     Symlink,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct Enrollment {
     root: StateRoot,
-    path: &'static str,
+    path: Cow<'static, str>,
     writer: &'static str,
     owner: Owner,
     kind: Kind,
@@ -109,43 +130,447 @@ pub struct InstalledInventory {
     profiles: Option<ProfileSources>,
 }
 impl InstalledInventory {
-    /// Validate bounded asset/override namespaces before selecting the fixed
-    /// inventory. An unsupported managed file blocks capture instead of being
-    /// silently omitted from a supposedly complete generation.
-    pub fn for_home(home: &File) -> Result<Self, GenerationCaptureError> {
-        let inventory = Self::current()?;
-        for path in [".config/ryoku", ".config/ryogami-wall"] {
-            let mut visited = 0;
-            validate_managed_tree(home, path, 0, &mut visited)?;
-        }
-        validate_wallpaper_state_location(home)?;
-        Ok(inventory)
-    }
-    /// Complete fixed first-sprint preference scope for the pinned runtime on
-    /// the standard XDG layout. Unknown data remains outside this scope.
+    /// Full installed Ryoku scope is unavailable. The separate personal-profile
+    /// scope does not establish coverage for all configuration writers.
     pub fn current() -> Result<Self, InventoryError> {
-        let entries: Vec<_> = crate::installed_inventory::PREFERENCES
-            .iter()
-            .map(|path| Enrollment {
-                root: StateRoot::UserHome,
-                path,
-                writer: "pinned-session-preferences",
+        Self::compile(&[], &[], None)
+    }
+
+    /// Exact scope of the native personal-profile writer only. This is not
+    /// the full installed Ryoku inventory and cannot cover any other writer.
+    /// Authorization, its common writer guard and native bundle checks remain
+    /// the service coordinator's responsibility; no transport accepts this plan.
+    pub fn personal_profile_writer() -> Result<Self, InventoryError> {
+        Self::compile(
+            &[ryoku_profiles::PERSONAL_PROFILE_WRITER_ID],
+            &[Enrollment {
+                root: StateRoot::UserRyokuConfig,
+                path: ryoku_profiles::LOCAL_PROFILE_FILE.into(),
+                writer: ryoku_profiles::PERSONAL_PROFILE_WRITER_ID,
                 owner: Owner::Account,
-                kind: if *path == crate::installed_inventory::PERSONAL_PROFILE {
-                    Kind::Regular
-                } else {
-                    Kind::Preference
-                },
-                modes: &[0o600, 0o640, 0o644, 0o777],
-                max_bytes: if *path == crate::installed_inventory::PERSONAL_PROFILE {
-                    ryoku_profiles::MAX_PROFILE_DOCUMENT_BYTES as u64
-                } else {
-                    4 * 1024 * 1024
-                },
+                kind: Kind::Regular,
+                modes: ryoku_profiles::PERSONAL_PROFILE_MODES,
+                max_bytes: ryoku_profiles::MAX_PROFILE_DOCUMENT_BYTES as u64,
                 absence_allowed: true,
-            })
-            .collect();
-        Self::compile(&["pinned-session-preferences"], &entries, None)
+            }],
+            None,
+        )
+    }
+
+    /// Exact first-sprint persistent Ryoku preferences: the Rust-owned profile
+    /// selection, pinned shell settings and declared user preference files.
+    /// Operational history, plugin-defined settings and every other XDG state
+    /// path remain outside this inventory.
+    pub fn session_preferences() -> Result<Self, InventoryError> {
+        Self::compile(
+            &[
+                ryoku_profiles::PERSONAL_PROFILE_WRITER_ID,
+                "upstream-shell-settings-v1",
+                "upstream-matugen-settings-v1",
+                "upstream-profile-selection-v1",
+                "upstream-session-flags-v1",
+                "upstream-desktop-preferences-v1",
+                "upstream-capture-settings-v1",
+                "upstream-camera-settings-v1",
+                "upstream-audio-preferences-v1",
+                "upstream-power-preferences-v1",
+                "upstream-keypress-preferences-v1",
+                "upstream-recording-settings-v1",
+                "upstream-ryoshot-settings-v1",
+                "upstream-device-control-preferences-v1",
+                "upstream-stage-preferences-v1",
+            ],
+            &[
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: ryoku_profiles::LOCAL_PROFILE_FILE.into(),
+                    writer: ryoku_profiles::PERSONAL_PROFILE_WRITER_ID,
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: ryoku_profiles::PERSONAL_PROFILE_MODES,
+                    max_bytes: ryoku_profiles::MAX_PROFILE_DOCUMENT_BYTES as u64,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "shell.json".into(),
+                    writer: "upstream-shell-settings-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    // The pinned writer has no file-size limit. Keep recovery
+                    // bounded and fail capture when a user's settings exceed
+                    // the supported inventory limit.
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "matugen.json".into(),
+                    writer: "upstream-matugen-settings-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "profile.json".into(),
+                    writer: "upstream-profile-selection-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    // Preserve the raw document; checkpoint capture parses only
+                    // the hero selection to enroll one exact custom asset.
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "theme.json".into(),
+                    writer: "upstream-desktop-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "brand.json".into(),
+                    writer: "upstream-desktop-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "launcher.json".into(),
+                    writer: "upstream-desktop-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "widgets.json".into(),
+                    writer: "upstream-desktop-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "performance.json".into(),
+                    writer: "upstream-desktop-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "recording.json".into(),
+                    writer: "upstream-desktop-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "visualizer.json".into(),
+                    writer: "upstream-desktop-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "stage.json".into(),
+                    writer: "upstream-desktop-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "camera.json".into(),
+                    writer: "upstream-camera-settings-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "ryoshot-beautify.json".into(),
+                    writer: "upstream-desktop-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "ryoshot.json".into(),
+                    writer: "upstream-ryoshot-settings-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "equalizer.json".into(),
+                    writer: "upstream-audio-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "power.json".into(),
+                    writer: "upstream-power-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "power-profile.json".into(),
+                    writer: "upstream-power-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuConfig,
+                    path: "keypresses.json".into(),
+                    writer: "upstream-keypress-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 64 * 1024,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuState,
+                    path: ".local".into(),
+                    writer: "upstream-session-flags-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Directory,
+                    modes: &[0o700, 0o750, 0o755],
+                    max_bytes: 4096,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuState,
+                    path: ".local/state".into(),
+                    writer: "upstream-session-flags-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Directory,
+                    modes: &[0o700, 0o750, 0o755],
+                    max_bytes: 4096,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuState,
+                    path: ".local/state/ryoku".into(),
+                    writer: "upstream-session-flags-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Directory,
+                    modes: &[0o700, 0o750, 0o755],
+                    max_bytes: 4096,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuState,
+                    path: ".local/state/ryoku/flags.json".into(),
+                    writer: "upstream-session-flags-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 4096,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuState,
+                    path: ".local/state/ryoku/capture.json".into(),
+                    writer: "upstream-capture-settings-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 4096,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuState,
+                    path: ".local/state/ryoku/record.json".into(),
+                    writer: "upstream-recording-settings-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 4096,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuState,
+                    path: ".local/state/ryoku/nvibrant-value".into(),
+                    writer: "upstream-device-control-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 16,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuState,
+                    path: ".local/state/ryoku/backlight".into(),
+                    writer: "upstream-device-control-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 32,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuState,
+                    path: ".local/state/ryoku/touchpad.disabled".into(),
+                    writer: "upstream-device-control-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuState,
+                    path: ".local/state/ryoku-nightlight".into(),
+                    writer: "upstream-device-control-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 16,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuState,
+                    path: ".local/state/ryoku-nightlight-enabled".into(),
+                    writer: "upstream-device-control-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuState,
+                    path: ".local/state/ryoku-nightlight-schedule.json".into(),
+                    writer: "upstream-device-control-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 4096,
+                    absence_allowed: true,
+                },
+                Enrollment {
+                    root: StateRoot::UserRyokuState,
+                    path: ".local/state/ryoku/stage-walls.json".into(),
+                    writer: "upstream-stage-preferences-v1",
+                    owner: Owner::Account,
+                    kind: Kind::Regular,
+                    modes: &[0o600, 0o640, 0o644],
+                    max_bytes: 1024 * 1024,
+                    absence_allowed: true,
+                },
+            ],
+            None,
+        )
+    }
+
+    /// Borrow the fixed path set for one enrolled root. Callers may use these
+    /// paths to create a descriptor-backed request, but cannot add entries to
+    /// or mutate the compiled inventory.
+    pub fn paths_for_root(&self, root: StateRoot) -> Option<&[RelativePath]> {
+        self.paths.get(&root).map(Vec::as_slice)
+    }
+
+    /// Check whether a captured record's path and inode kind belong to this
+    /// compiled inventory. Restore acceptance uses the same declaration as
+    /// capture so newly enrolled preferences cannot be checkpointed but then
+    /// silently refused by the restore preflight.
+    pub fn accepts_record_kind(&self, record: &FileRecord) -> bool {
+        let Some(enrollment) = self
+            .entries
+            .iter()
+            .find(|entry| entry.root == record.root && entry.path.as_ref() == record.path.as_str())
+        else {
+            return false;
+        };
+        match &record.kind {
+            EntryKind::Absent => enrollment.absence_allowed,
+            EntryKind::RegularFile { .. } => matches!(enrollment.kind, Kind::Regular),
+            EntryKind::Directory { .. } => matches!(enrollment.kind, Kind::Directory),
+            EntryKind::Symlink { .. } => matches!(enrollment.kind, Kind::Symlink),
+        }
+    }
+
+    fn include_selected_custom_hero(&mut self, source: &str) -> Result<String, InventoryError> {
+        if !is_safe_custom_hero_source(source) {
+            return Err(InventoryError::InvalidProfile);
+        }
+        let relative = format!("profile/{source}");
+        let validated = RelativePath::new(&relative).map_err(|_| InventoryError::InvalidProfile)?;
+        let directory_path = RelativePath::new("profile").expect("fixed profile directory");
+        let writer = "upstream-profile-selection-v1";
+        self.entries.push(Enrollment {
+            root: StateRoot::UserRyokuConfig,
+            path: Cow::Borrowed("profile"),
+            writer,
+            owner: Owner::Account,
+            kind: Kind::Directory,
+            modes: &[0o700, 0o750, 0o755],
+            max_bytes: 4096,
+            absence_allowed: false,
+        });
+        self.entries.push(Enrollment {
+            root: StateRoot::UserRyokuConfig,
+            path: Cow::Owned(relative.clone()),
+            writer,
+            owner: Owner::Account,
+            kind: Kind::Regular,
+            modes: &[0o600, 0o640, 0o644],
+            max_bytes: MAX_UPSTREAM_HERO_BYTES,
+            absence_allowed: false,
+        });
+        let paths = self.paths.entry(StateRoot::UserRyokuConfig).or_default();
+        paths.push(directory_path);
+        paths.push(validated);
+        paths.sort();
+        Ok(relative)
     }
 
     fn compile(
@@ -166,41 +591,35 @@ impl InstalledInventory {
         for entry in entries {
             let valid_owner = matches!(
                 (entry.root, entry.owner),
-                (StateRoot::UserRyokuConfig | StateRoot::UserHome, Owner::Account)
+                (StateRoot::UserRyokuConfig | StateRoot::UserRyokuState, Owner::Account)
+                    | (StateRoot::EtcRyoku, Owner::System)
             );
-            #[cfg(test)]
-            let valid_owner = valid_owner
-                || matches!((entry.root, entry.owner), (StateRoot::EtcRyoku, Owner::System));
             if !valid_owner
                 || entry.writer.is_empty()
                 || entry.modes.is_empty()
-                || entry
-                    .modes
-                    .iter()
-                    .any(|mode| mode & !0o777 != 0 || (mode != &0o777 && mode & 0o022 != 0))
+                || entry.modes.iter().any(|mode| {
+                    mode & !0o777 != 0
+                        || (!matches!(entry.kind, Kind::Symlink) && mode & 0o022 != 0)
+                })
                 || entry.max_bytes == 0
-                || !keys.insert((entry.root, entry.path))
+                || !keys.insert((entry.root, entry.path.as_ref()))
             {
                 return Err(InventoryError::InvalidEnrollment);
             }
-            let path =
-                RelativePath::new(entry.path).map_err(|_| InventoryError::InvalidEnrollment)?;
+            let path = RelativePath::new(entry.path.as_ref())
+                .map_err(|_| InventoryError::InvalidEnrollment)?;
             paths.entry(entry.root).or_default().push(path);
         }
         // No captured defaults means the protected bundle supplies immutable
         // package/system/companion inputs; only personal selection is a file
         // restore target. Its path is fixed, never supplied by a bundle.
         let profile_keys = profiles.map(|sources| sources.keys().to_vec()).unwrap_or_else(|| {
-            vec![if entries.iter().any(|entry| entry.root == StateRoot::UserHome) {
-                (StateRoot::UserHome, crate::installed_inventory::PERSONAL_PROFILE)
-            } else {
-                (StateRoot::UserRyokuConfig, ryoku_profiles::LOCAL_PROFILE_FILE)
-            }]
+            vec![(StateRoot::UserRyokuConfig, ryoku_profiles::LOCAL_PROFILE_FILE)]
         });
         if profile_keys.iter().collect::<BTreeSet<_>>().len() != profile_keys.len()
             || profile_keys.iter().any(|key| {
                 !entries.iter().any(|entry| {
-                    (entry.root, entry.path) == *key && matches!(entry.kind, Kind::Regular)
+                    (entry.root, entry.path.as_ref()) == *key && matches!(entry.kind, Kind::Regular)
                 })
             })
         {
@@ -220,7 +639,7 @@ impl InstalledInventory {
         let actual: BTreeSet<_> =
             records.iter().map(|record| (record.root, record.path.as_str())).collect();
         let expected: BTreeSet<_> =
-            self.entries.iter().map(|entry| (entry.root, entry.path)).collect();
+            self.entries.iter().map(|entry| (entry.root, entry.path.as_ref())).collect();
         if records.len() != self.entries.len() || actual != expected {
             return Err(InventoryError::IncompleteInventory);
         }
@@ -231,20 +650,14 @@ impl InstalledInventory {
                 .ok_or(InventoryError::IncompleteInventory)?;
             let metadata = match (&record.kind, entry.kind) {
                 (EntryKind::Absent, _) if entry.absence_allowed => continue,
-                (
-                    EntryKind::RegularFile { metadata, size, hard_link_group, .. },
-                    Kind::Regular | Kind::Preference,
-                ) if *size <= entry.max_bytes && hard_link_group.is_none() => metadata,
-                #[cfg(test)]
-                (EntryKind::Directory { metadata }, Kind::Directory) => metadata,
-                #[cfg(test)]
-                (EntryKind::Symlink { metadata, target }, Kind::Symlink)
-                    if target.len() as u64 <= entry.max_bytes =>
+                (EntryKind::RegularFile { metadata, size, hard_link_group, .. }, Kind::Regular)
+                    if *size <= entry.max_bytes && hard_link_group.is_none() =>
                 {
                     metadata
                 }
-                (EntryKind::Symlink { metadata, target }, Kind::Preference)
-                    if target.len() <= 4096 =>
+                (EntryKind::Directory { metadata }, Kind::Directory) => metadata,
+                (EntryKind::Symlink { metadata, target }, Kind::Symlink)
+                    if target.len() as u64 <= entry.max_bytes =>
                 {
                     metadata
                 }
@@ -252,14 +665,9 @@ impl InstalledInventory {
             };
             let (uid, gid) = match entry.owner {
                 Owner::Account => (account.uid, account.gid),
-                #[cfg(test)]
                 Owner::System => (0, 0),
             };
-            if metadata.uid != uid
-                || metadata.gid != gid
-                || !entry.modes.contains(&metadata.mode)
-                || (!matches!(record.kind, EntryKind::Symlink { .. }) && metadata.mode & 0o022 != 0)
-            {
+            if metadata.uid != uid || metadata.gid != gid || !entry.modes.contains(&metadata.mode) {
                 return Err(InventoryError::EntryPolicy);
             }
         }
@@ -340,6 +748,189 @@ impl InstalledInventory {
     }
 }
 
+/// Exact identity and native root link for a manually requested snapshot of
+/// the supported persistent Ryoku session preferences.
+pub struct SessionPreferenceCheckpointRequest {
+    pub transaction_id: Identifier,
+    pub generation_id: Identifier,
+    pub snapshot: crate::generation_capture::VerifiedSnapshotLink,
+    pub created_utc: String,
+    pub package_revisions: Vec<crate::PackageRevision>,
+    pub reason: crate::OperationReason,
+}
+
+fn upstream_custom_hero_source(bytes: &[u8]) -> Option<String> {
+    let profile: UpstreamProfileSelection = serde_json::from_slice(bytes).ok()?;
+    let hero = profile.hero?;
+    if hero.kind == "custom" { Some(hero.source) } else { None }
+}
+
+fn is_safe_custom_hero_source(source: &str) -> bool {
+    let Some(extension) = source.strip_prefix("hero.") else { return false };
+    !extension.is_empty()
+        && extension.len() <= 250
+        && extension.bytes().all(|byte| {
+            byte.is_ascii_lowercase()
+                || byte.is_ascii_digit()
+                || matches!(byte, b'.' | b'_' | b'+' | b'-')
+        })
+}
+
+fn read_upstream_profile_selection(
+    root: &File,
+    account: &CaptureAccount,
+) -> Result<Option<String>, GenerationCaptureError> {
+    let descriptor = match openat2(
+        root,
+        "profile.json",
+        OFlags::RDONLY | OFlags::CLOEXEC,
+        Mode::empty(),
+        ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_MAGICLINKS,
+    ) {
+        Ok(descriptor) => File::from(descriptor),
+        Err(Errno::NOENT) => return Ok(None),
+        Err(error) => return Err(error.into()),
+    };
+    let metadata = fstat(&descriptor)?;
+    if FileType::from_raw_mode(metadata.st_mode) != FileType::RegularFile
+        || metadata.st_nlink != 1
+        || metadata.st_uid != account.uid
+        || metadata.st_gid != account.gid
+        || ![0o600, 0o640, 0o644].contains(&(metadata.st_mode & 0o7777))
+        || metadata.st_size < 0
+        || metadata.st_size as usize > MAX_UPSTREAM_PROFILE_BYTES
+    {
+        return Err(InventoryError::EntryPolicy.into());
+    }
+    let mut bytes = Vec::with_capacity(metadata.st_size as usize);
+    descriptor.take((MAX_UPSTREAM_PROFILE_BYTES + 1) as u64).read_to_end(&mut bytes)?;
+    if bytes.len() > MAX_UPSTREAM_PROFILE_BYTES {
+        return Err(InventoryError::InvalidProfile.into());
+    }
+    Ok(upstream_custom_hero_source(&bytes))
+}
+
+/// Capture only the compiled first-sprint persistent session inventory. This
+/// records raw current bytes (including a malformed personal profile so that
+/// it can be recovered later), validates owner/type/mode against the fixed
+/// catalogue, and seals the selected local account binding. Native snapshot
+/// verification and writer exclusion remain caller responsibilities.
+pub fn capture_session_preference_checkpoint(
+    store: &GenerationStore,
+    roots: InstalledRoots<'_>,
+    request: SessionPreferenceCheckpointRequest,
+    bundle: &crate::installed_profiles::VerifiedProfileBundle,
+) -> Result<RecoveryManifest, GenerationCaptureError> {
+    let mut inventory = InstalledInventory::session_preferences()?;
+    let selected_hero = read_upstream_profile_selection(roots.user_configuration, &roots.account)?;
+    let selected_hero_path = selected_hero
+        .as_deref()
+        .map(|source| inventory.include_selected_custom_hero(source))
+        .transpose()?;
+    bundle.revalidate().map_err(GenerationCaptureError::ProfileStore)?;
+    if !bundle.bundle().matches_packages(&request.package_revisions) {
+        return Err(GenerationCaptureError::ProfileStore(
+            crate::installed_profiles::ProfileStoreError::PackageMismatch,
+        ));
+    }
+    let mut declared = Vec::new();
+    for root in [StateRoot::UserRyokuConfig, StateRoot::UserRyokuState] {
+        let paths = inventory.paths_for_root(root).ok_or(InventoryError::IncompleteInventory)?;
+        let descriptor = match root {
+            StateRoot::UserRyokuConfig => roots.user_configuration,
+            StateRoot::UserRyokuState => roots.user_home,
+            _ => return Err(InventoryError::InvalidEnrollment.into()),
+        };
+        declared.push(DeclaredRoot { root, descriptor, paths });
+    }
+    let capture_request = GenerationCaptureRequest {
+        transaction_id: request.transaction_id,
+        generation_id: request.generation_id,
+        parent_generation_id: None,
+        snapshot: request.snapshot,
+        reason: request.reason,
+        created_utc: request.created_utc,
+        package_revisions: request.package_revisions,
+        provider_revision: None,
+        profile_revision: None,
+        roots: &declared,
+        limits: crate::capture::CaptureLimits::default(),
+    };
+    capture_publish_verify_checked(
+        store,
+        capture_request,
+        capture_inventory,
+        |store, bytes, files| store.ensure_available_space(bytes, files),
+        |records, payloads, _| {
+            inventory.validate_records(records, &roots.account)?;
+            let upstream_profile = records
+                .iter()
+                .find(|record| {
+                    record.root == StateRoot::UserRyokuConfig
+                        && record.path.as_str() == "profile.json"
+                })
+                .ok_or(InventoryError::IncompleteInventory)?;
+            let captured_hero = match &upstream_profile.kind {
+                EntryKind::Absent => None,
+                EntryKind::RegularFile { sha256, size, .. } => {
+                    let bytes = payloads.get(sha256).ok_or(InventoryError::InvalidProfile)?;
+                    if bytes.len() as u64 != *size || digest(bytes) != sha256.as_str() {
+                        return Err(InventoryError::InvalidProfile.into());
+                    }
+                    upstream_custom_hero_source(bytes)
+                }
+                _ => return Err(InventoryError::InvalidProfile.into()),
+            };
+            if let Some(source) = captured_hero.as_deref() {
+                if !is_safe_custom_hero_source(source)
+                    || selected_hero_path.as_deref() != Some(format!("profile/{source}").as_str())
+                {
+                    return Err(InventoryError::InvalidProfile.into());
+                }
+            } else if selected_hero_path.is_some() {
+                return Err(InventoryError::InvalidProfile.into());
+            }
+            let personal = records
+                .iter()
+                .find(|record| {
+                    record.root == StateRoot::UserRyokuConfig
+                        && record.path.as_str() == ryoku_profiles::LOCAL_PROFILE_FILE
+                })
+                .ok_or(InventoryError::IncompleteInventory)?;
+            let profile_revision = match &personal.kind {
+                EntryKind::Absent => Some(
+                    bundle
+                        .bundle()
+                        .resolve(None)
+                        .map_err(GenerationCaptureError::ProfileStore)?
+                        .provenance,
+                ),
+                EntryKind::RegularFile { sha256, size, .. } => {
+                    let bytes = payloads.get(sha256).ok_or(InventoryError::InvalidProfile)?;
+                    if bytes.len() as u64 != *size || digest(bytes) != sha256.as_str() {
+                        return Err(InventoryError::InvalidProfile.into());
+                    }
+                    match bundle.bundle().resolve(Some(bytes)) {
+                        Ok(profile) => Some(profile.provenance),
+                        // Preserve malformed user bytes in the generation so
+                        // they can be restored, but do not claim an effective
+                        // profile revision that cannot be resolved offline.
+                        Err(crate::installed_profiles::ProfileStoreError::InvalidDocument) => None,
+                        Err(error) => {
+                            return Err(GenerationCaptureError::ProfileStore(error));
+                        }
+                    }
+                }
+                _ => return Err(InventoryError::InvalidProfile.into()),
+            };
+            Ok(crate::generation_capture::CaptureProvenance {
+                profile_revision,
+                account_principal: Some(roots.account.principal.clone()),
+            })
+        },
+    )
+}
+
 /// Identity resolved by the service from the authenticated peer, never from
 /// a client-provided owner or environment variable. This is data, not a token
 /// conferring authorization; the service retains the account binding.
@@ -353,8 +944,9 @@ pub struct CaptureAccount {
 /// The service obtains these pinned descriptors from fixed native resolvers.
 /// There is no arbitrary root map, directory string, or path-list input.
 pub struct InstalledRoots<'a> {
+    /// Pinned NSS home descriptor used only for exact state-root paths.
+    pub user_home: &'a File,
     pub user_configuration: &'a File,
-    pub account_home: Option<&'a File>,
     pub system_configuration: Option<&'a File>,
     pub account: CaptureAccount,
 }
@@ -448,7 +1040,7 @@ fn capture_installed_configuration_using_profile(
         -> Result<crate::capture::CapturedInventory, crate::capture::CaptureError>,
     bundle: Option<&crate::installed_profiles::VerifiedProfileBundle>,
 ) -> Result<RecoveryManifest, GenerationCaptureError> {
-    capture_installed_configuration_checked(
+    capture_installed_configuration_guarded(
         store,
         inventory,
         roots,
@@ -459,7 +1051,29 @@ fn capture_installed_configuration_using_profile(
     )
 }
 
-pub(crate) fn capture_installed_configuration_checked(
+/// Recheck authenticated roots, writer exclusion and installed inputs both at
+/// entry and immediately before sealing/publication. The callback is a trusted
+/// service boundary; it cannot establish full inventory coverage by assertion.
+pub fn capture_with_installed_profile_bundle_guarded(
+    store: &GenerationStore,
+    inventory: &InstalledInventory,
+    roots: InstalledRoots<'_>,
+    request: InstalledCaptureRequest,
+    bundle: &crate::installed_profiles::VerifiedProfileBundle,
+    revalidate: impl Fn() -> Result<(), GenerationCaptureError>,
+) -> Result<RecoveryManifest, GenerationCaptureError> {
+    capture_installed_configuration_guarded(
+        store,
+        inventory,
+        roots,
+        request,
+        capture_inventory,
+        Some(bundle),
+        revalidate,
+    )
+}
+
+fn capture_installed_configuration_guarded(
     store: &GenerationStore,
     inventory: &InstalledInventory,
     roots: InstalledRoots<'_>,
@@ -472,9 +1086,9 @@ pub(crate) fn capture_installed_configuration_checked(
     )
         -> Result<crate::capture::CapturedInventory, crate::capture::CaptureError>,
     bundle: Option<&crate::installed_profiles::VerifiedProfileBundle>,
-    boundary: impl Fn() -> Result<(), GenerationCaptureError>,
+    revalidate: impl Fn() -> Result<(), GenerationCaptureError>,
 ) -> Result<RecoveryManifest, GenerationCaptureError> {
-    boundary()?;
+    revalidate()?;
     if let Some(bundle) = bundle {
         if inventory.profiles.is_some() {
             return Err(InventoryError::InvalidEnrollment.into());
@@ -489,14 +1103,10 @@ pub(crate) fn capture_installed_configuration_checked(
     let mut declared = Vec::new();
     for (root, paths) in &inventory.paths {
         let (descriptor, uid, gid) = match root {
+            StateRoot::UserRyokuState => (roots.user_home, roots.account.uid, roots.account.gid),
             StateRoot::UserRyokuConfig => {
                 (roots.user_configuration, roots.account.uid, roots.account.gid)
             }
-            StateRoot::UserHome => (
-                roots.account_home.ok_or(InventoryError::MissingRoot)?,
-                roots.account.uid,
-                roots.account.gid,
-            ),
             StateRoot::EtcRyoku => {
                 (roots.system_configuration.ok_or(InventoryError::MissingRoot)?, 0, 0)
             }
@@ -531,18 +1141,15 @@ pub(crate) fn capture_installed_configuration_checked(
         capture_files,
         |store, bytes, files| store.ensure_available_space(bytes, files),
         |records, payloads, _| {
-            boundary()?;
+            revalidate()?;
             inventory.validate_records(records, &roots.account)?;
             let provenance = if let Some(bundle) = bundle {
                 bundle.revalidate().map_err(GenerationCaptureError::ProfileStore)?;
                 let record = records
                     .iter()
                     .find(|record| {
-                        (record.root == StateRoot::UserRyokuConfig
-                            && record.path.as_str() == ryoku_profiles::LOCAL_PROFILE_FILE)
-                            || (record.root == StateRoot::UserHome
-                                && record.path.as_str()
-                                    == crate::installed_inventory::PERSONAL_PROFILE)
+                        record.root == StateRoot::UserRyokuConfig
+                            && record.path.as_str() == ryoku_profiles::LOCAL_PROFILE_FILE
                     })
                     .ok_or(InventoryError::IncompleteInventory)?;
                 let personal = match &record.kind {
@@ -552,16 +1159,25 @@ pub(crate) fn capture_installed_configuration_checked(
                     }
                     _ => return Err(InventoryError::InvalidProfile.into()),
                 };
-                bundle
-                    .bundle()
-                    .resolve(personal)
-                    .map_err(GenerationCaptureError::ProfileStore)?
-                    .provenance
+                Some(
+                    bundle
+                        .bundle()
+                        .resolve(personal)
+                        .map_err(GenerationCaptureError::ProfileStore)?
+                        .provenance,
+                )
+            } else if inventory.profiles.is_some() {
+                Some(inventory.profile(records, payloads)?.provenance)
+            } else if inventory.entries.iter().any(|entry| {
+                entry.root == StateRoot::UserRyokuConfig
+                    && entry.path.as_ref() == ryoku_profiles::LOCAL_PROFILE_FILE
+            }) {
+                return Err(InventoryError::MissingProfileDefaults.into());
             } else {
-                inventory.profile(records, payloads)?.provenance
+                None
             };
             Ok(crate::generation_capture::CaptureProvenance {
-                profile_revision: Some(provenance),
+                profile_revision: provenance,
                 account_principal: Some(roots.account.principal.clone()),
             })
         },
@@ -570,100 +1186,6 @@ pub(crate) fn capture_installed_configuration_checked(
 
 fn digest(bytes: &[u8]) -> String {
     Sha256Digest::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
-fn validate_managed_tree(
-    home: &File,
-    path: &str,
-    depth: usize,
-    visited: &mut usize,
-) -> Result<(), GenerationCaptureError> {
-    use rustix::fs::{Dir, Mode, OFlags, ResolveFlags, openat2};
-    if depth > 16 || *visited > 4096 {
-        return Err(InventoryError::UnsupportedManagedState.into());
-    }
-    let fd = match openat2(
-        home,
-        path,
-        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC | OFlags::NOFOLLOW,
-        Mode::empty(),
-        ResolveFlags::BENEATH
-            | ResolveFlags::NO_SYMLINKS
-            | ResolveFlags::NO_MAGICLINKS
-            | ResolveFlags::NO_XDEV,
-    ) {
-        Ok(fd) => fd,
-        Err(rustix::io::Errno::NOENT) => return Ok(()),
-        Err(error) => return Err(error.into()),
-    };
-    for entry in Dir::read_from(&fd)? {
-        let entry = entry?;
-        let name =
-            entry.file_name().to_str().map_err(|_| InventoryError::UnsupportedManagedState)?;
-        if matches!(name, "." | "..") {
-            continue;
-        }
-        *visited += 1;
-        if *visited > 4096 {
-            return Err(InventoryError::UnsupportedManagedState.into());
-        }
-        let child = format!("{path}/{name}");
-        if child == ".config/ryoku/.desktop.lock" {
-            // Upstream's flock inode is coordination state, never a preference.
-            continue;
-        }
-        if crate::installed_inventory::PREFERENCES.contains(&child.as_str()) {
-            continue;
-        }
-        let prefix = format!("{child}/");
-        if crate::installed_inventory::PREFERENCES.iter().any(|known| known.starts_with(&prefix)) {
-            validate_managed_tree(home, &child, depth + 1, visited)?;
-        } else {
-            return Err(InventoryError::UnsupportedManagedState.into());
-        }
-    }
-    Ok(())
-}
-
-fn validate_wallpaper_state_location(home: &File) -> Result<(), GenerationCaptureError> {
-    use rustix::fs::{Mode, OFlags, ResolveFlags, openat2};
-    use std::{io::Read, os::fd::AsRawFd};
-    let fd = match openat2(
-        home,
-        ".config/ryoku/ryogami.json",
-        OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK,
-        Mode::empty(),
-        ResolveFlags::BENEATH
-            | ResolveFlags::NO_SYMLINKS
-            | ResolveFlags::NO_MAGICLINKS
-            | ResolveFlags::NO_XDEV,
-    ) {
-        Ok(fd) => fd,
-        Err(rustix::io::Errno::NOENT) => return Ok(()),
-        Err(error) => return Err(error.into()),
-    };
-    let stat = fstat(&fd)?;
-    if FileType::from_raw_mode(stat.st_mode) != FileType::RegularFile
-        || stat.st_size > 4 * 1024 * 1024
-    {
-        return Err(InventoryError::UnsupportedManagedState.into());
-    }
-    let mut bytes = Vec::new();
-    File::from(fd).take(4 * 1024 * 1024 + 1).read_to_end(&mut bytes)?;
-    let config: serde_json::Value =
-        serde_json::from_slice(&bytes).map_err(|_| InventoryError::UnsupportedManagedState)?;
-    if let Some(cache) = config.get("paths").and_then(|v| v.get("cache")) {
-        let value = cache.as_str().ok_or(InventoryError::UnsupportedManagedState)?;
-        let home_path = std::fs::read_link(format!("/proc/self/fd/{}", home.as_raw_fd()))?;
-        let expected = home_path.join(".cache/ryogami");
-        if !value.is_empty()
-            && value != "~/.cache/ryogami"
-            && std::path::Path::new(value) != expected
-        {
-            return Err(InventoryError::UnsupportedManagedState.into());
-        }
-    }
-    Ok(())
 }
 
 #[cfg(test)]
