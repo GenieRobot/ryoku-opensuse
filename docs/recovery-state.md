@@ -767,6 +767,18 @@ System-only plans and empty configuration scopes are rejected. Immutable
 exposed as writable configuration targets. A changed source or mismatched plan
 returns no bundle. Preparation performs no target writes or journal advances.
 
+Restore preflight, configuration staging, and preparation coverage share the
+fixed `StateRoot::is_configuration_state` classification, so the persisted
+entry count and the staged/covered root set cannot silently diverge as these
+code paths evolve. A focused synthetic integration test captures system
+configuration, per-user configuration, profile selection, and an immutable
+state-generation record through `generation_capture`, verifies the published
+transaction through `GenerationStore`, then stages exactly the three writable
+configuration roots while retaining the state-generation record only in the
+source. This tests software integration and root selection only; its supplied
+roots and snapshot-link fact are fixtures, not an audited inventory or
+privileged runtime proof.
+
 The plan persists the originally selected source manifest digest, separately
 from the current-state checkpoint digest. Journal schema 3 requires this field
 and a separate fresh `restore_id`; its filename binds that restore attempt,
