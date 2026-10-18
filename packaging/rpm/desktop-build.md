@@ -85,7 +85,8 @@ The fixed QML paths are `/usr/share/ryoku/shell/quickshell`,
 `/usr/share/ryoku/hub/quickshell` and `/usr/share/ryogami/shell.qml`. Shared
 project modules use Qt's standard `/usr/lib64/qt6/qml/Ryoku` namespace so direct
 coordinated launches can resolve them without issue #25 session environment.
-No distribution Qt module is replaced. Translations remain below
+The dynamically loaded `Ryoku.Wm.Hyprland` focus/shortcut bridges are also
+installed from the verified Source3 WM tree. No distribution Qt module is replaced. Translations remain below
 `/usr/share/ryoku/i18n`.
 
 The unchanged Quickshell RPM owns `/usr/libexec/ryoku/quickshell/bin/qs`.

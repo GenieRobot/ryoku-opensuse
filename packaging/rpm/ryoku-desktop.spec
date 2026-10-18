@@ -50,7 +50,8 @@ Requires:       util-linux
 Requires:       dbus-1-tools
 
 %description runtime
-Preserves the shell, Hub, Ryoku.Ui, FrameBars, PluginKit and translations at
+Preserves the shell, Hub, Ryoku.Ui, FrameBars, PluginKit, Hyprland QML bridges
+and translations at
 Ryoku revision 98a0368253d9628be72b853985878a5db90e1547. The native Blobs
 plugin is built from unchanged source against native Qt. The shell, Hyprland
 provider, Hub and Ryogami Go executables retain their pinned source and vendor
@@ -125,6 +126,8 @@ cp -a upstream-writers/ryoku/hub/quickshell %{buildroot}%{payload_root}/hub/
 cp -a runtime/i18n/catalog %{buildroot}%{payload_root}/i18n/
 install -d %{buildroot}%{_libdir}/qt6/qml
 cp -a runtime/qml/Ryoku %{buildroot}%{_libdir}/qt6/qml/
+install -d %{buildroot}%{qml_root}/Wm
+cp -a upstream-writers/ryoku/wm/hyprland/qml %{buildroot}%{qml_root}/Wm/Hyprland
 install -d %{buildroot}%{_datadir}/ryogami
 cp -a upstream-writers/ryoku/shell/ryogami/wall-ui/. %{buildroot}%{_datadir}/ryogami/
 install -D -m 0755 target/release/ryoku-writer %{buildroot}%{_libexecdir}/ryoku/ryoku-writer
