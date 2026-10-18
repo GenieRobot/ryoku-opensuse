@@ -71,3 +71,20 @@ fail normally when those facilities are unavailable; none silently skip them.
 The separately invoked native runtime test observes both native mount boundaries
 and verifies the fixed namespace and ownership policy. No live VM, package
 installation, privileged accepted transaction or provider mutation is claimed.
+
+
+## Native installed boundary acceptance
+
+The [two-account native fixture](native-service-fixture.md) exercises installed
+systemd user services and the socket-activated helper under enforcing SELinux.
+The user unit preserves native root identities by disabling private user/mount
+namespaces; its runtime parents remain subject to strict ownership checks.
+The helper retains only `CAP_DAC_READ_SEARCH`, read-only homes and a writable
+`/var/lib/ryoku-state` exception needed by protected-state startup.
+
+The fixture also tests replay of a nonempty durable journal after a fresh
+service process and reconnecting clients, plus malformed, unsupported and stale
+namespace rejection without journal mutation. A separate sandboxed account API
+probe is explicitly distinguished from the production helper's disabled
+provider dispatcher. Fixture results do not imply RPM installation, interactive
+login, or real provider transaction acceptance.

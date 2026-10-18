@@ -15,6 +15,7 @@ NoNewPrivileges=yes
 CapabilityBoundingSet=CAP_DAC_READ_SEARCH
 AmbientCapabilities=
 ProtectSystem=strict
+ReadWritePaths=/var/lib/ryoku-state
 ProtectHome=read-only
 PrivateTmp=yes
 RestrictAddressFamilies=AF_UNIX

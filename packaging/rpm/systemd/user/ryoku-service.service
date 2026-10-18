@@ -7,7 +7,10 @@ ExecStart=/usr/libexec/ryoku/ryoku-service
 Environment=XDG_STATE_HOME=%h/.local/state
 UMask=0077
 NoNewPrivileges=yes
-PrivateTmp=yes
+# Preserve root ownership checks: mount isolation in a user manager also
+# remaps root through a user namespace.
+PrivateTmp=no
+PrivateUsers=no
 RestrictAddressFamilies=AF_UNIX
 Restart=on-failure
 RestartSec=2s

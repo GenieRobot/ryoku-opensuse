@@ -58,6 +58,7 @@ fn helper_is_an_explicit_root_scoped_deny_only_service() {
     assert_eq!(capabilities, ["CapabilityBoundingSet=CAP_DAC_READ_SEARCH"]);
     assert!(has_directive(&service, "AmbientCapabilities="));
     assert!(has_directive(&service, "ProtectSystem=strict"));
+    assert!(has_directive(&service, "ReadWritePaths=/var/lib/ryoku-state"));
     assert!(has_directive(&service, "ProtectHome=read-only"));
     assert!(has_directive(&service, "RestrictAddressFamilies=AF_UNIX"));
     assert!(has_directive(&service, "ExecStart=/usr/libexec/ryoku/ryoku-helper"));
@@ -96,4 +97,7 @@ fn package_installs_units_without_enabling_the_privileged_socket() {
         section(USER_SERVICE, "Install").iter().any(|line| { *line == "WantedBy=default.target" })
     );
     assert!(USER_SERVICE.contains("Environment=XDG_STATE_HOME=%h/.local/state"));
+    let service = section(USER_SERVICE, "Service");
+    assert!(has_directive(&service, "PrivateTmp=no"));
+    assert!(has_directive(&service, "PrivateUsers=no"));
 }

@@ -1,0 +1,46 @@
+schema = 1
+date = "2026-10-18"
+issue = 17
+source = "38e72d3d512475d27a1e8638ef3b223575de0a9f"
+published_source = "d2445e0e0e496f024d12d331e9c0dde8d0fde75b"
+source_tree = "74e7febad09ff22b242ca3bf883679f01c43e015"
+base = "fb250891ca73aca21eb8b9f7d6190ef296612bb4"
+snapshot = "20261016"
+image_sha256 = "ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231"
+runner = "Reused running issue22-clean-oct18b disposable QEMU guest; no fresh VM; TCG, 2 CPUs, 6144 MiB"
+guest = "Tumbleweed 20261016, kernel 7.2.10-1-default, systemd 261.3-1.1, enforcing SELinux"
+source_boundary = "Service, helper, fixture and embedded units built solely from the issue17 branch. Existing external vm-lab binary used only to hash-check and stage inputs; no root dirty service source used."
+staging_binary_sha256 = "78c04a30dd5f535bae002774a2c82be65949fe06983f78a84e5172dc00c7d7bf"
+fixture_sha256 = "d14c8b91a19048353713c0479634d8de8a20609a98e870fe3ed408e3a5e318fd"
+service_sha256 = "08a5bf1dd70da51861d39af3e9bd3a4a8fc4bc1b1a5c9534db114545bfe41bd2"
+helper_sha256 = "990eb0069f51afceadef43a6ab99c7e1e0fc80bb44a72543691c3da716f42e73"
+preflight_log_sha256 = "81eb8025ad1235ca5e87193625a53098c73a8529a4d45a5ff52cb7c5d1c48b12"
+run_log_sha256 = "0354cd8c632fcf4473dbf7bd8064c478ad8b4895d6d5b0d6b531891b7b72564b"
+postflight_log_sha256 = "55a0cd0775b9fd918986aa2ee86f461093a852f1dc064198d814a98c6fffa322"
+finished = "2026-10-18T18:42:07+03:00"
+command = "sudo /usr/local/sbin/ryoku-native-service-fixture --check; then --run"
+exit_status = 0
+postflight = "All three installed binary hashes matched; helper socket/service and both fixture user managers inactive; SELinux still enforcing; guest retained running."
+
+[acceptance]
+authorization = "PASS: two real NSS users; original-mode cross-user socket and nonmember helper DAC denials; separately assisted kernel UID/group denials; root denial; all temporary permission changes restored."
+private_configuration = "PASS: separate account API sandbox fixture with CAP_DAC_READ_SEARCH resolves only operator's own NSS-selected 0700 configuration root and 0600 marker; nonmember rejected; both accounts' modes and markers preserved."
+structured_rejections = "PASS: installed boundary returns typed malformed, unsupported version, unsupported action and stale namespace (RecoveryUnavailable) errors; unknown command language rejected; nonempty journal bytes/inode unchanged."
+durable_reconnect = "PASS: fixture seeds Accepted then Failed operation using OperationJournal while daemon stopped; installed service returns exact persisted terminal status across separate clients and fresh process restart without replaying Start or changing journal."
+helper_activation = "PASS: actual socket activation and exact installed unit fragment; only CAP_DAC_READ_SEARCH in effective/permitted/bounding masks; NoNewPrivs=1; protected store writable exception and homes read-only."
+user_activation = "PASS: real logind runtimes, native D-Bus and user managers; installed unit fragment; duplicate start refused; new process/socket after restart; private lock inode retained."
+
+[host_checks]
+service_tests = "81 passed; one native-runtime probe explicitly run separately"
+package_policy_tests = "3 passed"
+fixture_support_tests = "3 passed; 2 child-only tests ignored by default and exercised by their parent tests"
+native_runtime_probe = "1 passed explicitly with --ignored"
+clippy = "cargo clippy --locked -p ryoku-service --all-targets -- -D warnings: passed"
+format = "cargo fmt --all -- --check: passed"
+
+[limits]
+provider_operations = "Remain disabled. No enabled provider transaction, checkpoint creation, root restore, or complete roadmap acceptance is claimed."
+account_binding = "Separate sandbox fixture exercises the existing account API; production helper dispatcher does not traverse account configuration. Probe adds /run/ryoku write access solely for its fixed test socket."
+journal = "Nonempty history is explicitly fixture-seeded through OperationJournal, not produced by an enabled production provider."
+installation = "Exact payload and unit installation; helper RPM build/install and interactive PAM login are not tested by this issue17 fixture."
+vm = "Reused current snapshot guest; no fresh installation or boot/recovery acceptance claimed."
