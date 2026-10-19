@@ -1,0 +1,145 @@
+schema = 1
+date = "2026-10-16"
+issue = 23
+source = "f596630cf3bc626bc46466a20b81f73a9e6f898a"
+source_archive_sha256 = "e697fb8fe0c992ba7dc6687c895db5f34a30d0a530ac089b63dc9e62225fada5"
+vendor_archive_sha256 = "37e07449436648ebfe54d9da92bb785c52b636691966bda3690f652af31dd7ec"
+cargo_lock_sha256 = "62d167a989cd85865ea38dc31e6fcdf982600d55150f0c1d4be8cdaf85545061"
+runner = "ordinary-user native RPM build in the retained signed Tumbleweed 20261013 guest; independent read-only host inspection of all outputs"
+scope = "complete five-spec native build, exact source/binary manifests, ownership and scriptlet audit, and dependency-only proposal on the SDK-equipped retained guest; no RPM installation or complete issue acceptance"
+frozen_inputs_preserved = true
+guest_actions_by_inspector = "none; guest builds and dry run performed only by coordinator"
+component_evidence = ["issue23-first-native-rpms.toml", "issue23-quickshell-native-rpms.toml", "issue23-desktop-native-rpms.toml"]
+
+[native_builds]
+command = "serial ordinary-user rpmbuild -ba with native installed BuildRequires, absolute topdir, CARGO_BUILD_JOBS=2 and _smp_build_ncpus=2; no --nodeps"
+defaults_exit = 0
+helper_exit = 0
+quickshell_exit = 0
+desktop_exit = 0
+tools_exit = 0
+defaults_log_sha256 = "21dac26c6eb9efd2cc7021dbd16397e37158caf7f07b1be374241ad29d2840a7"
+helper_log_sha256 = "d045e1a0a6cb4544b9dd1ddade5d707fe743edfdf30182d1f4e78db2b8c6e006"
+quickshell_log_sha256 = "97db196829ad6448b0fe79575fbe048a546204215ad8a203b163a024b2efb1a2"
+desktop_log_sha256 = "1253942259f7f03647ae60976eacdbd4db9340ba0ab87f8789b6b1ef36795767"
+tools_log_sha256 = "ca09fe20a4f7480e4cbccf70f7e5980913fe7a60310180bb21a8241d09752bb0"
+
+[artifact_set]
+runtime_rpms = 10
+debug_rpms = 6
+binary_rpms = 16
+binary_rpm_bytes = 21508616
+source_rpms = 5
+binary_manifest = "issue23-native-binary-rpms.sha256"
+binary_manifest_sha256 = "28ff26d416a660eb4e0620b4bc14a589ec2a2dcbd493189ed725f99f8c20fece"
+source_manifest = "issue23-native-source-rpms.sha256"
+source_manifest_sha256 = "ed878e5324235efce919092e2d6e64cde8e7f9b4420ee854e46504333622e5c4"
+source_closure = "all five SRPMs have SOURCEPACKAGE=1 and valid header/payload digests; all fourteen source-archive/spec file rows match the frozen four input archive digests or exact git-show f596630 spec digests; no unexpected source files"
+integrity = "all twenty-one RPM/SRPM artifacts pass header SHA-256/SHA-1, payload SHA-256 and MD5 checks; unsigned experimental outputs, not signature-trusted release packages"
+runtime_packages = ["ryoku-profile-defaults", "ryoku-helper", "ryoku-quickshell", "ryoku-desktop", "ryoku-desktop-runtime", "ryoku-desktop-fonts", "ryoku-tools", "ryoku-tools-state-init", "ryoku-tools-ui", "ryoku-tools-launcher-status"]
+
+[tools_common]
+source_spec = "ryoku-tools.spec"
+build_exit = 0
+ownership = "all four runtime packages contain only root:root executables 0755, documentation/licenses 0644 and directories 0755"
+file_digest_algorithm = 8
+scriptlets = "all pre/post/preun/postun/pretrans/posttrans/preuntrans/postuntrans/verify fields absent"
+triggers = "all package, file and transaction-file trigger fields absent"
+file_capabilities = "none"
+set_id_files = "none"
+mutable_or_activation_payload = "no /etc, /var, /run, /home, systemd unit, autostart, mount unit, machine identity or default-profile files"
+initialization = "the initializer is installed as an ordinary executable; no package operation invokes it or authorizes a protected-state mutation"
+
+[recovery_tool]
+rpm = "ryoku-tools-0.1.0-1.x86_64.rpm"
+rpm_sha256 = "04daa62f61f9beca5d972d939139b5f094baa07e5e904bb3982a08c3103242ae"
+rpm_bytes = 458151
+files = 6
+executable = "/usr/bin/ryoku-recovery"
+executable_bytes = 1237272
+executable_sha256 = "f9cddace3e1fad3ea4c10ec43d317ff4a7930d7e55b14b7b42dc7c30aabadf52"
+requires = "native loader/libc/libgcc_s ABI and RPM payload format capabilities only"
+role = "read-only existing-state inspection; installation does not perform a restore"
+
+[state_initializer]
+rpm = "ryoku-tools-state-init-0.1.0-1.x86_64.rpm"
+rpm_sha256 = "8a683945abcdce4db4e7fe3c06c18742a1ae14dad048841926e3ca1ab6189d64"
+rpm_bytes = 415984
+files = 6
+executable = "/usr/sbin/ryoku-state-init"
+executable_bytes = 1058416
+executable_sha256 = "e12c34c2be9f1ff19ca4d12e4e9ac42bb2c066e94f1f870c6947fb10370b1b00"
+native_tool_requires = ["coreutils", "policycoreutils", "snapper", "systemd", "util-linux"]
+automatic_requires = "native loader/libc/libgcc_s ABI and RPM payload format capabilities"
+role = "existing explicit root-only Rust initializer/resume command; administrator invocation and all runtime preconditions remain separate"
+
+[gtk_proof]
+rpm = "ryoku-tools-ui-0.1.0-1.x86_64.rpm"
+rpm_sha256 = "773e37cca8503939374539ca7b7d50da8dfe331e9194d280b1e8810a2ec25eb2"
+rpm_bytes = 397167
+files = 6
+executable = "/usr/bin/ryoku-ui-gtk"
+executable_bytes = 1204000
+executable_sha256 = "f04c99a5a1c8f6e4ffb5f693b9eb862e98863644480fb37dd5a59f2277c96ca9"
+requires = "ryoku-helper = 0.1.0; libgtk-4, gio, glib and gobject; native loader/libc/libgcc_s ABI and RPM payload format capabilities"
+role = "optional labeled GTK proof with explicit real-service Discover mode; no desktop autostart or menu/profile replacement"
+
+[launcher_provider]
+rpm = "ryoku-tools-launcher-status-0.1.0-1.x86_64.rpm"
+rpm_sha256 = "22caca7a8bc9c2883716cb6905065c81703642ac9f4608c84fd223d3b075d49e"
+rpm_bytes = 357171
+files = 8
+executable = "/usr/libexec/ryoku/ryoku-launcher-status"
+executable_bytes = 976800
+executable_sha256 = "b32abff93474fa092eaf8287983dfa4484c4426a310a15b97d3a0572921fc1e9"
+requires = "ryoku-helper = 0.1.0; native loader/libc/libgcc_s ABI and RPM payload format capabilities only; no GTK, rofi or shell dependency"
+configuration = "launcher-scripts.json installed only beneath /usr/share/doc/packages/ryoku-tools-launcher-status, not a live user configuration path"
+example_sha256 = "affa379e56e80cbcc6361e5c0973f70b9e6dc6abb13445ce53a3695e895a4509"
+role = "fixed ordinary-user service socket, read-only typed Discover provider; package install does not opt any user into the example"
+
+[debug_artifacts]
+tools_debugsource = "ryoku-tools-debugsource-0.1.0-1.x86_64.rpm"
+tools_debugsource_sha256 = "85e67e6f891663fbf47c9823e609c5a242d47fb72af50f76ffc0fc0d6146d72f"
+tools_debugsource_bytes = 6089
+tools_debugsource_files = 0
+whole_set = "two useful native debuginfo RPMs (Quickshell and Blobs) and four empty debugsource RPMs; original outputs and warnings retained"
+runtime_selection = "explicit ten-package runtime inventory excludes all debug artifacts; no runtime package requires a debug sibling"
+policy = "no blanket debug-generation suppression; future debug/source policy changes require their own source identity and native validation"
+
+[whole_set_ownership]
+runtime_package_count = 10
+non_directory_conflicts = 0
+shared_directories = ["/usr/libexec/ryoku: helper + Quickshell + launcher provider, all root:root 0755", "/usr/share/ryoku-opensuse: session + runtime, both root:root 0755"]
+full_report_sha256 = "f45dfd6c575f0c599e79779f5e35c68ac250b5fa01b04f77e386cced57032503"
+set_id_or_file_capabilities = "none in the ten runtime packages"
+group_or_world_writable_non_symlinks = "none in the ten runtime packages"
+scripts_and_triggers = "none in any of the sixteen binary output RPMs; distribution-owned systemd transaction triggers remain separate native behavior"
+source_and_font_preservation = "same full set confirms 1201 original upstream runtime files, eighteen font/license/readme files, original upstream LICENSE/NOTICE and five fixed port session metadata files unchanged"
+boundary = "cross-package inventory comparison only; no clean-machine installed-file or manual prototype collision test"
+
+[dependency_proposal]
+command = "native zypper install --dry-run --no-recommends --details with exactly the ten retained runtime RPM paths"
+exit = 0
+log_sha256 = "67a697a69871fbe46a135500a5bf3296c4a6df105188bfb8931193ae024c37db"
+proposal = "ten NEW Ryoku packages; no removals, upgrades or additional dependencies on this existing SDK-equipped retained guest"
+download_size = "20.1 MiB"
+installed_size_change = "+72.4 MiB"
+native_conflict_warning = "all ten packages excluded from file-conflict checking because not yet downloaded; native output says meaningful checks require downloaded payloads"
+not_claimed = "no successful file-conflict check, signature trust, downloaded-package test, clean minimal-image resolution or installation"
+no_bypasses = "no --force, replacefiles, GPG bypass, download-only or actual install used"
+
+[future_source_fixes]
+fallback_dependencies = "e3217e4af34b360c571fa5c6ec78aaea3393ef10 adds complete KDE/SDDM/wallpaper first-install Requires; absent from these frozen f596630 RPMs"
+blobs_metadata = "46b808e (integrated as 6e4c388) narrows Blobs install to its four runtime files; frozen RPM still honestly contains the unnecessary CMake map with absolute builder path"
+sysusers_documentation = "observed native systemd post-transaction trigger documented separately; no new Ryoku scriptlet introduced"
+validation = "later source changes require a distinct Source0/spec identity and new native build evidence; they were not substituted into the frozen artifacts"
+
+[remaining_gates]
+clean_installation_removal = "not performed"
+installed_file_conflicts = "not validated"
+group_creation = "not validated from absent group; retained fixture already has ryoku-operators"
+signed_release_packages = "not produced"
+installed_rpm_default_loader = "not tested against these installed artifacts"
+package_owned_graphical_and_recovery_behavior = "not exercised; independently staged prototype GUI/service results remain separate"
+full_tumbleweed_update = "not executed; exact private Qt ABI requirements must be honored by a compatible complete future transaction"
+issue_status = "open; native build and existing-guest dependency proposal do not close issue 23 or prerequisite acceptance gates"

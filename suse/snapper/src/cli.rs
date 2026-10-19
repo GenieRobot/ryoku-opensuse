@@ -2,11 +2,16 @@
 
 use std::{
     io::{self, Read},
+    os::unix::process::CommandExt,
     process::{Child, Command, Stdio},
     thread,
     time::{Duration, Instant},
 };
 
+use rustix::{
+    fs::{OFlags, fcntl_getfl, fcntl_setfl},
+    process::{Pid, Signal, WaitId, WaitIdOptions, kill_process_group, waitid},
+};
 use serde_json::Value;
 
 use crate::{
@@ -25,6 +30,58 @@ const TRANSACTION_USERDATA_KEY: &str = "ryoku-transaction-id";
 /// process. The backend never accepts a root/path override or a command string.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SnapperCliBackend;
+
+/// Parsed configuration values, not native identity or mutation authority.
+/// The fixed native query uses Snapper's effective configuration (including
+/// its daemon); callers must separately bind secure files and kernel identity.
+#[derive(Clone, Eq, PartialEq)]
+pub struct RootConfigValues(std::collections::BTreeMap<String, String>);
+
+impl SnapperCliBackend {
+    /// Read only the fixed root configuration. No target/config override.
+    pub fn root_configuration(&self) -> Result<RootConfigValues, SnapperCliError> {
+        parse_root_configuration(&run_snapper(&root_configuration_args())?)
+    }
+}
+fn root_configuration_args() -> [String; 4] {
+    ["--jsonout".into(), "--config".into(), "root".into(), "get-config".into()]
+}
+
+/// Parse Snapper's flat string-valued get-config object, refusing duplicate
+/// keys and anything except one exact root/Btrfs mapping. Parsing alone does
+/// not prove that these are current native values.
+pub fn parse_root_configuration(bytes: &[u8]) -> Result<RootConfigValues, SnapperCliError> {
+    use serde::de::{MapAccess, Visitor};
+    if bytes.len() > 128 * 1024 {
+        return Err(SnapperCliError::OutputTooLarge);
+    }
+    struct UniqueValues;
+    impl<'de> Visitor<'de> for UniqueValues {
+        type Value = std::collections::BTreeMap<String, String>;
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("a unique string-valued configuration object")
+        }
+        fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<Self::Value, M::Error> {
+            let mut values = std::collections::BTreeMap::new();
+            while let Some((key, value)) = map.next_entry::<String, String>()? {
+                if values.len() >= 1024 || values.insert(key, value).is_some() {
+                    return Err(serde::de::Error::custom("ambiguous configuration"));
+                }
+            }
+            Ok(values)
+        }
+    }
+    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
+    let values = serde::de::Deserializer::deserialize_map(&mut deserializer, UniqueValues)
+        .map_err(|_| SnapperCliError::InvalidInventory)?;
+    deserializer.end().map_err(|_| SnapperCliError::InvalidInventory)?;
+    if values.get("SUBVOLUME").map(String::as_str) != Some("/")
+        || values.get("FSTYPE").map(String::as_str) != Some("btrfs")
+    {
+        return Err(SnapperCliError::InvalidInventory);
+    }
+    Ok(RootConfigValues(values))
+}
 
 /// Sanitized failure categories from the Snapper CLI adapter.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -154,91 +211,126 @@ fn validate_inventory(records: &[SnapshotRecord]) -> Result<(), SnapperCliError>
 }
 
 fn run_snapper(args: &[String]) -> Result<Vec<u8>, SnapperCliError> {
-    let mut child = Command::new(SNAPPER)
-        .env_clear()
-        .env("LC_ALL", "C")
-        .env("PATH", "/usr/sbin:/usr/bin")
-        .args(args)
+    run_bounded(native_command(args), COMMAND_TIMEOUT)
+}
+fn native_command(args: &[String]) -> Command {
+    let mut command = Command::new(SNAPPER);
+    command.env_clear().env("LC_ALL", "C").env("PATH", "/usr/sbin:/usr/bin").args(args);
+    command
+}
+
+// This helper is private: production callers retain the fixed native executable
+// and argv above. Each command owns a fresh process group, including ordinary
+// descendants. It does not contain a descendant that deliberately changes its
+// session/process group, nor replace daemon-side Snapper transaction locking.
+fn run_bounded(mut command: Command, timeout: Duration) -> Result<Vec<u8>, SnapperCliError> {
+    let deadline = Instant::now() + timeout;
+    let mut child = command
+        .process_group(0)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|_| SnapperCliError::SpawnFailed)?;
-
-    let stdout = child.stdout.take().ok_or(SnapperCliError::SpawnFailed)?;
-    let stderr = child.stderr.take().ok_or(SnapperCliError::SpawnFailed)?;
-    // Both pipes are drained concurrently so a full stderr pipe cannot
-    // deadlock the child. Capture is capped while draining continues.
-    let stdout_reader = thread::spawn(move || read_capped(stdout, MAX_STDOUT_BYTES));
-    let stderr_reader = thread::spawn(move || read_capped(stderr, MAX_STDERR_BYTES));
-    let status = match wait_bounded(&mut child, COMMAND_TIMEOUT) {
-        Ok(status) => status,
-        Err(error) => {
-            let _ = child.kill();
-            let _ = child.wait();
-            let _ = stdout_reader.join();
-            let _ = stderr_reader.join();
-            return Err(error);
+    let result = collect_bounded(&mut child, deadline);
+    if result.is_err() {
+        // The direct child may already have exited while a descendant retains
+        // either pipe. Kill the owned group before reaping; never join a pipe
+        // reader or wait for EOF during error cleanup.
+        if let Some(pid) = Pid::from_raw(child.id() as i32) {
+            let _ = kill_process_group(pid, Signal::KILL);
         }
-    };
-    let (stdout, stdout_overflow) = stdout_reader
-        .join()
-        .map_err(|_| SnapperCliError::CommandFailed)?
-        .map_err(|_| SnapperCliError::CommandFailed)?;
-    let (_, stderr_overflow) = stderr_reader
-        .join()
-        .map_err(|_| SnapperCliError::CommandFailed)?
-        .map_err(|_| SnapperCliError::CommandFailed)?;
-
-    if stdout_overflow {
-        return Err(SnapperCliError::OutputTooLarge);
+        let _ = child.kill();
     }
-    if !status.success() {
-        // Do not return Snapper diagnostics: they may contain host paths,
-        // account names, or details supplied by configuration files.
-        let _ = stderr_overflow;
-        return Err(SnapperCliError::CommandFailed);
+    // collect_bounded observes exit with WNOWAIT, preserving ownership of the
+    // leader PID until group cleanup is complete (no process-group ID reuse).
+    let reaped = child.wait().map_err(|_| SnapperCliError::CommandFailed);
+    match result {
+        Ok(bytes) => reaped.map(|_| bytes),
+        Err(error) => Err(error),
     }
-    Ok(stdout)
+}
+fn collect_bounded(child: &mut Child, deadline: Instant) -> Result<Vec<u8>, SnapperCliError> {
+    let mut stdout = child.stdout.take().ok_or(SnapperCliError::SpawnFailed)?;
+    let mut stderr = child.stderr.take().ok_or(SnapperCliError::SpawnFailed)?;
+    for descriptor in [&stdout as &dyn std::os::fd::AsFd, &stderr as &dyn std::os::fd::AsFd] {
+        let flags = fcntl_getfl(descriptor).map_err(|_| SnapperCliError::CommandFailed)?;
+        fcntl_setfl(descriptor, flags | OFlags::NONBLOCK)
+            .map_err(|_| SnapperCliError::CommandFailed)?;
+    }
+    let mut output = CappedPipe::new(MAX_STDOUT_BYTES);
+    let mut errors = CappedPipe::new(MAX_STDERR_BYTES);
+    loop {
+        if Instant::now() >= deadline {
+            return Err(SnapperCliError::TimedOut);
+        }
+        // At most one bounded read from each pipe per turn prevents continuous
+        // output from starving the deadline or the other pipe. Continue to
+        // drain overflow without retaining it, preserving existing semantics.
+        output.read_once(&mut stdout)?;
+        errors.read_once(&mut stderr)?;
+        let pid = Pid::from_raw(child.id() as i32).ok_or(SnapperCliError::CommandFailed)?;
+        if let Some(status) = waitid(
+            WaitId::Pid(pid),
+            WaitIdOptions::EXITED | WaitIdOptions::NOHANG | WaitIdOptions::NOWAIT,
+        )
+        .map_err(|_| SnapperCliError::CommandFailed)?
+            && output.done
+            && errors.done
+        {
+            if output.overflow {
+                return Err(SnapperCliError::OutputTooLarge);
+            }
+            if status.exit_status() != Some(0) {
+                return Err(SnapperCliError::CommandFailed);
+            }
+            // Stderr is bounded and discarded, including overflow, as before.
+            // Native diagnostics never enter public errors or returned data.
+            return Ok(output.bytes);
+        }
+        thread::sleep(Duration::from_millis(2));
+    }
+}
+struct CappedPipe {
+    bytes: Vec<u8>,
+    limit: usize,
+    overflow: bool,
+    done: bool,
+}
+impl CappedPipe {
+    fn new(limit: usize) -> Self {
+        Self {
+            bytes: Vec::with_capacity(limit.min(16 * 1024)),
+            limit,
+            overflow: false,
+            done: false,
+        }
+    }
+    fn read_once(&mut self, reader: &mut impl Read) -> Result<(), SnapperCliError> {
+        if self.done {
+            return Ok(());
+        }
+        let mut buffer = [0_u8; 8192];
+        match reader.read(&mut buffer) {
+            Ok(0) => self.done = true,
+            Ok(length) => {
+                let keep = length.min(self.limit.saturating_sub(self.bytes.len()));
+                self.bytes.extend_from_slice(&buffer[..keep]);
+                self.overflow |= keep < length;
+            }
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                ) => {}
+            Err(_) => return Err(SnapperCliError::CommandFailed),
+        }
+        Ok(())
+    }
 }
 
 fn snapper_list_args(config: &ConfigName) -> [String; 4] {
     ["--jsonout".to_owned(), "--config".to_owned(), config.as_str().to_owned(), "list".to_owned()]
-}
-
-fn read_capped(mut reader: impl Read, limit: usize) -> io::Result<(Vec<u8>, bool)> {
-    let mut captured = Vec::with_capacity(limit.min(16 * 1024));
-    let mut overflow = false;
-    let mut buffer = [0_u8; 8192];
-    loop {
-        let read = reader.read(&mut buffer)?;
-        if read == 0 {
-            break;
-        }
-        let remaining = limit.saturating_sub(captured.len());
-        let keep = remaining.min(read);
-        captured.extend_from_slice(&buffer[..keep]);
-        overflow |= keep < read;
-    }
-    Ok((captured, overflow))
-}
-
-fn wait_bounded(
-    child: &mut Child,
-    timeout: Duration,
-) -> Result<std::process::ExitStatus, SnapperCliError> {
-    let deadline = Instant::now() + timeout;
-    loop {
-        if let Some(status) = child.try_wait().map_err(|_| SnapperCliError::CommandFailed)? {
-            return Ok(status);
-        }
-        if Instant::now() >= deadline {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(SnapperCliError::TimedOut);
-        }
-        thread::sleep(Duration::from_millis(10));
-    }
 }
 
 /// Parses the stable machine-readable fields emitted by `snapper --jsonout
@@ -305,6 +397,35 @@ mod tests {
 
     fn config() -> ConfigName {
         ConfigName::new("root").unwrap()
+    }
+
+    #[test]
+    fn effective_root_config_requires_unique_flat_exact_mapping() {
+        let good = br#"{"SUBVOLUME":"/","FSTYPE":"btrfs","TIMELINE_CREATE":"no"}"#;
+        let parsed = parse_root_configuration(good).unwrap();
+        assert!(parsed == parse_root_configuration(good).unwrap());
+        assert!(
+            parsed
+                != parse_root_configuration(
+                    br#"{"SUBVOLUME":"/","FSTYPE":"btrfs","TIMELINE_CREATE":"yes"}"#
+                )
+                .unwrap()
+        );
+        for bad in [
+            br#"{"root":{"SUBVOLUME":"/","FSTYPE":"btrfs"}}"#.as_slice(),
+            br#"{"SUBVOLUME":"/home","FSTYPE":"btrfs"}"#,
+            br#"{"SUBVOLUME":"/","FSTYPE":"ext4"}"#,
+            br#"{"SUBVOLUME":"/","FSTYPE":"btrfs","SUBVOLUME":"/"}"#,
+            br#"{"SUBVOLUME":"/","FSTYPE":"btrfs","FSTYPE":"btrfs"}"#,
+            br#"{"SUBVOLUME":"/","FSTYPE":"btrfs","x":null}"#,
+            br#"{"SUBVOLUME":"/"}"#,
+            br#"[]"#,
+            br#"{"SUBVOLUME":"/","FSTYPE":"btrfs"}{}"#,
+        ] {
+            assert!(parse_root_configuration(bad).is_err());
+        }
+        assert!(parse_root_configuration(&vec![b' '; 128 * 1024 + 1]).is_err());
+        assert_eq!(root_configuration_args(), ["--jsonout", "--config", "root", "get-config"]);
     }
 
     #[test]
@@ -448,9 +569,14 @@ mod tests {
     #[test]
     fn caps_captured_output_and_still_drains_the_reader() {
         let input = vec![b'x'; 32];
-        let (captured, overflow) = read_capped(input.as_slice(), 8).unwrap();
-        assert_eq!(captured, b"xxxxxxxx");
-        assert!(overflow);
+        let mut captured = CappedPipe::new(8);
+        let mut reader = input.as_slice();
+        while !captured.done {
+            captured.read_once(&mut reader).unwrap();
+        }
+        assert_eq!(captured.bytes, b"xxxxxxxx");
+        assert!(captured.overflow);
+        assert!(reader.is_empty());
     }
 
     #[test]
@@ -474,3 +600,7 @@ mod tests {
         assert_eq!(error, PairQueryError::Backend(SnapperCliError::CommandFailed));
     }
 }
+
+#[cfg(test)]
+#[path = "cli_process_tests.rs"]
+mod process_tests;

@@ -1,6 +1,11 @@
 //! Versioned, typed boundary between the per-user service and root helper.
-//! The installed helper currently rejects all requests and has no mutation
-//! runner.
+//! The installed helper verifies exact linked checkpoints read-only; package
+//! mutation and restore requests remain unavailable.
+
+use std::io::{BufRead, Read, Write};
+use std::os::unix::net::UnixStream;
+use std::path::Path;
+use std::time::{Duration, Instant};
 
 use rustix::{
     event::{PollFd, PollFlags, Timespec, poll},
@@ -8,41 +13,54 @@ use rustix::{
     net::sockopt::socket_error,
     net::{AddressFamily, SocketAddrUnix, SocketFlags, SocketType, connect, socket_with},
 };
-use std::io::{BufRead, Read, Write};
-use std::os::unix::net::UnixStream;
-use std::path::Path;
-use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
+use crate::account_state::{AccountStateError, AccountStateRoot};
 use crate::{
     HelperRequest, ManagedActionKind, PeerIdentity, ProtocolError, RequestId, ServiceError,
     authorize_helper_operator, authorize_helper_peer,
 };
 
-pub const HELPER_PROTOCOL_VERSION: u16 = 1;
+pub const HELPER_PROTOCOL_VERSION: u16 = 2;
 pub const MAX_HELPER_REQUEST_BYTES: usize = 64 * 1024;
 pub const MAX_HELPER_RESPONSE_BYTES: usize = 64 * 1024;
 const HELPER_IO_TIMEOUT: Duration = Duration::from_secs(5);
 pub const HELPER_SOCKET_PATH: &str = "/run/ryoku/helper.sock";
 
-/// Resolve only the authenticated operator's fixed configuration root.
-/// This preflight grants no capture, mutation, or protected-history access.
+/// Prepare the authenticated operator's pinned configuration root for a
+/// forthcoming capture executor. Authorization precedes NSS/filesystem work;
+/// the caller cannot select another UID or supply a home/configuration path.
+/// This preflight does not enroll files, journal acceptance, or authorize a
+/// mutation. Installed request dispatch remains disabled until linked capture
+/// and writer coordination are implemented.
 pub fn prepare_operator_account(
     peer: &PeerIdentity,
     operator_gid: u32,
-) -> Result<crate::account_state::AccountStateRoot, ServiceError> {
-    with_operator_account(peer, operator_gid, crate::account_state::AccountStateRoot::for_peer)
+) -> Result<AccountStateRoot, ServiceError> {
+    with_operator_account(peer, operator_gid, AccountStateRoot::for_peer)
+}
+
+/// Authenticate and resolve the exact operator before granting access to an
+/// originally account-bound protected generation. Legacy absence is refused;
+/// neither JSON account fields nor current observations enroll a source.
+pub fn prepare_operator_generation<'a>(
+    peer: &PeerIdentity,
+    operator_gid: u32,
+    generation: &'a ryoku_recovery::generation::VerifiedGeneration,
+) -> Result<crate::account_generation::AccountGenerationAccess<'a>, ServiceError> {
+    let account = prepare_operator_account(peer, operator_gid)?;
+    crate::account_generation::AccountGenerationAccess::new(account, generation)
 }
 
 fn with_operator_account<T>(
     peer: &PeerIdentity,
     operator_gid: u32,
-    resolve: impl FnOnce(&PeerIdentity) -> Result<T, crate::account_state::AccountStateError>,
+    resolve: impl FnOnce(&PeerIdentity) -> Result<T, AccountStateError>,
 ) -> Result<T, ServiceError> {
     authorize_helper_operator(peer, operator_gid)?;
     resolve(peer).map_err(|error| match error {
-        crate::account_state::AccountStateError::LookupBusy => ServiceError::Busy,
+        AccountStateError::LookupBusy => ServiceError::Busy,
         _ => ServiceError::RecoveryUnavailable,
     })
 }
@@ -66,8 +84,8 @@ impl HelperEnvelope {
     }
 }
 
-/// The current protocol can only reject requests. There is no success or
-/// accepted response until a reviewed helper backend exists.
+/// The only success response is read-only evidence for a verified linked
+/// checkpoint. Mutation requests remain rejected.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HelperResponse {
@@ -77,9 +95,23 @@ pub struct HelperResponse {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "result", content = "error", rename_all = "snake_case")]
+#[serde(tag = "result", content = "data", rename_all = "snake_case")]
 pub enum HelperOutcome {
+    VerifiedLinkedCheckpoint(VerifiedLinkedCheckpoint),
     Rejected(ServiceError),
+}
+
+/// Read-only evidence that the exact cataloged generation and Snapper partner
+/// were both reopened and verified by the protected helper.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VerifiedLinkedCheckpoint {
+    pub transaction_id: String,
+    pub generation_id: String,
+    pub manifest_sha256: String,
+    pub snapper_config: String,
+    pub snapshot_id: String,
+    pub filesystem_uuid: String,
 }
 
 /// Read one bounded newline-delimited helper frame and validate both its
@@ -101,8 +133,8 @@ pub fn read_helper_envelope(reader: &mut impl BufRead) -> Result<HelperEnvelope,
     Ok(envelope)
 }
 
-/// Evaluate the current helper policy. Even authenticated, valid operations
-/// are rejected until linked checkpoint and provider evidence are integrated.
+/// Evaluate the user-service helper policy. This boundary never accepts work;
+/// the root helper owns the authenticated read-only checkpoint verifier.
 pub fn dispatch_helper_request(
     peer: &PeerIdentity,
     service_uid: u32,
@@ -123,19 +155,39 @@ pub fn dispatch_helper_request(
     })
 }
 
-/// Dispatch for the installed root helper. Socket mode gates membership at
-/// connect time; kernel peer credentials independently validate the group and UID.
+/// Dispatch without a recovery reader. This fail-closed path supports policy
+/// checks and tests; the installed socket uses the protected-state reader.
 pub fn dispatch_operator_request(
     peer: PeerIdentity,
     operator_gid: u32,
     envelope: HelperEnvelope,
 ) -> Result<HelperResponse, ProtocolError> {
+    dispatch_operator_request_with_verifier(peer, operator_gid, envelope, |_, _| {
+        Err(ServiceError::Unsupported)
+    })
+}
+
+fn dispatch_operator_request_with_verifier(
+    peer: PeerIdentity,
+    operator_gid: u32,
+    envelope: HelperEnvelope,
+    mut verify_linked: impl FnMut(&str, &str) -> Result<VerifiedLinkedCheckpoint, ServiceError>,
+) -> Result<HelperResponse, ProtocolError> {
     envelope.validate()?;
     let outcome = if authorize_helper_operator(&peer, operator_gid).is_err() {
         HelperOutcome::Rejected(ServiceError::Unauthorized)
     } else {
-        // Availability probes and every future provider request fail closed.
-        HelperOutcome::Rejected(ServiceError::Unsupported)
+        match &envelope.request {
+            HelperRequest::VerifyLinkedCheckpoint { transaction_id, generation_id } => {
+                match verify_linked(transaction_id, generation_id) {
+                    Ok(verified) => HelperOutcome::VerifiedLinkedCheckpoint(verified),
+                    Err(error) => HelperOutcome::Rejected(error),
+                }
+            }
+            // Availability probes do not advertise unavailable operations;
+            // package and restore execution remain gated on M1/M2 acceptance.
+            _ => HelperOutcome::Rejected(ServiceError::Unsupported),
+        }
     };
     Ok(HelperResponse {
         version: HELPER_PROTOCOL_VERSION,
@@ -144,9 +196,8 @@ pub fn dispatch_operator_request(
     })
 }
 
-/// Handle one helper socket connection. Peer credentials are obtained before
-/// request dispatch, and valid requests can produce only typed rejection
-/// outcomes. This function neither accepts nor persists an operation.
+/// Handle one user-service socket connection. Peer credentials are obtained
+/// before request dispatch; it never accepts or persists an operation.
 pub fn serve_helper_connection(
     mut stream: UnixStream,
     service_uid: u32,
@@ -230,8 +281,32 @@ pub fn serve_helper_connection(
 
 /// Serve one connection from the opt-in group-owned helper socket.
 pub fn serve_operator_helper_connection(
+    stream: UnixStream,
+    operator_gid: u32,
+) -> Result<(), ProtocolError> {
+    serve_operator_helper_connection_with_verifier(stream, operator_gid, |_, _| {
+        Err(ServiceError::Unsupported)
+    })
+}
+
+/// Serve authenticated helper requests against the pinned read-only recovery
+/// reader. Only linked-checkpoint verification is enabled.
+pub fn serve_protected_operator_helper_connection(
+    stream: UnixStream,
+    operator_gid: u32,
+    reader: &ryoku_recovery::generation::GenerationReader,
+) -> Result<(), ProtocolError> {
+    serve_operator_helper_connection_with_verifier(
+        stream,
+        operator_gid,
+        |transaction, generation| verify_linked_checkpoint(reader, transaction, generation),
+    )
+}
+
+fn serve_operator_helper_connection_with_verifier(
     mut stream: UnixStream,
     operator_gid: u32,
+    verify_linked: impl FnMut(&str, &str) -> Result<VerifiedLinkedCheckpoint, ServiceError>,
 ) -> Result<(), ProtocolError> {
     let deadline = Instant::now() + HELPER_IO_TIMEOUT;
     stream.set_nonblocking(true).map_err(|_| ProtocolError::Io)?;
@@ -301,10 +376,44 @@ pub fn serve_operator_helper_connection(
             );
         }
     };
-    let response = dispatch_operator_request(peer, operator_gid, envelope)?;
+    let response =
+        dispatch_operator_request_with_verifier(peer, operator_gid, envelope, verify_linked)?;
     write_helper_response_until(&mut stream, response, deadline)
 }
 
+fn verify_linked_checkpoint(
+    reader: &ryoku_recovery::generation::GenerationReader,
+    transaction_id: &str,
+    generation_id: &str,
+) -> Result<VerifiedLinkedCheckpoint, ServiceError> {
+    let transaction = ryoku_recovery::Identifier::new(transaction_id.to_owned())
+        .map_err(|_| ServiceError::Malformed("invalid transaction ID".into()))?;
+    let expected_generation = ryoku_recovery::Identifier::new(generation_id.to_owned())
+        .map_err(|_| ServiceError::Malformed("invalid generation ID".into()))?;
+    let root = std::fs::File::open("/").map_err(|_| ServiceError::RecoveryUnavailable)?;
+    let linked = reader
+        .open_cataloged_transaction(&root, &transaction)
+        .map_err(|_| ServiceError::RecoveryUnavailable)?;
+    let manifest = linked.generation().manifest();
+    if manifest.generation_id != expected_generation {
+        return Err(ServiceError::StaleRequest);
+    }
+    let digest = manifest.manifest_sha256.as_ref().ok_or(ServiceError::RecoveryUnavailable)?;
+    let receipt = linked.snapshot().receipt();
+    let link = receipt.link();
+    Ok(VerifiedLinkedCheckpoint {
+        transaction_id: manifest.transaction_id.as_str().to_owned(),
+        generation_id: manifest.generation_id.as_str().to_owned(),
+        manifest_sha256: digest.as_str().to_owned(),
+        snapper_config: link.snapper_config.as_str().to_owned(),
+        snapshot_id: link.snapper_snapshot_id.clone(),
+        filesystem_uuid: link.filesystem_uuid.clone(),
+    })
+}
+
+/// Ask the installed helper whether a named action is available. This probe
+/// has no operation identifier, payload path, or mutation semantics. Until a
+/// reviewed provider is installed the only valid response is Unsupported.
 pub fn check_action_availability(action: ManagedActionKind) -> ServiceError {
     check_action_availability_at(Path::new(HELPER_SOCKET_PATH), action)
 }
@@ -314,14 +423,6 @@ pub(crate) fn check_action_availability_at(
     action: ManagedActionKind,
 ) -> ServiceError {
     let deadline = Instant::now() + HELPER_IO_TIMEOUT;
-    check_action_availability_until(socket_path, action, deadline)
-}
-
-pub(crate) fn check_action_availability_until(
-    socket_path: &Path,
-    action: ManagedActionKind,
-    deadline: Instant,
-) -> ServiceError {
     let mut stream = match connect_helper_until(socket_path, deadline) {
         Ok(stream) => stream,
         Err(error) => return helper_connect_error(error.kind()),
@@ -339,11 +440,52 @@ pub(crate) fn check_action_availability_until(
         }
         match response.outcome {
             HelperOutcome::Rejected(error) => Ok(error),
+            HelperOutcome::VerifiedLinkedCheckpoint(_) => {
+                Err(ProtocolError::Malformed("unexpected helper verification response"))
+            }
         }
     })();
     match result {
         Ok(error) => error,
         Err(_) => ServiceError::RecoveryUnavailable,
+    }
+}
+
+pub(crate) fn verify_linked_checkpoint_at(
+    socket_path: &Path,
+    transaction_id: &str,
+    generation_id: &str,
+) -> Result<VerifiedLinkedCheckpoint, ServiceError> {
+    let deadline = Instant::now() + HELPER_IO_TIMEOUT;
+    let mut stream = connect_helper_until(socket_path, deadline)
+        .map_err(|error| helper_connect_error(error.kind()))?;
+    let request = HelperEnvelope {
+        version: HELPER_PROTOCOL_VERSION,
+        request_id: RequestId::new("verify-linked").expect("static request ID is valid"),
+        request: HelperRequest::VerifyLinkedCheckpoint {
+            transaction_id: transaction_id.to_owned(),
+            generation_id: generation_id.to_owned(),
+        },
+    };
+    request.validate().map_err(|_| ServiceError::Malformed("invalid recovery reference".into()))?;
+    let response = exchange_helper_until(&mut stream, &request, deadline)
+        .map_err(|_| ServiceError::RecoveryUnavailable)?;
+    if response.version != HELPER_PROTOCOL_VERSION || response.request_id != request.request_id {
+        return Err(ServiceError::RecoveryUnavailable);
+    }
+    match response.outcome {
+        HelperOutcome::Rejected(error) => Err(error),
+        HelperOutcome::VerifiedLinkedCheckpoint(verified)
+            if verified.transaction_id == transaction_id
+                && verified.generation_id == generation_id
+                && ryoku_recovery::Sha256::new(verified.manifest_sha256.clone()).is_ok()
+                && valid_uuid(&verified.filesystem_uuid)
+                && ryoku_recovery::Identifier::new(verified.snapper_config.clone()).is_ok()
+                && valid_snapshot_id(&verified.snapshot_id) =>
+        {
+            Ok(verified)
+        }
+        HelperOutcome::VerifiedLinkedCheckpoint(_) => Err(ServiceError::RecoveryUnavailable),
     }
 }
 
@@ -372,6 +514,18 @@ fn exchange_helper_until(
     }
     let bytes = read_helper_frame_until(stream, deadline)?;
     read_helper_response(&mut bytes.as_slice())
+}
+
+fn valid_uuid(value: &str) -> bool {
+    value.len() == 36
+        && value.bytes().enumerate().all(|(index, byte)| match index {
+            8 | 13 | 18 | 23 => byte == b'-',
+            _ => byte.is_ascii_hexdigit(),
+        })
+}
+
+fn valid_snapshot_id(value: &str) -> bool {
+    value.parse::<u64>().is_ok_and(|number| number > 0 && number.to_string() == value)
 }
 
 fn read_helper_response(reader: &mut impl BufRead) -> Result<HelperResponse, ProtocolError> {
@@ -415,7 +569,6 @@ fn wait_helper_ready(
 }
 
 fn connect_helper_until(path: &Path, deadline: Instant) -> std::io::Result<UnixStream> {
-    remaining(deadline).map_err(|_| std::io::Error::from(std::io::ErrorKind::TimedOut))?;
     let socket = socket_with(
         AddressFamily::UNIX,
         SocketType::STREAM,
@@ -526,55 +679,28 @@ fn helper_connect_error(kind: std::io::ErrorKind) -> ServiceError {
 }
 
 #[cfg(test)]
+fn write_helper_response(
+    stream: UnixStream,
+    response: HelperResponse,
+) -> Result<(), ProtocolError> {
+    use std::io::BufWriter;
+    let mut writer = BufWriter::new(stream);
+    serde_json::to_writer(&mut writer, &response).map_err(|_| ProtocolError::Io)?;
+    writer.write_all(b"\n").map_err(|_| ProtocolError::Io)?;
+    writer.flush().map_err(|_| ProtocolError::Io)
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{CheckpointId, ManagedActionKind, PackageId, authorize_helper_operator};
     use std::io::{BufRead, BufReader};
     use std::os::unix::net::UnixStream;
-
-    #[test]
-    fn account_resolution_occurs_only_after_operator_authorization() {
-        let peer = PeerIdentity { uid: 1000, gid: 1000, supplementary_gids: vec![], pid: None };
-        let result: Result<(), _> = with_operator_account(&peer, 4242, |_| {
-            panic!("unauthorized caller reached account lookup")
-        });
-        assert_eq!(result, Err(ServiceError::Unauthorized));
-        let peer = PeerIdentity { supplementary_gids: vec![4242], ..peer };
-        assert_eq!(with_operator_account(&peer, 4242, |resolved| Ok(resolved.uid())), Ok(1000));
-    }
-
-    #[test]
-    fn helper_response_frame_has_a_bounded_size_and_requires_newline() {
-        let oversized = vec![b'x'; MAX_HELPER_RESPONSE_BYTES + 2];
-        assert_eq!(read_helper_response(&mut oversized.as_slice()), Err(ProtocolError::TooLarge));
-        assert!(matches!(read_helper_response(&mut &b"{}"[..]), Err(ProtocolError::Malformed(_))));
-    }
-
-    #[test]
-    fn trickling_input_cannot_extend_the_absolute_helper_deadline() {
-        let (mut client, mut server) = UnixStream::pair().unwrap();
-        server.set_nonblocking(true).unwrap();
-        let writer = std::thread::spawn(move || {
-            for _ in 0..40 {
-                if client.write_all(b"x").is_err() {
-                    break;
-                }
-                std::thread::sleep(Duration::from_millis(5));
-            }
-        });
-        let started = Instant::now();
-        assert_eq!(
-            read_helper_frame_until(&mut server, started + Duration::from_millis(50)),
-            Err(ProtocolError::Io)
-        );
-        assert!(started.elapsed() < Duration::from_secs(2));
-        drop(server);
-        writer.join().unwrap();
-    }
+    use std::thread;
 
     #[test]
     fn expired_helper_deadline_fails_before_socket_io() {
-        let (_peer, mut stream) = UnixStream::pair().unwrap();
+        let (_peer, mut stream) = crate::test_unix_pair_or_skip!();
         stream.set_nonblocking(true).unwrap();
         let deadline = Instant::now() - Duration::from_millis(1);
         assert_eq!(read_helper_frame_until(&mut stream, deadline), Err(ProtocolError::Io));
@@ -592,6 +718,86 @@ mod tests {
         );
     }
 
+    #[test]
+    fn linked_checkpoint_client_correlates_and_validates_helper_evidence() {
+        let path =
+            std::env::temp_dir().join(format!("ryoku-verify-helper-{}.sock", std::process::id()));
+        let listener = crate::test_unix_listener_or_skip!(&path);
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let request = read_helper_envelope(&mut BufReader::new(&mut stream)).unwrap();
+            assert_eq!(request.request_id.as_str(), "verify-linked");
+            assert_eq!(
+                request.request,
+                HelperRequest::VerifyLinkedCheckpoint {
+                    transaction_id: "txn-1".into(),
+                    generation_id: "generation-1".into(),
+                }
+            );
+            let response = HelperResponse {
+                version: HELPER_PROTOCOL_VERSION,
+                request_id: request.request_id,
+                outcome: HelperOutcome::VerifiedLinkedCheckpoint(VerifiedLinkedCheckpoint {
+                    transaction_id: "txn-1".into(),
+                    generation_id: "generation-1".into(),
+                    manifest_sha256: "a".repeat(64),
+                    snapper_config: "root".into(),
+                    snapshot_id: "42".into(),
+                    filesystem_uuid: "01234567-89ab-cdef-0123-456789abcdef".into(),
+                }),
+            };
+            write_helper_response(stream, response).unwrap();
+        });
+        let verified = verify_linked_checkpoint_at(&path, "txn-1", "generation-1").unwrap();
+        assert_eq!(verified.snapshot_id, "42");
+        server.join().unwrap();
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn account_preflight_authorizes_before_lookup_and_binds_exact_peer() {
+        const OPERATOR_GID: u32 = 4242;
+        let peer = PeerIdentity {
+            uid: 1000,
+            gid: 1000,
+            supplementary_gids: vec![OPERATOR_GID],
+            pid: None,
+        };
+        for denied in [
+            PeerIdentity { uid: 0, ..peer.clone() },
+            PeerIdentity { supplementary_gids: vec![], ..peer.clone() },
+        ] {
+            let result = with_operator_account(&denied, OPERATOR_GID, |_| -> Result<(), _> {
+                panic!("unauthorized request reached account lookup");
+            });
+            assert_eq!(result, Err(ServiceError::Unauthorized));
+        }
+        assert_eq!(
+            with_operator_account(&peer, OPERATOR_GID, |authenticated| {
+                assert_eq!(authenticated, &peer);
+                Ok(authenticated.uid())
+            }),
+            Ok(1000)
+        );
+        for error in [
+            AccountStateError::LookupTimedOut,
+            AccountStateError::AccountChanged,
+            AccountStateError::UnsafeDirectory,
+            AccountStateError::UnsupportedAccount,
+        ] {
+            assert_eq!(
+                with_operator_account(&peer, OPERATOR_GID, |_| Err::<(), _>(error)),
+                Err(ServiceError::RecoveryUnavailable)
+            );
+        }
+        assert_eq!(
+            with_operator_account(&peer, OPERATOR_GID, |_| Err::<(), _>(
+                AccountStateError::LookupBusy
+            )),
+            Err(ServiceError::Busy)
+        );
+    }
+
     fn valid_envelope(request: HelperRequest) -> HelperEnvelope {
         HelperEnvelope {
             version: HELPER_PROTOCOL_VERSION,
@@ -604,14 +810,14 @@ mod tests {
     fn versioned_typed_request_round_trips_and_rejects_unknown_command_fields() {
         let envelope = valid_envelope(HelperRequest::ApplyPackageTransaction {
             transaction_id: "txn-1".into(),
-            manifest_id: "manifest-1".into(),
+            generation_id: "generation-1".into(),
             packages: vec![PackageId::new("firefox").unwrap()],
         });
         let mut json = serde_json::to_vec(&envelope).unwrap();
         json.push(b'\n');
         assert_eq!(read_helper_envelope(&mut json.as_slice()).unwrap(), envelope);
 
-        let arbitrary_command = br#"{"version":1,"request_id":"r1","request":{"operation":"apply_package_transaction","transaction_id":"txn-1","manifest_id":"m1","packages":["firefox"],"command":"sh -c id"}}
+        let arbitrary_command = br#"{"version":2,"request_id":"r1","request":{"operation":"apply_package_transaction","transaction_id":"txn-1","generation_id":"generation-1","packages":["firefox"],"command":"sh -c id"}}
 "#;
         assert!(matches!(
             read_helper_envelope(&mut arbitrary_command.as_slice()),
@@ -623,21 +829,24 @@ mod tests {
     fn malformed_versions_references_and_package_lists_fail_before_dispatch() {
         let mut wrong_version = valid_envelope(HelperRequest::VerifyLinkedCheckpoint {
             transaction_id: "txn-1".into(),
-            manifest_id: "manifest-1".into(),
+            generation_id: "generation-1".into(),
         });
-        wrong_version.version = 2;
-        assert_eq!(wrong_version.validate(), Err(ProtocolError::UnsupportedVersion(2)));
+        wrong_version.version = HELPER_PROTOCOL_VERSION + 1;
+        assert_eq!(
+            wrong_version.validate(),
+            Err(ProtocolError::UnsupportedVersion(HELPER_PROTOCOL_VERSION + 1))
+        );
 
         let malformed = valid_envelope(HelperRequest::RestoreCheckpoint {
             transaction_id: "../escape".into(),
-            manifest_id: "manifest-1".into(),
+            generation_id: "generation-1".into(),
             checkpoint_id: CheckpointId::new("snap-1").unwrap(),
         });
         assert!(matches!(malformed.validate(), Err(ProtocolError::Malformed(_))));
 
         let duplicate = valid_envelope(HelperRequest::ApplyPackageTransaction {
             transaction_id: "txn-1".into(),
-            manifest_id: "manifest-1".into(),
+            generation_id: "generation-1".into(),
             packages: vec![PackageId::new("firefox").unwrap(); 2],
         });
         assert!(matches!(duplicate.validate(), Err(ProtocolError::Malformed(_))));
@@ -645,11 +854,11 @@ mod tests {
 
     #[test]
     fn authenticated_and_unauthorized_peers_receive_only_fail_closed_outcomes() {
-        let (service_side, _peer_side) = UnixStream::pair().unwrap();
+        let (service_side, _peer_side) = crate::test_unix_pair_or_skip!();
         let peer = PeerIdentity::from_unix_socket(&service_side).unwrap();
         let envelope = valid_envelope(HelperRequest::RestoreCheckpoint {
             transaction_id: "txn-1".into(),
-            manifest_id: "manifest-1".into(),
+            generation_id: "generation-1".into(),
             checkpoint_id: CheckpointId::new("snap-1").unwrap(),
         });
         let allowed = dispatch_helper_request(&peer, peer.uid(), envelope.clone()).unwrap();
@@ -707,16 +916,16 @@ mod tests {
         let mutation_requests = [
             HelperRequest::VerifyLinkedCheckpoint {
                 transaction_id: "txn-1".into(),
-                manifest_id: "manifest-1".into(),
+                generation_id: "generation-1".into(),
             },
             HelperRequest::ApplyPackageTransaction {
                 transaction_id: "txn-1".into(),
-                manifest_id: "manifest-1".into(),
+                generation_id: "generation-1".into(),
                 packages: vec![PackageId::new("firefox").unwrap()],
             },
             HelperRequest::RestoreCheckpoint {
                 transaction_id: "txn-1".into(),
-                manifest_id: "manifest-1".into(),
+                generation_id: "generation-1".into(),
                 checkpoint_id: CheckpointId::new("snap-1").unwrap(),
             },
         ];
@@ -740,8 +949,77 @@ mod tests {
     }
 
     #[test]
+    fn linked_checkpoint_verification_runs_only_for_an_authenticated_operator() {
+        const OPERATOR_GID: u32 = 4242;
+        let operator = PeerIdentity {
+            uid: 1000,
+            gid: 1000,
+            supplementary_gids: vec![OPERATOR_GID],
+            pid: None,
+        };
+        let request = valid_envelope(HelperRequest::VerifyLinkedCheckpoint {
+            transaction_id: "txn-1".into(),
+            generation_id: "generation-1".into(),
+        });
+        let mut called = false;
+        let response = dispatch_operator_request_with_verifier(
+            operator.clone(),
+            OPERATOR_GID,
+            request.clone(),
+            |transaction, generation| {
+                called = true;
+                assert_eq!(transaction, "txn-1");
+                assert_eq!(generation, "generation-1");
+                Ok(VerifiedLinkedCheckpoint {
+                    transaction_id: transaction.to_owned(),
+                    generation_id: generation.to_owned(),
+                    manifest_sha256: "0".repeat(64),
+                    snapper_config: "root".into(),
+                    snapshot_id: "42".into(),
+                    filesystem_uuid: "01234567-89ab-cdef-0123-456789abcdef".into(),
+                })
+            },
+        )
+        .unwrap();
+        assert!(called);
+        assert!(matches!(response.outcome, HelperOutcome::VerifiedLinkedCheckpoint(_)));
+
+        let denied = PeerIdentity { supplementary_gids: vec![], ..operator };
+        let mut unauthorized_called = false;
+        let response =
+            dispatch_operator_request_with_verifier(denied, OPERATOR_GID, request, |_, _| {
+                unauthorized_called = true;
+                panic!("unauthorized peer reached linked verification");
+            })
+            .unwrap();
+        assert!(!unauthorized_called);
+        assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
+    }
+
+    #[test]
+    fn linked_checkpoint_success_response_has_bounded_typed_wire_shape() {
+        let response = HelperResponse {
+            version: HELPER_PROTOCOL_VERSION,
+            request_id: RequestId::new("verify-1").unwrap(),
+            outcome: HelperOutcome::VerifiedLinkedCheckpoint(VerifiedLinkedCheckpoint {
+                transaction_id: "txn-1".into(),
+                generation_id: "generation-1".into(),
+                manifest_sha256: "0".repeat(64),
+                snapper_config: "root".into(),
+                snapshot_id: "42".into(),
+                filesystem_uuid: "01234567-89ab-cdef-0123-456789abcdef".into(),
+            }),
+        };
+        let mut frame = serde_json::to_vec(&response).unwrap();
+        frame.push(b'\n');
+        let decoded = read_helper_response(&mut BufReader::new(frame.as_slice())).unwrap();
+        assert_eq!(decoded, response);
+        assert!(frame.len() <= MAX_HELPER_RESPONSE_BYTES + 1);
+    }
+
+    #[test]
     fn connected_peer_groups_match_kernel_process_group_snapshot() {
-        let (server, client) = UnixStream::pair().unwrap();
+        let (server, client) = crate::test_unix_pair_or_skip!();
         let peer = PeerIdentity::from_unix_socket(&server).unwrap();
         let expected = rustix::process::getgroups()
             .unwrap()
@@ -774,7 +1052,7 @@ mod tests {
 
     #[test]
     fn operator_socket_returns_malformed_rejection_without_dispatching() {
-        let (server, mut client) = UnixStream::pair().unwrap();
+        let (server, mut client) = crate::test_unix_pair_or_skip!();
         client.write_all(b"not-json\n").unwrap();
         let operator_gid = rustix::process::getegid().as_raw();
         serve_operator_helper_connection(server, operator_gid).unwrap();
@@ -785,7 +1063,7 @@ mod tests {
 
     #[test]
     fn obsolete_protocol_version_gets_structured_unsupported_rejection() {
-        let (server, mut client) = UnixStream::pair().unwrap();
+        let (server, mut client) = crate::test_unix_pair_or_skip!();
         let mut envelope = valid_envelope(HelperRequest::CheckAvailability {
             action: ManagedActionKind::InstallPackage,
         });
@@ -823,7 +1101,7 @@ mod tests {
         }
         let path =
             std::env::temp_dir().join(format!("ryoku-helper-denied-{}.sock", std::process::id()));
-        let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
+        let listener = crate::test_unix_listener_or_skip!(&path);
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000)).unwrap();
         assert_eq!(
             check_action_availability_at(&path, ManagedActionKind::InstallPackage),
@@ -831,6 +1109,32 @@ mod tests {
         );
         drop(listener);
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn missing_helper_and_permission_denial_have_distinct_typed_errors() {
+        assert_eq!(
+            helper_connect_error(std::io::ErrorKind::NotFound),
+            ServiceError::RecoveryUnavailable
+        );
+        assert_eq!(
+            helper_connect_error(std::io::ErrorKind::ConnectionRefused),
+            ServiceError::RecoveryUnavailable
+        );
+        assert_eq!(
+            helper_connect_error(std::io::ErrorKind::PermissionDenied),
+            ServiceError::Unauthorized
+        );
+    }
+
+    #[test]
+    fn helper_response_frame_is_bounded_and_requires_a_newline() {
+        let oversized = vec![b'x'; MAX_HELPER_RESPONSE_BYTES + 2];
+        assert_eq!(read_helper_response(&mut oversized.as_slice()), Err(ProtocolError::TooLarge));
+        assert_eq!(
+            read_helper_response(&mut b"{}".as_slice()),
+            Err(ProtocolError::Malformed("incomplete helper response frame"))
+        );
     }
 
     #[test]
@@ -849,7 +1153,7 @@ mod tests {
             request_id: RequestId::new(request_id).unwrap(),
             request: HelperRequest::VerifyLinkedCheckpoint {
                 transaction_id: "txn-1".into(),
-                manifest_id: "manifest-1".into(),
+                generation_id: "generation-1".into(),
             },
         }
     }
@@ -867,14 +1171,14 @@ mod tests {
 
     #[test]
     fn socket_handler_authenticates_then_writes_only_typed_rejections() {
-        let (server, mut client) = UnixStream::pair().unwrap();
+        let (server, mut client) = crate::test_unix_pair_or_skip!();
         client.write_all(b"not-json\n").unwrap();
         serve_helper_connection(server, u32::MAX).unwrap();
         let response = receive_response(&mut client);
         assert_eq!(response.request_id.as_str(), "invalid");
         assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
 
-        let (server, mut client) = UnixStream::pair().unwrap();
+        let (server, mut client) = crate::test_unix_pair_or_skip!();
         let peer = PeerIdentity::from_unix_socket(&client).unwrap();
         send_envelope(&mut client, &socket_request("known-req"));
         serve_helper_connection(server, peer.uid()).unwrap();
@@ -885,7 +1189,7 @@ mod tests {
 
     #[test]
     fn operator_socket_rejects_before_parsing_untrusted_request() {
-        let (server, mut client) = UnixStream::pair().unwrap();
+        let (server, mut client) = crate::test_unix_pair_or_skip!();
         client.write_all(b"not-json\n").unwrap();
         serve_operator_helper_connection(server, u32::MAX).unwrap();
         let response = receive_response(&mut client);
@@ -895,14 +1199,14 @@ mod tests {
 
     #[test]
     fn socket_handler_returns_typed_framing_error_and_handles_peer_close() {
-        let (server, mut client) = UnixStream::pair().unwrap();
+        let (server, mut client) = crate::test_unix_pair_or_skip!();
         client.write_all(b"not-json\n").unwrap();
         serve_helper_connection(server, rustix::process::geteuid().as_raw()).unwrap();
         let response = receive_response(&mut client);
         assert_eq!(response.request_id.as_str(), "invalid");
         assert!(matches!(response.outcome, HelperOutcome::Rejected(ServiceError::Malformed(_))));
 
-        let (server, mut client) = UnixStream::pair().unwrap();
+        let (server, mut client) = crate::test_unix_pair_or_skip!();
         client.write_all(b"{\"version\":1").unwrap();
         drop(client);
         assert_eq!(

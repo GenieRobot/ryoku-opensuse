@@ -3,20 +3,23 @@
 The source-backed architecture decision and Quickshell reuse assessment are in
 [`ADR 0001`](adr/0001-ui-and-service-integration.md).
 
-The existing pinned Ryoku launcher now has a narrow Rust executable provider
-for typed service discovery. Its native KWin/Plasma proof rendered the live
-service's actual `RecoveryUnavailable` result, then typed `Unavailable` after
-that owned service stopped. Both reviewed visible rows match actual native
-journal request/result IDs. The [provider contract](launcher-service-provider.md)
-documents the original argv/rofi extension, source attribution, invocation/cache
-limits, exact separate issue #17/#25 prerequisites and reproduction procedure.
-The [evidence record](../infra/tumbleweed-lab/evidence/issue14-native-launcher-service.toml)
-preserves source/binary/capture hashes. The provider was accepted in
-[PR #145](https://github.com/GenieRobot/ryoku-opensuse/pull/145), integrated at
-`3e1bba87a9aef57adb0a6ba53b46d2aa9da7eb6d`. The
-[proof follow-up PR #143](https://github.com/GenieRobot/ryoku-opensuse/pull/143)
-records the optional GTK keyboard and package metadata and its accessibility
-review correction. This follow-up does not close #14.
+The real pinned Ryoku launcher now has a narrow Rust executable provider for
+typed read-only service discovery through its existing extension API. See
+[`the provider contract and native fixture`](launcher-service-provider.md).
+It rendered actual `RecoveryUnavailable` and stopped-service `Unavailable`
+results inside the unchanged launcher in the native KDE guest. The
+[evidence record](../infra/tumbleweed-lab/evidence/issue14-native-launcher-service.toml)
+contains accepted screenshot and correlated journal hashes. This passes the
+narrow existing-surface request/result/error component gate. Architecture/public
+PR review, accessibility, theme/scale, Hyprland and packaging acceptance remain
+open; the provider does not implement the Ryostore backend.
+
+The original clipboard surface now has a separate Rust user-service candidate.
+Its only QML changes are documented in
+[`the upstream patch registry`](../upstream/patches/README.md): a dedicated
+socket path and visible provider/operation errors. Capture, state, validation
+and operations are Rust. The clipboard provider has not yet passed native UI
+acceptance.
 
 M0-05 adds an executable Rust proof in `suse/ui`: a typed dashboard status,
 one explicit `RefreshStatus` action, and typed success and service-error
@@ -36,10 +39,10 @@ Tumbleweed graphical application launches.
 
 The repository currently contains no pinned Ryoku UI source tree, only the
 upstream inventory and source pin. Upstream Quickshell surfaces are QML and
-JavaScript. Existing upstream files may be retained unchanged with their
-upstream notices after compatibility and protocol review; project-owned
-changes to those executable files are outside the approved Rust-only rule.
-Any new Ryoku surface therefore belongs in Rust.
+JavaScript. Preserve their notices and exact pin. The approved exception allows
+small attributed routing, binding and result-display patches to existing
+upstream surfaces; backend behavior remains in Rust. Any new Ryoku surface
+therefore belongs in Rust.
 
 Keep the Rust presentation layer separate from backend and provider code. The
 workspace contains an optional GTK 4 Rust proof binary (`gtk-ui` feature). Its
@@ -50,8 +53,12 @@ mode sends the existing typed `Discover` request to the fixed
 `$XDG_RUNTIME_DIR/ryoku-service.sock` endpoint after checking the runtime
 directory and socket ownership/modes and the connected peer UID. It maps the
 service's `Ready` and `RecoveryUnavailable` states into distinct UI status
-messages and renders authentication failures as typed errors. Responses are
-limited to 64 KiB and socket operations time out after five seconds. No
+messages and renders authentication failures as typed errors. `Discover` now
+checks helper reachability and protected-state initialization through the
+read-only helper availability operation; a ready state still advertises no
+managed writes and does not claim that a particular checkpoint is available.
+Responses are limited to 64 KiB and each request has one five-second deadline
+covering nonblocking socket connection, request writes and response reads. No
 managed action is sent, and these states do not claim package-update data.
 
 This Unix-socket adapter exercises the current service runtime as an
@@ -69,58 +76,17 @@ click **Refresh status** to issue `Discover`:
 cargo run --locked -p ryoku-ui --features gtk-ui --bin ryoku-ui-gtk -- --connect-service
 ```
 
-GTK remains an optional proof candidate. The revised ADR proposes the unchanged
-launcher plus Rust adapter for the existing-surface read boundary, pending
-architecture review. GTK's Tumbleweed package and
+GTK remains an optional M0 proof candidate. The revised ADR proposes the
+unchanged launcher plus Rust read adapter as the existing-surface path; that
+proposal still needs review. GTK's Tumbleweed package and
 runtime dependencies, Wayland behavior, accessibility, theme integration, and
-lifecycle handling still need guest validation. The declarative
-[`ryoku-ui-proof.spec`](../packaging/rpm/ryoku-ui-proof.spec) describes a
-separate experimental proof package with a GTK runtime dependency and
-Ryoku-owned desktop entry/icon paths. It does not establish an RPM install,
-removal, or dependency result. GitHub Rust checks install
+lifecycle handling still need guest validation. GitHub Rust checks install
 `libgtk-4-dev` so all-feature CI can compile and test the GTK target. KDE
 fallback must be included in the graphical test.
 
-The GTK control has an `_Refresh status` mnemonic (`Alt+R`) and remains
-the window's default button, so GTK also provides normal Tab focus and Enter
-activation. The request-result label is the only live region, with GTK's polite
-`Status` role for successful and failed read requests. The separate summary is
-an ordinary label: a success is announced once, and failures clear stale
-summary text. The button publishes its label and mnemonic to GTK's accessibility
-API. These are source-level semantics only. Run06's refresh was
-dispatched programmatically, so it does not prove keyboard activation; neither
-Run06 nor the current CI proves focus visibility or announcements through
-AT-SPI/Orca.
-
-## Acceptance evidence for issue #14
-
-The native component proof uses Tumbleweed Snapshot 20261013, Plasma/KWin
-Wayland, pinned Ryoku `98a0368253d9628be72b853985878a5db90e1547` and unchanged
-Quickshell 0.3.2 at `4f508be500dea6e5732cc3d50382a0048b17e7b1`.
-The [runtime evidence](../infra/tumbleweed-lab/evidence/issue14-real-ryoku-runtime.toml)
-records that dependency closure; the
-[launcher evidence](../infra/tumbleweed-lab/evidence/issue14-native-launcher-service.toml)
-records ordinary keyboard dispatch, actual service success and stopped-service
-error, and matching visible request IDs. On 18 October, both retained screenshots
-were viewed again and their SHA-256 values and the journal digest matched the
-record. This rechecks existing evidence; it is not a new VM run.
-
-| Issue requirement | Evidence and limit |
-| --- | --- |
-| Inspect pinned UI boundaries and candidates | [ADR 0001](adr/0001-ui-and-service-integration.md) compares the original launcher extension, Ryostore child-process boundary and optional Rust GTK surface. |
-| Typed state and a non-destructive existing-surface action | [PR #145](https://github.com/GenieRobot/ryoku-opensuse/pull/145) implements only `RefreshStatus`/`Discover`; native success is `RecoveryUnavailable`, then a genuinely stopped service produces typed `Unavailable`. |
-| Rust integration and upstream attribution | The provider and client are Rust. The pinned launcher/QML/JavaScript remain unchanged with their notices; native JSON selects the existing argv extension. No Go protocol impersonation or new executable glue is introduced. |
-| Accessibility, theme, packaging and FFI constraints | [ADR constraints](adr/0001-ui-and-service-integration.md#ui-accessibility-theme-ffi-and-packaging-constraints) record these limits. This PR adds optional declarative proof RPM metadata and one GTK result live region; it supplies no screen-reader or package install/removal acceptance. |
-| Surface conflict and architecture decision | ADR 0001 remains proposed. Full Ryostore mutation controls lack an approved Rust provider path; dependent full-surface work remains blocked until that conflict is resolved. The launcher read path is the demonstrated scope. |
-
-The representative existing-surface request/result/error component gate has
-passed. Architecture acceptance and the issue's completion decision remain with
-the coordinator; broader product accessibility, theme, Hyprland and package
-lifecycle validation remain explicitly unclaimed.
-The [18 October review evidence](../infra/tumbleweed-lab/evidence/issue14-pr143-review-oct18.toml)
-records the GTK feature build, all 17 UI/protocol tests without skips, Clippy,
-RPM spec parsing, resolved host libraries and the unavailable desktop entry
-validator, alongside the original capture digest recheck.
+Refresh executes the socket exchange on a Rust worker thread. GTK remains
+responsive during the bounded service timeout, disables repeat refreshes while
+one request is pending, and applies the typed result on the GTK main loop.
 
 GTK's Rust bindings wrap a C toolkit internally, so keep the wrapper API at
 the presentation edge, do not expose GTK/GLib objects through workspace
@@ -128,15 +94,22 @@ contracts, and do not add project-owned unsafe FFI. The service boundary must
 remain usable by a retained upstream surface only if that surface can consume
 the same authenticated protocol without project-owned QML/JavaScript glue.
 
-## Product validation beyond the read proof
+## Remaining validation
 
 The GTK proof and opt-in service-discovery adapter are present. The
 `--connect-service` path has local protocol tests, but it has not yet been
-verified against the running daemon in a Tumbleweed desktop. Run18 installed
-KDE/SDDM, but its ordinary-user Wayland login check remained blocked. The later
-launcher proof recorded above passed the native existing-surface discovery and
-real stopped-service error component; it used separately recorded service and
-session source, not a new capture option in this branch. On a
+visually accepted against the running daemon in a Tumbleweed desktop. Run20
+passed automated request/result/paint markers but visual review found KSplash
+obscuring the view, so it establishes no visible GTK-window success. The lab
+now verifies that the exact RPM-owned `ksplashqml` process belongs to the
+authenticated Plasma session and waits for it to exit before launching GTK;
+it rechecks both splash absence and session identity immediately before spawn,
+then records `ui_capture_splash=absent`. This avoids the observed overlay
+race, but does not replace review of the captured framebuffer. The real
+unchanged launcher subsequently passed the native typed success/error gate
+described above; GTK demonstration captures are not used for that conclusion.
+The recorded issue13 WSL run06 rendered the demonstration windows after a native KDE login;
+those fixed responses did not exercise the daemon. On a
 disposable Tumbleweed graphical VM with a working login and the service
 available, build the native surface and demonstrate all of the following with
 sanitized evidence:
@@ -144,9 +117,9 @@ sanitized evidence:
 1. Launch and render typed backend status in a real desktop window under
    Hyprland, including keyboard navigation, screen-reader labels, and current
    desktop theme behavior.
-2. Preserve/review the completed KDE launcher read-only success/error evidence
-   and repeat the real request path for the other accepted session and packaged
-   lifecycle.
+2. Preserve/review the completed KDE launcher read-only success and typed
+   error evidence; repeat this actual request/result path for the other accepted
+   session and packaged lifecycle.
 3. Repeat launch, theme, accessibility, and action checks under the KDE
    fallback, including Wayland/XWayland behavior where relevant.
 4. Package and install the UI and required runtime dependencies through the
@@ -156,12 +129,10 @@ sanitized evidence:
    package and daemon activation must also be tested against the final
    transport decision in ADR 0001.
 
-These checks are product acceptance work beyond the demonstrated representative
-read proof. Issue #14 requires its constraints to be recorded, and its
-architecture decision still needs review. Dependent full-surface mutation UI
-work remains blocked by the documented Ryostore/provider conflict. The terminal
-contract tests and demonstration output do not replace native proof for any
-additional supported surface.
+Until the remaining graphical gates and architecture review pass, M0-05 remains
+incomplete and dependent graphical UI work remains blocked at the integration
+decision. The terminal
+contract tests and output are not substitutes for that proof.
 
 ### Disposable VM visual capture
 
@@ -214,3 +185,49 @@ machine details first. This capture proves GTK startup and the displayed
 sample outcomes only. It does not establish accessibility, theme integration,
 Hyprland behavior, packaging acceptance, or a real service client. Issue #14
 remains open until its separate desktop evidence and review gates pass.
+
+### Real daemon capture
+
+The same lab has a separate opt-in real daemon lane. Build the GTK binary,
+`ryoku-service`, and `vm-lab` from the same reviewed source revision, then add
+`--capture-user-service` to the graphical run:
+
+```console
+RYOKU_LAB_AUTHORIZED=existing-wsl-vm cargo run --locked --features wsl-lab --bin vm-lab -- \
+  run /path/to/verified-assets /path/to/fresh-run --accelerator kvm \
+  --capture-ui /path/to/ryoku-ui-gtk \
+  --capture-user-service /path/to/ryoku-service
+```
+
+The daemon option requires `--capture-ui` and rejects console-only runs. The
+host checks both executable inputs, freezes them in the private run directory,
+and records their hashes. The guest verifies the daemon's hash and native
+dependencies before installing it at `/usr/libexec/ryoku/ryoku-service`; an
+existing destination is refused. This fixture installation does not test RPM
+ownership, install/remove behavior, or the production user service unit.
+
+The daemon runs as the existing authenticated ordinary desktop user in that
+user's normal runtime directory. A separately named transient user unit owns
+and reaps the process. The fixture refuses a pre-existing unit/socket, records
+the PID and process start identity, and checks its UID and executable before
+stopping it. A five-minute native lifetime bound also applies. No root helper
+is installed or started by this lane.
+
+The first window waits for **Enter** supplied through the existing QMP input
+path; it does not click Refresh programmatically. It sends the real typed
+`Discover` request and must render `RecoveryUnavailable`, the daemon's actual
+read-only discovery result. This is a successful request, not a claim that
+recovery is available. The fixture then stops/reaps its daemon, opens a fresh
+window, and requires a real connection failure rendered as typed `Unavailable`.
+Each scenario must emit exactly one fresh request, the matching typed result,
+and an after-paint marker for that request before the framebuffer is captured.
+The bounded public evidence distinguishes this lane from demonstration mode;
+runtime details and screenshots remain private until reviewed and sanitized.
+
+These checks establish neither assistive-technology announcements nor complete
+keyboard navigation, theme/scale behavior, Hyprland support, or packaging.
+They also do not resolve the existing-surface conflict: the pinned Ryostore's
+visible mutation controls cannot currently be supported by the approved Rust
+adapter, and the GTK status proof is not its representative replacement.
+ADR 0001 stays proposed and issue #14 stays open pending that review and the
+remaining desktop acceptance evidence.

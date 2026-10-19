@@ -1,5 +1,0 @@
-    Blocking waiting for file lock on build directory
-    Checking ryoku-recovery v0.1.0 (/tmp/ryoku-issue18-owned-capture/suse/recovery)
-    Checking ryoku-service v0.1.0 (/tmp/ryoku-issue18-owned-capture/suse/service)
-    Checking ryoku-ui v0.1.0 (/tmp/ryoku-issue18-owned-capture/suse/ui)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 9.75s

@@ -24,11 +24,14 @@ use std::{
     process::Command,
 };
 
+#[path = "support/boot_chain.rs"]
+mod boot_chain;
+
 type ProbeResult<T> = Result<T, Box<dyn std::error::Error>>;
-const TRANSACTION: &str = "issue19-linked-probe";
-const GENERATION: &str = "issue19-linked-generation";
-const JOURNAL: &str = "issue19-linked-journal";
-const SOURCE: &str = "/run/ryoku-issue19-linked-source";
+const TRANSACTION: &str = "native-linked-probe";
+const GENERATION: &str = "native-linked-generation";
+const JOURNAL: &str = "native-linked-journal";
+const SOURCE: &str = "/run/ryoku-native-linked-source";
 const CONTENT: &[u8] = b"synthetic linked checkpoint payload\n";
 
 fn id(value: &str) -> ProbeResult<Identifier> {
@@ -45,6 +48,7 @@ fn main() -> ProbeResult<()> {
                 | "--verify-after-root-change"
                 | "--exercise-failures"
                 | "--observe-layout"
+                | "--observe-boot-chain"
                 | "--cleanup-journal"
         )
         || rustix::process::geteuid().as_raw() != 0
@@ -61,6 +65,7 @@ fn main() -> ProbeResult<()> {
         "--verify-after-root-change" => verify(&root, true)?,
         "--exercise-failures" => exercise_failures(&root)?,
         "--observe-layout" => observe_layout()?,
+        "--observe-boot-chain" => boot_chain::observe(),
         "--cleanup-journal" => cleanup_journal(&root)?,
         _ => unreachable!(),
     }
@@ -342,7 +347,7 @@ fn exercise_failures(root: &File) -> ProbeResult<()> {
     // permission on its root inode and fails with EROFS. These wrappers share
     // one writable parent, so neither snapshot's parent inode changes.
     let substitute =
-        SnapperCheckpointBackend.create_single(&request("issue19-linked-substitute")?)?;
+        SnapperCheckpointBackend.create_single(&request("native-linked-substitute")?)?;
     let substitute_link =
         SnapshotLink::new(id("root")?, substitute.as_str(), &manifest.filesystem_uuid)
             .map_err(|_| "invalid substitute snapshot link")?;

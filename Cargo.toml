@@ -6,6 +6,7 @@ members = [
     "suse/recovery",
     "suse/snapper",
     "suse/ui",
+    "suse/session",
     "suse/profiles",
     "suse/tests",
     "automation",

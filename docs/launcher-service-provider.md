@@ -60,27 +60,8 @@ would require a separately reviewed upstream/UI change.
 
 ## Build and disposable native fixture
 
-This focused change supplies the Rust provider/client, example metadata and
-evidence. Its public-main base already supplies the version-1 service protocol;
-the tested native service/session implementation is a separate prerequisite.
-The accepted native captures used these exact source revisions:
-
-- Provider: `fc50d0b599e787dc7266328e1a8068ba7d3a4a65`; the four provider/client
-  Rust files in this focused change retain that implementation unchanged.
-- Issue #17 service: `9f2908c45e97ae443d72a5af2b3f56d0e15a812d`, including the
-  native account-bound socket/state handling and separate private service state
-  child. That service implementation is not introduced by this change.
-- Issue #25 session launcher: `2057a0fcada1630e24a8fde53970cbb73b6671f1`, using
-  `setpriv --no-new-privs` and `/usr/libexec/ryoku/quickshell/bin/qs`. The launcher,
-  session definitions, payload/fonts and Quickshell build are separate work.
-
-The recorded native service/session binaries are not claimed to come from this
-focused branch's public-main implementations. Reproducing that native fixture
-requires the reviewed prerequisite source, with its original binary/log hashes
-preserved; this change does not install or activate it. Later SDDM/reboot and
-RPM work is outside the two KDE evidence artifacts copied here.
-
-Build the provider without GTK from this checkout:
+Build from the same reviewed source revision as the service. GTK is optional
+and is not built or needed for this provider:
 
 ```console
 CARGO_TARGET_DIR=/home/jin/src/ryoku-opensuse/target/issue14-build CARGO_BUILD_JOBS=2 cargo build --offline --locked --release -p ryoku-ui --no-default-features --bin ryoku-launcher-status
@@ -135,9 +116,5 @@ of sample counts, bounded directive-free rows and slow-trickle deadline
 enforcement. Neither those tests nor the native read proof establish accessibility,
 theme/scale, Hyprland login, RPM installation/removal, full Hub/store integration,
 or acceptance of the remaining exposed upstream controls. This extension proves
-only a narrow existing-surface read boundary. Its public implementation and
-native evidence were accepted in
-[PR #145](https://github.com/GenieRobot/ryoku-opensuse/pull/145). Overall
-acceptance still requires architecture review and the remaining issue #14 checks;
-the [acceptance evidence map](ui-integration.md#acceptance-evidence-for-issue-14)
-keeps those limits explicit.
+only a narrow existing-surface read boundary. Overall acceptance still requires
+architecture review and the remaining issue #14 checks, including a public PR.

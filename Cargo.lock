@@ -586,6 +586,7 @@ name = "ryoku-automation"
 version = "0.1.0"
 dependencies = [
  "rustix",
+ "ryoku-recovery",
 ]
 
 [[package]]
@@ -606,7 +607,6 @@ dependencies = [
 name = "ryoku-recovery"
 version = "0.1.0"
 dependencies = [
- "libc",
  "linux-raw-sys",
  "rustix",
  "ryoku-profiles",
@@ -622,9 +622,24 @@ version = "0.1.0"
 dependencies = [
  "libc",
  "rustix",
+ "ryoku-profiles",
  "ryoku-recovery",
+ "ryoku-snapper",
  "serde",
  "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "ryoku-session"
+version = "0.1.0"
+dependencies = [
+ "rustix",
+ "ryoku-profiles",
+ "ryoku-ui",
+ "serde",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -643,6 +658,7 @@ version = "0.1.0"
 dependencies = [
  "gtk4",
  "rustix",
+ "ryoku-profiles",
  "ryoku-service",
  "serde_json",
 ]

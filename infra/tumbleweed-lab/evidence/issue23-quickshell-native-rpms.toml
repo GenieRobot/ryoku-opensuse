@@ -1,0 +1,81 @@
+schema = 1
+date = "2026-10-16"
+issue = 23
+runner = "ordinary-user native rpmbuild in the retained signed Tumbleweed 20261013 guest; independent read-only RPM and ELF inspection on host"
+port_spec_source = "f596630cf3bc626bc46466a20b81f73a9e6f898a"
+upstream_source = "4f508be500dea6e5732cc3d50382a0048b17e7b1"
+upstream_version = "0.3.2"
+upstream_tree = "382743e55b82f3b5837eca36b8158e79c61c319a"
+source_archive_sha256 = "5e8a7b7a1a1e40de641ee6cfd24f40aa612e13c27353e5746fc79b2861ca9fd0"
+build_exit = 0
+build_log_sha256 = "97db196829ad6448b0fe79575fbe048a546204215ad8a203b163a024b2efb1a2"
+scope = "unchanged pinned native runtime build, package ownership, exact private Qt ABI requirements and debug-artifact inspection; no RPM installation, transaction resolution or packaged GUI launch"
+guest_actions_by_inspector = "none"
+frozen_inputs_preserved = true
+
+[runtime]
+rpm = "ryoku-quickshell-0.3.2-1.x86_64.rpm"
+rpm_sha256 = "626c3f6928d886a79c3a774e5b9f70aaded67888cbf9e3399a795648c0e18537"
+rpm_bytes = 1856346
+provides = ["ryoku-quickshell = 0.3.2-1", "ryoku-quickshell(x86-64) = 0.3.2-1"]
+files = 19
+ownership = "all root:root; directories and executable 0755, regular data/docs/licenses 0644, symlink 0777"
+runtime_prefix = "/usr/libexec/ryoku/quickshell"
+executable = "/usr/libexec/ryoku/quickshell/bin/quickshell"
+executable_bytes = 6375936
+executable_sha256 = "df2ff2dd890ba663be94a62d3e7b05de1d7ca2d64be190e860f1014721bb5ca9"
+symlink = "/usr/libexec/ryoku/quickshell/bin/qs -> /usr/libexec/ryoku/quickshell/bin/quickshell"
+symlink_review = "unchanged upstream CMake absolute symlink; target is the exact executable owned by this RPM, within the same root-owned private prefix"
+private_assets = ["share/applications/org.quickshell.desktop", "share/icons/hicolor/scalable/apps/org.quickshell.svg"]
+not_owned = ["/usr/bin/qs", "/usr/local", "global Qt QML module directories", "KDE/SDDM files", "home or mutable system state"]
+licenses = ["LICENSE (LGPL-3.0)", "LICENSE-GPL"]
+file_digest_algorithm = 8
+scriptlets = "all pre/post/preun/postun/pretrans/posttrans/preuntrans/postuntrans/verify fields absent"
+triggers = "all package, file and transaction-file trigger fields absent"
+file_capabilities = "none"
+set_id_files = "none"
+integrity = "rpm -Kv header SHA-256/SHA-1, payload SHA-256 and MD5 checks passed; unsigned experimental artifact"
+
+[private_qt_abi]
+required_capabilities = ["libQt6Gui.so.6(Qt_6.11.2_PRIVATE_API)(64bit)", "libQt6Qml.so.6(Qt_6.11.2_PRIVATE_API)(64bit)", "libQt6Quick.so.6(Qt_6.11.2_PRIVATE_API)(64bit)", "libQt6WaylandClient.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"]
+requirement_strength = "ordinary strong RPM Requires generated from the packaged ELF"
+elf_confirmation = "readelf --version-info on the extracted, nonexecuted packaged ELF shows all four matching Qt_6.11.2_PRIVATE_API version needs; package header requirements match"
+public_qt_boundary = "also requires libQt6Core.so.6(Qt_6.11)(64bit) and normal public Qt_6 ABI capabilities"
+snapshot_providers = ["libQt6Gui6-6.11.2-2.1.x86_64", "libQt6Qml6-6.11.2-2.1.x86_64", "libQt6Quick6-6.11.2-2.1.x86_64", "libQt6WaylandClient6-6.11.2-2.1.x86_64"]
+provider_evidence = "exact four capabilities inspected in retained SHA-512-addressed primary metadata for snapshot 20261013"
+primary_metadata_sha512 = "55cd766fd1a01ac7cd7070158e06c9e9caf391e6b6fd594e5fd500978c41e2379aefcde492f93945243fcdaf14a9abdeb1bd3871711d8bb4bc321174233dc11d"
+runpath = "$ORIGIN:$ORIGIN/../lib64"
+runpath_review = "upstream-generated paths stay within the root-owned private prefix; no temporary source/build paths recorded in ELF RUNPATH"
+build_id = "5e4540b5e724ff12832ca6b955655575c7233d88"
+decision = "no extra Qt package version pin added: generated strong requirements already enforce the exact private ABI consumed by this artifact"
+upgrade_limit = "a future transaction must retain providers of these exact private capabilities or supply a compatible rebuilt Ryoku runtime; solver behavior and a full Tumbleweed update were not exercised"
+
+[debuginfo]
+rpm = "ryoku-quickshell-debuginfo-0.3.2-1.x86_64.rpm"
+rpm_sha256 = "9560c5aad580d51d46a62342fe08d5aa44d3c8716c135f297c6893ba11d2b0da"
+rpm_bytes = 428778
+files = 11
+payload = "root-owned build-ID symlinks and /usr/lib/debug/usr/libexec/ryoku/quickshell/bin/quickshell.debug"
+debug_file_bytes = 5290040
+debug_file_sha256 = "ee29123275c030d3fe64c77621dbcd4788d631f4c644d01c3393034c25a7afc8"
+provides = "debuginfo(build-id) = 5e4540b5e724ff12832ca6b955655575c7233d88 and package identities"
+weak_dependency = "Recommends ryoku-quickshell-debugsource(x86-64) = 0.3.2-1; no main-runtime dependency on the debuginfo or debugsource RPM"
+scripts_triggers_caps = "none"
+integrity = "RPM header/payload digest checks passed; unsigned experimental artifact"
+
+[empty_debugsource]
+rpm = "ryoku-quickshell-debugsource-0.3.2-1.x86_64.rpm"
+rpm_sha256 = "43d1d383bc8a0931e10973e1b3f6a2c14e83647bd5f1efc868dae9da937f6ea8"
+rpm_bytes = 6117
+files = 0
+scripts_triggers_caps = "none"
+runtime_dependencies = "RPM payload format capabilities only"
+integrity = "RPM header/payload digest checks passed; unsigned experimental artifact"
+handling = "retain original output and warning as evidence; omit empty debugsource from explicit runtime install list; useful debuginfo demonstrates why blanket debug suppression would discard real artifacts"
+
+[remaining_gates]
+native_dependency_resolution = "pending complete reviewed package transaction"
+installation_removal = "not performed"
+installed_runtime_identity_and_launch = "not tested for this RPM; existing separately staged prototype remains independent"
+qt_upgrade_solver_behavior = "not executed"
+issue_status = "open; this artifact review does not close desktop, recovery or package installation acceptance gates"

@@ -60,17 +60,10 @@ discovery, a fixed `NotFound` operation lookup, helper availability rejection,
 malformed operator frames, root rejection, duplicate-daemon refusal and fresh
 process restart. Client frames are capped at 64 KiB, each exchange has a
 five-second deadline, and server kernel UIDs and correlations are checked.
-The initial phase keeps both journals empty while checking lock and socket
-inodes. An extended phase stops the operator daemon, uses `OperationJournal`
-to persist an Accepted then Failed fixture operation, and starts the daemon.
-New clients before and after another process restart must receive that exact
-terminal record; the journal bytes and inode must remain unchanged. No real
-checkpoint or provider execution is claimed. A `Start(CreateCheckpoint)` is
-sent only to check its structured unsupported rejection. Malformed JSON,
-an unknown arbitrary-command request, an unsupported version and a temporarily
-renamed journal directory must also produce structured errors without changing
-history. The stale directory returns `RecoveryUnavailable`, the current native
-runtime contract.
+No `Start`, package, restore or provider request is sent. Both operation journals
+at `.local/state/ryoku/service/operations.log` must remain empty at their original
+inodes; daemon locks retain their inodes,
+and restart must replace the socket inode.
 
 Permission evidence is reported separately. First the original private runtime
 and socket modes must produce actual cross-user/nonmember DAC denials. A scoped
@@ -90,27 +83,22 @@ in the harness's private guest logs, not public evidence. The harness must
 require every fixed pass marker and retain only the declared package inventory
 and pass/not-tested values. The source/tests do not themselves prove activation.
 
+Fresh [console Run19](../infra/tumbleweed-lab/evidence/issue17-run19-native-services.toml)
+passed the complete native service fixture from frozen source `6b1d195` on
+Tumbleweed with enforcing SELinux. Two real NSS accounts
+used logind-created runtimes and native user managers; the installed payload
+units passed own-user discovery/`NotFound`, helper socket activation, operator
+and root policy, original-mode DAC denial, separately assisted kernel policy,
+mode restoration, duplicate refusal and fresh-process restart checks. Original
+empty journal inodes and lock inodes were retained; restarted sockets changed
+inodes. Task units were stopped and linger disabled. This proves direct fixture
+payload activation; helper RPM installation, interactive login and accepted
+transactions remain untested.
 
-The actual helper process must have exactly `CAP_DAC_READ_SEARCH` in its
-permitted, effective and bounding sets, and `NoNewPrivs=1`. Its unit retains
-read-only homes and permits writes only to the protected store required by
-startup. The user unit disables private mount/user namespaces so strict root
-ownership checks see the native identities; it retains its other restrictions.
-
-A separate transient `ryoku-account-fixture` unit executes the existing
-`prepare_operator_account` API with the same privilege restrictions. Its only
-additional write exception is `/run/ryoku`, for a fixed test socket. Two real
-accounts own distinct private `0700` configuration roots and `0600` markers.
-The operator resolves and reads only its own marker; the nonmember is rejected
-before account resolution. Original modes and markers are checked afterward.
-This verifies the account-binding API and capability policy; the production
-helper dispatcher still rejects provider requests and does not call that API.
-
-Extended pass markers are emitted on stderr into the private fixture log,
-keeping compatibility with the existing runner's strict public marker schema.
-Publish only their fixed names/results and log hashes. Do not publish arbitrary
-guest diagnostics. The empty-journal marker describes the initial phase only.
-
-The [18 October installed acceptance record](../infra/tumbleweed-lab/evidence/issue17-installed-acceptance-20261018.toml)
-links the passing current-snapshot run, source tree, installed binary hashes,
-focused host checks and the precise limits of each native assertion.
+The source now uses the private `ryoku/service` journal namespace, allowing the
+unchanged upstream UI to retain its shared `ryoku` directory mode. The historical
+Run19 result above predates this namespace migration. Local Rust regressions
+cover preserved upstream data, legacy journal inode/history migration, restart
+states before and after rename, conflicts and unsafe entries. Native guest
+activation with the new namespace and native legacy migration remain unproven
+until a new retained guest run validates them.

@@ -37,6 +37,12 @@ pub fn result_code(result: &Result<UpdateState, BackendError>) -> &'static str {
         Ok(_) | Err(BackendError::InvalidResponse) => "InvalidResponse",
         Err(BackendError::Unavailable) => "Unavailable",
         Err(BackendError::Unauthorized) => "Unauthorized",
+        Err(BackendError::NotFound) => "NotFound",
+        Err(BackendError::MalformedRequest) => "MalformedRequest",
+        Err(BackendError::StaleRequest) => "StaleRequest",
+        Err(BackendError::RecoveryUnavailable) => "RecoveryUnavailable",
+        Err(BackendError::Busy) => "Busy",
+        Err(BackendError::Failed) => "Failed",
         Err(BackendError::UnsupportedProtocol) => "UnsupportedProtocol",
         Err(BackendError::UnsupportedOperation) => "UnsupportedOperation",
         Err(BackendError::MismatchedRequestId) => "MismatchedRequestId",
@@ -155,15 +161,22 @@ mod tests {
 
     #[test]
     fn every_error_has_a_bounded_single_line_without_rofi_directives() {
-        for error in [
-            BackendError::Unavailable,
-            BackendError::Unauthorized,
-            BackendError::InvalidResponse,
-            BackendError::UnsupportedProtocol,
-            BackendError::UnsupportedOperation,
-            BackendError::MismatchedRequestId,
+        for (error, expected_code) in [
+            (BackendError::Unavailable, "Unavailable"),
+            (BackendError::Unauthorized, "Unauthorized"),
+            (BackendError::NotFound, "NotFound"),
+            (BackendError::MalformedRequest, "MalformedRequest"),
+            (BackendError::StaleRequest, "StaleRequest"),
+            (BackendError::RecoveryUnavailable, "RecoveryUnavailable"),
+            (BackendError::Busy, "Busy"),
+            (BackendError::Failed, "Failed"),
+            (BackendError::InvalidResponse, "InvalidResponse"),
+            (BackendError::UnsupportedProtocol, "UnsupportedProtocol"),
+            (BackendError::UnsupportedOperation, "UnsupportedOperation"),
+            (BackendError::MismatchedRequestId, "MismatchedRequestId"),
         ] {
             let row = render_row(RequestId(u64::MAX), &Err(error));
+            assert_eq!(result_code(&Err(error)), expected_code);
             assert!(row.starts_with("Discover failed:"));
             assert!(row.len() < 96);
             assert_eq!(row.lines().count(), 1);

@@ -30,6 +30,26 @@ pub fn safe_component(value: &str) -> Result<&str> {
 }
 
 pub fn public_evidence(line: &str) -> bool {
+    if line.starts_with("ui_service_")
+        || line.starts_with("ui_capture_backend=")
+        || line.starts_with("ui_user_service_sha256=")
+    {
+        return match line {
+            "ui_capture_backend=real_user_daemon" | "ui_capture_backend=demonstration" => true,
+            _ if line.starts_with("ui_user_service_sha256=") => {
+                crate::profile_bundle::valid_digest(
+                    line.strip_prefix("ui_user_service_sha256=").unwrap_or(""),
+                )
+            }
+            _ => ["service-success", "service-error"].iter().any(|scenario| {
+                crate::desktop::result_evidence(scenario)
+                    .is_ok_and(|rows| rows.lines().any(|row| row == line))
+            }),
+        };
+    }
+    if crate::service_fixture::public_row(line) {
+        return true;
+    }
     let Some((key, value)) = line.split_once('=') else {
         return false;
     };
@@ -37,10 +57,14 @@ pub fn public_evidence(line: &str) -> bool {
         return desktop_login_reason(line).is_some();
     }
     let keys = [
+        "development_desktop",
+        "development_resume",
+        "development_lifecycle",
         "fixture_sha256",
         "release_signer",
         "host_runner",
         "accelerator",
+        "accelerator_runtime",
         "vm_memory_mib",
         "vm_cpus",
         "qemu",
@@ -50,6 +74,20 @@ pub fn public_evidence(line: &str) -> bool {
         "state_prepare_sha256",
         "linked_probe_sha256",
         "recovery_cli_sha256",
+        "profile_probe_sha256",
+        "profile_defaults_rpm_sha256",
+        "native_profile_guest_prerequisites",
+        "native_profile_guest_artifacts",
+        "native_profile_defaults_install",
+        "native_profile_rpm_proof",
+        "native_profile_explicit_provisioning",
+        "native_profile_exact_reopen",
+        "native_profile_raw_fidelity",
+        "native_profile_four_layers",
+        "native_profile_optional_absence",
+        "native_profile_rename_replacement_refusal",
+        "native_profile_tamper_refusal",
+        "native_profile_exact_cleanup",
         "native_linked_layout_observed",
         "native_linked_root_switch",
         "native_linked_boot_compatibility",
@@ -89,6 +127,8 @@ pub fn public_evidence(line: &str) -> bool {
         "snapper",
         "grub2-snapper-plugin",
         "plasma6-session",
+        "breeze6-wallpapers",
+        "hyprland-guiutils",
         "sddm",
         "xf86-input-libinput",
         "snapshot",
@@ -231,6 +271,12 @@ mod tests {
             "proxy=172.31.1.1",
             "root=/private/path",
             "snapshot=",
+            "ui_capture_backend=private",
+            "ui_user_service_sha256=private",
+            "ui_service_success_input=autoclick",
+            "ui_service_success_result=ready",
+            "ui_service_error_fresh_request=2",
+            "ui_service_error_result_frame=/private/path",
             "snapper=1.2\nprivate-data",
         ] {
             assert!(!public_evidence(line));
@@ -241,6 +287,9 @@ mod tests {
         assert!(!public_evidence("boot_fact={\"file\":\"/proc/cmdline\"}"));
         assert!(!public_evidence("native_linked_snapshot_id=42"));
         assert!(public_evidence("sddm=0.21.0+git57-1.1"));
+        assert!(public_evidence("breeze6-wallpapers=6.7.5-1.1"));
+        assert!(public_evidence("hyprland-guiutils=0.2.1-1.6"));
+        assert!(!public_evidence("breeze6-wallpapers=/private/package/path"));
         assert!(public_evidence("desktop_authentication=sddm-pam"));
         assert!(public_evidence("desktop_login_reason=active_session_absent_or_mismatch"));
         assert!(public_evidence("desktop_login_reason=inspection_timeout"));

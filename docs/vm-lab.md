@@ -22,20 +22,22 @@ network restriction, and reset requirements remain in force. WSL itself is
 never passed to the destructive guest operations.
 
 The WSL image is the exact signed Cloud appliance
-`openSUSE-Tumbleweed-Minimal-VM.x86_64-1.0.0-Cloud-Snapshot20261013.qcow2`,
-SHA-256 `b9dcb17c0c7e81e153a12d35ea4d86a516b4d2139c6a82ddd75aa6ce3cb9db3a`.
-On 2026-10-15 its checksum signature and all four repository metadata
-signatures verified with the installed openSUSE project public key,
-fingerprint `AD485664E901B867051AB15F35A2F86E29B700A4`. The initial native
-QEMU inspection boot completed cloud-init, authenticated the temporary SSH
-key, and reported snapshot `20261013`, kernel `7.2.9-1-default`, XFS root,
-`kernel-default-base-7.2.9-1.1.36.10`, and `grub2-2.16-1.1`. This base boot
-does not prove Btrfs migration, KDE login, offline recovery, or reset.
+`openSUSE-Tumbleweed-Minimal-VM.x86_64-1.0.0-Cloud-Snapshot20261016.qcow2`,
+SHA-256 `ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231`.
+Its checksum signature verifies with the isolated openSUSE project public key,
+fingerprint `AD485664E901B867051AB15F35A2F86E29B700A4`. The official SBOM lists
+kernel `7.2.10-1-default`, `kernel-default-base-7.2.10-1.1.36.11`, and GRUB2
+`2.16-2.1`. The first boot in the current disposable run reached the guest
+login prompt and reported the expected Tumbleweed snapshot and kernel. The
+current run's native Btrfs migration, recovery, KDE and reset results are
+recorded separately in its evidence file; no older snapshot is a test target.
 
-Prepare an asset directory containing that exact image, `image.sha256`,
-`image.sha256.asc`, and an isolated `gnupg` directory with the installed
-openSUSE public keys. Preserve the signed checksum's original image filename.
-Never substitute a newer download for the hash pin. The WSL profile uses
+Prepare an asset directory containing the exact image named by the WSL fixture,
+`image.sha256`, `image.sha256.asc`, and an isolated `gnupg` directory with the
+installed openSUSE public keys. Preserve the signed checksum's original image
+filename. When the rolling appliance advances, review and pin its signed
+snapshot, checksum, package baseline and repository metadata together before a
+new run; do not use a moving URL as the run's identity. The WSL profile uses
 direct guest networking and imports no host custom certificate authorities;
 direct mode is rejected by a default cloud build. Proxy environment variables
 are explicitly cleared for fixture Zypper operations before applying any
@@ -54,6 +56,78 @@ Build the optional GTK binary first using the instructions in
 fresh run's sanitized `evidence.txt` and retain private logs locally. The full
 WSL acceptance sequence is still being exercised; the inspection boot and
 unit tests are not a passing release or linked-recovery gate.
+
+Before launching, use `vm-lab preflight ASSET_DIRECTORY FRESH_RUN_DIRECTORY`
+with the same options, build feature, authorization environment and working
+directory intended for `run`. It reports all independently checkable host
+prerequisite failures together and creates no run directory, VM, disk or key.
+Both commands share the runner identity/path guards, signed image and firmware
+checks, source binary checks and QEMU version check. A successful preflight is
+an observation; `run` repeats the checks before creating its private directory.
+
+The optional `--profile-bundle-probe PROBE_BINARY DEFAULTS_RPM RPM_SHA256`
+stage requires `--console-only --state-initializer INITIALIZER_BINARY`. It
+runs after state initialization and before `--linked-checkpoint-probe`, when
+that independent stage is selected. Build the probe with
+`CARGO_BUILD_JOBS=2 cargo build --locked --offline -p ryoku-recovery --example native_profile_bundle_probe`.
+Pass the same three arguments to `preflight` and `run`. The RPM checksum is an
+explicit lowercase SHA-256 of the reviewed local artifact; a valid rebuild can
+have a different RPM header timestamp and artifact checksum. Source/archive,
+toolchain and build-result evidence remain separate review inputs.
+
+This stage adds host requirements for native `/usr/bin/rpm` and its shared
+libraries. Host preflight bounds the RPM size, checks the supplied artifact
+hash and native RPM digests, and requires the exact reviewed
+`ryoku-profile-defaults-0:0.1.0-1.noarch` package, seven file records and their
+metadata/digests, with no scripts or package/file triggers. It installs nothing
+on the host. The probe and RPM are copied into the private run directory before
+boot, sealed against ordinary writes, hashed for evidence, and checked against
+those frozen hashes before guest transfer. Local unsigned-artifact checks are
+not a package-signature trust claim; no digest or signature bypass is used.
+
+The guest must already have the initialized machine record and matching native
+Btrfs state mount, the disposable QEMU seed, native `rpm` and `sha256sum`, and
+runtime libraries compatible with the built probe. It must have no existing
+defaults package, package payload directories or profile store. The lab excludes
+external package/state writers. Before installation the Rust harness checks
+these prerequisites, copies uploaded inputs into an exclusively created
+root-private directory, compares actual hashes, rechecks the complete RPM
+contract and probe runtime dependencies, and runs native `rpm --install --test`.
+Only then does plain `rpm --install` run in the disposable guest, followed by
+installed RPM verification, fixed-path default-byte/ownership verification and
+the guarded inactive-bundle probe. Exact proof markers are required; failures
+and raw diagnostics remain in private logs. The package and private input copies
+remain on the disposable disk until normal discard. The current probe holds
+the production `mutation.lock` exclusively and refuses incomplete restore
+journals. The earlier Run16 guest trial predates that change and used a
+probe-only lock, so its result must not be credited as production writer
+exclusion; rerun the updated probe in the pinned guest.
+
+These results cover installed generic defaults, immutable inactive bundles,
+offline layer resolution and refusal checks. They do not establish active
+profile selection, audited writer enrollment, complete configuration capture,
+protected mutation composition or restore activation. The optional harness
+wiring and host preflight alone are not native execution evidence.
+
+The host checks require executable native commands, readable executable x86_64
+ELF inputs and resolvable native shared libraries. Dependency inspection uses
+the known native loader's `--list` mode, never an input's main or an arbitrary
+ELF interpreter. Static x86_64 inputs are supported. Memory headroom is the
+configured guest RAM plus 1 GiB from `MemAvailable`; available disk space on
+the run filesystem must be at least 12 GiB plus staged input sizes. These
+checks reserve no resources and do not verify guest packages, guest library
+compatibility, networking, boot, or recovery behavior. The output explicitly
+keeps guest prerequisites unchecked and VM runtime unproven.
+
+The WSL build also accepts explicit `--accelerator kvm` on both commands;
+omitting it retains TCG. KVM preflight requires ordinary-user access to the
+native `/dev/kvm`, API version 12 and IRQCHIP/HLT/USER_MEMORY/SYNC_MMU support.
+It queries capabilities without creating a VM. KVM selects `-cpu host`; TCG
+retains `-cpu max`. Neither selection falls back to the other. The cloud build
+rejects KVM. Guest resources remain 6 GiB and two CPUs. Every actual boot,
+including reboot/reset, verifies the selected accelerator through its owned
+QMP connection and records `accelerator_runtime=verified` only after that
+check. Host capability queries alone establish no guest boot or recovery proof.
 
 The first automated WSL run used port commit
 `59245afcb4e00597cb91290a62439a9a76a2d2f7` and passed signed-input checks,
@@ -249,13 +323,13 @@ are prerequisites; acceptance also requires an actual authenticated nonroot
 SDDM login, active local seat0 Wayland session and live package-owned Plasma/KWin
 processes. A
 reboot must change the guest boot identity and pass inspection again.
-The minimal image's running kernel is `7.2.9-1-default`, owned by
-`kernel-default-base` RPM `7.2.9-1.1.36.10`; the kernel image's actual RPM owner
-is checked against the declarative fixture, rather than assuming the full
-`kernel-default` package. GRUB2 and its Snapper plugin are `2.14-20.1`, and
-Snapper is `0.13.1-3.4` in the observed fixture.
-The fixture pins GRUB2's package version; the main, EFI and Snapper-plugin RPMs
-must each match `2.14-20.1` during every base inspection.
+The current minimal image's SBOM reports running kernel `7.2.10-1-default`,
+owned by `kernel-default-base` RPM `7.2.10-1.1.36.11`; the guest inspection
+checks the kernel image's actual RPM owner, rather than assuming the full
+`kernel-default` package. The fixture pins GRUB2 `2.16-2.1`; the main and EFI
+GRUB2 RPMs must match that version during every base inspection. Other package
+versions are reported from the guest instead of carried forward from the older
+fixture.
 
 The offline phase restarts the same guest with QEMU user networking restricted;
 loopback SSH remains available. A TCP connection to the existing external proxy
@@ -738,11 +812,145 @@ repeat/reboot/offline/reset checks. Both executables are staged and hashed;
 raw failure/resume output remains private. This is not arbitrary-volume adoption
 or complete process-interruption coverage.
 
-## Historical linked-partner run
+## Native linked-partner result
 
 [Run15](../infra/tumbleweed-lab/evidence/issue19-run15-linked-partners.toml)
-records the earlier KVM console experiment and its limits. PR #139 now retains
-only the linked-partner probe/CLI harness integration; the shared preflight and
-KVM launch changes used by that historical build are excluded. Current checks
-reuse an already running guest and are recorded in the
-[18 October evidence](../infra/tumbleweed-lab/evidence/issue19-current-main-linked-partners-20261018.toml).
+used explicit KVM acceleration after the shared preflight passed. Its evidence
+window spans approximately three minutes. Signed-input checks, sole-disk
+Btrfs/UEFI boot under enforcing SELinux, initializer checks, exact linked-partner
+capture/read-back, four controlled partner refusals, actual recovery CLI queries,
+normal-reboot persistence, owning-journal cleanup, bounded offline fixture
+restoration and fresh-baseline reset/cleanup passed. Parent and independent
+worker audits confirmed no surviving VM, disk or key and an unchanged signed
+base. Desktop/login remained skipped and both overall result flags remain
+`partial`. This run does not prove changed-root rollback or complete Ryoku restore.
+
+The Rust `--exercise-failures` probe also emits individually validated markers
+for corrupt and symlink manifests, traversal, corrupt payloads, artifact
+metadata, and capture failure before publication. It now also prepares a fresh
+linked current-state checkpoint, restores the verified configuration source
+into an isolated `/run` target through the recovery library, and verifies the
+restored bytes/ownership/mode, declared absence, and unchanged managed-state
+and `/home/tester` sentinel inode/metadata. Its
+`native_linked_configuration_restore=passed` marker is separate from
+`native_linked_restore_execution=unproven`: the probe does not exercise the
+complete-linked root rollback. The host's strict evidence allowlist preserves
+these specific markers for the issue #22 report while continuing to reject
+guest paths, free-form text and unknown keys. It also publishes the fixed
+`native_linked_changed_root_historical_readback=passed` and
+`native_linked_boot_chain_observed=recorded` results; raw boot-chain
+observations and the fixture's exact snapshot number remain private.
+
+## Retained WSL development desktop
+
+While the retained guest is ready, run the WSL build as the same ordinary owner:
+`RYOKU_LAB_AUTHORIZED=existing-wsl-vm vm-lab development-capture RUN_DIRECTORY`.
+This reads the private readiness record, verifies the live owned QEMU/supervisor,
+QMP socket peer and loopback SSH forwarding, and saves only the fixed mode-0600
+`development-current.ppm` in that run directory. Each call refreshes that frame.
+It validates the PPM structure without treating frame contents as visual product
+acceptance; inspect or convert it with the existing native image tools.
+
+The same owner and authorization can send bounded keyboard input with
+`vm-lab development-input RUN_DIRECTORY --text 'firefox'` or
+`vm-lab development-input RUN_DIRECTORY --key enter`. Text accepts 1–64 lowercase
+ASCII letters, digits or spaces. Named keys are `enter`, `escape`, `tab`,
+`backspace`, `space`, `super`, `left`, `right`, `up`, `down`, `home` and `end`.
+The command repeats the capture command's VM ownership and endpoint checks,
+validates the entire input before sending, and reports a static result without
+echoing input. Key presses use QEMU's bounded `send-key` interface and are spaced
+150 ms apart, after its default 100 ms release delay
+([QEMU schema](https://raw.githubusercontent.com/qemu/qemu/v10.0.0/qapi/ui.json)).
+Capture and inspect `development-current.ppm` after typing a search, then send
+`--key enter` and capture again to verify the actual launched application.
+
+`development-input RUN_DIRECTORY --chord super+n` also accepts `super+space`
+and `super+escape`. It sends explicit modifier/key press and release events.
+`development-input RUN_DIRECTORY --click X,Y` accepts unsigned pixel coordinates,
+checks the owned QEMU's read-only mouse inventory, captures a fresh framebuffer
+for its current bounds, then moves and presses/releases the left button using
+[QMP input events](https://raw.githubusercontent.com/qemu/qemu/v10.0.0/qapi/ui.json).
+A fixture without a current absolute pointing device returns an unsupported
+error before any input event; this helper never changes the device topology.
+
+The WSL build also accepts `--development-desktop` for a retained development
+guest. Use the existing runner authorization, signed assets, preflight and
+accelerator selection. The option excludes `--console-only` and every mutation
+probe; UI capture remains optional and defaults to none. After KDE provisioning,
+ordinary-user login and a native framebuffer capture, the run pauses for up to
+24 hours before any lifecycle reboot or reset. This is session/transport
+readiness, not visual KDE or Ryoku acceptance, and reports
+`development_lifecycle=not_run`.
+
+The mode-0700 fresh run directory contains `development-desktop.ppm` and a
+mode-0600 `development-desktop-private.txt` with the loopback SSH port, relative
+private key/known-hosts paths, QMP socket and owned process IDs. Use those paths
+relative to that run directory. The record exists only during the hold; it is
+removed before shutdown. Request release by creating an owned mode-0600 regular
+file named `development-release` in the run directory, containing exactly
+`release` followed by one newline. Symlinks, hard links, other permissions and
+other contents are refused. Write a separate private temporary file and rename
+it into place so polling cannot observe partial contents. Release, expiry, or an invalid token requests guest
+sync and poweroff, waits for the owned QEMU child, and retains the migrated Btrfs
+disk, firmware variables, seed and private SSH key. The signed base hash is
+checked. A failed graceful shutdown retains diagnostics and terminates only the
+owned child. Keep the supervisor running during development.
+
+To boot that same stopped development guest again, build the WSL binary and run
+the following from the workspace containing its run directory (use absolute
+paths). Resume requires an explicit accelerator and repeats its own read-only
+preflight before launching:
+
+```console
+RYOKU_LAB_AUTHORIZED=existing-wsl-vm /absolute/path/vm-lab development-resume-preflight \
+  /absolute/path/assets /absolute/path/workspace/target/ryoku-development --accelerator kvm
+RYOKU_LAB_AUTHORIZED=existing-wsl-vm /absolute/path/vm-lab development-resume \
+  /absolute/path/assets /absolute/path/workspace/target/ryoku-development --accelerator kvm
+```
+
+Use `tcg` explicitly if KVM is unavailable. Resume checks the ordinary-user WSL
+authorization, installed pinned QEMU/VGA BIOS/immutable UEFI code and native
+libraries, available guest memory, a private owned mode-0700 run directory,
+single-link owner-controlled disk/firmware/seed inputs, and mode-0600 SSH identity
+and known-hosts files. The disk must already be standalone qcow2 with the fixture
+virtual size and no backing image, and `evidence.txt` must end in the stopped
+development receipt. No signed base image, ISO builder, package staging,
+downloads or provisioning commands are needed to resume.
+
+An existing readiness record, QMP socket, release token, extra migration disk,
+live QEMU referring to the run/disk, or concurrent resumed supervisor causes a
+refusal. Stale artifacts require operator inspection; resume never deletes them
+or adopts a process from a recorded PID. A failed/interrupted resume leaves its
+starting receipt and diagnostics for inspection, so it cannot be blindly retried.
+The new supervisor verifies its newly spawned child's exact executable, argv,
+parent, working directory, QMP peer and accelerator. Its fresh loopback SSH port
+inherits the single existing ed25519 host key with strict host-key checking;
+historical known-hosts entries are preserved. The private readiness record also
+binds the supervisor and QEMU process generations. Prior serial, QEMU, guest logs
+and initial screenshot remain intact; new boot logs/initial frame use unique
+`resume-...` filenames. After transport readiness, the same 24-hour hold and
+release/poweroff semantics apply, with no setup, lifecycle tests or disk reset.
+Transport readiness still requires separate native login and visual acceptance.
+
+## Optional two-account native service fixture
+
+`--service-fixture FIXTURE SERVICE HELPER` selects the guarded service example
+and the matching `ryoku-service` and `ryoku-helper` binaries. It requires
+`--console-only --state-initializer INITIALIZER`; when combined with the profile
+and linked probes, it runs after profile validation and before linked capture.
+The host's shared preflight checks all three ELFs/native loader dependencies and
+counts their bytes in disk headroom. It freezes mode-0500 copies and hashes
+before the first boot, then rechecks them before upload. Guest staging verifies
+and privately freezes the same bytes before installing the fixed example path.
+
+The [standalone fixture contract](native-service-fixture.md) specifies the
+actual tool/unit RPM inventory, root-private input paths, native logind/user
+managers, exact unit payloads, read-only requests and assisted policy-test scope.
+The harness invokes `--check` before `--run`, keeps separate mode-0600 staging,
+prerequisite and fixture diagnostics, and publishes only the exact pass/scope
+markers and declared native RPM inventory. Missing prerequisites fail before
+fixture account/service setup; this option installs no guessed packages. A
+failure retains the disposable guest for diagnostics until normal owned-VM
+teardown. It does not authorize host accounts/services, RPM-install claims,
+interactive-login claims or accepted provider transactions. No successful
+native activation run is established by adding this optional wiring.

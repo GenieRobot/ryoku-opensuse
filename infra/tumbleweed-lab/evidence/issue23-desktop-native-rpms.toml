@@ -1,0 +1,114 @@
+schema = 1
+date = "2026-10-16"
+issue = 23
+runner = "ordinary-user native rpmbuild in the retained signed Tumbleweed 20261013 guest; independent read-only package-header, pinned-source hash and ELF inspection on host"
+source = "f596630cf3bc626bc46466a20b81f73a9e6f898a"
+source_archive_sha256 = "e697fb8fe0c992ba7dc6687c895db5f34a30d0a530ac089b63dc9e62225fada5"
+vendor_archive_sha256 = "37e07449436648ebfe54d9da92bb785c52b636691966bda3690f652af31dd7ec"
+runtime_archive_sha256 = "81151cef1a613b01ad8e6187df2e93cbfed70e1621de0ee2e7455d2904fc3e74"
+upstream_ryoku_source = "98a0368253d9628be72b853985878a5db90e1547"
+build_exit = 0
+build_log_sha256 = "1253942259f7f03647ae60976eacdbd4db9340ba0ab87f8789b6b1ef36795767"
+scope = "native desktop/runtime/fonts RPM build and independent payload inventory/dependency/preservation review; no RPM install, package transaction resolution, activation, or packaged GUI acceptance"
+frozen_inputs_preserved = true
+guest_actions_by_inspector = "none"
+
+[session]
+rpm = "ryoku-desktop-0.1.0-1.x86_64.rpm"
+rpm_sha256 = "ab33aebf742dfea6e9b13b15c71f51fa7ddab5afe091c6fe1e37b4ebd85c8cf8"
+rpm_bytes = 272420
+files = 15
+ownership = "all root:root; directories/binaries 0755 and metadata/docs/licenses 0644"
+session_binary = "/usr/bin/ryoku-session"
+session_binary_sha256 = "1233719ec3dfc2d741f34fe6839afdfcbc9f8d100b70bb0a87e1fe51d03463d8"
+terminal_binary = "/usr/bin/ryoku-app"
+terminal_binary_sha256 = "09bf9e6930b279f08a3e39943eaea0c36c358ecc9d0476dbf2a792d771f4bdb4"
+fixed_metadata = ["/usr/lib/systemd/user/ryoku-desktop-session.target", "/usr/lib/systemd/user/ryoku-desktop-shell.service", "/usr/share/wayland-sessions/ryoku-opensuse.desktop", "/usr/share/ryoku-opensuse/session/hyprland.conf", "/usr/share/ryoku-opensuse/session/hyprland-nested.conf"]
+metadata_preservation = "all five file digests match exact git show f596630 source bytes"
+native_runtime_requires = ["coreutils", "dbus-1-tools", "dolphin", "hyprland >= 0.56.2", "hyprland-guiutils >= 0.2.1", "konsole", "systemd", "util-linux", "ryoku-desktop-runtime = 0.1.0-1", "ryoku-helper = 0.1.0"]
+automatic_requires = "native x86_64 loader, libc symbol capabilities through GLIBC_2.39, libgcc_s and RPM payload format capabilities"
+fallback_limit = "this frozen spec does not contain later explicit KDE/SDDM/wallpaper fallback Requires; that separate source correction is integrated as e3217e4af34b360c571fa5c6ec78aaea3393ef10 and has not been rebuilt into this RPM"
+
+[runtime]
+rpm = "ryoku-desktop-runtime-0.1.0-1.x86_64.rpm"
+rpm_sha256 = "58badfbabf564d2b478d294a6fa5b04506753c7fb6024706223b2853fbba39e3"
+rpm_bytes = 8902573
+files = 1343
+ownership = "all root:root; directories 0755; retained upstream regular-file modes; compiled native libraries 0755; no group/world-writable non-symlink entries"
+payload_root = "/usr/share/ryoku-opensuse/upstream"
+unchanged_upstream_files_verified = 1201
+unchanged_qml_files = 689
+unchanged_javascript_files = 98
+unchanged_retained_shell_scripts = 8
+unchanged_retained_python_files = 1
+preservation_method = "SHA-256 RPM file-array digests for every mapped shell/hub/qml/i18n/catalog file matched the original verified source archive SHA256SUMS; exact retained source set complete, with no changed or missing files"
+notices = "packaged upstream LICENSE and NOTICE digests match original verified source inventory; original per-file notices remain byte-identical"
+source_only_material = "native C++/CMake source and historical preliminary RUNTIME.md/RUNTIME-MANIFEST.toml remain source-RPM inputs; current repository runtime documentation is installed instead"
+requires = ["/usr/bin/env", "google-noto-sans-cjk-fonts", "kf6-syntax-highlighting", "qt6-declarative-imports = 6.11.2", "qt6-multimedia-imports = 6.11.2", "qt6-qt5compat-imports = 6.11.2", "ryoku-desktop-fonts = 0.1.0-1", "ryoku-quickshell = 0.3.2"]
+automatic_requires = "native public Qt6/Core/Gui/Qml/Quick/Multimedia/Network/OpenGL and C/C++/GL shared-library ABI capabilities; libryoku-blobs.so dependency is provided within the same RPM"
+no_alternate_runtime_dependency = "actual Requires contain no Noctalia runtime or Arch package-provider dependency"
+helper_scope = "automatic RPM requirements do not certify every subprocess or optional action referenced by unchanged upstream QML/scripts; unsupported provider, plugin, power, authentication, update and other controls remain experimental under the session scope"
+native_backing_library_sha256 = "ae44b83afc634e36f5c71e9c057f017f6a4829b5619d58587b3804b7a8747d32"
+native_plugin_sha256 = "852a61c0095a04fd8d956f11fe02e14b8f98887baa067f5eaa71d4533f7816aa"
+native_qmldir_sha256 = "c59d152840c81286e1d0b7486031db0899ad0d55c13bb9ace44c1b26aa4734e7"
+native_qmltypes_sha256 = "ec5269ecf9aa80b1ff1c6037b463df90e916dd23f6231724d62bdef53df12f82"
+plugin_loader_review = "readelf on the extracted nonexecuted plugin confirms NEEDED libryoku-blobs.so and RUNPATH $ORIGIN, resolving its adjacent same-RPM backing library"
+
+[fonts]
+rpm = "ryoku-desktop-fonts-0.1.0-1.noarch.rpm"
+rpm_sha256 = "cae5e6e2c76b486bc6448b331f77449634fe8f92d06918e0088595f1899cf02a"
+rpm_bytes = 7852862
+files = 27
+font_root = "/usr/share/fonts/truetype/ryoku-opensuse"
+ownership = "all root:root; directories 0755; every regular font/license/readme/doc file 0644"
+preserved_font_and_license_files = 18
+font_files = 12
+preservation = "all eighteen source font/license/readme digests match the original verified payload SHA256SUMS, at the dedicated system font mapping; no missing or changed file"
+families = ["Material Symbols Rounded", "Space Grotesk", "Space Mono", "SpaceMono Nerd Font", "Fraunces"]
+generated_family_provides = ["font(fraunces)", "font(materialsymbolsrounded)", "font(spacegrotesk)", "font(spacegrotesklight)", "font(spacemono)", "font(spacemononerdfont)"]
+requires = "fontconfig and RPM payload format capabilities only"
+user_font_writes = "none; no home-directory payload or font-cache command"
+installed_font_discovery = "not exercised for this RPM"
+
+[common_artifact_checks]
+file_digest_algorithm = 8
+scriptlets = "all pre/post/preun/postun/pretrans/posttrans/preuntrans/postuntrans/verify fields absent in all five output RPMs"
+triggers = "all package, file and transaction-file trigger fields absent in all five output RPMs"
+file_capabilities = "none"
+set_id_files = "none"
+integrity = "all five RPMs pass header SHA-256/SHA-1, payload SHA-256 and MD5 integrity checks; unsigned experimental artifacts"
+prohibited_payload = "no /home, /etc, /var, /run, existing KDE/SDDM configuration or distribution /usr/bin/qs ownership"
+
+[cross_package_ownership]
+packages_checked = ["ryoku-helper", "ryoku-profile-defaults", "ryoku-quickshell", "ryoku-desktop", "ryoku-desktop-runtime", "ryoku-desktop-fonts"]
+non_directory_conflicts = 0
+shared_directories = ["/usr/libexec/ryoku: helper + Quickshell, root:root 0755", "/usr/share/ryoku-opensuse: session + runtime, root:root 0755"]
+inspection_report_sha256 = "7bc0d325c29ccd64ce0a385a080543cb29a0bac94575a6d2fd31e7cdbf1fc628"
+boundary = "checks compare the six built runtime RPM inventories; existing installed packages, manually staged prototype files and protected/user state were not modified or conflict-tested"
+
+[build_metadata_followup]
+observed_file = "qml/Ryoku/Blobs/ryoku-blobs_qml_module_dir_map.qrc"
+observed_sha256 = "5b5ab8a9d43d2e78a69271af0253e7dd225d126bf365eeb9f46f924593cd7dad"
+finding = "frozen RPM copied one unnecessary generated XML resource map containing the absolute native builder directory; no installed runtime loading role"
+future_fix = "46b808e changes only declarative installation metadata to copy the two .so files, qmldir and qmltypes explicitly, preserving their bytes and all upstream source"
+future_validation = "source spec parses; corrected spec not natively rebuilt or installed; original frozen RPM and digest retained"
+
+[debug_artifacts]
+debuginfo_rpm = "ryoku-desktop-runtime-debuginfo-0.1.0-1.x86_64.rpm"
+debuginfo_sha256 = "611b165929f2e7228e165d8c7f72f1606a88594b1006e37378d45befd833c2e2"
+debuginfo_bytes = 21190
+debuginfo_files = 17
+debuginfo_role = "useful debug files and build-ID links for the two native Blobs libraries"
+debuginfo_recommends = "ryoku-desktop-debugsource(x86-64) = 0.1.0-1"
+debugsource_rpm = "ryoku-desktop-debugsource-0.1.0-1.x86_64.rpm"
+debugsource_sha256 = "ec7919f7c4122f20f22e206963f2dc51c5217474d57ac312f5e836d1a9f386d2"
+debugsource_bytes = 6097
+debugsource_files = 0
+handling = "all original outputs retained; main runtime packages do not require debug siblings; no blanket suppression of useful native debuginfo"
+
+[remaining_gates]
+tools_build = "pending at this evidence cut"
+clean_package_transaction = "pending; explicit first-install fallback dependency fix requires a distinct rebuilt source identity"
+installation_removal = "not performed for these artifacts"
+package_owned_session_launch = "not exercised; existing separately staged native prototype remains independent"
+issue_status = "open; no desktop, recovery, package-signing or clean-install acceptance is implied"

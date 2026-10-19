@@ -4,11 +4,10 @@ Description=Ryoku per-user service
 [Service]
 Type=simple
 ExecStart=/usr/libexec/ryoku/ryoku-service
-Environment=XDG_STATE_HOME=%h/.local/state
 UMask=0077
 NoNewPrivileges=yes
-# Preserve root ownership checks: mount isolation in a user manager also
-# remaps root through a user namespace.
+# Preserve native root ownership for the fixed runtime-parent checks. A user
+# manager needs a private user namespace to provide a private mount namespace.
 PrivateTmp=no
 PrivateUsers=no
 RestrictAddressFamilies=AF_UNIX

@@ -1,0 +1,28 @@
+schema = 1
+date = "2026-10-16"
+issue = 23
+base_source = "1e138c968adb92a5020134b7b0d67873d9775a77"
+scope = "new Release 2 source preparation and corrective native pre-install group observation; no phase-two RPM build, package installation or group creation is claimed"
+phase_one_artifacts_and_evidence_preserved = true
+
+[native_group_before_install]
+actor = "coordinator in the retained Tumbleweed guest"
+query = "getent group root; getent group ryoku-operators"
+control_output = "root:x:0:"
+target_output = "none"
+target_exit = 2
+log_sha256 = "7a696fcfba89a55a6d73fa1a03c7f071fad2141340027b17a25db249e26b9be8"
+conclusion = "native group lookup works for root and the target ryoku-operators group is absent at this pre-install observation"
+not_claimed = "no package-triggered first creation, membership assignment or privileged helper activation observed"
+
+[correction]
+superseded_assumption = "earlier artifact-only review assumed the retained fixture already had ryoku-operators; no native NSS query established that assumption"
+affected_historical_records = ["issue23-first-native-rpms.toml: sysusers.group_creation", "issue23-native-build-set.toml: remaining_gates.group_creation", "phase-one packaging/rpm/README.md sysusers explanation"]
+preservation = "historical evidence files and package/source hashes are unchanged; this later native observation supersedes only the unsupported group-presence assumption"
+next_evidence = "the candidate installation can test first group creation without deleting a group; actual before/after observations remain coordinator work"
+
+[phase_two_identity]
+port_package_version_release = "0.1.0-2"
+unchanged_quickshell_version_release = "0.3.2-1"
+recipe = "packaging/rpm/install-phase2.md"
+source_identity = "exact resulting clean Git commit and archive hashes recorded externally in target/issue23-install-prep/checksum-manifest.txt after committing"

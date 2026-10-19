@@ -339,22 +339,3 @@ All links and interface/version claims need revalidation against the target's pi
 The probe harness also exposes `missing-plugin` (runs without registering any probe executable) and `timeout-commit` (the probe deliberately withholds its COMMITBEGIN response). Every zypper transaction is launched through GNU coreutils `timeout` with a 45 second deadline and 5 second TERM-to-KILL grace period; unsupported timeout implementations are rejected before plugin registration. The timeout mode records the plugin PID and verifies it is gone after the bounded run. Each mode reports RPM state before and after. Denial and malformed-response outcomes require the probe to record `COMMITBEGIN`, zypper to fail before timeout, and RPM state to remain unchanged. Timeout mode requires a recorded `COMMITBEGIN`, the bounded timeout status, a terminated plugin PID, and unchanged RPM state. The missing-plugin case records whether the operation proceeded; if zypper succeeds without installing the requested package or fails before a real transaction, the result is marked inconclusive. Any changed RPM state is a failed safety result and requires discarding the disposable overlay. These remain characterization runs, not proof that the provider path is protected.
 
 The host-side timeout regression test launches a Rust test process and Rust grandchild under GNU coreutils `timeout`, then checks that both PIDs disappear after the deadline. It validates process-tree signal behavior on the Linux CI host only. It does not validate the Tumbleweed guest's coreutils build, libzypp plugin discovery, or whether zypper prevents RPM changes; those still require the disposable guest experiments above.
-
-### Existing Run19 result and diagnostic gap
-
-The private Run19 logs identify Tumbleweed `zypper 1.14.101-1.1` and
-`libzypp 17.38.16-1.1`, with no installed PackageKit, PackageKit zypp backend,
-Cockpit Packages, Myrlyn or YaST2 package. RPM state was unchanged in the deny,
-malformed, timeout and missing-plugin modes, and the probe plugin was not
-invoked in any mode. Each zypper invocation exited with status 4 before the
-transaction reached the commit hook. The 45-second timeout mode also did not
-exercise its timeout path. These are failed preconditions, not evidence that
-the hook blocks or permits a provider commit.
-
-Run19's probe discarded captured zypper stdout and stderr, so the private logs
-do not reveal why resolution stopped before the plugin. The Rust probe now
-records at most 16 KiB from each stream as escaped text in the existing
-mode-0600 private run log. The public evidence writer continues to select only
-allowlisted outcome fields; raw provider text is not public evidence. Rerun the
-experiment with a working frozen repository/package fixture before interpreting
-hook behavior or attempting a protected write.

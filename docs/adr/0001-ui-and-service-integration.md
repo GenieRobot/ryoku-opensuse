@@ -1,7 +1,7 @@
 # ADR 0001: Rust UI and Ryostore integration boundary
 
-- **Status:** Proposed for review; native KDE launcher read proof recorded,
-  with architecture, desktop and packaging acceptance still pending.
+- **Status:** Proposed for review; native KDE existing-launcher read boundary
+  validated, with desktop/IPC acceptance and public PR review still pending.
 - **Date:** 2026-10-13
 - **Evidence revision:** 2026-10-18
 - **Issue:** [M0-05, #14](https://github.com/GenieRobot/ryoku-opensuse/issues/14)
@@ -11,19 +11,22 @@
 
 ## Proposed decision
 
-Retain the pinned upstream shell/launcher unchanged as the existing-surface
-frontend, with supported reads connected through narrow project-owned Rust
-executables to the versioned, authenticated Rust service contract. Keep GTK as
-an optional Rust contract/diagnostic surface. The unchanged launcher has now
-rendered a live service discovery result and the real error after its owned
-service stopped. This supplies a representative read boundary, not acceptance
-of the complete shell, Hub, store or write controls.
+Retain the pinned upstream shell/launcher as the existing-surface frontend,
+with only small, documented routing, binding and result-display patches. Connect
+supported behavior through narrow project-owned Rust executables to the
+versioned Rust service contract. Keep GTK as an optional Rust contract surface.
+The actual launcher has rendered the live service's typed discovery result and
+the real error after that owned service stopped. A separate Rust clipboard
+provider now serves the original clipboard UI over its own socket; this does
+not accept the complete shell, Hub, store or other write controls.
 
-The tested prototype uses the existing authenticated per-user Unix socket.
+The native prototype uses the current authenticated per-user Unix socket.
 D-Bus remains an alternative requiring separate design and native validation;
-this proof does not select the final product transport. The UI and adapter stay
-unprivileged, and only the service owns provider capabilities. Accepting this
-proposal requires explicit review and the remaining issue #14 desktop gates.
+this evidence does not select either transport as the final product interface.
+The UI and adapter remain unprivileged, and Rust owns provider behavior. Any
+protected system operation still requires the authenticated linked-recovery
+path. Architecture acceptance and the remaining desktop, accessibility,
+lifecycle and packaging gates are pending.
 
 Do not import or modify the upstream Ryostore surface as part of M0-05. The
 reuse finding is: **a read-only slice is technically reusable without
@@ -35,17 +38,26 @@ an implemented integration. Full reuse would require a Rust adapter to safely
 implement every exposed operation and preserve the old data/command semantics.
 The existing store exposes installs, removals, settings, cache warming, and
 catalog refresh across content types whose Arch-specific or arbitrary
-installer behavior is outside the approved openSUSE write path. A stub or
-failing adapter would leave misleading live controls; changing those controls
-would itself change upstream executable QML. Therefore the complete surface is
-not currently reusable within the approved scope. A future issue may assess a
-read-only, clearly scoped reuse path or a full adapter after typed service and
-provider contracts exist.
+  installer behavior is outside the approved openSUSE write path. A stub or
+  failing adapter would leave misleading live controls. The approved small-QML
+  exception permits routing and truthful result display, but does not make the
+  unsupported store operations safe. Therefore the complete surface is not
+  currently reusable within the approved scope. A future issue may assess a
+  read-only, clearly scoped reuse path or a full adapter after typed service and
+  provider contracts exist.
 
 The GTK binary in `suse/ui` remains a proof, not a finished Ryostore
-replacement. Its refresh action and sample backend establish a minimal
-request/result/error presentation boundary; they do not establish store
-compatibility, real service behavior, or completion of #14.
+replacement. It has an opt-in typed `Discover` client for the current Unix
+socket runtime, with asynchronous refresh on a Rust worker thread. The existing
+VM lab also has a separately selectable real daemon capture lane designed for
+the ordinary KDE desktop user to trigger a fresh request with Enter, render
+the daemon's `RecoveryUnavailable` result, then render typed `Unavailable`
+after that owned daemon stops. Run20's automated request/result/after-paint
+checks passed, but visual review found an obscuring KSplash instead of the GTK
+window; those markers receive no visible-window credit. The later unchanged
+launcher proof below supplies actual reviewed service-result pixels, without
+establishing store compatibility or completion of #14. See
+[`the capture procedure`](../ui-integration.md#real-daemon-capture).
 
 ## Pinned integration evidence
 
@@ -161,23 +173,24 @@ project-owned screens.
   dependencies against Tumbleweed, install/remove ownership, and that no file
   replaces GTK, Qt, Quickshell, KDE, SDDM, or systemd files.
 
-### Unchanged Quickshell surface
+### Pinned Quickshell surface
 
-- If a future scope chooses this route, import only the exact pinned files and
-  required `Ryoku.Ui`, `Ryoku.Ui.Singletons`, translations, fonts/assets, and
-  Quickshell QML module dependencies. Preserve GPL and per-file notices. No
-  project-owned QML, JavaScript, or plugin glue may be added under the current
-  language rule; upstream files must remain unchanged and clearly attributed.
+- Import only the exact pinned files and required `Ryoku.Ui`,
+  `Ryoku.Ui.Singletons`, translations, fonts/assets, and Quickshell QML module
+  dependencies. Preserve GPL and per-file notices. The user-approved exception
+  permits small attributed patches to existing QML for routing/binding and
+  result display. New backend logic and executable tools remain Rust; do not add
+  a new QML/JavaScript service or plugin implementation.
 - The current surface has explicit keyboard and accessibility annotations,
   but the palette and scale depend on Ryoku singleton files. Preserve the whole
   visual/a11y dependency closure or replace it with a newly authored Rust
   surface; do not ship a partial broken QML module.
-- Actual native launch rejected `noctalia-qs 0.0.12` at the unchanged shell's
-  `DefaultEnv` pragma. Unchanged upstream Quickshell 0.3.2, revision
-  `4f508be500dea6e5732cc3d50382a0048b17e7b1`, built against native Qt 6.11.2
-  and loaded the shell. The [runtime evidence](../../infra/tumbleweed-lab/evidence/issue14-real-ryoku-runtime.toml)
-  records source, dependency, plugin, font and accepted visible-result hashes.
-  This proves neither complete Hub/control compatibility nor RPM acceptance.
+- `noctalia-qs 0.0.12` failed the actual unchanged shell's `DefaultEnv` pragma.
+  Unchanged upstream Quickshell 0.3.2 at revision
+  `4f508be500dea6e5732cc3d50382a0048b17e7b1` built against native Qt 6.11.2
+  and loaded the shell. Its runtime/source/dependency closure is recorded in
+  [`the runtime document`](../real-ryoku-runtime.md). Runtime loading does not
+  establish compatibility of every exposed control or the Hub/store.
 - A Rust CLI adapter can avoid project-authored non-Rust glue, but it must not
   let legacy UI actions escape the accepted allowlist or recovery gates. Until
   it safely covers the visible action set, do not present unchanged Ryostore as
@@ -187,45 +200,28 @@ project-owned screens.
 
 This keeps the new integration boundary Rust-owned and leaves the upstream
 surface attributable and untouched. It does not preserve the complete Ryoku
-store experience yet. The current GTK sample remains backend-independent and
-cannot prove the selected service transport.
+store experience yet. The current GTK demonstration remains backend-independent.
+Its optional Unix socket client and real daemon capture lane exercise the
+existing service runtime; neither selects the final transport nor resolves
+store reuse.
 
-A [Rust executable provider](../launcher-service-provider.md) now uses the
-pinned shell's existing argv/rofi-script extension to render only typed
-`Discover` outcomes in the unchanged launcher. In the native KWin/Plasma guest,
-ordinary keyboard input produced actual `RecoveryUnavailable` from the active
-ordinary-user Rust service, then `Unavailable` after that exact owned service
-was stopped and reaped. Both reviewed visible rows match the actual provider's
-journal request/result IDs. No Go protocol listener or sample response supplied
-these results. The [native evidence](../../infra/tumbleweed-lab/evidence/issue14-native-launcher-service.toml)
-records the accepted captures and exact source/binary/log hashes.
-The implementation and evidence were accepted in
-[PR #145](https://github.com/GenieRobot/ryoku-opensuse/pull/145), integrated at
-`3e1bba87a9aef57adb0a6ba53b46d2aa9da7eb6d`. Both retained captures were
-viewed again on 18 October and their hashes, and the accepted journal hash,
-matched the manifest. This is a recheck of that native proof, not a new guest run.
+A separate [Rust launcher provider](../launcher-service-provider.md) now uses
+the pinned shell's existing argv/rofi-script extension to translate only typed
+`Discover` results into rows in the unchanged launcher. This adds a narrow
+existing-surface read prototype without implementing or impersonating the Go
+daemon protocol. In the native KDE guest, ordinary keyboard queries rendered
+`RecoveryUnavailable` from the active ordinary-user Rust daemon, then typed
+`Unavailable` after its exact owned service was stopped and reaped. Both visible
+rows match the actual provider's journal request/result correlation IDs. The
+[evidence record](../../infra/tumbleweed-lab/evidence/issue14-native-launcher-service.toml)
+includes source/binary and accepted capture hashes. This replaces the previous
+unimplemented existing-surface read finding with a demonstrated component path.
+The extension's cached-query and informational-selection limits remain explicit;
+it neither supplies the Ryostore action set nor settles this proposed ADR.
 
-The service fixes from issue #17 at `9f2908c45e97ae443d72a5af2b3f56d0e15a812d`
-and session launcher from issue #25 at `2057a0fcada1630e24a8fde53970cbb73b6671f1`
-are separate tested-native prerequisites, not implementation changes in this
-focused provider publication. The provider's cached-query and informational
-selection limits remain explicit. This route implements a representative
-existing-surface read, while leaving Ryostore compatibility and this ADR's
-overall acceptance open. The optional GTK follow-up in
-[PR #143](https://github.com/GenieRobot/ryoku-opensuse/pull/143) keeps only its
-complete request-result label as a polite `Status` live region. The separate
-summary is an ordinary label, avoiding duplicate routine announcements and
-assertive success alerts. Its Alt+R mnemonic and declared package dependencies
-are source and metadata evidence; no AT-SPI/Orca or RPM lifecycle result is
-inferred from them.
 
-The issue #14 representative read-only request/result/error proof passed on the
-selected native Tumbleweed KDE stack and its public implementation PR was
-accepted. This ADR still needs architecture review. The issue requires recording
-accessibility, theme, packaging and FFI constraints; recording those constraints
-does not accept the full product. Screen-reader and complete keyboard/focus
-behavior, theme/scale, Hyprland/KDE lifecycle and RPM install/removal remain
-product validation gates. Full Ryostore and dependent mutation UI work stay
-blocked by the documented provider/surface conflict. The coordinator decides
-issue acceptance from its stated criteria and linked proof, without inferring
-completion of those broader product gates.
+M0-05 cannot be accepted until a disposable Tumbleweed GUI run demonstrates the
+remaining keyboard/focus and screen-reader accessibility, theme/scale behavior,
+Hyprland and KDE fallback acceptance, and package install/removal. Architecture
+acceptance and a public PR remain required. The native read-only request/result/
+error component gate passed; other controls and full M0-05 remain unaccepted.

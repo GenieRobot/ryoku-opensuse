@@ -1,6 +1,6 @@
 Name:           ryoku-helper
 Version:        0.1.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Deny-only privileged helper boundary for Ryoku
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse
@@ -12,9 +12,10 @@ BuildRequires:  systemd-rpm-macros
 Requires:       systemd
 Requires:       rpm >= 4.19
 
-# Tumbleweed's RPM >= 4.19 applies packaged sysusers declarations before
-# unpacking the payload. No compatibility scriptlet is needed because this
-# package has no files owned by the group it declares.
+# Tumbleweed's systemd package processes this group-only declaration through
+# its native post-transaction /usr/lib/sysusers.d file trigger on a running
+# system. No Ryoku scriptlet is needed; all packaged files are root-owned.
+# Offline installation and clean group creation require separate validation.
 
 %description
 Installs Ryoku's socket-activated privileged helper boundary. The current
@@ -22,8 +23,8 @@ helper rejects all valid operations and performs no system mutation. Access
 to its socket is limited to explicitly selected members of ryoku-operators.
 
 This build includes only the implemented user service and deny-only helper.
-The recovery crate currently has no executable target and is not a standalone
-recovery command.
+The recovery crate also provides ryoku-state-init and ryoku-recovery executable
+targets; this RPM does not build or install them.
 
 %prep
 %autosetup -n ryoku-opensuse-%{version} -a 1

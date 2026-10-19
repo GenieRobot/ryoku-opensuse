@@ -11,7 +11,10 @@ mod catalog;
 mod cli;
 
 pub use catalog::{CatalogStore, CatalogStoreError};
-pub use cli::{SnapperCheckpointBackend, SnapperCliBackend, SnapperCliError, parse_snapper_json};
+pub use cli::{
+    RootConfigValues, SnapperCheckpointBackend, SnapperCliBackend, SnapperCliError,
+    parse_root_configuration, parse_snapper_json,
+};
 
 use std::collections::BTreeMap;
 

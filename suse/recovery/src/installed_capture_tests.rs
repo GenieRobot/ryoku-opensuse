@@ -123,7 +123,6 @@ impl Fixture {
     fn roots(&self) -> InstalledRoots<'_> {
         InstalledRoots {
             user_configuration: &self.source,
-            account_home: None,
             system_configuration: None,
             account: self.account.clone(),
         }
@@ -206,10 +205,7 @@ fn request(id: &str) -> InstalledCaptureRequest {
 
 #[test]
 fn installed_candidates_remain_unavailable_and_enrollment_is_exact() {
-    assert_eq!(
-        InstalledInventory::current().unwrap().entries.len(),
-        crate::installed_inventory::PREFERENCES.len()
-    );
+    assert!(matches!(InstalledInventory::current(), Err(InventoryError::NoAuditedWriters)));
     let mut candidates = entries();
     assert!(matches!(
         InstalledInventory::compile(
@@ -588,11 +584,11 @@ fn capture_binds_exact_protected_bundle_without_restoring_packaged_defaults() {
         .publish_candidate(&Identifier::new("import-bundle").unwrap(), &profile_test::bundle())
         .unwrap();
     fixture.write(
-        "opensuse-profile.json",
+        "profile.json",
         br#"{"schema_version":1,"id":"generic-desktop","settings":{"density":"compact"}}"#,
         0o600,
     );
-    let entry = Enrollment { path: "opensuse-profile.json", ..entries()[0] };
+    let entry = Enrollment { path: "profile.json", ..entries()[0] };
     let plan = InstalledInventory::compile(&["fixture-profile-writer"], &[entry], None).unwrap();
     let mut request = request("bundle-capture");
     let package = profile_test::package();
@@ -612,16 +608,16 @@ fn capture_binds_exact_protected_bundle_without_restoring_packaged_defaults() {
     )
     .unwrap();
     assert_eq!(manifest.files().len(), 1);
-    assert_eq!(manifest.files()[0].path.as_str(), "opensuse-profile.json");
+    assert_eq!(manifest.files()[0].path.as_str(), "profile.json");
     assert!(manifest.files().iter().all(|file| file.root == USER));
     let provenance = manifest.profile_revision.as_ref().unwrap();
     assert!(provenance.profile_revision.as_str().starts_with("bundle-sha256-"));
     let reopened = protected.store.load_revision(&provenance.profile_revision).unwrap();
-    let personal = fs::read(fixture.path.join("source/opensuse-profile.json")).unwrap();
+    let personal = fs::read(fixture.path.join("source/profile.json")).unwrap();
     assert_eq!(reopened.bundle().resolve(Some(&personal)).unwrap().provenance, *provenance);
     assert!(reopened.bundle().matches_packages(&manifest.package_revisions));
     let generation = fixture.store.open_verified_transaction(&manifest.transaction_id).unwrap();
-    fs::remove_file(fixture.path.join("source/opensuse-profile.json")).unwrap();
+    fs::remove_file(fixture.path.join("source/profile.json")).unwrap();
     // Recovery reads archived personal bytes and the immutable local bundle;
     // neither the live profile nor an original companion source is needed.
     let resolved = protected.store.resolve_generation(&generation).unwrap();
@@ -644,7 +640,7 @@ fn missing_bundle_namespace_or_mismatched_package_cannot_publish_capture() {
         .store
         .publish_candidate(&Identifier::new("import-bundle").unwrap(), &profile_test::bundle())
         .unwrap();
-    let entry = Enrollment { path: "opensuse-profile.json", ..entries()[0] };
+    let entry = Enrollment { path: "profile.json", ..entries()[0] };
     let plan = InstalledInventory::compile(&["fixture-profile-writer"], &[entry], None).unwrap();
     assert!(matches!(
         capture_installed_configuration_using_profile(
@@ -692,132 +688,6 @@ fn missing_bundle_namespace_or_mismatched_package_cannot_publish_capture() {
 }
 
 #[test]
-fn compiled_inventory_preserves_preferences_links_absence_metadata_and_offline_layers() {
-    use crate::installed_profiles::tests as profile_test;
-    let fixture = Fixture::new();
-    let protected = profile_test::Fixture::new();
-    let verified = protected
-        .store
-        .publish_candidate(&Identifier::new("compiled-inputs").unwrap(), &profile_test::bundle())
-        .unwrap();
-    let root = fixture.path.join("source");
-    fs::create_dir_all(root.join(".config/ryoku")).unwrap();
-    fs::create_dir_all(root.join(".local/state/ryoku")).unwrap();
-    fixture.write(
-        crate::installed_inventory::PERSONAL_PROFILE,
-        br#"{"schema_version":1,"id":"generic-desktop","settings":{"density":"compact"}}"#,
-        0o600,
-    );
-    fixture.write(".config/ryoku/profile.json", b"opaque upstream Hub data", 0o640);
-    fixture.write(".config/ryoku/theme.json", b"customized theme", 0o640);
-    fixture.write(".local/state/ryoku/stage-walls.json", b"opaque wall settings", 0o600);
-    symlink("theme.json", root.join(".config/ryoku/shell.json")).unwrap();
-    let plan = InstalledInventory::current().unwrap();
-    let mut req = request("compiled-capture");
-    let package = profile_test::package();
-    req.package_revisions = vec![crate::PackageRevision {
-        package_name: package.name,
-        before_nevra: Some(package.nevra),
-        after_nevra: None,
-        upstream_revision: package.upstream_revision,
-    }];
-    let mut roots = fixture.roots();
-    roots.account_home = Some(&fixture.source);
-    let manifest = capture_installed_configuration_using_profile(
-        &fixture.store,
-        &plan,
-        roots,
-        req,
-        collect,
-        Some(&verified),
-    )
-    .unwrap();
-    assert_eq!(manifest.files().len(), crate::installed_inventory::PREFERENCES.len());
-    assert!(manifest.files().iter().all(|r| r.root == StateRoot::UserHome));
-    assert!(manifest.files().iter().any(|r| r.path.as_str() == ".config/ryoku/shell.json"
-        && matches!(&r.kind, EntryKind::Symlink { target, .. } if target == "theme.json")));
-    let theme =
-        manifest.files().iter().find(|r| r.path.as_str() == ".config/ryoku/theme.json").unwrap();
-    let EntryKind::RegularFile { metadata, sha256, .. } = &theme.kind else {
-        panic!("regular preference required")
-    };
-    assert_eq!(
-        (metadata.uid, metadata.gid, metadata.mode),
-        (fixture.account.uid, fixture.account.gid, 0o640)
-    );
-    assert!(metadata.acl_sha256.is_some());
-    assert!(manifest.files().iter().any(|r| matches!(r.kind, EntryKind::Absent)));
-    let generation = fixture.store.open_verified_transaction(&manifest.transaction_id).unwrap();
-    assert_eq!(generation.read_payload(sha256).unwrap(), b"customized theme");
-    fs::remove_file(root.join(crate::installed_inventory::PERSONAL_PROFILE)).unwrap();
-    let resolved = protected.store.resolve_generation(&generation).unwrap();
-    assert_eq!(resolved.settings.density, Some(Density::Compact));
-    assert_eq!(resolved.provenance, *manifest.profile_revision.as_ref().unwrap());
-    assert_eq!(fs::read(root.join("unrelated-private")).unwrap(), b"must not be archived");
-}
-
-#[test]
-fn compiled_inventory_rejects_external_links_unsafe_parents_and_typed_upstream_confusion() {
-    let fixture = Fixture::new();
-    let root = fixture.path.join("source");
-    fs::create_dir_all(root.join(".config/ryoku")).unwrap();
-    symlink("../../outside", root.join(".config/ryoku/theme.json")).unwrap();
-    let plan = InstalledInventory::current().unwrap();
-    let mut roots = fixture.roots();
-    roots.account_home = Some(&fixture.source);
-    assert!(
-        capture_installed_configuration_using_profile(
-            &fixture.store,
-            &plan,
-            roots,
-            request("unsafe-compiled"),
-            collect,
-            None
-        )
-        .is_err()
-    );
-    fixture.no_publication("unsafe-compiled");
-    fs::remove_file(root.join(".config/ryoku/theme.json")).unwrap();
-    fs::remove_dir(root.join(".config/ryoku")).unwrap();
-    symlink("../", root.join(".config/ryoku")).unwrap();
-    let mut roots = fixture.roots();
-    roots.account_home = Some(&fixture.source);
-    assert!(
-        capture_installed_configuration_using_profile(
-            &fixture.store,
-            &plan,
-            roots,
-            request("unsafe-parent"),
-            collect,
-            None
-        )
-        .is_err()
-    );
-    fixture.no_publication("unsafe-parent");
-}
-
-#[test]
-fn lost_writer_lease_before_publication_cannot_create_a_mutation_ready_generation() {
-    let fixture = Fixture::new();
-    let checks = std::cell::Cell::new(0);
-    let result = capture_installed_configuration_checked(
-        &fixture.store,
-        &plan(),
-        fixture.roots(),
-        request("lost-writer-lease"),
-        collect,
-        None,
-        || {
-            checks.set(checks.get() + 1);
-            if checks.get() == 1 { Ok(()) } else { Err(GenerationCaptureError::CoordinationLost) }
-        },
-    );
-    assert!(matches!(result, Err(GenerationCaptureError::CoordinationLost)));
-    assert_eq!(checks.get(), 2);
-    fixture.no_publication("lost-writer-lease");
-}
-
-#[test]
 fn absent_personal_profile_still_seals_the_original_account_principal() {
     use crate::installed_profiles::tests as profile_test;
     let fixture = Fixture::new();
@@ -826,7 +696,7 @@ fn absent_personal_profile_still_seals_the_original_account_principal() {
         .store
         .publish_candidate(&Identifier::new("import-principal").unwrap(), &profile_test::bundle())
         .unwrap();
-    let entry = Enrollment { path: "opensuse-profile.json", ..entries()[0] };
+    let entry = Enrollment { path: "profile.json", ..entries()[0] };
     let plan = InstalledInventory::compile(&["fixture-profile-writer"], &[entry], None).unwrap();
     let mut request = request("absent-principal");
     let package = profile_test::package();
@@ -865,31 +735,53 @@ fn absent_personal_profile_still_seals_the_original_account_principal() {
 }
 
 #[test]
-fn managed_namespace_and_wallpaper_state_locations_cannot_be_silently_omitted() {
+fn personal_writer_scope_covers_absence_and_guard_failure_prevents_publication() {
+    use crate::installed_profiles::tests as profile_test;
     let fixture = Fixture::new();
-    let root = fixture.path.join("source");
-    fs::create_dir_all(root.join(".config/ryoku")).unwrap();
-    fixture.write(".config/ryoku/ryogami.json", br#"{"paths":{"cache":""}}"#, 0o644);
-    assert!(InstalledInventory::for_home(&fixture.source).is_ok());
-    fixture.write(".config/ryoku/ryogami.json", br#"{"paths":{"cache":"/outside"}}"#, 0o644);
-    assert!(InstalledInventory::for_home(&fixture.source).is_err());
-    fixture.write(
-        ".config/ryoku/ryogami.json",
-        br#"{"paths":{"cache":"~/.cache/ryogami"}}"#,
-        0o644,
+    let protected = profile_test::Fixture::new();
+    let verified = protected
+        .store
+        .publish_candidate(&Identifier::new("scoped-import").unwrap(), &profile_test::bundle())
+        .unwrap();
+    let plan = InstalledInventory::personal_profile_writer().unwrap();
+    assert_eq!(plan.entries.len(), 1);
+    assert_eq!(plan.entries[0].writer, ryoku_profiles::PERSONAL_PROFILE_WRITER_ID);
+    assert_eq!(plan.entries[0].path, ryoku_profiles::LOCAL_PROFILE_FILE);
+    assert!(matches!(InstalledInventory::current(), Err(InventoryError::NoAuditedWriters)));
+    let mut request = request("scoped-refused");
+    let package = profile_test::package();
+    request.package_revisions = vec![crate::PackageRevision {
+        package_name: package.name,
+        before_nevra: Some(package.nevra),
+        after_nevra: None,
+        upstream_revision: package.upstream_revision,
+    }];
+    let calls = std::cell::Cell::new(0);
+    let captured = std::cell::Cell::new(0);
+    let result = capture_installed_configuration_guarded(
+        &fixture.store,
+        &plan,
+        fixture.roots(),
+        request,
+        |root, state, paths, limits| {
+            captured.set(captured.get() + 1);
+            assert_eq!(paths, [RelativePath::new("profile.json").unwrap()]);
+            let inventory = collect(root, state, paths, limits)?;
+            assert!(matches!(inventory.records[0].kind, EntryKind::Absent));
+            Ok(inventory)
+        },
+        Some(&verified),
+        || {
+            calls.set(calls.get() + 1);
+            if calls.get() == 2 {
+                assert_eq!(captured.get(), 2);
+                Err(GenerationCaptureError::VerificationMismatch)
+            } else {
+                Ok(())
+            }
+        },
     );
-    assert!(InstalledInventory::for_home(&fixture.source).is_ok());
-    fixture.write(".config/ryoku/new-preference.json", b"unknown managed preference", 0o644);
-    assert!(matches!(
-        InstalledInventory::for_home(&fixture.source),
-        Err(GenerationCaptureError::Inventory(InventoryError::UnsupportedManagedState))
-    ));
-    fs::remove_file(root.join(".config/ryoku/new-preference.json")).unwrap();
-    fs::create_dir_all(root.join(".config/ryoku/output-profiles")).unwrap();
-    fixture.write(
-        ".config/ryoku/output-profiles/docked.json",
-        b"unsupported dynamic saved profile",
-        0o644,
-    );
-    assert!(InstalledInventory::for_home(&fixture.source).is_err());
+    assert!(matches!(result, Err(GenerationCaptureError::VerificationMismatch)));
+    assert_eq!(calls.get(), 2);
+    fixture.no_publication("scoped-refused");
 }

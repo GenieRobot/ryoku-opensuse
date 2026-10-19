@@ -22,7 +22,7 @@ use rustix::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{Identifier, RecoveryManifest, Sha256, ValidationError};
+use crate::{Identifier, RecoveryManifest, Sha256, StateRoot, ValidationError};
 
 const MAX_JOURNAL_BYTES: u64 = 16 * 1024;
 const MAX_JOURNAL_DIRECTORY_ENTRIES: usize = 1024;
@@ -144,8 +144,16 @@ pub fn plan_restore(
         return Err(PreflightError::CheckpointUnavailable);
     }
 
-    let configuration_entries =
-        manifest.files().iter().filter(|record| record.root.is_configuration_state()).count();
+    let configuration_entries = manifest
+        .files()
+        .iter()
+        .filter(|record| {
+            matches!(
+                record.root,
+                StateRoot::EtcRyoku | StateRoot::UserRyokuConfig | StateRoot::UserRyokuProfile
+            )
+        })
+        .count();
     let configuration_entries =
         u32::try_from(configuration_entries).map_err(|_| PreflightError::EntryCountOverflow)?;
     if matches!(scope, RestoreScope::ConfigurationOnly | RestoreScope::CompleteLinked)
@@ -625,7 +633,7 @@ mod tests {
     use super::*;
     use crate::{
         EntryKind, EntryMetadata, ExtendedMetadata, FileRecord, OperationReason, RelativePath,
-        SnapshotLink, StateRoot, VerificationStatus,
+        SnapshotLink, VerificationStatus,
     };
     use std::{
         fs,

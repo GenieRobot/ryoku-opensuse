@@ -23,6 +23,386 @@ const HOME: &str = "/home/ryoku-desktop";
 const RECORD: &str = "/var/lib/ryoku-lab-desktop";
 const RECORD_HEADER: &str = "disposable-issue13-desktop\n";
 const SESSION_DIR: &str = "/usr/share/wayland-sessions";
+const UI_SERVICE: &str = "/usr/libexec/ryoku/ryoku-service";
+const UI_SERVICE_UNIT: &str = "ryoku-lab-ui-service.service";
+const UI_SERVICE_RECORD: &str = "/var/lib/ryoku-lab-ui-service";
+const UI_SERVICE_DIAGNOSTIC: &str = "/var/log/ryoku-lab-ui-service-startup-private.log";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NativeSession {
+    Kde,
+    Ryoku,
+}
+
+impl NativeSession {
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "kde" => Ok(Self::Kde),
+            "ryoku" => Ok(Self::Ryoku),
+            _ => Err("native session must be kde or ryoku".into()),
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Kde => "kde",
+            Self::Ryoku => "ryoku",
+        }
+    }
+}
+
+fn ryoku_session() -> Result<PathBuf> {
+    let entry = Path::new(SESSION_DIR).join("ryoku-opensuse.desktop");
+    for path in [&entry, Path::new("/usr/bin/ryoku-session")] {
+        let metadata = fs::symlink_metadata(path)?;
+        require(
+            metadata.is_file() && metadata.uid() == 0 && metadata.mode() & 0o022 == 0,
+            "Ryoku session entry/launcher must be root-owned regular files",
+        )?;
+    }
+    require(
+        fs::read_to_string(&entry)?
+            == include_str!("../../../packaging/rpm/wayland-sessions/ryoku-opensuse.desktop"),
+        "installed Ryoku session entry differs from reviewed source",
+    )?;
+    Ok(entry)
+}
+
+/// Select a fixed session for an already recorded fixture account. Never adopt
+/// an existing account or stop a live user login to make this operation succeed.
+pub fn prepare_existing(selected: NativeSession) -> Result<()> {
+    guard()?;
+    let password = password_input(&mut std::io::stdin().lock())?;
+    authentication_policy()?;
+    let plasma = plasma_session()?;
+    let uid = desktop_uid()?;
+    require(
+        existing_record()? == Some(record(uid, &plasma)?),
+        "existing desktop fixture identity required",
+    )?;
+    let session = match selected {
+        NativeSession::Kde => plasma,
+        NativeSession::Ryoku => ryoku_session()?,
+    };
+    prepare_greeter(uid, &session, &password)
+}
+
+/// Install one frozen daemon for the disposable graphical proof. This is not
+/// an RPM installation or activation of the production user service unit.
+pub fn install_ui_service(hash: &str) -> Result<()> {
+    guard()?;
+    require(crate::profile_bundle::valid_digest(hash), "invalid UI daemon digest")?;
+    let source = Path::new("/tmp/ryoku-ui-service.upload");
+    let metadata = fs::symlink_metadata(source)?;
+    require(metadata.is_file() && metadata.nlink() == 1, "unsafe UI daemon upload")?;
+    require(crate::profile_bundle::digest(source)? == hash, "UI daemon upload digest mismatch")?;
+    crate::preflight::input_binary(source.to_str().ok_or("invalid UI upload")?)?;
+    require(
+        matches!(fs::symlink_metadata(UI_SERVICE), Err(error) if error.kind() == std::io::ErrorKind::NotFound),
+        "refuse existing installed UI daemon",
+    )?;
+    let directory = Path::new(UI_SERVICE).parent().ok_or("missing UI daemon parent")?;
+    match fs::create_dir(directory) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(error) => return Err(error.into()),
+    }
+    let parent = fs::symlink_metadata(directory)?;
+    require(
+        parent.is_dir() && parent.uid() == 0 && parent.mode() & 0o022 == 0,
+        "unsafe UI daemon directory",
+    )?;
+    native(
+        "/usr/bin/install",
+        &["-Z", "-m", "0755", source.to_str().ok_or("invalid upload")?, UI_SERVICE],
+    )?;
+    native("/usr/sbin/restorecon", &["-F", UI_SERVICE])?;
+    require(
+        crate::profile_bundle::digest(Path::new(UI_SERVICE))? == hash,
+        "installed UI daemon digest mismatch",
+    )?;
+    fs::remove_file(source)?;
+    Ok(())
+}
+
+fn desktop_command(program: &str, args: &[&str]) -> Result<String> {
+    let environment = plasma_environment(desktop_uid()?)?;
+    let mut command = Command::new("/usr/sbin/runuser");
+    command.args(["--user", USER, "--", "/usr/bin/env", "-i"]);
+    for (name, value) in environment {
+        command.arg(format!("{name}={value}"));
+    }
+    command.arg(program).args(args).env("LC_ALL", "C");
+    let result = crate::process::run(&mut command, Duration::from_secs(30), 64 * 1024)?;
+    if result.timed_out
+        || !result.status.success()
+        || result.stdout_truncated
+        || result.stderr_truncated
+    {
+        // No credentials enter these fixed service commands. The owning host
+        // retains this bounded diagnostic privately rather than publishing it.
+        eprintln!(
+            "desktop UI fixture command failed\n{}\n{}",
+            String::from_utf8_lossy(&result.stdout),
+            String::from_utf8_lossy(&result.stderr)
+        );
+    }
+    require(
+        !result.timed_out
+            && result.status.success()
+            && !result.stdout_truncated
+            && !result.stderr_truncated,
+        "bounded desktop command failed",
+    )?;
+    Ok(String::from_utf8(result.stdout)?)
+}
+
+fn service_journal_command(uid: u32) -> Command {
+    let mut command = Command::new("/usr/bin/journalctl");
+    // journalctl --user-unit defaults to the caller's UID (root here). Match
+    // the actual desktop UID explicitly, including user-manager lifecycle
+    // messages. These journal records survive transient --collect removal.
+    command.args([
+        "--no-pager",
+        "--output=short-monotonic",
+        "--boot=0",
+        "--since=-5min",
+        "--lines=128",
+        &format!("_UID={uid}"),
+        &format!("_SYSTEMD_USER_UNIT={UI_SERVICE_UNIT}"),
+        "+",
+        &format!("_UID={uid}"),
+        &format!("USER_UNIT={UI_SERVICE_UNIT}"),
+    ]);
+    command.env("LC_ALL", "C");
+    command
+}
+
+fn diagnostic_output(log: &mut impl Write, name: &str, mut command: Command) -> Result<()> {
+    writeln!(log, "--- {name} ---")?;
+    match crate::process::run(&mut command, Duration::from_secs(10), 16 * 1024) {
+        Ok(output) => {
+            writeln!(
+                log,
+                "exit_code={} timed_out={} stdout_truncated={} stderr_truncated={}",
+                output.status.code().unwrap_or(-1),
+                output.timed_out,
+                output.stdout_truncated,
+                output.stderr_truncated,
+            )?;
+            log.write_all(&output.stdout)?;
+            log.write_all(b"\n--- stderr ---\n")?;
+            log.write_all(&output.stderr)?;
+            log.write_all(b"\n")?;
+        }
+        Err(_) => writeln!(log, "diagnostic_command=unavailable")?,
+    }
+    Ok(())
+}
+
+fn capture_ui_service_diagnostics(uid: u32, reason: &str) -> Result<()> {
+    let mut log = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(UI_SERVICE_DIAGNOSTIC)?;
+    writeln!(log, "startup_error={}", reason.chars().take(512).collect::<String>())?;
+    // Status must remain inspectable if Plasma itself exited. No session
+    // discovery commands or graphical environment are needed for this bus.
+    let mut status = Command::new("/usr/sbin/runuser");
+    status.args([
+        "--user",
+        USER,
+        "--",
+        "/usr/bin/env",
+        "-i",
+        &format!("HOME={HOME}"),
+        &format!("XDG_RUNTIME_DIR=/run/user/{uid}"),
+        &format!("DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{uid}/bus"),
+        "PATH=/usr/bin:/bin",
+        "LC_ALL=C",
+        "/usr/bin/systemctl",
+        "--user",
+        "show",
+        "--no-pager",
+        "--property=LoadState,ActiveState,SubState,MainPID,ExecMainCode,ExecMainStatus,Result,Transient,InvocationID",
+        UI_SERVICE_UNIT,
+    ]);
+    diagnostic_output(&mut log, "user unit state (may already be collected)", status)?;
+    diagnostic_output(&mut log, "user unit journal", service_journal_command(uid))?;
+    log.sync_all()?;
+    Ok(())
+}
+
+fn service_property(name: &str) -> Result<String> {
+    Ok(desktop_command(
+        "/usr/bin/systemctl",
+        &["--user", "show", UI_SERVICE_UNIT, "--property", name, "--value"],
+    )?
+    .trim()
+    .to_owned())
+}
+
+fn service_unit_loaded() -> Result<bool> {
+    let output = desktop_command(
+        "/usr/bin/systemctl",
+        &["--user", "list-units", "--all", "--plain", "--no-legend", "--no-pager", UI_SERVICE_UNIT],
+    )?;
+    require(
+        output.lines().count() <= 1
+            && output.lines().all(|line| line.split_whitespace().next() == Some(UI_SERVICE_UNIT)),
+        "unexpected transient UI unit inventory",
+    )?;
+    Ok(!output.trim().is_empty())
+}
+
+fn process_start(stat: &str) -> Result<u64> {
+    // comm may itself contain spaces and parentheses. starttime is field 22.
+    stat.rsplit_once(')')
+        .and_then(|(_, rest)| rest.split_whitespace().nth(19))
+        .ok_or("missing daemon process start identity")?
+        .parse()
+        .map_err(Into::into)
+}
+
+fn daemon_identity(pid: u32, uid: u32) -> Result<u64> {
+    require(
+        process_status(&fs::read_to_string(format!("/proc/{pid}/status"))?, uid),
+        "UI daemon owner or liveness changed",
+    )?;
+    require(
+        fs::read_link(format!("/proc/{pid}/exe"))? == Path::new(UI_SERVICE),
+        "UI daemon executable changed",
+    )?;
+    process_start(&fs::read_to_string(format!("/proc/{pid}/stat"))?)
+}
+
+fn start_ui_service(uid: u32) -> Result<()> {
+    require(
+        matches!(fs::symlink_metadata(UI_SERVICE_RECORD), Err(error) if error.kind() == std::io::ErrorKind::NotFound),
+        "refuse existing UI daemon ownership record",
+    )?;
+    require(!service_unit_loaded()?, "refuse pre-existing UI daemon fixture unit")?;
+    require(
+        matches!(fs::symlink_metadata(format!("/run/user/{uid}/ryoku-service.sock")), Err(error) if error.kind() == std::io::ErrorKind::NotFound),
+        "refuse existing UI daemon socket",
+    )?;
+    let metadata = fs::symlink_metadata(UI_SERVICE)?;
+    require(
+        metadata.is_file() && metadata.uid() == 0 && metadata.mode() & 0o7777 == 0o755,
+        "unsafe installed UI daemon",
+    )?;
+    let submitted = desktop_command(
+        "/usr/bin/systemd-run",
+        &[
+            "--user",
+            "--quiet",
+            "--collect",
+            "--unit",
+            UI_SERVICE_UNIT,
+            "--property=Type=exec",
+            "--property=UMask=0077",
+            "--property=RuntimeMaxSec=300",
+            UI_SERVICE,
+        ],
+    );
+    if let Err(error) = submitted {
+        let _ = capture_ui_service_diagnostics(uid, &error.to_string());
+        // A failed submission does not establish ownership of a running unit.
+        return Err(error);
+    }
+    let mut invocation = None;
+    let started = (|| -> Result<()> {
+        let id = service_property("InvocationID")?;
+        require(
+            id.len() == 32
+                && id.bytes().all(|byte| byte.is_ascii_hexdigit())
+                && id.bytes().any(|byte| byte != b'0'),
+            "UI daemon unit has no invocation identity",
+        )?;
+        invocation = Some(id);
+        let pid: u32 = service_property("MainPID")?.parse()?;
+        require(pid > 1, "UI daemon unit has no process")?;
+        let start = daemon_identity(pid, uid)?;
+        let mut record = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(UI_SERVICE_RECORD)?;
+        writeln!(record, "{pid} {start}")?;
+        record.sync_all()?;
+        let socket = format!("/run/user/{uid}/ryoku-service.sock");
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            require(daemon_identity(pid, uid)? == start, "UI daemon process identity changed")?;
+            if fs::symlink_metadata(&socket).is_ok_and(|metadata| {
+                metadata.file_type().is_socket()
+                    && metadata.uid() == uid
+                    && metadata.mode() & 0o077 == 0
+            }) {
+                break;
+            }
+            require(Instant::now() < deadline, "UI daemon runtime socket not ready")?;
+            thread::sleep(Duration::from_millis(100));
+        }
+        Ok(())
+    })();
+    if let Err(error) = &started {
+        // Capture before stop/collection; a diagnostic failure must never
+        // replace the original startup error or suppress owned-unit cleanup.
+        let _ = capture_ui_service_diagnostics(uid, &error.to_string());
+        // Stop only the successfully created invocation, never a replacement
+        // unit that adopted its name after collection. Unknown identity is
+        // left to the native RuntimeMaxSec bound and disposable VM teardown.
+        if invocation.as_ref().is_some_and(|expected| {
+            service_property("InvocationID").is_ok_and(|current| current == *expected)
+        }) {
+            let _ = desktop_command("/usr/bin/systemctl", &["--user", "stop", UI_SERVICE_UNIT]);
+        }
+        let _ = fs::remove_file(UI_SERVICE_RECORD);
+    }
+    started
+}
+
+fn stop_ui_service(uid: u32) -> Result<()> {
+    let file = match fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+        .open(UI_SERVICE_RECORD)
+    {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.into()),
+    };
+    let metadata = file.metadata()?;
+    require(
+        metadata.is_file()
+            && metadata.uid() == 0
+            && metadata.nlink() == 1
+            && metadata.len() <= 128
+            && metadata.mode() & 0o7777 == 0o600,
+        "invalid UI daemon ownership record",
+    )?;
+    let mut text = String::new();
+    file.take(128).read_to_string(&mut text)?;
+    let fields: Vec<_> = text.split_whitespace().collect();
+    require(fields.len() == 2, "invalid UI daemon identity")?;
+    let pid: u32 = fields[0].parse()?;
+    require(pid > 1, "invalid owned UI daemon PID")?;
+    let start: u64 = fields[1].parse()?;
+    let active_pid: u32 =
+        if service_unit_loaded()? { service_property("MainPID")?.parse()? } else { 0 };
+    if active_pid != 0 {
+        require(
+            active_pid == pid && daemon_identity(pid, uid)? == start,
+            "refuse to stop substituted UI daemon",
+        )?;
+        desktop_command("/usr/bin/systemctl", &["--user", "stop", UI_SERVICE_UNIT])?;
+    }
+    require(!Path::new(&format!("/proc/{pid}")).exists(), "owned UI daemon was not reaped")?;
+    fs::remove_file(UI_SERVICE_RECORD)?;
+    Ok(())
+}
 
 // Do not include native output in errors: PAM/password tools may echo inputs.
 fn native(program: &str, args: &[&str]) -> Result<String> {
@@ -431,11 +811,15 @@ pub fn prepare() -> Result<()> {
         file.write_all(expected.as_bytes())?;
         file.sync_all()?;
     }
+    prepare_greeter(uid, &session, &password)
+}
+
+fn prepare_greeter(uid: u32, session: &Path, password: &Secret) -> Result<()> {
     require(
         registered_sessions(uid)?.is_empty(),
         "refuse to reset credentials while desktop user has a session",
     )?;
-    set_password(&password)?;
+    set_password(password)?;
 
     // SDDM's native state file preselects the last user and full session path.
     // It does not authenticate or launch the user's session.
@@ -516,6 +900,10 @@ fn process_status(source: &str, uid: u32) -> bool {
 }
 
 fn session_matches(values: &BTreeMap<String, String>, uid: u32) -> bool {
+    session_matches_desktop(values, uid, "KDE")
+}
+
+fn session_matches_desktop(values: &BTreeMap<String, String>, uid: u32, desktop: &str) -> bool {
     matches(
         values,
         &[
@@ -525,7 +913,7 @@ fn session_matches(values: &BTreeMap<String, String>, uid: u32) -> bool {
             ("Class", "user"),
             ("Seat", "seat0"),
             ("Type", "wayland"),
-            ("Desktop", "KDE"),
+            ("Desktop", desktop),
             ("Active", "yes"),
             ("State", "active"),
             ("Remote", "no"),
@@ -605,6 +993,113 @@ pub fn inspect() -> Result<()> {
             Err("desktop login inspection failed".into())
         }
     }
+}
+
+pub fn inspect_selected(selected: NativeSession) -> Result<()> {
+    if selected == NativeSession::Kde {
+        return inspect();
+    }
+    guard()?;
+    authentication_policy()?;
+    ryoku_session()?;
+    let uid = desktop_uid()?;
+    require(
+        existing_record()? == Some(record(uid, &plasma_session()?)?),
+        "desktop fixture identity changed",
+    )?;
+    display_manager()?;
+    let id = active_session()?;
+    let values = show_session(&id)?;
+    require(
+        session_matches_desktop(&values, uid, "Hyprland"),
+        "active ordinary-user Hyprland SDDM session required",
+    )?;
+    let scope = format!("session-{id}.scope");
+    require(values.get("Scope") == Some(&scope), "unexpected native session scope")?;
+    for candidate in registered_sessions(uid)? {
+        require(
+            candidate == id
+                || show_session(&candidate)?.get("Class").is_some_and(|class| class == "manager"),
+            "another desktop user login makes attribution ambiguous",
+        )?;
+    }
+    let compositor = user_process("Hyprland", "hyprland", uid, &scope)?;
+    let mut command = Command::new("/usr/sbin/runuser");
+    command.args([
+        "--user",
+        USER,
+        "--",
+        "/usr/bin/env",
+        "-i",
+        &format!("XDG_RUNTIME_DIR=/run/user/{uid}"),
+        &format!("DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{uid}/bus"),
+        "PATH=/usr/bin:/bin",
+        "/usr/bin/systemctl",
+        "--user",
+        "show",
+        "ryoku-desktop-shell.service",
+        "--property=ActiveState,SubState,MainPID,NoNewPrivileges",
+    ]);
+    let output = crate::process::run(&mut command, Duration::from_secs(10), 4096)?;
+    require(
+        !output.timed_out
+            && output.status.success()
+            && !output.stdout_truncated
+            && !output.stderr_truncated,
+        "cannot inspect native Ryoku shell unit",
+    )?;
+    let unit = properties(&String::from_utf8(output.stdout)?)?;
+    require(
+        matches(
+            &unit,
+            &[("ActiveState", "active"), ("SubState", "running"), ("NoNewPrivileges", "yes")],
+        ),
+        "native NNP Ryoku shell unit is not running",
+    )?;
+    let pid = unit.get("MainPID").ok_or("shell MainPID absent")?.parse::<u32>()?;
+    require(pid > 1, "invalid shell PID")?;
+    require(
+        fs::read_link(format!("/proc/{pid}/exe"))?
+            == fs::canonicalize("/usr/libexec/ryoku/quickshell/bin/qs")?,
+        "shell unit does not run the fixed Quickshell executable",
+    )?;
+    require(
+        process_cgroup(&fs::read_to_string(format!("/proc/{pid}/cgroup"))?, uid, &scope),
+        "shell is outside fixture user's manager",
+    )?;
+    let arguments = fs::read(format!("/proc/{pid}/cmdline"))?;
+    let arguments: Vec<_> = arguments.split(|byte| *byte == 0).collect();
+    require(
+        arguments.windows(2).any(|pair| {
+            pair == [
+                b"-p".as_slice(),
+                b"/usr/share/ryoku-opensuse/upstream/shell/quickshell/shell".as_slice(),
+            ]
+        }),
+        "shell unit does not select preserved Ryoku shell",
+    )?;
+    let socket = plasma_socket(&fs::read(format!("/proc/{pid}/environ"))?, uid)?;
+    let metadata = fs::symlink_metadata(&socket)?;
+    require(
+        metadata.file_type().is_socket() && metadata.uid() == uid,
+        "Ryoku Wayland socket ownership mismatch",
+    )?;
+    let _connection = UnixStream::connect(socket)?;
+    for process in [pid, compositor] {
+        require(
+            process_status(&fs::read_to_string(format!("/proc/{process}/status"))?, uid),
+            "Ryoku desktop process exited",
+        )?;
+    }
+    require(
+        active_session()? == id && session_matches_desktop(&show_session(&id)?, uid, "Hyprland"),
+        "native Ryoku login changed during inspection",
+    )?;
+    guard()?;
+    println!(
+        "desktop_login=passed\ndesktop_user={USER}\ndesktop_session_service=sddm\ndesktop_session_type=wayland\ndesktop_session_desktop=Hyprland\ndesktop_compositor=hyprland\ndesktop_shell=preserved-ryoku-quickshell\ndesktop_wayland_socket=connected\ndesktop_authentication=password-required\ndesktop_visual_acceptance=separate-capture-required"
+    );
+    Ok(())
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -796,7 +1291,7 @@ fn painted_frame_marker(bytes: &[u8]) -> bool {
     bytes.split(|byte| *byte == b'\n').any(|line| line == b"gtk_proof_first_frame=painted")
 }
 
-fn ui_painted(scenario: &str) -> Result<bool> {
+fn ui_log(scenario: &str) -> Result<Vec<u8>> {
     let file = fs::OpenOptions::new()
         .read(true)
         .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
@@ -809,7 +1304,54 @@ fn ui_painted(scenario: &str) -> Result<bool> {
     let mut bytes = Vec::new();
     file.take(128 * 1024 + 1).read_to_end(&mut bytes)?;
     require(bytes.len() <= 128 * 1024, "GTK readiness log exceeded bound")?;
-    Ok(painted_frame_marker(&bytes))
+    Ok(bytes)
+}
+
+fn rendered_result(bytes: &[u8], expected: &str) -> bool {
+    let markers: Vec<_> = bytes
+        .split(|byte| *byte == b'\n')
+        .filter(|line| {
+            line.starts_with(b"gtk_proof_request=")
+                || line.starts_with(b"gtk_proof_result=")
+                || line.starts_with(b"gtk_proof_result_frame=")
+        })
+        .collect();
+    markers
+        == [
+            b"gtk_proof_request=1".as_slice(),
+            format!("gtk_proof_result=1:{expected}").as_bytes(),
+            b"gtk_proof_result_frame=1".as_slice(),
+        ]
+}
+
+pub(crate) fn result_evidence(scenario: &str) -> Result<String> {
+    let (name, result) = match scenario {
+        "service-success" => ("success", "recovery_unavailable"),
+        "service-error" => ("error", "unavailable"),
+        _ => return Err("unsupported real UI result scenario".into()),
+    };
+    Ok(format!(
+        "ui_service_{name}_result={result}\nui_service_{name}_input=qmp_enter\nui_service_{name}_fresh_request=1\nui_service_{name}_result_frame=painted\n"
+    ))
+}
+
+pub fn ui_result(scenario: &str) -> Result<()> {
+    guard()?;
+    let evidence = result_evidence(scenario)?;
+    let expected =
+        if scenario == "service-success" { "recovery_unavailable" } else { "unavailable" };
+    let deadline = Instant::now() + Duration::from_secs(15);
+    loop {
+        if rendered_result(&ui_log(scenario)?, expected) {
+            print!("{evidence}");
+            return Ok(());
+        }
+        require(
+            Instant::now() < deadline,
+            "fresh keyboard-triggered typed UI result was not painted",
+        )?;
+        thread::sleep(Duration::from_millis(100));
+    }
 }
 
 /// Start the opt-in GTK proof inside the already authenticated Wayland user
@@ -817,16 +1359,37 @@ fn ui_painted(scenario: &str) -> Result<bool> {
 pub fn launch_ui(scenario: &str) -> Result<()> {
     guard()?;
     inspect()?;
-    require(matches!(scenario, "success" | "error"), "unsupported GTK proof scenario")?;
+    require(
+        matches!(scenario, "success" | "error" | "service-success" | "service-error"),
+        "unsupported GTK proof scenario",
+    )?;
     let uid = desktop_uid()?;
     require(ui_processes(uid)?.is_empty(), "another GTK proof window is still active")?;
+    if scenario == "service-success" {
+        start_ui_service(uid)?;
+    } else if scenario == "service-error" {
+        stop_ui_service(uid)?;
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while service_unit_loaded()? {
+            require(
+                Instant::now() < deadline,
+                "UI daemon unit still exists before unavailable proof",
+            )?;
+            thread::sleep(Duration::from_millis(100));
+        }
+    }
     let environment = plasma_environment(uid)?;
     let mut command = Command::new("/usr/sbin/runuser");
     command.args(["--user", USER, "--", "/usr/bin/env", "-i"]);
     for (name, value) in environment {
         command.arg(format!("{name}={value}"));
     }
-    command.arg("/usr/local/bin/ryoku-ui-gtk").args(["--demo", "--capture-on-launch"]);
+    command.arg("/usr/local/bin/ryoku-ui-gtk");
+    if scenario.starts_with("service-") {
+        command.args(["--connect-service", "--capture-input"]);
+    } else {
+        command.args(["--demo", "--capture-on-launch"]);
+    }
     if scenario == "error" {
         command.arg("--service-unavailable");
     }
@@ -841,7 +1404,15 @@ pub fn launch_ui(scenario: &str) -> Result<()> {
     let _child = command.spawn()?;
     let deadline = Instant::now() + Duration::from_secs(120);
     loop {
-        if !ui_processes(uid)?.is_empty() && ui_painted(scenario)? {
+        let bytes = ui_log(scenario)?;
+        if !ui_processes(uid)?.is_empty() && painted_frame_marker(&bytes) {
+            require(
+                !scenario.starts_with("service-")
+                    || !bytes
+                        .windows(b"gtk_proof_request=".len())
+                        .any(|window| window == b"gtk_proof_request="),
+                "real service request occurred before keyboard input",
+            )?;
             println!("gtk_proof_window=painted\ngtk_proof_scenario={scenario}");
             return Ok(());
         }
@@ -855,7 +1426,7 @@ pub fn launch_ui(scenario: &str) -> Result<()> {
 pub fn ui_diagnostics() -> Result<()> {
     guard()?;
     let mut output = std::io::stdout().lock();
-    for scenario in ["success", "error"] {
+    for scenario in ["success", "error", "service-success", "service-error", "service-startup"] {
         let path = format!("/var/log/ryoku-lab-ui-{scenario}-private.log");
         let file = match fs::OpenOptions::new()
             .read(true)
@@ -877,22 +1448,91 @@ pub fn ui_diagnostics() -> Result<()> {
 pub fn stop_ui() -> Result<()> {
     guard()?;
     let uid = desktop_uid()?;
-    let processes = ui_processes(uid)?;
-    require(processes.len() <= 1, "ambiguous GTK proof process inventory")?;
-    if let Some(pid) = processes.first() {
-        native("/usr/bin/kill", &["-TERM", &pid.to_string()])?;
-        let deadline = Instant::now() + Duration::from_secs(10);
-        while process_ids("ryoku-ui-gtk", uid)?.contains(pid) {
-            require(Instant::now() < deadline, "GTK proof window did not exit")?;
-            thread::sleep(Duration::from_millis(100));
+    let stopped = (|| -> Result<()> {
+        let processes = ui_processes(uid)?;
+        require(processes.len() <= 1, "ambiguous GTK proof process inventory")?;
+        if let Some(pid) = processes.first() {
+            native("/usr/bin/kill", &["-TERM", &pid.to_string()])?;
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while process_ids("ryoku-ui-gtk", uid)?.contains(pid) {
+                require(Instant::now() < deadline, "GTK proof window did not exit")?;
+                thread::sleep(Duration::from_millis(100));
+            }
         }
-    }
-    Ok(())
+        Ok(())
+    })();
+    let service_stopped = stop_ui_service(uid);
+    stopped?;
+    service_stopped
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn collected_user_unit_journal_matches_desktop_uid_and_manager_messages() {
+        let command = service_journal_command(1234);
+        assert_eq!(command.get_program(), "/usr/bin/journalctl");
+        let args: Vec<_> = command.get_args().map(|arg| arg.to_str().unwrap()).collect();
+        assert_eq!(
+            &args[5..],
+            [
+                "_UID=1234",
+                "_SYSTEMD_USER_UNIT=ryoku-lab-ui-service.service",
+                "+",
+                "_UID=1234",
+                "USER_UNIT=ryoku-lab-ui-service.service",
+            ]
+        );
+        assert!(args.contains(&"--boot=0"));
+        assert!(!args.iter().any(|arg| arg.starts_with("--user-unit")));
+    }
+
+    #[test]
+    fn failed_diagnostic_does_not_prevent_the_next_private_record() {
+        let mut log = Vec::new();
+        diagnostic_output(
+            &mut log,
+            "unavailable status",
+            Command::new("/ryoku-lab-diagnostic-test-does-not-exist"),
+        )
+        .unwrap();
+        let mut command = Command::new("/usr/bin/printf");
+        command.arg("retained daemon failure");
+        diagnostic_output(&mut log, "journal", command).unwrap();
+        let text = String::from_utf8(log).unwrap();
+        assert!(text.contains("diagnostic_command=unavailable"));
+        assert!(text.contains("retained daemon failure"));
+    }
+
+    #[test]
+    fn real_results_require_one_fresh_request_in_order_after_keyboard_input() {
+        let ready = b"gtk_proof_first_frame=painted\ngtk_proof_request=1\ngtk_proof_result=1:recovery_unavailable\ngtk_proof_result_frame=1\n";
+        assert!(rendered_result(ready, "recovery_unavailable"));
+        assert!(!rendered_result(ready, "unavailable"));
+        for invalid in [
+            "gtk_proof_result=1:recovery_unavailable\ngtk_proof_result_frame=1\n",
+            "gtk_proof_request=1\ngtk_proof_result=1:recovery_unavailable\n",
+            "gtk_proof_request=1\ngtk_proof_result_frame=1\ngtk_proof_result=1:recovery_unavailable\n",
+            "gtk_proof_request=2\ngtk_proof_result=2:recovery_unavailable\ngtk_proof_result_frame=2\n",
+            "gtk_proof_request=1\ngtk_proof_result=1:recovery_unavailable\ngtk_proof_result_frame=1\ngtk_proof_request=2\n",
+        ] {
+            assert!(!rendered_result(invalid.as_bytes(), "recovery_unavailable"));
+        }
+        for scenario in ["service-success", "service-error"] {
+            let evidence = result_evidence(scenario).unwrap();
+            assert!(evidence.lines().all(crate::support::public_evidence));
+        }
+        assert!(result_evidence("success").is_err());
+    }
+
+    #[test]
+    fn daemon_start_identity_handles_spaces_and_parentheses_in_comm() {
+        let stat = format!("42 (name with ) parentheses) S {}1234 0", "0 ".repeat(18));
+        assert_eq!(process_start(&stat).unwrap(), 1234);
+        assert!(process_start("42 invalid").is_err());
+    }
 
     #[test]
     fn process_and_renderer_diagnostics_do_not_substitute_for_a_painted_frame() {
@@ -966,6 +1606,37 @@ mod tests {
             assert!(!session_matches(&properties(&output.replace(old, new)).unwrap(), 1001));
         }
         assert!(properties("User=1001\nUser=0\n").is_err());
+    }
+
+    #[test]
+    fn retained_session_selection_cannot_substitute_a_command_or_the_other_desktop() {
+        assert_eq!(NativeSession::parse("kde").unwrap(), NativeSession::Kde);
+        assert_eq!(NativeSession::parse("ryoku").unwrap(), NativeSession::Ryoku);
+        for value in ["", "Hyprland", "/usr/bin/Hyprland", "ryoku;reboot", "kde\n", "--session"] {
+            assert!(NativeSession::parse(value).is_err());
+        }
+        let source = "Name=ryoku-desktop\nUser=1001\nService=sddm\nClass=user\nSeat=seat0\nType=wayland\nDesktop=Hyprland\nActive=yes\nState=active\nRemote=no\n";
+        let values = properties(source).unwrap();
+        assert!(session_matches_desktop(&values, 1001, "Hyprland"));
+        assert!(!session_matches(&values, 1001));
+        assert!(!session_matches_desktop(
+            &properties(&source.replace("Desktop=Hyprland", "Desktop=KDE")).unwrap(),
+            1001,
+            "Hyprland"
+        ));
+        for (old, new) in [
+            ("User=1001", "User=0"),
+            ("Service=sddm", "Service=sshd"),
+            ("Class=user", "Class=greeter"),
+            ("Active=yes", "Active=no"),
+            ("Remote=no", "Remote=yes"),
+        ] {
+            assert!(!session_matches_desktop(
+                &properties(&source.replace(old, new)).unwrap(),
+                1001,
+                "Hyprland"
+            ));
+        }
     }
 
     #[test]

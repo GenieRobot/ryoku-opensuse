@@ -11,18 +11,81 @@ use std::fs::File;
 use std::io;
 
 use rustix::fs::{FileType, FlockOperation, Mode, OFlags, flock, fstat, fsync, openat};
+use ryoku_recovery::{Identifier, Sha256, SnapshotLink};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     JournalError, ManagedActionKind, OperationId, OperationJournal, OperationPhase,
-    OperationStatus, ServiceError,
+    OperationStatus, Progress, ServiceError,
 };
 
 /// Identity pair for the system snapshot and Ryoku/configuration generation.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct LinkedGeneration {
-    pub system_snapshot: String,
-    pub ryoku_generation: String,
+    pub transaction_id: Identifier,
+    pub generation_id: Identifier,
+    pub manifest_sha256: Sha256,
+    pub snapshot: SnapshotLink,
 }
+
+impl LinkedGeneration {
+    /// Copy the exact sealed identity from persistent generation read-back.
+    /// This reference alone proves neither installed inventory completeness nor
+    /// current native snapshot availability, which the integration must check.
+    pub fn from_verified_generation(
+        generation: &ryoku_recovery::generation::VerifiedGeneration,
+    ) -> Result<Self, GateError> {
+        let manifest = generation.manifest();
+        let linked = Self {
+            transaction_id: manifest.transaction_id.clone(),
+            generation_id: manifest.generation_id.clone(),
+            manifest_sha256: manifest
+                .manifest_sha256
+                .clone()
+                .ok_or(GateError::CheckpointUnverified)?,
+            snapshot: SnapshotLink::new(
+                manifest.snapper_config.clone(),
+                manifest.snapper_snapshot_id.clone(),
+                manifest.filesystem_uuid.clone(),
+            )
+            .map_err(|_| GateError::CheckpointUnverified)?,
+        };
+        if !linked.valid() {
+            return Err(GateError::CheckpointUnverified);
+        }
+        Ok(linked)
+    }
+
+    fn valid(&self) -> bool {
+        if self.snapshot.snapper_snapshot_id.len() > 20 || self.snapshot.filesystem_uuid.len() != 36
+        {
+            return false;
+        }
+        let number = self.snapshot.snapper_snapshot_id.parse::<u64>();
+        matches!(number, Ok(number) if number != 0 && number.to_string() == self.snapshot.snapper_snapshot_id)
+            && SnapshotLink::new(
+                self.snapshot.snapper_config.clone(),
+                self.snapshot.snapper_snapshot_id.clone(),
+                self.snapshot.filesystem_uuid.clone(),
+            )
+            .is_ok()
+    }
+
+    pub(crate) fn fresh_after(&self, before: &Self) -> bool {
+        self.valid()
+            && self.transaction_id != before.transaction_id
+            && self.generation_id != before.generation_id
+            && self.manifest_sha256 != before.manifest_sha256
+            && self.snapshot.snapper_config == before.snapshot.snapper_config
+            && self.snapshot.filesystem_uuid == before.snapshot.filesystem_uuid
+            && self.snapshot.snapper_snapshot_id != before.snapshot.snapper_snapshot_id
+    }
+}
+
+#[cfg(test)]
+#[path = "mutation_coordination_tests.rs"]
+mod coordination_tests;
 
 /// Evidence reported by the recovery integration after it has captured and
 /// read-back verified every component required by the operation.
@@ -34,15 +97,15 @@ pub struct CheckpointEvidence {
     pub contents_and_metadata_verified: bool,
 }
 
-/// Typed proof accepted by the mutation gate. Fields are private so callers
-/// cannot construct a proof without passing the validation constructor.
+/// Validated trusted integration attestation. Its private fields ensure shape
+/// checks, but these booleans do not independently prove native capture,
+/// complete installed enrollment, writer quiescence, or authorization.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VerifiedLinkedGeneration(LinkedGeneration);
 
 impl VerifiedLinkedGeneration {
     pub fn validate(evidence: CheckpointEvidence) -> Result<Self, GateError> {
-        if evidence.linked.system_snapshot.trim().is_empty()
-            || evidence.linked.ryoku_generation.trim().is_empty()
+        if !evidence.linked.valid()
             || !evidence.system_component_verified
             || !evidence.ryoku_component_verified
             || !evidence.contents_and_metadata_verified
@@ -57,18 +120,214 @@ impl VerifiedLinkedGeneration {
     }
 }
 
+/// Trusted post-change attestation bound to this exact preimage. Validation
+/// requires independently read-back complete state and a fresh immutable/native
+/// reference; the booleans remain trusted assertions, not native verification.
+pub struct VerifiedPostChangeGeneration {
+    preimage: LinkedGeneration,
+    linked: LinkedGeneration,
+}
+impl VerifiedPostChangeGeneration {
+    pub fn validate(
+        evidence: CheckpointEvidence,
+        before: &VerifiedLinkedGeneration,
+    ) -> Result<Self, GateError> {
+        let after = VerifiedLinkedGeneration::validate(evidence)
+            .map_err(|_| GateError::PostChangeFailed)?;
+        if !after.linked().fresh_after(before.linked()) {
+            return Err(GateError::PostChangeFailed);
+        }
+        Ok(Self { preimage: before.linked().clone(), linked: after.0 })
+    }
+    pub fn linked(&self) -> &LinkedGeneration {
+        &self.linked
+    }
+}
+
 /// A request fingerprint that must still match after checkpoint verification.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PlannedChange {
     pub operation_key: String,
     pub plan_fingerprint: String,
     pub affected_state_fingerprint: String,
 }
 
+impl PlannedChange {
+    fn valid(&self) -> bool {
+        !self.operation_key.is_empty()
+            && self.operation_key.len() <= 256
+            && self.operation_key.bytes().all(|byte| byte.is_ascii_graphic())
+            && Sha256::new(self.plan_fingerprint.clone()).is_ok()
+            && Sha256::new(self.affected_state_fingerprint.clone()).is_ok()
+    }
+}
+
+/// Detailed durable phase; the socket's coarse protocol-v1 phase is unchanged.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MutationStage {
+    Preflight,
+    Capturing,
+    Revalidating,
+    Applying,
+    HealthChecking,
+    PostChangeCapture,
+    Complete,
+}
+
+impl MutationStage {
+    fn next(self) -> Option<Self> {
+        match self {
+            Self::Preflight => Some(Self::Capturing),
+            Self::Capturing => Some(Self::Revalidating),
+            Self::Revalidating => Some(Self::Applying),
+            Self::Applying => Some(Self::HealthChecking),
+            Self::HealthChecking => Some(Self::PostChangeCapture),
+            Self::PostChangeCapture => Some(Self::Complete),
+            Self::Complete => None,
+        }
+    }
+    fn phase(self) -> OperationPhase {
+        match self {
+            Self::Preflight => OperationPhase::Accepted,
+            Self::Capturing | Self::Revalidating => OperationPhase::Capturing,
+            Self::Applying => OperationPhase::Applying,
+            Self::HealthChecking | Self::PostChangeCapture => OperationPhase::Verifying,
+            Self::Complete => OperationPhase::Succeeded,
+        }
+    }
+    fn before_change(self) -> bool {
+        matches!(self, Self::Preflight | Self::Capturing | Self::Revalidating)
+    }
+}
+
+/// Failure classification survives reconnect independently of generic v1 errors.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MutationOutcome {
+    FailedBeforeChange,
+    CancelledBeforeChange,
+    MayHaveMutated,
+    PostChangeCaptureFailed,
+}
+
+/// Exact plan and linked checkpoint association stored in the same synchronized
+/// record as each phase. This is historical evidence, never a replay permit.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MutationContext {
+    pub plan: PlannedChange,
+    pub checkpoint: Option<LinkedGeneration>,
+    pub post_checkpoint: Option<LinkedGeneration>,
+    pub stage: MutationStage,
+    pub outcome: Option<MutationOutcome>,
+}
+
+impl MutationContext {
+    pub(crate) fn valid_for(&self, status: &OperationStatus) -> bool {
+        if !self.plan.valid()
+            || status.progress.as_ref().is_some_and(|progress| !progress.is_valid())
+        {
+            return false;
+        }
+        let needs_checkpoint =
+            !matches!(self.stage, MutationStage::Preflight | MutationStage::Capturing);
+        if self.checkpoint.is_some() != needs_checkpoint
+            || self.checkpoint.as_ref().is_some_and(|checkpoint| !checkpoint.valid())
+        {
+            return false;
+        }
+        if self.post_checkpoint.is_some() != (self.stage == MutationStage::Complete)
+            || self.post_checkpoint.as_ref().is_some_and(|post| {
+                !self.checkpoint.as_ref().is_some_and(|before| post.fresh_after(before))
+            })
+        {
+            return false;
+        }
+        if let Some(outcome) = self.outcome {
+            status.phase == OperationPhase::Failed
+                && status.error.is_some()
+                && match outcome {
+                    MutationOutcome::FailedBeforeChange => {
+                        self.stage.before_change()
+                            && matches!(
+                                status.error,
+                                Some(
+                                    ServiceError::RecoveryUnavailable
+                                        | ServiceError::StaleRequest
+                                        | ServiceError::Busy
+                                )
+                            )
+                    }
+                    MutationOutcome::CancelledBeforeChange => {
+                        self.stage.before_change() && status.error == Some(ServiceError::Failed)
+                    }
+                    MutationOutcome::MayHaveMutated => {
+                        matches!(
+                            self.stage,
+                            MutationStage::Applying | MutationStage::HealthChecking
+                        ) && status.error == Some(ServiceError::Failed)
+                    }
+                    MutationOutcome::PostChangeCaptureFailed => {
+                        self.stage == MutationStage::PostChangeCapture
+                            && status.error == Some(ServiceError::Failed)
+                    }
+                }
+        } else {
+            status.phase == self.stage.phase() && status.error.is_none()
+        }
+    }
+
+    pub(crate) fn follows(&self, previous: &Self) -> bool {
+        if previous.outcome.is_some()
+            || previous.stage == MutationStage::Complete
+            || self.plan != previous.plan
+        {
+            return false;
+        }
+        let checkpoint_matches = if previous.stage == MutationStage::Capturing
+            && self.stage == MutationStage::Revalidating
+            && self.outcome.is_none()
+        {
+            previous.checkpoint.is_none() && self.checkpoint.is_some()
+        } else {
+            self.checkpoint == previous.checkpoint
+        };
+        let post_matches = if previous.stage == MutationStage::PostChangeCapture
+            && self.stage == MutationStage::Complete
+            && self.outcome.is_none()
+        {
+            previous.post_checkpoint.is_none() && self.post_checkpoint.is_some()
+        } else {
+            self.post_checkpoint == previous.post_checkpoint
+        };
+        checkpoint_matches
+            && post_matches
+            && if self.outcome.is_some() {
+                self.stage == previous.stage
+            } else {
+                previous.stage.next() == Some(self.stage)
+            }
+    }
+
+    pub(crate) fn initial(&self) -> bool {
+        self.stage == MutationStage::Preflight
+            && self.checkpoint.is_none()
+            && self.post_checkpoint.is_none()
+            && self.outcome.is_none()
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum GateError {
     Lock(io::ErrorKind),
     Journal(JournalError),
+    InvalidPlan,
+    RecoveryRequired,
+    PreflightFailed,
+    InsufficientSpace,
+    CancelledBeforeChange,
     CheckpointUnverified,
     PlanChanged,
     ApplyFailed,
@@ -80,6 +339,7 @@ pub struct JournaledOperation<'a> {
     journal: &'a mut OperationJournal,
     operation_id: OperationId,
     action: ManagedActionKind,
+    context: Option<MutationContext>,
 }
 
 impl<'a> JournaledOperation<'a> {
@@ -88,7 +348,38 @@ impl<'a> JournaledOperation<'a> {
         operation_id: OperationId,
         action: ManagedActionKind,
     ) -> Self {
-        Self { journal, operation_id, action }
+        Self { journal, operation_id, action, context: None }
+    }
+
+    /// Caller holds the common writer guard. Replaying the protected journal
+    /// happens before acceptance; an unresolved operation never authorizes retry.
+    pub(crate) fn begin(&mut self, planned: &PlannedChange) -> Result<(), GateError> {
+        if !planned.valid() {
+            return Err(GateError::InvalidPlan);
+        }
+        self.journal.refresh().map_err(GateError::Journal)?;
+        if !self.journal.recovery_required().is_empty() {
+            return Err(GateError::RecoveryRequired);
+        }
+        self.context = Some(MutationContext {
+            plan: planned.clone(),
+            checkpoint: None,
+            post_checkpoint: None,
+            stage: MutationStage::Preflight,
+            outcome: None,
+        });
+        self.record(OperationPhase::Accepted, None)
+    }
+
+    pub(crate) fn captured(&mut self, reference: LinkedGeneration) -> Result<(), GateError> {
+        self.context.as_mut().expect("accepted operation has context").checkpoint = Some(reference);
+        self.advance(MutationStage::Revalidating)
+    }
+
+    pub(crate) fn complete(&mut self, reference: LinkedGeneration) -> Result<(), GateError> {
+        self.context.as_mut().expect("accepted operation has context").post_checkpoint =
+            Some(reference);
+        self.advance(MutationStage::Complete)
     }
 
     fn record(
@@ -97,35 +388,71 @@ impl<'a> JournaledOperation<'a> {
         error: Option<ServiceError>,
     ) -> Result<(), GateError> {
         self.journal
-            .record(OperationStatus {
-                operation_id: self.operation_id.clone(),
-                action: self.action,
-                phase,
-                progress: None,
-                error,
-            })
+            .record_mutation(
+                OperationStatus {
+                    operation_id: self.operation_id.clone(),
+                    action: self.action,
+                    phase,
+                    progress: None,
+                    error,
+                },
+                self.context.clone().ok_or(GateError::InvalidPlan)?,
+            )
             .map_err(GateError::Journal)
     }
 
-    fn fail(&mut self, category: ServiceError, cause: GateError) -> GateError {
+    fn report_progress(&mut self, progress: Progress) -> Result<(), GateError> {
+        let context = self.context.as_ref().ok_or(GateError::InvalidPlan)?;
+        self.journal
+            .record_mutation(
+                OperationStatus {
+                    operation_id: self.operation_id.clone(),
+                    action: self.action,
+                    phase: context.stage.phase(),
+                    progress: Some(progress),
+                    error: None,
+                },
+                context.clone(),
+            )
+            .map_err(GateError::Journal)
+    }
+
+    pub(crate) fn fail(&mut self, category: ServiceError, cause: GateError) -> GateError {
+        let context = self.context.as_mut().expect("accepted operation has context");
+        context.outcome =
+            Some(if cause == GateError::CancelledBeforeChange && context.stage.before_change() {
+                MutationOutcome::CancelledBeforeChange
+            } else if context.stage.before_change() {
+                MutationOutcome::FailedBeforeChange
+            } else if context.stage == MutationStage::PostChangeCapture {
+                MutationOutcome::PostChangeCaptureFailed
+            } else {
+                MutationOutcome::MayHaveMutated
+            });
         match self.record(OperationPhase::Failed, Some(category)) {
             Ok(()) => cause,
             Err(journal_error) => journal_error,
         }
     }
+
+    pub(crate) fn advance(&mut self, stage: MutationStage) -> Result<(), GateError> {
+        self.context.as_mut().expect("accepted operation has context").stage = stage;
+        self.record(stage.phase(), None)
+    }
 }
 
 /// Persist pre-change failures using only error codes already defined by
 /// protocol v1. This keeps old clients able to deserialize operation status.
-fn pre_change_error(cause: &GateError) -> ServiceError {
+pub(crate) fn pre_change_error(cause: &GateError) -> ServiceError {
     match cause {
         GateError::Lock(_) => ServiceError::Busy,
         GateError::PlanChanged => ServiceError::StaleRequest,
+        GateError::CancelledBeforeChange => ServiceError::Failed,
         _ => ServiceError::RecoveryUnavailable,
     }
 }
 
-const MUTATION_LOCK_NAME: &str = "mutation.lock";
+pub(crate) const MUTATION_LOCK_NAME: &str = ryoku_recovery::state_mount::MUTATION_LOCK_NAME;
 
 /// Stable location for the coordinator lock used by cooperating Ryoku writers.
 /// Construct this from a trusted, service-owned state-directory descriptor.
@@ -135,6 +462,40 @@ pub struct MutationLock {
 }
 
 impl MutationLock {
+    pub(crate) fn revalidate_directory(&self, directory: &File) -> Result<(), GateError> {
+        let pinned = fstat(&self.directory).map_err(lock_error)?;
+        let current = fstat(directory).map_err(lock_error)?;
+        if pinned.st_dev != current.st_dev || pinned.st_ino != current.st_ino {
+            return Err(GateError::Lock(io::ErrorKind::PermissionDenied));
+        }
+        Ok(())
+    }
+    /// Match a caller-held guard to this exact lock inode without reacquiring
+    /// flock or creating a missing name. Native integrations also revalidate
+    /// the directory's machine-state mount association before calling this.
+    pub fn revalidate_guard(&self, guard: &WriterGuard) -> Result<(), GateError> {
+        let expected_gid = validate_lock_directory(&self.directory, self.expected_uid)?;
+        let current = openat(
+            &self.directory,
+            MUTATION_LOCK_NAME,
+            OFlags::RDWR | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK,
+            Mode::empty(),
+        )
+        .map_err(lock_error)?;
+        let current = fstat(&current).map_err(lock_error)?;
+        let held = fstat(&guard._file).map_err(lock_error)?;
+        if FileType::from_raw_mode(current.st_mode) != FileType::RegularFile
+            || current.st_uid != self.expected_uid
+            || current.st_gid != expected_gid
+            || current.st_mode & 0o7777 != 0o600
+            || current.st_nlink != 1
+            || current.st_dev != held.st_dev
+            || current.st_ino != held.st_ino
+        {
+            return Err(GateError::Lock(io::ErrorKind::PermissionDenied));
+        }
+        Ok(())
+    }
     /// Validate and pin a private state directory, creating the fixed lock file
     /// if needed. The directory must be owned by `expected_uid` and inaccessible
     /// to group and other users. Each `acquire` performs a fresh open so threads
@@ -148,14 +509,56 @@ impl MutationLock {
         Ok(lock)
     }
 
+    /// Pin an existing mutation lock without creating or modifying anything.
+    /// Read-only recovery/session processes use this constructor so systemd
+    /// filesystem protections can keep the persistent state mount read-only.
+    pub fn open_existing(directory: File, expected_uid: u32) -> Result<Self, GateError> {
+        validate_lock_directory(&directory, expected_uid)?;
+        let lock = Self { directory, expected_uid };
+        drop(lock.open_existing_lock_file()?);
+        Ok(lock)
+    }
+
     /// Block until all cooperating Ryoku writers using this lock directory
     /// release the common advisory lock.
     pub fn acquire(&self) -> Result<WriterGuard, GateError> {
         WriterGuard::acquire(self.open_lock_file()?)
     }
 
+    /// Try to acquire a shared view while checking protected recovery state.
+    /// Drop the guard when the check completes; a long-lived session guard
+    /// would prevent the supported exclusive mutation path from running.
+    pub fn try_acquire_shared(&self) -> Result<SharedWriterGuard, GateError> {
+        let file = self.open_existing_lock_file()?;
+        flock(&file, FlockOperation::NonBlockingLockShared)
+            .map_err(|error| GateError::Lock(error.kind()))?;
+        Ok(SharedWriterGuard { _file: file })
+    }
+
+    fn open_existing_lock_file(&self) -> Result<File, GateError> {
+        let expected_gid = validate_lock_directory(&self.directory, self.expected_uid)?;
+        let descriptor = openat(
+            &self.directory,
+            MUTATION_LOCK_NAME,
+            OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW,
+            Mode::empty(),
+        )
+        .map_err(lock_error)?;
+        let file = File::from(descriptor);
+        let metadata = fstat(&file).map_err(lock_error)?;
+        if FileType::from_raw_mode(metadata.st_mode) != FileType::RegularFile
+            || metadata.st_uid != self.expected_uid
+            || metadata.st_gid != expected_gid
+            || metadata.st_mode & 0o7777 != 0o600
+            || metadata.st_nlink != 1
+        {
+            return Err(GateError::Lock(io::ErrorKind::PermissionDenied));
+        }
+        Ok(file)
+    }
+
     fn open_lock_file(&self) -> Result<File, GateError> {
-        validate_lock_directory(&self.directory, self.expected_uid)?;
+        let expected_gid = validate_lock_directory(&self.directory, self.expected_uid)?;
         let descriptor = openat(
             &self.directory,
             MUTATION_LOCK_NAME,
@@ -167,6 +570,7 @@ impl MutationLock {
         let metadata = fstat(&file).map_err(lock_error)?;
         if FileType::from_raw_mode(metadata.st_mode) != FileType::RegularFile
             || metadata.st_uid != self.expected_uid
+            || metadata.st_gid != expected_gid
             || metadata.st_mode & 0o7777 != 0o600
             || metadata.st_nlink != 1
         {
@@ -176,15 +580,16 @@ impl MutationLock {
     }
 }
 
-fn validate_lock_directory(directory: &File, expected_uid: u32) -> Result<(), GateError> {
+fn validate_lock_directory(directory: &File, expected_uid: u32) -> Result<u32, GateError> {
     let metadata = fstat(directory).map_err(lock_error)?;
     if FileType::from_raw_mode(metadata.st_mode) != FileType::Directory
         || metadata.st_uid != expected_uid
-        || metadata.st_mode & 0o077 != 0
+        || (expected_uid == 0 && metadata.st_gid != 0)
+        || metadata.st_mode & 0o7777 != 0o700
     {
         return Err(GateError::Lock(io::ErrorKind::PermissionDenied));
     }
-    Ok(())
+    Ok(metadata.st_gid)
 }
 
 fn lock_error(error: rustix::io::Errno) -> GateError {
@@ -196,7 +601,18 @@ pub struct WriterGuard {
     _file: File,
 }
 
+/// Holds the common lock in shared mode for one coordinated recovery-state read.
+pub struct SharedWriterGuard {
+    _file: File,
+}
+
 impl WriterGuard {
+    /// Duplicate the held open-file description without acquiring a second
+    /// flock. Protected history keeps this pin and verifies its namespace.
+    pub(crate) fn pin_file(&self) -> Result<File, JournalError> {
+        self._file.try_clone().map_err(|_| JournalError::Io)
+    }
+
     fn acquire(service_owned_lock_file: File) -> Result<Self, GateError> {
         flock(&service_owned_lock_file, FlockOperation::LockExclusive)
             .map_err(|error| GateError::Lock(error.kind()))?;
@@ -237,28 +653,88 @@ pub fn with_verified_prechange<T>(
     Ok(apply(&proof))
 }
 
-/// Execute one mutation through durably recorded orchestration phases. The
-/// caller must supply trusted checkpoint, revalidation, apply, and post-change
-/// verification integrations. Each phase is synchronized before the next
-/// callback begins. A crash leaves the last reached phase for explicit
-/// recovery; this function does not infer or replay an interrupted operation.
-pub fn with_journaled_verified_mutation<T>(
+/// Trusted integration hooks. No implementation is installed in this build.
+/// Preflight must authorize the exact plan and check state/space; capture must
+/// prove complete declared state and native linkage from persistent read-back.
+/// Boolean attestations remain an integration boundary, not native evidence.
+pub trait MutationIntegration {
+    type Output;
+    fn preflight(
+        &mut self,
+        plan: &PlannedChange,
+        report_progress: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+    ) -> Result<(), GateError>;
+    fn capture(
+        &mut self,
+        plan: &PlannedChange,
+        report_progress: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+    ) -> Result<CheckpointEvidence, GateError>;
+    fn revalidate(
+        &mut self,
+        plan: &PlannedChange,
+        checkpoint: &VerifiedLinkedGeneration,
+        report_progress: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+    ) -> Result<bool, GateError>;
+    fn apply(
+        &mut self,
+        checkpoint: &VerifiedLinkedGeneration,
+        report_progress: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+    ) -> Result<Self::Output, GateError>;
+    fn health_check(
+        &mut self,
+        result: &Self::Output,
+        checkpoint: &VerifiedLinkedGeneration,
+        report_progress: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+    ) -> Result<(), GateError>;
+    fn capture_post_change(
+        &mut self,
+        result: &Self::Output,
+        checkpoint: &VerifiedLinkedGeneration,
+        report_progress: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+    ) -> Result<VerifiedPostChangeGeneration, GateError>;
+    fn cancellation_requested(&self) -> bool {
+        false
+    }
+}
+
+/// Synchronize every phase and its exact plan/checkpoint association before
+/// entering its callback. All phases share the existing interprocess lock.
+/// Reload under that lock and refuse unresolved prior work; status alone never
+/// authorizes automatic resume or repeating an apply. The caller retains writer
+/// quiescence across these hooks; this advisory lock cannot stop external tools.
+pub fn coordinate_mutation<I: MutationIntegration>(
     lock: &MutationLock,
     planned: &PlannedChange,
     operation: &mut JournaledOperation<'_>,
-    checkpoint: &mut impl CheckpointVerifier,
-    revalidator: &mut impl PlanRevalidator,
-    apply: impl FnOnce(&VerifiedLinkedGeneration) -> Result<T, GateError>,
-    verify_post_change: impl FnOnce(&T, &VerifiedLinkedGeneration) -> Result<(), GateError>,
-) -> Result<T, GateError> {
+    integration: &mut I,
+) -> Result<I::Output, GateError> {
+    if !planned.valid() {
+        return Err(GateError::InvalidPlan);
+    }
     // Acquire before the first journal append. Cooperating processes share this
     // lock across every phase, preventing records or provider work from
     // interleaving around one operation.
     let _writer = lock.acquire()?;
-    operation.record(OperationPhase::Accepted, None)?;
-
-    operation.record(OperationPhase::Capturing, None)?;
-    let evidence = match checkpoint.create_and_verify() {
+    operation.begin(planned)?;
+    if integration.cancellation_requested() {
+        return Err(operation.fail(ServiceError::Failed, GateError::CancelledBeforeChange));
+    }
+    let preflight = {
+        let mut report = |progress| operation.report_progress(progress);
+        integration.preflight(planned, &mut report)
+    };
+    if let Err(error) = preflight {
+        return Err(operation.fail(pre_change_error(&error), error));
+    }
+    if integration.cancellation_requested() {
+        return Err(operation.fail(ServiceError::Failed, GateError::CancelledBeforeChange));
+    }
+    operation.advance(MutationStage::Capturing)?;
+    let captured = {
+        let mut report = |progress| operation.report_progress(progress);
+        integration.capture(planned, &mut report)
+    };
+    let evidence = match captured {
         Ok(evidence) => evidence,
         Err(error) => {
             let category = pre_change_error(&error);
@@ -272,7 +748,15 @@ pub fn with_journaled_verified_mutation<T>(
             return Err(operation.fail(category, error));
         }
     };
-    let still_matches = match revalidator.still_matches(planned) {
+    operation.captured(proof.linked().clone())?;
+    if integration.cancellation_requested() {
+        return Err(operation.fail(ServiceError::Failed, GateError::CancelledBeforeChange));
+    }
+    let revalidated = {
+        let mut report = |progress| operation.report_progress(progress);
+        integration.revalidate(planned, &proof, &mut report)
+    };
+    let still_matches = match revalidated {
         Ok(value) => value,
         Err(error) => {
             let category = pre_change_error(&error);
@@ -284,23 +768,145 @@ pub fn with_journaled_verified_mutation<T>(
         let category = pre_change_error(&error);
         return Err(operation.fail(category, error));
     }
+    if integration.cancellation_requested() {
+        return Err(operation.fail(ServiceError::Failed, GateError::CancelledBeforeChange));
+    }
 
     // If this durable write fails, the mutation callback is never entered.
-    operation.record(OperationPhase::Applying, None)?;
-    let result = match apply(&proof) {
+    operation.advance(MutationStage::Applying)?;
+    let applied = {
+        let mut report = |progress| operation.report_progress(progress);
+        integration.apply(&proof, &mut report)
+    };
+    let result = match applied {
         Ok(result) => result,
         Err(error) => return Err(operation.fail(ServiceError::Failed, error)),
     };
 
-    operation.record(OperationPhase::Verifying, None)?;
-    if let Err(error) = verify_post_change(&result, &proof) {
-        // `failed` is an existing protocol-v1 code; unlike pre-change
-        // checkpoint failures (`recovery_unavailable`), it marks failure
-        // after the mutation entered the durable Verifying phase.
+    // Cancellation after Applying never skips health or post-change capture:
+    // providers may already have changed state and cannot be safely unwound by
+    // a cancellation flag. Their errors are classified as recovery-required.
+    operation.advance(MutationStage::HealthChecking)?;
+    let health = {
+        let mut report = |progress| operation.report_progress(progress);
+        integration.health_check(&result, &proof, &mut report)
+    };
+    if let Err(error) = health {
         return Err(operation.fail(ServiceError::Failed, error));
     }
-    operation.record(OperationPhase::Succeeded, None)?;
+    operation.advance(MutationStage::PostChangeCapture)?;
+    let post_capture = {
+        let mut report = |progress| operation.report_progress(progress);
+        integration.capture_post_change(&result, &proof, &mut report)
+    };
+    let post = match post_capture {
+        Ok(post) if post.preimage == *proof.linked() => post,
+        Ok(_) => return Err(operation.fail(ServiceError::Failed, GateError::PostChangeFailed)),
+        Err(error) => return Err(operation.fail(ServiceError::Failed, error)),
+    };
+    operation.complete(post.linked)?;
     Ok(result)
+}
+
+/// Reduced callbacks are retained solely for the older sequencing fixtures.
+/// Production callers must provide every `MutationIntegration` hook explicitly.
+#[cfg(test)]
+fn with_journaled_verified_mutation<T>(
+    lock: &MutationLock,
+    planned: &PlannedChange,
+    operation: &mut JournaledOperation<'_>,
+    checkpoint: &mut impl CheckpointVerifier,
+    revalidator: &mut impl PlanRevalidator,
+    apply: impl FnOnce(&VerifiedLinkedGeneration) -> Result<T, GateError>,
+    post: impl FnOnce(&T, &VerifiedLinkedGeneration) -> Result<(), GateError>,
+) -> Result<T, GateError> {
+    struct Fixture<'a, C, R, A, V, T> {
+        checkpoint: &'a mut C,
+        revalidator: &'a mut R,
+        apply: Option<A>,
+        post: Option<V>,
+        output: std::marker::PhantomData<T>,
+    }
+    impl<C, R, A, V, T> MutationIntegration for Fixture<'_, C, R, A, V, T>
+    where
+        C: CheckpointVerifier,
+        R: PlanRevalidator,
+        A: FnOnce(&VerifiedLinkedGeneration) -> Result<T, GateError>,
+        V: FnOnce(&T, &VerifiedLinkedGeneration) -> Result<(), GateError>,
+    {
+        type Output = T;
+        fn preflight(
+            &mut self,
+            _: &PlannedChange,
+            _: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+        ) -> Result<(), GateError> {
+            Ok(())
+        }
+        fn capture(
+            &mut self,
+            _: &PlannedChange,
+            _: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+        ) -> Result<CheckpointEvidence, GateError> {
+            self.checkpoint.create_and_verify()
+        }
+        fn revalidate(
+            &mut self,
+            plan: &PlannedChange,
+            _: &VerifiedLinkedGeneration,
+            _: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+        ) -> Result<bool, GateError> {
+            self.revalidator.still_matches(plan)
+        }
+        fn apply(
+            &mut self,
+            proof: &VerifiedLinkedGeneration,
+            _: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+        ) -> Result<T, GateError> {
+            self.apply.take().unwrap()(proof)
+        }
+        fn health_check(
+            &mut self,
+            _: &T,
+            _: &VerifiedLinkedGeneration,
+            _: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+        ) -> Result<(), GateError> {
+            Ok(())
+        }
+        fn capture_post_change(
+            &mut self,
+            result: &T,
+            proof: &VerifiedLinkedGeneration,
+            _: &mut dyn FnMut(Progress) -> Result<(), GateError>,
+        ) -> Result<VerifiedPostChangeGeneration, GateError> {
+            self.post.take().unwrap()(result, proof)?;
+            let mut linked = proof.linked().clone();
+            linked.transaction_id = Identifier::new("txn-post").unwrap();
+            linked.generation_id = Identifier::new("generation-post").unwrap();
+            linked.manifest_sha256 = Sha256::new("ff".repeat(32)).unwrap();
+            linked.snapshot.snapper_snapshot_id = "43".into();
+            VerifiedPostChangeGeneration::validate(
+                CheckpointEvidence {
+                    linked,
+                    system_component_verified: true,
+                    ryoku_component_verified: true,
+                    contents_and_metadata_verified: true,
+                },
+                proof,
+            )
+        }
+    }
+    coordinate_mutation(
+        lock,
+        planned,
+        operation,
+        &mut Fixture {
+            checkpoint,
+            revalidator,
+            apply: Some(apply),
+            post: Some(post),
+            output: std::marker::PhantomData,
+        },
+    )
 }
 
 #[cfg(test)]
@@ -350,8 +956,15 @@ mod tests {
     fn evidence() -> CheckpointEvidence {
         CheckpointEvidence {
             linked: LinkedGeneration {
-                system_snapshot: "snap-1".into(),
-                ryoku_generation: "generation-1".into(),
+                transaction_id: Identifier::new("txn-1").unwrap(),
+                generation_id: Identifier::new("generation-1").unwrap(),
+                manifest_sha256: Sha256::new("aa".repeat(32)).unwrap(),
+                snapshot: SnapshotLink::new(
+                    Identifier::new("root").unwrap(),
+                    "42",
+                    "11111111-1111-1111-1111-111111111111",
+                )
+                .unwrap(),
             },
             system_component_verified: true,
             ryoku_component_verified: true,
@@ -382,8 +995,8 @@ mod tests {
     fn planned() -> PlannedChange {
         PlannedChange {
             operation_key: "install:sample".into(),
-            plan_fingerprint: "plan-a".into(),
-            affected_state_fingerprint: "scope-a".into(),
+            plan_fingerprint: "11".repeat(32),
+            affected_state_fingerprint: "22".repeat(32),
         }
     }
 
@@ -434,7 +1047,7 @@ mod tests {
             &mut checkpoint,
             &mut revalidator,
             |proof| {
-                assert_eq!(proof.linked().system_snapshot, "snap-1");
+                assert_eq!(proof.linked().snapshot.snapper_snapshot_id, "42");
                 trace.lock().unwrap().push("apply");
                 42
             },
@@ -562,7 +1175,9 @@ mod tests {
             [
                 OperationPhase::Accepted,
                 OperationPhase::Capturing,
+                OperationPhase::Capturing,
                 OperationPhase::Applying,
+                OperationPhase::Verifying,
                 OperationPhase::Verifying,
                 OperationPhase::Succeeded,
             ]
@@ -683,6 +1298,21 @@ mod tests {
         drop(guard);
         rx.recv_timeout(Duration::from_secs(2)).unwrap();
         thread.join().unwrap();
+    }
+
+    #[test]
+    fn shared_read_leases_coexist_and_block_exclusive_mutation() {
+        let first = mutation_lock("shared-read-lease");
+        let uid = rustix::process::geteuid().as_raw();
+        let second = MutationLock::open(first.lock.directory.try_clone().unwrap(), uid).unwrap();
+        let first_lease = first.lock.try_acquire_shared().unwrap();
+        let second_lease = second.try_acquire_shared().unwrap();
+        let exclusive = first.lock.open_lock_file().unwrap();
+        assert!(flock(&exclusive, FlockOperation::NonBlockingLockExclusive).is_err());
+        drop(first_lease);
+        assert!(flock(&exclusive, FlockOperation::NonBlockingLockExclusive).is_err());
+        drop(second_lease);
+        flock(&exclusive, FlockOperation::NonBlockingLockExclusive).unwrap();
     }
 
     #[test]

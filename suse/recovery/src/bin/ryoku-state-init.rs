@@ -13,7 +13,7 @@ use ryoku_recovery::{
     state_mount::{StateMountError, collect_and_open_state_mount},
     state_provision::{
         CreatedStateSubvolume, STATE_MOUNT_UNIT, StateProvisionError, provisioning_root_uuid,
-        verify_recorded_state_mount_unit,
+        verify_initialized_state_root, verify_recorded_state_mount_unit,
     },
 };
 use ryoku_snapper::{ConfigName, SnapperCheckpointBackend, SnapshotPairRequest, TransactionId};
@@ -68,7 +68,6 @@ fn initialize(action: Action) -> Result<()> {
         return Err("root user and group required".into());
     }
     let root = File::open("/")?;
-    let uuid = provisioning_root_uuid(&root)?;
     let run = open_owned_parent(&root, "run")?;
     let initializer_lock = File::from(openat2(
         &run,
@@ -90,6 +89,7 @@ fn initialize(action: Action) -> Result<()> {
     if matches!(&action, Action::Initialize) {
         match read_machine_state_record(&root) {
             Ok(record) => {
+                verify_initialized_state_root(&root, &record)?;
                 collect_and_open_state_mount(&root, record.identity())?;
                 let _reader = GenerationReader::open_state_mount()?;
                 verify_recorded_state_mount_unit(&root)?;
@@ -108,6 +108,10 @@ fn initialize(action: Action) -> Result<()> {
             Err(error) => return Err(error.into()),
         }
     }
+    // Fresh provisioning and explicit resume retain the stricter direct-child
+    // root rule. A completed store's read-only verification above also works
+    // after classic rollback changes the running root's parent and UUID.
+    let uuid = provisioning_root_uuid(&root)?;
     verify_snapper_mapping(&root)?;
     if matches!(&action, Action::Initialize) && has_pending_state_creation(&root)? {
         return Err(

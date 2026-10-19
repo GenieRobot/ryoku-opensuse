@@ -6,7 +6,7 @@
 //! this module neither creates native system snapshots nor stops services.
 
 use crate::{
-    EntryKind, Identifier, OperationReason, RecoveryManifest,
+    EntryKind, Identifier, OperationReason, RecoveryManifest, StateRoot,
     capture::{CaptureError, CaptureLimits, capture_inventory},
     configuration_stage::{StageError, StagedConfiguration, stage_configuration},
     disk_stage::{DiskStageError, DiskStageStore, VerifiedDiskStage},
@@ -143,8 +143,11 @@ impl PreparationStores<'_> {
         {
             return Err(PreparationError::InvalidCheckpointIdentity);
         }
-        for entry in
-            source.manifest().files().iter().filter(|entry| entry.root.is_configuration_state())
+        for entry in source
+            .manifest()
+            .files()
+            .iter()
+            .filter(|entry| entry.root != StateRoot::StateGeneration)
         {
             if !request
                 .checkpoint
@@ -231,8 +234,11 @@ impl PreparationStores<'_> {
         {
             return Err(PreparationError::InvalidSource);
         }
-        for entry in
-            source.manifest().files().iter().filter(|entry| entry.root.is_configuration_state())
+        for entry in source
+            .manifest()
+            .files()
+            .iter()
+            .filter(|entry| entry.root != StateRoot::StateGeneration)
         {
             if !checkpoint_manifest
                 .files()

@@ -1,13 +1,27 @@
 # Architecture boundaries
 
-The workspace establishes crate boundaries for user interface, distribution
-adapters, profile data, recovery state, integration tests, custom automation,
-and a versioned Rust service contract. The service crate provides validated
-request/response types, a per-user Unix-socket daemon and journal, plus a
-socket-activated root helper that rejects requests fail-closed. The RPM
-declares system and user units but does not enable them. Provider mutations,
-linked recovery execution, and installed Tumbleweed runtime proof are still
-missing; see [service-contract.md](service-contract.md).
+The workspace has Rust crates for the UI, distribution adapters, profile data,
+recovery state, integration tests, custom automation, and the typed service
+contract. The service protocol supports discovery, durable operation lookup,
+and read-only linked-checkpoint verification. Its per-user daemon journals
+operation state; the socket-activated root helper authenticates operators and
+rejects unsupported mutating requests without changing system state. The UI
+client can reconnect to read an operation's durable status. No provider
+mutation is currently accepted.
+
+The recovery crate implements sealed generation capture and verification,
+configuration staging and replay, a restore journal outside root rollback
+scope, and preparation/confirmation paths for system-only and linked restore.
+The recovery CLI coordinates current-state checkpoints, account-writer
+shutdown, native rollback receipts, booted-target verification, configuration
+read-back, and health-check phases. A separate read-only gate prevents the
+Ryoku session from starting when recovery is pending or cannot be verified.
+These code paths have fixture and subprocess coverage, but their destructive
+offline-console workflow and systemd activation have not passed the required
+Tumbleweed VM acceptance. The RPM declares system and user units; enabling and
+running them remains an installation/acceptance task. See
+[service-contract.md](service-contract.md) and
+[recovery-state.md](recovery-state.md) for exact boundaries and evidence.
 
 ## Trust and write path
 
@@ -19,12 +33,14 @@ pre-change capture must gate every supported write. The captured checkpoint
 must link matching Snapper system state with all declared Ryoku, configuration,
 and profile state; any capture or verification failure must prevent mutation.
 
-Root rollback alone will not constitute Ryoku recovery. The implementation
-must keep the catalog, configuration generations, and recovery journal
-available after root rollback, and restore must preserve unrelated home files.
-A generic recovery path must work offline and without machine-specific private
-data. None of these recovery behaviors is implemented or verified by this
-workspace foundation.
+Root rollback alone does not constitute Ryoku recovery. The recovery design
+keeps the catalog, configuration generations, and journal on the protected
+state volume, and configuration replay is limited to the declared inventory so
+unrelated home files remain untouched. Fixture tests cover content, metadata,
+absences, hard links, interruption replay, and preservation of unrelated data.
+Offline recovery commands and paired restore orchestration are implemented,
+but a destructive Tumbleweed console exercise is still required to establish
+that the generic path works without network or private companion data.
 
 ## Typed contract guidance
 

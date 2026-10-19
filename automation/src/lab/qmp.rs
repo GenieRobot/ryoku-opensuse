@@ -20,6 +20,14 @@ pub struct QmpClient {
 }
 
 impl QmpClient {
+    pub fn verify_owned_peer(&self, pid: u32) -> io::Result<()> {
+        let peer = rustix::net::sockopt::socket_peercred(self.reader.get_ref())?;
+        if peer.pid.as_raw_nonzero().get() as u32 != pid || peer.uid != rustix::process::geteuid() {
+            return Err(invalid("QMP peer is not the recorded owned QEMU"));
+        }
+        Ok(())
+    }
+
     pub fn connect(path: &Path) -> io::Result<Self> {
         let deadline = Instant::now() + CONNECT_TIMEOUT;
         let stream = loop {
@@ -77,12 +85,63 @@ impl QmpClient {
         forwarded_port(&output)
     }
 
+    pub fn verify_accelerator(&mut self, expect_kvm: bool) -> io::Result<()> {
+        let response = self.request("query-kvm", None, Instant::now() + REQUEST_TIMEOUT)?;
+        verify_kvm_reply(response, expect_kvm)
+    }
+
     pub fn send_key(&mut self, qcode: &str) -> io::Result<()> {
         validate_qcode(qcode)?;
         let arguments = format!(r#"{{"keys":[{{"type":"qcode","data":"{qcode}"}}]}}"#);
         let response =
             self.request("send-key", Some(&arguments), Instant::now() + REQUEST_TIMEOUT)?;
         expect_empty(response)
+    }
+
+    fn input_events(&mut self, events: &str) -> io::Result<()> {
+        let arguments = format!(r#"{{"events":[{events}]}}"#);
+        expect_empty(self.request(
+            "input-send-event",
+            Some(&arguments),
+            Instant::now() + REQUEST_TIMEOUT,
+        )?)
+    }
+
+    pub fn require_absolute_pointer(&mut self) -> io::Result<()> {
+        let reply = self.request("query-mice", None, Instant::now() + REQUEST_TIMEOUT)?;
+        absolute_mouse(reply)
+    }
+
+    pub fn send_chord(&mut self, qcode: &str) -> io::Result<()> {
+        if !["n", "spc", "esc"].contains(&qcode) {
+            return Err(invalid("unsupported development chord"));
+        }
+        let down = format!(
+            r#"{{"type":"key","data":{{"down":true,"key":{{"type":"qcode","data":"meta_l"}}}}}},{{"type":"key","data":{{"down":true,"key":{{"type":"qcode","data":"{qcode}"}}}}}}"#
+        );
+        let up = format!(
+            r#"{{"type":"key","data":{{"down":false,"key":{{"type":"qcode","data":"{qcode}"}}}}}},{{"type":"key","data":{{"down":false,"key":{{"type":"qcode","data":"meta_l"}}}}}}"#
+        );
+        let pressed = self.input_events(&down);
+        if pressed.is_ok() {
+            thread::sleep(Duration::from_millis(50));
+        }
+        // Attempt release even when the press reply failed or was lost.
+        let released = self.input_events(&up);
+        pressed?;
+        released
+    }
+
+    pub fn click(&mut self, x: u32, y: u32, width: u32, height: u32) -> io::Result<()> {
+        let (x, y) = absolute_pointer(x, y, width, height)?;
+        self.input_events(&format!(r#"{{"type":"abs","data":{{"axis":"x","value":{x}}}}},{{"type":"abs","data":{{"axis":"y","value":{y}}}}}"#))?;
+        let pressed = self.input_events(r#"{"type":"btn","data":{"down":true,"button":"left"}}"#);
+        if pressed.is_ok() {
+            thread::sleep(Duration::from_millis(50));
+        }
+        let released = self.input_events(r#"{"type":"btn","data":{"down":false,"button":"left"}}"#);
+        pressed?;
+        released
     }
 
     /// Ask this VM's monitor to save its current VGA framebuffer. Callers use
@@ -170,6 +229,48 @@ impl QmpClient {
     }
 }
 
+fn absolute_pointer(x: u32, y: u32, width: u32, height: u32) -> io::Result<(u32, u32)> {
+    if !(2..=8192).contains(&width) || !(2..=8192).contains(&height) || x >= width || y >= height {
+        return Err(invalid("click lies outside the current framebuffer"));
+    }
+    Ok((x * 0x7fff / (width - 1), y * 0x7fff / (height - 1)))
+}
+
+fn absolute_mouse(reply: Json) -> io::Result<()> {
+    let Json::Array(mice) = reply else {
+        return Err(invalid("invalid query-mice result"));
+    };
+    let mut current = None;
+    for mouse in mice {
+        let Json::Object(fields) = mouse else {
+            return Err(invalid("invalid query-mice entry"));
+        };
+        match (
+            fields.get("name"),
+            fields.get("index"),
+            fields.get("current"),
+            fields.get("absolute"),
+        ) {
+            (
+                Some(Json::String(_)),
+                Some(Json::Number),
+                Some(Json::Bool(selected)),
+                Some(Json::Bool(absolute)),
+            ) if fields.len() == 4 => {
+                if *selected && current.replace(*absolute).is_some() {
+                    return Err(invalid("ambiguous current mouse"));
+                }
+            }
+            _ => return Err(invalid("invalid query-mice fields")),
+        }
+    }
+    if current == Some(true) {
+        Ok(())
+    } else {
+        Err(invalid("development click unsupported: current pointer is not absolute"))
+    }
+}
+
 fn remaining(deadline: Instant) -> io::Result<Duration> {
     deadline
         .checked_duration_since(Instant::now())
@@ -189,9 +290,22 @@ fn expect_empty(value: Json) -> io::Result<()> {
 }
 
 fn validate_qcode(qcode: &str) -> io::Result<()> {
-    if matches!(qcode, "ret" | "tab")
-        || (qcode.len() == 1
-            && qcode.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit()))
+    if matches!(
+        qcode,
+        "ret"
+            | "tab"
+            | "esc"
+            | "spc"
+            | "meta_l"
+            | "backspace"
+            | "left"
+            | "right"
+            | "up"
+            | "down"
+            | "home"
+            | "end"
+    ) || (qcode.len() == 1
+        && qcode.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit()))
     {
         Ok(())
     } else {
@@ -267,8 +381,22 @@ enum Json {
     Array(Vec<Self>),
     String(String),
     Number,
-    Bool,
+    Bool(bool),
     Null,
+}
+
+fn verify_kvm_reply(response: Json, expect_kvm: bool) -> io::Result<()> {
+    let Json::Object(fields) = response else {
+        return Err(invalid("query-kvm response is not an object"));
+    };
+    match (fields.get("enabled"), fields.get("present")) {
+        (Some(Json::Bool(enabled)), Some(Json::Bool(present)))
+            if fields.len() == 2 && *enabled == expect_kvm && (!expect_kvm || *present) =>
+        {
+            Ok(())
+        }
+        _ => Err(invalid("QEMU accelerator does not match the explicit selection")),
+    }
 }
 
 struct Parser<'a> {
@@ -353,8 +481,8 @@ impl<'a> Parser<'a> {
                 Ok(Json::Array(items))
             }
             Some(b'"') => self.string().map(Json::String),
-            Some(b't') => self.literal(b"true", Json::Bool),
-            Some(b'f') => self.literal(b"false", Json::Bool),
+            Some(b't') => self.literal(b"true", Json::Bool(true)),
+            Some(b'f') => self.literal(b"false", Json::Bool(false)),
             Some(b'n') => self.literal(b"null", Json::Null),
             Some(b'-' | b'0'..=b'9') => self.number(),
             _ => Err(invalid("invalid JSON value")),
@@ -465,6 +593,91 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Read;
+
+    fn input_client(
+        count: usize,
+        fail_first: bool,
+    ) -> (QmpClient, thread::JoinHandle<Vec<String>>) {
+        let (client, server) = UnixStream::pair().unwrap();
+        let receiver = thread::spawn(move || {
+            let mut server = BufReader::new(server);
+            let mut requests = Vec::new();
+            for id in 1..=count {
+                let mut request = String::new();
+                server.read_line(&mut request).unwrap();
+                Parser::parse(request.as_bytes()).unwrap();
+                requests.push(request);
+                let reply = if id == 1 && fail_first {
+                    r#""error":{"desc":"rejected"}"#
+                } else {
+                    r#""return":{}"#
+                };
+                writeln!(server.get_mut(), "{{\"id\":\"ryoku-qmp-{id}\",{reply}}}").unwrap();
+            }
+            requests
+        });
+        (QmpClient { reader: BufReader::new(client), next_id: 1 }, receiver)
+    }
+
+    #[test]
+    fn chords_send_super_and_key_then_release_both_even_after_error_reply() {
+        for failed in [false, true] {
+            let (mut client, receiver) = input_client(2, failed);
+            assert_eq!(client.send_chord("n").is_err(), failed);
+            let requests = receiver.join().unwrap();
+            assert!(
+                requests.iter().all(|request| request.contains("\"execute\":\"input-send-event\""))
+            );
+            assert!(requests[0].contains(r#""down":true,"key":{"type":"qcode","data":"meta_l"}"#));
+            assert!(requests[0].contains(r#""down":true,"key":{"type":"qcode","data":"n"}"#));
+            assert!(requests[1].contains(r#""down":false,"key":{"type":"qcode","data":"n"}"#));
+            assert!(requests[1].contains(r#""down":false,"key":{"type":"qcode","data":"meta_l"}"#));
+        }
+    }
+
+    #[test]
+    fn click_scales_current_pixels_then_presses_and_releases_left_button() {
+        assert_eq!(absolute_pointer(0, 0, 1280, 800).unwrap(), (0, 0));
+        assert_eq!(absolute_pointer(1279, 799, 1280, 800).unwrap(), (32767, 32767));
+        for (x, y, w, h) in [
+            (1280, 0, 1280, 800),
+            (0, 800, 1280, 800),
+            (0, 0, 0, 800),
+            (0, 0, 1, 1),
+            (0, 0, 8193, 800),
+        ] {
+            assert!(absolute_pointer(x, y, w, h).is_err());
+        }
+        let (mut client, receiver) = input_client(3, false);
+        client.click(1279, 799, 1280, 800).unwrap();
+        let requests = receiver.join().unwrap();
+        assert!(requests[0].contains(r#""axis":"x","value":32767"#));
+        assert!(requests[0].contains(r#""axis":"y","value":32767"#));
+        assert!(requests[1].contains(r#""down":true,"button":"left"#));
+        assert!(requests[2].contains(r#""down":false,"button":"left"#));
+    }
+
+    #[test]
+    fn relative_only_missing_and_ambiguous_pointer_inventory_cannot_click() {
+        let absolute = r#"[{"name":"tablet","index":0,"current":true,"absolute":true}]"#;
+        assert!(absolute_mouse(Parser::parse(absolute.as_bytes()).unwrap()).is_ok());
+        for bad in [
+            "[]".to_owned(),
+            absolute.replace("\"absolute\":true", "\"absolute\":false"),
+            absolute.replace("\"current\":true", "\"current\":false"),
+            absolute.replace("\"absolute\":true", "\"absolute\":\"true\""),
+            format!("[{},{}]", &absolute[1..absolute.len() - 1], &absolute[1..absolute.len() - 1]),
+        ] {
+            assert!(absolute_mouse(Parser::parse(bad.as_bytes()).unwrap()).is_err());
+        }
+        let (stream, mut server) = UnixStream::pair().unwrap();
+        server.set_nonblocking(true).unwrap();
+        let mut client = QmpClient { reader: BufReader::new(stream), next_id: 1 };
+        assert!(client.send_chord("n\"}").is_err());
+        assert!(client.click(1280, 0, 1280, 800).is_err());
+        assert_eq!(server.read(&mut [0; 1]).unwrap_err().kind(), io::ErrorKind::WouldBlock);
+    }
 
     const FORWARD: &str = "Hub -1 (net0):\r\n  Protocol[State] FD Source Address Port Dest. Address Port RecvQ SendQ\r\n  TCP[HOST_FORWARD] 9 127.0.0.1 41617 10.0.2.15 22 0 0\r\n";
 
@@ -513,13 +726,57 @@ mod tests {
     }
 
     #[test]
+    fn accelerator_reply_rejects_fallback_missing_or_untyped_capabilities() {
+        for (text, kvm) in [
+            (r#"{"enabled":true,"present":true}"#, true),
+            (r#"{"enabled":false,"present":true}"#, false),
+            (r#"{"enabled":false,"present":false}"#, false),
+        ] {
+            verify_kvm_reply(Parser::parse(text.as_bytes()).unwrap(), kvm).unwrap();
+            assert!(verify_kvm_reply(Parser::parse(text.as_bytes()).unwrap(), !kvm).is_err());
+        }
+        for text in [
+            r#"{"enabled":true,"present":false}"#,
+            r#"{"enabled":"true","present":true}"#,
+            r#"{"present":true}"#,
+        ] {
+            assert!(verify_kvm_reply(Parser::parse(text.as_bytes()).unwrap(), true).is_err());
+        }
+    }
+
+    #[test]
     fn qcodes_are_a_small_explicit_allowlist() {
-        for valid in ["a", "z", "0", "9", "ret", "tab"] {
+        for valid in [
+            "a",
+            "z",
+            "0",
+            "9",
+            "ret",
+            "tab",
+            "esc",
+            "spc",
+            "meta_l",
+            "backspace",
+            "left",
+            "right",
+            "up",
+            "down",
+            "home",
+            "end",
+        ] {
             assert!(validate_qcode(valid).is_ok());
         }
         for bad in ["", "A", "enter", "ctrl", "a\"", "a\n", "ab", "é"] {
             assert!(validate_qcode(bad).is_err());
         }
+    }
+
+    #[test]
+    fn peer_credentials_require_the_exact_owned_process() {
+        let (client, _server) = UnixStream::pair().unwrap();
+        let client = QmpClient { reader: BufReader::new(client), next_id: 1 };
+        assert!(client.verify_owned_peer(std::process::id()).is_ok());
+        assert!(client.verify_owned_peer(std::process::id() + 1).is_err());
     }
 
     #[test]

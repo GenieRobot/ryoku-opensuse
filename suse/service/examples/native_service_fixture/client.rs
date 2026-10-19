@@ -35,7 +35,7 @@ fn remaining(deadline: Instant) -> Result<Duration> {
         .filter(|d| !d.is_zero())
         .ok_or_else(|| "native client deadline expired".into())
 }
-pub(super) fn exchange(path: &str, server_uid: u32, bytes: &[u8]) -> Result<Vec<u8>> {
+fn exchange(path: &str, server_uid: u32, bytes: &[u8]) -> Result<Vec<u8>> {
     let deadline = Instant::now() + Duration::from_secs(5);
     let mut stream = connect(path)?;
     require(
@@ -73,12 +73,12 @@ pub(super) fn exchange(path: &str, server_uid: u32, bytes: &[u8]) -> Result<Vec<
     remaining(deadline)?;
     Ok(response)
 }
-pub(super) fn encoded(value: &impl serde::Serialize) -> Result<Vec<u8>> {
+fn encoded(value: &impl serde::Serialize) -> Result<Vec<u8>> {
     let mut bytes = serde_json::to_vec(value)?;
     bytes.push(b'\n');
     Ok(bytes)
 }
-pub(super) fn user_exchange(uid: u32, request: Request, expected: ResponseBody) -> Result<()> {
+fn user_exchange(uid: u32, request: Request, expected: ResponseBody) -> Result<()> {
     let id = RequestId::new("fixture-user-readonly")?;
     let response: Response = serde_json::from_slice(&exchange(
         &format!("/run/user/{uid}/ryoku-service.sock"),
@@ -149,15 +149,6 @@ pub(super) fn run(case: &str) -> Result<()> {
                 ResponseBody::Error(ServiceError::NotFound),
             )?;
         }
-        "seed-config" if [OPERATOR.uid, OBSERVER.uid].contains(&uid) => {
-            super::account_probe::seed()?
-        }
-        "account-binding" if [OPERATOR.uid, OBSERVER.uid].contains(&uid) => {
-            super::account_probe::client()?
-        }
-        "reconnect" if uid == OPERATOR.uid => super::acceptance::reconnect()?,
-        "invalid" if uid == OPERATOR.uid => super::acceptance::invalid_requests()?,
-        "stale" if uid == OPERATOR.uid => super::acceptance::stale()?,
         "cross-dac" if uid == OBSERVER.uid => {
             dac(&format!("/run/user/{}/ryoku-service.sock", OPERATOR.uid))?
         }

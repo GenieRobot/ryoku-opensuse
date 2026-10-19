@@ -1,0 +1,105 @@
+schema = 1
+date = "2026-10-16"
+scope = "retained native guest: Ryoku survives ordinary reboot and fresh password SDDM login; KDE fallback visually works after explicit native dependency installation"
+runner = "same retained disposable Tumbleweed QEMU/KVM guest; parent-operated native actions; captures independently reviewed"
+session_startup_fix_source = "49247cd0e9722712cc5b3761ce3958b351f03863"
+fixture_dependency_fix_source = "d0fe5e4db60d25bd8c087b642b450fc25c77fb36"
+packaging_boundary = "manually staged native runtime and launchers; not proof of first installation from RPMs or complete project integration"
+reboot = "passed; captured boot ID changed and uptime restarted; installed binary and session-config hashes unchanged"
+ryoku_login = "passed; ordinary SDDM password authentication; Wayland Desktop=Hyprland; preserved Quickshell shell; Wayland socket connected"
+ryoku_visual = "independently reviewed post-reboot PNG shows genuine Ryoku bar, large clock and calendar"
+kde_login = "passed; ordinary native SDDM password authentication; active local seat0 Wayland user session; native plasma6-workspace and kwin6; Wayland socket connected"
+kde_visual = "independently reviewed PNG shows Next wallpaper, Home and Trash desktop icons, and bottom panel with launcher/task area/tray/clock"
+kde_launcher_interaction = "native Super key opened the actual KDE application launcher; independently reviewed Favorites show Dolphin, System Settings and Konsole"
+return_to_ryoku_visual = "after returning from KDE, independently reviewed capture shows native Konsole with a live prompt below the genuine Ryoku bar"
+terminal_platform_visual = "independently reviewed live Konsole capture shows hostnamectl reporting openSUSE Tumbleweed below the genuine Ryoku bar; private identifiers remain only in the local image"
+kde_repair = "installed missing breeze6-wallpapers and hyprland-guiutils with native solver dependencies; preserved saved desktop layout; no renderer override"
+previous_kde_failure = "authentication and Konsole rendered, but desktop/panel/launcher were black; captured layout had panel containment without PanelView; default Next wallpaper assets were absent"
+diagnosis = "missing default wallpaper is consistent with upstream wallpaper-loading readiness gate delaying panel creation; ordinary login after package repair rendered the desktop and panel"
+hyprland = "0.56.2-1.2"
+aquamarine = "0.15.1-1.1"
+plasma = "6.7.5"
+qt = "6.11.2"
+quickshell = "unchanged official 0.3.2 at 4f508be500dea6e5732cc3d50382a0048b17e7b1; /usr/libexec/ryoku/quickshell/bin/qs"
+ryoku_upstream = "98a0368253d9628be72b853985878a5db90e1547"
+installed_dependency_versions = ["breeze6-wallpapers-6.7.5-1.1", "hyprland-guiutils-0.2.1-1.6", "libhyprtoolkit6-0.6.0-1.1", "libiniparser4-4.2.6-2.2"]
+limitations = "no watchdog crash/recovery validation; legacy config and direct Hyprland launch remain; no claim of full upstream backend or Hub write support"
+platform = "same post-reboot boot identity; Btrfs root; UEFI; native SELinux Enforcing"
+selinux = "later explicit /usr/sbin/getenforce query returned Enforcing; earlier bare getenforce lookup failed and is retained as historical diagnostic evidence"
+kde_session_id = "29"
+kde_session_leader_pid = 3848
+kde_plasmashell_pid = 4051
+kde_kwin_pid = 3952
+process_scope = "KDE PIDs observed only in the captured post-repair run; no stable identity claim across logout/reboot"
+
+[installed_sha256_before_and_after_reboot]
+ryoku_session = "b27ffb724ed185fa474e02786fe4d1b0a1e5f151250ad975be6aa1de6224794c"
+ryoku_service = "6fbb4ea225c6f60ba4090ff0ff9abb6f8584701564d0e01865ddc0099c9647b6"
+quickshell = "0f040c17b1efe6b1b372806f6323e97f87354aabe5691864ce0af3dc9dea4590"
+hyprland_config = "8afddc70cda13187fd083840a8a288934684c6e651bfd9b117694d5dd7fa0fe5"
+session_desktop_entry = "89fa25f28fd013bf1d6c0886bb248137d38f85c9a08a0bb5e4a3c2274b55b7e8"
+
+[[artifacts]]
+path = "target/ryoku-development/ryoku-native-reboot-request-private.log"
+sha256 = "e1033d0407664748419c7b7ba855c5b6c25c4d1fb79f777351295fb62f10a89c"
+kind = "pre-reboot boot identity, session state and installed-file digests"
+
+[[artifacts]]
+path = "target/ryoku-development/ryoku-native-postreboot-private.log"
+sha256 = "34b4fb6a7fcf91432032d5851689e0f3fa5af2fcc2b2a06f7f0de86abba7a826"
+kind = "changed boot identity, fresh uptime, greeter and unchanged installed-file digests; SELinux query unavailable"
+
+[[artifacts]]
+path = "target/ryoku-development/development-login-ryoku-1792109463838316950-private.log"
+sha256 = "b26fe406948ae2d959ddc0f2a7549f3665339076e4314d26fb5a9a59fb158696"
+kind = "post-reboot native Ryoku login/process/socket receipt; separate visual gate required"
+
+[[artifacts]]
+path = "target/ryoku-development/ryoku-native-after-reboot.png"
+sha256 = "cf06a2bff58f7be015e643bbc3cf03d2b42739fa61f3c69d430ef82b7332b6e4"
+kind = "independently reviewed actual post-reboot Ryoku framebuffer"
+
+[[artifacts]]
+path = "target/ryoku-development/kde-wallpaper-dependencies-private.log"
+sha256 = "a5a1cc6ebe2553fb136be1854ff08831630e28e116ed7b3027cb9e9848d3fe99"
+kind = "native package transaction installing the two explicit dependencies and two solver dependencies"
+
+[[artifacts]]
+path = "target/ryoku-development/development-login-kde-1792109796393842871-private.log"
+sha256 = "39e941c5335f3fc2145aa05e5045f8a38dff7c57884ed65d2af1e81500039062"
+kind = "ordinary native KDE password login after dependency repair"
+
+[[artifacts]]
+path = "target/ryoku-development/kde-fallback-fixed-native-private.log"
+sha256 = "6dc213984f491596ed9578ad9e3932ba8effabcf839ab863c586e16d73d37c09"
+kind = "same reboot identity, Btrfs/UEFI, explicit SELinux Enforcing query, installed versions and actual KDE session/processes"
+
+[[artifacts]]
+path = "target/ryoku-development/kde-fallback-wallpaper-fixed.png"
+sha256 = "7b59a2f1ba46a88544195c9f859a71f9fcf9c81e701a95a35f811f06cd9313fc"
+kind = "independently reviewed full KDE desktop and panel after dependency repair"
+
+[[artifacts]]
+path = "target/ryoku-development/kde-fallback-live-layout-private.log"
+sha256 = "a4d72e5458af3f220c3d9f74ebdaee6d21725d71fcb08aa10cb5d60c5cedf031"
+kind = "historical black-desktop diagnosis: enabled output, matching activity, populated containment without PanelView fields"
+
+[[artifacts]]
+path = "target/ryoku-development/kde-fallback-desktop.png"
+sha256 = "8d4b06b7eea8e4299920c003882c85f5cc99d259244b0fef78ac6332e7dfa41a"
+kind = "historical failed KDE visual gate; all black, not success evidence"
+
+[[artifacts]]
+path = "target/ryoku-development/kde-fallback-launcher-fixed.png"
+sha256 = "1a312d32b232775ff719f6dc7433a6b66c7a83c66d97aa47f6ff488404d77956"
+kind = "independently reviewed native KDE launcher response to Super key"
+
+[[artifacts]]
+path = "target/ryoku-development/ryoku-return-konsole-launched.png"
+sha256 = "e58ca8ed04247493bab9cae4311d28a0fa12501916fdb8d988d2122ff3124630"
+kind = "independently reviewed Konsole window and Ryoku bar after returning from KDE"
+
+[[artifacts]]
+path = "target/ryoku-development/ryoku-opensuse-live-terminal.png"
+sha256 = "0bec81a7758823ca652c77877d21e44cbc114d695a6141722ba84e25ce6802ee"
+kind = "independently reviewed real terminal command output identifying openSUSE Tumbleweed; local image includes private identifiers"

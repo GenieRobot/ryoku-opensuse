@@ -1,8 +1,9 @@
 //! Typed, unprivileged presentation and action boundary for Ryoku.
 //!
-//! The contract includes a protocol version and opaque request ID so that an
-//! eventual asynchronous service client can reject stale or mismatched replies.
-//! The only action in this proof is a read-only status refresh.
+//! The UI request contract includes a protocol version and opaque request ID
+//! so backends can reject stale or mismatched replies. Its dispatched action
+//! is a read-only status refresh. The opt-in Unix service adapter also exposes
+//! a separate read-only query for reconnecting to durable operation status.
 
 pub mod launcher_provider;
 pub mod service_client;
@@ -50,6 +51,12 @@ impl UiRequest {
 pub enum BackendError {
     Unavailable,
     Unauthorized,
+    NotFound,
+    MalformedRequest,
+    StaleRequest,
+    RecoveryUnavailable,
+    Busy,
+    Failed,
     InvalidResponse,
     UnsupportedProtocol,
     UnsupportedOperation,
@@ -105,7 +112,7 @@ pub fn render_status(state: &UpdateState) -> String {
             format!("System status: {count} updates available")
         }
         UpdateState::ServiceReady => {
-            "Ryoku service: recovery available; this UI sent no managed action".to_owned()
+            "Ryoku service: ready; protected actions remain disabled".to_owned()
         }
         UpdateState::RecoveryUnavailable => {
             "Ryoku service: recovery unavailable; this UI sent no managed action".to_owned()
@@ -124,6 +131,24 @@ pub fn render_result(result: &Result<ActionResult, BackendError>) -> String {
         }
         Err(BackendError::Unauthorized) => {
             "Refresh failed: the Ryoku service rejected this user.".to_owned()
+        }
+        Err(BackendError::NotFound) => {
+            "Operation lookup failed: the service has no record for that operation.".to_owned()
+        }
+        Err(BackendError::MalformedRequest) => {
+            "Request failed: the service rejected the request format.".to_owned()
+        }
+        Err(BackendError::StaleRequest) => {
+            "Request failed: the service says this request is out of date.".to_owned()
+        }
+        Err(BackendError::RecoveryUnavailable) => {
+            "Request failed: recovery state cannot be verified.".to_owned()
+        }
+        Err(BackendError::Busy) => {
+            "Request failed: another Ryoku operation is in progress.".to_owned()
+        }
+        Err(BackendError::Failed) => {
+            "Request failed: the Ryoku service could not complete the operation.".to_owned()
         }
         Err(BackendError::InvalidResponse) => {
             "Refresh failed: the Ryoku service returned invalid status.".to_owned()
@@ -190,7 +215,7 @@ mod tests {
     fn service_discovery_states_do_not_claim_package_updates() {
         assert_eq!(
             super::render_status(&UpdateState::ServiceReady),
-            "Ryoku service: recovery available; this UI sent no managed action"
+            "Ryoku service: ready; protected actions remain disabled"
         );
         assert_eq!(
             super::render_status(&UpdateState::RecoveryUnavailable),

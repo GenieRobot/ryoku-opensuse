@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Ryoku (openSUSE experimental)
+Comment=Preserved Ryoku shell on Hyprland; KDE remains separately available
+Exec=/usr/bin/ryoku-session compositor
+TryExec=/usr/bin/ryoku-session
+Type=Application
+DesktopNames=Hyprland

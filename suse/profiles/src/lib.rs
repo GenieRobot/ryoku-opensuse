@@ -48,6 +48,12 @@ pub use local::{LOCAL_PROFILE_FILE, ProfileLoadError, ProfileOwner, load_local_p
 pub const PROFILE_SCHEMA_VERSION: u16 = 1;
 /// Bound local profile input before parsing it.
 pub const MAX_PROFILE_DOCUMENT_BYTES: usize = 64 * 1024;
+/// Exact persistence policy shared by the scoped native writer and capture.
+/// This is personal declarative state, not a desktop/provider activation API.
+pub const PERSONAL_PROFILE_WRITER_ID: &str = "native-personal-profile-v1";
+pub const PERSONAL_PROFILE_MODES: &[u32] = &[0o600, 0o644];
+pub const PERSONAL_PROFILE_CREATE_MODE: u32 = 0o600;
+pub const GENERIC_PROFILE_ID: &str = "generic-desktop";
 
 /// Stable identifier for a locally installed profile.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]

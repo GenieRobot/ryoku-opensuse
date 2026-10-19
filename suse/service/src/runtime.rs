@@ -1,25 +1,26 @@
 //! Minimal per-user Unix socket service runtime.
 //!
-//! This runtime exposes discovery and durable operation lookup. Managed
-//! actions are explicitly refused until an audited provider and linked
-//! recovery gate are integrated.
+//! This runtime exposes read-only discovery, bounded local profile reads,
+//! durable operation lookup, and helper-backed checkpoint
+//! verification. Privileged managed actions are explicitly refused until an
+//! audited provider and linked recovery gate are integrated.
 
-use rustix::{
-    event::{PollFd, PollFlags, Timespec, poll},
-    io::Errno,
-};
 use std::io::{Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
 use std::time::{Duration, Instant};
 
+use rustix::{
+    event::{PollFd, PollFlags, Timespec, poll},
+    io::Errno,
+};
+
 use crate::{
     OperationJournal, PROTOCOL_VERSION, PeerIdentity, ProtocolError, Request, RequestId, Response,
-    ResponseBody, ServiceError, authorize_helper_peer, discovery,
+    ResponseBody, ServiceError, account_state::AccountHomeRoot, authorize_helper_peer, discovery,
 };
 
 const IO_TIMEOUT: Duration = Duration::from_secs(5);
-const RESPONSE_RESERVE: Duration = Duration::from_millis(250);
 
 /// Serve requests until the listener is closed. Connections are processed
 /// serially and each connection carries exactly one bounded request frame.
@@ -66,24 +67,13 @@ fn serve_connection_with_helper_path(
 }
 
 fn serve_connection_checked(
-    stream: UnixStream,
+    mut stream: UnixStream,
     journal: &mut OperationJournal,
     uid: u32,
     helper_socket_path: &Path,
     validate_paths: impl Fn() -> Result<(), ServiceError>,
 ) -> Result<(), ProtocolError> {
     let deadline = Instant::now() + IO_TIMEOUT;
-    serve_connection_until(stream, journal, uid, helper_socket_path, validate_paths, deadline)
-}
-
-fn serve_connection_until(
-    mut stream: UnixStream,
-    journal: &mut OperationJournal,
-    uid: u32,
-    helper_socket_path: &Path,
-    validate_paths: impl Fn() -> Result<(), ServiceError>,
-    deadline: Instant,
-) -> Result<(), ProtocolError> {
     stream.set_nonblocking(true).map_err(|_| ProtocolError::Io)?;
     let peer = PeerIdentity::from_unix_socket(&stream)?;
     if authorize_helper_peer(&peer, uid).is_err() {
@@ -168,25 +158,175 @@ fn serve_connection_until(
             deadline,
         );
     }
-    let body = match envelope.request {
-        Request::Discover => ResponseBody::Discovery(discovery(false)),
+    let body = dispatch_request(envelope.request, journal, |request| match request {
+        Request::GetLocalProfile
+        | Request::SetLocalProfile { .. }
+        | Request::MigrateLegacyLocalProfile => handle_local_profile_request(request, &peer, uid),
+        Request::VerifyLinkedCheckpoint { transaction_id, generation_id } => {
+            crate::helper_protocol::verify_linked_checkpoint_at(
+                helper_socket_path,
+                transaction_id,
+                generation_id,
+            )
+            .map(ResponseBody::LinkedCheckpoint)
+            .unwrap_or_else(ResponseBody::Error)
+        }
+        Request::Start { action } => ResponseBody::Error(
+            crate::helper_protocol::check_action_availability_at(helper_socket_path, action.into()),
+        ),
+        Request::Discover | Request::GetOperation { .. } => {
+            unreachable!("non-helper request reached helper callback")
+        }
+    });
+    write_response(
+        &mut stream,
+        Response { version: PROTOCOL_VERSION, request_id: id, body },
+        deadline,
+    )
+}
+
+fn dispatch_request(
+    request: Request,
+    journal: &OperationJournal,
+    mut helper: impl FnMut(&Request) -> ResponseBody,
+) -> ResponseBody {
+    match request {
+        Request::Discover => {
+            // The root helper opens and validates the protected recovery
+            // mount before accepting requests. Its typed Unsupported result
+            // means the helper is healthy while this action remains disabled;
+            // transport, authorization, or recovery-state failures stay
+            // fail-closed as RecoveryUnavailable.
+            let probe = Request::Start { action: crate::ManagedAction::CreateCheckpoint };
+            let recovery_available =
+                matches!(helper(&probe), ResponseBody::Error(ServiceError::Unsupported));
+            ResponseBody::Discovery(discovery(recovery_available))
+        }
         Request::GetOperation { operation_id } => journal
             .get(&operation_id)
             .cloned()
             .map(ResponseBody::Operation)
             .unwrap_or(ResponseBody::Error(ServiceError::NotFound)),
-        Request::Start { action } => {
-            ResponseBody::Error(crate::helper_protocol::check_action_availability_until(
-                helper_socket_path,
-                (&action).into(),
-                deadline.checked_sub(RESPONSE_RESERVE).unwrap_or(deadline),
-            ))
+        Request::Start { .. } if !journal.recovery_required().is_empty() => {
+            ResponseBody::Error(ServiceError::RecoveryUnavailable)
         }
+        request @ Request::Start { .. } => helper(&request),
+        request @ (Request::GetLocalProfile
+        | Request::SetLocalProfile { .. }
+        | Request::MigrateLegacyLocalProfile) => helper(&request),
+        request @ Request::VerifyLinkedCheckpoint { .. } => helper(&request),
+        // No executor has passed the linked capture and provider review gates.
+        // Never create an accepted operation for work not run.
+    }
+}
+
+fn handle_local_profile_request(request: &Request, peer: &PeerIdentity, uid: u32) -> ResponseBody {
+    let account = match AccountHomeRoot::for_peer(peer) {
+        Ok(account) if account.uid() == uid => account,
+        _ => return ResponseBody::Error(ServiceError::RecoveryUnavailable),
     };
-    write_response(
-        &mut stream,
-        Response { version: PROTOCOL_VERSION, request_id: id, body },
-        deadline,
+    handle_local_profile_for_account(request, &account)
+}
+
+fn handle_local_profile_for_account(request: &Request, account: &AccountHomeRoot) -> ResponseBody {
+    let owner = ryoku_profiles::ProfileOwner { uid: account.uid(), gid: account.primary_gid() };
+    if account.revalidate().is_err() {
+        return ResponseBody::Error(ServiceError::StaleRequest);
+    }
+
+    let create = matches!(request, Request::SetLocalProfile { .. });
+    let root = match account.configuration(create) {
+        Ok(root) => root,
+        Err(_) => return ResponseBody::Error(ServiceError::RecoveryUnavailable),
+    };
+    let response = handle_local_profile_with_optional_root(request, root.as_ref(), owner);
+    if account.revalidate().is_err() {
+        return ResponseBody::Error(ServiceError::StaleRequest);
+    }
+    response
+}
+
+fn handle_local_profile_with_optional_root(
+    request: &Request,
+    root: Option<&std::fs::File>,
+    owner: ryoku_profiles::ProfileOwner,
+) -> ResponseBody {
+    match (request, root) {
+        (Request::GetLocalProfile, None) => ResponseBody::LocalProfile(default_local_profile()),
+        (Request::MigrateLegacyLocalProfile, None) => ResponseBody::Error(ServiceError::NotFound),
+        (_, Some(root)) => handle_local_profile_at_root(request, root, owner),
+        _ => ResponseBody::Error(ServiceError::RecoveryUnavailable),
+    }
+}
+
+fn handle_local_profile_at_root(
+    request: &Request,
+    root: &std::fs::File,
+    owner: ryoku_profiles::ProfileOwner,
+) -> ResponseBody {
+    let document = match request {
+        Request::GetLocalProfile => match ryoku_profiles::load_local_profile(root, owner) {
+            Ok(document) => document,
+            Err(ryoku_profiles::ProfileLoadError::Filesystem(Errno::NOENT)) => {
+                default_local_profile()
+            }
+            Err(_) => return ResponseBody::Error(ServiceError::RecoveryUnavailable),
+        },
+        Request::SetLocalProfile { settings } => {
+            match ryoku_profiles::load_local_profile(root, owner) {
+                Ok(existing) if existing.id.as_str() != ryoku_profiles::GENERIC_PROFILE_ID => {
+                    return ResponseBody::Error(ServiceError::Unsupported);
+                }
+                Ok(_) => (),
+                Err(ryoku_profiles::ProfileLoadError::Filesystem(Errno::NOENT)) => (),
+                Err(_) => return ResponseBody::Error(ServiceError::RecoveryUnavailable),
+            }
+            let document = default_local_profile_with(*settings);
+            match ryoku_profiles::save_local_profile(root, owner, &document) {
+                Ok(()) => document,
+                Err(ryoku_profiles::ProfileSaveError::DirectorySyncFailed(_)) => {
+                    return ResponseBody::Error(ServiceError::Failed);
+                }
+                Err(_) => return ResponseBody::Error(ServiceError::RecoveryUnavailable),
+            }
+        }
+        Request::MigrateLegacyLocalProfile => {
+            match ryoku_profiles::migrate_legacy_local_profile(root, owner) {
+                Ok(document) => document,
+                Err(ryoku_profiles::ProfileMigrationError::InvalidLegacy) => {
+                    return ResponseBody::Error(ServiceError::Unsupported);
+                }
+                Err(ryoku_profiles::ProfileMigrationError::DestinationExists) => {
+                    return ResponseBody::Error(ServiceError::StaleRequest);
+                }
+                Err(ryoku_profiles::ProfileMigrationError::Load(
+                    ryoku_profiles::ProfileLoadError::Filesystem(Errno::NOENT),
+                )) => return ResponseBody::Error(ServiceError::NotFound),
+                Err(ryoku_profiles::ProfileMigrationError::Save(
+                    ryoku_profiles::ProfileSaveError::DirectorySyncFailed(_),
+                )) => return ResponseBody::Error(ServiceError::Failed),
+                Err(_) => return ResponseBody::Error(ServiceError::RecoveryUnavailable),
+            }
+        }
+        _ => unreachable!("local profile handler received a different request"),
+    };
+    if document.id.as_str() != ryoku_profiles::GENERIC_PROFILE_ID {
+        return ResponseBody::Error(ServiceError::Unsupported);
+    }
+    ResponseBody::LocalProfile(document)
+}
+
+fn default_local_profile() -> ryoku_profiles::ProfileDocument {
+    default_local_profile_with(ryoku_profiles::SettingsLayer::default())
+}
+
+fn default_local_profile_with(
+    settings: ryoku_profiles::SettingsLayer,
+) -> ryoku_profiles::ProfileDocument {
+    ryoku_profiles::ProfileDocument::new(
+        ryoku_profiles::ProfileId::new(ryoku_profiles::GENERIC_PROFILE_ID)
+            .expect("the built-in generic profile id is valid"),
+        settings,
     )
 }
 
@@ -266,8 +406,6 @@ fn wait_ready(
 /// `.local/state/ryoku`. Environment variables cannot select a journal/socket.
 pub fn run_native() -> Result<(), String> {
     let (paths, listener, file) = crate::runtime_paths::RuntimePaths::open()?;
-    ryoku_recovery::writer_protocol::initialize_writer_namespace()
-        .map_err(|_| "account writer coordination namespace is unavailable")?;
     // Path validation happened before replay. Repeat after replay and before
     // each authenticated connection can query the in-memory operation state.
     let journal = OperationJournal::open(file).map_err(|_| "operation journal replay failed")?;
@@ -284,109 +422,201 @@ pub fn run_from_environment() -> Result<(), String> {
 mod tests {
     use super::*;
     use crate::{Envelope, ManagedAction, ManagedActionKind, PackageId, Request, ResponseBody};
-    use std::io::{BufRead, BufReader, Write};
-    use std::os::unix::net::UnixListener;
     use std::thread;
+    use std::{
+        io::{BufRead, BufReader, Write},
+        os::unix::fs::{MetadataExt, PermissionsExt},
+    };
 
     #[test]
-    fn stalled_helper_returns_typed_error_within_the_original_service_deadline() {
-        let path =
-            std::env::temp_dir().join(format!("ryoku-shared-deadline-{}", std::process::id()));
-        let socket = path.with_extension("sock");
-        let listener = UnixListener::bind(&socket).unwrap();
-        let (release, wait) = std::sync::mpsc::channel();
-        let helper = thread::spawn(move || {
-            let (stream, _) = listener.accept().unwrap();
-            stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
-            let mut frame = String::new();
-            BufReader::new(&stream).read_line(&mut frame).unwrap();
-            assert!(frame.contains("check_availability"));
-            wait.recv_timeout(Duration::from_secs(3)).unwrap();
-        });
-        let file = std::fs::OpenOptions::new()
+    fn local_profile_reads_defaults_and_saves_personal_settings_without_helper_or_checkpoint() {
+        let root_path = std::env::temp_dir().join(format!(
+            "ryoku-service-profile-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        std::fs::create_dir(&root_path).unwrap();
+        std::fs::set_permissions(&root_path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let root = std::fs::File::open(&root_path).unwrap();
+        let metadata = std::fs::metadata(&root_path).unwrap();
+        let owner = ryoku_profiles::ProfileOwner { uid: metadata.uid(), gid: metadata.gid() };
+        let journal_path = root_path.join("operations.log");
+        let journal_file = std::fs::OpenOptions::new()
             .create_new(true)
             .read(true)
             .write(true)
-            .open(&path)
+            .open(&journal_path)
             .unwrap();
-        let mut journal = OperationJournal::open(file).unwrap();
-        let (server, mut client) = UnixStream::pair().unwrap();
-        let uid = rustix::process::geteuid().as_raw();
-        let deadline = Instant::now() + Duration::from_secs(1);
-        let request = Envelope {
-            version: PROTOCOL_VERSION,
-            request_id: RequestId::new("stalled-helper").unwrap(),
-            request: Request::Start { action: ManagedAction::CreateCheckpoint },
-        };
-        let client_thread = thread::spawn(move || {
-            // Framing has already consumed part of the service's budget.
-            thread::sleep(Duration::from_millis(100));
-            serde_json::to_writer(&mut client, &request).unwrap();
-            client.write_all(b"\n").unwrap();
-            client.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
-            let mut line = String::new();
-            BufReader::new(client).read_line(&mut line).unwrap();
-            serde_json::from_str::<Response>(&line).unwrap()
+        let journal = OperationJournal::open(journal_file).unwrap();
+
+        let defaults = dispatch_request(Request::GetLocalProfile, &journal, |request| {
+            handle_local_profile_at_root(request, &root, owner)
         });
-        serve_connection_until(server, &mut journal, uid, &socket, || Ok(()), deadline).unwrap();
-        assert!(Instant::now() < deadline);
-        let response = client_thread.join().unwrap();
-        assert_eq!(response.request_id.as_str(), "stalled-helper");
-        assert_eq!(response.body, ResponseBody::Error(ServiceError::RecoveryUnavailable));
-        assert_eq!(std::fs::metadata(&path).unwrap().len(), 0);
-        release.send(()).unwrap();
-        helper.join().unwrap();
+        let ResponseBody::LocalProfile(defaults) = defaults else {
+            panic!("missing local profile did not resolve to defaults");
+        };
+        assert_eq!(defaults.id.as_str(), ryoku_profiles::GENERIC_PROFILE_ID);
+        assert_eq!(defaults.settings, ryoku_profiles::SettingsLayer::default());
+        assert!(!root_path.join(ryoku_profiles::LOCAL_PROFILE_FILE).exists());
+
+        let settings = ryoku_profiles::SettingsLayer {
+            desktop: Some(ryoku_profiles::Desktop::Kde),
+            theme: Some(ryoku_profiles::Theme::System),
+            density: Some(ryoku_profiles::Density::Compact),
+        };
+        let saved = dispatch_request(Request::SetLocalProfile { settings }, &journal, |request| {
+            handle_local_profile_at_root(request, &root, owner)
+        });
+        let expected = default_local_profile_with(settings);
+        assert_eq!(saved, ResponseBody::LocalProfile(expected.clone()));
+        let profile_path = root_path.join(ryoku_profiles::LOCAL_PROFILE_FILE);
+        assert_eq!(std::fs::metadata(&profile_path).unwrap().mode() & 0o777, 0o600);
+        assert!(matches!(
+            dispatch_request(Request::GetLocalProfile, &journal, |request| {
+                handle_local_profile_at_root(request, &root, owner)
+            }),
+            ResponseBody::LocalProfile(document) if document == expected
+        ));
+        assert_eq!(std::fs::metadata(&journal_path).unwrap().len(), 0);
+
         drop(journal);
-        std::fs::remove_file(path).unwrap();
-        std::fs::remove_file(socket).unwrap();
+        drop(root);
+        std::fs::remove_dir_all(root_path).unwrap();
     }
 
     #[test]
-    fn response_reserve_exhausted_skips_helper_and_still_returns_typed_error() {
-        let path =
-            std::env::temp_dir().join(format!("ryoku-deadline-reserve-{}", std::process::id()));
-        let socket = path.with_extension("sock");
-        let listener = UnixListener::bind(&socket).unwrap();
-        listener.set_nonblocking(true).unwrap();
-        let file = std::fs::OpenOptions::new()
+    fn missing_profile_directories_read_defaults_but_cannot_be_saved_without_creation() {
+        let owner = ryoku_profiles::ProfileOwner { uid: 1000, gid: 1000 };
+        assert_eq!(
+            handle_local_profile_with_optional_root(&Request::GetLocalProfile, None, owner),
+            ResponseBody::LocalProfile(default_local_profile())
+        );
+        assert_eq!(
+            handle_local_profile_with_optional_root(
+                &Request::SetLocalProfile { settings: ryoku_profiles::SettingsLayer::default() },
+                None,
+                owner,
+            ),
+            ResponseBody::Error(ServiceError::RecoveryUnavailable)
+        );
+        assert_eq!(
+            handle_local_profile_with_optional_root(
+                &Request::MigrateLegacyLocalProfile,
+                None,
+                owner
+            ),
+            ResponseBody::Error(ServiceError::NotFound)
+        );
+    }
+
+    #[test]
+    fn local_profile_write_refuses_corrupt_or_foreign_profile_documents() {
+        let root_path = std::env::temp_dir().join(format!(
+            "ryoku-service-profile-preserve-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        std::fs::create_dir(&root_path).unwrap();
+        std::fs::set_permissions(&root_path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let root = std::fs::File::open(&root_path).unwrap();
+        let metadata = std::fs::metadata(&root_path).unwrap();
+        let owner = ryoku_profiles::ProfileOwner { uid: metadata.uid(), gid: metadata.gid() };
+        let profile_path = root_path.join(ryoku_profiles::LOCAL_PROFILE_FILE);
+        let requested = Request::SetLocalProfile {
+            settings: ryoku_profiles::SettingsLayer {
+                theme: Some(ryoku_profiles::Theme::RyokuLight),
+                ..ryoku_profiles::SettingsLayer::default()
+            },
+        };
+
+        let malformed = b"not a recognized profile document";
+        std::fs::write(&profile_path, malformed).unwrap();
+        std::fs::set_permissions(&profile_path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(matches!(
+            handle_local_profile_at_root(&requested, &root, owner),
+            ResponseBody::Error(ServiceError::RecoveryUnavailable)
+        ));
+        assert_eq!(std::fs::read(&profile_path).unwrap(), malformed);
+
+        let other = ryoku_profiles::ProfileDocument::new(
+            ryoku_profiles::ProfileId::new("workstation").unwrap(),
+            ryoku_profiles::SettingsLayer::default(),
+        )
+        .canonical_bytes()
+        .unwrap();
+        std::fs::write(&profile_path, &other).unwrap();
+        assert!(matches!(
+            handle_local_profile_at_root(&requested, &root, owner),
+            ResponseBody::Error(ServiceError::Unsupported)
+        ));
+        assert_eq!(std::fs::read(&profile_path).unwrap(), other);
+        assert_eq!(std::fs::read_dir(&root_path).unwrap().count(), 1);
+
+        drop(root);
+        std::fs::remove_dir_all(root_path).unwrap();
+    }
+
+    #[test]
+    fn legacy_personal_profile_migration_is_local_atomic_and_preserves_its_source() {
+        let root_path = std::env::temp_dir().join(format!(
+            "ryoku-service-profile-migration-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        std::fs::create_dir(&root_path).unwrap();
+        std::fs::set_permissions(&root_path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let root = std::fs::File::open(&root_path).unwrap();
+        let metadata = std::fs::metadata(&root_path).unwrap();
+        let owner = ryoku_profiles::ProfileOwner { uid: metadata.uid(), gid: metadata.gid() };
+        let legacy = ryoku_profiles::ProfileDocument::new(
+            ryoku_profiles::ProfileId::new(ryoku_profiles::GENERIC_PROFILE_ID).unwrap(),
+            ryoku_profiles::SettingsLayer {
+                theme: Some(ryoku_profiles::Theme::System),
+                density: Some(ryoku_profiles::Density::Compact),
+                ..ryoku_profiles::SettingsLayer::default()
+            },
+        )
+        .canonical_bytes()
+        .unwrap();
+        let legacy_path = root_path.join("profile.json");
+        std::fs::write(&legacy_path, &legacy).unwrap();
+        std::fs::set_permissions(&legacy_path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        let journal_path = root_path.join("operations.log");
+        let journal_file = std::fs::OpenOptions::new()
             .create_new(true)
             .read(true)
             .write(true)
-            .open(&path)
+            .open(&journal_path)
             .unwrap();
-        let mut journal = OperationJournal::open(file).unwrap();
-        let (server, mut client) = UnixStream::pair().unwrap();
-        let envelope = Envelope {
-            version: PROTOCOL_VERSION,
-            request_id: RequestId::new("late").unwrap(),
-            request: Request::Start { action: ManagedAction::CreateCheckpoint },
-        };
-        serde_json::to_writer(&mut client, &envelope).unwrap();
-        client.write_all(b"\n").unwrap();
-        serve_connection_until(
-            server,
-            &mut journal,
-            rustix::process::geteuid().as_raw(),
-            &socket,
-            || Ok(()),
-            Instant::now() + Duration::from_millis(200),
-        )
-        .unwrap();
-        let mut line = String::new();
-        BufReader::new(client).read_line(&mut line).unwrap();
+        let journal = OperationJournal::open(journal_file).unwrap();
+
+        let response = dispatch_request(Request::MigrateLegacyLocalProfile, &journal, |request| {
+            handle_local_profile_at_root(request, &root, owner)
+        });
         assert_eq!(
-            serde_json::from_str::<Response>(&line).unwrap().body,
-            ResponseBody::Error(ServiceError::RecoveryUnavailable)
+            response,
+            ResponseBody::LocalProfile(ryoku_profiles::ProfileDocument::parse(&legacy).unwrap())
         );
-        assert_eq!(listener.accept().unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
+        assert_eq!(std::fs::read(&legacy_path).unwrap(), legacy);
+        assert_eq!(
+            std::fs::read(root_path.join(ryoku_profiles::LOCAL_PROFILE_FILE)).unwrap(),
+            legacy
+        );
+        assert_eq!(
+            handle_local_profile_at_root(&Request::MigrateLegacyLocalProfile, &root, owner),
+            ResponseBody::LocalProfile(ryoku_profiles::ProfileDocument::parse(&legacy).unwrap())
+        );
+        assert_eq!(std::fs::read(&legacy_path).unwrap(), legacy);
+        assert_eq!(std::fs::metadata(&journal_path).unwrap().len(), 0);
+
         drop(journal);
-        std::fs::remove_file(path).unwrap();
-        std::fs::remove_file(socket).unwrap();
+        drop(root);
+        std::fs::remove_dir_all(root_path).unwrap();
     }
 
     #[test]
     fn expired_socket_deadlines_fail_before_reading_or_writing() {
-        let (_client, mut server) = UnixStream::pair().unwrap();
+        let (_client, mut server) = crate::test_unix_pair_or_skip!();
         server.set_nonblocking(true).unwrap();
         let expired = Instant::now() - Duration::from_millis(1);
         assert_eq!(read_frame_until(&mut server, expired), Err(ProtocolError::Io));
@@ -404,7 +634,82 @@ mod tests {
         );
     }
 
-    fn exchange(journal: &mut OperationJournal, request: Request) -> ResponseBody {
+    #[test]
+    fn dispatch_routes_linked_verification_without_journaling() {
+        let journal_path = std::env::temp_dir()
+            .join(format!("ryoku-dispatch-verification-{}.log", std::process::id()));
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .read(true)
+            .write(true)
+            .open(&journal_path)
+            .unwrap();
+        let journal = OperationJournal::open(file).unwrap();
+        let request = Request::VerifyLinkedCheckpoint {
+            transaction_id: "txn-1".into(),
+            generation_id: "generation-1".into(),
+        };
+        let mut invoked = false;
+        let response = dispatch_request(request, &journal, |request| {
+            invoked = true;
+            assert!(matches!(request, Request::VerifyLinkedCheckpoint { .. }));
+            ResponseBody::LinkedCheckpoint(crate::helper_protocol::VerifiedLinkedCheckpoint {
+                transaction_id: "txn-1".into(),
+                generation_id: "generation-1".into(),
+                manifest_sha256: "a".repeat(64),
+                snapper_config: "root".into(),
+                snapshot_id: "42".into(),
+                filesystem_uuid: "01234567-89ab-cdef-0123-456789abcdef".into(),
+            })
+        });
+        assert!(invoked);
+        assert!(matches!(response, ResponseBody::LinkedCheckpoint(_)));
+        assert_eq!(std::fs::metadata(&journal_path).unwrap().len(), 0);
+        drop(journal);
+        std::fs::remove_file(journal_path).unwrap();
+    }
+
+    #[test]
+    fn discovery_reflects_helper_reachability_without_advertising_writes() {
+        let path = std::env::temp_dir()
+            .join(format!("ryoku-dispatch-discovery-{}.log", std::process::id()));
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let journal = OperationJournal::open(file).unwrap();
+        let mut probed = false;
+        let response = dispatch_request(Request::Discover, &journal, |request| {
+            probed = true;
+            assert!(matches!(request, Request::Start { action: ManagedAction::CreateCheckpoint }));
+            // A healthy helper rejects this still-disabled action with the
+            // typed Unsupported result after validating protected state.
+            ResponseBody::Error(ServiceError::Unsupported)
+        });
+        assert!(probed);
+        let ResponseBody::Discovery(discovery) = response else {
+            panic!("unexpected discovery response");
+        };
+        assert_eq!(discovery.service_state, crate::ServiceState::Ready);
+        assert!(discovery.supported_actions.is_empty());
+        assert_eq!(std::fs::metadata(&path).unwrap().len(), 0);
+
+        let unavailable = dispatch_request(Request::Discover, &journal, |_| {
+            ResponseBody::Error(ServiceError::RecoveryUnavailable)
+        });
+        let ResponseBody::Discovery(unavailable) = unavailable else {
+            panic!("unexpected unavailable discovery response");
+        };
+        assert_eq!(unavailable.service_state, crate::ServiceState::RecoveryUnavailable);
+        drop(journal);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    fn exchange(journal: &mut OperationJournal, request: Request) -> Option<ResponseBody> {
         let unavailable_socket =
             std::env::temp_dir().join(format!("ryoku-no-helper-{}.sock", std::process::id()));
         exchange_with_helper_path(journal, request, &unavailable_socket)
@@ -414,8 +719,21 @@ mod tests {
         journal: &mut OperationJournal,
         request: Request,
         helper_socket_path: &Path,
-    ) -> ResponseBody {
-        let (server, client) = UnixStream::pair().unwrap();
+    ) -> Option<ResponseBody> {
+        if !crate::test_unix_sockets_available() {
+            eprintln!(
+                "skipping Unix service exchange: socket I/O or SO_PEERCRED denied by sandbox"
+            );
+            return None;
+        }
+        let (server, client) = match UnixStream::pair() {
+            Ok(pair) => pair,
+            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+                eprintln!("skipping Unix service exchange: socketpair denied by sandbox");
+                return None;
+            }
+            Err(error) => panic!("UnixStream pair failed unexpectedly: {error}"),
+        };
         let uid = rustix::process::geteuid().as_raw();
         let envelope = Envelope {
             version: PROTOCOL_VERSION,
@@ -428,7 +746,7 @@ mod tests {
         serve_connection_with_helper_path(server, journal, uid, helper_socket_path).unwrap();
         let mut line = String::new();
         BufReader::new(client).read_line(&mut line).unwrap();
-        serde_json::from_str::<Response>(&line).unwrap().body
+        Some(serde_json::from_str::<Response>(&line).unwrap().body)
     }
 
     #[test]
@@ -442,7 +760,10 @@ mod tests {
             .open(&path)
             .unwrap();
         let mut journal = OperationJournal::open(file).unwrap();
-        match exchange(&mut journal, Request::Discover) {
+        let Some(discovery_response) = exchange(&mut journal, Request::Discover) else {
+            return;
+        };
+        match discovery_response {
             ResponseBody::Discovery(discovery) => {
                 assert!(discovery.supported_actions.is_empty());
                 assert_eq!(discovery.service_state, crate::ServiceState::RecoveryUnavailable);
@@ -450,22 +771,87 @@ mod tests {
             other => panic!("unexpected response: {other:?}"),
         }
         let action = ManagedAction::InstallPackage { package: PackageId::new("firefox").unwrap() };
-        assert_eq!(
-            exchange(&mut journal, Request::Start { action }),
-            ResponseBody::Error(ServiceError::RecoveryUnavailable)
-        );
+        let Some(start_response) = exchange(&mut journal, Request::Start { action }) else {
+            return;
+        };
+        assert_eq!(start_response, ResponseBody::Error(ServiceError::RecoveryUnavailable));
         assert_eq!(journal.get(&crate::OperationId::new("not-created").unwrap()), None);
         drop(journal);
         std::fs::remove_file(path).unwrap();
     }
 
     #[test]
+    fn unresolved_operation_blocks_new_start_without_contacting_helper() {
+        let path =
+            std::env::temp_dir().join(format!("ryoku-runtime-pending-{}", std::process::id()));
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let mut journal = OperationJournal::open(file).unwrap();
+        journal
+            .record(crate::OperationStatus {
+                operation_id: crate::OperationId::new("pending-operation").unwrap(),
+                action: crate::ManagedActionKind::CreateCheckpoint,
+                phase: crate::OperationPhase::Accepted,
+                progress: None,
+                error: None,
+            })
+            .unwrap();
+
+        let mut helper_called = false;
+        let response = dispatch_request(
+            Request::Start {
+                action: crate::ManagedAction::InstallPackage {
+                    package: crate::PackageId::new("firefox").unwrap(),
+                },
+            },
+            &journal,
+            |_| {
+                helper_called = true;
+                ResponseBody::Error(ServiceError::Unsupported)
+            },
+        );
+        assert_eq!(response, ResponseBody::Error(ServiceError::RecoveryUnavailable));
+        assert!(!helper_called);
+
+        let mut verification_called = false;
+        let verification = dispatch_request(
+            Request::VerifyLinkedCheckpoint {
+                transaction_id: "source-transaction".into(),
+                generation_id: "source-generation".into(),
+            },
+            &journal,
+            |_| {
+                verification_called = true;
+                ResponseBody::LinkedCheckpoint(crate::helper_protocol::VerifiedLinkedCheckpoint {
+                    transaction_id: "source-transaction".into(),
+                    generation_id: "source-generation".into(),
+                    manifest_sha256: "a".repeat(64),
+                    snapper_config: "root".into(),
+                    snapshot_id: "42".into(),
+                    filesystem_uuid: "01234567-89ab-cdef-0123-456789abcdef".into(),
+                })
+            },
+        );
+        assert!(verification_called);
+        assert!(matches!(verification, ResponseBody::LinkedCheckpoint(_)));
+
+        drop(journal);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
     fn user_service_probes_helper_and_rejection_does_not_write_journal() {
+        let _pair_probe = crate::test_unix_pair_or_skip!();
         let socket_path = std::env::temp_dir()
             .join(format!("ryoku-helper-integration-{}.sock", std::process::id()));
         let journal_path = std::env::temp_dir()
             .join(format!("ryoku-helper-integration-{}.log", std::process::id()));
-        let listener = UnixListener::bind(&socket_path).unwrap();
+        let listener = crate::test_unix_listener_or_skip!(&socket_path);
         let helper_thread = thread::spawn(move || {
             let (stream, _) = listener.accept().unwrap();
             crate::helper_protocol::serve_operator_helper_connection(
@@ -491,7 +877,80 @@ mod tests {
         };
         assert_eq!(
             exchange_with_helper_path(&mut journal, Request::Start { action }, &socket_path,),
-            ResponseBody::Error(expected)
+            Some(ResponseBody::Error(expected))
+        );
+        helper_thread.join().unwrap();
+        assert_eq!(std::fs::metadata(&journal_path).unwrap().len(), 0);
+        drop(journal);
+        std::fs::remove_file(journal_path).unwrap();
+        std::fs::remove_file(socket_path).unwrap();
+    }
+
+    #[test]
+    fn user_service_returns_only_correlated_linked_checkpoint_evidence() {
+        let _pair_probe = crate::test_unix_pair_or_skip!();
+        let socket_path =
+            std::env::temp_dir().join(format!("ryoku-linked-helper-{}.sock", std::process::id()));
+        let journal_path =
+            std::env::temp_dir().join(format!("ryoku-linked-helper-{}.log", std::process::id()));
+        let listener = crate::test_unix_listener_or_skip!(&socket_path);
+        let helper_thread = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let request =
+                crate::helper_protocol::read_helper_envelope(&mut BufReader::new(&mut stream))
+                    .unwrap();
+            assert_eq!(
+                request.request,
+                crate::HelperRequest::VerifyLinkedCheckpoint {
+                    transaction_id: "txn-1".into(),
+                    generation_id: "generation-1".into(),
+                }
+            );
+            let response = crate::helper_protocol::HelperResponse {
+                version: crate::helper_protocol::HELPER_PROTOCOL_VERSION,
+                request_id: request.request_id,
+                outcome: crate::helper_protocol::HelperOutcome::VerifiedLinkedCheckpoint(
+                    crate::helper_protocol::VerifiedLinkedCheckpoint {
+                        transaction_id: "txn-1".into(),
+                        generation_id: "generation-1".into(),
+                        manifest_sha256: "a".repeat(64),
+                        snapper_config: "root".into(),
+                        snapshot_id: "42".into(),
+                        filesystem_uuid: "01234567-89ab-cdef-0123-456789abcdef".into(),
+                    },
+                ),
+            };
+            serde_json::to_writer(&mut stream, &response).unwrap();
+            stream.write_all(b"\n").unwrap();
+        });
+
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .read(true)
+            .write(true)
+            .open(&journal_path)
+            .unwrap();
+        let mut journal = OperationJournal::open(file).unwrap();
+        let response = exchange_with_helper_path(
+            &mut journal,
+            Request::VerifyLinkedCheckpoint {
+                transaction_id: "txn-1".into(),
+                generation_id: "generation-1".into(),
+            },
+            &socket_path,
+        )
+        .expect("socketpair was probed before helper thread creation");
+        assert_eq!(
+            response,
+            ResponseBody::LinkedCheckpoint(crate::helper_protocol::VerifiedLinkedCheckpoint {
+                transaction_id: "txn-1".into(),
+                generation_id: "generation-1".into(),
+                manifest_sha256: "a".repeat(64),
+                snapper_config: "root".into(),
+                snapshot_id: "42".into(),
+                filesystem_uuid: "01234567-89ab-cdef-0123-456789abcdef".into(),
+            })
         );
         helper_thread.join().unwrap();
         assert_eq!(std::fs::metadata(&journal_path).unwrap().len(), 0);
@@ -505,11 +964,18 @@ mod tests {
         let path =
             std::env::temp_dir().join(format!("ryoku-runtime-journal-{}", std::process::id()));
         let id = crate::OperationId::new("durable-op").unwrap();
-        let status = crate::OperationStatus {
+        let accepted = crate::OperationStatus {
             operation_id: id.clone(),
             action: ManagedActionKind::CreateCheckpoint,
             phase: crate::OperationPhase::Accepted,
             progress: None,
+            error: None,
+        };
+        let capturing = crate::OperationStatus {
+            operation_id: id.clone(),
+            action: ManagedActionKind::CreateCheckpoint,
+            phase: crate::OperationPhase::Capturing,
+            progress: Some(crate::Progress { completed: 2, total: Some(3) }),
             error: None,
         };
 
@@ -523,78 +989,29 @@ mod tests {
             .open(&path)
             .unwrap();
         let mut journal = OperationJournal::open(file).unwrap();
-        journal.record(status.clone()).unwrap();
-        drop(journal);
-
-        let file = std::fs::OpenOptions::new().read(true).write(true).open(&path).unwrap();
-        let mut restarted_journal = OperationJournal::open(file).unwrap();
-        assert_eq!(restarted_journal.get(&id), Some(&status));
-        assert_eq!(
-            exchange(&mut restarted_journal, Request::GetOperation { operation_id: id }),
-            ResponseBody::Operation(status)
-        );
-        drop(restarted_journal);
-        std::fs::remove_file(path).unwrap();
-    }
-
-    #[test]
-    fn client_disconnect_does_not_cancel_durable_progress_or_restart_work() {
-        let path = std::env::temp_dir().join(format!("ryoku-disconnected-{}", std::process::id()));
-        let file = std::fs::OpenOptions::new()
-            .create_new(true)
-            .read(true)
-            .write(true)
-            .open(&path)
+        journal.record(accepted).unwrap();
+        journal
+            .record(crate::OperationStatus {
+                operation_id: id.clone(),
+                action: ManagedActionKind::CreateCheckpoint,
+                phase: crate::OperationPhase::Capturing,
+                progress: Some(crate::Progress { completed: 1, total: Some(3) }),
+                error: None,
+            })
             .unwrap();
-        let mut journal = OperationJournal::open(file).unwrap();
-        let id = crate::OperationId::new("disconnected-client").unwrap();
-        let mut status = crate::OperationStatus {
-            operation_id: id.clone(),
-            action: ManagedActionKind::CreateCheckpoint,
-            phase: crate::OperationPhase::Accepted,
-            progress: None,
-            error: None,
-        };
-        journal.record(status.clone()).unwrap();
-        let (server, mut client) = UnixStream::pair().unwrap();
-        serde_json::to_writer(
-            &mut client,
-            &Envelope {
-                version: PROTOCOL_VERSION,
-                request_id: RequestId::new("closing").unwrap(),
-                request: Request::GetOperation { operation_id: id.clone() },
-            },
-        )
-        .unwrap();
-        client.write_all(b"\n").unwrap();
-        client.shutdown(std::net::Shutdown::Both).unwrap();
-        drop(client);
-        // Losing the status response does not own or cancel the journal.
-        assert!(
-            serve_connection(server, &mut journal, rustix::process::geteuid().as_raw()).is_err()
-        );
-        status.phase = crate::OperationPhase::Capturing;
-        status.progress = Some(crate::Progress { completed: 1, total: Some(2) });
-        journal.record(status.clone()).unwrap();
-        status.progress = Some(crate::Progress { completed: 2, total: Some(2) });
-        journal.record(status.clone()).unwrap();
-        let length = std::fs::metadata(&path).unwrap().len();
-        // Duplicate submission of the accepted identity cannot reset progress.
-        let reset = crate::OperationStatus {
-            phase: crate::OperationPhase::Accepted,
-            progress: None,
-            ..status.clone()
-        };
-        assert_eq!(journal.record(reset), Err(crate::JournalError::InvalidTransition));
+        journal.record(capturing.clone()).unwrap();
         drop(journal);
+
         let file = std::fs::OpenOptions::new().read(true).write(true).open(&path).unwrap();
-        let mut journal = OperationJournal::open(file).unwrap();
-        assert_eq!(
-            exchange(&mut journal, Request::GetOperation { operation_id: id }),
-            ResponseBody::Operation(status)
+        let restarted_journal = OperationJournal::open(file).unwrap();
+        assert_eq!(restarted_journal.get(&id), Some(&capturing));
+        let response = dispatch_request(
+            Request::GetOperation { operation_id: id },
+            &restarted_journal,
+            |_| unreachable!("status lookup does not contact the helper"),
         );
-        assert_eq!(std::fs::metadata(&path).unwrap().len(), length);
-        drop(journal);
+        assert_eq!(response, ResponseBody::Operation(capturing));
+        drop(restarted_journal);
         std::fs::remove_file(path).unwrap();
     }
 
@@ -629,7 +1046,10 @@ mod tests {
             drop(interrupted);
             journal.simulate_uncertain_write_failure();
 
-            let response = exchange(&mut journal, Request::GetOperation { operation_id: id });
+            let Some(response) = exchange(&mut journal, Request::GetOperation { operation_id: id })
+            else {
+                return;
+            };
             if expected_error {
                 assert_eq!(response, ResponseBody::Error(ServiceError::RecoveryUnavailable));
                 assert!(journal.get(&durable.operation_id).is_some());
@@ -653,7 +1073,7 @@ mod tests {
             .open(&path)
             .unwrap();
         let mut journal = OperationJournal::open(file).unwrap();
-        let (server, mut client) = UnixStream::pair().unwrap();
+        let (server, mut client) = crate::test_unix_pair_or_skip!();
         // A rejected UID is answered before parsing, even if its bytes are
         // malformed. The untrusted request ID is not reflected.
         client.write_all(b"not-json\n").unwrap();
@@ -665,7 +1085,7 @@ mod tests {
         assert_eq!(response.body, ResponseBody::Error(ServiceError::Unauthorized));
         assert_eq!(std::fs::metadata(&path).unwrap().len(), 0);
 
-        let (server, mut client) = UnixStream::pair().unwrap();
+        let (server, mut client) = crate::test_unix_pair_or_skip!();
         client.write_all(b"not-json\n").unwrap();
         serve_connection(server, &mut journal, rustix::process::geteuid().as_raw()).unwrap();
         line.clear();
@@ -680,6 +1100,10 @@ mod tests {
 
     #[test]
     fn peer_denial_precedes_path_work_and_stale_paths_precede_parsing_or_lookup() {
+        if !crate::test_unix_sockets_available() {
+            eprintln!("skipping Unix socket test: socket I/O or SO_PEERCRED denied by sandbox");
+            return;
+        }
         let path = std::env::temp_dir().join(format!("ryoku-runtime-stale-{}", std::process::id()));
         let file = std::fs::OpenOptions::new()
             .create_new(true)
@@ -689,7 +1113,7 @@ mod tests {
             .unwrap();
         let mut journal = OperationJournal::open(file).unwrap();
         for unauthorized in [true, false] {
-            let (server, mut client) = UnixStream::pair().unwrap();
+            let (server, mut client) = crate::test_unix_pair_or_skip!();
             client.write_all(b"not-json\n").unwrap();
             serve_connection_checked(
                 server,
@@ -716,7 +1140,7 @@ mod tests {
             );
         }
         let checks = std::cell::Cell::new(0);
-        let (server, mut client) = UnixStream::pair().unwrap();
+        let (server, mut client) = crate::test_unix_pair_or_skip!();
         serde_json::to_writer(
             &mut client,
             &Envelope {

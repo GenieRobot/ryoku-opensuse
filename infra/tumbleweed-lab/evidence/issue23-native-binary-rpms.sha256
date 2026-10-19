@@ -1,0 +1,16 @@
+ab33aebf742dfea6e9b13b15c71f51fa7ddab5afe091c6fe1e37b4ebd85c8cf8  ryoku-desktop-0.1.0-1.x86_64.rpm
+ec7919f7c4122f20f22e206963f2dc51c5217474d57ac312f5e836d1a9f386d2  ryoku-desktop-debugsource-0.1.0-1.x86_64.rpm
+cae5e6e2c76b486bc6448b331f77449634fe8f92d06918e0088595f1899cf02a  ryoku-desktop-fonts-0.1.0-1.noarch.rpm
+58badfbabf564d2b478d294a6fa5b04506753c7fb6024706223b2853fbba39e3  ryoku-desktop-runtime-0.1.0-1.x86_64.rpm
+611b165929f2e7228e165d8c7f72f1606a88594b1006e37378d45befd833c2e2  ryoku-desktop-runtime-debuginfo-0.1.0-1.x86_64.rpm
+344ba9457c24101949fbd29f2482d8571156e34a8affdd72401bb4e929a39937  ryoku-helper-0.1.0-1.x86_64.rpm
+2c3c0abf678fbc03a8b47a921843564bcc8927d8561491e4a695f9c56c754fcb  ryoku-helper-debugsource-0.1.0-1.x86_64.rpm
+dc14d141e5eb6fcb94d2f59011b6a686dfae043b8ddb2b45be21df4eebbbd5e4  ryoku-profile-defaults-0.1.0-1.noarch.rpm
+626c3f6928d886a79c3a774e5b9f70aaded67888cbf9e3399a795648c0e18537  ryoku-quickshell-0.3.2-1.x86_64.rpm
+9560c5aad580d51d46a62342fe08d5aa44d3c8716c135f297c6893ba11d2b0da  ryoku-quickshell-debuginfo-0.3.2-1.x86_64.rpm
+43d1d383bc8a0931e10973e1b3f6a2c14e83647bd5f1efc868dae9da937f6ea8  ryoku-quickshell-debugsource-0.3.2-1.x86_64.rpm
+04daa62f61f9beca5d972d939139b5f094baa07e5e904bb3982a08c3103242ae  ryoku-tools-0.1.0-1.x86_64.rpm
+85e67e6f891663fbf47c9823e609c5a242d47fb72af50f76ffc0fc0d6146d72f  ryoku-tools-debugsource-0.1.0-1.x86_64.rpm
+22caca7a8bc9c2883716cb6905065c81703642ac9f4608c84fd223d3b075d49e  ryoku-tools-launcher-status-0.1.0-1.x86_64.rpm
+8a683945abcdce4db4e7fe3c06c18742a1ae14dad048841926e3ca1ab6189d64  ryoku-tools-state-init-0.1.0-1.x86_64.rpm
+773e37cca8503939374539ca7b7d50da8dfe331e9194d280b1e8810a2ec25eb2  ryoku-tools-ui-0.1.0-1.x86_64.rpm

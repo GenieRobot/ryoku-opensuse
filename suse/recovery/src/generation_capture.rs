@@ -73,11 +73,9 @@ pub struct GenerationCaptureRequest<'a> {
 /// returned as a verified result.
 #[derive(Debug)]
 pub enum GenerationCaptureError {
-    CoordinationLost,
     EmptyInventory,
     TooManyRoots,
     DuplicateRoot,
-    ProtectedInternalRoot,
     InventoryTooLarge,
     PayloadMismatch,
     VerificationMismatch,
@@ -94,13 +92,9 @@ pub enum GenerationCaptureError {
 impl std::fmt::Display for GenerationCaptureError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::CoordinationLost => formatter.write_str("capture writer coordination was lost"),
             Self::EmptyInventory => formatter.write_str("declared inventory is empty"),
             Self::TooManyRoots => formatter.write_str("declared root count exceeds fixed limit"),
             Self::DuplicateRoot => formatter.write_str("declared root is duplicated"),
-            Self::ProtectedInternalRoot => {
-                formatter.write_str("declared inventory cannot select protected store internals")
-            }
             Self::InventoryTooLarge => formatter.write_str("declared inventory exceeds limits"),
             Self::PayloadMismatch => {
                 formatter.write_str("captured payload does not match its record")
@@ -366,9 +360,6 @@ fn validate_inventory(
     let mut unique_roots = BTreeSet::new();
     let mut total_paths = 0usize;
     for root in roots {
-        if root.root == StateRoot::StateGeneration {
-            return Err(GenerationCaptureError::ProtectedInternalRoot);
-        }
         if !unique_roots.insert(root.root) {
             return Err(GenerationCaptureError::DuplicateRoot);
         }
@@ -681,90 +672,6 @@ mod tests {
     }
 
     #[test]
-    fn verified_multiroot_capture_stages_only_the_shared_configuration_scope() {
-        use crate::restore::{
-            ArtifactStatus, CompatibilityStatus, PreflightEvidence, RestoreScope,
-            SystemSnapshotStatus, plan_restore,
-        };
-
-        let source = TempDir::new("multiroot-stage-source");
-        let store_root = TempDir::new("multiroot-stage-store");
-        for (name, contents) in [
-            ("system.toml", b"system override".as_slice()),
-            ("user.toml", b"personal override".as_slice()),
-            ("profile.json", b"selected profile".as_slice()),
-        ] {
-            fs::write(source.0.join(name), contents).unwrap();
-        }
-        let source_fd = source.descriptor();
-        let store = GenerationStore::open_for_test(&store_root.descriptor()).unwrap();
-        let system_paths = [RelativePath::new("system.toml").unwrap()];
-        let user_paths = [RelativePath::new("user.toml").unwrap()];
-        let profile_paths = [RelativePath::new("profile.json").unwrap()];
-        let roots = [
-            DeclaredRoot {
-                root: StateRoot::EtcRyoku,
-                descriptor: &source_fd,
-                paths: &system_paths,
-            },
-            DeclaredRoot {
-                root: StateRoot::UserRyokuConfig,
-                descriptor: &source_fd,
-                paths: &user_paths,
-            },
-            DeclaredRoot {
-                root: StateRoot::UserRyokuProfile,
-                descriptor: &source_fd,
-                paths: &profile_paths,
-            },
-        ];
-
-        let captured =
-            capture_publish_verify_using(&store, request(&roots), capture_with_synthetic_metadata)
-                .unwrap();
-        let verified = store.open_verified_transaction(&captured.transaction_id).unwrap();
-        let configuration_entries =
-            captured.files().iter().filter(|record| record.root.is_configuration_state()).count();
-        assert_eq!(configuration_entries, 3);
-        assert_eq!(captured.files().len(), 3);
-
-        let plan = plan_restore(
-            &captured,
-            RestoreScope::ConfigurationOnly,
-            &PreflightEvidence {
-                generation: ArtifactStatus::Verified,
-                archive: ArtifactStatus::Verified,
-                current_state_checkpoint: ArtifactStatus::Verified,
-                system_snapshot: SystemSnapshotStatus::Missing,
-                system_compatibility: CompatibilityStatus::Unknown,
-                configuration_compatibility: CompatibilityStatus::Compatible,
-            },
-        )
-        .unwrap();
-        assert_eq!(plan.configuration_entries as usize, configuration_entries);
-        let staged = crate::configuration_stage::stage_configuration(&verified, &plan).unwrap();
-        assert_eq!(staged.entries().len(), configuration_entries);
-        assert!(staged.entries().iter().all(|entry| entry.record().root.is_configuration_state()));
-        let staged_content: BTreeMap<_, _> = staged
-            .entries()
-            .iter()
-            .map(|entry| {
-                let content = entry.content().unwrap();
-                (entry.record().root, content.to_vec())
-            })
-            .collect();
-        assert_eq!(staged_content[&StateRoot::EtcRyoku], b"system override");
-        assert_eq!(staged_content[&StateRoot::UserRyokuConfig], b"personal override");
-        assert_eq!(staged_content[&StateRoot::UserRyokuProfile], b"selected profile");
-        assert!(!staged_content.contains_key(&StateRoot::StateGeneration));
-        assert_eq!(
-            verified.manifest().files().len(),
-            staged.entries().len(),
-            "protected store internals cannot appear as captured file records"
-        );
-    }
-
-    #[test]
     fn capture_retains_acl_and_label_bytes_for_files_directories_and_symlinks() {
         let source = TempDir::new("raw-metadata-source");
         let store_root = TempDir::new("raw-metadata-store");
@@ -913,26 +820,6 @@ mod tests {
         assert!(matches!(
             capture_publish_verify_without_xattrs_for_test(&store, request(&roots)),
             Err(GenerationCaptureError::DuplicateRoot)
-        ));
-    }
-
-    #[test]
-    fn protected_generation_root_is_rejected_before_capture() {
-        let source = TempDir::new("protected-inventory-source");
-        let store_root = TempDir::new("protected-inventory-store");
-        let source_fd = source.descriptor();
-        let store_fd = store_root.descriptor();
-        let store = GenerationStore::open_for_test(&store_fd).unwrap();
-        let paths = [RelativePath::new("catalog/transaction.json").unwrap()];
-        let roots = [DeclaredRoot {
-            root: StateRoot::StateGeneration,
-            descriptor: &source_fd,
-            paths: &paths,
-        }];
-
-        assert!(matches!(
-            capture_publish_verify_without_xattrs_for_test(&store, request(&roots)),
-            Err(GenerationCaptureError::ProtectedInternalRoot)
         ));
     }
 

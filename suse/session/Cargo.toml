@@ -1,0 +1,19 @@
+[package]
+name = "ryoku-session"
+description = "Native openSUSE session launcher for preserved upstream Ryoku surfaces"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+rustix = { version = "1.1.5", features = ["event", "fs", "net", "process"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+ryoku-ui = { version = "0.1.0", path = "../ui" }
+ryoku-profiles = { version = "0.1.0", path = "../profiles" }
+
+[lints]
+workspace = true

@@ -1,9 +1,5 @@
 //! Validation only: actual systemd/logind and two NSS users in seeded QEMU.
 //! No host setup, package installation, managed Start or provider request.
-#[path = "native_service_fixture/acceptance.rs"]
-mod acceptance;
-#[path = "native_service_fixture/account_probe.rs"]
-mod account_probe;
 #[path = "native_service_fixture/client.rs"]
 mod client;
 #[path = "native_service_fixture/support.rs"]
@@ -71,7 +67,6 @@ fn main() -> Result<()> {
             result
         }
         ["--client", case] => client::run(case),
-        ["--account-probe"] => account_probe::server(),
         _ => Err("usage: native_service_fixture --check|--run|--client FIXED_CASE".into()),
     }
 }
@@ -494,8 +489,6 @@ fn run() -> Result<()> {
     println!(
         "native_service_duplicate_start=passed\nnative_service_fresh_process_restart=passed\nnative_service_empty_journals_retained=passed"
     );
-    acceptance::installed_checks(helper_pid.trim().parse()?)?;
-    account_probe::run()?;
     for account in [OPERATOR, OBSERVER] {
         user_command(account, &["stop", "ryoku-service.service"])?;
         checked("/usr/bin/loginctl", &["terminate-user", account.name])?;

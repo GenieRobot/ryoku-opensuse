@@ -1,15 +1,79 @@
 //! Versioned user-service protocol, durable operation journal, and narrow
 //! Linux helper authorization primitives.
 //!
-//! This crate deliberately contains no command runner and accepts no caller
-//! supplied executable, path, shell text, or provider arguments. Mutations are
-//! rejected until an integration can supply verified linked-capture evidence.
+//! This crate accepts no caller-supplied executable, path, shell text, or
+//! provider arguments. Ordinary personal settings and exact legacy personal
+//! profile import stay in the authenticated unprivileged service; privileged
+//! mutations remain gated on the linked-checkpoint coordinator.
 
+#[cfg(test)]
+pub(crate) fn test_unix_sockets_available() -> bool {
+    let (mut stream, _peer) = match std::os::unix::net::UnixStream::pair() {
+        Ok(pair) => pair,
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => return false,
+        Err(error) => panic!("UnixStream::pair failed unexpectedly: {error}"),
+    };
+    if let Err(error) = stream.write_all(b"probe") {
+        if error.kind() == std::io::ErrorKind::PermissionDenied {
+            return false;
+        }
+        panic!("UnixStream write probe failed: {error}");
+    }
+    match rustix::net::sockopt::socket_peercred(&stream) {
+        Ok(_) => true,
+        Err(error) if error == rustix::io::Errno::PERM => false,
+        Err(error) => panic!("SO_PEERCRED probe failed unexpectedly: {error}"),
+    }
+}
+
+#[cfg(test)]
+#[macro_export]
+macro_rules! test_unix_pair_or_skip {
+    () => {{
+        if !$crate::test_unix_sockets_available() {
+            eprintln!("skipping Unix socket test: socket I/O or SO_PEERCRED denied by sandbox");
+            return;
+        }
+        match std::os::unix::net::UnixStream::pair() {
+            Ok(pair) => pair,
+            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+                eprintln!("skipping Unix socket test: socketpair denied by sandbox");
+                return;
+            }
+            Err(error) => panic!("UnixStream::pair failed unexpectedly: {error}"),
+        }
+    }};
+}
+
+#[cfg(test)]
+#[macro_export]
+macro_rules! test_unix_listener_or_skip {
+    ($path:expr) => {{
+        if !$crate::test_unix_sockets_available() {
+            eprintln!("skipping Unix socket test: socket I/O or SO_PEERCRED denied by sandbox");
+            return;
+        }
+        match std::os::unix::net::UnixListener::bind($path) {
+            Ok(listener) => listener,
+            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+                eprintln!("skipping Unix socket test: listener bind denied by sandbox");
+                return;
+            }
+            Err(error) => panic!("UnixListener::bind failed unexpectedly: {error}"),
+        }
+    }};
+}
+
+pub mod account_generation;
 pub mod account_state;
 pub mod helper_protocol;
 pub mod mutation_gate;
+pub mod personal_profile;
+mod protected_operation_journal;
 #[cfg(target_os = "linux")]
 pub mod protected_state;
+#[cfg(target_os = "linux")]
+pub mod recovery_gate;
 pub mod runtime;
 mod runtime_paths;
 
@@ -21,9 +85,11 @@ use std::os::fd::{AsFd, AsRawFd};
 use rustix::net::sockopt::socket_peercred;
 use serde::{Deserialize, Serialize};
 
-pub const PROTOCOL_VERSION: u16 = 1;
+pub const PROTOCOL_VERSION: u16 = 3;
 pub const MAX_REQUEST_BYTES: usize = 64 * 1024;
 pub const MAX_JOURNAL_LINE_BYTES: usize = 16 * 1024;
+const LEGACY_JOURNAL_VERSION: u16 = 1;
+const MUTATION_JOURNAL_VERSION: u16 = 2;
 const MAX_OPERATION_ID_BYTES: usize = 96;
 
 /// Opaque client correlation identifier with a bounded, printable alphabet.
@@ -62,7 +128,23 @@ impl TryFrom<String> for RequestId {
 pub enum Request {
     Discover,
     GetOperation { operation_id: OperationId },
+    GetLocalProfile,
+    SetLocalProfile { settings: ryoku_profiles::SettingsLayer },
+    MigrateLegacyLocalProfile,
+    VerifyLinkedCheckpoint { transaction_id: String, generation_id: String },
     Start { action: ManagedAction },
+}
+
+impl Request {
+    fn validate(&self) -> Result<(), ProtocolError> {
+        if let Self::VerifyLinkedCheckpoint { transaction_id, generation_id } = self
+            && (ryoku_recovery::Identifier::new(transaction_id.clone()).is_err()
+                || ryoku_recovery::Identifier::new(generation_id.clone()).is_err())
+        {
+            return Err(ProtocolError::Malformed("invalid recovery reference"));
+        }
+        Ok(())
+    }
 }
 
 /// Only named product operations can cross the service boundary.
@@ -163,6 +245,8 @@ pub struct Envelope {
 pub enum ResponseBody {
     Discovery(Discovery),
     Operation(OperationStatus),
+    LocalProfile(ryoku_profiles::ProfileDocument),
+    LinkedCheckpoint(crate::helper_protocol::VerifiedLinkedCheckpoint),
     Accepted { operation_id: OperationId },
     Error(ServiceError),
 }
@@ -326,6 +410,7 @@ pub fn read_envelope(reader: &mut impl BufRead) -> Result<Envelope, ProtocolErro
     if envelope.version != PROTOCOL_VERSION {
         return Err(ProtocolError::UnsupportedVersion(envelope.version));
     }
+    envelope.request.validate()?;
     Ok(envelope)
 }
 
@@ -341,31 +426,31 @@ pub enum HelperRequest {
     },
     VerifyLinkedCheckpoint {
         transaction_id: String,
-        manifest_id: String,
+        generation_id: String,
     },
     ApplyPackageTransaction {
         transaction_id: String,
-        manifest_id: String,
+        generation_id: String,
         packages: Vec<PackageId>,
     },
     RestoreCheckpoint {
         transaction_id: String,
-        manifest_id: String,
+        generation_id: String,
         checkpoint_id: CheckpointId,
     },
 }
 
 impl HelperRequest {
     pub fn validate(&self) -> Result<(), ProtocolError> {
-        let (transaction, manifest) = match self {
+        let (transaction, generation) = match self {
             Self::CheckAvailability { .. } => return Ok(()),
-            Self::VerifyLinkedCheckpoint { transaction_id, manifest_id }
-            | Self::ApplyPackageTransaction { transaction_id, manifest_id, .. }
-            | Self::RestoreCheckpoint { transaction_id, manifest_id, .. } => {
-                (transaction_id, manifest_id)
+            Self::VerifyLinkedCheckpoint { transaction_id, generation_id }
+            | Self::ApplyPackageTransaction { transaction_id, generation_id, .. }
+            | Self::RestoreCheckpoint { transaction_id, generation_id, .. } => {
+                (transaction_id, generation_id)
             }
         };
-        if !valid_token(transaction, 96) || !valid_token(manifest, 96) {
+        if !valid_token(transaction, 96) || !valid_token(generation, 96) {
             return Err(ProtocolError::Malformed("invalid helper reference"));
         }
         if let Self::ApplyPackageTransaction { packages, .. } = self {
@@ -519,6 +604,11 @@ fn parse_operator_group_gid(contents: &str) -> Result<u32, ProtocolError> {
 pub struct OperationJournal {
     file: File,
     current: BTreeMap<OperationId, OperationStatus>,
+    mutations: BTreeMap<OperationId, mutation_gate::MutationContext>,
+    protected: Option<protected_operation_journal::JournalNamespace>,
+    // A failed append may have written a partial record, or a failed sync may
+    // have an uncertain durable result. Do not append again until replay has
+    // established the canonical on-disk state.
     write_failed: bool,
 }
 
@@ -527,27 +617,22 @@ pub struct OperationJournal {
 struct JournalRecord {
     version: u16,
     status: OperationStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    mutation: Option<mutation_gate::MutationContext>,
 }
 
 impl OperationJournal {
     pub fn open(file: File) -> Result<Self, JournalError> {
-        Self::open_with_sync(file, File::sync_all)
-    }
-
-    fn open_with_sync(
-        file: File,
-        mut sync: impl FnMut(&File) -> std::io::Result<()>,
-    ) -> Result<Self, JournalError> {
         use std::io::{Seek, SeekFrom};
         let mut current = BTreeMap::new();
+        let mut mutations = BTreeMap::new();
         let mut reader = BufReader::new(file.try_clone().map_err(|_| JournalError::Io)?);
         reader.seek(SeekFrom::Start(0)).map_err(|_| JournalError::Io)?;
         let mut line = Vec::new();
         let mut valid_len = 0u64;
         loop {
             line.clear();
-            let count = reader
-                .by_ref()
+            let count = Read::by_ref(&mut reader)
                 .take((MAX_JOURNAL_LINE_BYTES + 1) as u64)
                 .read_until(b'\n', &mut line)
                 .map_err(|_| JournalError::Io)?;
@@ -559,62 +644,125 @@ impl OperationJournal {
             }
             if line.last() != Some(&b'\n') {
                 file.set_len(valid_len).map_err(|_| JournalError::Io)?;
+                file.sync_all().map_err(|_| JournalError::Io)?;
                 break;
             }
             let record: JournalRecord = serde_json::from_slice(&line[..line.len() - 1])
                 .map_err(|_| JournalError::Corrupt)?;
-            if record.version != PROTOCOL_VERSION {
+            if !matches!(record.version, LEGACY_JOURNAL_VERSION | MUTATION_JOURNAL_VERSION) {
                 return Err(JournalError::UnsupportedVersion(record.version));
             }
-            validate_transition(current.get(&record.status.operation_id), &record.status)?;
+            if (record.version == MUTATION_JOURNAL_VERSION) != record.mutation.is_some() {
+                return Err(JournalError::Corrupt);
+            }
+            validate_journal_record(
+                current.get(&record.status.operation_id),
+                mutations.get(&record.status.operation_id),
+                &record.status,
+                record.mutation.as_ref(),
+            )?;
+            if let Some(context) = record.mutation {
+                mutations.insert(record.status.operation_id.clone(), context);
+            }
             current.insert(record.status.operation_id.clone(), record.status);
             valid_len = valid_len.saturating_add(count as u64);
         }
-        // Readable complete records may still be in the page cache after an
-        // earlier failed sync. Establish durability before publishing replayed
-        // state, including on process restart and after truncating a torn tail.
-        sync(&file).map_err(|_| JournalError::Io)?;
-        Ok(Self { file, current, write_failed: false })
+        Ok(Self { file, current, mutations, protected: None, write_failed: false })
     }
 
     pub fn get(&self, id: &OperationId) -> Option<&OperationStatus> {
         self.current.get(id)
     }
 
-    pub(crate) fn refresh_after_write_failure(&mut self) -> Result<(), JournalError> {
-        self.refresh_with_sync(File::sync_all)
+    /// Detailed historical association; this never authorizes replay/apply.
+    pub fn mutation_context(&self, id: &OperationId) -> Option<&mutation_gate::MutationContext> {
+        self.mutations.get(id)
     }
 
-    fn refresh_with_sync(
-        &mut self,
-        sync: impl FnMut(&File) -> std::io::Result<()>,
-    ) -> Result<(), JournalError> {
+    /// Reopen under the existing coordinator lock before accepting new work.
+    /// This refresh prevents a process from using a stale pre-lock journal view.
+    pub(crate) fn refresh(&mut self) -> Result<(), JournalError> {
+        if let Some(namespace) = &self.protected {
+            namespace.revalidate(&self.file)?;
+        }
+        let mut refreshed = Self::open(self.file.try_clone().map_err(|_| JournalError::Io)?)?;
+        refreshed.protected = self.protected.take();
+        *self = refreshed;
+        Ok(())
+    }
+
+    /// Resolve an uncertain previous append before answering requests from the
+    /// cached in-memory view. The service calls this before dispatch, so a
+    /// reconnect observes replayed durable state or receives a recovery error.
+    pub(crate) fn refresh_after_write_failure(&mut self) -> Result<(), JournalError> {
         if self.write_failed {
-            *self =
-                Self::open_with_sync(self.file.try_clone().map_err(|_| JournalError::Io)?, sync)?;
+            self.refresh()?;
         }
         Ok(())
     }
+
     #[cfg(test)]
     pub(crate) fn simulate_uncertain_write_failure(&mut self) {
         self.write_failed = true;
     }
-    pub fn record(&mut self, status: OperationStatus) -> Result<(), JournalError> {
-        self.record_with_sync(status, File::sync_all)
+
+    /// Unfinished work and failures that may have changed state require explicit
+    /// reconciliation. Legacy records retain their status but provide no missing
+    /// checkpoint proof; legacy failed operations are conservatively unresolved.
+    pub fn recovery_required(&self) -> Vec<&OperationStatus> {
+        self.current
+            .values()
+            .filter(|status| match status.phase {
+                OperationPhase::Succeeded => false,
+                OperationPhase::Failed => !matches!(
+                    self.mutations.get(&status.operation_id).and_then(|context| context.outcome),
+                    Some(
+                        mutation_gate::MutationOutcome::FailedBeforeChange
+                            | mutation_gate::MutationOutcome::CancelledBeforeChange
+                    )
+                ),
+                _ => true,
+            })
+            .collect()
     }
 
-    fn record_with_sync(
+    pub fn record(&mut self, status: OperationStatus) -> Result<(), JournalError> {
+        self.record_inner(status, None)
+    }
+
+    pub(crate) fn record_mutation(
         &mut self,
         status: OperationStatus,
-        mut sync: impl FnMut(&File) -> std::io::Result<()>,
+        context: mutation_gate::MutationContext,
+    ) -> Result<(), JournalError> {
+        self.record_inner(status, Some(context))
+    }
+
+    fn record_inner(
+        &mut self,
+        status: OperationStatus,
+        mutation: Option<mutation_gate::MutationContext>,
     ) -> Result<(), JournalError> {
         if self.write_failed {
             return Err(JournalError::Io);
         }
-        validate_transition(self.current.get(&status.operation_id), &status)?;
+        if let Some(namespace) = &self.protected {
+            namespace.revalidate(&self.file)?;
+        }
+        validate_journal_record(
+            self.current.get(&status.operation_id),
+            self.mutations.get(&status.operation_id),
+            &status,
+            mutation.as_ref(),
+        )?;
         let mut record = serde_json::to_vec(&JournalRecord {
-            version: PROTOCOL_VERSION,
+            version: if mutation.is_some() {
+                MUTATION_JOURNAL_VERSION
+            } else {
+                LEGACY_JOURNAL_VERSION
+            },
             status: status.clone(),
+            mutation: mutation.clone(),
         })
         .map_err(|_| JournalError::Io)?;
         if record.len() + 1 > MAX_JOURNAL_LINE_BYTES {
@@ -623,13 +771,40 @@ impl OperationJournal {
         record.push(b'\n');
         use std::io::{Seek, SeekFrom};
         self.file.seek(SeekFrom::End(0)).map_err(|_| JournalError::Io)?;
-        if self.file.write_all(&record).is_err() || sync(&self.file).is_err() {
+        if self.file.write_all(&record).is_err() || self.file.sync_all().is_err() {
             self.write_failed = true;
             return Err(JournalError::Io);
+        }
+        if let Some(context) = mutation {
+            self.mutations.insert(status.operation_id.clone(), context);
         }
         self.current.insert(status.operation_id.clone(), status);
         Ok(())
     }
+}
+
+fn validate_journal_record(
+    previous: Option<&OperationStatus>,
+    old_context: Option<&mutation_gate::MutationContext>,
+    next: &OperationStatus,
+    context: Option<&mutation_gate::MutationContext>,
+) -> Result<(), JournalError> {
+    let valid = match (context, old_context, previous) {
+        (None, None, _) => return validate_transition(previous, next),
+        (Some(context), None, None) => context.initial() && context.valid_for(next),
+        (Some(context), Some(old_context), Some(previous)) => {
+            let progressed_in_place = context == old_context
+                && old_context.stage != mutation_gate::MutationStage::Complete
+                && old_context.outcome.is_none()
+                && previous.phase == next.phase
+                && valid_progress_update(previous.progress.as_ref(), next.progress.as_ref());
+            previous.action == next.action
+                && context.valid_for(next)
+                && (context.follows(old_context) || progressed_in_place)
+        }
+        _ => false,
+    };
+    if valid { Ok(()) } else { Err(JournalError::InvalidTransition) }
 }
 
 fn validate_transition(
@@ -741,28 +916,72 @@ pub fn helper_action_available(_request: &HelperRequest) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::os::unix::net::UnixStream;
 
     #[test]
     fn versioned_request_round_trips_and_rejects_unknown_fields() {
         let env = Envelope {
-            version: 1,
+            version: PROTOCOL_VERSION,
             request_id: RequestId::new("req-1").unwrap(),
             request: Request::Discover,
         };
         let mut json = serde_json::to_vec(&env).unwrap();
         json.push(b'\n');
         assert_eq!(read_envelope(&mut json.as_slice()).unwrap(), env);
-        let bad = br#"{"version":1,"request_id":"r","request":{"type":"discover"},"extra":true}
+        let bad = br#"{"version":3,"request_id":"r","request":{"type":"discover"},"extra":true}
 "#;
         assert!(read_envelope(&mut bad.as_slice()).is_err());
         let malformed_id =
-            br#"{"version":1,"request_id":"../outside","request":{"type":"discover"}}
+            br#"{"version":3,"request_id":"../outside","request":{"type":"discover"}}
 "#;
         assert!(read_envelope(&mut malformed_id.as_slice()).is_err());
-        let malformed_package = br#"{"version":1,"request_id":"r","request":{"type":"start","data":{"action":{"type":"install_package","data":{"package":"../outside"}}}}}
+        let malformed_package = br#"{"version":3,"request_id":"r","request":{"type":"start","data":{"action":{"type":"install_package","data":{"package":"../outside"}}}}}
 "#;
         assert!(read_envelope(&mut malformed_package.as_slice()).is_err());
+        let invalid_recovery_reference = Envelope {
+            version: PROTOCOL_VERSION,
+            request_id: RequestId::new("req-2").unwrap(),
+            request: Request::VerifyLinkedCheckpoint {
+                transaction_id: "../other-user".into(),
+                generation_id: "generation-1".into(),
+            },
+        };
+        assert!(matches!(
+            invalid_recovery_reference.request.validate(),
+            Err(ProtocolError::Malformed("invalid recovery reference"))
+        ));
+    }
+
+    #[test]
+    fn local_profile_protocol_is_typed_and_rejects_unknown_setting_fields() {
+        let settings = ryoku_profiles::SettingsLayer {
+            desktop: Some(ryoku_profiles::Desktop::Kde),
+            theme: Some(ryoku_profiles::Theme::System),
+            density: Some(ryoku_profiles::Density::Compact),
+        };
+        let envelope = Envelope {
+            version: PROTOCOL_VERSION,
+            request_id: RequestId::new("profile-1").unwrap(),
+            request: Request::SetLocalProfile { settings },
+        };
+        let mut frame = serde_json::to_vec(&envelope).unwrap();
+        frame.push(b'\n');
+        assert_eq!(read_envelope(&mut frame.as_slice()).unwrap(), envelope);
+
+        let malformed = br#"{"version":3,"request_id":"profile-2","request":{"type":"set_local_profile","data":{"settings":{"desktop":"kde","shell":"arbitrary"}}}}
+"#;
+        assert!(matches!(
+            read_envelope(&mut malformed.as_slice()),
+            Err(ProtocolError::Malformed(_))
+        ));
+
+        let migration = Envelope {
+            version: PROTOCOL_VERSION,
+            request_id: RequestId::new("profile-migrate-1").unwrap(),
+            request: Request::MigrateLegacyLocalProfile,
+        };
+        let mut frame = serde_json::to_vec(&migration).unwrap();
+        frame.push(b'\n');
+        assert_eq!(read_envelope(&mut frame.as_slice()).unwrap(), migration);
     }
 
     #[test]
@@ -782,13 +1001,13 @@ mod tests {
     fn helper_language_has_no_arbitrary_command_fields_and_validates_ids() {
         let request = HelperRequest::ApplyPackageTransaction {
             transaction_id: "txn-1".into(),
-            manifest_id: "manifest-1".into(),
+            generation_id: "generation-1".into(),
             packages: vec![PackageId::new("firefox").unwrap()],
         };
         assert!(request.validate().is_ok());
         let bad = HelperRequest::VerifyLinkedCheckpoint {
             transaction_id: "../escape".into(),
-            manifest_id: "m".into(),
+            generation_id: "m".into(),
         };
         assert!(bad.validate().is_err());
         assert!(!helper_action_available(&request));
@@ -796,7 +1015,7 @@ mod tests {
 
     #[test]
     fn peer_auth_uses_kernel_credentials_and_rejects_root_identity_config() {
-        let (a, _b) = UnixStream::pair().unwrap();
+        let (a, _b) = crate::test_unix_pair_or_skip!();
         let peer = PeerIdentity::from_unix_socket(&a).unwrap();
         assert_eq!(peer.uid(), rustix::process::geteuid().as_raw());
         assert!(authorize_helper_peer(&peer, peer.uid()).is_ok());
@@ -890,135 +1109,97 @@ mod tests {
     }
 
     #[test]
-    fn complete_record_after_failed_sync_requires_successful_sync_before_replay() {
-        let path = std::env::temp_dir().join(format!("ryoku-sync-failure-{}", std::process::id()));
-        let file = std::fs::OpenOptions::new()
-            .create_new(true)
-            .read(true)
-            .write(true)
-            .open(&path)
-            .unwrap();
-        let mut journal = OperationJournal::open(file).unwrap();
-        let accepted = OperationStatus {
-            operation_id: OperationId::new("uncertain-sync").unwrap(),
-            action: ManagedActionKind::CreateCheckpoint,
-            phase: OperationPhase::Accepted,
-            progress: None,
-            error: None,
-        };
-        journal.record(accepted.clone()).unwrap();
-        let capturing = OperationStatus { phase: OperationPhase::Capturing, ..accepted.clone() };
-        let fail_sync = |_: &File| Err(std::io::Error::other("injected sync failure"));
-        assert_eq!(journal.record_with_sync(capturing.clone(), fail_sync), Err(JournalError::Io));
-        let bytes = std::fs::read(&path).unwrap();
-        assert_eq!(bytes.last(), Some(&b'\n'));
-        assert_eq!(journal.get(&accepted.operation_id), Some(&accepted));
-        for _ in 0..2 {
-            assert_eq!(journal.refresh_with_sync(fail_sync), Err(JournalError::Io));
-            assert!(journal.write_failed);
-            assert_eq!(journal.get(&accepted.operation_id), Some(&accepted));
-            assert_eq!(journal.record(capturing.clone()), Err(JournalError::Io));
-        }
-        // A fresh process must also establish durability, not trust readable bytes.
-        assert!(matches!(
-            OperationJournal::open_with_sync(File::open(&path).unwrap(), fail_sync),
-            Err(JournalError::Io)
-        ));
-        journal.refresh_with_sync(File::sync_all).unwrap();
-        assert!(!journal.write_failed);
-        assert_eq!(journal.get(&accepted.operation_id), Some(&capturing));
-        journal.record(OperationStatus { phase: OperationPhase::Applying, ..capturing }).unwrap();
-        drop(journal);
-        std::fs::remove_file(path).unwrap();
-    }
+    fn journal_persists_monotonic_progress_updates_within_active_phases() {
+        use crate::mutation_gate::{MutationContext, MutationStage, PlannedChange};
+        use std::io::{Seek, SeekFrom};
 
-    #[test]
-    fn failed_append_poison_is_set_by_actual_io_error() {
         let path =
-            std::env::temp_dir().join(format!("ryoku-readonly-journal-{}", std::process::id()));
-        std::fs::write(&path, []).unwrap();
-        let mut journal = OperationJournal::open(File::open(&path).unwrap()).unwrap();
-        let status = OperationStatus {
-            operation_id: OperationId::new("cannot-write").unwrap(),
-            action: ManagedActionKind::CreateCheckpoint,
-            phase: OperationPhase::Accepted,
-            progress: None,
-            error: None,
-        };
-        assert_eq!(journal.record(status.clone()), Err(JournalError::Io));
-        assert!(journal.write_failed);
-        assert_eq!(journal.get(&status.operation_id), None);
-        assert_eq!(journal.record(status), Err(JournalError::Io));
-        assert_eq!(std::fs::metadata(&path).unwrap().len(), 0);
-        drop(journal);
-        std::fs::remove_file(path).unwrap();
-    }
-
-    #[test]
-    fn journal_rejects_regressing_progress_without_changing_disk() {
-        let path = std::env::temp_dir().join(format!("ryoku-progress-{}", std::process::id()));
+            std::env::temp_dir().join(format!("ryoku-journal-progress-{}", std::process::id()));
         let file = std::fs::OpenOptions::new()
-            .create_new(true)
+            .create(true)
+            .truncate(true)
             .read(true)
             .write(true)
             .open(&path)
             .unwrap();
+        let id = OperationId::new("progress-op").unwrap();
         let mut journal = OperationJournal::open(file).unwrap();
-        let mut status = OperationStatus {
-            operation_id: OperationId::new("progress").unwrap(),
-            action: ManagedActionKind::CreateCheckpoint,
-            phase: OperationPhase::Accepted,
-            progress: None,
+        let plan = PlannedChange {
+            operation_key: "package-install".into(),
+            plan_fingerprint: "a".repeat(64),
+            affected_state_fingerprint: "b".repeat(64),
+        };
+        let mut context = MutationContext {
+            plan,
+            checkpoint: None,
+            post_checkpoint: None,
+            stage: MutationStage::Preflight,
+            outcome: None,
+        };
+        journal
+            .record_mutation(
+                OperationStatus {
+                    operation_id: id.clone(),
+                    action: ManagedActionKind::InstallPackage,
+                    phase: OperationPhase::Accepted,
+                    progress: None,
+                    error: None,
+                },
+                context.clone(),
+            )
+            .unwrap();
+        context.stage = MutationStage::Capturing;
+        journal
+            .record_mutation(
+                OperationStatus {
+                    operation_id: id.clone(),
+                    action: ManagedActionKind::InstallPackage,
+                    phase: OperationPhase::Capturing,
+                    progress: Some(Progress { completed: 0, total: None }),
+                    error: None,
+                },
+                context.clone(),
+            )
+            .unwrap();
+        let progress = OperationStatus {
+            operation_id: id.clone(),
+            action: ManagedActionKind::InstallPackage,
+            phase: OperationPhase::Capturing,
+            progress: Some(Progress { completed: 1, total: Some(2) }),
             error: None,
         };
-        journal.record(status.clone()).unwrap();
-        status.phase = OperationPhase::Capturing;
-        status.progress = Some(Progress { completed: 1, total: Some(3) });
-        journal.record(status.clone()).unwrap();
+        journal.record_mutation(progress.clone(), context.clone()).unwrap();
+
         let length = std::fs::metadata(&path).unwrap().len();
-        for progress in [
+        for invalid in [
+            Some(Progress { completed: 0, total: Some(2) }),
+            Some(Progress { completed: 1, total: Some(2) }),
+            Some(Progress { completed: 2, total: Some(3) }),
             None,
-            Some(Progress { completed: 0, total: Some(3) }),
-            Some(Progress { completed: 2, total: Some(4) }),
-            Some(Progress { completed: 2, total: None }),
         ] {
             assert_eq!(
-                journal.record(OperationStatus { progress, ..status.clone() }),
+                journal.record_mutation(
+                    OperationStatus {
+                        operation_id: id.clone(),
+                        action: ManagedActionKind::InstallPackage,
+                        phase: OperationPhase::Capturing,
+                        progress: invalid,
+                        error: None,
+                    },
+                    context.clone(),
+                ),
                 Err(JournalError::InvalidTransition)
             );
         }
         assert_eq!(std::fs::metadata(&path).unwrap().len(), length);
         drop(journal);
+
+        let mut file = std::fs::OpenOptions::new().read(true).write(true).open(&path).unwrap();
+        file.seek(SeekFrom::Start(0)).unwrap();
+        let reopened = OperationJournal::open(file).unwrap();
+        assert_eq!(reopened.get(&id), Some(&progress));
+        assert_eq!(reopened.mutation_context(&id), Some(&context));
         std::fs::remove_file(path).unwrap();
-    }
-
-    #[test]
-    fn journal_rejects_success_when_the_last_verification_total_is_incomplete() {
-        let id = OperationId::new("incomplete-final-progress").unwrap();
-        let verifying = OperationStatus {
-            operation_id: id.clone(),
-            action: ManagedActionKind::RestoreCheckpoint,
-            phase: OperationPhase::Verifying,
-            progress: Some(Progress { completed: 2, total: Some(3) }),
-            error: None,
-        };
-        let succeeded = OperationStatus {
-            operation_id: id.clone(),
-            action: ManagedActionKind::RestoreCheckpoint,
-            phase: OperationPhase::Succeeded,
-            progress: None,
-            error: None,
-        };
-        assert_eq!(
-            validate_transition(Some(&verifying), &succeeded),
-            Err(JournalError::InvalidTransition)
-        );
-
-        let completed = OperationStatus {
-            progress: Some(Progress { completed: 3, total: Some(3) }),
-            ..verifying.clone()
-        };
-        assert_eq!(validate_transition(Some(&completed), &succeeded), Ok(()));
     }
 
     #[test]
@@ -1092,6 +1273,35 @@ mod tests {
     }
 
     #[test]
+    fn journal_rejects_success_when_the_last_verification_total_is_incomplete() {
+        let id = OperationId::new("incomplete-final-progress").unwrap();
+        let verifying = OperationStatus {
+            operation_id: id.clone(),
+            action: ManagedActionKind::RestoreCheckpoint,
+            phase: OperationPhase::Verifying,
+            progress: Some(Progress { completed: 2, total: Some(3) }),
+            error: None,
+        };
+        let succeeded = OperationStatus {
+            operation_id: id.clone(),
+            action: ManagedActionKind::RestoreCheckpoint,
+            phase: OperationPhase::Succeeded,
+            progress: None,
+            error: None,
+        };
+        assert_eq!(
+            validate_transition(Some(&verifying), &succeeded),
+            Err(JournalError::InvalidTransition)
+        );
+
+        let completed = OperationStatus {
+            progress: Some(Progress { completed: 3, total: Some(3) }),
+            ..verifying.clone()
+        };
+        assert_eq!(validate_transition(Some(&completed), &succeeded), Ok(()));
+    }
+
+    #[test]
     fn journal_discards_only_a_torn_final_record() {
         use std::io::Write as _;
         let path = std::env::temp_dir().join(format!("ryoku-journal-torn-{}", std::process::id()));
@@ -1113,7 +1323,12 @@ mod tests {
         writeln!(
             file,
             "{}",
-            serde_json::to_string(&JournalRecord { version: 1, status: status.clone() }).unwrap()
+            serde_json::to_string(&JournalRecord {
+                version: 1,
+                status: status.clone(),
+                mutation: None
+            })
+            .unwrap()
         )
         .unwrap();
         file.write_all(b"{\"version\":1,\"status\":").unwrap();

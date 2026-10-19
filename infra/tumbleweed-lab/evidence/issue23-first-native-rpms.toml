@@ -1,0 +1,90 @@
+schema = 1
+date = "2026-10-16"
+issue = 23
+runner = "ordinary-user native rpmbuild in the retained signed Tumbleweed 20261013 guest; independent read-only artifact inspection on host"
+source = "f596630cf3bc626bc46466a20b81f73a9e6f898a"
+source_archive_sha256 = "e697fb8fe0c992ba7dc6687c895db5f34a30d0a530ac089b63dc9e62225fada5"
+vendor_archive_sha256 = "37e07449436648ebfe54d9da92bb785c52b636691966bda3690f652af31dd7ec"
+cargo_lock_sha256 = "62d167a989cd85865ea38dc31e6fcdf982600d55150f0c1d4be8cdaf85545061"
+rpm_build = "4.20.1-11.1"
+scope = "first two native RPM builds, exact artifact ownership/dependency/scriptlet/sysusers inspection and native systemd trigger query; no package installation, conflict resolution, authorization or full desktop acceptance"
+frozen_inputs_preserved = true
+guest_actions_by_inspector = "none"
+
+[helper]
+rpm = "ryoku-helper-0.1.0-1.x86_64.rpm"
+rpm_sha256 = "344ba9457c24101949fbd29f2482d8571156e34a8affdd72401bb4e929a39937"
+rpm_bytes = 501974
+build_exit = 0
+build_log_sha256 = "d045e1a0a6cb4544b9dd1ddade5d707fe743edfdf30182d1f4e78db2b8c6e006"
+provides = ["ryoku-helper = 0.1.0-1", "ryoku-helper(x86-64) = 0.1.0-1"]
+requires = "systemd; rpm >= 4.19; native x86_64 dynamic loader, libc with required GLIBC symbol versions through 2.34, libgcc_s; RPM payload format capabilities"
+files = 11
+ownership = "all root:root; binaries and directories 0755, units/sysusers/docs/license 0644"
+runtime_payload = ["/usr/libexec/ryoku/ryoku-helper", "/usr/libexec/ryoku/ryoku-service", "/usr/lib/systemd/system/ryoku-helper.service", "/usr/lib/systemd/system/ryoku-helper.socket", "/usr/lib/systemd/user/ryoku-service.service", "/usr/lib/sysusers.d/ryoku.conf"]
+helper_binary_sha256 = "910318a2932b6407559b0915f0e3c8f7b8d9524d455bc334161b8c8a554d6eae"
+service_binary_sha256 = "fdd0eb5e59be69da70c367645e87dc6bf089e06b4fc144551880066ff9ec2e53"
+helper_service_sha256 = "337a1fc1f19dacac32d7eb0f1ba8510a9886f61f9968e30ed01a4c041b818059"
+helper_socket_sha256 = "038ab53971e84a6875ef11384efb24e22a8b648cb5322a7ae412baa360a5d2dc"
+user_service_sha256 = "37dede8d31e21483bb4ec0097c8f5b793fc6f13bfaa537f2503b1954f929294b"
+file_digest_algorithm = 8
+scriptlets = "all pre/post/preun/postun/pretrans/posttrans/preuntrans/postuntrans/verify fields absent"
+triggers = "all package, file and transaction-file trigger fields absent"
+file_capabilities = "none"
+set_id_files = "none"
+mutable_system_or_home_payload = "none; no /etc, /var, /run or /home package-owned files"
+integrity = "rpm -Kv header SHA-256/SHA-1, payload SHA-256 and MD5 checks passed; unsigned experimental artifact, no PGP/GPG signature"
+
+[defaults]
+rpm = "ryoku-profile-defaults-0.1.0-1.noarch.rpm"
+rpm_sha256 = "dc14d141e5eb6fcb94d2f59011b6a686dfae043b8ddb2b45be21df4eebbbd5e4"
+rpm_bytes = 19608
+build_exit = 0
+build_log_sha256 = "21dac26c6eb9efd2cc7021dbd16397e37158caf7f07b1be374241ad29d2840a7"
+provides = ["ryoku-profile-defaults = 0.1.0-1"]
+requires = "RPM payload format capabilities only; no executable runtime dependencies"
+files = 7
+payload = "/usr/share/ryoku/config/profile.json; 123 bytes; regular file root:root 0644; both runtime parent directories root:root 0755"
+payload_sha256 = "605ac095a781ee4b3908272591f15b56f3a9f5d9a251e177e7d60dbbade02ba5"
+payload_inspection = "rpm2cpio/cpio read of exact payload bytes matches generic schema-1 Hyprland/ryoku_dark/comfortable document"
+file_digest_algorithm = 8
+scriptlets = "all pre/post/preun/postun/pretrans/posttrans/preuntrans/postuntrans/verify fields absent"
+triggers = "all package, file and transaction-file trigger fields absent"
+file_capabilities = "none"
+set_id_files = "none"
+mutable_system_or_home_payload = "none"
+integrity = "rpm -Kv header SHA-256/SHA-1, payload SHA-256 and MD5 checks passed; unsigned experimental artifact, no PGP/GPG signature"
+
+[sysusers]
+packaged_file = "/usr/lib/sysusers.d/ryoku.conf"
+packaged_sha256 = "a2ab330c2b6f38cc20b4a6060cadc7f0a1caf54d66be633a66e579276385b8a9"
+declaration = "g ryoku-operators - -"
+declared_users = 0
+declared_groups = ["ryoku-operators"]
+declared_memberships = 0
+native_rpm_sysusers_header_entries = 0
+native_guest_trigger = "systemd-owned transfiletriggerin for /usr/lib/sysusers.d invokes systemd-sysusers when posix.access(/run/systemd/system) succeeds; runs after transaction, skips offline updates"
+native_guest_trigger_query_log_sha256 = "fc9b67c395d4acea0c3c38522a5f37e08767f34e5e5979e4c02e417cacf60b41"
+socket_policy = "/run/ryoku/helper.sock; root:ryoku-operators; 0660; DirectoryMode 0755; installed unit has no package activation hook"
+group_creation = "not validated: retained fixture already has the group; direct RPM before-unpack creation is not claimed"
+offline_install_and_boot = "not validated; native boot service conditions remain a separate gate"
+
+[empty_debugsource]
+rpm = "ryoku-helper-debugsource-0.1.0-1.x86_64.rpm"
+rpm_sha256 = "2c3c0abf678fbc03a8b47a921843564bcc8927d8561491e4a695f9c56c754fcb"
+rpm_bytes = 6089
+files = 0
+runtime_dependencies = "RPM payload format capabilities only; main helper RPM has no dependency on this artifact"
+scripts_and_triggers = "none"
+observed_cause = "native find-debuginfo reported both release executables already stripped and extracted debug info from zero files; native debugsource template still emitted an empty RPM"
+handling = "preserve original evidence and omit from explicit runtime install allowlist; review debug policy across all completed builds before a separate source change; do not suppress all debuginfo generation blindly"
+
+[remaining_gates]
+package_set_build = "Quickshell, desktop/runtime/fonts and tools outputs still pending at this evidence cut"
+clean_dependency_resolution = "pending native complete-package transaction review"
+installation_removal = "not performed for these artifacts"
+sysusers_clean_creation = "pending isolated clean-install evidence"
+installed_default_verification = "not claimed by package-header inspection"
+path_conflicts = "no cross-package conflict between these two RPM file lists; conflicts with existing guest/manual files remain unvalidated"
+signatures = "not a signed release package set"
+issue_status = "open; evidence does not close issue 23 or prerequisite acceptance gates"

@@ -1,0 +1,163 @@
+# Disposable real Ryoku runtime dependency closure; no executable upstream edits.
+schema_version = 1
+source_repository = "https://github.com/Ryoku-dev/ryoku"
+source_revision = "98a0368253d9628be72b853985878a5db90e1547"
+source_tree = "49cf710dea4a8bc2c5aa2c4b524be46c5c9a2cff"
+source_license = "GPL-3.0"
+production_payload_root = "/usr/share/ryoku-opensuse/upstream"
+compiled_plugin = "qml/Ryoku/Blobs"
+plugin_source = "native/ryoku-blobs"
+plugin_status = "source retained unchanged; native Qt build and shell loading passed in issue14 runtime evidence; rebuild against the guest native Qt before a new launch"
+repository_snapshot = "20261013"
+repository_repomd_sha256 = "c64c293f246a439f0b5e1881fe8adfc980ca44420a84935f31e223949810daa4"
+repository_primary_sha512 = "55cd766fd1a01ac7cd7070158e06c9e9caf391e6b6fd594e5fd500978c41e2379aefcde492f93945243fcdaf14a9abdeb1bd3871711d8bb4bc321174233dc11d"
+guest_packages = ["cmake", "ninja", "gcc-c++", "qt6-base-devel", "qt6-declarative-devel", "qt6-shadertools-devel", "qt6-multimedia-devel", "qt6-declarative-imports", "qt6-multimedia-imports", "qt6-qt5compat-imports", "kf6-syntax-highlighting", "google-noto-sans-cjk-fonts"]
+
+[quickshell]
+repository = "https://github.com/quickshell-mirror/quickshell"
+canonical_host = "https://git.outfoxxed.me/quickshell/quickshell"
+revision = "4f508be500dea6e5732cc3d50382a0048b17e7b1"
+tree = "382743e55b82f3b5837eca36b8158e79c61c319a"
+version = "0.3.2"
+license = "LGPL-3.0"
+source_archive = "issue14-quickshell-0.3.2.tar.gz"
+source_archive_sha256 = "5e8a7b7a1a1e40de641ee6cfd24f40aa612e13c27353e5746fc79b2861ca9fd0"
+source_archive_bytes = 501700
+install_prefix = "/usr/libexec/ryoku/quickshell"
+launcher = "/usr/libexec/ryoku/quickshell/bin/qs"
+prototype_install_prefix = "/usr/local/ryoku-quickshell"
+native_qt_version = "6.11.2"
+feature_policy = "unchanged upstream defaults; all required UI modules enabled; no source patches or vendored build downloads"
+build_packages = ["pkgconf", "cli11-devel", "cpptrace-devel", "jemalloc-devel", "libdrm-devel", "libgbm-devel", "Mesa-libEGL-devel", "vulkan-headers", "wayland-devel", "wayland-protocols-devel", "libxcb-devel", "pipewire-devel", "pam-devel", "polkit-devel", "glib2-devel", "qt6-quick-private-devel", "qt6-waylandclient-private-devel", "qt6-gui-private-devel", "spirv-tools-devel"]
+rejected_runtime = "official Tumbleweed noctalia-qs 0.0.12-2.5"
+rejection_evidence = "native launch exited immediately: Unrecognized pragma DefaultEnv QSG_RENDER_LOOP=threaded"
+source_audit = "all retained DefaultEnv and UseQApplication pragmas, 11 imported Quickshell modules, and used critical singleton/IO/window APIs inspected; actual native shell/launcher loading and typed service-provider rows passed, full Hub/control compatibility unproven"
+payload_note = "the initial preserved Ryoku/font payload and its preliminary RUNTIME.md remain byte-identical; this repository manifest supersedes its Noctalia candidate"
+
+[[source_exports]]
+source = "ryoku/shell/quickshell"
+payload = "shell/quickshell"
+
+[[source_exports]]
+source = "ryoku/hub/quickshell"
+payload = "hub/quickshell"
+
+[[source_exports]]
+source = "ryoku/ui"
+payload = "qml/Ryoku/Ui"
+
+[[source_exports]]
+source = "ryoku/shell/framebars"
+payload = "qml/Ryoku/FrameBars"
+
+[[source_exports]]
+source = "ryoku/shell/quickshell/plugins/kit"
+payload = "qml/Ryoku/PluginKit"
+
+[[source_exports]]
+source = "ryoku/shell/plugin"
+payload = "native/ryoku-blobs"
+
+[[source_exports]]
+source = "ryoku/i18n"
+payload = "i18n"
+
+[[source_exports]]
+source = "LICENSE"
+payload = "LICENSE"
+
+[[source_exports]]
+source = "NOTICE"
+payload = "NOTICE"
+
+[[font_assets]]
+payload = "fonts/material-symbols-rounded/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf"
+url = "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/variablefont/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf"
+sha256 = "32e4011709e055596eb8d2dd0f7cb547b47c1d40ac9ecb8fad54f7f7eac202e7"
+
+[[font_assets]]
+payload = "fonts/material-symbols-rounded/LICENSE"
+url = "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/LICENSE"
+sha256 = "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+
+[[font_assets]]
+payload = "fonts/space-grotesk/SpaceGrotesk[wght].ttf"
+url = "https://raw.githubusercontent.com/google/fonts/1d0e46c7933245c8180fe83e47917961c913bbdb/ofl/spacegrotesk/SpaceGrotesk[wght].ttf"
+sha256 = "acad6de1fc93436f5c0f1f4137751ef04f1aea3063e7036535970ffcfbd79f72"
+
+[[font_assets]]
+payload = "fonts/space-grotesk/OFL.txt"
+url = "https://raw.githubusercontent.com/google/fonts/1d0e46c7933245c8180fe83e47917961c913bbdb/ofl/spacegrotesk/OFL.txt"
+sha256 = "564ce565c371c5e5bbf286006565a7c9aa55a9f56e7ca58d56e05d649dd61a72"
+
+[[font_assets]]
+payload = "fonts/space-mono/SpaceMono-Regular.ttf"
+url = "https://raw.githubusercontent.com/google/fonts/1d0e46c7933245c8180fe83e47917961c913bbdb/ofl/spacemono/SpaceMono-Regular.ttf"
+sha256 = "95837e182baeeada83368f7748db28357f0a1b75c6b84ff7065b5edf933c8e18"
+
+[[font_assets]]
+payload = "fonts/space-mono/SpaceMono-Bold.ttf"
+url = "https://raw.githubusercontent.com/google/fonts/1d0e46c7933245c8180fe83e47917961c913bbdb/ofl/spacemono/SpaceMono-Bold.ttf"
+sha256 = "405e73d41afb7e5906efce206a326af5c956f38e255f35421c260e861e599c59"
+
+[[font_assets]]
+payload = "fonts/space-mono/SpaceMono-Italic.ttf"
+url = "https://raw.githubusercontent.com/google/fonts/1d0e46c7933245c8180fe83e47917961c913bbdb/ofl/spacemono/SpaceMono-Italic.ttf"
+sha256 = "eca264c8690a91fe837d19a6badf2d88961610c4c8aafcb196526192a9f258c5"
+
+[[font_assets]]
+payload = "fonts/space-mono/SpaceMono-BoldItalic.ttf"
+url = "https://raw.githubusercontent.com/google/fonts/1d0e46c7933245c8180fe83e47917961c913bbdb/ofl/spacemono/SpaceMono-BoldItalic.ttf"
+sha256 = "cdcc95eddee312879a9728494e595f591cb159f3f276d79bc58673dec7e57138"
+
+[[font_assets]]
+payload = "fonts/space-mono/OFL.txt"
+url = "https://raw.githubusercontent.com/google/fonts/1d0e46c7933245c8180fe83e47917961c913bbdb/ofl/spacemono/OFL.txt"
+sha256 = "8e4ee42b2553e1e01504e61cb0d46d148cd8c9e5eacaa3622a7df2d4f2955b9f"
+
+[[font_assets]]
+payload = "fonts/fraunces/Fraunces[SOFT,WONK,opsz,wght].ttf"
+url = "https://raw.githubusercontent.com/google/fonts/1d0e46c7933245c8180fe83e47917961c913bbdb/ofl/fraunces/Fraunces[SOFT,WONK,opsz,wght].ttf"
+sha256 = "177ff6c0f14e5550a3c624247cd1189611d4eb65d000b14944c63d967958abbb"
+
+[[font_assets]]
+payload = "fonts/fraunces/Fraunces-Italic[SOFT,WONK,opsz,wght].ttf"
+url = "https://raw.githubusercontent.com/google/fonts/1d0e46c7933245c8180fe83e47917961c913bbdb/ofl/fraunces/Fraunces-Italic[SOFT,WONK,opsz,wght].ttf"
+sha256 = "b24448c43702fac4ee856781d461a0dfba8d8e594b6e8e190234b75fed2c0e01"
+
+[[font_assets]]
+payload = "fonts/fraunces/OFL.txt"
+url = "https://raw.githubusercontent.com/google/fonts/1d0e46c7933245c8180fe83e47917961c913bbdb/ofl/fraunces/OFL.txt"
+sha256 = "bdf4c22802eaf804f998195871c6b8938aac2ac14b2d78a8bd66a6f1eced833b"
+
+[[font_assets]]
+payload = "fonts/space-mono-nerd/SpaceMonoNerdFont-Regular.ttf"
+url = "https://raw.githubusercontent.com/ryanoasis/nerd-fonts/fa7b859994228a9c8759f99c55a8d31ee92a1b5e/patched-fonts/SpaceMono/Regular/SpaceMonoNerdFont-Regular.ttf"
+sha256 = "00ce1521e717a71a9ba395092863901d7492bc5b569750c34b5777ce98f602a6"
+
+[[font_assets]]
+payload = "fonts/space-mono-nerd/SpaceMonoNerdFont-Bold.ttf"
+url = "https://raw.githubusercontent.com/ryanoasis/nerd-fonts/fa7b859994228a9c8759f99c55a8d31ee92a1b5e/patched-fonts/SpaceMono/Bold/SpaceMonoNerdFont-Bold.ttf"
+sha256 = "cba94f89ac4fa8fdd2d81a3e50cbec140ae5cba6dc860d9bed414bfcaee2bc7d"
+
+[[font_assets]]
+payload = "fonts/space-mono-nerd/SpaceMonoNerdFont-Italic.ttf"
+url = "https://raw.githubusercontent.com/ryanoasis/nerd-fonts/fa7b859994228a9c8759f99c55a8d31ee92a1b5e/patched-fonts/SpaceMono/Italic/SpaceMonoNerdFont-Italic.ttf"
+sha256 = "b79765b26d4144b8d576e27dc97533b9f918317a1f8e7f263dce0974eff8258a"
+
+[[font_assets]]
+payload = "fonts/space-mono-nerd/SpaceMonoNerdFont-BoldItalic.ttf"
+url = "https://raw.githubusercontent.com/ryanoasis/nerd-fonts/fa7b859994228a9c8759f99c55a8d31ee92a1b5e/patched-fonts/SpaceMono/Bold-Italic/SpaceMonoNerdFont-BoldItalic.ttf"
+sha256 = "ad020fd917365a249b7a9a5af56867b836eefab70ddc210b44e3d1da09ba1bd8"
+
+[[font_assets]]
+payload = "fonts/space-mono-nerd/OFL.txt"
+url = "https://raw.githubusercontent.com/ryanoasis/nerd-fonts/fa7b859994228a9c8759f99c55a8d31ee92a1b5e/patched-fonts/SpaceMono/Regular/OFL.txt"
+sha256 = "ac5bbd2fa957ba467a1c685a1fed1de1eb9a46906dc2284e5783d86f652f97c2"
+
+[[font_assets]]
+payload = "fonts/space-mono-nerd/README.md"
+url = "https://raw.githubusercontent.com/ryanoasis/nerd-fonts/fa7b859994228a9c8759f99c55a8d31ee92a1b5e/patched-fonts/SpaceMono/README.md"
+sha256 = "cce49fd05a3e2baa41e6848e58164a0931867b046200c99a158aa7fe0a1adf9d"
+
+

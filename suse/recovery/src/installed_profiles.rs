@@ -70,9 +70,9 @@ pub struct InstalledProfileBundle {
     companion: Option<LocalLayer>,
 }
 impl InstalledProfileBundle {
-    /// Read the one reviewed package-default document from the native root.
-    /// The caller separately obtains exact RPM identity and holds the package
-    /// writer lock. Optional overrides are bounded local import bytes only.
+    /// Verify the sole owning RPM, exact file metadata/digest and local bytes
+    /// for the fixed default document. The caller holds the package writer
+    /// lock. Optional overrides are bounded local import bytes only.
     pub fn load_packaged_defaults(
         system: Option<&[u8]>,
         companion: Option<&[u8]>,
@@ -108,6 +108,12 @@ impl InstalledProfileBundle {
     }
     pub fn defaults_source_sha256(&self) -> &Sha256 {
         &self.defaults.source_sha256
+    }
+    pub fn system_source_bytes(&self) -> Option<&[u8]> {
+        self.system.as_ref().map(|layer| layer.source_json.as_bytes())
+    }
+    pub fn companion_source_bytes(&self) -> Option<&[u8]> {
+        self.companion.as_ref().map(|layer| layer.source_json.as_bytes())
     }
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, ProfileStoreError> {
         self.validate()?;
@@ -252,13 +258,42 @@ pub struct ProfileBundleStore {
     gid: u32,
     native: bool,
 }
+
+/// Implemented only by a trusted lifecycle coordinator that already owns
+/// authorization and exclusion of every relevant state-store writer. A callback
+/// is an integration contract, not authentication or proof of external writer
+/// exclusion. No client request may supply an implementation. The caller must
+/// retain its exclusion guard until provisioning completes, including failures.
+pub trait ProfileLifecycleExclusion {
+    fn revalidate_exclusion(&self) -> Result<(), ProfileStoreError>;
+}
+
 impl ProfileBundleStore {
-    /// Called only by the native session while it owns the machine lock and
-    /// has revalidated the dedicated state mount. Partial stores are retained
-    /// for reconciliation; an existing object is never repaired or adopted.
-    pub(crate) fn provision_locked(state: &File) -> Result<Self, ProfileStoreError> {
-        require_directory(state, 0, 0, 0o700)?;
-        require_same_inode(state, &native_state()?)?;
+    /// Explicitly provision fresh inactive-profile storage on the validated
+    /// native state mount. Existing or partial directories are reconciliation
+    /// cases; this does not adopt, repair, activate, or clean up anything.
+    /// Provisioning is not exposed through a CLI/helper operation.
+    pub fn provision_state_mount(
+        exclusion: &impl ProfileLifecycleExclusion,
+    ) -> Result<Self, ProfileStoreError> {
+        if rustix::process::geteuid().as_raw() != 0 || rustix::process::getegid().as_raw() != 0 {
+            return Err(ProfileStoreError::UnsafeStorage);
+        }
+        let state = native_state()?;
+        Self::provision_existing(&state, 0, 0, true, exclusion)
+    }
+    fn provision_existing(
+        state: &File,
+        uid: u32,
+        gid: u32,
+        native: bool,
+        exclusion: &impl ProfileLifecycleExclusion,
+    ) -> Result<Self, ProfileStoreError> {
+        exclusion.revalidate_exclusion()?;
+        require_directory(state, uid, gid, 0o700)?;
+        if native {
+            require_same_inode(state, &native_state()?)?;
+        }
         match fs::mkdirat(state, "profiles", Mode::from_raw_mode(0o700)) {
             Ok(()) => {}
             Err(rustix::io::Errno::EXIST) => return Err(ProfileStoreError::NeedsReconciliation),
@@ -266,14 +301,21 @@ impl ProfileBundleStore {
         }
         fs::fsync(state)?;
         let profiles = open_dir(state, "profiles")?;
-        require_directory(&profiles, 0, 0, 0o700)?;
+        require_directory(&profiles, uid, gid, 0o700)?;
+        exclusion.revalidate_exclusion()?;
         fs::mkdirat(&profiles, ".staging", Mode::from_raw_mode(0o700))?;
         let staging = open_dir(&profiles, ".staging")?;
-        require_directory(&staging, 0, 0, 0o700)?;
+        require_directory(&staging, uid, gid, 0o700)?;
         fs::fsync(&staging)?;
         fs::fsync(&profiles)?;
-        require_same_inode(state, &native_state()?)?;
-        Self::open_existing(state, 0, 0, true)
+        exclusion.revalidate_exclusion()?;
+        if native {
+            require_same_inode(state, &native_state()?)?;
+        }
+        let store = Self::open_existing(state, uid, gid, native)?;
+        require_same_inode(&profiles, &store.profiles)?;
+        require_same_inode(&staging, &store.staging)?;
+        Ok(store)
     }
     pub fn open_state_mount() -> Result<Self, ProfileStoreError> {
         let state = native_state()?;
@@ -414,10 +456,8 @@ impl ProfileBundleStore {
             .files()
             .iter()
             .find(|record| {
-                (record.root == crate::StateRoot::UserRyokuConfig
-                    && record.path.as_str() == ryoku_profiles::LOCAL_PROFILE_FILE)
-                    || (record.root == crate::StateRoot::UserHome
-                        && record.path.as_str() == crate::installed_inventory::PERSONAL_PROFILE)
+                record.root == crate::StateRoot::UserRyokuConfig
+                    && record.path.as_str() == ryoku_profiles::LOCAL_PROFILE_FILE
             })
             .ok_or(ProfileStoreError::InvalidDocument)?;
         let personal = match &record.kind {

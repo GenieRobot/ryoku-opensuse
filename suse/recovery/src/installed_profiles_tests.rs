@@ -69,6 +69,68 @@ fn transaction() -> Identifier {
     Identifier::new("profile-import").unwrap()
 }
 
+struct ProvisionExclusion {
+    calls: std::cell::Cell<usize>,
+    fail_at: Option<usize>,
+}
+impl ProfileLifecycleExclusion for ProvisionExclusion {
+    fn revalidate_exclusion(&self) -> Result<(), ProfileStoreError> {
+        let call = self.calls.get() + 1;
+        self.calls.set(call);
+        if self.fail_at == Some(call) { Err(ProfileStoreError::UnsafeStorage) } else { Ok(()) }
+    }
+}
+
+#[test]
+fn explicit_provisioning_refuses_existing_and_partial_storage_without_reader_repair() {
+    let fixture = Fixture::new();
+    let state = File::open(&fixture.path).unwrap();
+    let stat = fs::fstat(&state).unwrap();
+    let exclusion = ProvisionExclusion { calls: std::cell::Cell::new(0), fail_at: None };
+    assert!(matches!(
+        ProfileBundleStore::provision_existing(&state, stat.st_uid, stat.st_gid, false, &exclusion),
+        Err(ProfileStoreError::NeedsReconciliation)
+    ));
+    stdfs::remove_dir(fixture.path.join("profiles/.staging")).unwrap();
+    assert!(ProfileBundleStore::open_existing(&state, stat.st_uid, stat.st_gid, false).is_err());
+    assert!(!fixture.path.join("profiles/.staging").exists());
+    assert!(matches!(
+        ProfileBundleStore::provision_existing(&state, stat.st_uid, stat.st_gid, false, &exclusion),
+        Err(ProfileStoreError::NeedsReconciliation)
+    ));
+    stdfs::remove_dir(fixture.path.join("profiles")).unwrap();
+    assert!(ProfileBundleStore::open_existing(&state, stat.st_uid, stat.st_gid, false).is_err());
+    assert!(!fixture.path.join("profiles").exists());
+    let provisioned =
+        ProfileBundleStore::provision_existing(&state, stat.st_uid, stat.st_gid, false, &exclusion)
+            .unwrap();
+    let published = provisioned.publish_candidate(&transaction(), &bundle()).unwrap();
+    assert_eq!(provisioned.load(published.id()).unwrap().bundle(), &bundle());
+}
+
+#[test]
+fn provisioning_rechecks_exclusion_and_retains_partial_evidence_on_failure() {
+    let fixture = Fixture::new();
+    stdfs::remove_dir(fixture.path.join("profiles/.staging")).unwrap();
+    stdfs::remove_dir(fixture.path.join("profiles")).unwrap();
+    let state = File::open(&fixture.path).unwrap();
+    let stat = fs::fstat(&state).unwrap();
+    let early = ProvisionExclusion { calls: std::cell::Cell::new(0), fail_at: Some(1) };
+    assert!(
+        ProfileBundleStore::provision_existing(&state, stat.st_uid, stat.st_gid, false, &early)
+            .is_err()
+    );
+    assert!(!fixture.path.join("profiles").exists());
+    let middle = ProvisionExclusion { calls: std::cell::Cell::new(0), fail_at: Some(2) };
+    assert!(
+        ProfileBundleStore::provision_existing(&state, stat.st_uid, stat.st_gid, false, &middle)
+            .is_err()
+    );
+    assert!(fixture.path.join("profiles").is_dir());
+    assert!(!fixture.path.join("profiles/.staging").exists());
+    assert!(ProfileBundleStore::open_existing(&state, stat.st_uid, stat.st_gid, false).is_err());
+}
+
 #[test]
 fn immutable_local_bundle_roundtrip_retains_sources_and_all_layers_without_remote_inputs() {
     let fixture = Fixture::new();

@@ -7,7 +7,8 @@ use std::{
 
 use crate::{
     definition::scalar,
-    support::{Result, output, require},
+    preflight::{Checks, output},
+    support::{Result, require},
 };
 
 pub const WSL: bool = cfg!(feature = "wsl-lab");
@@ -50,35 +51,22 @@ pub fn vgabios(assets: &Path) -> PathBuf {
     }
 }
 
-pub fn validate_host(assets: &Path, parent: &Path) -> Result<()> {
-    let authorization = if WSL { "existing-wsl-vm" } else { "existing-cloud-workspace" };
+fn validate_authorization(wsl: bool, actual: Option<&str>) -> Result<()> {
+    let authorization = if wsl { "existing-wsl-vm" } else { "existing-cloud-workspace" };
     require(
-        std::env::var("RYOKU_LAB_AUTHORIZED").as_deref() == Ok(authorization),
+        actual == Some(authorization),
         "explicit runner authorization does not match the selected build feature",
-    )?;
-    if WSL {
-        let package = output(Command::new("/usr/bin/rpm").args([
-            "-q",
-            "--qf",
-            "%{NAME}-%{VERSION}-%{RELEASE}\\n",
-            "qemu-x86",
-        ]))?;
-        require(package.trim() == scalar("qemu_package")?, "native QEMU RPM release changed")?;
-        let bios = output(Command::new("/usr/bin/sha256sum").arg(vgabios(assets)))?;
-        require(
-            bios.split_whitespace().next() == Some(scalar("vgabios_sha256")?),
-            "native VGA BIOS checksum changed",
-        )?;
-        require(!rustix::process::geteuid().is_root(), "run the WSL lab as an ordinary user")?;
-        require(
-            fs::read_to_string("/proc/sys/kernel/osrelease")?.to_ascii_lowercase().contains("wsl")
-                && fs::read_to_string("/etc/os-release")?.lines().any(|line| {
-                    line == "ID=\"opensuse-tumbleweed\"" || line == "ID=opensuse-tumbleweed"
-                }),
-            "WSL runner requires openSUSE Tumbleweed under WSL",
-        )?;
-        let workspace = fs::canonicalize(std::env::current_dir()?)?;
-        let temporary = fs::canonicalize(std::env::temp_dir())?;
+    )
+}
+
+fn validate_location(
+    wsl: bool,
+    assets: &Path,
+    parent: &Path,
+    workspace: &Path,
+    temporary: &Path,
+) -> Result<()> {
+    if wsl {
         require(
             (parent.starts_with(workspace) || parent.starts_with(temporary))
                 && !parent.starts_with(assets),
@@ -92,9 +80,94 @@ pub fn validate_host(assets: &Path, parent: &Path) -> Result<()> {
     }
 }
 
+pub fn validate_host(assets: Option<&Path>, parent: Option<&Path>, checks: &mut Checks) {
+    checks.check("runner authorization", || {
+        validate_authorization(WSL, std::env::var("RYOKU_LAB_AUTHORIZED").ok().as_deref())
+    });
+    if WSL {
+        checks.check("native QEMU package", || {
+            let package = output(Command::new("/usr/bin/rpm").args([
+                "-q",
+                "--qf",
+                "%{NAME}-%{VERSION}-%{RELEASE}\\n",
+                "qemu-x86",
+            ]))?;
+            require(package.trim() == scalar("qemu_package")?, "native QEMU RPM release changed")
+        });
+        if let Some(assets) = assets {
+            checks.check("native VGA BIOS", || {
+                let bios = output(Command::new("/usr/bin/sha256sum").arg(vgabios(assets)))?;
+                require(
+                    bios.split_whitespace().next() == Some(scalar("vgabios_sha256")?),
+                    "native VGA BIOS checksum changed",
+                )
+            });
+        }
+        checks.check("ordinary-user runner", || {
+            require(!rustix::process::geteuid().is_root(), "run the WSL lab as an ordinary user")
+        });
+        checks.check("host operating system", || {
+            require(
+                fs::read_to_string("/proc/sys/kernel/osrelease")?
+                    .to_ascii_lowercase()
+                    .contains("wsl")
+                    && fs::read_to_string("/etc/os-release")?.lines().any(|line| {
+                        line == "ID=\"opensuse-tumbleweed\"" || line == "ID=opensuse-tumbleweed"
+                    }),
+                "WSL runner requires openSUSE Tumbleweed under WSL",
+            )
+        });
+    }
+    if let (Some(assets), Some(parent)) = (assets, parent) {
+        checks.check("runner path confinement", || {
+            let workspace = fs::canonicalize(std::env::current_dir()?)?;
+            let temporary = fs::canonicalize(std::env::temp_dir())?;
+            validate_location(WSL, assets, parent, &workspace, &temporary)
+        });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn selected_feature_requires_its_exact_authorization() {
+        for (wsl, own, other) in [
+            (true, "existing-wsl-vm", "existing-cloud-workspace"),
+            (false, "existing-cloud-workspace", "existing-wsl-vm"),
+        ] {
+            assert!(validate_authorization(wsl, Some(own)).is_ok());
+            assert!(validate_authorization(wsl, Some(other)).is_err());
+            assert!(validate_authorization(wsl, None).is_err());
+        }
+    }
+
+    #[test]
+    fn external_cwd_does_not_authorize_an_unrelated_workspace_run_parent() {
+        let assets = Path::new("/tmp/assets");
+        let temporary = Path::new("/tmp");
+        let external_cwd = Path::new("/tmp/review19");
+        let project = Path::new("/home/test/project");
+        let parent = project.join("target");
+        assert!(validate_location(true, assets, &parent, external_cwd, temporary).is_err());
+        assert!(validate_location(true, assets, &parent, project, temporary).is_ok());
+        assert!(
+            validate_location(true, assets, Path::new("/tmp"), external_cwd, temporary).is_ok()
+        );
+        assert!(validate_location(true, assets, assets, external_cwd, temporary).is_err());
+        assert!(validate_location(false, assets, &parent, project, temporary).is_err());
+        assert!(
+            validate_location(
+                false,
+                assets,
+                Path::new("/workspace/run-parent"),
+                project,
+                temporary
+            )
+            .is_ok()
+        );
+    }
 
     #[test]
     fn native_runner_does_not_load_extracted_cloud_tools_or_libraries() {

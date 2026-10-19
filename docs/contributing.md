@@ -1,5 +1,35 @@
 # Contribution and evidence conventions
 
+## Upstream guidance and port requirements
+
+Follow [Ryoku's contribution guide](https://github.com/Ryoku-dev/ryoku/blob/main/CONTRIBUTING.md)
+and its linked conventions where applicable. Keep changes small and cohesive,
+one concern per component, and reuse existing boundaries. Source flows from the
+repository into the installed system; preserve user configuration and never
+copy live tweaks back as source. UI state and decisions belong behind the
+backend IPC boundary, and compositor-specific behavior belongs in its provider;
+consumers ask actual capabilities rather than test compositor names.
+
+Use `[area] scope: imperative summary` commit subjects of at most 72 characters
+(`global` for shell changes), without a trailing period, em-dashes or attribution
+trailers. Never bypass hooks. Update the affected area's `CHANGELOG.md`; include
+a plain-language `Note: New: ...`, `Note: Fixed: ...` or `Note: Removed: ...`
+trailer for a user-visible change. Keep historical commits intact.
+
+Run applicable checks, including `qmllint` when available and real native
+behavior tests for UI changes. Parsing or host tests alone do not establish
+desktop acceptance. Use Prowl if available; otherwise use normal source tools
+without an installation detour.
+
+This port's Rust, declarative RPM, Tumbleweed and recovery requirements take
+precedence over upstream Arch/pacman/Go deployment instructions. The approved
+exception permits small, attributed QML routing/binding/result patches. Newly
+authored project backend logic stays Rust; retained upstream components keep
+their existing languages. Do not replace the pinned runtime or migrate its
+compositor architecture merely to match newer upstream documentation. The
+current ordinary-settings/protected-system distinction is recorded in
+[native desktop workflows](native-desktop-workflows.md#user-authorized-recovery-scope-adjustment).
+
 ## Pull requests
 
 - Use one focused pull request per issue. Include the issue link and a short

@@ -1,0 +1,13 @@
+schema = 1
+date = "2026-10-16"
+runner = "user-authorized existing openSUSE WSL2"
+host_kernel = "6.18.54.1-microsoft-standard-WSL2"
+qemu = "11.1.2, native qemu-x86 RPM"
+probe_source_sha256 = "14605f0788a46d1ec1b00be0ab2b5813126d22dc55310d0b8f9223efc0889f59"
+probe_binary_sha256 = "2e4e9bc93516d32e297bebc42b66ff121419535d245cc33f78e1bf2f82ada937"
+read_only_api = "opened /dev/kvm O_RDONLY; GET_API_VERSION=12; IRQCHIP, HLT, USER_MEMORY and SYNC_MMU extensions each 1"
+qemu_fixture = "one paused diskless q35 process; -accel kvm -cpu host -smp 1 -m 128 -nodefaults -display none -monitor none -serial none -S -qmp stdio"
+qmp_query_kvm = "enabled=true, present=true"
+qmp_query_status = "status=prelaunch, running=false"
+shutdown = "host-qmp-quit event; successful quit response and exit 0"
+scope = "KVM system API and actual QEMU machine/vCPU initialization only; guest execution, signed-image boot and recovery behavior not tested"
