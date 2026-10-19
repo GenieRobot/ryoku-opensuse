@@ -72,7 +72,7 @@ impl LinkedGeneration {
             .is_ok()
     }
 
-    fn fresh_after(&self, before: &Self) -> bool {
+    pub(crate) fn fresh_after(&self, before: &Self) -> bool {
         self.valid()
             && self.transaction_id != before.transaction_id
             && self.generation_id != before.generation_id
@@ -349,6 +349,37 @@ impl<'a> JournaledOperation<'a> {
         Self { journal, operation_id, action, context: None }
     }
 
+    /// Caller holds the common writer guard. Replaying the protected journal
+    /// happens before acceptance; an unresolved operation never authorizes retry.
+    pub(crate) fn begin(&mut self, planned: &PlannedChange) -> Result<(), GateError> {
+        if !planned.valid() {
+            return Err(GateError::InvalidPlan);
+        }
+        self.journal.refresh().map_err(GateError::Journal)?;
+        if !self.journal.recovery_required().is_empty() {
+            return Err(GateError::RecoveryRequired);
+        }
+        self.context = Some(MutationContext {
+            plan: planned.clone(),
+            checkpoint: None,
+            post_checkpoint: None,
+            stage: MutationStage::Preflight,
+            outcome: None,
+        });
+        self.record(OperationPhase::Accepted, None)
+    }
+
+    pub(crate) fn captured(&mut self, reference: LinkedGeneration) -> Result<(), GateError> {
+        self.context.as_mut().expect("accepted operation has context").checkpoint = Some(reference);
+        self.advance(MutationStage::Revalidating)
+    }
+
+    pub(crate) fn complete(&mut self, reference: LinkedGeneration) -> Result<(), GateError> {
+        self.context.as_mut().expect("accepted operation has context").post_checkpoint =
+            Some(reference);
+        self.advance(MutationStage::Complete)
+    }
+
     fn record(
         &mut self,
         phase: OperationPhase,
@@ -368,7 +399,7 @@ impl<'a> JournaledOperation<'a> {
             .map_err(GateError::Journal)
     }
 
-    fn fail(&mut self, category: ServiceError, cause: GateError) -> GateError {
+    pub(crate) fn fail(&mut self, category: ServiceError, cause: GateError) -> GateError {
         let context = self.context.as_mut().expect("accepted operation has context");
         context.outcome =
             Some(if cause == GateError::CancelledBeforeChange && context.stage.before_change() {
@@ -386,7 +417,7 @@ impl<'a> JournaledOperation<'a> {
         }
     }
 
-    fn advance(&mut self, stage: MutationStage) -> Result<(), GateError> {
+    pub(crate) fn advance(&mut self, stage: MutationStage) -> Result<(), GateError> {
         self.context.as_mut().expect("accepted operation has context").stage = stage;
         self.record(stage.phase(), None)
     }
@@ -394,7 +425,7 @@ impl<'a> JournaledOperation<'a> {
 
 /// Persist pre-change failures using only error codes already defined by
 /// protocol v1. This keeps old clients able to deserialize operation status.
-fn pre_change_error(cause: &GateError) -> ServiceError {
+pub(crate) fn pre_change_error(cause: &GateError) -> ServiceError {
     match cause {
         GateError::Lock(_) => ServiceError::Busy,
         GateError::PlanChanged => ServiceError::StaleRequest,
@@ -403,7 +434,7 @@ fn pre_change_error(cause: &GateError) -> ServiceError {
     }
 }
 
-const MUTATION_LOCK_NAME: &str = "mutation.lock";
+pub(crate) const MUTATION_LOCK_NAME: &str = "mutation.lock";
 
 /// Stable location for the coordinator lock used by cooperating Ryoku writers.
 /// Construct this from a trusted, service-owned state-directory descriptor.
@@ -413,6 +444,39 @@ pub struct MutationLock {
 }
 
 impl MutationLock {
+    pub(crate) fn revalidate_directory(&self, directory: &File) -> Result<(), GateError> {
+        let pinned = fstat(&self.directory).map_err(lock_error)?;
+        let current = fstat(directory).map_err(lock_error)?;
+        if pinned.st_dev != current.st_dev || pinned.st_ino != current.st_ino {
+            return Err(GateError::Lock(io::ErrorKind::PermissionDenied));
+        }
+        Ok(())
+    }
+    /// Match a caller-held guard to this exact lock inode without reacquiring
+    /// flock or creating a missing name. Native integrations also revalidate
+    /// the directory's machine-state mount association before calling this.
+    pub fn revalidate_guard(&self, guard: &WriterGuard) -> Result<(), GateError> {
+        validate_lock_directory(&self.directory, self.expected_uid)?;
+        let current = openat(
+            &self.directory,
+            MUTATION_LOCK_NAME,
+            OFlags::RDWR | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK,
+            Mode::empty(),
+        )
+        .map_err(lock_error)?;
+        let current = fstat(&current).map_err(lock_error)?;
+        let held = fstat(&guard._file).map_err(lock_error)?;
+        if FileType::from_raw_mode(current.st_mode) != FileType::RegularFile
+            || current.st_uid != self.expected_uid
+            || current.st_mode & 0o7777 != 0o600
+            || current.st_nlink != 1
+            || current.st_dev != held.st_dev
+            || current.st_ino != held.st_ino
+        {
+            return Err(GateError::Lock(io::ErrorKind::PermissionDenied));
+        }
+        Ok(())
+    }
     /// Validate and pin a private state directory, creating the fixed lock file
     /// if needed. The directory must be owned by `expected_uid` and inaccessible
     /// to group and other users. Each `acquire` performs a fresh open so threads
@@ -517,6 +581,12 @@ pub struct SharedWriterGuard {
 }
 
 impl WriterGuard {
+    /// Duplicate the held open-file description without acquiring a second
+    /// flock. Protected history keeps this pin and verifies its namespace.
+    pub(crate) fn pin_file(&self) -> Result<File, JournalError> {
+        self._file.try_clone().map_err(|_| JournalError::Io)
+    }
+
     fn acquire(service_owned_lock_file: File) -> Result<Self, GateError> {
         flock(&service_owned_lock_file, FlockOperation::LockExclusive)
             .map_err(|error| GateError::Lock(error.kind()))?;
@@ -604,18 +674,7 @@ pub fn coordinate_mutation<I: MutationIntegration>(
     // lock across every phase, preventing records or provider work from
     // interleaving around one operation.
     let _writer = lock.acquire()?;
-    operation.journal.refresh().map_err(GateError::Journal)?;
-    if !operation.journal.recovery_required().is_empty() {
-        return Err(GateError::RecoveryRequired);
-    }
-    operation.context = Some(MutationContext {
-        plan: planned.clone(),
-        checkpoint: None,
-        post_checkpoint: None,
-        stage: MutationStage::Preflight,
-        outcome: None,
-    });
-    operation.record(OperationPhase::Accepted, None)?;
+    operation.begin(planned)?;
     if integration.cancellation_requested() {
         return Err(operation.fail(ServiceError::Failed, GateError::CancelledBeforeChange));
     }
@@ -640,9 +699,7 @@ pub fn coordinate_mutation<I: MutationIntegration>(
             return Err(operation.fail(category, error));
         }
     };
-    operation.context.as_mut().expect("accepted operation has context").checkpoint =
-        Some(proof.linked().clone());
-    operation.advance(MutationStage::Revalidating)?;
+    operation.captured(proof.linked().clone())?;
     if integration.cancellation_requested() {
         return Err(operation.fail(ServiceError::Failed, GateError::CancelledBeforeChange));
     }
@@ -682,9 +739,7 @@ pub fn coordinate_mutation<I: MutationIntegration>(
         Ok(_) => return Err(operation.fail(ServiceError::Failed, GateError::PostChangeFailed)),
         Err(error) => return Err(operation.fail(ServiceError::Failed, error)),
     };
-    operation.context.as_mut().expect("accepted operation has context").post_checkpoint =
-        Some(post.linked);
-    operation.advance(MutationStage::Complete)?;
+    operation.complete(post.linked)?;
     Ok(result)
 }
 

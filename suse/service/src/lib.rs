@@ -47,6 +47,8 @@ macro_rules! test_unix_pair_or_skip {
 pub mod account_state;
 pub mod helper_protocol;
 pub mod mutation_gate;
+pub mod personal_profile;
+mod protected_operation_journal;
 #[cfg(target_os = "linux")]
 pub mod protected_state;
 #[cfg(target_os = "linux")]
@@ -567,6 +569,7 @@ pub struct OperationJournal {
     current: BTreeMap<OperationId, OperationStatus>,
     write_failed: bool,
     mutations: BTreeMap<OperationId, mutation_gate::MutationContext>,
+    protected: Option<protected_operation_journal::JournalNamespace>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -635,7 +638,7 @@ impl OperationJournal {
         // earlier failed sync. Establish durability before publishing replayed
         // state, including on process restart and after truncating a torn tail.
         sync(&file).map_err(|_| JournalError::Io)?;
-        Ok(Self { file, current, mutations, write_failed: false })
+        Ok(Self { file, current, mutations, write_failed: false, protected: None })
     }
 
     pub fn get(&self, id: &OperationId) -> Option<&OperationStatus> {
@@ -651,8 +654,13 @@ impl OperationJournal {
         sync: impl FnMut(&File) -> std::io::Result<()>,
     ) -> Result<(), JournalError> {
         if self.write_failed {
-            *self =
+            if let Some(namespace) = &self.protected {
+                namespace.revalidate(&self.file)?;
+            }
+            let mut refreshed =
                 Self::open_with_sync(self.file.try_clone().map_err(|_| JournalError::Io)?, sync)?;
+            refreshed.protected = self.protected.take();
+            *self = refreshed;
         }
         Ok(())
     }
@@ -668,7 +676,12 @@ impl OperationJournal {
     /// Reopen under the existing coordinator lock before accepting new work.
     /// This refresh prevents a process from using a stale pre-lock journal view.
     pub(crate) fn refresh(&mut self) -> Result<(), JournalError> {
-        *self = Self::open(self.file.try_clone().map_err(|_| JournalError::Io)?)?;
+        if let Some(namespace) = &self.protected {
+            namespace.revalidate(&self.file)?;
+        }
+        let mut refreshed = Self::open(self.file.try_clone().map_err(|_| JournalError::Io)?)?;
+        refreshed.protected = self.protected.take();
+        *self = refreshed;
         Ok(())
     }
 
@@ -720,6 +733,9 @@ impl OperationJournal {
     ) -> Result<(), JournalError> {
         if self.write_failed {
             return Err(JournalError::Io);
+        }
+        if let Some(namespace) = &self.protected {
+            namespace.revalidate(&self.file)?;
         }
         validate_journal_record(
             self.current.get(&status.operation_id),

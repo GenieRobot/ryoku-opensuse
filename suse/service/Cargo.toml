@@ -9,6 +9,8 @@ repository.workspace = true
 
 [dependencies]
 libc = "0.2"
+sha2 = "0.10"
+ryoku-snapper = { version = "0.1.0", path = "../snapper" }
 ryoku-recovery = { version = "0.1.0", path = "../recovery" }
 ryoku-profiles = { version = "0.1.0", path = "../profiles" }
 rustix = { version = "1.1.5", features = ["event", "fs", "net", "process"] }

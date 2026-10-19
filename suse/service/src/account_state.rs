@@ -2,6 +2,7 @@
 //! No client environment or manifest path participates in root selection.
 use crate::PeerIdentity;
 use rustix::fs::{FileType, Mode, OFlags, ResolveFlags, fstat, fsync, mkdirat, openat2};
+use ryoku_recovery::AccountPrincipal;
 use std::{
     fs::File,
     mem::MaybeUninit,
@@ -250,9 +251,44 @@ impl AccountStateRoot {
     pub fn primary_gid(&self) -> u32 {
         self.account.gid
     }
+    /// Capture provenance from the pinned NSS identity. This value carries no
+    /// authority; callers must revalidate before capture and each later use.
+    pub fn principal(&self) -> Result<AccountPrincipal, AccountStateError> {
+        AccountPrincipal::from_account(
+            self.account.uid,
+            self.account.gid,
+            &self.account.name,
+            &self.account.home,
+        )
+        .map_err(|_| AccountStateError::InvalidAccount)
+    }
+    /// Supply installed capture with one coherent account/provenance tuple
+    /// only after repeating NSS and pinned-directory checks. The coordinator
+    /// must retain its lock and freeze enrolled writers across capture.
+    pub fn capture_account(
+        &self,
+    ) -> Result<ryoku_recovery::installed_capture::CaptureAccount, AccountStateError> {
+        self.revalidate()?;
+        Ok(ryoku_recovery::installed_capture::CaptureAccount {
+            uid: self.account.uid,
+            gid: self.account.gid,
+            principal: self.principal()?,
+        })
+    }
     pub fn configuration(&self) -> &File {
         &self.configuration
     }
+    /// Fixed NSS home descriptor; callers must still revalidate before use.
+    pub fn home(&self) -> &File {
+        &self.home
+    }
+    /// Fixed policy-query target from the pinned, validated NSS home. Callers
+    /// must revalidate this account before and after querying native policy;
+    /// never put the resulting private path into errors or public artifacts.
+    pub(crate) fn personal_profile_policy_path(&self) -> String {
+        format!("{}/.config/ryoku/opensuse-profile.json", self.account.home)
+    }
+
     /// Re-resolve NSS and reopen the fixed path. A renamed/replaced directory,
     /// changed account identity or metadata cannot reuse the previous binding.
     /// Callers still retain the operation lock and freeze all enrolled writers.

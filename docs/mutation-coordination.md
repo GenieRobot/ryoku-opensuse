@@ -1,11 +1,70 @@
 # Durable mutation coordination
 
 This is component evidence for [issue #20](https://github.com/GenieRobot/ryoku-opensuse/issues/20).
-`mutation_gate::coordinate_mutation` orchestrates a trusted integration under the
-existing `MutationLock`; no integration is installed and no supported mutation
-is enabled. Helper requests still return structured rejections. The recovery
-console remains read-only. This change does not establish helper/console writer
-coordination, native capture completeness, or multi-subvolume atomicity.
+`PersonalProfileCoordinator::execute` now composes the actual scoped native
+checkpoint and personal-file writer with durable history under the existing
+`MutationLock`. It is a root-authorized building block with no installed
+executor. No supported mutation is enabled. Helper requests still return
+structured rejections for this executor. This does
+not establish an installed account-writer handoff, full capture completeness,
+or multi-subvolume atomicity. The older `mutation_gate::coordinate_mutation`
+remains a separate generic trusted-integration interface.
+
+## Concrete personal-profile call chain
+
+The caller obtains the coordinator from a kernel-authenticated operator peer,
+acquires its writer lock once, and prepares/reviews one private
+`PersonalProfilePlan` under that guard. `execute` borrows the same guard; it
+does not recursively acquire the lock or accept checkpoint booleans. Only its
+actual native capture path can construct `VerifiedPersonalProfileCheckpoint`.
+
+The exact original file record, account principal, immutable default bundle
+identity and desired canonical bytes determine the reviewed plan fingerprint.
+The declared personal inventory and source metadata determine the affected-state
+fingerprint. History contains those digests, not the personal settings. Native
+transaction and generation identities are deterministically assigned from the
+operation ID; the durable duplicate-ID gate prevents repeating an action.
+
+The machine journal is fixed at `/var/lib/ryoku-state/mutation-journal.jsonl`.
+It is a root:root, single-link, `0600` regular file in the validated `0700`
+state mount. Opening and torn-tail replay borrow the held writer guard. The
+lock directory must match that state mount. Before every replay or append,
+the journal rechecks the independent machine record, live state mount,
+directory ownership/mode, and the journal and held lock's ownership/mode/link
+count and named inode. It pins the existing lock description without a second flock.
+A replacement or unavailable mount fails without appending through a detached
+descriptor. This is the shared namespace future helper/console writers must
+use, separate from the per-user status journal.
+
+Preflight repeats the actual source/account/RPM checks and checks available
+blocks on protected state, root and the account filesystem. Protected state
+and root each require a 4 MiB floor plus 64 allocation blocks; account staging
+requires the desired byte length plus eight blocks. These conservative estimates
+are not reservations and cannot guarantee subsequent Btrfs metadata allocation.
+A detected shortage returns `InsufficientSpace` before capture or apply; the
+durable row is Preflight/FailedBeforeChange with `recovery_unavailable`.
+
+After native preimage capture and exact revalidation, Applying is synchronized
+before entering the private writer. Health checking compares its actual returned
+file record with the desired digest/size, account ownership, required mode and
+preserved ACL/SELinux metadata. First creation additionally repeats the native
+final-path SELinux policy check. Health checks also reopen the preimage's native
+receipt and immutable bundle and recheck the account and actual RPM defaults.
+
+PostChangeCapture uses the exact health-checked file record as its source plan.
+The newly sealed manifest names the preimage generation as its parent. Both
+native partners and the live postimage are reopened before Complete, with fresh
+transaction/generation/digest/snapshot identities and the same config/filesystem.
+The result retains both opaque scoped proofs. Cancellation after Applying never
+skips health or this post-change capture. Any failure at either stage preserves
+the existing conservative recovery-required classification.
+
+This API coordinates cooperating Ryoku writers only. External editors, RPM and
+Snapper/config writers are not excluded; repeated observations reject detected
+drift but do not freeze them. No dispatcher calls this API, and the installed
+helper's `ProtectHome=read-only` plus empty capability set remains unchanged.
+It cannot read/write private account state as this executor requires. Native
+execution needs a separately reviewed account-writer handoff or scoped worker.
 
 ## State machine and exact association
 
@@ -40,7 +99,7 @@ snapshot receipt it contains. The integration must reopen and match that exact
 generation/digest and independently revalidate its native receipt before apply.
 An ID or saved successful phase is not proof that a snapshot remains available.
 
-The post-change hook returns `VerifiedPostChangeGeneration`, explicitly bound
+The generic post-change hook returns `VerifiedPostChangeGeneration`, explicitly bound
 to that exact preimage. Its reference must have fresh transaction/generation IDs,
 manifest digest and native snapshot number for the same Snapper configuration
 and filesystem. Reusing any preimage identity, missing required verification or
@@ -118,7 +177,14 @@ transaction/generation/digest/snapshot identity, and a result bound to the wrong
 preimage. These are local synthetic orchestration tests, not native
 Snapper, complete configuration capture, reboot or console restore evidence.
 
-The existing `CheckpointEvidence` booleans remain trusted integration
+Focused concrete-path tests exercise the actual private file writer's returned
+record and metadata checks, exact plan commitments, protected journal namespace
+replacement/unsafe-file rejection, torn-tail replay and unresolved-work/duplicate
+gates. They do not construct an opaque native checkpoint or claim execution of
+the complete native call chain. Native cancellation/interruption, low-space,
+post-capture failure and restart evidence remain required.
+
+The existing generic `CheckpointEvidence` booleans remain trusted integration
 attestations. Their validation checks reference shape; it does not prove native
 capture, installed inventory completeness or writer exclusion. Enabling an action
 still requires the independently verified native receipt and audited installed

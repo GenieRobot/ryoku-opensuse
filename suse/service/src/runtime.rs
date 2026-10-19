@@ -178,6 +178,9 @@ fn serve_connection_until(
         request @ (Request::GetLocalProfile
         | Request::SetLocalProfile { .. }
         | Request::MigrateLegacyLocalProfile) => handle_local_profile_request(&request, &peer, uid),
+        Request::Start { .. } if !journal.recovery_required().is_empty() => {
+            ResponseBody::Error(ServiceError::RecoveryUnavailable)
+        }
         Request::Start { action } => {
             ResponseBody::Error(crate::helper_protocol::check_action_availability_until(
                 helper_socket_path,
@@ -609,6 +612,48 @@ mod tests {
         helper_thread.join().unwrap();
         assert_eq!(std::fs::metadata(&journal_path).unwrap().len(), 0);
         drop(journal);
+        std::fs::remove_file(journal_path).unwrap();
+        std::fs::remove_file(socket_path).unwrap();
+    }
+
+    #[test]
+    fn unresolved_operation_blocks_start_without_connecting_to_helper() {
+        let socket_path =
+            std::env::temp_dir().join(format!("ryoku-pending-{}.sock", std::process::id()));
+        let journal_path =
+            std::env::temp_dir().join(format!("ryoku-pending-{}.log", std::process::id()));
+        let listener = UnixListener::bind(&socket_path).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .read(true)
+            .write(true)
+            .open(&journal_path)
+            .unwrap();
+        let mut journal = OperationJournal::open(file).unwrap();
+        journal
+            .record(crate::OperationStatus {
+                operation_id: crate::OperationId::new("pending-operation").unwrap(),
+                action: crate::ManagedActionKind::CreateCheckpoint,
+                phase: crate::OperationPhase::Accepted,
+                progress: None,
+                error: None,
+            })
+            .unwrap();
+        let length = std::fs::metadata(&journal_path).unwrap().len();
+        assert_eq!(
+            exchange_with_helper_path(
+                &mut journal,
+                Request::Start { action: ManagedAction::CreateCheckpoint },
+                &socket_path
+            ),
+            ResponseBody::Error(ServiceError::RecoveryUnavailable)
+        );
+        assert_eq!(listener.accept().unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
+        assert_eq!(std::fs::metadata(&journal_path).unwrap().len(), length);
+        drop(journal);
+        drop(listener);
         std::fs::remove_file(journal_path).unwrap();
         std::fs::remove_file(socket_path).unwrap();
     }

@@ -625,8 +625,10 @@ dependencies = [
  "rustix",
  "ryoku-profiles",
  "ryoku-recovery",
+ "ryoku-snapper",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]
