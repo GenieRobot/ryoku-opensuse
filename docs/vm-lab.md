@@ -22,20 +22,22 @@ network restriction, and reset requirements remain in force. WSL itself is
 never passed to the destructive guest operations.
 
 The WSL image is the exact signed Cloud appliance
-`openSUSE-Tumbleweed-Minimal-VM.x86_64-1.0.0-Cloud-Snapshot20261013.qcow2`,
-SHA-256 `b9dcb17c0c7e81e153a12d35ea4d86a516b4d2139c6a82ddd75aa6ce3cb9db3a`.
-On 2026-10-15 its checksum signature and all four repository metadata
-signatures verified with the installed openSUSE project public key,
-fingerprint `AD485664E901B867051AB15F35A2F86E29B700A4`. The initial native
-QEMU inspection boot completed cloud-init, authenticated the temporary SSH
-key, and reported snapshot `20261013`, kernel `7.2.9-1-default`, XFS root,
-`kernel-default-base-7.2.9-1.1.36.10`, and `grub2-2.16-1.1`. This base boot
-does not prove Btrfs migration, KDE login, offline recovery, or reset.
+`openSUSE-Tumbleweed-Minimal-VM.x86_64-1.0.0-Cloud-Snapshot20261016.qcow2`,
+SHA-256 `ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231`.
+Its checksum signature verifies with the isolated openSUSE project public key,
+fingerprint `AD485664E901B867051AB15F35A2F86E29B700A4`. The official SBOM lists
+kernel `7.2.10-1-default`, `kernel-default-base-7.2.10-1.1.36.11`, and GRUB2
+`2.16-2.1`. The first boot in the current disposable run reached the guest
+login prompt and reported the expected Tumbleweed snapshot and kernel. The
+current run's native Btrfs migration, recovery, KDE and reset results are
+recorded separately in its evidence file; no older snapshot is a test target.
 
-Prepare an asset directory containing that exact image, `image.sha256`,
-`image.sha256.asc`, and an isolated `gnupg` directory with the installed
-openSUSE public keys. Preserve the signed checksum's original image filename.
-Never substitute a newer download for the hash pin. The WSL profile uses
+Prepare an asset directory containing the exact image named by the WSL fixture,
+`image.sha256`, `image.sha256.asc`, and an isolated `gnupg` directory with the
+installed openSUSE public keys. Preserve the signed checksum's original image
+filename. When the rolling appliance advances, review and pin its signed
+snapshot, checksum, package baseline and repository metadata together before a
+new run; do not use a moving URL as the run's identity. The WSL profile uses
 direct guest networking and imports no host custom certificate authorities;
 direct mode is rejected by a default cloud build. Proxy environment variables
 are explicitly cleared for fixture Zypper operations before applying any
@@ -249,13 +251,13 @@ are prerequisites; acceptance also requires an actual authenticated nonroot
 SDDM login, active local seat0 Wayland session and live package-owned Plasma/KWin
 processes. A
 reboot must change the guest boot identity and pass inspection again.
-The minimal image's running kernel is `7.2.9-1-default`, owned by
-`kernel-default-base` RPM `7.2.9-1.1.36.10`; the kernel image's actual RPM owner
-is checked against the declarative fixture, rather than assuming the full
-`kernel-default` package. GRUB2 and its Snapper plugin are `2.14-20.1`, and
-Snapper is `0.13.1-3.4` in the observed fixture.
-The fixture pins GRUB2's package version; the main, EFI and Snapper-plugin RPMs
-must each match `2.14-20.1` during every base inspection.
+The current minimal image's SBOM reports running kernel `7.2.10-1-default`,
+owned by `kernel-default-base` RPM `7.2.10-1.1.36.11`; the guest inspection
+checks the kernel image's actual RPM owner, rather than assuming the full
+`kernel-default` package. The fixture pins GRUB2 `2.16-2.1`; the main and EFI
+GRUB2 RPMs must match that version during every base inspection. Other package
+versions are reported from the guest instead of carried forward from the older
+fixture.
 
 The offline phase restarts the same guest with QEMU user networking restricted;
 loopback SSH remains available. A TCP connection to the existing external proxy
