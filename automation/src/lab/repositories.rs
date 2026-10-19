@@ -193,7 +193,7 @@ mod tests {
             assert_eq!(pinned.lines().filter(|line| *line == format!("{key}=1")).count(), 1);
         }
         let history =
-            if cfg!(feature = "wsl-lab") { "/history/20261013/" } else { "/history/20261011/" };
+            if cfg!(feature = "wsl-lab") { "/history/20261016/" } else { "/history/20261011/" };
         assert!(pinned.contains(history));
         assert!(pinned.contains("enabled=1"));
         assert_eq!(pinned_file(&pinned).unwrap().0, pinned);
@@ -219,7 +219,7 @@ mod tests {
         let source = "[repo-oss]\nenabled=1\ngpgcheck=1\nbaseurl=https://downloadcontent2.opensuse.org/tumbleweed/repo/oss/\n";
         let (pinned, aliases) = pinned_file(source).unwrap();
         let history = if cfg!(feature = "wsl-lab") {
-            "/history/20261013/tumbleweed/repo/oss/"
+            "/history/20261016/tumbleweed/repo/oss/"
         } else {
             "/history/20261011/tumbleweed/repo/oss/"
         };

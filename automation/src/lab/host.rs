@@ -8,7 +8,7 @@ use std::{
     fs,
     io::{Read, Write},
     net::ToSocketAddrs,
-    os::unix::fs::{OpenOptionsExt, PermissionsExt},
+    os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     thread,
@@ -17,11 +17,13 @@ use std::{
 
 #[path = "linked_checkpoint.rs"]
 mod linked_checkpoint;
+#[path = "profile_bundle_host.rs"]
+mod profile_bundle_host;
 #[path = "qmp.rs"]
 mod qmp;
+#[path = "service_fixture_host.rs"]
+mod service_fixture_host;
 
-const FIRMWARE: &[(&str, &str)] =
-    &[("OVMF_CODE_4M.fd", "ovmf_code_sha256"), ("OVMF_VARS_4M.fd", "ovmf_variables_sha256")];
 const LOGIN_JOURNAL_FILENAME: &str = "sddm-logind-journal-private.log";
 const LOGIN_JOURNAL_STREAM_LIMIT: usize = 1024 * 1024;
 const LOGIN_JOURNAL_COMMAND: &str = "sudo /usr/bin/timeout --signal=KILL --kill-after=2s 15s /usr/bin/journalctl --no-pager --output=short-monotonic --since=-5min --lines=1000 --unit=sddm.service --unit=systemd-logind.service";
@@ -212,7 +214,7 @@ trait LoginMonitor {
     fn capture(&mut self, point: LoginCapturePoint) -> Result<()>;
 }
 
-fn ppm_frame_has_rendered_content(frame: &[u8]) -> Result<bool> {
+fn ppm_frame(frame: &[u8]) -> Result<(usize, usize, &[u8])> {
     let mut lines = frame.splitn(4, |byte| *byte == b'\n');
     require(lines.next() == Some(b"P6".as_slice()), "QEMU framebuffer is not a binary PPM")?;
     let dimensions = std::str::from_utf8(lines.next().ok_or("PPM dimensions missing")?)?;
@@ -231,6 +233,11 @@ fn ppm_frame_has_rendered_content(frame: &[u8]) -> Result<bool> {
         width > 0 && height > 0 && width <= 8192 && height <= 8192 && pixels.len() == expected,
         "invalid QEMU framebuffer dimensions or pixel length",
     )?;
+    Ok((width, height, pixels))
+}
+
+fn ppm_frame_has_rendered_content(frame: &[u8]) -> Result<bool> {
+    let (width, height, pixels) = ppm_frame(frame)?;
     // A newly-started X server can have a black framebuffer with only the
     // hardware cursor drawn. Treating one nonblack pixel as readiness caused
     // us to type credentials before SDDM had painted its user chooser. Ignore
@@ -354,15 +361,22 @@ fn capture_login_timeout(control: &mut impl LoginMonitor) {
 }
 
 struct Lab {
+    retained: Option<String>,
+    accelerator: crate::accelerator::Accelerator,
     assets: PathBuf,
     run: PathBuf,
     ui_binary: Option<PathBuf>,
+    ui_service: Option<(PathBuf, String)>,
     zypp_probe: Option<PathBuf>,
     state_probe: Option<PathBuf>,
     state_initializer: Option<PathBuf>,
     state_prepare: Option<PathBuf>,
     linked_probe: Option<PathBuf>,
     recovery_cli: Option<PathBuf>,
+    profile_probe: Option<PathBuf>,
+    defaults_rpm: Option<PathBuf>,
+    profile_hashes: Option<(String, String)>,
+    service_fixture: Option<service_fixture_host::Inputs>,
     zypp_package: Option<String>,
     port: Option<u16>,
     vm: Option<Child>,
@@ -376,6 +390,12 @@ impl Drop for Lab {
 }
 
 impl Lab {
+    fn log_path(&self, name: &str) -> PathBuf {
+        self.run.join(match &self.retained {
+            Some(stamp) => format!("resume-{stamp}-{name}"),
+            None => name.to_owned(),
+        })
+    }
     fn terminate_owned_vm(&mut self) -> Result<()> {
         let Some(child) = self.vm.as_mut() else {
             self.port = None;
@@ -430,6 +450,15 @@ impl Lab {
     fn start(&mut self, offline: bool) -> Result<()> {
         require(self.vm.is_none(), "VM already owned by run")?;
         self.port = None;
+        if self.retained.is_some() {
+            // QEMU truncates its serial target; precreate only a fresh private
+            // path, retaining all serial output from earlier boots.
+            fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(self.log_path("serial-private.log"))?;
+        }
         let mut command = self.tool("qemu-system-x86_64");
         // The pinned Debian package ships some PCI devices, including
         // virtio-vga, as modules under qemu-system-common. The assets are
@@ -453,15 +482,12 @@ impl Lab {
             .args([
                 "-machine",
                 scalar("machine")?,
-                "-accel",
-                "tcg,thread=multi",
-                "-cpu",
-                "max",
                 "-smp",
                 scalar("cpus")?,
                 "-m",
                 scalar("memory_mib")?,
             ])
+            .args(self.accelerator.arguments())
             .arg("-drive")
             .arg(format!("file={},format=qcow2,if=virtio", self.run.join("disk.qcow2").display()))
             .arg("-drive")
@@ -486,27 +512,67 @@ impl Lab {
             .arg("-qmp")
             .arg(format!("unix:{},server=on,wait=off", self.run.join("qmp-private.sock").display()))
             .arg("-serial")
-            .arg(format!("file:{}", self.run.join("serial-private.log").display()))
+            .arg(format!("file:{}", self.log_path("serial-private.log").display()))
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(fs::File::create(self.run.join("qemu-private.log"))?);
-        if self.run.join("migration.qcow2").exists() {
+            .stderr(if self.retained.is_some() {
+                fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .mode(0o600)
+                    .open(self.log_path("qemu-private.log"))?
+            } else {
+                fs::File::create(self.log_path("qemu-private.log"))?
+            });
+        if self.retained.is_none() && self.run.join("migration.qcow2").exists() {
             command.arg("-drive").arg(format!(
                 "file={},format=qcow2,if=virtio",
                 self.run.join("migration.qcow2").display()
             ));
         }
         self.vm = Some(command.spawn()?);
+        if self.retained.is_some() {
+            crate::development::verify_spawned(
+                &command,
+                self.vm.as_ref().ok_or("owned QEMU missing")?.id(),
+                &self.run,
+            )?;
+        }
         // QEMU binds port zero atomically. Query only our private owned QMP
         // endpoint; no temporary listener is dropped before another bind.
         let mut control = qmp::QmpClient::connect(&self.run.join("qmp-private.sock"))?;
+        control.verify_owned_peer(self.vm.as_ref().ok_or("owned QEMU missing")?.id())?;
+        control.verify_accelerator(self.accelerator == crate::accelerator::Accelerator::Kvm)?;
+        self.evidence("accelerator_runtime=verified")?;
         self.port = Some(control.forwarded_ssh_port()?);
+        drop(control);
+        if self.retained.is_some() {
+            crate::retained::pin_port(
+                &crate::development::directory(&self.run)?,
+                self.port.ok_or("owned SSH port missing")?,
+            )?;
+        }
         self.wait_ssh()
     }
 
     fn ssh_command(&self) -> Result<Command> {
         let port = self.port.ok_or("owned QEMU SSH forwarding endpoint unknown")?;
-        let mut command = Command::new("ssh");
+        let mut command =
+            Command::new(if self.retained.is_some() { "/usr/bin/ssh" } else { "ssh" });
+        if self.retained.is_some() {
+            command.args([
+                "-o",
+                "IdentitiesOnly=yes",
+                "-o",
+                "IdentityAgent=none",
+                "-o",
+                "GlobalKnownHostsFile=/dev/null",
+                "-o",
+                "HostKeyAlgorithms=ssh-ed25519",
+                "-o",
+                "UpdateHostKeys=no",
+            ]);
+        }
         command
             .args(["-F", "/dev/null", "-i"])
             .arg(self.run.join("id_ed25519"))
@@ -522,7 +588,11 @@ impl Lab {
                 "-o",
                 "ServerAliveCountMax=6",
                 "-o",
-                "StrictHostKeyChecking=accept-new",
+                if self.retained.is_some() {
+                    "StrictHostKeyChecking=yes"
+                } else {
+                    "StrictHostKeyChecking=accept-new"
+                },
                 "-o",
             ])
             .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
@@ -546,7 +616,13 @@ impl Lab {
         let mut command = self.ssh_command()?;
         command.arg(request);
         let result = process::run_until(&mut command, deadline, SSH_OUTPUT_LIMIT)?;
-        fs::write(self.run.join("guest-private.log"), bounded_output_log(&result))?;
+        fs::write(self.log_path("guest-private.log"), bounded_output_log(&result))?;
+        if self.retained.is_some() {
+            fs::set_permissions(
+                self.log_path("guest-private.log"),
+                fs::Permissions::from_mode(0o600),
+            )?;
+        }
         require(!result.timed_out, "SSH_COMMAND_TIMEOUT")?;
         require(result.status.success(), "guest command failed; inspect private guest log")?;
         require(
@@ -716,7 +792,17 @@ impl Lab {
             if Instant::now() >= deadline {
                 break;
             }
-            if self.ssh_until("timeout 120 cloud-init status --wait", deadline).is_ok() {
+            if self
+                .ssh_until(
+                    if self.retained.is_some() {
+                        "true"
+                    } else {
+                        "timeout 120 cloud-init status --wait"
+                    },
+                    deadline,
+                )
+                .is_ok()
+            {
                 return Ok(());
             }
             let remaining = deadline.saturating_duration_since(Instant::now());
@@ -1304,19 +1390,67 @@ impl Lab {
             return Ok(());
         }
         self.copy_ui_binary()?;
+        let real_service = self.ui_service.is_some();
+        if let Some((path, hash)) = &self.ui_service {
+            require(crate::profile_bundle::digest(path)? == *hash, "frozen UI daemon changed")?;
+            let mut copy = Command::new("scp");
+            copy.args(["-F", "/dev/null", "-i"])
+                .arg(self.run.join("id_ed25519"))
+                .args([
+                    "-P",
+                    &self.port.ok_or("missing SSH endpoint")?.to_string(),
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "StrictHostKeyChecking=yes",
+                    "-o",
+                ])
+                .arg(format!("UserKnownHostsFile={}", self.run.join("known_hosts").display()))
+                .arg(path)
+                .arg("tester@127.0.0.1:/tmp/ryoku-ui-service.upload");
+            self.run_private_child(
+                &mut copy,
+                "ui-service-copy-private.log",
+                "UI_SERVICE_COPY_TIMEOUT",
+                "UI_SERVICE_COPY_FAILED",
+            )?;
+            self.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-ui-service-install {hash}"))?;
+        }
+        self.evidence(if real_service {
+            "ui_capture_backend=real_user_daemon"
+        } else {
+            "ui_capture_backend=demonstration"
+        })?;
         for (scenario, filename) in
             [("success", "ryoku-ui-success.ppm"), ("error", "ryoku-ui-error.ppm")]
         {
-            self.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-ui-launch {scenario}"))?;
-            thread::sleep(Duration::from_secs(3));
-            let mut control = qmp::QmpClient::connect(&self.run.join("qmp-private.sock"))?;
-            control.send_key("ret")?;
-            thread::sleep(Duration::from_secs(2));
-            // QEMU serves one client on this monitor. Retain the same
-            // connection for input and capture; opening a second one while
-            // `control` is alive waits for a greeting that cannot arrive.
-            self.capture_screenshot(&mut control, filename)?;
-            self.ssh("sudo /tmp/ryoku-vm-lab guest-ui-stop")?;
+            let scenario =
+                if real_service { format!("service-{scenario}") } else { scenario.into() };
+            let capture = (|| -> Result<()> {
+                let launch =
+                    self.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-ui-launch {scenario}"))?;
+                require(
+                    launch.lines().any(|line| line == "ui_capture_splash=absent"),
+                    "GTK proof launch did not verify that KDE splash had exited",
+                )?;
+                self.evidence("ui_capture_splash=absent")?;
+                let mut control = qmp::QmpClient::connect(&self.run.join("qmp-private.sock"))?;
+                control.send_key("ret")?;
+                if real_service {
+                    let result =
+                        self.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-ui-result {scenario}"))?;
+                    let expected = crate::desktop::result_evidence(&scenario)?;
+                    require(result == expected, "real UI result evidence incomplete")?;
+                    self.evidence(&result)?;
+                } else {
+                    thread::sleep(Duration::from_secs(2));
+                }
+                // Retain the monitor connection for input and capture.
+                self.capture_screenshot(&mut control, filename)
+            })();
+            let stopped = self.ssh("sudo /tmp/ryoku-vm-lab guest-ui-stop");
+            capture?;
+            stopped?;
         }
         // A framebuffer can be captured while the application is off-screen
         // or has not rendered visibly. Keep runtime diagnostics on successful
@@ -1329,6 +1463,10 @@ impl Lab {
     fn stop(&mut self) -> Result<()> {
         // A closed SSH stream can be the successful poweroff transition.
         let _ = self.ssh("sudo systemctl poweroff");
+        self.wait_poweroff()
+    }
+
+    fn wait_poweroff(&mut self) -> Result<()> {
         let deadline = Instant::now() + Duration::from_secs(120);
         while Instant::now() < deadline {
             if let Some(status) = self.vm.as_mut().ok_or("no VM owned")?.try_wait()? {
@@ -1340,6 +1478,63 @@ impl Lab {
             thread::sleep(Duration::from_secs(1));
         }
         Err("clean poweroff failed; Drop will terminate owned QEMU and retain diagnostics".into())
+    }
+
+    fn development_desktop(&mut self) -> Result<()> {
+        let directory = crate::development::directory(&self.run)?;
+        let mut control = qmp::QmpClient::connect(&self.run.join("qmp-private.sock"))?;
+        let frame = self.retained.as_ref().map_or_else(
+            || "development-desktop.ppm".to_owned(),
+            |stamp| format!("resume-{stamp}-desktop.ppm"),
+        );
+        if self.retained.is_some() {
+            fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(self.run.join(&frame))?;
+        }
+        self.capture_screenshot(&mut control, &frame)?;
+        drop(control);
+        let port = self.port.ok_or("development SSH endpoint unknown")?;
+        let pid = self.vm.as_ref().ok_or("no development VM owned")?.id();
+        crate::development::record(
+            &directory,
+            &format!(
+                "readiness=session_transport_only\nssh_host=127.0.0.1\nssh_port={port}\nssh_user=tester\nidentity=id_ed25519\nknown_hosts=known_hosts\nqmp=qmp-private.sock\nqemu_pid={pid}\nsupervisor_pid={}\nrelease=development-release\nhold_limit_seconds=86400\nqemu_start_ticks={}\nsupervisor_start_ticks={}\n",
+                std::process::id(),
+                crate::development::start_ticks(pid)?,
+                crate::development::start_ticks(std::process::id())?
+            ),
+        )?;
+        self.evidence(
+            "development_desktop=session_transport_ready\ndevelopment_lifecycle=not_run",
+        )?;
+        let deadline = Instant::now() + Duration::from_secs(24 * 60 * 60);
+        let held = (|| -> Result<bool> {
+            while Instant::now() < deadline {
+                require(
+                    self.vm.as_mut().ok_or("no development VM owned")?.try_wait()?.is_none(),
+                    "development QEMU exited before release",
+                )?;
+                if crate::development::release_requested(&directory)? {
+                    return Ok(true);
+                }
+                thread::sleep(Duration::from_secs(1));
+            }
+            Ok(false)
+        })();
+        // Also power off gracefully if the hold fails or expires. Drop remains
+        // the final owned-child fallback, and no development artifacts are reset.
+        let cleared = crate::development::clear_record(&directory);
+        let _ = self.ssh_until(
+            "sudo sync && sudo systemctl poweroff",
+            Instant::now() + Duration::from_secs(30),
+        );
+        self.wait_poweroff()?;
+        self.evidence("development_desktop=retained_stopped")?;
+        cleared?;
+        require(held?, "development desktop hold expired after 24 hours")
     }
 
     fn seed(&self) -> Result<()> {
@@ -1540,6 +1735,223 @@ fn desktop_password() -> Result<Vec<u8>> {
     Ok(password)
 }
 
+fn development_control(run: &str) -> Result<(fs::File, qmp::QmpClient)> {
+    use std::os::fd::AsRawFd;
+    let (directory, port, pid) = crate::development::capture_owner(Path::new(run))?;
+    let pinned = PathBuf::from(format!("/proc/self/fd/{}", directory.as_raw_fd()));
+    let mut control = qmp::QmpClient::connect(&pinned.join("qmp-private.sock"))?;
+    control.verify_owned_peer(pid)?;
+    require(control.forwarded_ssh_port()? == port, "development QMP SSH endpoint changed")?;
+    Ok((directory, control))
+}
+
+pub(crate) fn development_input(run: &str, kind: &str, value: &str) -> Result<()> {
+    let input = crate::development::input(kind, value)?;
+    let (directory, mut control) = development_control(run)?;
+    let deadline = Instant::now() + Duration::from_secs(30);
+    match input {
+        crate::development::Input::Keys(keys) => {
+            for key in keys {
+                require(Instant::now() < deadline, "development input deadline exceeded")?;
+                control.send_key(key)?;
+                // QEMU's send-key releases after 100 ms; avoid overlapping key presses.
+                thread::sleep(Duration::from_millis(150));
+            }
+        }
+        crate::development::Input::Chord(key) => control.send_chord(key)?,
+        crate::development::Input::Click(x, y) => {
+            // Query only; an unsupported PS/2-only fixture receives no events.
+            control.require_absolute_pointer()?;
+            let frame = development_frame(&directory, &mut control)?;
+            let (width, height, _) = ppm_frame(&frame)?;
+            control.click(x, y, width as u32, height as u32)?;
+        }
+    }
+    println!("development_input=sent");
+    Ok(())
+}
+
+fn validate_retained_ssh_file(path: &Path, private_key: bool) -> Result<()> {
+    let metadata = fs::symlink_metadata(path)?;
+    let permissions = metadata.mode() & 0o7777;
+    // OpenSSH creates known_hosts as 0644 even inside our private 0700 run
+    // directory. Host keys are public; their integrity, not confidentiality,
+    // matters. The private identity must remain exactly owner read/write.
+    let mode_valid = if private_key {
+        permissions == 0o600
+    } else {
+        permissions & 0o7022 == 0 && permissions & 0o400 != 0
+    };
+    require(
+        metadata.is_file()
+            && metadata.uid() == rustix::process::geteuid().as_raw()
+            && metadata.nlink() == 1
+            && mode_valid,
+        "unsafe retained SSH identity/host-key file",
+    )
+}
+
+/// Password-bearing native login is limited to the currently owned retained
+/// guest. Session choice is an enum, never a client-provided remote command.
+pub(crate) fn development_login(run: &str, selected: crate::desktop::NativeSession) -> Result<()> {
+    use std::os::fd::AsRawFd;
+    let (directory, mut control) = development_control(run)?;
+    let port = control.forwarded_ssh_port()?;
+    // Child ssh must resolve the parent's descriptor, not its own CLOEXEC fd.
+    let pinned =
+        PathBuf::from(format!("/proc/{}/fd/{}", std::process::id(), directory.as_raw_fd()));
+    for (name, private_key) in [("id_ed25519", true), ("known_hosts", false)] {
+        validate_retained_ssh_file(&pinned.join(name), private_key)?;
+    }
+    let ssh = |request: &str| {
+        let mut command = Command::new("ssh");
+        command
+            .args(["-F", "/dev/null", "-i"])
+            .arg(pinned.join("id_ed25519"))
+            .args([
+                "-p",
+                &port.to_string(),
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=yes",
+                "-o",
+                "ConnectTimeout=10",
+                "-o",
+                "ServerAliveInterval=5",
+                "-o",
+                "ServerAliveCountMax=2",
+                "-o",
+            ])
+            .arg(format!("UserKnownHostsFile={}", pinned.join("known_hosts").display()))
+            .arg("tester@127.0.0.1")
+            .arg(request);
+        command
+    };
+    struct Secret(Vec<u8>);
+    impl Drop for Secret {
+        fn drop(&mut self) {
+            self.0.fill(0);
+        }
+    }
+    let password = Secret(desktop_password()?);
+    let mut stdin = Secret(password.0.clone());
+    stdin.0.push(b'\n');
+    let mut log = Vec::new();
+    let result = (|| -> Result<()> {
+        let mut prepare = ssh(&format!(
+            "sudo /usr/bin/timeout --signal=TERM --kill-after=3s 140s /tmp/ryoku-vm-lab guest-development-login-prepare {}",
+            selected.name()
+        ));
+        let prepared = process::run_with_input_until(
+            &mut prepare,
+            Some(&stdin.0),
+            Instant::now() + Duration::from_secs(150),
+            SSH_OUTPUT_LIMIT,
+        )?;
+        stdin.0.fill(0);
+        log.extend(bounded_output_log(&prepared));
+        require(
+            !prepared.timed_out
+                && prepared.status.success()
+                && !prepared.stdout_truncated
+                && !prepared.stderr_truncated,
+            "retained native login preparation failed; inspect private log",
+        )?;
+        let mut monitor = PrivateLoginMonitor { control: &mut control, run: &pinned };
+        send_greeter_password(
+            &mut monitor,
+            &password.0,
+            Duration::from_millis(150),
+            GREETER_READINESS_TIMEOUT,
+            GREETER_READINESS_POLL,
+        )?;
+        let deadline = Instant::now() + Duration::from_secs(180);
+        loop {
+            let mut inspect = ssh(&format!(
+                "sudo /usr/bin/timeout --signal=TERM --kill-after=2s 15s /tmp/ryoku-vm-lab guest-development-login-inspect {}",
+                selected.name()
+            ));
+            let inspected = process::run_until(
+                &mut inspect,
+                deadline.min(Instant::now() + Duration::from_secs(20)),
+                64 * 1024,
+            )?;
+            let success = !inspected.timed_out
+                && inspected.status.success()
+                && !inspected.stdout_truncated
+                && !inspected.stderr_truncated;
+            // Keep only the final bounded result, rather than a growing retry log.
+            log = bounded_output_log(&inspected);
+            if success {
+                println!(
+                    "development_login=native-session-verified\ndevelopment_session={}\ndevelopment_visual_acceptance=separate-capture-required",
+                    selected.name()
+                );
+                return Ok(());
+            }
+            if Instant::now() >= deadline {
+                capture_login_timeout(&mut monitor);
+                return Err("native session inspection timed out; inspect private log".into());
+            }
+            thread::sleep(Duration::from_secs(2));
+        }
+    })();
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_nanos();
+    save_private_log(
+        &pinned,
+        &format!("development-login-{}-{stamp}-private.log", selected.name()),
+        &log,
+    )?;
+    result
+}
+
+/// Capture only the fixed framebuffer of a currently supervised development VM.
+pub(crate) fn development_capture(run: &str) -> Result<()> {
+    let (directory, mut control) = development_control(run)?;
+    development_frame(&directory, &mut control)?;
+    println!("development_capture=saved_private_frame");
+    Ok(())
+}
+
+fn development_frame(directory: &fs::File, control: &mut qmp::QmpClient) -> Result<Vec<u8>> {
+    use std::os::fd::AsRawFd;
+    let pinned = PathBuf::from(format!("/proc/self/fd/{}", directory.as_raw_fd()));
+    let path = pinned.join("development-current.ppm");
+    let mut options = fs::OpenOptions::new();
+    options
+        .read(true)
+        .write(true)
+        .create(true)
+        .mode(0o600)
+        .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as _);
+    let file = options.open(&path)?;
+    let before = file.metadata()?;
+    require(
+        before.is_file()
+            && before.uid() == rustix::process::geteuid().as_raw()
+            && before.nlink() == 1
+            && before.mode() & 0o7777 == 0o600,
+        "unsafe existing development framebuffer",
+    )?;
+    control.screendump("development-current.ppm")?;
+    let after = fs::symlink_metadata(&path)?;
+    require(
+        after.is_file()
+            && after.dev() == before.dev()
+            && after.ino() == before.ino()
+            && after.nlink() == 1
+            && after.uid() == before.uid()
+            && after.mode() & 0o7777 == 0o600
+            && after.len() <= 64 * 1024 * 1024,
+        "development framebuffer replaced or oversized",
+    )?;
+    let mut frame = Vec::new();
+    file.take(64 * 1024 * 1024 + 1).read_to_end(&mut frame)?;
+    let _ = ppm_frame_has_rendered_content(&frame)?;
+    Ok(frame)
+}
+
 fn stage_input_binary(source: &Path, destination: &Path) -> Result<PathBuf> {
     const LIMIT: u64 = 256 * 1024 * 1024;
     let input = fs::OpenOptions::new()
@@ -1567,73 +1979,89 @@ fn stage_input_binary(source: &Path, destination: &Path) -> Result<PathBuf> {
     Ok(destination.to_owned())
 }
 
+/// Own a new QEMU child around the existing disk. Provisioning and lifecycle
+/// acceptance probes are deliberately absent from this path.
+pub(crate) fn development_resume(
+    assets: &str,
+    run: &str,
+    accelerator: crate::accelerator::Accelerator,
+) -> Result<()> {
+    let inputs = crate::retained::preflight(assets, run, accelerator)?;
+    let _directory = inputs.directory; // Keep the exclusive flock until QEMU is reaped.
+    let stamp =
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_nanos().to_string();
+    let mut lab = Lab {
+        retained: Some(stamp),
+        accelerator,
+        assets: inputs.assets,
+        run: inputs.run,
+        ui_binary: None,
+        ui_service: None,
+        zypp_probe: None,
+        state_probe: None,
+        state_initializer: None,
+        state_prepare: None,
+        linked_probe: None,
+        recovery_cli: None,
+        profile_probe: None,
+        defaults_rpm: None,
+        profile_hashes: None,
+        service_fixture: None,
+        zypp_package: None,
+        port: None,
+        vm: None,
+        report: fs::OpenOptions::new()
+            .append(true)
+            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as _)
+            .open(Path::new(run).join("evidence.txt"))?,
+    };
+    // This receipt intentionally prevents blind retry after an interrupted
+    // resume. The original stopped receipt alone cannot bless a later crash.
+    lab.evidence("development_resume=starting")?;
+    lab.report.sync_all()?;
+    lab.start(false)?;
+    lab.development_desktop()
+}
+
 pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Result<()> {
-    let crate::RunOptions {
-        capture_ui: ui_binary,
-        zypp_probe,
+    let inputs = crate::preflight::inspect(assets, run, options)?;
+    let assets = inputs.assets;
+    let run_path = inputs.run.as_path();
+    let [
+        ui_binary,
         state_probe,
         state_initializer,
         state_prepare,
         linked_probe,
         recovery_cli,
-        console_only,
-    } = options;
+        zypp_binary,
+        profile_probe,
+        service_probe,
+        user_daemon,
+        root_helper,
+        ui_service,
+    ] = inputs.binaries;
+    let zypp_probe = zypp_binary.zip(options.zypp_probe.map(|(_, package)| package.to_owned()));
+    let console_only = options.console_only;
     let image = scalar("image")?;
     let hash = scalar("sha256")?;
     let signer = scalar("release_key_fingerprint")?;
     let qemu = scalar("qemu")?;
     let memory = scalar("memory_mib")?;
     let cpus = scalar("cpus")?;
-    require(
-        scalar("architecture")? == "x86_64" && scalar("accelerator")? == "tcg",
-        "unsupported fixture architecture or accelerator",
-    )?;
-    let assets = fs::canonicalize(assets)?;
-    let ui_binary = ui_binary.map(fs::canonicalize).transpose()?;
-    let state_probe = state_probe.map(fs::canonicalize).transpose()?;
-    let state_initializer = state_initializer.map(fs::canonicalize).transpose()?;
-    let state_prepare = state_prepare.map(fs::canonicalize).transpose()?;
-    let linked_probe = linked_probe.map(fs::canonicalize).transpose()?;
-    let recovery_cli = recovery_cli.map(fs::canonicalize).transpose()?;
-    for binary in [&linked_probe, &recovery_cli].into_iter().flatten() {
-        require(binary.is_file(), "linked checkpoint input is not a regular file")?;
-    }
-    if let Some(binary) = &state_prepare {
-        require(binary.is_file(), "state preparation probe is not a regular file")?;
-    }
-    if let Some(binary) = &state_initializer {
-        require(binary.is_file(), "state initializer is not a regular file")?;
-    }
-    if let Some(binary) = &state_probe {
-        require(binary.is_file(), "state probe binary is not a regular file")?;
-    }
-    if let Some(binary) = &ui_binary {
-        require(binary.is_file(), "GTK proof binary is not a regular file")?;
-    }
-    let zypp_probe = zypp_probe
-        .map(|(binary, package)| {
-            let binary = fs::canonicalize(binary)?;
-            require(binary.is_file(), "zypper probe binary is not a regular file")?;
-            require(
-                !package.is_empty()
-                    && package.as_bytes()[0].is_ascii_alphanumeric()
-                    && package
-                        .bytes()
-                        .all(|byte| byte.is_ascii_alphanumeric() || b"-_.+".contains(&byte)),
-                "invalid zypper probe package identifier",
-            )?;
-            Ok::<_, Box<dyn std::error::Error>>((binary, package.to_owned()))
-        })
-        .transpose()?;
-    let run_path = Path::new(run);
-    require(run_path.is_absolute(), "run directory must be absolute")?;
-    safe_component(run_path.file_name().and_then(|x| x.to_str()).ok_or("missing run name")?)?;
-    let parent = fs::canonicalize(run_path.parent().ok_or("missing parent")?)?;
-    runner::validate_host(&assets, &parent)?;
     fs::create_dir(run_path)?; // Never resume or delete an unowned existing directory.
     fs::set_permissions(run_path, fs::Permissions::from_mode(0o700))?;
     let ui_binary = ui_binary
         .map(|source| stage_input_binary(&source, &run_path.join("input-ui")))
+        .transpose()?;
+    let ui_service = ui_service
+        .map(|source| -> Result<_> {
+            let path = stage_input_binary(&source, &run_path.join("input-ui-service"))?;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o500))?;
+            crate::preflight::input_binary(path.to_str().ok_or("invalid staged UI daemon")?)?;
+            let hash = crate::profile_bundle::digest(&path)?;
+            Ok((path, hash))
+        })
         .transpose()?;
     let state_probe = state_probe
         .map(|source| stage_input_binary(&source, &run_path.join("input-state-probe")))
@@ -1650,38 +2078,40 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
     let recovery_cli = recovery_cli
         .map(|source| stage_input_binary(&source, &run_path.join("input-recovery-cli")))
         .transpose()?;
+    let profile_probe = profile_probe
+        .map(|source| stage_input_binary(&source, &run_path.join("input-profile-probe")))
+        .transpose()?;
+    let defaults_rpm = inputs
+        .defaults_rpm
+        .map(|source| stage_input_binary(&source, &run_path.join("input-profile-defaults.rpm")))
+        .transpose()?;
+    if let (Some(path), Some((_, _, expected))) = (&defaults_rpm, options.profile_bundle) {
+        fs::set_permissions(path, fs::Permissions::from_mode(0o400))?;
+        crate::profile_bundle::inspect_rpm(path, expected)?;
+    }
+    if let Some(path) = &profile_probe {
+        fs::set_permissions(path, fs::Permissions::from_mode(0o500))?;
+        crate::preflight::input_binary(path.to_str().ok_or("invalid staged probe path")?)?;
+    }
+    let profile_hashes = match (&profile_probe, options.profile_bundle) {
+        (Some(path), Some((_, _, rpm_sha))) => {
+            Some((crate::profile_bundle::digest(path)?, rpm_sha.to_owned()))
+        }
+        _ => None,
+    };
+    let service_fixture = match (service_probe, user_daemon, root_helper) {
+        (Some(probe), Some(daemon), Some(helper)) => {
+            Some(service_fixture_host::freeze([probe, daemon, helper], run_path)?)
+        }
+        (None, None, None) => None,
+        _ => return Err("incomplete service fixture inputs".into()),
+    };
     let zypp_probe = zypp_probe
         .map(|(source, package)| {
             stage_input_binary(&source, &run_path.join("input-zypp-probe"))
                 .map(|binary| (binary, package))
         })
         .transpose()?;
-    let checksum = output(Command::new("sha256sum").arg(assets.join(image)))?;
-    require(checksum.split_whitespace().next() == Some(hash), "base checksum mismatch")?;
-    let signed_sum = fs::read_to_string(assets.join("image.sha256"))?;
-    require(
-        signed_sum.split_whitespace().next() == Some(hash),
-        "signed checksum does not describe pinned base",
-    )?;
-    for (file, key) in FIRMWARE {
-        let digest = output(Command::new("sha256sum").arg(runner::firmware(&assets, file)))?;
-        require(
-            digest.split_whitespace().next() == Some(scalar(key)?),
-            "firmware checksum mismatch",
-        )?;
-    }
-    let signature = output(
-        Command::new("gpg")
-            .args(["--no-auto-check-trustdb", "--homedir"])
-            .arg(assets.join("gnupg"))
-            .args(["--status-fd", "1", "--verify"])
-            .arg(assets.join("image.sha256.asc"))
-            .arg(assets.join("image.sha256")),
-    )?;
-    require(
-        signature.lines().any(|x| x.starts_with(&format!("[GNUPG:] VALIDSIG {signer} "))),
-        "unexpected release signer",
-    )?;
     let (network, offline_probe) = if runner::WSL {
         ("direct".to_owned(), "1.1.1.1:443".to_owned())
     } else {
@@ -1690,14 +2120,21 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         (address.to_string(), address.to_string())
     };
     let mut lab = Lab {
+        retained: None,
+        accelerator: options.accelerator.unwrap_or_default(),
         assets,
         run: fs::canonicalize(run_path)?,
         ui_binary,
+        ui_service,
         state_probe,
         state_initializer,
         state_prepare,
         linked_probe,
         recovery_cli,
+        profile_probe,
+        defaults_rpm,
+        profile_hashes,
+        service_fixture,
         zypp_probe: zypp_probe.as_ref().map(|(binary, _)| binary.clone()),
         zypp_package: zypp_probe.as_ref().map(|(_, package)| package.clone()),
         port: None,
@@ -1705,13 +2142,12 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         report: fs::File::create(run_path.join("evidence.txt"))?,
     };
     let runner_name = if runner::WSL { "existing-opensuse-wsl" } else { "existing-managed-cloud" };
-    lab.evidence(&format!("fixture_sha256={hash}\nrelease_signer={signer}\nhost_runner={runner_name}\naccelerator=tcg\nvm_memory_mib={memory}\nvm_cpus={cpus}"))?;
-    let version = output(lab.tool("qemu-system-x86_64").arg("--version"))?;
-    require(
-        version.starts_with(&format!("QEMU emulator version {qemu}")),
-        "unexpected QEMU version",
-    )?;
+    let accelerator = lab.accelerator.name();
+    lab.evidence(&format!("fixture_sha256={hash}\nrelease_signer={signer}\nhost_runner={runner_name}\naccelerator={accelerator}\nvm_memory_mib={memory}\nvm_cpus={cpus}"))?;
     lab.evidence(&format!("qemu={qemu}\nimage_signature=verified"))?;
+    if let Some((_, hash)) = &lab.ui_service {
+        lab.evidence(&format!("ui_user_service_sha256={hash}"))?;
+    }
     for (key, binary) in [
         ("ui_binary_sha256", lab.ui_binary.clone()),
         ("state_probe_sha256", lab.state_probe.clone()),
@@ -1719,6 +2155,8 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         ("state_prepare_sha256", lab.state_prepare.clone()),
         ("linked_probe_sha256", lab.linked_probe.clone()),
         ("recovery_cli_sha256", lab.recovery_cli.clone()),
+        ("profile_probe_sha256", lab.profile_probe.clone()),
+        ("profile_defaults_rpm_sha256", lab.defaults_rpm.clone()),
         ("zypp_probe_sha256", lab.zypp_probe.clone()),
         ("orchestrator_sha256", Some(PathBuf::from(format!("/proc/{}/exe", std::process::id())))),
     ] {
@@ -1730,6 +2168,15 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
                 "invalid binary checksum",
             )?;
             lab.evidence(&format!("{key}={digest}"))?;
+        }
+    }
+    if let Some(inputs) = &lab.service_fixture {
+        let hashes = inputs.hashes.clone();
+        for (key, hash) in ["service_fixture_sha256", "user_service_sha256", "root_helper_sha256"]
+            .into_iter()
+            .zip(hashes)
+        {
+            lab.evidence(&format!("{key}={hash}"))?;
         }
     }
     lab.seed()?;
@@ -1766,6 +2213,12 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
     }
     if lab.state_initializer.is_some() {
         lab.initialize_state()?;
+    }
+    if lab.profile_probe.is_some() {
+        lab.profile_bundle()?;
+    }
+    if lab.service_fixture.is_some() {
+        lab.service_fixture()?;
     }
     if lab.linked_probe.is_some() {
         lab.linked_capture()?;
@@ -1834,6 +2287,18 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         } else {
             "desktop_login=blocked"
         })?;
+    }
+    if options.development_desktop {
+        password.fill(0);
+        require(kde_ready, "development desktop ordinary-user login failed; artifacts retained")?;
+        require(
+            lab.ui_binary.is_none() || ui_captured,
+            "requested development UI capture failed; artifacts retained",
+        )?;
+        let held = lab.development_desktop();
+        let checksum = output(Command::new("sha256sum").arg(lab.assets.join(image)))?;
+        require(checksum.split_whitespace().next() == Some(hash), "base changed during run")?;
+        return held;
     }
     let before = lab.ssh("cat /proc/sys/kernel/random/boot_id")?;
     let _ = lab.ssh("sudo systemctl reboot");
@@ -2023,12 +2488,22 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         &lab.state_prepare,
         &lab.linked_probe,
         &lab.recovery_cli,
+        &lab.profile_probe,
+        &lab.defaults_rpm,
         &lab.zypp_probe,
     ]
     .into_iter()
     .flatten()
     {
         fs::remove_file(binary)?;
+    }
+    if let Some(inputs) = &lab.service_fixture {
+        for path in &inputs.paths {
+            fs::remove_file(path)?;
+        }
+    }
+    if let Some((path, _)) = &lab.ui_service {
+        fs::remove_file(path)?;
     }
     lab.evidence("base_unchanged=passed\nreset_disk_and_keys=removed")?;
     if zypp_probe.is_some() || console_only {
@@ -2056,6 +2531,37 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn retained_ssh_files_distinguish_public_host_keys_from_secret_identity() {
+        use std::os::unix::fs::symlink;
+        let run = std::env::temp_dir().join(format!("ryoku-ssh-mode-test-{}", std::process::id()));
+        fs::create_dir(&run).unwrap();
+        fs::set_permissions(&run, fs::Permissions::from_mode(0o700)).unwrap();
+        let file = run.join("ssh-file");
+        fs::write(&file, b"metadata test only\n").unwrap();
+        for mode in [0o600, 0o640, 0o644] {
+            fs::set_permissions(&file, fs::Permissions::from_mode(mode)).unwrap();
+            assert!(validate_retained_ssh_file(&file, false).is_ok());
+            assert_eq!(validate_retained_ssh_file(&file, true).is_ok(), mode == 0o600);
+        }
+        for mode in [0o620, 0o602, 0o664, 0o666, 0o4600, 0o1600] {
+            fs::set_permissions(&file, fs::Permissions::from_mode(mode)).unwrap();
+            assert!(validate_retained_ssh_file(&file, false).is_err());
+            assert!(validate_retained_ssh_file(&file, true).is_err());
+        }
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
+        let link = run.join("link");
+        symlink(&file, &link).unwrap();
+        assert!(validate_retained_ssh_file(&link, false).is_err());
+        assert!(validate_retained_ssh_file(&link, true).is_err());
+        let hardlink = run.join("hardlink");
+        fs::hard_link(&file, &hardlink).unwrap();
+        assert!(validate_retained_ssh_file(&file, false).is_err());
+        assert!(validate_retained_ssh_file(&file, true).is_err());
+        assert!(validate_retained_ssh_file(&run, false).is_err());
+        fs::remove_dir_all(run).unwrap();
+    }
+
     #[test]
     fn initializer_failure_fixture_requires_all_refusals_and_actual_unmounted_resume() {
         let complete = INITIALIZER_FAILURE_RESULTS.join("\n") + "\n";

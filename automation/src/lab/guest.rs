@@ -125,6 +125,10 @@ pub fn setup(proxy: &str) -> Result<()> {
             "snapper",
             "grub2-snapper-plugin",
             "plasma6-session",
+            // The no-recommends fixture still needs the default Next wallpaper:
+            // Plasma waits for wallpaper readiness before creating panel views.
+            "breeze6-wallpapers",
+            "hyprland-guiutils",
             "sddm",
             "xorg-x11-server",
             "xf86-input-libinput",
@@ -255,7 +259,13 @@ pub fn inspect() -> Result<()> {
 fn inspect_provisioned() -> Result<()> {
     inspect_base()?;
     command("systemctl", &["is-active", "display-manager"])?;
-    for package in ["plasma6-session", "sddm", "xf86-input-libinput"] {
+    for package in [
+        "plasma6-session",
+        "breeze6-wallpapers",
+        "hyprland-guiutils",
+        "sddm",
+        "xf86-input-libinput",
+    ] {
         let version = command("rpm", &["-q", "--qf", "%{VERSION}-%{RELEASE}", package])?;
         println!("{package}={}", version.trim());
     }
