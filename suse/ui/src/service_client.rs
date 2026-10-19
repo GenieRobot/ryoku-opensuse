@@ -532,4 +532,73 @@ mod tests {
         .unwrap();
         assert_eq!(got, worker.join().unwrap());
     }
+    #[test]
+    fn local_profile_read_accepts_typed_defaults() {
+        use std::io::{BufRead, BufReader};
+        let (server, mut client) = UnixStream::pair().unwrap();
+        let profile = ryoku_profiles::ProfileDocument::new(
+            ryoku_profiles::ProfileId::new(ryoku_profiles::GENERIC_PROFILE_ID).unwrap(),
+            ryoku_profiles::SettingsLayer::default(),
+        );
+        let expected = profile.clone();
+        let worker = thread::spawn(move || {
+            let mut line = String::new();
+            BufReader::new(&server).read_line(&mut line).unwrap();
+            let request: Envelope = serde_json::from_str(&line).unwrap();
+            assert_eq!(request.version, SERVICE_PROTOCOL_VERSION);
+            assert_eq!(request.request_id.as_str(), "ui-42");
+            assert_eq!(request.request, Request::GetLocalProfile);
+            let response = Response {
+                version: SERVICE_PROTOCOL_VERSION,
+                request_id: request.request_id,
+                body: ResponseBody::LocalProfile(expected),
+            };
+            serde_json::to_writer(&mut &server, &response).unwrap();
+            (&server).write_all(b"\n").unwrap();
+        });
+        let result = UnixServiceBackend::exchange_profile(
+            &mut client,
+            RequestId(42),
+            Request::GetLocalProfile,
+        );
+        worker.join().unwrap();
+        assert_eq!(result, Ok(profile));
+    }
+
+    #[test]
+    fn local_profile_reply_rejects_foreign_identity_and_schema() {
+        use std::io::{BufRead, BufReader};
+        for (id, bad_schema) in
+            [("other-profile", false), (ryoku_profiles::GENERIC_PROFILE_ID, true)]
+        {
+            let (server, mut client) = UnixStream::pair().unwrap();
+            let mut profile = ryoku_profiles::ProfileDocument::new(
+                ryoku_profiles::ProfileId::new(id).unwrap(),
+                ryoku_profiles::SettingsLayer::default(),
+            );
+            if bad_schema {
+                profile.schema_version += 1;
+            }
+            let worker = thread::spawn(move || {
+                let mut line = String::new();
+                BufReader::new(&server).read_line(&mut line).unwrap();
+                let request: Envelope = serde_json::from_str(&line).unwrap();
+                assert_eq!(request.request, Request::GetLocalProfile);
+                let response = Response {
+                    version: SERVICE_PROTOCOL_VERSION,
+                    request_id: request.request_id,
+                    body: ResponseBody::LocalProfile(profile),
+                };
+                serde_json::to_writer(&mut &server, &response).unwrap();
+                (&server).write_all(b"\n").unwrap();
+            });
+            let result = UnixServiceBackend::exchange_profile(
+                &mut client,
+                RequestId(43),
+                Request::GetLocalProfile,
+            );
+            worker.join().unwrap();
+            assert_eq!(result, Err(BackendError::InvalidResponse));
+        }
+    }
 }

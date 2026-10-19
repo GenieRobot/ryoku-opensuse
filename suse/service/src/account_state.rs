@@ -411,7 +411,7 @@ mod tests {
     use super::*;
     use std::{
         fs,
-        os::unix::fs::PermissionsExt,
+        os::unix::fs::{MetadataExt, PermissionsExt},
         sync::atomic::{AtomicU64, Ordering},
     };
     static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -639,6 +639,55 @@ mod tests {
         for directory in [&binding.home, &binding.configuration_parent, &binding.configuration] {
             assert_eq!(fstat(directory).unwrap().st_mode & 0o7777, 0o700);
         }
+        fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
+    fn optional_profile_root_is_read_only_until_a_private_fixed_root_is_requested() {
+        let path = std::env::temp_dir().join(format!(
+            "ryoku-account-profile-root-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(path.join("home/alice")).unwrap();
+        fs::set_permissions(path.join("home/alice"), fs::Permissions::from_mode(0o700)).unwrap();
+        let filesystem_root = File::open(&path).unwrap();
+        let home = open_directory(&filesystem_root, "home/alice", false).unwrap();
+        let home_stat = fstat(&home).unwrap();
+        let account = Account {
+            uid: home_stat.st_uid,
+            gid: home_stat.st_gid,
+            name: "alice".into(),
+            home: "/home/alice".into(),
+        };
+        let binding = AccountHomeRoot { account: account.clone(), home };
+
+        assert!(binding.configuration(false).unwrap().is_none());
+        assert!(!path.join("home/alice/.config").exists());
+
+        let configuration = binding.configuration(true).unwrap().unwrap();
+        let config_dir = path.join("home/alice/.config");
+        let ryoku_dir = config_dir.join("ryoku");
+        assert_eq!(fs::metadata(&config_dir).unwrap().mode() & 0o777, 0o700);
+        assert_eq!(fs::metadata(&ryoku_dir).unwrap().mode() & 0o777, 0o700);
+        for directory in [&config_dir, &ryoku_dir] {
+            let metadata = fs::metadata(directory).unwrap();
+            assert_eq!(metadata.uid(), account.uid);
+            assert_eq!(metadata.gid(), account.gid);
+        }
+        let reopened = binding.configuration(false).unwrap().unwrap();
+        assert_eq!(fstat(&configuration).unwrap().st_ino, fstat(&reopened).unwrap().st_ino);
+
+        fs::rename(&ryoku_dir, config_dir.join("retained-ryoku")).unwrap();
+        fs::create_dir(path.join("outside")).unwrap();
+        std::os::unix::fs::symlink(path.join("outside"), &ryoku_dir).unwrap();
+        assert!(binding.configuration(false).is_err());
+        assert!(binding.configuration(true).is_err());
+
+        drop(configuration);
+        drop(reopened);
+        drop(binding);
+        drop(filesystem_root);
         fs::remove_dir_all(path).unwrap();
     }
 

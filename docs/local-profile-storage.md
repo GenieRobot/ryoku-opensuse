@@ -64,6 +64,14 @@ The command requires matching non-root real/effective UID and GID, takes no
 paths or preference values from its arguments, and prints only a result or a
 bounded generic error. It does not change the running upstream Hub profile.
 
+The profile crate exposes a bounded classifier for the old Rust prototype's
+exact canonical schema-1 `generic-desktop` bytes. It returns the parsed
+document and source SHA-256 only when the entire input matches the old writer's
+canonical encoding. The unprivileged user service uses this classifier before
+calling the atomic writer; the classifier itself does not write or publish
+files. Upstream Hub documents, other profile identities, reformatted JSON, and
+oversized inputs are not candidates.
+
 System and companion layers have no mutable files under `/etc` or an arbitrary
 user-selected root. A local authorized importer supplies validated document
 bytes and publishes a new immutable bundle containing the required defaults
