@@ -1162,6 +1162,21 @@ mod tests {
     }
 
     #[test]
+    fn shared_read_leases_coexist_and_block_exclusive_mutation() {
+        let first = mutation_lock("shared-read-lease");
+        let uid = rustix::process::geteuid().as_raw();
+        let second = MutationLock::open(first.lock.directory.try_clone().unwrap(), uid).unwrap();
+        let first_lease = first.lock.try_acquire_shared().unwrap();
+        let second_lease = second.try_acquire_shared().unwrap();
+        let exclusive = first.lock.open_lock_file().unwrap();
+        assert!(flock(&exclusive, FlockOperation::NonBlockingLockExclusive).is_err());
+        drop(first_lease);
+        assert!(flock(&exclusive, FlockOperation::NonBlockingLockExclusive).is_err());
+        drop(second_lease);
+        flock(&exclusive, FlockOperation::NonBlockingLockExclusive).unwrap();
+    }
+
+    #[test]
     fn coordinator_lock_rejects_nonprivate_state_directories() {
         let path =
             std::env::temp_dir().join(format!("ryoku-mutation-lock-public-{}", std::process::id()));

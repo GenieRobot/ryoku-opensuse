@@ -51,6 +51,26 @@ pub fn public_evidence(line: &str) -> bool {
         "linked_probe_sha256",
         "recovery_cli_sha256",
         "native_linked_layout_observed",
+        "native_linked_boot_chain_observed",
+        "native_linked_changed_root_historical_readback",
+        "native_linked_fixture_metadata_readback",
+        "native_linked_named_acl_readback",
+        "native_linked_named_acl_restore",
+        "native_linked_mutation_lock_contention",
+        "native_linked_restore_process_exit",
+        "native_linked_restore_restart",
+        "native_linked_absent_entry_readback",
+        "native_linked_corrupt_manifest_refused",
+        "native_linked_symlink_manifest_refused",
+        "native_linked_traversal_manifest_refused",
+        "native_linked_corrupt_payload_refused",
+        "native_linked_artifact_mode_refused",
+        "native_linked_artifact_owner_refused",
+        "native_linked_artifact_group_refused",
+        "native_linked_artifact_directory_group_refused",
+        "native_linked_capture_failure_unpublished",
+        "native_linked_configuration_restore",
+        "native_linked_missing_transaction_link_refused",
         "native_linked_root_switch",
         "native_linked_boot_compatibility",
         "native_linked_restore_execution",
@@ -236,8 +256,53 @@ mod tests {
             assert!(!public_evidence(line));
         }
         assert!(public_evidence("snapper=0.12.1-1.2"));
-        assert!(public_evidence("native_linked_root_switch=unproven"));
-        assert!(public_evidence("native_linked_normal_reboot_readback=passed"));
+        for key in [
+            "native_linked_duplicate_checkpoint_refused",
+            "native_linked_original_identity_recorded",
+            "native_linked_changed_root_historical_readback",
+            "native_linked_catalog_generation_readback",
+            "native_linked_exact_snapshot_readback",
+            "native_linked_fixture_metadata_readback",
+            "native_linked_named_acl_readback",
+            "native_linked_named_acl_restore",
+            "native_linked_mutation_lock_contention",
+            "native_linked_restore_process_exit",
+            "native_linked_restore_restart",
+            "native_linked_absent_entry_readback",
+            "native_linked_planned_journal_readback",
+            "native_linked_corrupt_manifest_refused",
+            "native_linked_symlink_manifest_refused",
+            "native_linked_traversal_manifest_refused",
+            "native_linked_corrupt_payload_refused",
+            "native_linked_artifact_mode_refused",
+            "native_linked_artifact_owner_refused",
+            "native_linked_artifact_group_refused",
+            "native_linked_artifact_directory_group_refused",
+            "native_linked_capture_failure_unpublished",
+            "native_linked_configuration_restore",
+            "native_linked_writable_snapshot_refused",
+            "native_linked_missing_snapshot_refused",
+            "native_linked_substituted_snapshot_refused",
+            "native_linked_missing_transaction_link_refused",
+            "native_linked_missing_generation_refused",
+            "native_linked_owning_journal_cleanup",
+            "native_linked_cli_pending",
+            "native_linked_cli_verify",
+            "native_linked_normal_reboot_readback",
+            "native_linked_cli_empty_after_cleanup",
+        ] {
+            assert!(public_evidence(&format!("{key}=passed")), "{key}");
+            assert!(!public_evidence(&format!("{key}=/private/path")), "{key}");
+        }
+        for (key, value) in [
+            ("native_linked_layout_observed", "recorded"),
+            ("native_linked_root_switch", "unproven"),
+            ("native_linked_boot_compatibility", "unproven"),
+            ("native_linked_restore_execution", "unproven"),
+            ("native_linked_boot_chain_observed", "recorded"),
+        ] {
+            assert!(public_evidence(&format!("{key}={value}")), "{key}");
+        }
         assert!(!public_evidence("boot_fact={\"file\":\"/proc/cmdline\"}"));
         assert!(!public_evidence("native_linked_snapshot_id=42"));
         assert!(public_evidence("sddm=0.21.0+git57-1.1"));
