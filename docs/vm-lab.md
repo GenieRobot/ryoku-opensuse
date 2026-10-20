@@ -677,6 +677,15 @@ the normal reset-from-base marker check still runs. Its evidence reports
 `lifecycle_result=partial` and `lab_result=partial`; do not interpret that run
 as a passing #13 recovery run or as a protected provider write.
 
+The standalone probe also accepts `PACKAGE observe-commit`. This intentionally
+ACKs notifications and installs an initially absent package. A zero exit requires
+successful installation, changed RPM state, and both `COMMITBEGIN` and
+`COMMITEND`; it reports `unprotected_transaction_observed`, never protection.
+This mode is not added to the default four-mode runner. The
+[20 October #15 experiment](provider-experiments-20261020.md) documents its
+separately authorized signed-image overlay, measured bypasses and disposal.
+No shared fixture pin or recovery acceptance is changed by that experiment.
+
 The raw inventory/probe output, SSH diagnostics and QEMU logs stay in the
 mode-0700 run directory; probe-specific logs are mode 0600. Public evidence
 contains only allowlisted package/version facts, normalized allowlisted paths,

@@ -1,8 +1,7 @@
 //! A deliberately unregistered libzypp commit-plugin protocol probe.
 //!
-//! This is test-only until the pinned guest proves that a negative plugin
-//! response actually prevents a libzypp commit. In particular, this module
-//! does not claim to provide a system write gate.
+//! Pinned libzypp source shows that plugin errors do not veto a commit.
+//! This module measures that boundary; it cannot provide a system write gate.
 
 use std::io::{self, Read, Write};
 
@@ -219,7 +218,8 @@ fn process_one(stream: &mut (impl Read + Write), policy: Policy<'_>) -> io::Resu
 pub(crate) fn serve() -> io::Result<()> {
     let mode = std::env::var("RYOKU_ZYPP_PROBE_MODE").unwrap_or_else(|_| "deny-commit".into());
     let deny_command = match mode.as_str() {
-        "deny-commit" | "malformed-commit" | "timeout-commit" => "COMMITBEGIN",
+        "deny-commit" | "malformed-commit" | "timeout-commit" => Some("COMMITBEGIN"),
+        "observe-commit" => None,
         _ => return Err(invalid_data("unsupported zypp probe mode")),
     };
     if let Some(path) = std::env::var_os("RYOKU_ZYPP_PROBE_LOG") {
@@ -243,7 +243,7 @@ pub(crate) fn serve() -> io::Result<()> {
             let mut log = OpenOptions::new().append(true).open(Path::new(&path))?;
             writeln!(log, "probe_frame={}", frame.command)?;
         }
-        if frame.command == deny_command {
+        if Some(frame.command.as_str()) == deny_command {
             match mode.as_str() {
                 "deny-commit" => write_response(
                     &mut output,
