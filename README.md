@@ -5,15 +5,16 @@ Tumbleweed x86_64. The approved v1.2 target starts with Hyprland and retains
 KDE as a fallback. The port is intended to adapt the upstream Ryoku experience
 to openSUSE while keeping distribution-specific integration in a small,
 reviewed port layer; those product capabilities are not implemented or verified
-by this workspace foundation.
+as a complete release yet.
 
-The implementation roadmap and fixed decisions live in
-[issue #1](https://github.com/GenieRobot/ryoku-opensuse/issues/1). The primary
-upstream project is [Ryoku](https://github.com/Ryoku-dev/ryoku), distributed
-under GPL version 3. We do not vendor upstream code until its exact source
-revision and component boundaries are recorded in [issue
-#11](https://github.com/GenieRobot/ryoku-opensuse/issues/11); preserve the
-upstream notices and licenses when importing any component.
+The implementation roadmap and current Luna coordinator handoff live in
+[issue #1](https://github.com/GenieRobot/ryoku-opensuse/issues/1). See the
+[integration status](docs/integration-status.md) before picking up an issue.
+The primary upstream project is [Ryoku](https://github.com/Ryoku-dev/ryoku), distributed
+under GPL version 3. Its pinned source revision and component boundaries are
+recorded in [issue #11](https://github.com/GenieRobot/ryoku-opensuse/issues/11)
+and the [upstream inventory](docs/upstream-inventory.md). Preserve upstream
+notices and licenses when importing a component.
 
 ## Repository map
 
