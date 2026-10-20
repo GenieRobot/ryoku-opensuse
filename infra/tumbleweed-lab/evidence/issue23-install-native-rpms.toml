@@ -1,0 +1,103 @@
+schema = 1
+date = "2026-10-18"
+issue = 23
+source = "9d66fca12561e97302f99427112223e98785bba4"
+source_archive_sha256 = "8966ddc5a8f923aa1f52cc35dd1b55325bfcd17d1086c904f4715e20f94b6236"
+vendor_archive_sha256 = "37e07449436648ebfe54d9da92bb785c52b636691966bda3690f652af31dd7ec"
+runtime_archive_sha256 = "81151cef1a613b01ad8e6187df2e93cbfed70e1621de0ee2e7455d2904fc3e74"
+cargo_lock_sha256 = "62d167a989cd85865ea38dc31e6fcdf982600d55150f0c1d4be8cdaf85545061"
+runner = "coordinator in the retained Tumbleweed 20261013 development guest; separate read-only artifact review on host"
+scope = "native Release 2 build, locally test-signed package transactions and package-owned session checks on the retained SDK-equipped guest; partial issue 23 evidence"
+fresh_clean_installer = false
+issue_status = "open"
+
+[source_history]
+phase_one = "f596630cf3bc626bc46466a20b81f73a9e6f898a artifacts and evidence preserved"
+prepared_prior_cut = "77f42c506506a84b9e81b5f3d4b9caaa7344ef9c sources preserved and unbuilt; not substituted for this candidate"
+prepared_prior_archive_sha256 = "8406f5478a8231df7ba1d8502da2b3e67b820929e14988100518c5b90f51fb29"
+candidate_changes = "Release 2 fallback dependencies and four-file Blobs installation, reviewed retained-guest resume tooling and native notification-center route with Super+N session bindings"
+unreviewed_upstream_bridge = "excluded from this source cut"
+build_kit_sha256 = "afcf96935921fff2bdac88cf01f9758ef7c506b798bcd95757fb8a330a8b563f"
+
+[native_build]
+command = "four serial ordinary-user rpmbuild -ba commands; CARGO_BUILD_JOBS=2; _smp_build_ncpus=2; native installed BuildRequires retained; no --nodeps"
+defaults_exit = 0
+helper_exit = 0
+desktop_exit = 0
+tools_exit = 0
+defaults_log_sha256 = "5ab22da067ef013e8dda433b44069845637c49577b301dac1b0e90390b7fb6f3"
+helper_log_sha256 = "ab549b5cb03146b65d61ce39917e99ccc28307b1f09cb003df886e46c0e29901"
+desktop_log_sha256 = "179ba68c62168b9591018f8113be0e764072de2bdb8ee28398ac0e49e99a6938"
+tools_log_sha256 = "e9fa5582bccbe57c8b1db351a06a8c69cba6c5b472380fb6157564768c3a898c"
+new_runtime_rpms = 9
+new_source_rpms = 4
+port_version_release = "0.1.0-2"
+reused_runtime_rpm = "ryoku-quickshell-0.3.2-1.x86_64.rpm"
+reused_runtime_sha256 = "626c3f6928d886a79c3a774e5b9f70aaded67888cbf9e3399a795648c0e18537"
+quickshell_build = "unchanged phase-one runtime reused byte-for-byte; original Quickshell SRPM/debug evidence retained separately"
+
+[artifact_review]
+runtime_manifest = "issue23-install-runtime-rpms.sha256"
+runtime_manifest_sha256 = "4da239c80e4317d9ba00b76b8cd45191fdea9ad6e5d0be231c7eb295e08f8f2d"
+source_manifest = "issue23-install-source-rpms.sha256"
+source_manifest_sha256 = "bb3ba767548a80907b269ad2b417dddfbb2e8926b34f809882ac0774fffb9ab1"
+report_sha256 = "ad7b57c4e6cff310b74d272adf21a7952293f7392bebfe207455af01a904a98e"
+source_closure = "all four new SRPMs retain exact candidate Source0, required unchanged external archives and exact candidate specs; full decompressed Source0 equals native git archive of the recorded source"
+unchanged_upstream_runtime_files = 1201
+unchanged_font_and_license_files = 18
+blobs_runtime_files = ["libryoku-blobs.so", "libryoku-blobsplugin.so", "qmldir", "ryoku-blobs.qmltypes"]
+absolute_builder_resource_map = "absent"
+ownership = "all ten runtime RPMs root:root; no set-ID files, file capabilities or group/world-writable non-symlink entries"
+hooks = "no Ryoku scriptlets, package triggers, file triggers or transaction-file triggers"
+cross_package_non_directory_conflicts = 0
+fallback_dependencies = "hard Requires include plasma6-session, breeze6-wallpapers, sddm, xorg-x11-server and xf86-input-libinput"
+launcher_provider = "native lightweight ELF requirements remain independent of GTK"
+
+[signing]
+unsigned_attempt = "ordinary Zypper rejected unsigned artifacts with exit 8 and no package changes"
+installed_artifacts = "separate SIGNED-RPMS copies signed with a disposable fixture key trusted only for this test"
+validation = "ordinary Zypper signature validation retained; no GPG-check bypass"
+identity = "all ten signed copies preserve the unsigned RPM payload and package-header identities"
+signed_manifest = "issue23-install-signed-runtime-rpms.sha256"
+signed_manifest_sha256 = "77b22c85857a7aa364af4543fa6727b9f1aef77fc2bb5f7945f815f06039c536"
+identity_receipts_sha256 = "461b838590134572822cfdac2250b45873883f0a0a6aabe25062806c302149af"
+public_test_key_fingerprint = "740A21315108368EF18E1E8032F57A9A1695A78C"
+private_key = "excluded from copied artifacts and committed evidence"
+release_trust = "not a production signing or distribution trust claim"
+
+[transactions]
+first_install = "ordinary Zypper installation of the explicit ten signed runtime RPMs passed"
+first_install_integrity = "rpm -V passed for all ten installed packages"
+same_version_reinstall = "ordinary Zypper forced reinstall of the same ten package versions passed; rpm -V passed"
+removal = "removal of exactly the ten Ryoku packages passed"
+reinstall_after_removal = "ordinary Zypper reinstall of the ten signed packages passed"
+user_preservation = "coordinator's complete desktop-user home tar comparisons passed across install, same-version reinstall and removal"
+sysusers = "native distribution transaction processing created previously absent ryoku-operators with observed GID 471; no user membership assignment claimed"
+kde_preservation = "independent KDE/SDDM fallback packages retained during Ryoku removal"
+observation_boundary = "transaction logs establish package actions and group creation; rpm -V, complete-home comparisons and session/reboot probes are coordinator-reported native observations without separate receipts in this cut"
+
+[package_owned_session]
+first_login = "fresh ordinary SDDM Ryoku login reported native-session-verified with package-owned shell and user service active, followed by logout"
+first_login_shell_pid = 10312
+first_login_service_pid = 10313
+kde_after_removal = "ordinary SDDM KDE login passed; coordinator viewed the real fallback desktop frame"
+kde_frame_sha256 = "0e65a73e2ffdb452e92e015cfac1cb825b6289ea4de510824768b622dd4a95c7"
+normal_reboot = "coordinator observed changed boot ID, all ten rpm -V checks empty and display-manager active"
+post_reboot_login = "coordinator's fresh ordinary SDDM Ryoku login passed native-session-verified after the normal reboot"
+post_reboot_frame_sha256 = "ce23f99c6fe11a7dba13195830e025ab4f2be984f7b19d1f81139c3a2e58d8a1"
+post_reboot_scope = "installed package source 9d66fca and its retained runtime; separate Go trial excluded; detailed notification validation belongs to issue 25"
+
+[installed_font_discovery]
+observation = "coordinator's native fc-list query returned ten entries under /usr/share/fonts/truetype/ryoku-opensuse"
+source = "direct native coordinator observation; original package font-byte verification remains recorded above"
+
+[observation_logs]
+manifest = "issue23-install-observation-logs.sha256"
+manifest_sha256 = "980335b0cb721f5641bdc9f422662865f6c7c5de715b1ce216c0ff2135a75169"
+raw_log_handling = "only artifact filenames and SHA-256 identities committed; raw native logs and complete-home archives retained privately"
+
+[remaining_gates]
+clean_installer = "not exercised; this retained guest already contains the native SDK and reviewed desktop dependencies"
+recovery = "no complete recovery, snapshot restore, rollback or boot-recovery acceptance claim"
+desktop = "no blanket acceptance of unchanged upstream controls or complete desktop workflows"
+issue_closure = "issue 23 remains open pending its remaining acceptance and prerequisite review"
