@@ -2,37 +2,32 @@
 
 ## Current coordinator handoff: 2026-10-20
 
-The October 18 sections below are historical. Their dirty-checkout, branch,
-worktree, credential, and open-PR counts no longer describe the repository.
-The tracked [integration status](integration-status.md) and
-[roadmap issue #1](https://github.com/GenieRobot/ryoku-opensuse/issues/1)
-are the concise current entry points.
+The October 18 coordinator entries below remain historical. Their repository
+snapshots and next actions are superseded. See the tracked
+[integration status](integration-status.md) and
+[roadmap issue #1](https://github.com/GenieRobot/ryoku-opensuse/issues/1) for
+the current coordination entry points.
 
-- `main` and `origin/main` are both `6c10d9f`; the root checkout is clean.
-  The only other local branch/worktree is clean
-  `codex/issue25-native-workflows` at `3d90c3c`. There are 26 remote branch
-  refs including `main`, eight open PRs (seven draft issue PRs and Dependabot
-  #158), 43 open issues, and seven closed issues.
-- The predecessor's mixed dirty checkout was separated into issue branches
-  and archival evidence. Sixty-two obsolete merged/superseded remote refs and
-  the later mixed `codex/offline-recovery-integration` ref were retired. Full
-  bundles and exact-ref manifests are under this archive. GitHub CLI access
-  works; the October 18 HTTPS credential blocker is resolved.
-- Draft PR #149 now has five byte-identical #23 RPM evidence files at
-  `2992699`. The existing Rust clipboard provider was cherry-picked to #25
-  native workflows at `3d90c3c`. These are partial issue branches, not
-  acceptance completions. Draft PRs #151–#153 and #155–#157 also remain open.
-- The residual mixed snapshot is still available as remote
-  `codex/integration-residual-snapshot` and the verified full-history bundle
-  `residual-snapshot/residual-snapshot.bundle`. Its whole tree fails tests due
-  to missing `snapper_retention.rs` and `recovery_gate.rs`. Distinct UI client
-  and profile changes need issue-specific extraction and validation; do not
-  merge the snapshot wholesale or discard it.
-- #15 was reopened because provider `COMMITBEGIN`/protected-write proof is
-  still missing. #18–#26 and #39 remain open; #26 specifically lacks its
-  complete first-sprint VM gate. No remaining issue branch was judged ready
-  for `main` during this Git cleanup. Continue from each issue's acceptance
-  criteria, not from historical host-only checks in this file.
+- `main` and `origin/main` are synchronized at `3ac9c7fa0815e995e6b9f2d06a71397c1caca663`.
+  The main checkout was clean at that commit before this handoff refresh.
+- #15 is closed as completed M0 provider feasibility after merged PRs
+  [#162](https://github.com/GenieRobot/ryoku-opensuse/pull/162) and
+  [#163](https://github.com/GenieRobot/ryoku-opensuse/pull/163). The selected
+  initial provider surface proposes zero protected writes. All writes without
+  proven hooks remain unavailable; this feasibility result does not satisfy
+  the linked-recovery or first-sprint gates.
+- #18 is closed after PR #161. #16 and #17 are also closed, so #19 is the
+  earliest ready open implementation task among the first-sprint dependencies.
+- #19 remains open and incomplete. Draft PR
+  [#151](https://github.com/GenieRobot/ryoku-opensuse/pull/151) has a one-commit
+  partial based on old base `6c10d9f`; its dedicated worker is continuing it.
+  Keep the PR draft until #19's acceptance evidence passes. Its remaining gates
+  are supported layout/capability discovery, package-hook pair correlation,
+  catalog and journal survival across actual root rollback, and verified
+  missing-partner and manual/known-working retention behavior.
+- Preserve the clean #25 worktree at `target/issue25-native-workflows`.
+  Do not infer repository branch or PR counts from the historical entries
+  below.
 
 ## Coordinator handoff: 2026-10-18
 
