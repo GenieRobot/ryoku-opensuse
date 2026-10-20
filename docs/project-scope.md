@@ -6,9 +6,9 @@ RPM-based Ryoku desktop for openSUSE Tumbleweed x86_64, initially using
 Hyprland with KDE fallback. The port preserves the upstream experience while
 isolating distribution-specific behavior in small, documented adapters.
 
-This issue establishes repository conventions and empty crate boundaries. The
-product capabilities below are target requirements; they are not implemented
-or verified by this foundation commit.
+The requirements below describe the approved target, not a claim that every
+acceptance gate has passed. See the [current integration status](integration-status.md)
+and the linked issue checklists for implemented and outstanding work.
 
 ## Upstream attribution
 
