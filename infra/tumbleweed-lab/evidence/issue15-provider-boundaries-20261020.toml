@@ -1,0 +1,161 @@
+schema = 1
+issue = 15
+date = "2026-10-20"
+status = "partial-negative-feasibility-evidence"
+issue_complete = false
+verified_protected_writes = 0
+report = "docs/provider-experiments-20261020.md"
+base_commit = "c7fdc12a6a2279d84147fe670217dafd59cce68c"
+
+[fixture]
+snapshot = "20261016"
+image = "openSUSE-Tumbleweed-Minimal-VM.x86_64-1.0.0-Cloud-Snapshot20261016.qcow2"
+provenance = "https://download.opensuse.org/tumbleweed/appliances/"
+image_sha256 = "ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231"
+signature = "VALIDSIG"
+signer = "AD485664E901B867051AB15F35A2F86E29B700A4"
+repository = "https://downloadcontent2.opensuse.org/history/20261016/tumbleweed/repo/oss/"
+repomd_sha256 = "1d891e33c8abd582b71e579118e6b4c94e5e57ecdc1b77a2a7fc1abf7cc930a0"
+signature_checks = "enabled"
+new_trust_keys = false
+root_filesystem = "xfs"
+kernel = "7.2.10-1-default"
+accelerator = "tcg"
+cpus = 2
+memory_mib = 3072
+fresh_overlay_keys_firmware_seed = true
+ovmf_code_sha256 = "72cf8e1a3653f031d2cf9dace93702b99cfa5c16b897a7d0a495c1bf03bf8690"
+ovmf_variables_template_sha256 = "5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e"
+linked_recovery_tested = false
+graphical_session_tested = false
+shared_fixtures_modified = false
+
+[probe]
+source_sha256 = "e393ed6da399d6d3c98c0d4b4843f9b977662357e75e2c99cd5087a9b0d6f1eb"
+protocol_sha256 = "a09e5aa8851bb035c00c354dc3daa7c2f6da6dfc1cc6ab208349acd94afdcd1b"
+binary_sha256 = "8a4bffc0709710552ee85be45460a32c1815ba21af04e48534aea754f0b51117"
+zypper = "1.14.101-1.1.x86_64"
+libzypp = "17.38.16-1.1.x86_64"
+transaction_deadline_seconds = 45
+kill_grace_seconds = 5
+
+[observation]
+command = "zypp-hook-probe hello observe-commit"
+package = "hello-2.12.3-1.4.x86_64"
+provider_exit = 0
+probe_exit = 0
+elapsed_ms = 6920
+timed_out = false
+commitbegin = true
+commitend = true
+rpm_before_count = 372
+rpm_after_count = 373
+rpm_before_sha256 = "58ab9781f73717e3606c168c7958b6e4412d9a773985f47068843b7c5de805be"
+rpm_after_sha256 = "d3138461d094deccb269272e40462b5979d2ce0ed797bc34e473b263df0bbee9"
+payload_executable_sha256 = "09996017c72b82eea4a8f7e71275f3dacb7d77be962404cc6f989cd205432b03"
+plugin_cleanup = "passed"
+outcome = "unprotected_transaction_observed"
+private_log_sha256 = "52f7369b5733d5a46dd8109972cd6bea99cfabf007d85f6261d13cff851b4c06"
+
+[repository]
+operations = ["add-disabled", "enable-and-priority-71", "disable", "remove"]
+all_commands_exit = 0
+plugin_hash_checked_before_and_after = true
+plugin_frame_log_bytes = 0
+file_mode = "0644"
+file_uid = 0
+file_gid = 0
+file_initial = "absent"
+file_after_add_sha256 = "da3ea2a92ab2e5674caf6753c019357990701d8f3accbd57c92e46287add8c85"
+file_after_enable_priority_sha256 = "7a3b28501be62e137d1cba8b4223ac82ed45c229739bcbb1f2ff2d4ea1e45413"
+file_after_disable_sha256 = "cef99f37c9ac42711ca83f56e28c96e23036516004b219784764d76cb5e88ca2"
+file_final = "absent"
+trust_key_operations_tested = false
+outcome = "writes_bypass_commit_plugin"
+private_log_sha256 = "5dd2f2e67addb9f2a8255167d6b105affc24e5ad47d975f74c0cda611166e68a"
+
+[hostname]
+interface = "org.freedesktop.hostname1.SetStaticHostname"
+command = "hostnamectl --static set-hostname"
+all_commands_exit = 0
+plugin_hash_checked_before_and_after = true
+plugin_frame_log_bytes = 0
+measured_state = ["/etc/hostname", "/proc/sys/kernel/hostname"]
+both_original_sha256 = "ec907a7574e7c4cd38142c4c3888da44161775d7873e42c795b78c861e8aa0dc"
+both_changed_sha256 = "220dd449f9379ae65e6b98876c6ccce82be979215e572378a70ed7c8e8545870"
+both_reversed_sha256 = "ec907a7574e7c4cd38142c4c3888da44161775d7873e42c795b78c861e8aa0dc"
+persistent_file_mode = "0644"
+persistent_file_uid = 0
+persistent_file_gid = 0
+linked_restore_tested = false
+outcome = "persistent_and_kernel_hostname_bypass_commit_plugin"
+private_log_sha256 = "1d1efb39c3e49a008c5a5c5490422b170218f88110b216973562e5375577ba9a"
+
+[denial]
+command = "zypp-hook-probe tree deny-commit"
+package = "tree-2.3.2-1.3.x86_64"
+provider_exit = 0
+probe_exit = 1
+elapsed_ms = 7909
+timed_out = false
+commitbegin = true
+commitend = false
+response = "ERROR"
+package_installed = true
+rpm_before_count = 399
+rpm_after_count = 400
+rpm_before_sha256 = "4a47cf3b4f5e99a71fdc3b7378c99d3859e0fbc466551300f6f46aad02e995ee"
+rpm_after_sha256 = "35c00452a7bc5f248f459586625d769d464ce50fdc3bf222530f9efd7a9ae851"
+payload_executable_sha256 = "a2093b4a8b620fb19f495fabbeb7d76dd80ff11e31cb2de97e4bb76b075c1156"
+plugin_cleanup = "passed"
+outcome = "confirmed_fail_open_not_a_passed_safety_test"
+private_log_sha256 = "de78efaf80bfa31eac5b66b055c5d47950c0d916f86cf6a03156880691fa554c"
+
+[cockpit]
+ws = "365-2.1.x86_64"
+bridge = "365-2.1.noarch"
+system = "365-2.1.noarch"
+packages = "5-1.1.noarch"
+packagekit = "1.4.0-2.1.x86_64"
+packagekit_zypp_backend = "1.4.0-2.1.x86_64"
+dbus_backend_name = "zypp"
+packagekit_transactions_tested = false
+menu_group = "tools"
+menu_label = "Packages"
+minimum_cockpit = "137"
+local_desktop_helper = "/usr/libexec/cockpit-desktop"
+desktop_helper_sha256 = "22adb6736585fe790015753a0967988229cc351bdd731e8cbb4d09bedcc8aa5e"
+manifest_sha256 = "5ad62c21faef2d7d223fba79f8afc49bd52066cddb7e9fcaa59b93b6d67201e9"
+socket_unit_sha256 = "5a60214478ccd92efbd4852d8a33e20da2abada98cb1b5ff221ca2933250545d"
+shipped_listen_stream = "9090"
+socket_masked_before_install = true
+socket_final = "masked-inactive"
+cockpit_listener_observed = false
+graphical_launch_or_embedding_tested = false
+default_install_enablement_tested = false
+
+[cleanup]
+qemu_exit = 0
+guest_poweroff = "completed"
+ssh_exit_on_poweroff = 255
+overlay_firmware_seed_keys_deleted = true
+backing_image_unchanged = true
+fresh_reset_boot_performed = false
+other_issue_guests_accessed = false
+
+[checks]
+rustc = "1.99.0 (b940084d7 2026-09-28)"
+cargo = "1.99.0 (5f94df478 2026-08-27)"
+workspace_tests = "cargo test --workspace --all-features --locked --offline"
+workspace_tests_exit = 0
+workspace_tests_log_sha256 = "17bd899ec6e111c91d2bb9b4ec33f4c1f44bfad3401560d51dff0c66e411df1d"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings"
+clippy_exit = 0
+clippy_log_sha256 = "bbac8f5e90d408b82ca21c038a4c918504ea7dacdb0fcfcf344bc30fbc0a7b92"
+dependency_check = "cargo deny --offline check"
+dependency_check_exit = 0
+dependency_check_log_sha256 = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+evidence_toml_parse = "passed"
+format = "cargo fmt --all -- --check"
+format_exit = 0
+diff_check_exit = 0

@@ -1,6 +1,13 @@
 # Provider capabilities and recovery hooks
 
-Status: feasibility model for M0-06, 2026-10-13. This document records the initial candidate set and the evidence still needed. It does **not** certify any provider as protected or mark issue #15 complete.
+Status: feasibility model for M0-06, updated 2026-10-20. This document records the initial candidate set and the evidence still needed. It does **not** certify any provider as protected or mark issue #15 complete.
+
+The [20 October disposable-guest experiments](provider-experiments-20261020.md)
+now reach real `COMMITBEGIN`/`COMMITEND` notifications and demonstrate a package
+write despite the plugin's `ERROR` response. Repository edits and a static
+hostname change also bypass that plugin. These are negative feasibility results;
+the [evidence record](../infra/tumbleweed-lab/evidence/issue15-provider-boundaries-20261020.toml)
+contains no protected-operation claim.
 
 ## Release boundary
 
@@ -28,7 +35,12 @@ The status labels below describe the evidence available in this repository, not 
 - **Unsupported** — the product will not offer the operation in the first release.
 - **Awaiting proof** — a plausible interface exists, but its precise contract, hook placement or Tumbleweed behavior has not been demonstrated.
 
-At this revision there are **no verified protected provider writes**. Run19 identified the pinned guest's zypper/libzypp packages and one commit-plugin directory, but did not reach a `COMMITBEGIN` frame in any deny/malformed/timeout mode. Its missing-plugin case also failed before a package transaction. The unchanged RPM-state hash therefore does not show that any hook blocked a write, and no recovery-journal result is available. Do not infer acceptance from the harness, a callback or unchanged state when no transaction began.
+At this revision there are **no verified protected provider writes**. The
+20 October experiment confirms that the libzypp plugin is not a failure-stop
+gate: the denying plugin was invoked and zypper still installed the requested
+package. The native Rust service-owned operation remains awaiting proof.
+Historical Run19 never reached `COMMITBEGIN`; its unchanged RPM hash remains
+inconclusive and is not retroactively upgraded by the new run.
 
 The Rust `ryoku-adapters::capabilities` module carries this initial operation
 allowlist in typed form. Its protected-write predicate requires all three
@@ -74,14 +86,14 @@ supports embedding Cockpit, Myrlyn, or YaST as a protected control.
 |---|---|---|---|---|
 | Show product release, current profile, recovery availability and completed job history | Native Ryoku controls | Awaiting proof (read-only contract) | Unprivileged read from validated, versioned service data; missing/stale/corrupt data must be shown as unavailable/error, never guessed. | Typed Rust backend query. No provider write hook. Data-source and privacy review remains. |
 | Search package metadata and inspect installed package/repository state | Native Ryoku controls; no external panel by default | Awaiting proof; candidate read-only | Read-only metadata queries should not obtain root privileges. Report stale metadata and provider errors. | Rust provider adapter over a narrowly defined zypper query or PackageKit read API. Pin query options and prove they do not refresh metadata or mutate state on the target snapshot. |
-| Install/remove/update packages, including a full Tumbleweed update | Native Ryoku controls; direct zypper, Myrlyn and PackageKit/Cockpit are outside this control surface | Awaiting proof; only a reviewed full-system transaction is a candidate | Privileged, operation-specific authorization. Validate exact requested package IDs and policy before authorization. Provider dependency/conflict/signature failures are failures; do not continue partially. Pre-commit cancellation may abort; post-commit cancellation is not rollback. Preserve durable job outcome across client exit. | Rust service owns the transaction and durable job; candidate interfaces are fixed-argument zypper CLI or PackageKit `InstallPackages`, `RemovePackages`, `UpdatePackages` and `UpgradeSystem` over system D-Bus. Run19 did not reach a real transaction boundary, so it supplies no evidence of a pre-mutation stop, capture ordering, provider result or recovery-journal entry. Do not run a shell command from UI or authorize arbitrary zypper arguments. |
+| Install/remove/update packages, including a full Tumbleweed update | Native Ryoku controls; direct zypper, Myrlyn and PackageKit/Cockpit are outside this control surface | Awaiting proof for a Rust-owned operation; commit-plugin protection is unsupported | Privileged, operation-specific authorization. Validate exact requested package IDs and policy before authorization. Provider dependency/conflict/signature failures are failures; do not continue partially. Pre-commit cancellation may abort; post-commit cancellation is not rollback. Preserve durable job outcome across client exit. | Fixed zypper arguments or PackageKit roles remain candidate Rust service interfaces. The 20 October guest observed both commit notifications in a normal transaction, then installed another package despite plugin ERROR. The plugin cannot provide capture failure-stop; no linked capture or journal path was exercised. Do not run a shell command from UI or authorize arbitrary zypper arguments. |
 | Add/change/enable/disable repositories, alter priorities, import/remove trust keys | Native Ryoku controls | Unsupported for first release pending separate proof | Root/polkit privilege; repository and trust failures must be explicit. Do not offer arbitrary URLs or trust-on-first-use. | Rust service only after exact scope and hook is proven. Repository writes change future package trust and resolution, and must checkpoint before each mutation; capturing only before a later install does not protect them. External YaST/zypper/Cockpit editors bypass the path. |
 | Snapper list/read-only status | Native Ryoku controls | Awaiting proof (read-only path) | Read through the least-privileged supported interface; distinguish empty, unavailable and denied. | Rust query adapter; verify D-Bus/CLI semantics in the VM. |
 | Create/delete/modify Snapper snapshots or configuration | Native Ryoku controls | Unsupported as general administration; Ryoku recovery operations are separate | Privileged and constrained to authenticated recovery workflow. Destructive errors must preserve the last usable recovery point. | Narrow Rust recovery service operation only. Arbitrary snapshot deletion/config edits can invalidate linked recovery and are not an ordinary provider action. |
 | Change selected system settings (initial candidate: a small, enumerated set of display/session preferences) | Native Ryoku controls | Unsupported until each setting has an affected-state inventory and restore proof | Per-operation authorization; validate values and report validation/service-reload failures. Do not accept arbitrary file paths or shell fragments. | Rust typed operation and declared config ownership. No generic “settings provider” hook. |
 | Browse/manage software through Myrlyn | Externally launched Qt desktop application; embedding is not established | Unsupported for writes in first release; read-only use is a candidate, not yet target-verified | Upstream describes package and repository changes through its libzypp backend and a non-root read-only mode. Its privilege prompts, read-only enforcement and cancellation behavior must be checked in the pinned guest. | No Rust service API or per-operation Ryoku hook is evidenced. A launch-time checkpoint is invalid. Keep writes out of the supported Ryoku flow unless every commit is mediated before mutation; do not add Ruby glue. |
-| Cockpit package panel (`cockpit-packages`) | Externally launched Cockpit browser module by default; embed only after the documented embedding contract is checked against the selected local view | Awaiting proof for local read-only access; protected writes unsupported | The openSUSE module documents PackageKit D-Bus as its package boundary. Confirm the installed backend, polkit actions, transaction errors and cancellation behavior in the target snapshot. | PackageKit's transaction API is a candidate boundary, not a recovery hook. Run19 exercised only the zypper probe path and never reached `COMMITBEGIN`; no PackageKit or Cockpit transaction was measured. Protected writes remain unsupported. |
-| Cockpit overview / service and host panels | Externally launched Cockpit browser UI for local navigation; embed only through the documented Cockpit contract | Awaiting proof for local read-only navigation; unsupported for protected writes | Cockpit has its own privilege and service boundaries. UI errors or cancellation do not provide Ryoku recovery. Keep Cockpit remote access as a separate explicit opt-in; local package installation must not enable an externally reachable listener. | No generic Cockpit REST API is assumed. The selected pages, category/navigation behavior, localhost binding and socket activation must be checked on the target guest. Do not embed write-capable pages as protected controls. |
+| Cockpit package panel (`cockpit-packages`) | External local-desktop helper/browser module; embedding needs a documented stable component contract | Awaiting proof for local read-only access; protected writes unsupported | The 20 October guest has PackageKit 1.4.0 with backend `zypp`; the module calls its D-Bus transaction interface. Polkit, errors, cancellation and graphical behavior still need operation-specific runtime proof. | No PackageKit or Cockpit package transaction entered Ryoku's capture path. Native D-Bus introspection and the installed Tools manifest are inventory evidence, not a recovery hook. Protected writes remain unsupported. |
+| Cockpit overview / service and host panels | External local-desktop helper or browser; embed only through the documented Cockpit contract | Awaiting proof for local read-only navigation; unsupported for protected writes | Cockpit has its own privilege and service boundaries. UI errors or cancellation do not provide Ryoku recovery. Keep remote access a separate opt-in. | The installed Cockpit 365 helper and Packages Tools menu were inspected on 20 October. The helper isolates its browser/server in a network namespace by source, while the system socket ships wildcard port 9090. Graphical operation and runtime namespace isolation are unverified. No generic REST API or protected embedded panel is assumed. |
 | YaST software, repository or system-configuration modules | Externally launched optional interface; individual modules may be excluded | Unsupported for protected changes in first release; read-only query candidates require module-by-module proof | YaST modules can perform privileged writes. Do not assume module-level privilege or cancellation prompts satisfy product authorization/recovery. | YaST's established module ecosystem is Ruby-based. New project-owned Ruby glue/bindings are deferred. External modules cannot be wrapped by a UI launch hook; omit write-capable modules from the supported Ryoku path until their writes can be mediated per operation. |
 
 ## Interface coverage and integration choice
@@ -107,23 +119,25 @@ panel operation.
 
 | Provider surface | Documented boundary to inspect | Ryoku presentation decision | Protection level supported by current evidence |
 |---|---|---|---|
-| Zypper/libzypp package transaction | Fixed zypper CLI operations; libzypp `ZYpp::commit` and its commit-plugin protocol | Native Rust controls call one typed service operation. Do not expose arbitrary CLI arguments or invoke a UI shell. | Awaiting proof for a complete protected transaction. Pinned source review classifies the commit-plugin mechanism as unsupported for protection: ERROR or unexpected replies close the plugin while the enclosing transaction continues. Use it for telemetry only. |
+| Zypper/libzypp package transaction | Fixed zypper CLI operations; libzypp `ZYpp::commit` and its commit-plugin protocol | Native Rust controls would call one typed service operation. Do not expose arbitrary CLI arguments or invoke a UI shell. | Awaiting proof for a complete protected transaction. Pinned source and the 20 October guest confirm that plugin ERROR closes the plugin while the transaction continues. Use it for telemetry only. |
 | PackageKit and Cockpit Packages | `org.freedesktop.PackageKit` system-bus transaction methods and signals; `cockpit-packages` uses PackageKit D-Bus | Native Rust service may call a fixed PackageKit role after capture. Cockpit Packages remains externally launched or separately evaluated for embedding. | Awaiting proof for read APIs; unsupported for protected writes until the same pre-commit and journal boundary is measured through PackageKit and Cockpit. |
 | Myrlyn | Upstream Qt application backed by libzypp; upstream README describes package/repository management and a read-only mode | External application only. No embedded panel or Rust API is evidenced. | Read-only candidate awaiting target proof; all writes unsupported in Ryoku. |
-| Cockpit host/service views | Documented Cockpit browser, bridge, embedding and privilege interfaces | Local browser launch is the default candidate. There is no evidence of a native Plasma category/page integration in this repository. Any embed must use the documented API and be tested against the selected Cockpit page. | Awaiting proof for local read-only navigation; no protected writes. Remote access stays off unless separately requested and configured. |
+| Cockpit host/service views | Documented Cockpit browser, bridge, embedding and privilege interfaces; installed `cockpit-desktop` helper | External helper is a local launch candidate. Packages registers under Tools. Actual graphical navigation and native Ryoku category integration are unverified; embedding requires a documented API and matching origin. | Awaiting proof for local read-only navigation; no protected writes. The experiment kept the system socket masked/inactive; this does not establish unmodified install defaults. |
 | YaST modules | Module-specific YaST UI/service and package bindings; inspect each module and its package on the guest | External launch only for explicitly unsupported administration. No project-owned Ruby adapter or generic module wrapper. | Unsupported for protected writes; any read-only module remains awaiting module-specific proof. |
 | Snapper | Snapper CLI and D-Bus/service surface | Native Rust read controls; constrained recovery operations remain in the recovery service. | Read-only query awaiting proof; general snapshot/config administration unsupported. |
 
 ### Cockpit local desktop and remote access
 
-Cockpit is a browser-oriented administration interface. The current repository
-contains no evidence that the pinned Plasma desktop adds a native Ryoku/Cockpit
-category page or a supported in-process local shell. The default candidate is
-therefore an explicit local browser launch to a loopback endpoint, not an
-embedded write-capable panel. Before selecting it, inspect the guest's Cockpit
-packages, desktop entries, page/category navigation, `cockpit.socket` state and
-listening addresses. Local navigation is still an external Cockpit session and
-does not create a protected Ryoku operation.
+Cockpit is a browser-oriented administration interface. On 20 October the
+guest's Cockpit 365 RPM supplied `/usr/libexec/cockpit-desktop`: a concrete
+upstream helper for external local launch without enabling `cockpit.socket`.
+Its inspected implementation starts the bridge in the user's session and
+isolates its web server/browser in a separate network namespace. This needs
+runtime graphical validation before Ryoku exposes it. The installed Packages
+manifest registers a Tools entry; it does not establish native Ryoku navigation
+or a stable embedding API. Cockpit's documented embedding contract requires
+the same origin and explicitly documented components. Local navigation remains
+an external Cockpit session and does not create a protected Ryoku operation.
 
 Remote access is a separate opt-in. Installing or opening a local Cockpit view
 must not enable a listener reachable from other machines. Verify the default
@@ -131,6 +145,10 @@ with `systemctl is-enabled cockpit.socket`, `systemctl is-active cockpit.socket`
 and `ss -ltnp`; if a local-only endpoint is used, verify its actual loopback
 binding. Only a distinct user-requested remote setup may enable a non-loopback
 listener, and that setup remains outside the first-release recovery contract.
+The inspected 365 socket unit has `ListenStream=9090` without a loopback address;
+enabling it is not local-only configuration. The disposable experiment masked
+the socket before installing Cockpit, then observed masked/inactive state and
+no Cockpit listener. It did not test default package enablement.
 Cockpit's embedding guide documents integration constraints; it is not a generic
 REST API and does not mediate provider writes.
 
@@ -262,9 +280,11 @@ remain outside the protected Ryoku workflow unless separately mediated.
 Run19 did not reach `COMMITBEGIN`, so it still provides no runtime transaction
 result or recovery-journal evidence. The pinned source review settles the
 commit-plugin veto question for the matching upstream release, but it does not
-measure PackageKit, its zypp backend, Cockpit, Myrlyn, or YaST. Their versions,
-write paths, authorization/cancellation behavior and bypasses remain unmeasured.
-A future guest experiment should first validate the fixture binary's source
+measure PackageKit, its zypp backend, Cockpit, Myrlyn, or YaST. The 20 October
+run subsequently recorded installed Cockpit/PackageKit versions, native
+interfaces and repository/hostname bypasses; it did not run transactions
+through those optional interfaces or test their cancellation behavior.
+A future protected-operation experiment should validate the fixture binary's source
 provenance, then test the Rust service-owned transaction path: inject
 checkpoint failure and prove the provider is never invoked; complete one
 harmless transaction; and match its capture ID, provider outcome, resulting RPM
@@ -274,10 +294,10 @@ repository-definition and trust-key writes as outside the protected workflow
 until separate pre-mutation controls are demonstrated.
 
 References for source analysis are pinned to libzypp tag `17.38.16` above.
-The [PackageKit zypp backend](https://github.com/PackageKit/PackageKit/blob/main/backends/zypp/pk-backend-zypp.cpp)
-and [PackageKit transaction API](https://github.com/PackageKit/PackageKit/blob/main/src/org.freedesktop.packagekit1.Transaction.xml)
-remain moving references because their installed guest versions and exact source
-revisions have not yet been collected.
+The [20 October report](provider-experiments-20261020.md#interface-references-inspected)
+adds release-tagged PackageKit 1.4.0, Cockpit 365, Cockpit Packages 5 and Myrlyn
+1.0.0 interface references. Tagged upstream source is distinguished from
+installed downstream RPM byte identity and actual transaction evidence.
 
 “Embedded” is an integration choice, not a protection property. A panel that can submit writes remains a provider bypass unless those exact writes are mediated. Where the upstream integration cannot meet this boundary, use an external launch only for unsupported/admin use and clearly mark it outside the protected controls.
 
@@ -355,6 +375,8 @@ Run19's probe discarded captured zypper stdout and stderr, so the private logs
 do not reveal why resolution stopped before the plugin. The Rust probe now
 records at most 16 KiB from each stream as escaped text in the existing
 mode-0600 private run log. The public evidence writer continues to select only
-allowlisted outcome fields; raw provider text is not public evidence. Rerun the
-experiment with a working frozen repository/package fixture before interpreting
-hook behavior or attempting a protected write.
+allowlisted outcome fields; raw provider text is not public evidence.
+The [20 October run](provider-experiments-20261020.md) used a working frozen
+repository/package fixture, reached the actual commit notifications and
+confirmed a write despite plugin denial. This closes the diagnostic gap but
+does not supply a protected-operation path.

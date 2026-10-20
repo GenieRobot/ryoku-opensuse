@@ -311,14 +311,20 @@ fn experiment() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = env::args().skip(1);
     let package = args
         .next()
-        .ok_or("usage: zypp-hook-probe PACKAGE [deny-commit|malformed-commit|timeout-commit|missing-plugin]")?;
+        .ok_or("usage: zypp-hook-probe PACKAGE [deny-commit|malformed-commit|timeout-commit|missing-plugin|observe-commit]")?;
     let mode = args.next().unwrap_or_else(|| "deny-commit".into());
     if args.next().is_some()
         || package.is_empty()
         || !package.as_bytes()[0].is_ascii_alphanumeric()
         || !package.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_.+".contains(&b))
-        || !["deny-commit", "malformed-commit", "timeout-commit", "missing-plugin"]
-            .contains(&mode.as_str())
+        || ![
+            "deny-commit",
+            "malformed-commit",
+            "timeout-commit",
+            "missing-plugin",
+            "observe-commit",
+        ]
+        .contains(&mode.as_str())
     {
         return Err("invalid package or probe mode".into());
     }
@@ -455,7 +461,9 @@ fn experiment() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
     let commit_seen = frames.lines().any(|line| line == "probe_frame=COMMITBEGIN");
+    let commit_end_seen = frames.lines().any(|line| line == "probe_frame=COMMITEND");
     println!("plugin_commitbegin_seen={commit_seen}");
+    println!("plugin_commitend_seen={commit_end_seen}");
     println!(
         "plugin_frames={}",
         frames
@@ -483,6 +491,20 @@ fn experiment() -> Result<(), Box<dyn std::error::Error>> {
     );
     if install_plugin && plugin.exists() {
         return Err("failed to remove probe plugin".into());
+    }
+    if mode == "observe-commit" {
+        if observed_transaction(
+            result.status.success(),
+            commit_seen,
+            commit_end_seen,
+            rpm_unchanged,
+            requested_package_installed,
+        ) {
+            // ACK observes the provider; it does not capture or verify recovery.
+            println!("outcome=unprotected_transaction_observed");
+            return Ok(());
+        }
+        return Err("observation requires successful package installation, both commit frames, and changed RPM state; discard the overlay".into());
     }
     if mode == "timeout-commit"
         && result.status.code() != Some(124)
@@ -527,6 +549,37 @@ fn experiment() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
     Ok(())
+}
+
+fn observed_transaction(
+    succeeded: bool,
+    begin_seen: bool,
+    end_seen: bool,
+    rpm_unchanged: bool,
+    package_installed: bool,
+) -> bool {
+    succeeded && begin_seen && end_seen && !rpm_unchanged && package_installed
+}
+
+#[cfg(test)]
+mod observation_tests {
+    use super::observed_transaction;
+
+    #[test]
+    fn observation_requires_a_completed_real_transaction() {
+        assert!(observed_transaction(true, true, true, false, true));
+        for evidence in [
+            (false, true, true, false, true),
+            (true, false, true, false, true),
+            (true, true, false, false, true),
+            (true, true, true, true, true),
+            (true, true, true, false, false),
+        ] {
+            assert!(!observed_transaction(
+                evidence.0, evidence.1, evidence.2, evidence.3, evidence.4
+            ));
+        }
+    }
 }
 
 fn print_private_provider_output(stream: &str, bytes: &[u8]) {
