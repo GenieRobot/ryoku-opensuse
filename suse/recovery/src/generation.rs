@@ -12,8 +12,8 @@ use std::{
 
 use rustix::{
     fs::{
-        Dir, Mode, OFlags, RenameFlags, ResolveFlags, fchmod, fstatvfs, fsync, mkdirat, openat,
-        openat2, renameat_with,
+        AtFlags, Dir, Mode, OFlags, RenameFlags, ResolveFlags, fchmod, fstatvfs, fsync, mkdirat,
+        openat, openat2, renameat_with, unlinkat,
     },
     io::Errno,
 };
@@ -68,6 +68,7 @@ pub enum GenerationError {
     PayloadMismatch,
     GenerationCollision,
     IncompletePublication,
+    PublicationRejected,
     InsufficientSpace { required_bytes: u64, available_bytes: u64 },
     CapacityOverflow,
     Manifest(ManifestError),
@@ -95,6 +96,7 @@ impl std::fmt::Display for GenerationError {
                 f.write_str("generation ID already names different content")
             }
             Self::IncompletePublication => f.write_str("generation is incomplete or corrupt"),
+            Self::PublicationRejected => f.write_str("capture boundary rejected publication"),
             Self::InsufficientSpace { required_bytes, available_bytes } => write!(
                 f,
                 "recovery generation needs {required_bytes} bytes but only {available_bytes} are available"
@@ -393,138 +395,219 @@ impl GenerationStore {
         manifest: &RecoveryManifest,
         payloads: &Payloads,
     ) -> Result<(), GenerationError> {
-        if !manifest.is_mutation_ready() {
-            return Err(GenerationError::NotMutationReady);
-        }
-        manifest.validate()?;
-        if !manifest.verify_digest()? {
-            return Err(GenerationError::IncompletePublication);
-        }
-        let manifest_bytes = manifest.canonical_bytes()?;
-        if manifest_bytes.len() > MAX_MANIFEST_BYTES
-            || manifest.files().len() > MAX_GENERATION_FILES
-        {
-            return Err(GenerationError::InventoryTooLarge);
-        }
-        let required = required_payloads(manifest)?;
-        if required != payloads.keys().cloned().collect() {
-            return Err(GenerationError::PayloadMismatch);
-        }
-        let mut total = 0_u64;
-        for (digest, bytes) in payloads {
-            total =
-                total.checked_add(bytes.len() as u64).ok_or(GenerationError::InventoryTooLarge)?;
-            if total > MAX_GENERATION_BYTES
-                || digest_bytes(bytes) != *digest
-                || !valid_payload_shape(manifest, digest, bytes)
+        self.publish_checked(manifest, payloads, || true)
+    }
+
+    /// Check the caller's live capture boundary after staging, at both visibility
+    /// transitions, and after read-back. A failed check retracts this attempt's
+    /// generation and index before returning. The caller holds the machine lock.
+    pub(crate) fn publish_checked(
+        &self,
+        manifest: &RecoveryManifest,
+        payloads: &Payloads,
+        mut boundary: impl FnMut() -> bool,
+    ) -> Result<(), GenerationError> {
+        let stage_name = format!("{}.stage", manifest.transaction_id.as_str());
+        let catalog_name = format!("{}.json", manifest.transaction_id.as_str());
+        let temp_name = format!("{}.tmp", manifest.transaction_id.as_str());
+        let mut staged = false;
+        let mut promoted = false;
+        let mut indexed = false;
+        let mut index_written = false;
+        let result = (|| {
+            if !boundary() {
+                return Err(GenerationError::PublicationRejected);
+            }
+            if !manifest.is_mutation_ready() {
+                return Err(GenerationError::NotMutationReady);
+            }
+            manifest.validate()?;
+            if !manifest.verify_digest()? {
+                return Err(GenerationError::IncompletePublication);
+            }
+            let manifest_bytes = manifest.canonical_bytes()?;
+            if manifest_bytes.len() > MAX_MANIFEST_BYTES
+                || manifest.files().len() > MAX_GENERATION_FILES
             {
+                return Err(GenerationError::InventoryTooLarge);
+            }
+            let required = required_payloads(manifest)?;
+            if required != payloads.keys().cloned().collect() {
                 return Err(GenerationError::PayloadMismatch);
             }
-        }
-        self.ensure_available_space(total, payloads.len())?;
-
-        let tx = manifest.transaction_id.as_str();
-        let generation = manifest.generation_id.as_str();
-        let index = CatalogLink {
-            schema_version: catalog_schema(manifest),
-            transaction_id: manifest.transaction_id.clone(),
-            generation_id: manifest.generation_id.clone(),
-            manifest_sha256: manifest
-                .manifest_sha256
-                .clone()
-                .ok_or(GenerationError::NotMutationReady)?,
-        }
-        .canonical_bytes()?;
-        let catalog_name = format!("{tx}.json");
-        match read_file(&self.catalog, &catalog_name, 4096) {
-            Ok(existing) => {
-                if existing != index {
-                    return Err(GenerationError::GenerationCollision);
+            let mut total = 0_u64;
+            for (digest, bytes) in payloads {
+                total = total
+                    .checked_add(bytes.len() as u64)
+                    .ok_or(GenerationError::InventoryTooLarge)?;
+                if total > MAX_GENERATION_BYTES
+                    || digest_bytes(bytes) != *digest
+                    || !valid_payload_shape(manifest, digest, bytes)
+                {
+                    return Err(GenerationError::PayloadMismatch);
                 }
-                let verified = self.verify_transaction(&manifest.transaction_id)?;
-                return if verified.canonical_bytes()? == manifest.canonical_bytes()? {
-                    Ok(())
-                } else {
-                    Err(GenerationError::GenerationCollision)
-                };
             }
-            Err(GenerationError::Filesystem(Errno::NOENT)) => {}
-            Err(error) => return Err(error),
-        }
-        match open_dir(&self.generations, generation) {
-            Ok(existing) => {
-                verify_directory(&existing, Some(manifest), false)?;
+            self.ensure_available_space(total, payloads.len())?;
+
+            let tx = manifest.transaction_id.as_str();
+            let generation = manifest.generation_id.as_str();
+            let index = CatalogLink {
+                schema_version: catalog_schema(manifest),
+                transaction_id: manifest.transaction_id.clone(),
+                generation_id: manifest.generation_id.clone(),
+                manifest_sha256: manifest
+                    .manifest_sha256
+                    .clone()
+                    .ok_or(GenerationError::NotMutationReady)?,
             }
-            Err(Errno::NOENT) => {
-                let stage_name = format!("{tx}.stage");
-                let stage = match open_dir(&self.staging, &stage_name) {
-                    Ok(existing_stage) => {
-                        verify_directory(&existing_stage, Some(manifest), false)?;
-                        existing_stage
+            .canonical_bytes()?;
+            let catalog_name = format!("{tx}.json");
+            match read_file(&self.catalog, &catalog_name, 4096) {
+                Ok(existing) => {
+                    if existing != index {
+                        return Err(GenerationError::GenerationCollision);
                     }
-                    Err(Errno::NOENT) => {
-                        let stage = create_directory(&self.staging, &stage_name)?;
-                        let payload_dir = create_directory(&stage, "payloads")?;
-                        write_new_file(&stage, "manifest.json", &manifest_bytes)?;
-                        for (digest, bytes) in payloads {
-                            write_new_file(
-                                &payload_dir,
-                                &format!("{}.blob", digest.as_str()),
-                                bytes,
-                            )?;
+                    let verified = self.verify_transaction(&manifest.transaction_id)?;
+                    if !boundary() {
+                        return Err(GenerationError::PublicationRejected);
+                    }
+                    return if verified.canonical_bytes()? == manifest.canonical_bytes()? {
+                        Ok(())
+                    } else {
+                        Err(GenerationError::GenerationCollision)
+                    };
+                }
+                Err(GenerationError::Filesystem(Errno::NOENT)) => {}
+                Err(error) => return Err(error),
+            }
+            match open_dir(&self.generations, generation) {
+                Ok(existing) => {
+                    verify_directory(&existing, Some(manifest), false)?;
+                }
+                Err(Errno::NOENT) => {
+                    let stage_name = format!("{tx}.stage");
+                    let stage = match open_dir(&self.staging, &stage_name) {
+                        Ok(existing_stage) => {
+                            verify_directory(&existing_stage, Some(manifest), false)?;
+                            staged = true;
+                            existing_stage
                         }
-                        fsync(&payload_dir)?;
-                        fsync(&stage)?;
-                        verify_directory(&stage, Some(manifest), false)?;
-                        stage
+                        Err(Errno::NOENT) => {
+                            let stage = create_directory(&self.staging, &stage_name)?;
+                            let payload_dir = create_directory(&stage, "payloads")?;
+                            write_new_file(&stage, "manifest.json", &manifest_bytes)?;
+                            for (digest, bytes) in payloads {
+                                write_new_file(
+                                    &payload_dir,
+                                    &format!("{}.blob", digest.as_str()),
+                                    bytes,
+                                )?;
+                            }
+                            fsync(&payload_dir)?;
+                            fsync(&stage)?;
+                            verify_directory(&stage, Some(manifest), false)?;
+                            staged = true;
+                            stage
+                        }
+                        Err(error) => return Err(error.into()),
+                    };
+                    if !boundary() {
+                        return Err(GenerationError::PublicationRejected);
                     }
-                    Err(error) => return Err(error.into()),
-                };
+                    renameat_with(
+                        &self.staging,
+                        stage_name.as_str(),
+                        &self.generations,
+                        generation,
+                        RenameFlags::NOREPLACE,
+                    )?;
+                    promoted = true;
+                    let _ = stage;
+                }
+                Err(error) => return Err(error.into()),
+            }
+            let generation_dir = open_dir(&self.generations, generation)?;
+            verify_directory(&generation_dir, Some(manifest), false)?;
+            let payload_dir = open_dir(&generation_dir, "payloads")?;
+            seal_directory(&payload_dir, 0o500)?;
+            fsync(&payload_dir)?;
+            seal_directory(&generation_dir, 0o500)?;
+            fsync(&generation_dir)?;
+            verify_directory(&generation_dir, Some(manifest), true)?;
+            fsync(&self.staging)?;
+            fsync(&self.generations)?;
+
+            let temp_name = format!("{}.tmp", manifest.transaction_id.as_str());
+            // Never replace an existing transaction index. Reuse is accepted only
+            // when the existing exact link bytes are equal.
+            match write_new_file(&self.catalog, &temp_name, &index) {
+                Ok(()) => {}
+                Err(GenerationError::Filesystem(Errno::EXIST)) => {
+                    if read_file(&self.catalog, &temp_name, 4096)? != index {
+                        return Err(GenerationError::GenerationCollision);
+                    }
+                }
+                Err(error) => return Err(error),
+            }
+            index_written = true;
+            if !boundary() {
+                return Err(GenerationError::PublicationRejected);
+            }
+            if let Err(error) = renameat_with(
+                &self.catalog,
+                temp_name.as_str(),
+                &self.catalog,
+                catalog_name.as_str(),
+                RenameFlags::NOREPLACE,
+            ) {
+                return Err(error.into());
+            }
+            indexed = true;
+            fsync(&self.catalog)?;
+            self.verify_transaction(&manifest.transaction_id)?;
+            if !boundary() {
+                return Err(GenerationError::PublicationRejected);
+            }
+            Ok(())
+        })();
+        if matches!(result, Err(GenerationError::PublicationRejected)) {
+            // Unseal before retracting: readers require mode 0500, so even if
+            // later cleanup fails the generation cannot verify. Directory
+            // relocation also requires owner write access to update its parent.
+            if promoted {
+                let generation_dir = open_dir(&self.generations, manifest.generation_id.as_str())?;
+                fchmod(&generation_dir, Mode::from_bits_truncate(0o700))?;
+                fsync(&generation_dir)?;
                 renameat_with(
+                    &self.generations,
+                    manifest.generation_id.as_str(),
                     &self.staging,
                     stage_name.as_str(),
-                    &self.generations,
-                    generation,
                     RenameFlags::NOREPLACE,
                 )?;
-                let _ = stage;
+                fsync(&self.generations)?;
+                fsync(&self.staging)?;
             }
-            Err(error) => return Err(error.into()),
-        }
-        let generation_dir = open_dir(&self.generations, generation)?;
-        verify_directory(&generation_dir, Some(manifest), false)?;
-        let payload_dir = open_dir(&generation_dir, "payloads")?;
-        seal_directory(&payload_dir, 0o500)?;
-        fsync(&payload_dir)?;
-        seal_directory(&generation_dir, 0o500)?;
-        fsync(&generation_dir)?;
-        verify_directory(&generation_dir, Some(manifest), true)?;
-        fsync(&self.staging)?;
-        fsync(&self.generations)?;
-
-        let temp_name = format!("{}.tmp", manifest.transaction_id.as_str());
-        // Never replace an existing transaction index. Reuse is accepted only
-        // when the existing exact link bytes are equal.
-        match write_new_file(&self.catalog, &temp_name, &index) {
-            Ok(()) => {}
-            Err(GenerationError::Filesystem(Errno::EXIST)) => {
-                if read_file(&self.catalog, &temp_name, 4096)? != index {
-                    return Err(GenerationError::GenerationCollision);
+            if indexed || index_written {
+                let name = if indexed { &catalog_name } else { &temp_name };
+                unlinkat(&self.catalog, name.as_str(), AtFlags::empty())?;
+                fsync(&self.catalog)?;
+            }
+            if staged {
+                let stage = open_dir(&self.staging, &stage_name)?;
+                let payload_dir = open_dir(&stage, "payloads")?;
+                fchmod(&stage, Mode::from_bits_truncate(0o700))?;
+                fchmod(&payload_dir, Mode::from_bits_truncate(0o700))?;
+                for digest in payloads.keys() {
+                    unlinkat(&payload_dir, format!("{}.blob", digest.as_str()), AtFlags::empty())?;
                 }
+                unlinkat(&stage, "payloads", AtFlags::REMOVEDIR)?;
+                unlinkat(&stage, "manifest.json", AtFlags::empty())?;
+                unlinkat(&self.staging, stage_name.as_str(), AtFlags::REMOVEDIR)?;
+                fsync(&self.staging)?;
             }
-            Err(error) => return Err(error),
         }
-        if let Err(error) = renameat_with(
-            &self.catalog,
-            temp_name.as_str(),
-            &self.catalog,
-            catalog_name.as_str(),
-            RenameFlags::NOREPLACE,
-        ) {
-            return Err(error.into());
-        }
-        fsync(&self.catalog)?;
-        Ok(())
+        result
     }
 
     /// Verifies an already published generation directly from its directory.
@@ -952,6 +1035,39 @@ mod tests {
         );
         manifest.seal().unwrap();
         manifest
+    }
+
+    #[test]
+    fn rejected_idempotent_retry_preserves_the_prior_verified_generation() {
+        let root_path = temp_root();
+        let root = File::open(&root_path).unwrap();
+        let store = test_store(&root);
+        let content = b"prior complete capture";
+        let manifest = ready_manifest(content);
+        let payloads = BTreeMap::from([(digest_bytes(content), content.to_vec())]);
+        store.publish(&manifest, &payloads).unwrap();
+        let mut checks = 0;
+        assert!(matches!(
+            store.publish_checked(&manifest, &payloads, || {
+                checks += 1;
+                checks == 1
+            }),
+            Err(GenerationError::PublicationRejected)
+        ));
+        assert_eq!(checks, 2);
+        assert_eq!(store.verify_transaction(&manifest.transaction_id).unwrap(), manifest);
+        assert_eq!(store.verify(&manifest.generation_id).unwrap(), manifest);
+        fs::set_permissions(
+            root_path.join("generations/gen-generation-1"),
+            fs::Permissions::from_mode(0o700),
+        )
+        .unwrap();
+        fs::set_permissions(
+            root_path.join("generations/gen-generation-1/payloads"),
+            fs::Permissions::from_mode(0o700),
+        )
+        .unwrap();
+        fs::remove_dir_all(root_path).unwrap();
     }
 
     #[test]

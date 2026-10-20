@@ -283,6 +283,82 @@ fn leases_cover_children_start_races_and_abrupt_owner_death() {
 }
 
 #[test]
+fn wrapper_death_at_publication_boundary_retracts_the_generation() {
+    use crate::{
+        EntryKind, FileRecord, Identifier, OperationReason, RecoveryManifest, RelativePath,
+        SnapshotLink, StateRoot, VerificationStatus,
+        generation::{GenerationError, GenerationStore, Payloads},
+    };
+    use std::os::unix::fs::PermissionsExt;
+
+    for fail_at in [2, 4] {
+        let mut fixture = Fixture::new();
+        let wrapper = fixture.spawn("wrapper", "publication");
+        fixture.wait("publication-parent");
+        fixture.wait("publication-grandchild");
+        let lease = fixture.lease();
+        let saved = fixture.counters("publication");
+        let state = fixture.path.join("store");
+        std::fs::create_dir(&state).unwrap();
+        std::fs::set_permissions(&state, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let store = GenerationStore::open_for_test(&File::open(&state).unwrap()).unwrap();
+        let mut manifest = RecoveryManifest::new(
+            Identifier::new("writer-publication").unwrap(),
+            Identifier::new("writer-generation").unwrap(),
+            None,
+            SnapshotLink::new(
+                Identifier::new("root").unwrap(),
+                "42",
+                "00000000-0000-0000-0000-000000000000",
+            )
+            .unwrap(),
+            OperationReason::ProfileApply,
+            "2026-10-20T00:00:00Z",
+        )
+        .unwrap();
+        manifest
+            .add_file(
+                FileRecord::new(
+                    StateRoot::UserHome,
+                    RelativePath::new(".config/ryoku/shell.json").unwrap(),
+                    EntryKind::Absent,
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        manifest.set_verification(
+            VerificationStatus::Verified,
+            VerificationStatus::Verified,
+            VerificationStatus::Verified,
+        );
+        manifest.seal().unwrap();
+        let mut checks = 0;
+        let result = store.publish_checked(&manifest, &Payloads::new(), || {
+            checks += 1;
+            if checks == fail_at {
+                if fail_at == 4 {
+                    assert!(store.verify_transaction(&manifest.transaction_id).is_ok());
+                } else {
+                    assert!(state.join("staging/writer-publication.stage/manifest.json").exists());
+                    assert!(!state.join("generations/writer-generation").exists());
+                }
+                fixture.children[wrapper].kill().unwrap();
+                fixture.children[wrapper].wait().unwrap();
+            }
+            lease.check().is_ok()
+        });
+        assert!(matches!(result, Err(GenerationError::PublicationRejected)));
+        assert_eq!(checks, fail_at);
+        assert!(store.verify_transaction(&manifest.transaction_id).is_err());
+        assert!(store.verify(&manifest.generation_id).is_err());
+        for directory in ["catalog", "generations", "staging"] {
+            assert_eq!(std::fs::read_dir(state.join(directory)).unwrap().count(), 0);
+        }
+        fixture.resumes("publication", &saved);
+    }
+}
+
+#[test]
 #[ignore = "requires exact pinned upstream Go daemon binary; never downloads at test time"]
 fn pinned_upstream_daemon_writes_are_quiesced() {
     use std::os::unix::fs::PermissionsExt;

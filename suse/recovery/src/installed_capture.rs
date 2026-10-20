@@ -114,12 +114,17 @@ impl InstalledInventory {
     /// silently omitted from a supposedly complete generation.
     pub fn for_home(home: &File) -> Result<Self, GenerationCaptureError> {
         let inventory = Self::current()?;
+        Self::validate_home(home)?;
+        Ok(inventory)
+    }
+
+    fn validate_home(home: &File) -> Result<(), GenerationCaptureError> {
         for path in [".config/ryoku", ".config/ryogami-wall"] {
             let mut visited = 0;
             validate_managed_tree(home, path, 0, &mut visited)?;
         }
         validate_wallpaper_state_location(home)?;
-        Ok(inventory)
+        Ok(())
     }
     /// Complete fixed first-sprint preference scope for the pinned runtime on
     /// the standard XDG layout. Unknown data remains outside this scope.
@@ -474,7 +479,19 @@ pub(crate) fn capture_installed_configuration_checked(
     bundle: Option<&crate::installed_profiles::VerifiedProfileBundle>,
     boundary: impl Fn() -> Result<(), GenerationCaptureError>,
 ) -> Result<RecoveryManifest, GenerationCaptureError> {
-    boundary()?;
+    let checked_boundary = || {
+        boundary()?;
+        if inventory.paths.contains_key(&StateRoot::UserHome) {
+            InstalledInventory::validate_home(
+                roots.account_home.ok_or(InventoryError::MissingRoot)?,
+            )?;
+            // A namespace scan may take time; do not let a writer dying during
+            // that scan turn its earlier lease check into publication approval.
+            boundary()?;
+        }
+        Ok(())
+    };
+    checked_boundary()?;
     if let Some(bundle) = bundle {
         if inventory.profiles.is_some() {
             return Err(InventoryError::InvalidEnrollment.into());
@@ -531,7 +548,7 @@ pub(crate) fn capture_installed_configuration_checked(
         capture_files,
         |store, bytes, files| store.ensure_available_space(bytes, files),
         |records, payloads, _| {
-            boundary()?;
+            checked_boundary()?;
             inventory.validate_records(records, &roots.account)?;
             let provenance = if let Some(bundle) = bundle {
                 bundle.revalidate().map_err(GenerationCaptureError::ProfileStore)?;
@@ -565,6 +582,7 @@ pub(crate) fn capture_installed_configuration_checked(
                 account_principal: Some(roots.account.principal.clone()),
             })
         },
+        checked_boundary,
     )
 }
 

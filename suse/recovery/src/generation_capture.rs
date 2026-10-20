@@ -223,6 +223,7 @@ fn capture_publish_verify_using_capacity(
         |_, _, profile| {
             Ok(CaptureProvenance { profile_revision: profile, account_principal: None })
         },
+        || Ok(()),
     )
 }
 
@@ -248,6 +249,7 @@ pub(crate) fn capture_publish_verify_checked(
         &Payloads,
         Option<ProfileRevision>,
     ) -> Result<CaptureProvenance, GenerationCaptureError>,
+    boundary: impl Fn() -> Result<(), GenerationCaptureError>,
 ) -> Result<RecoveryManifest, GenerationCaptureError> {
     validate_inventory(request.roots, request.limits)?;
     let roots = sorted_roots(request.roots)?;
@@ -322,7 +324,18 @@ pub(crate) fn capture_publish_verify_checked(
         return Err(GenerationCaptureError::VerificationMismatch);
     }
 
-    store.publish(&manifest, &payloads)?;
+    let mut boundary_error = None;
+    let publication = store.publish_checked(&manifest, &payloads, || match boundary() {
+        Ok(()) => true,
+        Err(error) => {
+            boundary_error = Some(error);
+            false
+        }
+    });
+    if matches!(publication, Err(GenerationError::PublicationRejected)) {
+        return Err(boundary_error.expect("a rejected boundary retains its error"));
+    }
+    publication?;
     let stored = store.verify_transaction(&manifest.transaction_id)?;
     if stored.canonical_bytes()? != manifest.canonical_bytes()? {
         return Err(GenerationCaptureError::VerificationMismatch);
@@ -368,6 +381,14 @@ fn validate_inventory(
     for root in roots {
         if root.root == StateRoot::StateGeneration {
             return Err(GenerationCaptureError::ProtectedInternalRoot);
+        }
+        if root.root == StateRoot::UserHome
+            && root
+                .paths
+                .iter()
+                .any(|path| !crate::installed_inventory::PREFERENCES.contains(&path.as_str()))
+        {
+            return Err(ValidationError::UndeclaredHomePath.into());
         }
         if !unique_roots.insert(root.root) {
             return Err(GenerationCaptureError::DuplicateRoot);
@@ -618,6 +639,28 @@ mod tests {
             roots,
             limits: CaptureLimits::default(),
         }
+    }
+
+    #[test]
+    fn generic_home_capture_rejects_undeclared_paths_before_reading() {
+        let source = TempDir::new("undeclared-home");
+        let state = TempDir::new("undeclared-state");
+        let store = GenerationStore::open_for_test(&state.descriptor()).unwrap();
+        let descriptor = source.descriptor();
+        let paths = [RelativePath::new(".ssh/authorized_keys").unwrap()];
+        let roots =
+            [DeclaredRoot { root: StateRoot::UserHome, descriptor: &descriptor, paths: &paths }];
+        let result = capture_publish_verify_using(&store, request(&roots), |_, _, _, _| {
+            panic!("an undeclared home path must be rejected before collection");
+        });
+        assert!(matches!(
+            result,
+            Err(GenerationCaptureError::Validation(ValidationError::UndeclaredHomePath))
+        ));
+        assert!(
+            store.verify_transaction(&Identifier::new("capture-transaction-1").unwrap()).is_err()
+        );
+        assert_eq!(fs::read_dir(state.0.join("generations")).unwrap().count(), 0);
     }
 
     #[test]

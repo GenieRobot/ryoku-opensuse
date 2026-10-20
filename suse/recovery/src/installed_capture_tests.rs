@@ -818,6 +818,113 @@ fn lost_writer_lease_before_publication_cannot_create_a_mutation_ready_generatio
 }
 
 #[test]
+fn lost_writer_lease_during_publication_retracts_generation_and_allows_retry() {
+    for fail_at in 3..=6 {
+        let fixture = Fixture::new();
+        let checks = std::cell::Cell::new(0);
+        let result = capture_installed_configuration_checked(
+            &fixture.store,
+            &plan(),
+            fixture.roots(),
+            request("publication-lease"),
+            collect,
+            None,
+            || {
+                checks.set(checks.get() + 1);
+                if checks.get() == fail_at {
+                    Err(GenerationCaptureError::CoordinationLost)
+                } else {
+                    Ok(())
+                }
+            },
+        );
+        assert!(
+            matches!(result, Err(GenerationCaptureError::CoordinationLost)),
+            "check {fail_at}: {result:?}"
+        );
+        assert_eq!(checks.get(), fail_at);
+        fixture.no_publication("publication-lease");
+        for directory in ["catalog", "generations", "staging"] {
+            assert_eq!(
+                fs::read_dir(fixture.path.join("store").join(directory)).unwrap().count(),
+                0,
+                "failed check {fail_at} left {directory} entries"
+            );
+        }
+        let retried = capture_installed_configuration_using(
+            &fixture.store,
+            &plan(),
+            fixture.roots(),
+            request("publication-lease"),
+            collect,
+        )
+        .unwrap();
+        assert!(retried.is_mutation_ready());
+    }
+}
+
+#[test]
+fn managed_namespace_changes_after_capture_or_during_publication_are_rejected() {
+    use crate::installed_profiles::tests as profile_test;
+    for unknown in [".config/ryoku/new-preference.json", ".config/ryogami-wall/new-wall.json"] {
+        // Lease checks bracket each namespace scan. Check 3 follows both exact
+        // reads; checks 7, 9 and 11 precede publication-boundary namespace scans.
+        for change_at in [3, 7, 9, 11] {
+            let fixture = Fixture::new();
+            let protected = profile_test::Fixture::new();
+            let bundle = protected
+                .store
+                .publish_candidate(
+                    &Identifier::new("namespace-inputs").unwrap(),
+                    &profile_test::bundle(),
+                )
+                .unwrap();
+            let plan = InstalledInventory::for_home(&fixture.source).unwrap();
+            let mut req = request("changed-namespace");
+            let package = profile_test::package();
+            req.package_revisions = vec![crate::PackageRevision {
+                package_name: package.name,
+                before_nevra: Some(package.nevra),
+                after_nevra: None,
+                upstream_revision: package.upstream_revision,
+            }];
+            let mut roots = fixture.roots();
+            roots.account_home = Some(&fixture.source);
+            let checks = std::cell::Cell::new(0);
+            let result = capture_installed_configuration_checked(
+                &fixture.store,
+                &plan,
+                roots,
+                req,
+                collect,
+                Some(&bundle),
+                || {
+                    checks.set(checks.get() + 1);
+                    if checks.get() == change_at {
+                        fs::create_dir_all(
+                            fixture.path.join("source").join(unknown).parent().unwrap(),
+                        )
+                        .unwrap();
+                        fixture.write(unknown, b"created by an uncoordinated editor", 0o600);
+                    }
+                    Ok(())
+                },
+            );
+            assert!(
+                matches!(
+                    result,
+                    Err(GenerationCaptureError::Inventory(InventoryError::UnsupportedManagedState))
+                ),
+                "change at {change_at}: {result:?}"
+            );
+            assert_eq!(checks.get(), change_at);
+            fixture.no_publication("changed-namespace");
+            assert_eq!(fs::read_dir(fixture.path.join("store/generations")).unwrap().count(), 0);
+        }
+    }
+}
+
+#[test]
 fn absent_personal_profile_still_seals_the_original_account_principal() {
     use crate::installed_profiles::tests as profile_test;
     let fixture = Fixture::new();
