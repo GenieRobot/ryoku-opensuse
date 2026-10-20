@@ -169,7 +169,8 @@ impl NativeCaptureSession {
             || self.revalidate().map_err(|_| GenerationCaptureError::CoordinationLost),
         )
         .map_err(CaptureSessionError::Capture)?;
-        self.revalidate()?;
+        // Publication performs the final lease check while it can still retract
+        // its generation. A fallible check here would strand a published result.
         Ok(manifest)
     }
 

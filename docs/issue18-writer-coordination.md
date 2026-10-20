@@ -142,3 +142,39 @@ multilayer offline reproduction, exact metadata and safe links, absent entries,
 unsafe path/archive/metadata inputs, double-capture change detection and capture
 cancellation before publication. Evidence files record commands/results/hashes.
 No new VM, helper capability expansion or #20 mutation state machine is included.
+
+## Publication review follow-up (20 October 2026)
+
+The three P1 findings on merged PR #150 are covered by focused capture changes.
+The generation store checks the live writer lease before publication, after
+staging immediately before the generation rename, before the transaction-index
+rename, and after read-back. If a boundary check fails, it unseals the generation
+(which makes verification fail), moves it back out of the generation namespace,
+and removes only that attempt's exact index and staged files. Successful cleanup
+permits a fresh capture with the same transaction and generation IDs. An already
+verified publication from an earlier successful call is preserved on a rejected
+idempotent retry.
+
+Installed capture validates the two managed namespaces and the supported
+wallpaper state location at every boundary check, including after both live
+captures and around publication. This also applies to callers using
+`InstalledInventory::current()` directly. Unknown entries created by an
+uncoordinated same-account editor therefore reject the capture when observed at
+these boundaries. Arbitrary user processes are not frozen by the writer lease;
+these checks do not claim a filesystem snapshot of the home directory.
+
+Every `UserHome` record must name a path in the compiled preference inventory.
+Record construction, manifest validation, sealing and parsing share this rule,
+including absent records that would otherwise request deletion during restore.
+The generic generation collector additionally rejects undeclared home paths
+before it reads them. Verified-generation readers therefore cannot supply
+unrelated home records to configuration staging.
+
+Regression coverage includes real wrapper SIGKILL after staging and after index
+publication, deterministic lease loss at each publication boundary, successful
+retry after retraction, unknown files inserted into both managed namespaces,
+and a correctly hashed manifest naming unrelated home data. The follow-up
+evidence is recorded in
+[`issue18-20261020-publication-regressions.toml`](../infra/tumbleweed-lab/evidence/issue18-20261020-publication-regressions.toml).
+These are host Rust and native-process fixtures; they add no provider transaction,
+durable mutation, metadata restoration or VM acceptance claim.

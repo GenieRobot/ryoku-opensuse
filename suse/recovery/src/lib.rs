@@ -439,6 +439,11 @@ impl FileRecord {
     }
 
     fn validate(&self) -> Result<(), ValidationError> {
+        if self.root == StateRoot::UserHome
+            && !installed_inventory::PREFERENCES.contains(&self.path.as_str())
+        {
+            return Err(ValidationError::UndeclaredHomePath);
+        }
         let metadata = match &self.kind {
             EntryKind::Absent => return Ok(()),
             EntryKind::Directory { metadata }
@@ -788,6 +793,8 @@ pub enum ValidationError {
     InvalidRevision,
     /// A relative path is unsafe or not normalized.
     InvalidRelativePath,
+    /// A home-root record names data outside the compiled preference inventory.
+    UndeclaredHomePath,
     /// SHA-256 text is not canonical lowercase hexadecimal.
     InvalidDigest,
     /// Symlink target is empty, oversized, or contains a NUL byte.
@@ -1035,6 +1042,47 @@ mod tests {
             "2026-01-01T00:00:00Z",
         )
         .unwrap()
+    }
+
+    #[test]
+    fn home_records_and_validly_hashed_manifests_reject_unrelated_paths() {
+        for path in [".ssh/authorized_keys", "Documents/private.txt", ".config/ryoku/unknown.json"]
+        {
+            assert_eq!(
+                FileRecord::new(
+                    StateRoot::UserHome,
+                    RelativePath::new(path).unwrap(),
+                    EntryKind::Absent
+                ),
+                Err(ValidationError::UndeclaredHomePath)
+            );
+            let mut candidate = manifest();
+            // Public fields and serde must not bypass constructor validation.
+            candidate.files.push(FileRecord {
+                root: StateRoot::UserHome,
+                path: RelativePath::new(path).unwrap(),
+                kind: EntryKind::Absent,
+            });
+            assert_eq!(candidate.validate(), Err(ValidationError::UndeclaredHomePath));
+            assert!(candidate.seal().is_err());
+            let mut value = serde_json::to_value(&candidate).unwrap();
+            let bytes = serde_json::to_vec(&value).unwrap();
+            value["manifest_sha256"] = serde_json::Value::String(
+                Sha256Digest::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect(),
+            );
+            assert!(matches!(
+                RecoveryManifest::parse_verified_json(&serde_json::to_vec(&value).unwrap()),
+                Err(ManifestError::Validation(ValidationError::UndeclaredHomePath))
+            ));
+        }
+        for path in installed_inventory::PREFERENCES {
+            FileRecord::new(
+                StateRoot::UserHome,
+                RelativePath::new(*path).unwrap(),
+                EntryKind::Absent,
+            )
+            .unwrap();
+        }
     }
 
     fn metadata() -> EntryMetadata {

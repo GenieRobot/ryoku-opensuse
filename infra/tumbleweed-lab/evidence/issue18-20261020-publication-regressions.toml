@@ -1,0 +1,62 @@
+schema_version = 1
+issue = 18
+status = "pass"
+recorded_date = "2026-10-20"
+base_main = "d9d169c0ecc46877f2e8225a4c92b47182d7b8ba"
+scope = "Three unresolved P1 capture review findings on PR #150"
+review_threads = [
+    "https://github.com/GenieRobot/ryoku-opensuse/pull/150#discussion_r4307999800",
+    "https://github.com/GenieRobot/ryoku-opensuse/pull/150#discussion_r4307999803",
+    "https://github.com/GenieRobot/ryoku-opensuse/pull/150#discussion_r4307999806",
+]
+log_normalization = "Absolute worktree prefix replaced with <issue18-worktree>; trailing whitespace and final empty line removed"
+limitations = [
+    "Host Rust and native-process fixtures; no new VM, provider transaction, durable mutation or metadata-restore claim",
+    "The two pinned-upstream prerequisite tests remain ignored in this follow-up; prior exact upstream evidence remains in issue18-20261018-capture-acceptance.toml",
+    "Arbitrary user editors are not frozen; managed namespaces are revalidated at capture/publication boundaries, not snapshotted",
+    "Native ACL/SELinux, cross-filesystem apply, and service-runtime prerequisite ignores remain unchanged",
+]
+
+[workspace]
+command = "cargo test --locked --offline --workspace"
+exit_code = 0
+recovery_library_passed = 196
+recovery_library_ignored = 4
+service_library_passed = 81
+service_library_ignored = 1
+log = "issue18-20261020-workspace.log"
+log_sha256 = "feb82934390786294f1bccd8b74d679403a5a32d1ea9b42b04795bd7ad012a4d"
+
+[clippy]
+command = "cargo clippy --locked --offline --workspace --all-targets -- -D warnings"
+exit_code = 0
+log = "issue18-20261020-clippy.log"
+log_sha256 = "cc23dfe9e8299b676b1ef5acfa81eaea53b64c0dad32c6919ee5faa5bcae4fcc"
+
+[format]
+command = "cargo fmt --all --check"
+exit_code = 0
+
+[diff]
+command = "git diff --check"
+exit_code = 0
+
+[regressions]
+writer_lease = [
+    "lost_writer_lease_during_publication_retracts_generation_and_allows_retry: injected loss before publication, after staging, before index rename and after published read-back leaves no catalog/generation/staging entries; same IDs retry successfully",
+    "wrapper_death_at_publication_boundary_retracts_the_generation: actual wrapper SIGKILL after staging and after catalog publication invalidates the lease, retracts the generation and permits descendants to resume",
+    "rejected_idempotent_retry_preserves_the_prior_verified_generation: rejected retry cannot delete an earlier successfully verified capture",
+]
+managed_namespaces = [
+    "managed_namespace_changes_after_capture_or_during_publication_are_rejected: unknown entries in both .config/ryoku and .config/ryogami-wall after the second capture and at each publication transition reject/retract capture",
+    "Lease checks bracket namespace scans so a wrapper dying during a scan is checked again before publication",
+]
+home_allowlist = [
+    "generic_home_capture_rejects_undeclared_paths_before_reading: .ssh/authorized_keys is rejected before the collector runs",
+    "home_records_and_validly_hashed_manifests_reject_unrelated_paths: constructor, validation, sealing and correctly hashed JSON reject unrelated home paths, including absence/deletion records; every compiled preference path remains accepted",
+]
+
+[corrected_during_validation]
+failure = "The first regression run exposed EACCES while moving a sealed 0500 generation directory back to staging"
+correction = "Unseal and fsync the generation first, immediately invalidating verification and permitting the owner to relocate its parent; then remove the exact staged files and index"
+final_result = "All new regression cases and the complete workspace suite pass"
