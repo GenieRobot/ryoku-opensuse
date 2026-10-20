@@ -3,6 +3,9 @@
 This is a handoff for the completed Git cleanup, not acceptance evidence for
 the open implementation issues. The [roadmap and Luna handoff](https://github.com/GenieRobot/ryoku-opensuse/issues/1)
 remain the source of scope and task dependencies.
+The [full historical Luna handoff](luna-handoff-history.md) preserves the
+October 18 coordinator record; its older repository counts and next steps
+are superseded by this page and issue #1.
 
 ## Repository state
 
