@@ -3,9 +3,22 @@ issue = 15
 date = "2026-10-20"
 status = "partial-negative-feasibility-evidence"
 issue_complete = false
+# Original completion assessment retained; see the separate literal acceptance audit.
 verified_protected_writes = 0
 report = "docs/provider-experiments-20261020.md"
 base_commit = "c7fdc12a6a2279d84147fe670217dafd59cce68c"
+
+[acceptance_audit]
+date = "2026-10-20"
+integrated_evidence_commit = "650e1866b5a000e6757068428c682aba09821323"
+report = "docs/provider-acceptance-audit.md"
+scope = "literal-M0-feasibility-checklist"
+closure_recommendation = "close-after-coordinator-review"
+proposed_protected_writes = 0
+initial_surface = "read-only-with-unproven-queries-unavailable"
+runtime_protection_certified = false
+graphical_navigation_certified = false
+product_release_or_first_sprint_complete = false
 
 [fixture]
 snapshot = "20261016"

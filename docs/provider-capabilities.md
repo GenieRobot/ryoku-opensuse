@@ -1,6 +1,10 @@
 # Provider capabilities and recovery hooks
 
-Status: feasibility model for M0-06, updated 2026-10-20. This document records the initial candidate set and the evidence still needed. It does **not** certify any provider as protected or mark issue #15 complete.
+Status: feasibility model for M0-06, updated 2026-10-20. This document records
+the initial candidate set and evidence still required before activation. The
+[literal acceptance audit](provider-acceptance-audit.md) recommends completing
+#15 as a feasibility task after coordinator review. It does **not** certify
+any provider as protected or declare the product ready.
 
 The [20 October disposable-guest experiments](provider-experiments-20261020.md)
 now reach real `COMMITBEGIN`/`COMMITEND` notifications and demonstrate a package
@@ -84,17 +88,17 @@ supports embedding Cockpit, Myrlyn, or YaST as a protected control.
 
 | Operation/candidate | Interface class | Current status | Privilege, errors and cancellation | Rust path and hook assessment |
 |---|---|---|---|---|
-| Show product release, current profile, recovery availability and completed job history | Native Ryoku controls | Awaiting proof (read-only contract) | Unprivileged read from validated, versioned service data; missing/stale/corrupt data must be shown as unavailable/error, never guessed. | Typed Rust backend query. No provider write hook. Data-source and privacy review remains. |
-| Search package metadata and inspect installed package/repository state | Native Ryoku controls; no external panel by default | Awaiting proof; candidate read-only | Read-only metadata queries should not obtain root privileges. Report stale metadata and provider errors. | Rust provider adapter over a narrowly defined zypper query or PackageKit read API. Pin query options and prove they do not refresh metadata or mutate state on the target snapshot. |
+| Show product release, current profile, recovery availability and completed job history | Native Ryoku controls | Awaiting proof (read-only contract) | Unprivileged read from validated, versioned service data; missing/stale/corrupt data must be shown as unavailable/error, never guessed. Canceling this read discards its response; it does not cancel a reported job. | Typed Rust backend query. No provider write hook. Data-source and privacy review remains. |
+| Search package metadata and inspect installed package/repository state | Native Ryoku controls; no external panel by default | Awaiting proof; candidate read-only | Read-only metadata queries should not obtain root privileges. Report stale metadata and provider errors. Query cancellation may discard results; provider-side cancellation is unverified and cannot imply cancellation of another transaction. | Rust provider adapter over a narrowly defined zypper query or PackageKit read API. Pin query options and prove they do not refresh metadata or mutate state on the target snapshot. |
 | Install/remove/update packages, including a full Tumbleweed update | Native Ryoku controls; direct zypper, Myrlyn and PackageKit/Cockpit are outside this control surface | Awaiting proof for a Rust-owned operation; commit-plugin protection is unsupported | Privileged, operation-specific authorization. Validate exact requested package IDs and policy before authorization. Provider dependency/conflict/signature failures are failures; do not continue partially. Pre-commit cancellation may abort; post-commit cancellation is not rollback. Preserve durable job outcome across client exit. | Fixed zypper arguments or PackageKit roles remain candidate Rust service interfaces. The 20 October guest observed both commit notifications in a normal transaction, then installed another package despite plugin ERROR. The plugin cannot provide capture failure-stop; no linked capture or journal path was exercised. Do not run a shell command from UI or authorize arbitrary zypper arguments. |
-| Add/change/enable/disable repositories, alter priorities, import/remove trust keys | Native Ryoku controls | Unsupported for first release pending separate proof | Root/polkit privilege; repository and trust failures must be explicit. Do not offer arbitrary URLs or trust-on-first-use. | Rust service only after exact scope and hook is proven. Repository writes change future package trust and resolution, and must checkpoint before each mutation; capturing only before a later install does not protect them. External YaST/zypper/Cockpit editors bypass the path. |
-| Snapper list/read-only status | Native Ryoku controls | Awaiting proof (read-only path) | Read through the least-privileged supported interface; distinguish empty, unavailable and denied. | Rust query adapter; verify D-Bus/CLI semantics in the VM. |
-| Create/delete/modify Snapper snapshots or configuration | Native Ryoku controls | Unsupported as general administration; Ryoku recovery operations are separate | Privileged and constrained to authenticated recovery workflow. Destructive errors must preserve the last usable recovery point. | Narrow Rust recovery service operation only. Arbitrary snapshot deletion/config edits can invalidate linked recovery and are not an ordinary provider action. |
-| Change selected system settings (initial candidate: a small, enumerated set of display/session preferences) | Native Ryoku controls | Unsupported until each setting has an affected-state inventory and restore proof | Per-operation authorization; validate values and report validation/service-reload failures. Do not accept arbitrary file paths or shell fragments. | Rust typed operation and declared config ownership. No generic “settings provider” hook. |
-| Browse/manage software through Myrlyn | Externally launched Qt desktop application; embedding is not established | Unsupported for writes in first release; read-only use is a candidate, not yet target-verified | Upstream describes package and repository changes through its libzypp backend and a non-root read-only mode. Its privilege prompts, read-only enforcement and cancellation behavior must be checked in the pinned guest. | No Rust service API or per-operation Ryoku hook is evidenced. A launch-time checkpoint is invalid. Keep writes out of the supported Ryoku flow unless every commit is mediated before mutation; do not add Ruby glue. |
-| Cockpit package panel (`cockpit-packages`) | External local-desktop helper/browser module; embedding needs a documented stable component contract | Awaiting proof for local read-only access; protected writes unsupported | The 20 October guest has PackageKit 1.4.0 with backend `zypp`; the module calls its D-Bus transaction interface. Polkit, errors, cancellation and graphical behavior still need operation-specific runtime proof. | No PackageKit or Cockpit package transaction entered Ryoku's capture path. Native D-Bus introspection and the installed Tools manifest are inventory evidence, not a recovery hook. Protected writes remain unsupported. |
-| Cockpit overview / service and host panels | External local-desktop helper or browser; embed only through the documented Cockpit contract | Awaiting proof for local read-only navigation; unsupported for protected writes | Cockpit has its own privilege and service boundaries. UI errors or cancellation do not provide Ryoku recovery. Keep remote access a separate opt-in. | The installed Cockpit 365 helper and Packages Tools menu were inspected on 20 October. The helper isolates its browser/server in a network namespace by source, while the system socket ships wildcard port 9090. Graphical operation and runtime namespace isolation are unverified. No generic REST API or protected embedded panel is assumed. |
-| YaST software, repository or system-configuration modules | Externally launched optional interface; individual modules may be excluded | Unsupported for protected changes in first release; read-only query candidates require module-by-module proof | YaST modules can perform privileged writes. Do not assume module-level privilege or cancellation prompts satisfy product authorization/recovery. | YaST's established module ecosystem is Ruby-based. New project-owned Ruby glue/bindings are deferred. External modules cannot be wrapped by a UI launch hook; omit write-capable modules from the supported Ryoku path until their writes can be mediated per operation. |
+| Add/change/enable/disable repositories, alter priorities, import/remove trust keys | Native Ryoku controls | Unsupported for first release pending separate proof | Root/polkit privilege; repository and trust failures must be explicit. Do not offer arbitrary URLs or trust-on-first-use. Cancellation/atomicity across definition and key changes is unverified; no cancel or rollback promise is exposed. | Rust service only after exact scope and hook is proven. Repository writes change future package trust and resolution, and must checkpoint before each mutation; capturing only before a later install does not protect them. External YaST/zypper/Cockpit editors bypass the path. |
+| Snapper list/read-only status | Native Ryoku controls | Awaiting proof (read-only path) | Read through the least-privileged supported interface; exact service authorization remains unverified. Distinguish empty, unavailable and denied. Canceling a status read discards its result; it does not cancel a recovery operation. | Rust query adapter; verify D-Bus/CLI semantics in the VM. |
+| Create/delete/modify Snapper snapshots or configuration | Native Ryoku controls | Unsupported as general administration; Ryoku recovery operations are separate | Privileged and constrained to authenticated recovery workflow. Destructive errors must preserve the last usable recovery point. Provider cancellation is unverified; deletion cannot be advertised as reversible by canceling a client. | Narrow Rust recovery service operation only. Arbitrary snapshot deletion/config edits can invalidate linked recovery and are not an ordinary provider action. |
+| Change selected system settings (display/session preferences were initial candidates; static hostname was the bounded configuration probe) | Native Ryoku controls | Unsupported until each setting has an affected-state inventory and restore proof | Per-operation authorization; validate values and report validation/service-reload failures. The hostname probe ran as guest root; non-root authorization was not tested. Cancellation is unverified for each setting; reverting a value is a separate write. Do not accept arbitrary file paths or shell fragments. | Rust typed operation and declared config ownership. No generic “settings provider” hook. Native `hostnamectl --static set-hostname` changed file and kernel state without invoking the commit plugin; this is not a selected Ryoku operation. |
+| Browse/manage software through Myrlyn | Externally launched Qt desktop application; embedding is not established | Unsupported for writes in first release; read-only use is a candidate, not yet target-verified | Upstream describes a non-root read-only mode and privileged package/repository changes through libzypp. Its commit page uses commit/abort callbacks; provider errors must remain visible and an abort is not recovery. Actual privilege prompts, error presentation, read-only enforcement and cancellation remain unverified on the guest. | No Rust service API or per-operation Ryoku hook is evidenced; no write adapter is selected. A future read-only external launch would need fixed arguments and proven non-root enforcement. A launch-time checkpoint is invalid. Do not add Ruby glue. |
+| Cockpit package panel (`cockpit-packages`) | External local-desktop helper/browser module; embedding needs a documented stable component contract | Awaiting proof for local read-only access; protected writes unsupported | PackageKit 1.4.0 backend `zypp` exposes role-specific polkit authorization, `ErrorCode`/`Finished`, and `Cancel` subject to `AllowCancel`. The inspected panel calls `InstallPackages`/`RemovePackages`. Errors, cancellation and graphical behavior still need operation-specific runtime proof; cancellation is not rollback. | A future native Rust adapter could use fixed PackageKit system-bus roles, but no panel transaction entered Ryoku's capture path. No Rust panel-write adapter is selected. D-Bus introspection and the installed Tools manifest are inventory evidence, not a recovery hook. |
+| Cockpit overview / service and host panels | External local-desktop helper or browser; embed only through the documented Cockpit contract | Awaiting proof for local read-only navigation; unsupported for protected writes | Cockpit uses user-session and polkit/sudo privilege boundaries. Per-panel error and cancellation behavior is unverified; closing a page does not establish that its request stopped. UI errors or cancellation do not provide Ryoku recovery. Keep remote access a separate opt-in. | A future Rust launcher could invoke the fixed local helper/page after navigation proof; no generic control or write adapter is selected. The installed Cockpit 365 helper and Packages Tools menu were inspected. The helper isolates its browser/server in a network namespace by source; the system socket ships wildcard port 9090. Graphical operation and runtime isolation are unverified. No generic REST API or protected embedded panel is assumed. |
+| YaST software, repository or system-configuration modules | Externally launched optional interface; individual modules may be excluded | Unsupported for protected changes in first release; read-only query candidates require module-by-module proof | Modules can perform privileged writes. Exact authorization, errors and cancellation are module-specific and unverified on the guest; no common abort/rollback contract is assumed. Inspected repository code separately saves sources and writes key state. | No Rust module-write adapter or stable generic service API is selected. YaST's module ecosystem is Ruby-based; no new project-owned Ruby glue/bindings. External modules cannot be wrapped by a UI launch hook; omit write-capable modules until their writes can be mediated per operation. |
 
 ## Interface coverage and integration choice
 
@@ -163,7 +167,7 @@ do not prove what a later activation binds, and no result proves native desktop
 category navigation, embedding, or write protection. Those UI checks still
 require the graphical guest and the selected Cockpit module.
 
-## Candidate libzypp commit gate (awaiting Tumbleweed proof)
+## Rejected libzypp commit-gate candidate and historical evidence
 
 ### Sanitized Run19 results
 
@@ -206,9 +210,9 @@ or whether a provider write was blocked.
 
 No package commit, PackageKit/Cockpit operation, checkpoint ID, post-change
 verification or recovery-journal entry was observed. Run19 therefore does not
-prove a blocking hook or protected provider write. Keep issue #15 open and keep
-package writes awaiting proof; do not describe the unchanged hash as a passed
-denial test.
+prove a blocking hook or protected provider write. Run19 alone was insufficient
+to close issue #15. Package writes remain awaiting proof; do not describe the
+unchanged hash as a passed denial test.
 
 Run19's only behavioral conclusion is that the target snapshot contains a
 libzypp commit-plugin directory and the probe harness did not reach a commit
@@ -305,16 +309,21 @@ installed downstream RPM byte identity and actual transaction evidence.
 
 ### Minimal first-release operation set
 
-The initial supported set is intentionally small: display validated release,
-profile, recovery and completed-job data; search packages and inspect installed
-package/repository state through proven read-only calls; and expose an
-allowlisted package transaction only if the provider's pre-mutation checkpoint,
-failure-stop, post-state verification and journal behavior pass on the pinned
-guest. Until that evidence exists, package writes remain unavailable. Repository
-and trust edits, general Snapper administration, generic system settings, and
-write-capable Myrlyn, Cockpit or YaST surfaces are excluded. Local Cockpit
-read-only navigation is optional external administration, not a core Ryoku
-control.
+The selected initial provider surface is read-only: display validated release,
+profile, recovery and completed-job data, and inspect packages/repositories
+through individually proven read-only calls. An unverified query remains
+unavailable/awaiting proof. There are **no proposed protected writes** in this
+feasibility outcome. Package transactions remain a future implementation
+candidate; repository/trust edits, general Snapper administration, generic
+system settings and write-capable Myrlyn, Cockpit or YaST surfaces are excluded.
+Local Cockpit navigation remains awaiting proof and is not enabled by this
+decision. This minimum capability set does not declare the full product or
+first-sprint requirements complete.
+
+A later package-operation proposal must prove its actual pre-mutation linked
+checkpoint, failure-stop, post-state verification and journal behavior before
+activation. The [acceptance audit](provider-acceptance-audit.md) separates this
+#1 requirement from completion of #15's provider inspection and classification.
 
 The first implementation candidate is a small native Rust control surface backed by one Rust service. It should use a typed, allowlisted operation API, a durable job identifier and typed states such as Queued, Authorizing, Capturing, Running, Verifying, Succeeded, Failed and OutcomeUnknown. These are design names, not implemented types. Cancellation should be typed separately as NotStarted, Requested, Accepted, TooLate or Unsupported; never map a canceled client connection to a canceled package transaction.
 
@@ -322,9 +331,14 @@ A reviewed adapter may invoke a fixed zypper command or a supported D-Bus provid
 
 Myrlyn, Cockpit and YaST are not alternate owners of the recovery contract. If future proof shows their write path cannot be intercepted before each mutation, they remain external optional administration interfaces and their mutations are outside the protected first-release operation set.
 
-## Minimal live hook experiments required
+## Experiments required before future capability activation
 
-Run these against the supported disposable Tumbleweed guest and record exact package/provider versions, command/API, relevant service state, redacted logs and before/after state. Do not use the production host. The existing lab run is infrastructure evidence, not a provider-hook experiment.
+These are activation gates for future capabilities, not additional #15
+feasibility acceptance criteria. The 20 October experiment characterizes
+notification placement and bypasses; it does not satisfy these protection
+gates. Run them against the supported disposable Tumbleweed guest and record
+exact package/provider versions, command/API, relevant service state,
+redacted logs and before/after state. Do not use the production host.
 
 1. **Rust-owned transaction boundary:** invoke the candidate native Rust service operation for one harmless package already available in the frozen repository snapshot (or a no-op plan followed by a disposable transaction). Record authorization, linked pre-change capture ID, provider transaction/job ID, commit start/completion, final RPM state and post-state verification. Inject checkpoint failure and show that the provider is never called. The libzypp commit plugin is not a candidate failure-stop hook; source review proves its error/timeout path continues into the commit.
 2. **Bypass classification:** verify which interfaces can reach PackageKit/libzypp operations independently of the Ryoku service. Direct zypper, PackageKit, Myrlyn, Cockpit software and YaST software remain outside the protected Ryoku workflow unless each write is mediated before provider invocation. Record versions and exact request paths; do not spend a live transaction testing whether the libzypp plugin vetoes, since the pinned source shows no veto result is consumed.

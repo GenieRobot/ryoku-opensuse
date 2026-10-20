@@ -1,7 +1,10 @@
 # Provider boundary experiments, 20 October 2026
 
 Issue: [#15](https://github.com/GenieRobot/ryoku-opensuse/issues/15).
-Status: **negative feasibility evidence; issue remains open**.
+Status: **negative feasibility evidence; no protected operation certified**.
+The [literal acceptance audit](provider-acceptance-audit.md) recommends
+coordinator closure of #15 as a feasibility task for a read-only initial set.
+The issue remains open pending that review; no measured limitation is removed.
 The [machine-readable record](../infra/tumbleweed-lab/evidence/issue15-provider-boundaries-20261020.toml)
 contains exact versions, source/binary hashes, measured state and private-log
 digests. The [capability matrix](provider-capabilities.md) remains the operation
@@ -166,7 +169,7 @@ does not prove the downstream RPM has no patches.
   available `yast2-packager-5.0.13-1.1` package. YaST was not installed.
   No new Ruby integration is proposed.
 
-## Remaining issue acceptance
+## Feasibility outcome and remaining activation gates
 
 The matrix, concrete interfaces, package notification experiment and observed
 bypasses are evidence-backed. A native Rust service-owned package operation
@@ -175,10 +178,14 @@ remains **awaiting proof**; the plugin and external writes remain
 read-only product information plus individually proven read queries, with
 provider mutation controls unavailable.
 
-Issue #15 stays open: there is still no operation with genuine linked
+There is still no operation with genuine linked
 pre-mutation capture, complete affected-state coverage, failure-stop,
 post-state verification and matching Ryoku journal evidence. Trust-key writes,
 PackageKit/Myrlyn/YaST runtime paths, cancellation/client disconnect/restart,
 and actual local Cockpit navigation remain unverified. The unsafe denying
 transaction is successful *negative characterization*, never a green safety
-test or completion of those acceptance requirements.
+test or completion of those activation requirements. The
+[acceptance audit](provider-acceptance-audit.md) maps #15's literal feasibility
+requirements separately: no protected write is proposed, and all unproven
+write paths remain excluded. Its closure recommendation is not a claim that
+any of the missing runtime demonstrations have happened.
