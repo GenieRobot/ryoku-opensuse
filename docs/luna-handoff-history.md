@@ -9,7 +9,7 @@ snapshots and next actions are superseded. See the tracked
 the current coordination entry points.
 
 - `main` and `origin/main` are at
-  `5efc726f0865516c5089d89efb8d85917ca1123d` (latest main).
+  `e025c7b8c96e55c6c0582462a1bec2f782fd1a20` (merged PR #149, #23).
 - #15 is closed as completed M0 provider feasibility after merged PRs
   [#162](https://github.com/GenieRobot/ryoku-opensuse/pull/162) and
   [#163](https://github.com/GenieRobot/ryoku-opensuse/pull/163). The initial
@@ -34,6 +34,27 @@ the current coordination entry points.
 - #17 is closed completed through PR #148 and its linked native installed
   acceptance. Its documented limits still apply: managed provider writes
   remain disabled; no RPM install or interactive PAM login is claimed.
+- #23 is closed after merged PR
+  [#149](https://github.com/GenieRobot/ryoku-opensuse/pull/149) at main
+  `e025c7b`. The exact tested evidence head
+  [`5b6627e`](https://github.com/GenieRobot/ryoku-opensuse/commit/5b6627e386e51b2b5ec6b2b614334db4ccfb1426)
+  passed exact-head hosted CI plus local formatting, strict Clippy, locked
+  all-feature workspace tests, cargo-deny and whitespace checks. Six native
+  RPM spec builds passed with BuildRequires enabled. Ten runtime package
+  manifests cover 1,607 paths with no conflicts, mutable paths or custom
+  scriptlets/triggers; native Qt6 scanning found 32 import requirements with
+  internal QML imports resolved. Signed Snapshot20261016 clean-target
+  dependency download, dry-run, install and same-version reinstall passed.
+  Installed manifests matched the artifacts, `rpm -V` was empty for all ten
+  packages after both transactions, the operator group had empty membership,
+  helper/user units stayed inactive, and five sentinels were unchanged. See
+  the [acceptance receipt](https://github.com/GenieRobot/ryoku-opensuse/blob/5b6627e386e51b2b5ec6b2b614334db4ccfb1426/infra/tumbleweed-lab/evidence/issue23-native-acceptance-20261021.toml)
+  and [native evidence directory](https://github.com/GenieRobot/ryoku-opensuse/tree/5b6627e386e51b2b5ec6b2b614334db4ccfb1426/infra/tumbleweed-lab/evidence/issue23-native-20261021).
+- #23 closes packaging acceptance only: no session/login/PAM/provider
+  execution, production deployment, recovery readiness, Btrfs rollback or
+  first-sprint completion is claimed. Session adapters remain #25. Binary
+  output reproducibility across separately provisioned SDKs and production
+  release signatures are also outside this evidence.
 - #20 remains open. Its draft [PR #152](https://github.com/GenieRobot/ryoku-opensuse/pull/152)
   is partial at exact head `5bb9d8bdafe7db0496024ee7a78104c68d8bbe93`, based
   on `5efc726`. Hosted formatting, Clippy, workspace tests and dependency

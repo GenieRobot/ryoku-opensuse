@@ -10,7 +10,7 @@ coordinator records.
 ## Current coordinator state (21 October 2026)
 
 - `main` and `origin/main` are at
-  [`5efc726f0865516c5089d89efb8d85917ca1123d`](https://github.com/GenieRobot/ryoku-opensuse/commit/5efc726f0865516c5089d89efb8d85917ca1123d).
+  [`e025c7b8c96e55c6c0582462a1bec2f782fd1a20`](https://github.com/GenieRobot/ryoku-opensuse/commit/e025c7b8c96e55c6c0582462a1bec2f782fd1a20), merged PR #149.
 - #15 is closed as completed M0 feasibility after merged PRs
   [#162](https://github.com/GenieRobot/ryoku-opensuse/pull/162) and
   [#163](https://github.com/GenieRobot/ryoku-opensuse/pull/163). The initial
@@ -41,6 +41,27 @@ coordinator records.
 - #17 is closed completed through PR #148 and the linked native installed
   acceptance record. Its documented limits remain: managed provider writes
   are disabled; no RPM install or interactive PAM login is claimed.
+- #23 is closed after merged PR
+  [#149](https://github.com/GenieRobot/ryoku-opensuse/pull/149). The exact
+  tested evidence head [`5b6627e`](https://github.com/GenieRobot/ryoku-opensuse/commit/5b6627e386e51b2b5ec6b2b614334db4ccfb1426)
+  passed hosted exact-head CI, local formatting, strict Clippy, locked
+  all-feature workspace tests, cargo-deny and whitespace checks. All six
+  native RPM spec builds passed with BuildRequires enabled. Ten runtime
+  package manifests cover 1,607 paths with no conflicts, mutable paths or
+  custom scriptlets/triggers; Qt6 scanning found 32 import requirements and
+  internal QML imports resolve. Signed Snapshot20261016 clean-target dependency
+  download, dry-run, install and same-version reinstall passed. Installed
+  manifests matched artifacts, `rpm -V` was empty for all ten packages after
+  both transactions, the operator group had empty membership, helper/user
+  units remained inactive, and five sentinels were unchanged. See the
+  [native acceptance receipt](https://github.com/GenieRobot/ryoku-opensuse/blob/5b6627e386e51b2b5ec6b2b614334db4ccfb1426/infra/tumbleweed-lab/evidence/issue23-native-acceptance-20261021.toml),
+  [build and package evidence](https://github.com/GenieRobot/ryoku-opensuse/tree/5b6627e386e51b2b5ec6b2b614334db4ccfb1426/infra/tumbleweed-lab/evidence/issue23-native-20261021),
+  and [hosted CI run](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39646896660).
+- #23 acceptance is packaging-only. It does not establish session/login/PAM/
+  provider execution, production deployment, recovery readiness, Btrfs rollback
+  or first-sprint completion. Session adapters remain #25. It does not claim
+  byte-identical binaries across separately provisioned SDKs or production
+  release signatures.
 - #20 is the earliest ready open implementation task: its explicit
   prerequisites #18 and #19 are closed; it does not require #17 to remain
   open. Draft [PR #152](https://github.com/GenieRobot/ryoku-opensuse/pull/152)
@@ -73,10 +94,10 @@ coordinator records.
 The first-sprint deliverable in #1 remains unchanged: a clean Tumbleweed VM
 must install Ryoku, support login and reboot, return to KDE, preserve overrides
 on reinstall, and demonstrate a verified linked checkpoint plus offline
-console restore. Closing #19 does not complete that gate. All fixed decisions
-in #1 remain in force: new project-owned executable code is Rust; supported
-changes require a verified linked pre-change restore point with mutation
-blocked on required capture/verification failure; unrelated home files must be
+console restore. Closing #19 or #23 does not complete that gate. All fixed
+decisions in #1 remain in force: new project-owned executable code is Rust;
+supported changes require a verified linked pre-change restore point, with
+mutation blocked on required capture/verification failure; unrelated home files must be
 preserved; and private companion data remains outside this public repository.
 
 ## Historical Git cleanup snapshot (20 October 2026)
