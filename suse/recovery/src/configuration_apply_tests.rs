@@ -23,7 +23,6 @@ fn ready(f: &Fixture, advance: bool) -> (RestoreJournalStore, Identifier) {
             RestorePhase::CheckpointVerified,
             RestorePhase::ContentStaged,
             RestorePhase::WritersStopped,
-            RestorePhase::RootRollbackComplete,
         ] {
             store.advance(&mut journal, phase).unwrap();
         }
@@ -110,7 +109,7 @@ fn every_durable_boundary_can_reopen_and_replay_without_losing_checkpoint() {
             }),
             Err(ConfigurationApplyError::Cancelled)
         ));
-        assert_eq!(journals.load(&id).unwrap().phase, RestorePhase::RootRollbackComplete);
+        assert_eq!(journals.load(&id).unwrap().phase, RestorePhase::WritersStopped);
         drop(journals);
         let reopened =
             RestoreJournalStore::open(&File::open(f.path.join("journals")).unwrap()).unwrap();
@@ -153,7 +152,7 @@ fn nonempty_directory_removal_preserves_undeclared_children_in_recovery() {
     f.store().create(&f.source).unwrap();
     assert!(apply(&f, &live, &journals, &id, |_| ControlFlow::Continue(())).is_err());
     assert_eq!(fs::read(f.path.join("live/missing/unrelated")).unwrap(), b"keep me");
-    assert_eq!(journals.load(&id).unwrap().phase, RestorePhase::RootRollbackComplete);
+    assert_eq!(journals.load(&id).unwrap().phase, RestorePhase::WritersStopped);
 }
 
 #[test]

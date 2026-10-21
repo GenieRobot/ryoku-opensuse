@@ -160,6 +160,38 @@ fn missing_completion_is_never_adopted_or_overwritten() {
 }
 
 #[test]
+fn interrupted_stage_publication_retains_source_and_requires_explicit_repair() {
+    for boundary in 1..=4 {
+        let fixture = Fixture::new();
+        let interrupted = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            fixture
+                .store()
+                .create_with_hook(&fixture.source, |step| {
+                    if step == boundary {
+                        panic!("simulate interrupted stage publication");
+                    }
+                })
+                .unwrap();
+        }));
+        assert!(interrupted.is_err());
+        assert!(
+            fixture
+                .generation
+                .open_verified_transaction(&fixture.source.plan().transaction_id,)
+                .is_ok()
+        );
+        assert_eq!(fs::read(fixture.path.join("unrelated")).unwrap(), b"home sentinel");
+        if boundary < 4 {
+            assert!(fixture.store().open_verified(&fixture.source).is_err());
+            assert!(fixture.store().create(&fixture.source).is_err());
+            fixture.store().discard_incomplete(&fixture.source).unwrap();
+            fixture.store().create(&fixture.source).unwrap();
+        }
+        fixture.store().open_verified(&fixture.source).unwrap();
+    }
+}
+
+#[test]
 fn changed_content_and_unexpected_objects_invalidate_completed_stage() {
     let fixture = Fixture::new();
     fixture.store().create(&fixture.source).unwrap();

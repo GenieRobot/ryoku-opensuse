@@ -20,6 +20,8 @@ use std::{
 
 /// The one supported state location.
 pub const STATE_MOUNTPOINT: &str = "/var/lib/ryoku-state";
+/// One lock identity shared by capture, mutation, restore and session admission.
+pub const MUTATION_LOCK_NAME: &str = "mutation.lock";
 const STATE_RELATIVE_PATH: &str = "var/lib/ryoku-state";
 const MAX_MOUNTINFO_BYTES: u64 = 4 * 1024 * 1024;
 
@@ -109,6 +111,23 @@ pub fn collect_and_open_state_mount(
     trusted_root: &impl AsFd,
     expected: &StateMountIdentity,
 ) -> Result<(rustix::fd::OwnedFd, MountEvidence), StateMountError> {
+    collect_and_open_state_mount_with_access(trusted_root, expected, true)
+}
+
+/// Pin the independently enrolled state mount for journal inspection in a
+/// read-only recovery/session sandbox. All identity checks still apply.
+pub fn collect_and_open_state_mount_readonly(
+    trusted_root: &impl AsFd,
+    expected: &StateMountIdentity,
+) -> Result<(rustix::fd::OwnedFd, MountEvidence), StateMountError> {
+    collect_and_open_state_mount_with_access(trusted_root, expected, false)
+}
+
+fn collect_and_open_state_mount_with_access(
+    trusted_root: &impl AsFd,
+    expected: &StateMountIdentity,
+    require_writable: bool,
+) -> Result<(rustix::fd::OwnedFd, MountEvidence), StateMountError> {
     validate_trusted_root(trusted_root)?;
     let state_fd = openat2(
         trusted_root,
@@ -139,7 +158,7 @@ pub fn collect_and_open_state_mount(
     if mount.filesystem_type != "btrfs" {
         return Err(StateMountError::WrongFilesystem);
     }
-    if mount.read_only {
+    if require_writable && mount.read_only {
         return Err(StateMountError::ReadOnly);
     }
     validate_btrfs_root_inode(fstat(&state_fd).map_err(StateMountError::Filesystem)?.st_ino)?;
@@ -156,7 +175,14 @@ pub fn collect_and_open_state_mount(
         parent_subvolume_id: Some(subvolume_info.parent_id),
         read_only: mount.read_only,
     };
-    validate_evidence(&evidence, expected)?;
+    if require_writable {
+        validate_evidence(&evidence, expected)?;
+    } else {
+        // The access exception does not alter the returned kernel evidence.
+        let mut identity_evidence = evidence.clone();
+        identity_evidence.read_only = false;
+        validate_evidence(&identity_evidence, expected)?;
+    }
     Ok((state_fd, evidence))
 }
 

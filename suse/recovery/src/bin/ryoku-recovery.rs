@@ -19,8 +19,8 @@ use ryoku_recovery::{
     generation::{GenerationReader, GenerationStore},
     generation_capture::DeclaredRoot,
     installed_capture::{
-        CaptureAccount, InstalledInventory, InstalledRoots, SessionPreferenceCheckpointRequest,
-        capture_session_preference_checkpoint,
+        CaptureAccount, InstalledCaptureRequest, InstalledInventory, InstalledRoots,
+        capture_with_installed_profile_bundle,
     },
     machine_state::read_machine_state_record,
     native_checkpoint::verify_new_root_checkpoint,
@@ -32,14 +32,12 @@ use ryoku_recovery::{
         CompatibilityStatus, JournalError, RestoreJournal, RestoreJournalStore, RestorePhase,
         RestoreScope, SystemSnapshotStatus,
     },
-    state_mount::{collect_and_open_state_mount, detect_host_layout},
+    snapper_catalog::ProtectedSnapperCatalog,
+    state_mount::collect_and_open_state_mount,
 };
-use ryoku_snapper::{
-    CatalogEntry, CatalogIndex, ConfigName, GenerationId, LayoutCapability, PartnerState,
-    RetentionPartnerObservation, SnapperCliBackend, SnapshotId, TransactionId,
-};
+use ryoku_snapper::{ConfigName, LayoutCapability, SnapshotId, TransactionId};
 
-const USAGE: &str = "Usage:\n  ryoku-recovery layout\n  ryoku-recovery list\n  sudo ryoku-recovery retention-plan KEEP_LATEST\n  ryoku-recovery pending\n  ryoku-recovery inspect TRANSACTION_ID\n  ryoku-recovery verify TRANSACTION_ID\n  ryoku-recovery verify-linked TRANSACTION_ID\n  ryoku-recovery plan TRANSACTION_ID configuration-only|system-only|complete-linked\n  sudo ryoku-recovery manual-checkpoint TRANSACTION_ID USERNAME\n  sudo ryoku-recovery prepare-configuration RESTORE_ID SOURCE_TRANSACTION_ID\n  sudo ryoku-recovery discard-incomplete-stage RESTORE_ID\n  sudo ryoku-recovery prepare-system RESTORE_ID SOURCE_TRANSACTION_ID\n  sudo ryoku-recovery rollback-system RESTORE_ID\n  sudo ryoku-recovery prepare-linked RESTORE_ID SOURCE_TRANSACTION_ID\n  sudo ryoku-recovery rollback-linked RESTORE_ID\n  sudo ryoku-recovery confirm-rollback RESTORE_ID\n  sudo ryoku-recovery restore-configuration RESTORE_ID\n  sudo ryoku-recovery complete-system RESTORE_ID\n";
+const USAGE: &str = "Usage:\n  ryoku-recovery admit-session\n  ryoku-recovery layout\n  ryoku-recovery list\n  ryoku-recovery pending\n  ryoku-recovery inspect TRANSACTION_ID\n  ryoku-recovery verify TRANSACTION_ID\n  ryoku-recovery verify-linked TRANSACTION_ID\n  ryoku-recovery plan TRANSACTION_ID configuration-only|system-only|complete-linked\n  sudo ryoku-recovery manual-checkpoint TRANSACTION_ID USERNAME\n  sudo ryoku-recovery prepare-configuration RESTORE_ID SOURCE_TRANSACTION_ID\n  sudo ryoku-recovery discard-incomplete-stage RESTORE_ID\n  sudo ryoku-recovery prepare-system RESTORE_ID SOURCE_TRANSACTION_ID\n  sudo ryoku-recovery rollback-system RESTORE_ID\n  sudo ryoku-recovery prepare-linked RESTORE_ID SOURCE_TRANSACTION_ID\n  sudo ryoku-recovery rollback-linked RESTORE_ID\n  sudo ryoku-recovery confirm-rollback RESTORE_ID\n  sudo ryoku-recovery restore-configuration RESTORE_ID\n  sudo ryoku-recovery complete-system RESTORE_ID\n";
 
 fn main() -> ExitCode {
     match execute(env::args().skip(1), &mut io::stdout()) {
@@ -65,8 +63,19 @@ fn execute_with(
 ) -> Result<(), String> {
     let args: Vec<_> = arguments.into_iter().collect();
     match args.as_slice() {
+        [command] if command == "admit-session" => {
+            admit_session_on_host()?;
+            writeln!(output, "recovery-complete; graphical login admitted")
+                .map_err(|error| error.to_string())
+        }
         [command] if command == "layout" => {
-            let assessment = detect_host_layout().map_err(|error| error.to_string())?;
+            let root = File::open("/").map_err(|error| error.to_string())?;
+            let assessment = ryoku_recovery::snapper_layout::discover_layout(
+                &root,
+                &RelativePath::new("etc").expect("fixed path"),
+            )
+            .map_err(|error| error.to_string())?
+            .assessment;
             writeln!(output, "system_capability={:?}", assessment.capability)
                 .map_err(|error| error.to_string())?;
             writeln!(output, "system_reason={:?}", assessment.reason)
@@ -141,21 +150,13 @@ fn execute_with(
             }
             Ok(())
         }
-        [command, keep_latest] if command == "retention-plan" => {
-            let keep_latest = keep_latest
-                .parse::<usize>()
-                .ok()
-                .filter(|count| (1..=2048).contains(count))
-                .ok_or_else(|| "KEEP_LATEST must be an integer from 1 through 2048".to_owned())?;
-            write_retention_plan(keep_latest, output)
-        }
         [command, transaction_id] if command == "verify-linked" => {
             let transaction = Identifier::new(transaction_id.clone())
                 .map_err(|error| format!("invalid transaction ID: {error:?}"))?;
             let reader = GenerationReader::open_state_mount().map_err(|error| error.to_string())?;
             let root = File::open("/").map_err(|error| error.to_string())?;
             let linked = reader
-                .open_cataloged_transaction(&root, &transaction)
+                .open_historical_transaction(&root, &transaction)
                 .map_err(|error| error.to_string())?;
             let manifest = linked.generation().manifest();
             writeln!(
@@ -191,7 +192,7 @@ fn execute_with(
                         entry.root,
                         StateRoot::EtcRyoku
                             | StateRoot::UserRyokuConfig
-                            | StateRoot::UserRyokuState
+                            | StateRoot::UserHome
                             | StateRoot::UserRyokuProfile
                     )
                 })
@@ -204,7 +205,7 @@ fn execute_with(
             let (source_snapshot, ryoku_package_compatibility) =
                 if matches!(scope, RestoreScope::SystemOnly | RestoreScope::CompleteLinked) {
                     let root = File::open("/").map_err(|error| error.to_string())?;
-                    if reader.open_cataloged_transaction(&root, &transaction).is_ok() {
+                    if reader.open_historical_transaction(&root, &transaction).is_ok() {
                         let snapshot_root = std::path::PathBuf::from(format!(
                             "/.snapshots/{}/snapshot",
                             manifest.snapper_snapshot_id
@@ -370,45 +371,6 @@ fn execute_with(
         }
         _ => Err(USAGE.into()),
     }
-}
-
-fn write_retention_plan(keep_latest: usize, output: &mut impl Write) -> Result<(), String> {
-    let root = File::open("/").map_err(|error| error.to_string())?;
-    let machine = read_machine_state_record(&root).map_err(|error| error.to_string())?;
-    let (state, _) = collect_and_open_state_mount(&root, machine.identity())
-        .map_err(|error| error.to_string())?;
-    let _mutation_guard = acquire_shared_mutation_guard(&File::from(state))?;
-    let generations = GenerationReader::open_state_mount().map_err(|error| error.to_string())?;
-    let catalog = generations
-        .open_snapper_catalog_reader()
-        .and_then(|reader| reader.load().map_err(Into::into))
-        .map_err(|error| error.to_string())?;
-    let observations = ryoku_recovery::snapper_retention::observe_retention_partners(
-        &catalog,
-        &generations,
-        &SnapperCliBackend,
-        &root,
-    )
-    .map_err(|error| format!("fresh retention partner observation failed: {error:?}"))?;
-    let plan = catalog
-        .plan_retention(keep_latest, &observations)
-        .map_err(|error| format!("retention planning failed: {error:?}"))?;
-    let format_ids = |ids: &[TransactionId]| {
-        if ids.is_empty() {
-            "none".to_owned()
-        } else {
-            ids.iter().map(TransactionId::as_str).collect::<Vec<_>>().join(",")
-        }
-    };
-    writeln!(output, "pinned={}", format_ids(&plan.pinned)).map_err(|error| error.to_string())?;
-    writeln!(output, "keep={}", format_ids(&plan.keep)).map_err(|error| error.to_string())?;
-    writeln!(output, "prune_candidates={}", format_ids(&plan.prune))
-        .map_err(|error| error.to_string())?;
-    writeln!(output, "reconcile={}", format_ids(&plan.reconcile))
-        .map_err(|error| error.to_string())?;
-    writeln!(output, "advisory_plan=true cleanup_performed=false")
-        .map_err(|error| error.to_string())?;
-    Ok(())
 }
 
 fn confirm_rollback_on_host(restore_id: &Identifier) -> Result<String, String> {
@@ -584,7 +546,7 @@ fn restore_configuration_on_host(restore_id: &Identifier) -> Result<String, Stri
     }
     if journal.plan.scope == RestoreScope::CompleteLinked {
         reader
-            .open_cataloged_transaction(&root, &journal.plan.transaction_id)
+            .open_historical_transaction(&root, &journal.plan.transaction_id)
             .map_err(|error| error.to_string())?;
         let receipt = source
             .manifest()
@@ -597,7 +559,7 @@ fn restore_configuration_on_host(restore_id: &Identifier) -> Result<String, Stri
         .open_verified_transaction(&journal.restore_id)
         .map_err(|error| error.to_string())?;
     reader
-        .open_cataloged_transaction(&root, &journal.restore_id)
+        .open_historical_transaction(&root, &journal.restore_id)
         .map_err(|error| error.to_string())?;
     let checkpoint_manifest = checkpoint.manifest();
     let checkpoint_status = SystemSnapshotStatus::Available {
@@ -754,45 +716,25 @@ fn record_known_working_after_complete_linked_restore(
         .root_snapshot_receipt()
         .ok_or("completed linked source has no native root receipt")?;
     reader
-        .open_cataloged_transaction(root, &journal.plan.transaction_id)
+        .open_historical_transaction(root, &journal.plan.transaction_id)
         .map_err(|error| error.to_string())?;
     ryoku_recovery::native_checkpoint::verify_running_root_rollback(root, journal, receipt)
         .map_err(|error| error.to_string())?;
 
-    let catalog_store =
-        generations.open_snapper_catalog_store().map_err(|error| error.to_string())?;
-    let mut catalog = catalog_store.load().map_err(|error| error.to_string())?;
-    let transaction = TransactionId::new(journal.plan.transaction_id.as_str())
-        .map_err(|error| format!("invalid source transaction: {error:?}"))?;
-    let entry = catalog
-        .get(&transaction)
-        .ok_or("completed linked source is absent from the retention catalog")?;
-    if entry.capability != LayoutCapability::FullSystem || entry.root_config.as_str() != "root" {
+    let rollback = journal.root_rollback.as_ref().ok_or("missing rollback receipt")?;
+    let catalog = ProtectedSnapperCatalog::open(root).map_err(|error| error.to_string())?;
+    let status = catalog.status(&journal.plan.transaction_id).map_err(|error| error.to_string())?;
+    if !status.complete || status.entry.capability != LayoutCapability::FullSystem {
         return Ok(Some(false));
     }
-    let mut selected = CatalogIndex::default();
-    selected
-        .insert(entry.clone())
-        .map_err(|_| "completed linked source could not be isolated for partner verification")?;
-    let observations = ryoku_recovery::snapper_retention::observe_retention_partners(
-        &selected,
-        reader,
-        &SnapperCliBackend,
-        root,
-    )
-    .map_err(|error| format!("completed linked partners could not be reverified: {error:?}"))?;
-    let observation = observations
-        .iter()
-        .find(|observation| observation.transaction_id == transaction)
-        .ok_or("completed linked source has no partner observation")?;
-    if !catalog.mark_known_working(observation) {
-        return Err("completed linked source failed fresh known-working validation".into());
-    }
-    catalog_store.replace(&catalog).map_err(|error| error.to_string())?;
-    let verified = catalog_store.load().map_err(|error| error.to_string())?;
-    if !verified.get(&transaction).is_some_and(|entry| entry.known_working) {
-        return Err("known-working catalog update failed read-back verification".into());
-    }
+    catalog
+        .mark_known_working_after_boot(
+            &journal.plan.transaction_id,
+            &SnapshotId::new(rollback.target_snapshot()).map_err(|error| format!("{error:?}"))?,
+            &ryoku_recovery::restore::root_rollback_tag(&journal.restore_id)
+                .map_err(|error| error.to_string())?,
+        )
+        .map_err(|error| error.to_string())?;
     Ok(Some(true))
 }
 
@@ -913,27 +855,7 @@ fn prepare_system_on_host(
         format!("system restore is prepared but its fresh Snapper checkpoint changed: {error}")
     })?;
     let checkpoint = prepared.checkpoint().manifest();
-    let catalog_store =
-        generations.open_snapper_catalog_store().map_err(|error| error.to_string())?;
-    let mut catalog = catalog_store.load().map_err(|error| error.to_string())?;
-    catalog
-        .insert(CatalogEntry {
-            transaction_id: TransactionId::new(restore_id.as_str())
-                .map_err(|error| format!("{error:?}"))?,
-            root_config: ConfigName::new("root").map_err(|error| format!("{error:?}"))?,
-            root_snapshot: SnapshotId::new(snapshot.as_str())
-                .map_err(|error| format!("{error:?}"))?,
-            generation_id: GenerationId::new(checkpoint.generation_id.as_str())
-                .map_err(|error| format!("{error:?}"))?,
-            capability: LayoutCapability::Unsupported,
-            partner: PartnerState::Verified,
-            manual_checkpoint: false,
-            known_working: false,
-        })
-        .map_err(|error| {
-            format!("system restore is prepared; catalog reconciliation required: {error:?}")
-        })?;
-    catalog_store.replace(&catalog).map_err(|error| error.to_string())?;
+    ensure_cataloged_checkpoint(&root, &generations, &reader, checkpoint)?;
     Ok(format!(
         "system-restore-prepared attempt={} source={} phase={:?} current_checkpoint={} entries={}; run rollback-system from rescue/emergency console to roll back and reboot",
         prepared.journal().restore_id.as_str(),
@@ -983,7 +905,7 @@ fn rollback_system_on_host(restore_id: &Identifier) -> Result<String, String> {
     let compatibility = verify_system_source_compatibility(&root, &reader, &source)?;
     let checkpoint =
         generations.open_verified_transaction(restore_id).map_err(|error| error.to_string())?;
-    reader.open_cataloged_transaction(&root, restore_id).map_err(|error| error.to_string())?;
+    reader.open_historical_transaction(&root, restore_id).map_err(|error| error.to_string())?;
     let checkpoint_receipt = checkpoint
         .manifest()
         .root_snapshot_receipt()
@@ -1050,16 +972,33 @@ fn verify_system_source_compatibility(
     source: &ryoku_recovery::generation::VerifiedGeneration,
 ) -> Result<RestoreCompatibility, String> {
     let manifest = source.manifest();
+    let catalog = ProtectedSnapperCatalog::open(root).map_err(|error| error.to_string())?;
+    let status = catalog.status(&manifest.transaction_id).map_err(|error| error.to_string())?;
+    let layout = ryoku_recovery::snapper_layout::discover_layout(
+        root,
+        &RelativePath::new("etc").expect("fixed path"),
+    )
+    .map_err(|error| error.to_string())?;
+    if !status.complete
+        || !status.entry.additional_snapshots.is_empty()
+        || layout.targets.len() != 1
+        || layout.targets[0].config.as_str() != "root"
+    {
+        return Err("system restore requires a verified single-root layout; additional Snapper configurations are unsupported".into());
+    }
     let receipt = manifest
         .root_snapshot_receipt()
         .ok_or("system restore source has no verified native root receipt")?;
     reader
-        .open_cataloged_transaction(root, &manifest.transaction_id)
+        .open_historical_transaction(root, &manifest.transaction_id)
         .map_err(|error| error.to_string())?;
     let snapshot_root = std::path::PathBuf::from(format!(
         "/.snapshots/{}/snapshot",
         receipt.link().snapper_snapshot_id
     ));
+    let snapshot_descriptor = File::open(&snapshot_root).map_err(|error| error.to_string())?;
+    ryoku_recovery::session_admission::verify_installed_units(&snapshot_descriptor)
+        .map_err(|error| format!("rollback source cannot enforce graphical admission: {error}"))?;
     let system = match ryoku_package_revisions(Some(&snapshot_root)) {
         Ok(revisions) if revisions == manifest.package_revisions() => {
             CompatibilityStatus::Compatible
@@ -1118,7 +1057,7 @@ fn rollback_linked_on_host(restore_id: &Identifier) -> Result<String, String> {
     compatibility.configuration = CompatibilityStatus::Compatible;
     let checkpoint =
         generations.open_verified_transaction(restore_id).map_err(|error| error.to_string())?;
-    reader.open_cataloged_transaction(&root, restore_id).map_err(|error| error.to_string())?;
+    reader.open_historical_transaction(&root, restore_id).map_err(|error| error.to_string())?;
     let checkpoint_receipt = checkpoint
         .manifest()
         .root_snapshot_receipt()
@@ -1213,7 +1152,7 @@ fn resume_recorded_rollback_handoff(
         .open_verified_transaction(&journal.plan.transaction_id)
         .map_err(|error| error.to_string())?;
     reader
-        .open_cataloged_transaction(root, &journal.plan.transaction_id)
+        .open_historical_transaction(root, &journal.plan.transaction_id)
         .map_err(|error| error.to_string())?;
     let source_receipt = source
         .manifest()
@@ -1257,7 +1196,7 @@ fn resume_recorded_rollback_handoff(
         .open_verified_transaction(&journal.restore_id)
         .map_err(|error| error.to_string())?;
     reader
-        .open_cataloged_transaction(root, &journal.restore_id)
+        .open_historical_transaction(root, &journal.restore_id)
         .map_err(|error| error.to_string())?;
     let checkpoint_receipt = checkpoint
         .manifest()
@@ -1371,14 +1310,15 @@ fn prepare_configuration_scope_on_host(
     }
     let source =
         generations.open_verified_transaction(source_id).map_err(|error| error.to_string())?;
-    reader.open_cataloged_transaction(&root, source_id).map_err(|error| error.to_string())?;
+    reader.open_historical_transaction(&root, source_id).map_err(|error| error.to_string())?;
 
-    let inventory = InstalledInventory::session_preferences().map_err(|error| error.to_string())?;
+    let inventory = InstalledInventory::current().map_err(|error| error.to_string())?;
     let local_account = resolve_local_account(
         &root,
         source.manifest().account_principal().ok_or("source has no account binding")?,
     )?;
-    for state_root in [StateRoot::UserRyokuConfig, StateRoot::UserRyokuState] {
+    {
+        let state_root = StateRoot::UserHome;
         let expected =
             inventory.paths_for_root(state_root).ok_or("incomplete session inventory")?;
         let actual: BTreeSet<_> = source
@@ -1422,7 +1362,7 @@ fn prepare_configuration_scope_on_host(
                 Some(metadata)
             }
             EntryKind::Absent => None,
-            EntryKind::Symlink { .. } => unreachable!("symlink records are rejected above"),
+            EntryKind::Symlink { metadata, .. } => Some(metadata),
         };
         if metadata.is_some_and(|metadata| {
             metadata.uid != local_account.uid || metadata.gid != local_account.gid
@@ -1440,8 +1380,8 @@ fn prepare_configuration_scope_on_host(
                     entry.path.as_str()
                 ));
             }
-            if entry.root == StateRoot::UserRyokuConfig
-                && entry.path.as_str() == ryoku_profiles::LOCAL_PROFILE_FILE
+            if entry.root == StateRoot::UserHome
+                && entry.path.as_str() == ryoku_recovery::installed_inventory::PERSONAL_PROFILE
                 && ryoku_profiles::ProfileDocument::parse(&bytes).is_err()
             {
                 return Err("source personal profile failed schema validation".into());
@@ -1601,7 +1541,7 @@ fn prepare_configuration_scope_on_host(
 
 fn ensure_cataloged_checkpoint(
     root: &File,
-    generations: &GenerationStore,
+    _generations: &GenerationStore,
     reader: &GenerationReader,
     manifest: &RecoveryManifest,
 ) -> Result<(), String> {
@@ -1611,42 +1551,34 @@ fn ensure_cataloged_checkpoint(
     ryoku_recovery::native_checkpoint::verify_historical_root_checkpoint(root, receipt).map_err(
         |error| format!("current-state Snapper partner is unavailable or changed: {error}"),
     )?;
-    let transaction_id = TransactionId::new(manifest.transaction_id.as_str())
-        .map_err(|error| format!("invalid checkpoint transaction ID: {error:?}"))?;
-    let expected = CatalogEntry {
-        transaction_id: transaction_id.clone(),
-        root_config: ConfigName::new("root").map_err(|error| format!("{error:?}"))?,
-        root_snapshot: SnapshotId::new(manifest.snapper_snapshot_id.as_str())
-            .map_err(|error| format!("{error:?}"))?,
-        generation_id: GenerationId::new(manifest.generation_id.as_str())
-            .map_err(|error| format!("{error:?}"))?,
-        capability: LayoutCapability::Unsupported,
-        partner: PartnerState::Verified,
-        manual_checkpoint: false,
-        known_working: false,
-    };
-    let catalog_store =
-        generations.open_snapper_catalog_store().map_err(|error| error.to_string())?;
-    let mut catalog = catalog_store.load().map_err(|error| error.to_string())?;
-    match catalog.get(&transaction_id) {
-        Some(entry) if entry == &expected => {}
-        Some(_) => return Err("retained checkpoint conflicts with its catalog entry".into()),
-        None => {
-            catalog
-                .insert(expected)
-                .map_err(|_| "checkpoint catalog transaction is already present".to_owned())?;
-            catalog_store.replace(&catalog).map_err(|error| error.to_string())?;
+    let catalog = ProtectedSnapperCatalog::open(root)
+        .or_else(|_| ProtectedSnapperCatalog::initialize(root))
+        .map_err(|error| {
+            format!("protected catalog unavailable; no existing object was adopted: {error}")
+        })?;
+    match catalog.status(&manifest.transaction_id) {
+        Ok(status) => {
+            if status.entry.generation_id.as_str() != manifest.generation_id.as_str()
+                || status.entry.root_snapshot.as_str() != manifest.snapper_snapshot_id
+                || !status.observation.generation_present_and_verified
+                || !status.observation.snapper_partner_present_and_verified
+                || !status.cleanup_owned
+            {
+                return Err("retained checkpoint conflicts with its catalog entry".into());
+            }
         }
+        Err(_) => catalog
+            .publish(&manifest.transaction_id, &[])
+            .map_err(|error| format!("checkpoint catalog publication failed: {error}"))?,
     }
     reader
-        .open_cataloged_transaction(root, &manifest.transaction_id)
+        .open_historical_transaction(root, &manifest.transaction_id)
         .map_err(|error| format!("checkpoint catalog reconciliation failed: {error}"))?;
     Ok(())
 }
 
 fn session_checkpoint_entry_kind_allowed(record: &FileRecord) -> bool {
-    InstalledInventory::session_preferences()
-        .is_ok_and(|inventory| inventory.accepts_record_kind(record))
+    InstalledInventory::current().is_ok_and(|inventory| inventory.accepts_record_kind(record))
 }
 
 fn validate_restored_json(
@@ -1683,8 +1615,8 @@ fn validate_restored_json(
         if bytes.len() != *expected_size || !is_json_object(&bytes) {
             return Err("restored JSON configuration is not an object".into());
         }
-        if *root == StateRoot::UserRyokuConfig
-            && path.as_str() == ryoku_profiles::LOCAL_PROFILE_FILE
+        if *root == StateRoot::UserHome
+            && path.as_str() == ryoku_recovery::installed_inventory::PERSONAL_PROFILE
             && ryoku_profiles::ProfileDocument::parse(&bytes).is_err()
         {
             return Err("restored personal profile failed schema validation".into());
@@ -1746,7 +1678,7 @@ fn complete_system_on_host(restore_id: &Identifier) -> Result<String, String> {
         .open_verified_transaction(&journal.plan.transaction_id)
         .map_err(|error| error.to_string())?;
     reader
-        .open_cataloged_transaction(&root, &journal.plan.transaction_id)
+        .open_historical_transaction(&root, &journal.plan.transaction_id)
         .map_err(|error| error.to_string())?;
     let receipt = source
         .manifest()
@@ -1802,8 +1734,11 @@ fn checkpoint_session_on_host(
     let config_path = format!("{}/.config/ryoku", account.home_path.trim_start_matches('/'));
     let config = open_checked_directory(&root, &config_path, account.uid, account.gid)?;
     let package_revisions = installed_ryoku_revisions()?;
-    let profile_store = ryoku_recovery::installed_profiles::ProfileBundleStore::open_state_mount()
-        .map_err(|error| format!("verified profile-bundle storage is unavailable: {error}"))?;
+    let profile_store = ryoku_recovery::installed_profiles::ProfileBundleStore::open_for_console(
+        &state,
+        &_mutation_guard,
+    )
+    .map_err(|error| format!("verified profile-bundle storage is unavailable: {error}"))?;
     let profile_bundle =
         ryoku_recovery::installed_profiles::InstalledProfileBundle::load_packaged_defaults(
             None, None,
@@ -1834,13 +1769,8 @@ fn checkpoint_session_on_host(
     )
     .map_err(|error| format!("invalid native snapshot link: {error:?}"))?;
     let native = verify_new_root_checkpoint(&root, link).map_err(|error| error.to_string())?;
-    let profile_guard =
-        ryoku_recovery::installed_profiles::StateMountProfileLifecycleGuard::from_lock_file(
-            _mutation_guard.try_clone().map_err(|error| error.to_string())?,
-        )
-        .map_err(|error| error.to_string())?;
     let verified_bundle = profile_store
-        .publish_candidate(transaction_id, &profile_bundle, &profile_guard)
+        .publish_candidate(transaction_id, &profile_bundle)
         .map_err(|error| format!("could not retain exact profile layers: {error}"))?;
     let generation = generation_id_for(transaction_id);
     let generations = GenerationStore::open_initialized_state_mount(record.identity())
@@ -1848,17 +1778,22 @@ fn checkpoint_session_on_host(
     let principal =
         AccountPrincipal::from_account(account.uid, account.gid, &account.name, &account.home_path)
             .map_err(|error| format!("invalid account binding: {error:?}"))?;
-    let captured = capture_session_preference_checkpoint(
+    let inventory = InstalledInventory::for_home(&home).map_err(|error| error.to_string())?;
+    let captured = capture_with_installed_profile_bundle(
         &generations,
+        &inventory,
         InstalledRoots {
-            user_home: &home,
+            account_home: Some(&home),
             user_configuration: &config,
             system_configuration: None,
             account: CaptureAccount { uid: account.uid, gid: account.gid, principal },
         },
-        SessionPreferenceCheckpointRequest {
+        InstalledCaptureRequest {
             transaction_id: transaction_id.clone(),
             generation_id: generation.clone(),
+            parent_generation_id: None,
+            provider_revision: None,
+            limits: Default::default(),
             snapshot: native.verified_link().clone(),
             created_utc: current_utc_timestamp()?,
             package_revisions: package_revisions.clone(),
@@ -1888,37 +1823,13 @@ fn checkpoint_session_on_host(
             transaction_id.as_str(),
         )
     })?;
-    let catalog_store =
-        generations.open_snapper_catalog_store().map_err(|error| error.to_string())?;
-    let mut catalog = catalog_store.load().map_err(|error| error.to_string())?;
-    let catalog_transaction = TransactionId::new(transaction_id.as_str())
-        .map_err(|error| format!("invalid Snapper transaction ID: {error:?}"))?;
-    let entry = CatalogEntry {
-        transaction_id: catalog_transaction.clone(),
-        root_config: ConfigName::new("root").map_err(|error| format!("{error:?}"))?,
-        root_snapshot: SnapshotId::new(snapshot.as_str()).map_err(|error| format!("{error:?}"))?,
-        generation_id: GenerationId::new(generation.as_str())
-            .map_err(|error| format!("{error:?}"))?,
-        capability: LayoutCapability::Unsupported,
-        partner: PartnerState::Verified,
-        manual_checkpoint: false,
-        known_working: false,
-    };
-    if catalog.insert(entry).is_err() {
-        return Err("retention catalog already contains this transaction; reconcile it".into());
-    }
-    let verified_partners = RetentionPartnerObservation {
-        transaction_id: catalog_transaction.clone(),
-        generation_present_and_verified: true,
-        snapper_partner_present_and_verified: true,
-    };
-    if !catalog.mark_manual_checkpoint(&verified_partners) {
-        return Err("verified session checkpoint could not be marked for manual retention".into());
-    }
-    catalog_store.replace(&catalog).map_err(|error| error.to_string())?;
+    ensure_cataloged_checkpoint(&root, &generations, &reader, &captured)?;
+    ProtectedSnapperCatalog::open(&root)
+        .and_then(|catalog| catalog.mark_manual(transaction_id))
+        .map_err(|error| format!("manual checkpoint retention failed: {error}"))?;
     let reader = GenerationReader::open_state_mount().map_err(|error| error.to_string())?;
     reader
-        .open_cataloged_transaction(&root, transaction_id)
+        .open_historical_transaction(&root, transaction_id)
         .map_err(|error| format!("linked checkpoint read-back failed: {error}"))?;
     Ok(format!(
         "session-checkpoint-verified transaction={} generation={} snapshot=root:{} entries={} account_uid={}; scope=session preferences only; catalog=recorded manual_checkpoint=true; system_coverage=unverified",
@@ -2077,9 +1988,10 @@ fn current_utc_timestamp() -> Result<String, String> {
 }
 
 fn verify_systemd_health() -> Result<(), String> {
+    verify_loaded_admission_gate()?;
     for arguments in [
-        &["is-system-running", "--quiet"][..],
-        &["is-active", "--quiet", "ryoku-recovery-gate.socket"][..],
+        &["is-active", "--quiet", "local-fs.target"][..],
+        &["is-active", "--quiet", "systemd-logind.service"][..],
     ] {
         let status = Command::new("/usr/bin/timeout")
             .env_clear()
@@ -2094,6 +2006,49 @@ fn verify_systemd_health() -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+fn admit_session_on_host() -> Result<(), String> {
+    if rustix::process::geteuid().as_raw() != 0 {
+        return Err("graphical admission requires the root system service".into());
+    }
+    let root = File::open("/").map_err(|error| error.to_string())?;
+    let machine = read_machine_state_record(&root).map_err(|error| error.to_string())?;
+    let state = File::from(
+        ryoku_recovery::state_mount::collect_and_open_state_mount_readonly(
+            &root,
+            machine.identity(),
+        )
+        .map_err(|error| error.to_string())?
+        .0,
+    );
+    let _guard = acquire_shared_mutation_guard(&state)?;
+    let journals = RestoreJournalStore::open_existing_state_directory_readonly(&state)
+        .map_err(|error| error.to_string())?;
+    ryoku_recovery::session_admission::require_complete_journal(&journals)
+}
+
+fn verify_loaded_admission_gate() -> Result<(), String> {
+    let root = File::open("/").map_err(|error| error.to_string())?;
+    ryoku_recovery::session_admission::verify_installed_units(&root)?;
+    for property in ["Requires", "After"] {
+        let output = recovery_command_output(
+            "systemctl",
+            &["show", "--value", "--property", property, "display-manager.service"],
+            "5s",
+        )?;
+        if !output.status.success() || !admission_dependency_present(&output.stdout) {
+            return Err("display manager does not load the required recovery admission gate; reload systemd units".into());
+        }
+    }
+    Ok(())
+}
+
+fn admission_dependency_present(bytes: &[u8]) -> bool {
+    std::str::from_utf8(bytes).is_ok_and(|text| {
+        text.split_ascii_whitespace()
+            .any(|unit| unit == ryoku_recovery::session_admission::SERVICE_NAME)
+    })
 }
 
 fn recovery_command_output(
@@ -2341,7 +2296,8 @@ fn require_offline_recovery_console() -> Result<(), String> {
 
     let recovery_target = target_active("rescue.target")? || target_active("emergency.target")?;
     let graphical_target = target_active("graphical.target")?;
-    validate_recovery_target_state(recovery_target, graphical_target)
+    validate_recovery_target_state(recovery_target, graphical_target)?;
+    verify_loaded_admission_gate()
 }
 
 fn validate_recovery_target_state(
@@ -2368,7 +2324,7 @@ fn open_restore_roots(
     let needs_account = needed.iter().any(|root| {
         matches!(
             root,
-            StateRoot::UserRyokuConfig | StateRoot::UserRyokuState | StateRoot::UserRyokuProfile
+            StateRoot::UserRyokuConfig | StateRoot::UserHome | StateRoot::UserRyokuProfile
         )
     });
     let mut principal = None;
@@ -2394,7 +2350,7 @@ fn open_restore_roots(
                 let account = account.as_ref().ok_or("user account binding unavailable")?;
                 open_checked_directory(&account.home, ".config/ryoku", account.uid, account.gid)?
             }
-            StateRoot::UserRyokuState => account
+            StateRoot::UserHome => account
                 .as_ref()
                 .ok_or("user account binding unavailable")?
                 .home
@@ -2594,7 +2550,7 @@ fn write_configuration_preview(entries: &[FileRecord], output: &mut impl Write) 
             entry.root,
             StateRoot::EtcRyoku
                 | StateRoot::UserRyokuConfig
-                | StateRoot::UserRyokuState
+                | StateRoot::UserHome
                 | StateRoot::UserRyokuProfile
         )
     }) {
@@ -2619,16 +2575,6 @@ mod tests {
         let mut output = Vec::new();
         assert!(execute(["restore".into()], &mut output).is_err());
         assert!(String::from_utf8(output).unwrap().is_empty());
-    }
-
-    #[test]
-    fn retention_plan_rejects_zero_and_unbounded_keep_counts_before_host_access() {
-        for count in ["0", "2049", "many"] {
-            let mut output = Vec::new();
-            let result = execute(["retention-plan".into(), count.into()], &mut output);
-            assert!(result.is_err());
-            assert!(output.is_empty());
-        }
     }
 
     #[test]
@@ -2839,97 +2785,51 @@ mod tests {
     }
 
     #[test]
-    fn session_checkpoint_preflight_rejects_symlink_and_wrong_inode_kinds() {
-        let record = |root, path: &str, kind| {
-            FileRecord::new(root, RelativePath::new(path).unwrap(), kind).unwrap()
+    fn restore_inventory_matches_current_capture_scope_and_rejects_other_home_files() {
+        let record = |path: &str, kind| {
+            FileRecord::new(StateRoot::UserHome, RelativePath::new(path).unwrap(), kind).unwrap()
         };
-        let regular = EntryKind::RegularFile {
-            metadata: test_metadata(),
-            size: 2,
-            sha256: ryoku_recovery::Sha256::new("0".repeat(64)).unwrap(),
-            hard_link_group: None,
-        };
-        assert!(session_checkpoint_entry_kind_allowed(&record(
-            StateRoot::UserRyokuConfig,
-            "shell.json",
-            regular.clone(),
-        )));
-        assert!(session_checkpoint_entry_kind_allowed(&record(
-            StateRoot::UserRyokuConfig,
-            "shell.json",
-            EntryKind::Absent,
-        )));
-        assert!(session_checkpoint_entry_kind_allowed(&record(
-            StateRoot::UserRyokuState,
-            ".local/state/ryoku",
-            EntryKind::Directory { metadata: test_metadata() },
+        for path in [
+            ".config/ryoku/shell.json",
+            ".config/ryoku/opensuse-profile.json",
+            ".local/state/ryoku/flags.json",
+            ".config/hypr/user.lua",
+            ".config/ryoku/plugins.json",
+        ] {
+            assert!(session_checkpoint_entry_kind_allowed(&record(path, EntryKind::Absent)));
+        }
+        for path in ["Documents/private", ".ssh/id_ed25519", ".config/ryoku/unreviewed.json"] {
+            assert!(
+                FileRecord::new(
+                    StateRoot::UserHome,
+                    RelativePath::new(path).unwrap(),
+                    EntryKind::Absent,
+                )
+                .is_err()
+            );
+        }
+        assert!(!session_checkpoint_entry_kind_allowed(&record(
+            ".config/ryoku/shell.json",
+            EntryKind::Directory { metadata: test_metadata() }
         )));
         assert!(!session_checkpoint_entry_kind_allowed(&record(
-            StateRoot::UserRyokuConfig,
-            "shell.json",
-            EntryKind::Symlink { metadata: test_metadata(), target: "elsewhere".into() },
+            ".config/ryoku/opensuse-profile.json",
+            EntryKind::Symlink { metadata: test_metadata(), target: "private-profile".into() }
         )));
-        assert!(!session_checkpoint_entry_kind_allowed(&record(
-            StateRoot::UserRyokuState,
-            ".local/state/ryoku",
-            regular,
+        assert!(session_checkpoint_entry_kind_allowed(&record(
+            ".config/ryoku/shell.json",
+            EntryKind::Symlink { metadata: test_metadata(), target: "other-settings".into() }
         )));
     }
 
     #[test]
-    fn session_checkpoint_allowlist_covers_declared_preferences_only() {
-        for path in [
-            ryoku_profiles::LOCAL_PROFILE_FILE,
-            "shell.json",
-            "matugen.json",
-            "theme.json",
-            "brand.json",
-            "launcher.json",
-            "widgets.json",
-            "performance.json",
-            "recording.json",
-            "visualizer.json",
-            "stage.json",
-            "camera.json",
-            "ryoshot.json",
-            "ryoshot-beautify.json",
-            "equalizer.json",
-            "power.json",
-            "power-profile.json",
-            "keypresses.json",
-            ".local",
-            ".local/state",
-            ".local/state/ryoku",
-            ".local/state/ryoku/flags.json",
-            ".local/state/ryoku/capture.json",
-            ".local/state/ryoku/record.json",
-            ".local/state/ryoku/nvibrant-value",
-            ".local/state/ryoku/backlight",
-            ".local/state/ryoku/touchpad.disabled",
-            ".local/state/ryoku/stage-walls.json",
-            ".local/state/ryoku-nightlight",
-            ".local/state/ryoku-nightlight-enabled",
-            ".local/state/ryoku-nightlight-schedule.json",
-        ] {
-            let root = if path == ".local" || path.starts_with(".local/") {
-                StateRoot::UserRyokuState
-            } else {
-                StateRoot::UserRyokuConfig
-            };
-            let record =
-                FileRecord::new(root, RelativePath::new(path).unwrap(), EntryKind::Absent).unwrap();
-            assert!(session_checkpoint_entry_kind_allowed(&record), "{path}");
-        }
-
-        for path in ["plugins.json", "launcher-scripts.json", "unreviewed.json"] {
-            let record = FileRecord::new(
-                StateRoot::UserRyokuConfig,
-                RelativePath::new(path).unwrap(),
-                EntryKind::Absent,
-            )
-            .unwrap();
-            assert!(!session_checkpoint_entry_kind_allowed(&record), "{path}");
-        }
+    fn admission_dependency_requires_an_exact_loaded_unit_token() {
+        assert!(admission_dependency_present(
+            b"local-fs.target ryoku-recovery-admission.service\n"
+        ));
+        assert!(!admission_dependency_present(b"other-ryoku-recovery-admission.service"));
+        assert!(!admission_dependency_present(b""));
+        assert!(!admission_dependency_present(&[0xff]));
     }
 
     #[test]
@@ -2989,7 +2889,7 @@ mod tests {
     }
 
     #[test]
-    fn retention_shared_lock_fails_fast_during_an_exclusive_mutation() {
+    fn admission_shared_lock_fails_fast_during_an_exclusive_mutation() {
         let path = std::env::temp_dir().join(format!(
             "ryoku-retention-lock-{}-{}",
             std::process::id(),
