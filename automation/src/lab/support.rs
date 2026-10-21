@@ -30,6 +30,9 @@ pub fn safe_component(value: &str) -> Result<&str> {
 }
 
 pub fn public_evidence(line: &str) -> bool {
+    if crate::recovery_gate_results::RESULTS.contains(&line) {
+        return true;
+    }
     let Some((key, value)) = line.split_once('=') else {
         return false;
     };

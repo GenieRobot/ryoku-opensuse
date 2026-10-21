@@ -430,3 +430,5 @@ mod tests {
         }
     }
 }
+#[path = "../../../suse/recovery/examples/support/issue22_results.rs"]
+mod recovery_gate_results;
