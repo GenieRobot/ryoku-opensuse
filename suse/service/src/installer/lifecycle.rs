@@ -139,6 +139,9 @@ impl Account {
 }
 
 pub(super) fn execute(args: &[OsString], output: &mut impl Write) -> Result<(), String> {
+    if args.is_empty() {
+        return Err("installer lifecycle action is required".into());
+    }
     if args.first().is_some_and(|arg| arg == "internal-lifecycle") {
         return execute_owned(&args[1..], output);
     }
@@ -181,6 +184,9 @@ pub(super) fn execute(args: &[OsString], output: &mut impl Write) -> Result<(), 
     Ok(())
 }
 fn execute_owned(args: &[OsString], output: &mut impl Write) -> Result<(), String> {
+    if args.is_empty() {
+        return Err("installer lifecycle action is required".into());
+    }
     if args.first().is_some_and(|arg| arg == "recover") {
         return recover(args, output);
     }
@@ -1002,6 +1008,14 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.path);
         }
+    }
+    #[test]
+    fn missing_lifecycle_action_returns_usage_without_host_work() {
+        let mut output = Vec::new();
+        assert!(execute(&[], &mut output).is_err());
+        assert!(execute_owned(&[], &mut output).is_err());
+        assert!(execute(&[OsString::from("internal-lifecycle")], &mut output).is_err());
+        assert!(output.is_empty());
     }
     #[test]
     fn migration_conflicts_and_symlinks_preserve_both_files() {

@@ -653,6 +653,21 @@ fn installer_recovery_journal_requires_matching_source_receipt_after_applying() 
     });
     assert!(restored.valid_for(&status));
     assert!(restored.follows(&old));
+    for phase in [
+        OperationPhase::Accepted,
+        OperationPhase::Capturing,
+        OperationPhase::Applying,
+        OperationPhase::Verifying,
+        OperationPhase::Succeeded,
+    ] {
+        let wrong = OperationStatus { phase, ..status.clone() };
+        assert!(!restored.valid_for(&wrong));
+    }
+    let mut changed_prior = old.clone();
+    changed_prior.stage = MutationStage::HealthChecking;
+    assert!(!restored.follows(&changed_prior));
+    changed_prior.stage = MutationStage::PostChangeCapture;
+    assert!(!restored.follows(&changed_prior));
     for variant in 0..7 {
         let mut changed = restored.clone();
         match variant {
