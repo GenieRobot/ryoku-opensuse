@@ -149,7 +149,19 @@ impl QmpClient {
         let mut message = Vec::new();
         loop {
             self.reader.get_mut().set_read_timeout(Some(remaining(deadline)?))?;
-            let available = self.reader.fill_buf()?;
+            let available = match self.reader.fill_buf() {
+                Ok(available) => available,
+                // Child exits during the explicitly selected #22 destructive
+                // gate can interrupt this read. Keep the original deadline.
+                // Other fixture profiles retain their existing transport.
+                Err(error)
+                    if cfg!(feature = "issue22-lab")
+                        && error.kind() == io::ErrorKind::Interrupted =>
+                {
+                    continue;
+                }
+                Err(error) => return Err(error),
+            };
             if available.is_empty() {
                 return Err(io::Error::new(
                     io::ErrorKind::UnexpectedEof,

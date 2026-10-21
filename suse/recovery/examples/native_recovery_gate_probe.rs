@@ -20,7 +20,10 @@ use ryoku_recovery::{
 };
 use std::{
     fs::{self, File, OpenOptions},
-    os::unix::fs::{OpenOptionsExt, PermissionsExt, symlink},
+    os::unix::{
+        fs::{OpenOptionsExt, PermissionsExt, symlink},
+        process::CommandExt,
+    },
     path::Path,
     process::{Command, Stdio},
 };
@@ -318,7 +321,7 @@ fn phases() -> Result<()> {
     Ok(())
 }
 
-fn cli_wrapper(args: &[String]) -> Result<i32> {
+fn cli_wrapper(args: &[String]) -> Result<()> {
     let borrowed: Vec<_> = args.iter().map(String::as_str).collect();
     let phases: &[RestorePhase] = match borrowed.as_slice() {
         ["prepare-configuration", RESTORE, SOURCE] => {
@@ -367,7 +370,9 @@ fn cli_wrapper(args: &[String]) -> Result<i32> {
         }
         mark(&name)?;
     }
-    Ok(Command::new(REAL_CLI).args(args).status()?.code().unwrap_or(1))
+    // Preserve the production CLI's PID for the accepted #21 SIGKILL case and
+    // systemd ownership. No unobserved child may outlive a killed launcher.
+    Err(Command::new(REAL_CLI).args(args).exec().into())
 }
 fn report() -> Result<()> {
     require(marked("initial-gate-complete"), "initial failure gate not complete")?;
@@ -438,7 +443,7 @@ fn run() -> Result<()> {
             console::main();
             Ok(())
         }
-        Some(_) => std::process::exit(cli_wrapper(&args)?),
+        Some(_) => cli_wrapper(&args),
         None => Err("requires a fixed fixture mode or production CLI arguments".into()),
     }
 }
