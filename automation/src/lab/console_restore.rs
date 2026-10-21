@@ -100,6 +100,20 @@ fn serial_tail(path: &Path) -> Result<String> {
 }
 
 impl Lab {
+    pub(super) fn console_restore_clock(&mut self) -> Result<()> {
+        require(cfg!(feature = "issue21-lab"), "requires isolated issue21 fixture")?;
+        let epoch = crate::console_clock::host_epoch()?;
+        let before_utc = crate::console_clock::utc()?;
+        let observation =
+            self.ssh(&format!("sudo /tmp/ryoku-vm-lab guest-issue21-clock {epoch}"))?;
+        let after_epoch = crate::console_clock::host_epoch()?;
+        let record = serde_json::json!({"host_before":{"epoch":epoch,"utc":before_utc},
+            "guest":serde_json::from_str::<serde_json::Value>(&observation)?,
+            "host_after":{"epoch":after_epoch,"utc":crate::console_clock::utc()?}});
+        save_private_log(&self.run, "console-clock-private.log", record.to_string().as_bytes())?;
+        crate::console_clock::verify(&observation, epoch, after_epoch)?;
+        self.evidence("native_issue21_fixture_clock=passed")
+    }
     fn console_restore_diagnostics(&self) {
         if let Ok(log) =
             self.ssh("sudo /usr/bin/tail -c 131072 /var/lib/ryoku-state/native21-private.log")

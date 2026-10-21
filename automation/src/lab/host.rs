@@ -1669,6 +1669,9 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         })
         .transpose()?;
     let run_path = Path::new(run);
+    if cfg!(feature = "issue21-lab") {
+        crate::console_clock::host_epoch()?;
+    }
     require(run_path.is_absolute(), "run directory must be absolute")?;
     require(
         run_path.join("qmp-private.sock").as_os_str().len() < 108,
@@ -1813,6 +1816,9 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
     lab.start(false)?;
     lab.evidence("fresh_boot=passed")?;
     lab.copy_binary()?;
+    if cfg!(feature = "issue21-lab") {
+        lab.console_restore_clock()?;
+    }
     let migrated =
         lab.ssh_migration_command(&format!("sudo /tmp/ryoku-vm-lab guest-migrate {network}"))?;
     lab.evidence(&migrated)?;

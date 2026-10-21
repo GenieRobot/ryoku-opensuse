@@ -26,3 +26,17 @@ fixture_failure = "emergency isolation stopped sysinit.target; exercise service 
 diagnosis = "separate read-only-derived partition image; btrfs restore recovered state and persistent system journal; no original-image mutation or resume"
 disposal = "owned QEMU and polling runner stopped; no QEMU remained; private run artifacts removed after diagnosis"
 correction = "fixture DefaultDependencies=no with filesystem/shutdown ordering, Rust ExecStopPost terminal/handoff classification, CLI/helper completion markers, bounded refusal commands and 180-second host progress watchdog"
+
+[run03]
+candidate_commit = "6389a94baf6dfc5e004ebe931c05a4b6ae05ded3"
+result = "failed closed during initial network-enabled migration repository refresh, before derived root or #21 scenarios"
+failure = "TLS certificate not yet valid and pinned repository key treated as untrusted; no verification bypass"
+shared_inputs = "all four current repository metadata hashes match exact fixture pins and detached signatures validate against the existing pinned key; extracted image key and current repository key byte-identical"
+key_sha256 = "b5745739ebfb95b25b8e810f9bcb847fe750ccda598bd85f02f0e974599a6d7e"
+host_utc = "2026-10-21T20:18:54Z; matches independent clock tool"
+repository_certificate_not_before = "2026-09-06T17:17:40Z"
+repository_certificate_not_after = "2026-12-05T17:17:39Z"
+guest_clock = "not captured by original runner and not reliably recoverable from dirty uncheckpointed XFS log without replay; transient guest clock skew suspected, not proven"
+diagnosis = "original stopped image preserved; separate sparse raw partition read with xfs_db/xfs_logprint only; no mount, replay or VM resume"
+disposal = "runner exited1 and terminated owned QEMU; zero QEMU confirmed; private artifacts removed after sanitized diagnosis"
+correction = "issue21-only host/guest UTC+epoch and guest monotonic/NTP preflight; validate host against signed-fixture window, disable disposable guest NTP, set guest from host epoch, require at most five-second measured skew before repository/package writes"

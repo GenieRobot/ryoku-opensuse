@@ -50,6 +50,7 @@ pub fn public_evidence(line: &str) -> bool {
     if matches!(
         key,
         "native_issue21_fixture_installed"
+            | "native_issue21_fixture_clock"
             | "native_issue21_offline_cli"
             | "native_issue21_configuration_metadata_absence"
             | "native_issue21_unrelated_home"

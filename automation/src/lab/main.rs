@@ -1,4 +1,5 @@
 //! Disposable cloud fixture automation; no production recovery implementation.
+mod console_clock;
 mod definition;
 mod desktop;
 mod guest;
@@ -28,6 +29,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some("guest-setup") if args.len() == 3 => guest::setup(&args[2]),
         Some("guest-migrate") if args.len() == 3 => migration::migrate(&args[2]),
+        Some("guest-issue21-clock") if cfg!(feature = "issue21-lab") && args.len() == 3 => {
+            console_clock::prepare(&args[2])
+        }
         Some("guest-inspect") => guest::inspect(),
         Some("guest-inspect-base") => guest::inspect_base(),
         Some("guest-base-setup") => guest::base_setup(),

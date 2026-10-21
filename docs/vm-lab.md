@@ -807,3 +807,9 @@ contract retain their existing behavior. The
 [native receipt](../infra/tumbleweed-lab/evidence/issue21-native-20261021.toml)
 records current results and unclaimed native incompatible-version/package-install
 and actual desktop-login acceptance.
+Only this feature performs a host/guest clock preflight before repository writes.
+It records UTC/epoch and monotonic/NTP observations, validates host time against
+the exact signed fixture metadata timestamp and a finite 30-day window, disables
+NTP in the disposable guest, sets guest time from the host epoch, and refuses more
+than five seconds of measured post-set drift. It never changes the host clock or
+relaxes TLS/signature checks. Full observations remain private.

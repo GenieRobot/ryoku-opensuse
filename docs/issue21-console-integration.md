@@ -40,7 +40,7 @@ path, not manually launched compositors from arbitrary root-controlled consoles.
 ## Local verification and pending acceptance
 
 Formatting, strict workspace Clippy, offline cargo-deny and the complete workspace
-suite passed: 520 top-level test/doctest passes plus 17 isolated subprocess passes,
+suite passed: 522 top-level test/doctest passes plus 17 isolated subprocess passes,
 zero failures and seven ignored entries (including the restore crash-test child
 that its parent executes explicitly). The recovery crate contributes 210 library,
 26 console and two initializer tests. Tests cover staged publication failure,
@@ -76,6 +76,14 @@ journal/checkpoint remained intact. The fixture now has explicit filesystem and
 shutdown ordering without default dependencies, an independent Rust stop marker,
 operation completion markers and a bounded host progress watchdog. Full native
 restore/interruption acceptance is still pending.
+The third run failed closed during initial migration TLS/signature checks before
+any restore scenario. All pinned repository metadata signatures/hashes and the
+image/repository key still verify unchanged. Guest clock skew is suspected but
+was not captured by the original runner. The isolated #21 fixture now records
+host/guest UTC and epoch, guest monotonic time and NTP state before provisioning;
+it validates host time against the signed-fixture window, sets only the disposable
+guest clock and requires a measured drift of at most five seconds. Other lab
+features and the host clock retain their existing behavior.
 
 There is no complete signed alternate desktop/runtime/defaults package set in the
 existing lab assets. Native incompatible-package refusal is explicitly unclaimed;
