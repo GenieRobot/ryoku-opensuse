@@ -10,9 +10,9 @@ coordinator records.
 ## Current coordinator state (21 October 2026)
 
 - GitHub `origin/main` is at
-  [`413a1d22e517728653075d6da4f29d4d681b1120`](https://github.com/GenieRobot/ryoku-opensuse/commit/413a1d22e517728653075d6da4f29d4d681b1120), the merge of PR #167.
-  At the last cleanup check, the coordinator's local `main` checkout was clean
-  at `e025c7b8c96e55c6c0582462a1bec2f782fd1a20`, one commit behind `origin/main`.
+  [`311ed44c06b6dbb0a08127e17d1b330e625be275`](https://github.com/GenieRobot/ryoku-opensuse/commit/311ed44c06b6dbb0a08127e17d1b330e625be275), the merge of PR #168.
+  The coordinator's local `main` checkout was last observed clean at
+  `e025c7b8c96e55c6c0582462a1bec2f782fd1a20`, two commits behind `origin/main`.
 - #15 is closed as completed M0 feasibility after merged PRs
   [#162](https://github.com/GenieRobot/ryoku-opensuse/pull/162) and
   [#163](https://github.com/GenieRobot/ryoku-opensuse/pull/163). The initial
@@ -64,6 +64,32 @@ coordinator records.
   or first-sprint completion. Session adapters remain #25. It does not claim
   byte-identical binaries across separately provisioned SDKs or production
   release signatures.
+- #25 remains open and draft. Canonical draft [PR #169](https://github.com/GenieRobot/ryoku-opensuse/pull/169)
+  is at exact head `c99c08fb907d22f48fc6571538baa726e0c10381`. Hosted Rust CI
+  [run 39650401347](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39650401347/job/119396914353)
+  passed formatting, strict Clippy, workspace tests and dependency review; the
+  configured main-only GTK artifact job was skipped. Local formatting,
+  all-target/all-feature strict Clippy, locked all-feature workspace tests
+  (491 recorded passes, 0 failures, 5 existing ignored), focused session tests
+  (9 passed), session binary build, and cargo-deny passed.
+- Native `rpmbuild -ba` stopped before `%prep` because host BuildRequires
+  `cargo >= 1.99` and `rust >= 1.99` are unavailable; dependency checks remained
+  enabled, and no native binary RPM was produced. See the
+  [build log](https://github.com/GenieRobot/ryoku-opensuse/blob/c99c08fb907d22f48fc6571538baa726e0c10381/infra/tumbleweed-lab/evidence/issue25-session-rpm-host-build.log),
+  [evidence receipt](https://github.com/GenieRobot/ryoku-opensuse/blob/c99c08fb907d22f48fc6571538baa726e0c10381/infra/tumbleweed-lab/evidence/issue25-session-consolidation-20261021.toml),
+  [session contract](https://github.com/GenieRobot/ryoku-opensuse/blob/c99c08fb907d22f48fc6571538baa726e0c10381/docs/session-port.md),
+  and [workflow checklist](https://github.com/GenieRobot/ryoku-opensuse/blob/c99c08fb907d22f48fc6571538baa726e0c10381/docs/native-desktop-workflows.md).
+- Earlier staged login/reboot/KDE receipts are historical evidence, not
+  acceptance for the exact `c99c08f` candidate. Native RPM build/install,
+  cold SDDM startup, login, reboot, KDE roundtrip and fallback, plus
+  notifications, clipboard, audio, network, Bluetooth, screenshots, screen
+  sharing, authentication and locking remain pending. No VM was launched for
+  this candidate.
+- Legacy [PR #156](https://github.com/GenieRobot/ryoku-opensuse/pull/156) is
+  closed as superseded by #169. Its unique equalizer, standalone clipboard and
+  lock/idle candidates remain unaccepted; its source branch is retained for
+  reference. Do not treat those candidates as part of #169. Preserve the
+  current #25 branch and `target/issue25-native-workflows` worktree.
 - #20 is the earliest ready open implementation task: its explicit
   prerequisites #18 and #19 are closed; it does not require #17 to remain
   open. Draft [PR #152](https://github.com/GenieRobot/ryoku-opensuse/pull/152)
@@ -90,13 +116,12 @@ coordinator records.
   accurate durable failure/history states. Show every required checkpoint
   failure blocks mutation and concurrent operations cannot mismatch root and
   configuration generations. Make no multi-subvolume atomicity claim.
-- Preserve the clean #25 worktree at
-  `target/issue25-native-workflows`. No branch or PR totals are asserted here.
+No branch or PR totals are asserted here.
 
 The first-sprint deliverable in #1 remains unchanged: a clean Tumbleweed VM
 must install Ryoku, support login and reboot, return to KDE, preserve overrides
 on reinstall, and demonstrate a verified linked checkpoint plus offline
-console restore. Closing #19 or #23 does not complete that gate. All fixed
+console restore. Closing #19, #23 or #25 does not complete that gate. All fixed
 decisions in #1 remain in force: new project-owned executable code is Rust;
 supported changes require a verified linked pre-change restore point, with
 mutation blocked on required capture/verification failure; unrelated home files must be

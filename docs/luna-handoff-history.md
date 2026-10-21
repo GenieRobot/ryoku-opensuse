@@ -9,9 +9,9 @@ snapshots and next actions are superseded. See the tracked
 the current coordination entry points.
 
 - GitHub `origin/main` is at
-  `413a1d22e517728653075d6da4f29d4d681b1120`, the merge of PR #167. At the
-  last cleanup check, the coordinator's local `main` checkout was clean at
-  `e025c7b8c96e55c6c0582462a1bec2f782fd1a20`, one commit behind `origin/main`.
+  `311ed44c06b6dbb0a08127e17d1b330e625be275`, the merge of PR #168. The
+  coordinator's local `main` checkout was last observed clean at
+  `e025c7b8c96e55c6c0582462a1bec2f782fd1a20`, two commits behind `origin/main`.
 - #15 is closed as completed M0 provider feasibility after merged PRs
   [#162](https://github.com/GenieRobot/ryoku-opensuse/pull/162) and
   [#163](https://github.com/GenieRobot/ryoku-opensuse/pull/163). The initial
@@ -57,6 +57,31 @@ the current coordination entry points.
   first-sprint completion is claimed. Session adapters remain #25. Binary
   output reproducibility across separately provisioned SDKs and production
   release signatures are also outside this evidence.
+- #25 remains open and canonical draft [PR #169](https://github.com/GenieRobot/ryoku-opensuse/pull/169)
+  is partial at exact head `c99c08fb907d22f48fc6571538baa726e0c10381`. Hosted
+  Rust CI [run 39650401347](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39650401347/job/119396914353)
+  passed formatting, strict Clippy, workspace tests and dependency review; the
+  configured main-only GTK artifact job was skipped. Local formatting,
+  all-target/all-feature strict Clippy, locked all-feature workspace tests
+  (491 recorded passes, 0 failures, 5 existing ignored), focused session tests
+  (9 passed), session binary build and cargo-deny passed.
+- Native `rpmbuild -ba` stopped before `%prep` because host BuildRequires
+  `cargo >= 1.99` and `rust >= 1.99` are unavailable; dependency checks stayed
+  enabled and no native binary RPM was produced. See the
+  [build log](https://github.com/GenieRobot/ryoku-opensuse/blob/c99c08fb907d22f48fc6571538baa726e0c10381/infra/tumbleweed-lab/evidence/issue25-session-rpm-host-build.log),
+  [acceptance/evidence receipt](https://github.com/GenieRobot/ryoku-opensuse/blob/c99c08fb907d22f48fc6571538baa726e0c10381/infra/tumbleweed-lab/evidence/issue25-session-consolidation-20261021.toml),
+  [session contract](https://github.com/GenieRobot/ryoku-opensuse/blob/c99c08fb907d22f48fc6571538baa726e0c10381/docs/session-port.md)
+  and [workflow checklist](https://github.com/GenieRobot/ryoku-opensuse/blob/c99c08fb907d22f48fc6571538baa726e0c10381/docs/native-desktop-workflows.md).
+- Earlier staged login/reboot/KDE receipts are historical, not acceptance for
+  the exact #169 candidate. Native RPM build/install, cold SDDM startup, login,
+  reboot, KDE roundtrip and fallback, notifications, clipboard, audio,
+  network, Bluetooth, screenshots, screen sharing, authentication and locking
+  remain pending; no VM was launched for this candidate.
+- Legacy [PR #156](https://github.com/GenieRobot/ryoku-opensuse/pull/156) is
+  closed as superseded by #169. Its unique equalizer, standalone clipboard and
+  lock/idle candidates remain unaccepted; its source branch is retained for
+  reference and these candidates are not included in #169. Preserve the current
+  #25 branch and `target/issue25-native-workflows` worktree.
 - #20 remains open. Its draft [PR #152](https://github.com/GenieRobot/ryoku-opensuse/pull/152)
   is partial at exact head `5bb9d8bdafe7db0496024ee7a78104c68d8bbe93`, based
   on `5efc726`. Hosted formatting, Clippy, workspace tests and dependency
@@ -79,8 +104,7 @@ the current coordination entry points.
   accurate durable failure/history states; and proof that required checkpoint
   failures block mutation and concurrent operations cannot mismatch root and
   configuration generations. Do not claim multi-subvolume atomicity.
-- Preserve the clean #25 worktree at `target/issue25-native-workflows`.
-  Do not infer repository branch or PR counts from the historical entries below.
+Do not infer repository branch or PR counts from the historical entries below.
 
 ## Coordinator handoff: 2026-10-18
 
