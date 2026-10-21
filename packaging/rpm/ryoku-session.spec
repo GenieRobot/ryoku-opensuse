@@ -24,6 +24,10 @@ Requires:       util-linux
 Requires:       systemd
 Requires:       dbus-1-tools
 Requires:       wl-clipboard
+Requires:       grim
+Requires:       libnotify-tools
+Requires:       xdg-desktop-portal
+Requires:       xdg-desktop-portal-hyprland
 
 %description
 Adds a separately selectable experimental Hyprland login, Rust lifecycle and
