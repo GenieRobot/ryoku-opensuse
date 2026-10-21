@@ -171,3 +171,22 @@ The instrumented Rust unit suite also covers failures and process death at every
 phase, cancellation on both sides of Applying, independent stale journal views,
 malformed/tampered replay and missing/reused/mismatched postimage proofs. Native
 results and exact artifact hashes are recorded with the issue acceptance evidence.
+
+### Current native evidence and remaining gate
+
+The [2026-10-21 evidence](../infra/tumbleweed-lab/evidence/issue20-mutation-20261021.toml)
+records a completed normal run03 and interrupted-Applying run04, including
+first-mutation ordering, independent helper serialization, retained writer leases,
+failure history through reboot, and signed-base reset/disposal. Run04 also proves
+the final direct unnamed-allocation ENOSPC assertion. Run03 predates that extra
+fixture assertion; the two runs are qualified evidence, not an identical-input
+final pair.
+
+Run05 and run06 failed repository-cache verification before any mutation. The
+isolated update metadata pin was refreshed only after detached-signature
+verification; run06 still failed, so no further pin change was made. A bounded
+offline diagnostic confirmed a changed diagnostic SSH host key and could not
+recover the runtime repository hashes. Strict host verification remained enabled.
+The evidence records failed setup attempts and owned-artifact cleanup. Issue #20
+remains incomplete pending a reproducible authenticated repository diagnosis and
+fresh normal/interrupted runs with identical final binaries and verified inputs.
