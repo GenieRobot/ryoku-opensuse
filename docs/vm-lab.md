@@ -813,3 +813,18 @@ the exact signed fixture metadata timestamp and a finite 30-day window, disables
 NTP in the disposable guest, sets guest time from the host epoch, and refuses more
 than five seconds of measured post-set drift. It never changes the host clock or
 relaxes TLS/signature checks. Full observations remain private.
+
+## Issue #22 recovery failure gate
+
+Build the host with `--features issue22-lab` and the recovery example
+`native_recovery_gate_probe`. This explicitly extends the #21 console fixture;
+its signed 20261016 image/repository pins, KVM, package archive, public signing
+key and state initializer inputs are unchanged. Pass the #22 example as the
+`--console-restore-probe` executable, together with the same exact signed seven
+release5 RPM archive and signing key, the real `--recovery-cli`,
+`--state-initializer` and `--console-only`.
+
+The [gate contract](recovery-foundation-gate.md) describes destructive failures,
+actual CLI process deaths at durable restore phases, full inventory comparison
+and explicit unsupported cases. Use one fresh short run directory and the
+existing authorized WSL host; never run two disposable guests concurrently.

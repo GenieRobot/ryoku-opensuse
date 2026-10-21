@@ -1,0 +1,120 @@
+issue = 22
+date = "2026-10-22"
+branch = "codex/issue22-recovery-gate"
+status = "passed_pending_coordinator_review"
+gate_passed = true
+issue_closed_by_worker = false
+
+[validation]
+executable_candidate = "c0fd43499dd90b7cfd0d32e115286d206c755351"
+rust = "1.99.0 (b940084d7 2026-09-28)"
+cargo = "1.99.0 (5f94df478 2026-08-27)"
+local = "format; strict workspace/all-target/all-feature Clippy; complete workspace523 top-level/doctest plus17 isolated subprocess passes,0failed,7ignored; probe9 tests; default and issue22 lab78 each; offline cargo-deny; diff check"
+hosted_candidate_ci = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39682720008"
+hosted_candidate_result = "passed formatting, strict lints, tests and dependency review; main-only GTK artifact job skipped"
+
+[run05]
+source = "c0fd43499dd90b7cfd0d32e115286d206c755351"
+source_dirty_at_launch = false
+runner_exit = 0
+result = "all required issue22 destructive recovery and consistency assertions passed"
+report = "issue22-native-20261022/run05.txt"
+report_sha256 = "88416d1678e965481ede88cebc36cba6e3f18c7909d9d4a53ce13068f0803e7a"
+private_exercise_log_sha256 = "a31d0fb7cfad4f36a4b23839c7ec0d4d6e0def41da208e7c5ccb4730d73a3433"
+private_result_log_sha256 = "ba8125f907342d0604436c357bb981892af03dabcb9e7e616c2a1d637b0b59eb"
+private_clock_log_sha256 = "f947bca6e9ea18a31231139e3a0ced888378192605392e65503b9fdf5502eb78"
+orchestrator_sha256 = "48793219360fceba7e23976c3679563546424b9d1a279e74bdcb202954d2d3d1"
+probe_sha256 = "0c04b374436e2994fce697feed27b6e463ad73794819feb937ac8a89dfb5de96"
+console_sha256 = "5b96ecea88aeb5f3b0b980b87f03b46037ff8ac59bbb3957619d92e2a8448b7e"
+initializer_sha256 = "c9f27f067fd6d01f2c2b5b17650661db18b0a61afffffe2bb8fad7048121ebfb"
+packages_sha256 = "90ec81980e4e9a116372e9a82fca34ba574a3a6bdb00355ab100781c63f352e1"
+runtime_public_key_sha256 = "7a2307dec16753253de3cb1a415c00881ebe4845b946708b61165ca8212ede2c"
+platform = "signed openSUSE Tumbleweed Cloud Snapshot20261016 x86_64; QEMU11.1.2/KVM q35;6144MiB;2vCPU;20GiB owned disk; SELinux enforcing"
+image_sha256 = "ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231"
+release_key = "AD485664E901B867051AB15F35A2F86E29B700A4"
+kernel = "7.2.10-1-default; kernel-default-base7.2.10-1.1.36.11"
+boot = "UEFI GRUB2/grub2-x86_64-efi/grub2-snapper-plugin2.16-2.1; pinned OVMF202608-3.1"
+snapper = "0.13.1-3.4; single root config; numbered default root; separately mounted @/.snapshots"
+state = "dedicated /@ryoku-state direct child of Btrfs top-level; mounted /var/lib/ryoku-state outside root rollback and retained across actual linked/system rollback reboots"
+managed_comparison = "all72 compiled UserHome records match after configuration and complete-linked replay; regular bytes, POSIX ACL, SELinux/capability metadata, ownership/mode, safe sibling symlink and absent entries; immutable profile inputs verified by generation reader"
+unrelated_comparison = "two home sentinels preserved; separate fixed Documents descriptor compares issue22 sentinel bytes and declared metadata without enrolling it"
+refusals = "exact exit2 for unsupported manifest schema, traversal path (InvalidRelativePath), sealed corrupt payload, FIFO manual capture and pre-restore capture, measured insufficient storage, missing native partner and concurrent supported console writers; no associated published attempt/mutation"
+space_before_bytes = 18880716800
+space_after_reservation_bytes = 3092480
+mandatory_payload_bytes = 4194304
+checkpoint_required_bytes_at_refusal = 5370221
+checkpoint_available_bytes_at_refusal = 438272
+space_precondition = "measured available space below mandatory payload asserted before the command; actual Generation InsufficientSpace refusal observed"
+capture_interruption = "SIGKILL after staging fsync while real capture owns common mutation lock; two concurrent supported CLI writers refuse; interrupted tag refuses retry, incomplete generation remains unindexed, independent fresh capture passes"
+restore_interruptions = "SIGKILL after journal-directory fsync at Planned,CheckpointVerified,ContentStaged,WritersStopped,ConfigurationRestored,HealthChecked,Complete; complete-linked native receipt handoff in WritersStopped; boot confirmation at RootRollbackComplete; system-only HealthChecked/Complete"
+restart = "same attempt resumes without rewind; retained checkpoints reverified after every death; incomplete admission refuses; native rollback receipt reused without repeating rollback; all four journals complete after extra reboot"
+linked_pair = "actual linked root rollback,reboot,exact target confirmation and configuration replay pass; source generation/catalog and current-state checkpoints remain verified after root rollback and extra reboot"
+admission = "actual read-only sandboxed admission unit refuses pending state and admits display-manager Rust marker only after completion; no desktop-login claim"
+reset = "offline native Snapper corruption/restore matched; exact29-byte sentinel fsync before discard; fresh signed XFS boot proves marker,package,Snapper config,sentinel absent"
+disposal = "all owned QEMU exits verified; disks,firmware,seed,staged inputs,SSH keys removed by runner; independent source image hash unchanged and zero-QEMU scan; private run logs removed after recording sanitized report and hashes"
+lab_result = "partial is expected console-only desktop coverage; all claimed recovery assertions passed"
+acceptance = true
+
+[run01]
+source = "44e8cb4cd4a093ddb117e243e48274f8cff9b62b"
+source_dirty = false
+result = "failed after entering offline mode, before first issue22 checkpoint"
+report = "issue22-native-20261022/run01.txt"
+report_sha256 = "01afd41f7c4fb140f71ede3403badbbcf0940495cec9e084930016048c5c5112"
+private_log_sha256 = "b5dd48d27da5f8f82f0f9f6b14f899341b212f1fba7fd14dc103f51a3d51a761"
+diagnostic = "captured record is invalid: UndeclaredHomePath"
+cause = "fixture attempted to compare an unrelated Documents sentinel as managed UserHome state; validator correctly refused the path outside the compiled inventory"
+correction = "read only the fixed sentinel through a separately pinned Documents descriptor and synthetic comparison root; never enroll or publish it; regression verifies managed UserHome still refuses the sentinel and detects its byte changes"
+acceptance = false
+disposal = "owned QEMU exited; private disk/logs and offline diagnostic copies removed after extracting only this sanitized report and log hash; no fresh-reset acceptance credited to failed run"
+
+[run02]
+source = "382c6badad240241beeb53124a6943132b69962a"
+source_dirty = false
+result = "failed at first issue22 manual checkpoint"
+report = "issue22-native-20261022/run02.txt"
+report_sha256 = "62674524686ef67422938683ba296a21b88937cbb1fda05480b3f1228683b133"
+private_log_sha256 = "8b0636a0407d1d7983158ece6c3c719b7e3319351f95c7f04e5f59d37a6aeafc"
+diagnostic = "declared capture failed: entry type is not supported for capture"
+cause = "fixture symlink target contained parent traversal; supported capture correctly refuses absolute and parent-traversal symlink targets"
+correction = "use sibling hero.png as the restored link target; regression checks safe capture and traversal refusal; also exercise FIFO failure on required pre-restore capture"
+acceptance = false
+disposal = "owned QEMU exited; private disk/logs and userspace diagnostic copy removed after extracting only sanitized report and log hash; no reset acceptance credited"
+
+[run03]
+source = "225932c897cbcfcdff3e6600c4ff398faf0ac23f"
+source_dirty_at_launch = false
+result = "failed in low-space fixture assertion after successful source checkpoint and prior refusal cases"
+report = "issue22-native-20261022/run03.txt"
+report_sha256 = "b448f3d25c0268830c0eba8c1081e819bf24e856687ee6364b6f4b3f195ef734"
+private_log_sha256 = "5e4c75e1fc771b6ad15cc7fbfc0b4e556d079ef0d1914514398e263895b14977"
+free_before_bytes = 18881564672
+free_after_bytes = 32100352
+reservation_result = "successful native fallocate"
+observed_attempt = "ContentStaged; backup legitimately fit, so no refusal should have been expected"
+correction = "derive mandatory payload size from verified source, reserve down to half that size, and assert measured free space is below the mandatory payload before expecting refusal; retain exact refusal diagnostics privately"
+additional_review_correction = "corruption inputs retain sealed mode0400 before commands, so content/path verification is reached rather than masked by mode0600 refusal; regression checks sealed modes and exact restoration"
+acceptance = false
+disposal = "owned QEMU exited; private disk/logs and userspace diagnostic copy removed after preserving sanitized report and log hash; no reset acceptance credited"
+
+[run04]
+source = "87bbafb52c146415fc9e15b39b0d65d495494262"
+source_dirty_at_launch = false
+result = "failed at final sandboxed normal-session admission after failure cases, durable phase sweeps and actual linked/system rollback reboots"
+report = "issue22-native-20261022/run04.txt"
+report_sha256 = "5b72b8c5f05212d14701cd23f874ae111e7a7cd37018de429161ecc3fec45b75"
+private_log_sha256 = "9a89a98e43f241e10402dc0948773d2620fa10b1a1bf3d6f307346de7e823f59"
+private_admission_log_sha256 = "3d64009319de560ea2c7d1c95972f26a66cbbb673dd02d60f58eddd3a853b3aa"
+diagnostic = "issue22 gate failed: protected state mount is read-only"
+cause = "fixture launcher used writable mount guard for admission service, whose existing ProtectSystem=strict and ReadOnlyPaths correctly make state read-only"
+correction = "only exact admit-session passthrough uses independently verified read-only state collector; all other fixture invocations retain writable guard; no production service or console change"
+additional_observer_correction = "track successful waitpid reaping and never signal a reusable numeric child PID afterward; real fsync/death and early-exit tests assert exactly one and zero kill calls respectively"
+acceptance = false
+disposal = "owned QEMU exited; private disk/logs/journal and userspace diagnostic copy removed after preserving sanitized report and diagnostic hashes; no reset acceptance credited"
+
+[scope]
+providers = "writes remain disabled"
+desktop = "actual desktop login unclaimed"
+packages = "exact signed seven release5 runtime fixture; candidate CLI and Rust observer staged directly, candidate RPM install unclaimed"
+layout = "single-root Btrfs/Snapper only; dedicated top-level state subvolume; standard compiled home preferences"
+unsupported = ["external ESP restore", "additional restore roots", "arbitrary user xattrs", "absolute and parent-traversal symlink targets", "unregistered external writers", "disk loss", "automatic retry of uncertain rollback before durable native receipt", "native incompatible-package refusal without alternate complete signed runtime set"]

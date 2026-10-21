@@ -39,13 +39,13 @@ const PACKAGES: &[&str] = &[
 ];
 const RESULTS: &str = "native_issue21_offline_cli=passed\nnative_issue21_configuration_metadata_absence=passed\nnative_issue21_unrelated_home=passed\nnative_issue21_interrupted_apply_resume=passed\nnative_issue21_pending_graphical_admission_refused=passed\nnative_issue21_linked_root_reboot_resume=passed\nnative_issue21_system_only_scope=passed\nnative_issue21_current_checkpoint_retained=passed\nnative_issue21_bad_archive_refused=passed\nnative_issue21_unavailable_partner_refused=passed\nnative_issue21_incompatible_packages=unclaimed\nnative_issue21_complete_graphical_admission=passed\nnative_issue21_provider_actions=not_exercised\nnative_issue21_desktop_login=unclaimed\n";
 
-fn require(ok: bool, message: &str) -> Result<()> {
+pub(crate) fn require(ok: bool, message: &str) -> Result<()> {
     if ok { Ok(()) } else { Err(message.into()) }
 }
-fn id(value: &str) -> Result<Identifier> {
+pub(crate) fn id(value: &str) -> Result<Identifier> {
     Identifier::new(value).map_err(|_| "invalid fixed fixture identity".into())
 }
-fn guard() -> Result<()> {
+pub(crate) fn guard() -> Result<()> {
     require(rustix::process::geteuid().as_raw() == 0, "root fixture mode required")?;
     require(
         fs::read_to_string("/etc/ryoku-lab-fixture")? == "disposable-issue13\n",
@@ -60,7 +60,7 @@ fn guard() -> Result<()> {
     ryoku_recovery::state_mount::collect_and_open_state_mount(&root, record.identity())?;
     Ok(())
 }
-fn command(program: &str, args: &[&str]) -> Result<String> {
+pub(crate) fn command(program: &str, args: &[&str]) -> Result<String> {
     command_for(program, args, "120s")
 }
 fn command_for(program: &str, args: &[&str], timeout: &str) -> Result<String> {
@@ -78,14 +78,14 @@ fn command_for(program: &str, args: &[&str], timeout: &str) -> Result<String> {
     }
     Ok(String::from_utf8(out.stdout)?)
 }
-fn cli(args: &[&str]) -> Result<String> {
+pub(crate) fn cli(args: &[&str]) -> Result<String> {
     serial_phase(args[0])?;
     let result = command(CLI, args)?;
     eprintln!("console {args:?}: {}", result.trim());
     serial_complete(args[0])?;
     Ok(result)
 }
-fn serial_line(line: &str) -> Result<()> {
+pub(crate) fn serial_line(line: &str) -> Result<()> {
     let mut serial = OpenOptions::new().write(true).open("/dev/ttyS0")?;
     writeln!(serial, "\n{line}")?;
     Ok(())
@@ -125,7 +125,7 @@ fn serial_phase(operation: &str) -> Result<()> {
     )?;
     serial_line(&format!("native_issue21_operation={operation}"))
 }
-fn refuses(args: &[&str]) -> Result<()> {
+pub(crate) fn refuses(args: &[&str]) -> Result<()> {
     let out = Command::new("/usr/bin/timeout")
         .args(["--signal=TERM", "--kill-after=3s", "120s", CLI])
         .args(args)
@@ -135,14 +135,14 @@ fn refuses(args: &[&str]) -> Result<()> {
 fn systemctl(args: &[&str]) -> Result<String> {
     command("/usr/bin/systemctl", args)
 }
-fn write_new(path: &str, bytes: &[u8], mode: u32) -> Result<()> {
+pub(crate) fn write_new(path: &str, bytes: &[u8], mode: u32) -> Result<()> {
     let mut file = OpenOptions::new().write(true).create_new(true).mode(mode).open(path)?;
     file.write_all(bytes)?;
     file.sync_all()?;
     File::open(Path::new(path).parent().ok_or("fixture parent missing")?)?.sync_all()?;
     Ok(())
 }
-fn state_path(name: &str) -> String {
+pub(crate) fn state_path(name: &str) -> String {
     format!("{STATE}/{name}")
 }
 fn phase(value: &str) -> Result<()> {
@@ -154,7 +154,7 @@ fn phase(value: &str) -> Result<()> {
     File::open(STATE)?.sync_all()?;
     Ok(())
 }
-fn offline() -> Result<()> {
+pub(crate) fn offline() -> Result<()> {
     serial_phase("offline")?;
     systemctl(&["isolate", "rescue.target"])?;
     systemctl(&["start", "systemd-logind.service"])?;
@@ -170,13 +170,13 @@ fn exercise_service() -> String {
         "[Unit]\nDescription=Disposable issue21 offline console exercise\nDefaultDependencies=no\nAfter=local-fs.target var-lib-ryoku\\x2dstate.mount\nBefore=shutdown.target umount.target\nConflicts=shutdown.target\nIgnoreOnIsolate=yes\n[Service]\nType=oneshot\nExecStart={PROBE} --exercise\nExecStopPost={PROBE} --service-stopped\nTimeoutStartSec=15min\nTimeoutStopSec=15s\nStandardOutput=append:{STATE}/native21-private.log\nStandardError=append:{STATE}/native21-private.log\n[Install]\nWantedBy=multi-user.target\n"
     )
 }
-fn account() -> Result<(u32, u32)> {
+pub(crate) fn account() -> Result<(u32, u32)> {
     Ok((
         command("/usr/bin/id", &["-u", "tester"])?.trim().parse()?,
         command("/usr/bin/id", &["-g", "tester"])?.trim().parse()?,
     ))
 }
-fn own(path: &str) -> Result<()> {
+pub(crate) fn own(path: &str) -> Result<()> {
     let (uid, gid) = account()?;
     rustix::fs::chown(
         path,
@@ -199,7 +199,7 @@ fn validate_packages(listing: &str) -> Result<()> {
     names.sort_unstable();
     require(names == PACKAGES, "package archive is not the exact signed fixture set")
 }
-fn install() -> Result<()> {
+pub(crate) fn install_with_cli(candidate_cli: &str) -> Result<()> {
     require(
         !Path::new("/etc/systemd/system/display-manager.service").exists(),
         "refuse to replace an existing display manager",
@@ -248,7 +248,7 @@ fn install() -> Result<()> {
         .is_empty(),
         "installed signed package verification failed",
     )?;
-    command("/usr/bin/install", &["-m", "0755", "/usr/local/sbin/ryoku-recovery", CLI])?;
+    command("/usr/bin/install", &["-m", "0755", candidate_cli, CLI])?;
     for (relative, content) in [(SERVICE_PATH, SERVICE), (DROPIN_PATH, DROPIN)] {
         let path = format!("/{relative}");
         let parent = Path::new(&path).parent().ok_or("unit parent missing")?;
@@ -355,7 +355,7 @@ fn corrupt_config() -> Result<()> {
     user_file(".config/ryoku/theme.json", b"{\"must\":\"disappear\"}", 0o600)?;
     Ok(())
 }
-fn verify_configuration(transaction: &str) -> Result<()> {
+pub(crate) fn verify_configuration(transaction: &str) -> Result<()> {
     let reader = GenerationReader::open_state_mount()?;
     let source = reader.open_verified_transaction(&id(transaction)?)?;
     let records: Vec<_> = source
@@ -383,10 +383,10 @@ fn verify_configuration(transaction: &str) -> Result<()> {
     )?;
     Ok(())
 }
-fn journal_phase(restore: &str) -> Result<RestorePhase> {
+pub(crate) fn journal_phase(restore: &str) -> Result<RestorePhase> {
     Ok(RestoreJournalStore::open_existing_state_mount()?.load(&id(restore)?)?.phase)
 }
-fn checkpoint_retained(restore: &str) -> Result<()> {
+pub(crate) fn checkpoint_retained(restore: &str) -> Result<()> {
     let journal = RestoreJournalStore::open_existing_state_mount()?.load(&id(restore)?)?;
     let checkpoint =
         GenerationReader::open_state_mount()?.open_verified_transaction(&id(restore)?)?;
@@ -620,7 +620,7 @@ fn service_stopped() -> Result<()> {
 }
 fn run() -> Result<()> {
     match std::env::args().nth(1).as_deref() {
-        Some("--install") => install(),
+        Some("--install") => install_with_cli("/usr/local/sbin/ryoku-recovery"),
         Some("--arm") => {
             systemctl(&["enable", UNIT])?;
             Ok(())
@@ -634,7 +634,7 @@ fn run() -> Result<()> {
         _ => Err("requires a fixed native console fixture mode".into()),
     }
 }
-fn main() {
+pub(crate) fn main() {
     if let Err(error) = guard() {
         eprintln!("native console fixture refused: {error}");
         std::process::exit(1);

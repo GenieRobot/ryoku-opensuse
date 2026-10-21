@@ -1,0 +1,20 @@
+//! Fixed public outcomes shared by the destructive probe and strict host parser.
+pub const RESULTS: &[&str] = &[
+    "native_issue22_corrupt_manifest=passed",
+    "native_issue22_path_traversal=passed",
+    "native_issue22_corrupt_archive=passed",
+    "native_issue22_symlink_metadata_absence=passed",
+    "native_issue22_capture_failure=passed",
+    "native_issue22_storage_exhaustion=passed",
+    "native_issue22_missing_partner=passed",
+    "native_issue22_concurrent_supported_writers=passed",
+    "native_issue22_capture_interruption=passed",
+    "native_issue22_restore_phase_interruptions=passed",
+    "native_issue22_complete_inventory_comparison=passed",
+    "native_issue22_unrelated_home_comparison=passed",
+    "native_issue22_linked_pair_and_catalog_after_reboot=passed",
+    "native_issue22_provider_writes=disabled",
+    "native_issue22_external_esp=unsupported",
+    "native_issue22_additional_restore_roots=unsupported",
+    "native_issue22_desktop_login=unclaimed",
+];

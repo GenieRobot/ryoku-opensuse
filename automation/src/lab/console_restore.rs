@@ -1,4 +1,4 @@
-//! #21-only offline console exercise on the existing disposable fixture.
+//! Offline console exercise; #22 explicitly adds the destructive failure gate.
 use super::*;
 use std::io::{Seek, SeekFrom};
 
@@ -20,8 +20,12 @@ const RESULTS: &[&str] = &[
 ];
 
 fn validate(text: &str) -> Result<()> {
+    let mut expected = RESULTS.to_vec();
+    if cfg!(feature = "issue22-lab") {
+        expected.extend(crate::recovery_gate_results::RESULTS);
+    }
     require(
-        text.lines().collect::<Vec<_>>() == RESULTS,
+        text.lines().collect::<Vec<_>>() == expected,
         "incomplete or unexpected offline console results",
     )
 }
@@ -196,7 +200,7 @@ impl Lab {
         self.ssh("sudo /usr/local/sbin/ryoku-native21-probe --arm")?;
         // The service survives rescue isolation and performs the reboot handoffs.
         self.ssh("sudo systemctl start --no-block ryoku-native21-exercise.service")?;
-        let deadline = Instant::now() + Duration::from_secs(15 * 60);
+        let deadline = Instant::now() + Duration::from_secs(30 * 60);
         let mut result = None;
         let mut progress = ProgressWatch { marker: None, since: Instant::now() };
         while Instant::now() < deadline {
@@ -240,7 +244,11 @@ mod tests {
     use super::*;
     #[test]
     fn console_evidence_requires_every_result_and_keeps_acceptance_limits() {
-        let text = RESULTS.join("\n");
+        let mut expected = RESULTS.to_vec();
+        if cfg!(feature = "issue22-lab") {
+            expected.extend(crate::recovery_gate_results::RESULTS);
+        }
+        let text = expected.join("\n");
         validate(&text).unwrap();
         for line in RESULTS {
             assert!(public_evidence(line));
@@ -256,6 +264,12 @@ mod tests {
         assert!(validate(&format!("{text}\nextra=passed")).is_err());
         assert!(validate(RESULTS[1..].join("\n").as_str()).is_err());
         assert!(!public_evidence("native_issue21_incompatible_packages=passed"));
+        for line in crate::recovery_gate_results::RESULTS {
+            assert!(public_evidence(line));
+            assert!(!public_evidence(&format!("{line}-unexpected")));
+        }
+        assert!(!public_evidence("native_issue22_provider_writes=passed"));
+        assert!(!public_evidence("native_issue22_desktop_login=passed"));
     }
 
     #[test]
