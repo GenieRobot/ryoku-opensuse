@@ -1,0 +1,24 @@
+schema_version = 1
+issue = 25
+
+[clipboard_keeper]
+repository = "https://github.com/Linus789/wl-clip-persist"
+revision = "e26fde01c13922e3a65049dafb7d5adfbc52626e"
+version = "0.5.0"
+license = "MIT"
+source_archive = "ryoku-session-clipboard-keeper-0.5.0.tar.xz"
+source_archive_sha256 = "e0fe47bc936c49bcc45e579225cbf2538f3dd387083e631622c744fc98cf0c21"
+vendor_archive = "ryoku-session-clipboard-vendor-0.5.0.tar.xz"
+vendor_archive_sha256 = "72a89a10effa498bee1c51fa1f7e8da7b8b89009751bc81f8821ac8226c5ebb3"
+lock_file = "packaging/rpm/session/clipboard/Cargo.lock"
+lock_file_sha256 = "58e2cbd463fe1d01b238605b1c8dfd3648c736a5e711994b05f15399b49e5b3d"
+patch = "upstream/patches/issue25-clipboard-port.patch"
+patch_sha256 = "06e13504fc7c90a4ccc7c191e97a07ad069748a68b8a778c8df62c83f3ed0bbe"
+parser_registry_crate = "wayrs-proto-parser 3.0.1"
+parser_registry_checksum = "41679c033d8ad15f8d9bbb73e50bb4ded3d4b12b8ba2123e5c526ed809b2e43c"
+port = "Refreshed lock within upstream constraints; local parser port to quick-xml 0.41 preserves XML description entities and errors; owned-descriptor registration follows current Tokio safety contract. No advisory exceptions."
+archive_epoch = 1792617110
+archive_policy = "Sorted xz tar; fixed epoch, numeric uid/gid 0; source contains Cargo.toml, Cargo.lock, LICENSE, README.md, src, and port/wayrs-proto-parser/{Cargo.toml,LICENSE,README.md,src}; vendor archive contains cargo vendor --locked output under vendor. No Git metadata or build outputs."
+install_path = "/usr/libexec/ryoku/session/upstream/wl-clip-persist"
+runtime_policy = "Invoked through private Rust session adapter only: --clipboard regular --selection-size-limit 10485760 --disable-timestamps; RUST_LOG=warn; existing upstream daemon retains ownership of history."
+acceptance = "Host regressions and dependency policy pass; native clipboard selection retention, image, history and error cases remain pending."

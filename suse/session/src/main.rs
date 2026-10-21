@@ -3,6 +3,7 @@
 use std::{
     env,
     error::Error,
+    ffi::{OsStr, OsString},
     os::unix::process::CommandExt,
     path::Path,
     process::{Command, ExitCode, Stdio},
@@ -14,8 +15,12 @@ const QML_MODULES: &str = "/usr/lib64/qt6/qml";
 const WRITER: &str = "/usr/libexec/ryoku/ryoku-writer";
 const QUICKSHELL: &str = "/usr/libexec/ryoku/quickshell/bin/qs";
 const QUICKSHELL_BIN: &str = "/usr/libexec/ryoku/quickshell/bin";
+const SESSION_BIN: &str = "/usr/libexec/ryoku/session/bin";
+const CLIPBOARD_KEEPER: &str = "/usr/libexec/ryoku/session/upstream/wl-clip-persist";
+const LOCK_UNIT: &str = "ryoku-session-lock.service";
 const CONFIG: &str = "/usr/share/ryoku-opensuse/session/hyprland.conf";
 const TARGET: &str = "ryoku-desktop-session.target";
+const GRAPHICAL: &str = "graphical-session.target";
 const SESSION_ENV: &[&str] = &[
     "WAYLAND_DISPLAY",
     "DISPLAY",
@@ -23,6 +28,7 @@ const SESSION_ENV: &[&str] = &[
     "XDG_CURRENT_DESKTOP",
     "XDG_SESSION_DESKTOP",
     "XDG_SESSION_TYPE",
+    "XDG_SESSION_ID",
     "QT_QPA_PLATFORM",
     "LIBGL_ALWAYS_SOFTWARE",
 ];
@@ -34,6 +40,10 @@ enum Action {
     Shell,
     Hub,
     Screenshot,
+    Logout,
+    Lock,
+    ClipboardKeeper,
+    ShellCommand(Vec<OsString>),
     Open(Surface),
 }
 
@@ -79,8 +89,36 @@ fn parse(args: &[String]) -> Result<Action> {
         ["shell"] => Ok(Action::Shell),
         ["hub"] => Ok(Action::Hub),
         ["screenshot"] => Ok(Action::Screenshot),
+        ["logout"] => Ok(Action::Logout),
+        ["lock"] => Ok(Action::Lock),
         ["open", surface] => Ok(Action::Open(Surface::parse(surface)?)),
-        _ => Err("usage: ryoku-session compositor [--software-rendering] | activate | shell | hub | screenshot | open launcher|quicksettings|clipboard|notifications".into()),
+        _ => Err("usage: ryoku-session compositor [--software-rendering] | activate | shell | hub | screenshot | lock | logout | open launcher|quicksettings|clipboard|notifications".into()),
+    }
+}
+
+fn dispatch(executable: &OsStr, arguments: Vec<OsString>) -> Result<Action> {
+    match Path::new(executable).file_name().and_then(OsStr::to_str) {
+        Some("ryoku-shell") if arguments.first().is_some_and(|arg| arg == "lock") => {
+            if arguments.len() == 1 {
+                Ok(Action::Lock)
+            } else {
+                Err("lock takes no arguments".into())
+            }
+        }
+        Some("ryoku-shell") => Ok(Action::ShellCommand(arguments)),
+        Some("wl-clip-persist") => {
+            if arguments == ["--clipboard", "regular"] {
+                Ok(Action::ClipboardKeeper)
+            } else {
+                Err("session clipboard keeper supports only --clipboard regular".into())
+            }
+        }
+        _ => parse(
+            &arguments
+                .into_iter()
+                .map(|value| value.into_string().map_err(|_| "session action must be UTF-8".into()))
+                .collect::<Result<Vec<_>>>()?,
+        ),
     }
 }
 
@@ -107,11 +145,12 @@ fn activate() -> Result<()> {
     }
     // Explicit names avoid importing unrelated process environment (including
     // credentials). Drop old session values before importing the current ones.
-    clear_activation_environment()?;
     let present: Vec<_> = SESSION_ENV.iter().filter(|name| env::var_os(name).is_some()).collect();
     let mut import = Command::new("/usr/bin/dbus-update-activation-environment");
     import.arg("--systemd").args(&present);
-    let outcome = checked(import).and_then(|()| start_session_target());
+    let outcome = clear_activation_environment()
+        .and_then(|()| checked(import))
+        .and_then(|()| start_session_target());
     if outcome.is_err() {
         if let Err(error) = stop_session() {
             eprintln!("ryoku-session: activation cleanup failed: {error}");
@@ -137,7 +176,12 @@ fn start_session_target() -> Result<()> {
     // does not load units and would reject that normal cold-start state.
     // Starting the target loads its required shell; preserve its burst limits.
     checked(systemctl(&["start", TARGET]))?;
-    checked(systemctl(&["is-active", "--quiet", "ryoku-desktop-shell.service"]))
+    checked(systemctl(&[
+        "is-active",
+        "--quiet",
+        "ryoku-desktop-shell.service",
+        "ryoku-service.service",
+    ]))
 }
 
 fn clear_bus_environment_command() -> Command {
@@ -158,7 +202,10 @@ fn clear_activation_environment() -> Result<()> {
 }
 
 fn stop_session() -> Result<()> {
-    let stopped = checked(systemctl(&["stop", TARGET]));
+    // This supported session has one graphical login per user. Stop portals
+    // while their compositor is still available during our ordinary logout.
+    // Otherwise the native Hyprland portal can crash on Wayland disconnect.
+    let stopped = checked(systemctl(&["stop", TARGET, GRAPHICAL]));
     let cleared = clear_activation_environment();
     stopped.and(cleared)
 }
@@ -181,7 +228,7 @@ fn surface_environment(command: &mut Command, root: &Path, modules: &Path) -> Re
         .env("QML2_IMPORT_PATH", &imports)
         .env("RYOKU_SHELL_DIR", root.join("shell"))
         .env("RYOKU_I18N_DIR", root.join("i18n/catalog"))
-        .env("PATH", format!("{QUICKSHELL_BIN}:/usr/bin:/bin"))
+        .env("PATH", format!("{SESSION_BIN}:{QUICKSHELL_BIN}:/usr/bin:/bin"))
         .env("QT_QPA_PLATFORM", "wayland")
         .env("RYOKU_POLKIT_AGENT", "0")
         .env("QT_MEDIA_BACKEND", "ffmpeg")
@@ -194,13 +241,33 @@ fn surface_command(hub: bool) -> Result<Command> {
 }
 
 fn surface_command_at(hub: bool, root: &Path, modules: &Path) -> Result<Command> {
+    let arguments = if hub { vec!["hub".into(), "open".into()] } else { vec!["daemon".into()] };
+    daemon_command_at(&arguments, root, modules)
+}
+
+fn daemon_command_at(arguments: &[OsString], root: &Path, modules: &Path) -> Result<Command> {
     let mut command = Command::new("/usr/bin/setpriv");
     command.args(["--no-new-privs", WRITER, "daemon"]);
     // The existing writer coordinator owns the daemon and its entire surface
     // tree. Hub requests enter the same pinned daemon through its native CLI.
-    command.args(if hub { &["hub", "open"][..] } else { &["daemon"][..] });
+    command.args(arguments);
     surface_environment(&mut command, root, modules)?;
     Ok(command)
+}
+
+fn clipboard_keeper_command() -> Command {
+    let mut command = Command::new(CLIPBOARD_KEEPER);
+    command
+        .arg0("wl-clip-persist")
+        .args([
+            "--clipboard",
+            "regular",
+            "--selection-size-limit",
+            "10485760",
+            "--disable-timestamps",
+        ])
+        .env("RUST_LOG", "warn");
+    command
 }
 
 fn screenshot_command_at(root: &Path, modules: &Path) -> Result<Command> {
@@ -223,6 +290,20 @@ fn run(action: Action) -> Result<()> {
         Action::Hub => Err(surface_command(true)?.exec().into()),
         Action::Screenshot => {
             Err(screenshot_command_at(Path::new(PAYLOAD), Path::new(QML_MODULES))?.exec().into())
+        }
+        Action::Logout => {
+            let stopped = stop_session();
+            let exited = checked(exit_compositor_command());
+            stopped.and(exited)
+        }
+        // Waiting covers the complete native lock/unlock lifetime. This does
+        // not return a fabricated secure-lock acknowledgement for suspend.
+        Action::Lock => checked(systemctl(&["start", "--wait", LOCK_UNIT])),
+        Action::ClipboardKeeper => Err(clipboard_keeper_command().exec().into()),
+        Action::ShellCommand(arguments) => {
+            Err(daemon_command_at(&arguments, Path::new(PAYLOAD), Path::new(QML_MODULES))?
+                .exec()
+                .into())
         }
         Action::Open(surface) => checked(open_surface_command(surface)?),
         Action::Activate => activate(),
@@ -283,7 +364,9 @@ fn validate_identity(uid: u32, euid: u32, gid: u32, egid: u32) -> Result<()> {
 }
 
 fn main() -> ExitCode {
-    match parse(&env::args().skip(1).collect::<Vec<_>>()).and_then(run) {
+    let mut arguments = env::args_os();
+    let executable = arguments.next().unwrap_or_default();
+    match dispatch(&executable, arguments.collect()).and_then(run) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("ryoku-session: {error}");
@@ -313,6 +396,8 @@ mod tests {
         }
         assert_eq!(parse(&args(&["hub"])).unwrap(), Action::Hub);
         assert_eq!(parse(&args(&["screenshot"])).unwrap(), Action::Screenshot);
+        assert_eq!(parse(&args(&["logout"])).unwrap(), Action::Logout);
+        assert_eq!(parse(&args(&["lock"])).unwrap(), Action::Lock);
         assert_eq!(parse(&args(&["shell"])).unwrap(), Action::Shell);
         assert_eq!(parse(&args(&["compositor"])).unwrap(), Action::Compositor { software: false });
         assert_eq!(
@@ -344,6 +429,54 @@ mod tests {
             assert!(validate_identity(uid, euid, gid, egid).is_err());
         }
         assert!(validate_identity(1000, 1000, 100, 100).is_ok());
+    }
+
+    #[test]
+    fn private_aliases_route_real_lock_requests_and_preserve_other_native_arguments() {
+        use std::os::unix::ffi::OsStringExt;
+        assert_eq!(dispatch(OsStr::new("ryoku-shell"), vec!["lock".into()]).unwrap(), Action::Lock);
+        assert!(dispatch(OsStr::new("ryoku-shell"), vec!["lock".into(), "extra".into()]).is_err());
+        let literal = OsString::from_vec(vec![b'a', 0xff, b';', b'b']);
+        assert_eq!(
+            dispatch(OsStr::new("ryoku-shell"), vec!["open".into(), literal.clone()]).unwrap(),
+            Action::ShellCommand(vec!["open".into(), literal])
+        );
+        assert_eq!(
+            dispatch(OsStr::new("wl-clip-persist"), vec!["--clipboard".into(), "regular".into()])
+                .unwrap(),
+            Action::ClipboardKeeper
+        );
+        for args in
+            [vec![], vec!["--clipboard", "primary"], vec!["--clipboard", "regular", "--help"]]
+        {
+            assert!(
+                dispatch(
+                    OsStr::new("wl-clip-persist"),
+                    args.into_iter().map(OsString::from).collect()
+                )
+                .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn clipboard_keeper_limits_untrusted_selection_size_and_content_logging() {
+        let command = clipboard_keeper_command();
+        assert_eq!(command.get_program(), CLIPBOARD_KEEPER);
+        assert_eq!(
+            command.get_args().collect::<Vec<_>>(),
+            [
+                "--clipboard",
+                "regular",
+                "--selection-size-limit",
+                "10485760",
+                "--disable-timestamps"
+            ]
+        );
+        assert_eq!(
+            command.get_envs().collect::<Vec<_>>(),
+            [(OsStr::new("RUST_LOG"), Some(OsStr::new("warn")))]
+        );
     }
 
     #[test]
@@ -389,7 +522,9 @@ mod tests {
             );
             assert_eq!(
                 environment[std::ffi::OsStr::new("PATH")],
-                Some(std::ffi::OsStr::new("/usr/libexec/ryoku/quickshell/bin:/usr/bin:/bin"))
+                Some(std::ffi::OsStr::new(
+                    "/usr/libexec/ryoku/session/bin:/usr/libexec/ryoku/quickshell/bin:/usr/bin:/bin"
+                ))
             );
         }
         let screenshot = screenshot_command_at(&root, &modules).unwrap();

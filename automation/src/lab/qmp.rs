@@ -102,7 +102,7 @@ impl QmpClient {
         }
     }
 
-    fn request(
+    pub(crate) fn request(
         &mut self,
         command: &str,
         arguments: Option<&str>,
@@ -274,7 +274,7 @@ fn forwarded_port(output: &str) -> io::Result<u16> {
 }
 
 #[derive(Debug)]
-enum Json {
+pub(crate) enum Json {
     Object(BTreeMap<String, Self>),
     Array(Vec<Self>),
     String(String),

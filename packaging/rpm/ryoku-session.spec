@@ -28,6 +28,8 @@ Requires:       grim
 Requires:       libnotify-tools
 Requires:       xdg-desktop-portal
 Requires:       xdg-desktop-portal-hyprland
+Requires:       hyprlock >= 0.9.6
+Requires:       ryoku-session-clipboard-keeper = 0.5.0-1
 
 %description
 Adds a separately selectable experimental Hyprland login, Rust lifecycle and
@@ -56,6 +58,13 @@ install -D -m 0644 packaging/rpm/wayland-sessions/ryoku-opensuse.desktop \
     %{buildroot}%{_datadir}/wayland-sessions/ryoku-opensuse.desktop
 install -D -m 0644 packaging/rpm/session/hyprland.conf \
     %{buildroot}%{_datadir}/ryoku-opensuse/session/hyprland.conf
+install -D -m 0644 packaging/rpm/session/hyprlock.conf \
+    %{buildroot}%{_datadir}/ryoku-opensuse/session/hyprlock.conf
+install -D -m 0644 packaging/rpm/systemd/user/ryoku-session-lock.service \
+    %{buildroot}%{_userunitdir}/ryoku-session-lock.service
+install -d %{buildroot}%{_libexecdir}/ryoku/session/bin
+ln -s %{_bindir}/ryoku-session %{buildroot}%{_libexecdir}/ryoku/session/bin/ryoku-shell
+ln -s %{_bindir}/ryoku-session %{buildroot}%{_libexecdir}/ryoku/session/bin/wl-clip-persist
 install -D -m 0644 packaging/rpm/systemd/user/ryoku-desktop-session.target \
     %{buildroot}%{_userunitdir}/ryoku-desktop-session.target
 install -D -m 0644 packaging/rpm/systemd/user/ryoku-desktop-shell.service \
@@ -72,6 +81,10 @@ install -D -m 0644 packaging/rpm/systemd/user/ryoku-service.service.d/25-session
 %{_datadir}/ryoku-opensuse/session/
 %{_userunitdir}/ryoku-desktop-session.target
 %{_userunitdir}/ryoku-desktop-shell.service
+%{_userunitdir}/ryoku-session-lock.service
+%dir %{_libexecdir}/ryoku
+%dir %{_libexecdir}/ryoku/session
+%{_libexecdir}/ryoku/session/bin/
 %dir %{_userunitdir}/ryoku-service.service.d
 %{_userunitdir}/ryoku-service.service.d/25-session.conf
 %license LICENSE

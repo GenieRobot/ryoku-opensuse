@@ -1,0 +1,15 @@
+[Unit]
+Description=Native Ryoku session lock
+PartOf=ryoku-desktop-session.target
+After=ryoku-desktop-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/hyprlock --config /usr/share/ryoku-opensuse/session/hyprlock.conf
+# The distribution-owned PAM stack may execute its native authentication
+# helper. Start this from the ordinary user manager, not the NNP shell tree.
+NoNewPrivileges=no
+KillMode=control-group
+TimeoutStopSec=15s
+Slice=session.slice

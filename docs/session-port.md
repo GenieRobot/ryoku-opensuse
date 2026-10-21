@@ -166,3 +166,28 @@ host checks only. The owned guest was orderly powered off to release the shared
 KVM slot for #22. Its overlay and private logs are preserved; the original
 backing disk and firmware digests are unchanged. Continue native validation on
 this owned overlay after the slot becomes available. Issue #25 remains open.
+
+## Resumed native checkpoint and pending host candidate
+
+The [resumed #25 receipt](../infra/tumbleweed-lab/evidence/issue25-native-resume-20261022.toml)
+records actual current-helper startup and password Ryoku re-entry after reboot
+at `7b0d2ef`, with graphical and portal units active. Native Konsole launch,
+Hub, a synthetic notification and a monitor-capture file were observed. Normal
+KDE password fallback rendered its panel. Full workflow acceptance remains open.
+
+Direct compositor exit exposed a native Hyprland portal SIGSEGV. The new logout
+route first stops the desktop and graphical targets while Wayland is available,
+then exits the compositor. Required Rust service readiness is checked alongside
+the shell. Both corrections require another native regression.
+
+The private `ryoku-shell` executable alias forwards original native argv through
+the existing daemon writer, except the exact `lock` action routes to a fixed
+distro hyprlock user unit. The lock unit uses the distro PAM policy unchanged;
+it supplies no fabricated secure-lock acknowledgement or suspend handoff.
+
+The signed fixture repositories lack `wl-clip-persist`. Its separately pinned
+Rust private RPM, parser/I/O dependency port and locked closure are documented
+in [clipboard-build.md](../packaging/rpm/clipboard-build.md). The session bounds
+regular selections to 10 MiB, disables timestamp manipulation, and limits logs
+to warnings. Original daemon history remains the only history owner. These
+new lock and clipboard paths are host candidates until actual native acceptance.
