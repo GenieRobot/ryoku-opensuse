@@ -10,7 +10,7 @@ use std::{
     os::unix::fs::{FileTypeExt, MetadataExt, OpenOptionsExt},
     path::Path,
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
@@ -48,10 +48,66 @@ fn password(bytes: &[u8]) -> Result<&[u8]> {
     }
 }
 
+fn chord(keys: &[String]) -> Result<String> {
+    if keys.is_empty() || keys.len() > 4 {
+        return Err("requires one to four explicitly supported QMP keys".into());
+    }
+    let mut codes = Vec::new();
+    for key in keys {
+        if !(matches!(
+            key.as_str(),
+            "esc"
+                | "up"
+                | "down"
+                | "left"
+                | "right"
+                | "spc"
+                | "backspace"
+                | "ctrl"
+                | "alt"
+                | "shift"
+                | "meta_l"
+                | "ret"
+                | "tab"
+        ) || key.len() == 1
+            && key.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()))
+        {
+            return Err("unsupported issue25 chord key".into());
+        }
+        codes.push(serde_json::json!({ "type": "qcode", "data": key }));
+    }
+    Ok(serde_json::json!({ "keys": codes }).to_string())
+}
+
+// QEMU's absolute tablet coordinate space is 0..=32767 on each axis.
+// The native run must actually attach a tablet; this is input, not validation.
+fn point(coordinates: &[String]) -> Result<String> {
+    let [x, y] = coordinates else {
+        return Err("point requires exactly two absolute tablet coordinates".into());
+    };
+    let x = x.parse::<u16>()?;
+    let y = y.parse::<u16>()?;
+    if x > 32767 || y > 32767 {
+        return Err("absolute tablet coordinates must be within 0..=32767".into());
+    }
+    Ok(serde_json::json!({"events":[
+        {"type":"abs","data":{"axis":"x","value":x}},
+        {"type":"abs","data":{"axis":"y","value":y}}
+    ]})
+    .to_string())
+}
+
+fn empty_reply(control: &mut qmp::QmpClient, command: &str, args: &str) -> Result<()> {
+    match control.request(command, Some(args), Instant::now() + Duration::from_secs(10))? {
+        qmp::Json::Object(fields) if fields.is_empty() => Ok(()),
+        _ => Err("unexpected issue25 QMP input reply".into()),
+    }
+}
+
 fn run(args: &[String]) -> Result<()> {
     let [directory, action, rest @ ..] = args else {
         return Err(
-            "usage: session-lab-control RUN password|login|capture FILE.ppm|keys KEY...".into()
+            "usage: session-lab-control RUN password|login|capture FILE.ppm|keys KEY...|chord KEY...|point X Y|click".into()
         );
     };
     let run = Path::new(directory);
@@ -82,6 +138,23 @@ fn run(args: &[String]) -> Result<()> {
                 control.send_key(key)?;
                 thread::sleep(Duration::from_millis(150));
             }
+        }
+        ("point", coordinates) => {
+            empty_reply(&mut control, "input-send-event", &point(coordinates)?)?;
+        }
+        ("chord", keys) => empty_reply(&mut control, "send-key", &chord(keys)?)?,
+        ("click", []) => {
+            empty_reply(
+                &mut control,
+                "input-send-event",
+                r#"{"events":[{"type":"btn","data":{"button":"left","down":true}}]}"#,
+            )?;
+            thread::sleep(Duration::from_millis(100));
+            empty_reply(
+                &mut control,
+                "input-send-event",
+                r#"{"events":[{"type":"btn","data":{"button":"left","down":false}}]}"#,
+            )?;
         }
         ("login", []) => {
             let mut secret = fs::read(run.join("password-private"))?;
@@ -123,5 +196,42 @@ mod tests {
     #[test]
     fn refuses_an_unmarked_directory() {
         assert!(guard(Path::new("/tmp")).is_err());
+    }
+
+    #[test]
+    fn chord_input_is_bounded_and_cannot_inject_qmp_fields() {
+        for input in [vec![], vec!["a"; 5], vec!["a\"}],\"execute\":\"quit"], vec!["delete"]] {
+            assert!(chord(&input.iter().map(|v| v.to_string()).collect::<Vec<_>>()).is_err());
+        }
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(
+                &chord(&["ctrl".into(), "c".into()]).unwrap()
+            )
+            .unwrap(),
+            serde_json::json!({"keys":[{"type":"qcode","data":"ctrl"},{"type":"qcode","data":"c"}]})
+        );
+    }
+    #[test]
+    fn absolute_pointer_is_numeric_bounded_and_serialized() {
+        for input in [
+            vec![],
+            vec!["1"],
+            vec!["0", "32768"],
+            vec!["-1", "0"],
+            vec!["0", "1", "2"],
+            vec!["0", "0}]"],
+        ] {
+            assert!(point(&input.into_iter().map(String::from).collect::<Vec<_>>()).is_err());
+        }
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(
+                &point(&["0".into(), "32767".into()]).unwrap()
+            )
+            .unwrap(),
+            serde_json::json!({"events":[
+                {"type":"abs","data":{"axis":"x","value":0}},
+                {"type":"abs","data":{"axis":"y","value":32767}}
+            ]})
+        );
     }
 }
