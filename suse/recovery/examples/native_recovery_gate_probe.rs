@@ -8,8 +8,8 @@ mod results;
 mod trace;
 
 use console::{
-    account, checkpoint_retained, cli, command, guard, id, journal_phase, offline, own, refuses,
-    require, serial_line, state_path, verify_configuration, write_new,
+    account, checkpoint_retained, cli, command, guard, id, journal_phase, offline, own, require,
+    serial_line, state_path, verify_configuration, write_new,
 };
 use ryoku_recovery::{
     EntryKind, StateRoot,
@@ -47,6 +47,25 @@ fn marked(name: &str) -> bool {
 }
 fn progress() -> Result<()> {
     serial_line("native_issue21_operation=refusal-cases")
+}
+fn refuses(args: &[&str]) -> Result<()> {
+    let output = Command::new("/usr/bin/timeout")
+        .args(["--signal=TERM", "--kill-after=3s", "120s", "/usr/bin/ryoku-recovery"])
+        .args(args)
+        .output()?;
+    // Captured only by this fixture's private service log, never public evidence.
+    eprintln!(
+        "native22 refusal {args:?} exit={:?}: {}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    require(output.status.code() == Some(2), "recovery command did not produce a bounded refusal")
+}
+fn require_backup_pressure(available: u64, required_payload: u64) -> Result<()> {
+    require(
+        required_payload > 0 && available < required_payload,
+        "fixture has enough nominal space for its mandatory payload; exhaustion is unproven",
+    )
 }
 fn fixture() -> Result<()> {
     let (uid, gid) = account()?;
@@ -143,6 +162,15 @@ fn no_attempt(attempt: &str) -> Result<()> {
     )?;
     compare()
 }
+fn replace_sealed(path: &str, bytes: &[u8]) -> Result<()> {
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+    fs::write(path, bytes)?;
+    // Keep the valid immutable inode policy during the negative command, so
+    // content/path corruption reaches validation instead of failing mode checks.
+    fs::set_permissions(path, fs::Permissions::from_mode(0o400))?;
+    File::open(path)?.sync_all()?;
+    Ok(())
+}
 fn poison_manifest(name: &str, traversal: bool) -> Result<()> {
     let source = GenerationReader::open_state_mount()?.open_verified_transaction(&id(SOURCE)?)?;
     let path =
@@ -158,13 +186,9 @@ fn poison_manifest(name: &str, traversal: bool) -> Result<()> {
     } else {
         value["schema_version"] = serde_json::Value::from(65535);
     }
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
-    fs::write(&path, serde_json::to_vec(&value)?)?;
-    File::open(&path)?.sync_all()?;
+    replace_sealed(&path, &serde_json::to_vec(&value)?)?;
     let outcome = refuses(&["prepare-configuration", name, SOURCE]);
-    fs::write(&path, original)?;
-    File::open(&path)?.sync_all()?;
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o400))?;
+    replace_sealed(&path, &original)?;
     outcome?;
     no_attempt(name)?;
     require(!Path::new(&format!("{HOME}/Documents/native22-escape")).exists(), "traversal escaped")
@@ -190,12 +214,9 @@ fn failures() -> Result<()> {
         sha256.as_str()
     );
     let original = fs::read(&path)?;
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
-    fs::write(&path, b"corrupt archive")?;
+    replace_sealed(&path, b"corrupt archive")?;
     let outcome = refuses(&["prepare-configuration", "native22-bad-archive", SOURCE]);
-    fs::write(&path, original)?;
-    File::open(&path)?.sync_all()?;
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o400))?;
+    replace_sealed(&path, &original)?;
     outcome?;
     no_attempt("native22-bad-archive")?;
 
@@ -221,13 +242,23 @@ fn failures() -> Result<()> {
     no_attempt("native22-capture-failure-restore")?;
 
     // Reserve actual Btrfs extents, leaving less than the required checkpoint
-    // margin. Only this private fixture file is removed after the refusal.
+    // payload. Only this private fixture file is removed after the refusal.
     let fill = receipt("capacity-fill");
     let file = OpenOptions::new().write(true).create_new(true).mode(0o600).open(&fill)?;
     let stats = rustix::fs::fstatvfs(&file)?;
     let free = stats.f_bavail.saturating_mul(stats.f_frsize);
     require(free > 256 * 1024 * 1024, "fixture has insufficient initial storage")?;
-    let allocate = free - 32 * 1024 * 1024;
+    let required = source
+        .manifest()
+        .files()
+        .iter()
+        .filter_map(|entry| {
+            if let EntryKind::RegularFile { size, .. } = entry.kind { Some(size) } else { None }
+        })
+        .max()
+        .ok_or("fixture has no required payload")?;
+    require(required >= 4 * 1024 * 1024, "fixture lacks its required large artwork payload")?;
+    let allocate = free - required / 2;
     let allocation = rustix::fs::fallocate(&file, rustix::fs::FallocateFlags::empty(), 0, allocate);
     // Btrfs may exhaust a metadata/data chunk before statvfs's nominal count.
     require(
@@ -236,10 +267,9 @@ fn failures() -> Result<()> {
     )?;
     file.sync_all()?;
     let observed = rustix::fs::fstatvfs(&file)?;
-    eprintln!(
-        "native22 storage before={free} after={} allocation={allocation:?}",
-        observed.f_bavail.saturating_mul(observed.f_frsize)
-    );
+    let available = observed.f_bavail.saturating_mul(observed.f_frsize);
+    eprintln!("native22 storage before={free} after={} allocation={allocation:?}", available);
+    require_backup_pressure(available, required)?;
     let result = refuses(&["prepare-configuration", "native22-low-space", SOURCE]);
     drop(file);
     fs::remove_file(fill)?;
@@ -513,5 +543,29 @@ mod tests {
         ));
         assert_eq!(fs::read(root.join("hero.png")).unwrap(), b"artwork");
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn corruption_keeps_the_sealed_inode_policy_and_restores_exact_bytes() {
+        use std::os::unix::fs::MetadataExt;
+        let path = std::env::temp_dir().join(format!("native22-sealed-{}", std::process::id()));
+        let path = path.to_str().unwrap();
+        write_new(path, b"original", 0o400).unwrap();
+        replace_sealed(path, b"corrupt").unwrap();
+        assert_eq!(fs::metadata(path).unwrap().mode() & 0o7777, 0o400);
+        assert_eq!(fs::read(path).unwrap(), b"corrupt");
+        replace_sealed(path, b"original").unwrap();
+        assert_eq!(fs::metadata(path).unwrap().mode() & 0o7777, 0o400);
+        assert_eq!(fs::read(path).unwrap(), b"original");
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn nominal_low_space_is_not_exhaustion_when_the_required_payload_still_fits() {
+        let payload = 4 * 1024 * 1024;
+        assert!(require_backup_pressure(32_100_352, payload).is_err());
+        assert!(require_backup_pressure(payload, payload).is_err());
+        assert!(require_backup_pressure(2 * 1024 * 1024, payload).is_ok());
+        assert!(require_backup_pressure(0, 0).is_err());
     }
 }

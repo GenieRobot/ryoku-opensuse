@@ -30,6 +30,22 @@ correction = "use sibling hero.png as the restored link target; regression check
 acceptance = false
 disposal = "owned QEMU exited; private disk/logs and userspace diagnostic copy removed after extracting only sanitized report and log hash; no reset acceptance credited"
 
+[run03]
+source = "225932c897cbcfcdff3e6600c4ff398faf0ac23f"
+source_dirty_at_launch = false
+result = "failed in low-space fixture assertion after successful source checkpoint and prior refusal cases"
+report = "issue22-native-20261022/run03.txt"
+report_sha256 = "b448f3d25c0268830c0eba8c1081e819bf24e856687ee6364b6f4b3f195ef734"
+private_log_sha256 = "5e4c75e1fc771b6ad15cc7fbfc0b4e556d079ef0d1914514398e263895b14977"
+free_before_bytes = 18881564672
+free_after_bytes = 32100352
+reservation_result = "successful native fallocate"
+observed_attempt = "ContentStaged; backup legitimately fit, so no refusal should have been expected"
+correction = "derive mandatory payload size from verified source, reserve down to half that size, and assert measured free space is below the mandatory payload before expecting refusal; retain exact refusal diagnostics privately"
+additional_review_correction = "corruption inputs retain sealed mode0400 before commands, so content/path verification is reached rather than masked by mode0600 refusal; regression checks sealed modes and exact restoration"
+acceptance = false
+disposal = "owned QEMU exited; private disk/logs and userspace diagnostic copy removed after preserving sanitized report and log hash; no reset acceptance credited"
+
 [scope]
 providers = "writes remain disabled"
 desktop = "actual desktop login unclaimed"
