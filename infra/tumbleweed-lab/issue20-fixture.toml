@@ -27,8 +27,9 @@ repo_non_oss_repomd_sha256 = "a7f061031bbcc905eff8c2ddd2e760a2d780e0543355906276
 repo_codec_url = "https://codecs.opensuse.org/openh264/openSUSE_Tumbleweed/"
 repo_codec_repomd_sha256 = "57b42e1c830f50adf5fd3424b2ed0260671e3d709804f51064d71a446ceb9dd1"
 repo_update_url = "https://downloadcontent2.opensuse.org/update/tumbleweed/"
-repo_update_repomd_sha256 = "32bc6dca93ec7402a00668ca8578049869553464975a2424347ae583a8ff2279"
-# Update metadata signature verified 2026-10-21 15:58:43 UTC against release_key_fingerprint.
+repo_update_repomd_sha256 = "3667c679dfdf3a981fc00aae6789928a5309e228943b921f83c89a386afbe589"
+# Exact nonempty metadata observed in authenticated run08; detached signature
+# made 2026-10-21 16:04:49 UTC verifies against release_key_fingerprint.
 repository_policy = "signed archived OSS/non-OSS and exact signed codec/update metadata; changed inputs fail closed"
 
 [hypervisor]
