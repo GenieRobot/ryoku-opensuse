@@ -17,9 +17,22 @@ correction = "read only the fixed sentinel through a separately pinned Documents
 acceptance = false
 disposal = "owned QEMU exited; private disk/logs and offline diagnostic copies removed after extracting only this sanitized report and log hash; no fresh-reset acceptance credited to failed run"
 
+[run02]
+source = "382c6badad240241beeb53124a6943132b69962a"
+source_dirty = false
+result = "failed at first issue22 manual checkpoint"
+report = "issue22-native-20261022/run02.txt"
+report_sha256 = "62674524686ef67422938683ba296a21b88937cbb1fda05480b3f1228683b133"
+private_log_sha256 = "8b0636a0407d1d7983158ece6c3c719b7e3319351f95c7f04e5f59d37a6aeafc"
+diagnostic = "declared capture failed: entry type is not supported for capture"
+cause = "fixture symlink target contained parent traversal; supported capture correctly refuses absolute and parent-traversal symlink targets"
+correction = "use sibling hero.png as the restored link target; regression checks safe capture and traversal refusal; also exercise FIFO failure on required pre-restore capture"
+acceptance = false
+disposal = "owned QEMU exited; private disk/logs and userspace diagnostic copy removed after extracting only sanitized report and log hash; no reset acceptance credited"
+
 [scope]
 providers = "writes remain disabled"
 desktop = "actual desktop login unclaimed"
 packages = "exact signed seven release5 runtime fixture; candidate CLI and Rust observer staged directly, candidate RPM install unclaimed"
 layout = "single-root Btrfs/Snapper only; dedicated top-level state subvolume; standard compiled home preferences"
-unsupported = ["external ESP restore", "additional restore roots", "arbitrary user xattrs", "unregistered external writers", "disk loss", "automatic retry of uncertain rollback before durable native receipt", "native incompatible-package refusal without alternate complete signed runtime set"]
+unsupported = ["external ESP restore", "additional restore roots", "arbitrary user xattrs", "absolute and parent-traversal symlink targets", "unregistered external writers", "disk loss", "automatic retry of uncertain rollback before durable native receipt", "native incompatible-package refusal without alternate complete signed runtime set"]

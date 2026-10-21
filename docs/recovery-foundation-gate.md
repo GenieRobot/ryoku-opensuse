@@ -19,7 +19,7 @@ observes and invokes the real console. It is not installed by a project RPM.
 | --- | --- |
 | Corrupt manifest/schema and `../` inventory path | Exact refusal exit 2; no restore attempt or transaction; complete live inventory and unrelated sentinel unchanged |
 | Corrupt archived payload | Refusal before checkpoint publication/application; the exclusively owned corrupt source is restored exactly before continuing |
-| FIFO at an enrolled preference | Actual capture failure; no partial transaction or mutation |
+| FIFO at an enrolled preference | Actual manual capture and required pre-restore backup fail; no partial transaction, restore journal or mutation |
 | Native Btrfs capacity reservation | Required backup refuses; the private reservation is removed and synchronized; configuration remains unchanged |
 | Concurrent supported console writers | While the actual capture owner is paused with its machine lock, a second capture and restore preparation run concurrently and both refuse without publishing |
 | Capture process death | SIGKILL after a successful staging fsync; same transaction tag refuses restart, incomplete artifacts remain for explicit inspection, and a fresh independent transaction succeeds |
@@ -53,7 +53,7 @@ separate typed mutation coordinator; this probe does not enable another provider
 System restoration supports the verified single-root Btrfs/Snapper layout with
 the dedicated top-level state subvolume and standard XDG home inventory.
 Additional restore roots, external ESP recovery, disk-loss backup, arbitrary
-root administrators, arbitrary user xattrs and unregistered external writers are unsupported. A
+root administrators, arbitrary user xattrs, absolute/traversal-bearing symlink targets and unregistered external writers are unsupported. A
 rollback killed before a durable native handoff receipt still requires manual
 inspection; this probe does not automatically retry that uncertain operation.
 Installed package revisions must match the source; no complete alternate signed

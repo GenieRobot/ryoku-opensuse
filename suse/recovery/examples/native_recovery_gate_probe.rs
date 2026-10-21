@@ -84,7 +84,7 @@ fn fixture() -> Result<()> {
     if fs::symlink_metadata(&link).is_ok() {
         fs::remove_file(&link)?;
     }
-    symlink("../../../Documents/native22-unrelated", &link)?;
+    symlink("hero.png", &link)?;
     rustix::fs::chownat(
         rustix::fs::CWD,
         link.as_str(),
@@ -212,9 +212,13 @@ fn failures() -> Result<()> {
     )?;
     own(&path)?;
     let outcome = refuses(&["manual-checkpoint", "native22-capture-failure", "tester"]);
+    let restore_outcome =
+        refuses(&["prepare-configuration", "native22-capture-failure-restore", SOURCE]);
     fs::remove_file(path)?;
     outcome?;
+    restore_outcome?;
     no_attempt("native22-capture-failure")?;
+    no_attempt("native22-capture-failure-restore")?;
 
     // Reserve actual Btrfs extents, leaving less than the required checkpoint
     // margin. Only this private fixture file is removed after the refusal.
@@ -474,6 +478,40 @@ mod tests {
         assert_eq!(sentinel_records(&root).unwrap(), before);
         fs::write(&sentinel, b"changed").unwrap();
         assert_ne!(sentinel_records(&root).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn safe_sibling_symlink_captures_but_traversal_link_refuses() {
+        let root = std::env::temp_dir().join(format!("native22-symlink-{}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        fs::write(root.join("hero.png"), b"artwork").unwrap();
+        let link = root.join("hero.jpg");
+        symlink("hero.png", &link).unwrap();
+        let directory = File::open(&root).unwrap();
+        let paths = [ryoku_recovery::RelativePath::new("hero.jpg").unwrap()];
+        let records = capture_declared(
+            &directory,
+            StateRoot::UserRyokuConfig,
+            &paths,
+            CaptureLimits::default(),
+        )
+        .unwrap();
+        assert!(
+            matches!(&records[0].kind, EntryKind::Symlink { target, .. } if target == "hero.png")
+        );
+        fs::remove_file(&link).unwrap();
+        symlink("../../../Documents/native22-unrelated", &link).unwrap();
+        assert!(matches!(
+            capture_declared(
+                &directory,
+                StateRoot::UserRyokuConfig,
+                &paths,
+                CaptureLimits::default()
+            ),
+            Err(ryoku_recovery::capture::CaptureError::UnsupportedEntryType)
+        ));
+        assert_eq!(fs::read(root.join("hero.png")).unwrap(), b"artwork");
         fs::remove_dir_all(root).unwrap();
     }
 }
