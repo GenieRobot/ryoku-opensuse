@@ -90,6 +90,13 @@ fn serial_line(line: &str) -> Result<()> {
     writeln!(serial, "\n{line}")?;
     Ok(())
 }
+fn persist_diagnostics() -> Result<()> {
+    File::open(state_path("native21-private.log"))?.sync_all()?;
+    let state = File::open(STATE)?;
+    state.sync_all()?;
+    rustix::fs::syncfs(&state)?;
+    Ok(())
+}
 fn serial_complete(operation: &str) -> Result<()> {
     serial_line(&format!("native_issue21_completed={operation}"))
 }
@@ -603,6 +610,7 @@ fn service_stopped() -> Result<()> {
     });
     let completed =
         fs::read_to_string(state_path("native21-result")).is_ok_and(|value| value == RESULTS);
+    persist_diagnostics()?;
     serial_line(stop_event(
         &phase,
         completed,
@@ -636,6 +644,9 @@ fn main() {
         if std::env::args().nth(1).as_deref() == Some("--exercise") {
             let _ =
                 write_new(&state_path("native21-result"), b"native_issue21_result=failed\n", 0o600);
+            if let Err(error) = persist_diagnostics() {
+                eprintln!("native fixture diagnostics could not be persisted: {error}");
+            }
             let _ = serial_line("native_issue21_result=failed");
         }
         std::process::exit(1);

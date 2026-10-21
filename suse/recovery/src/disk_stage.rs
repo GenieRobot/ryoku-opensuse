@@ -19,6 +19,7 @@ use rustix::{
     io::Errno,
 };
 use serde::Serialize;
+use sha2::Digest;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs::{self, File},
@@ -141,7 +142,7 @@ impl DiskStageStore {
         mut after_durable_boundary: impl FnMut(usize),
     ) -> Result<VerifiedDiskStage, DiskStageError> {
         let receipt = receipt_bytes(source)?;
-        let name = stage_name(source);
+        let name = stage_name(source)?;
         mkdirat(&self.root, name.as_str(), Mode::from_raw_mode(0o700))?;
         fsync(&self.root)?;
         after_durable_boundary(1);
@@ -222,7 +223,7 @@ impl DiskStageStore {
         &self,
         source: &StagedConfiguration,
     ) -> Result<VerifiedDiskStage, DiskStageError> {
-        let directory = self.open_directory(&stage_name(source))?;
+        let directory = self.open_directory(&stage_name(source)?)?;
         let receipt = File::from(openat(
             &directory,
             RECEIPT,
@@ -252,7 +253,7 @@ impl DiskStageStore {
     /// entries, wrong inode types/owners/modes, external hard links and
     /// populated staged directories are retained for explicit review.
     pub fn discard_incomplete(&self, source: &StagedConfiguration) -> Result<(), DiskStageError> {
-        let name = stage_name(source);
+        let name = stage_name(source)?;
         let directory = self.open_directory(&name)?;
         let receipt = statat(&directory, RECEIPT, AtFlags::SYMLINK_NOFOLLOW);
         if !matches!(receipt, Err(Errno::NOENT)) {
@@ -379,8 +380,10 @@ fn check_directory(file: &File, owner: u32) -> Result<(), DiskStageError> {
     }
     Ok(())
 }
-fn stage_name(source: &StagedConfiguration) -> String {
-    format!("stage-{}", source.plan().transaction_id.as_str())
+pub(crate) fn stage_name(source: &StagedConfiguration) -> Result<String, DiskStageError> {
+    // Bind every receipt input, including scope. Independent restore plans
+    // for the same source must not reuse an incompatible completed directory.
+    Ok(format!("stage-{:x}", sha2::Sha256::digest(receipt_bytes(source)?)))
 }
 fn object_name(index: usize) -> String {
     format!("object-{index:03}")

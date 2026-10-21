@@ -40,9 +40,9 @@ path, not manually launched compositors from arbitrary root-controlled consoles.
 ## Local verification and pending acceptance
 
 Formatting, strict workspace Clippy, offline cargo-deny and the complete workspace
-suite passed: 522 top-level test/doctest passes plus 17 isolated subprocess passes,
+suite passed: 523 top-level test/doctest passes plus 17 isolated subprocess passes,
 zero failures and seven ignored entries (including the restore crash-test child
-that its parent executes explicitly). The recovery crate contributes 210 library,
+that its parent executes explicitly). The recovery crate contributes 211 library,
 26 console and two initializer tests. Tests cover staged publication failure,
 configuration replay/metadata/absence and unrelated files, durable phase
 interruptions, rollback receipt/boot verification, resume without phase rewind,
@@ -84,6 +84,14 @@ host/guest UTC and epoch, guest monotonic time and NTP state before provisioning
 it validates host time against the signed-fixture window, sets only the disposable
 guest clock and requires a measured drift of at most five seconds. Other lab
 features and the host clock retain their existing behavior.
+The fourth run passed actual configuration restore, CLI kill/resume, exact
+metadata/absence/unrelated-home checks and bad-archive/missing-partner refusals.
+Linked preparation then refused a completed stage from the same source with a
+different scope. Read-only Btrfs log-tree inspection recovered its retained
+`CheckpointVerified` journal. Stage names now hash the complete receipt inputs,
+and a focused same-source config-to-linked regression verifies isolation and
+receipt substitution refusal. Diagnostics are synced before terminal markers.
+System/linked rollback acceptance remains pending.
 
 There is no complete signed alternate desktop/runtime/defaults package set in the
 existing lab assets. Native incompatible-package refusal is explicitly unclaimed;

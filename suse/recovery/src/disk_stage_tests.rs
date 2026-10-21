@@ -109,7 +109,7 @@ impl Fixture {
         DiskStageStore::open_for_test(&File::open(self.path.join("stages")).unwrap()).unwrap()
     }
     fn stage(&self) -> PathBuf {
-        self.path.join("stages/stage-transaction-disk-stage")
+        self.path.join("stages").join(crate::disk_stage::stage_name(&self.source).unwrap())
     }
 }
 impl Drop for Fixture {
@@ -126,6 +126,42 @@ impl Drop for Fixture {
         writable(&self.path);
         fs::remove_dir_all(&self.path).unwrap();
     }
+}
+
+#[test]
+fn same_source_configuration_and_linked_restores_use_distinct_bound_stages() {
+    let fixture = Fixture::new();
+    let store = fixture.store();
+    store.create(&fixture.source).unwrap();
+    let verified = fixture
+        .generation
+        .open_verified_transaction(&fixture.source.plan().transaction_id)
+        .unwrap();
+    let mut plan = fixture.source.plan().clone();
+    plan.scope = RestoreScope::CompleteLinked;
+    let linked = stage_configuration(&verified, &plan).unwrap();
+    assert!(
+        store.open_verified(&linked).is_err(),
+        "configuration stage cannot satisfy linked receipt"
+    );
+    store.create(&linked).unwrap();
+    let linked_receipt = fixture
+        .path
+        .join("stages")
+        .join(crate::disk_stage::stage_name(&linked).unwrap())
+        .join("complete.json");
+    let original = fs::read(&linked_receipt).unwrap();
+    fs::write(&linked_receipt, fs::read(fixture.stage().join("complete.json")).unwrap()).unwrap();
+    assert!(
+        matches!(store.open_verified(&linked), Err(DiskStageError::IncompleteOrChanged)),
+        "copied configuration receipt cannot satisfy linked plan"
+    );
+    fs::write(&linked_receipt, original).unwrap();
+    assert_eq!(store.open_verified(&linked).unwrap().plan().scope, RestoreScope::CompleteLinked);
+    assert_eq!(
+        store.open_verified(&fixture.source).unwrap().plan().scope,
+        RestoreScope::ConfigurationOnly
+    );
 }
 
 #[test]
@@ -256,7 +292,14 @@ fn unsafe_symlink_target_is_not_followed_or_credited_as_complete() {
         *target = fixture.path.join("unrelated").to_str().unwrap().to_owned();
     }
     assert!(fixture.store().create(&source).is_err());
-    assert!(!fixture.stage().join("complete.json").exists());
+    assert!(
+        !fixture
+            .path
+            .join("stages")
+            .join(crate::disk_stage::stage_name(&source).unwrap())
+            .join("complete.json")
+            .exists()
+    );
     assert_eq!(fs::read(fixture.path.join("unrelated")).unwrap(), b"home sentinel");
     let after = fs::metadata(fixture.path.join("unrelated")).unwrap();
     assert_eq!(
@@ -297,7 +340,7 @@ fn expanded_payload_budget_is_checked_before_creating_a_stage_directory() {
         fixture.store().create(&source),
         Err(DiskStageError::Capture(crate::capture::CaptureError::TotalCaptureTooLarge))
     ));
-    assert!(!fixture.stage().exists());
+    assert_eq!(fs::read_dir(fixture.path.join("stages")).unwrap().count(), 0);
 }
 
 #[test]

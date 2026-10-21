@@ -40,3 +40,17 @@ guest_clock = "not captured by original runner and not reliably recoverable from
 diagnosis = "original stopped image preserved; separate sparse raw partition read with xfs_db/xfs_logprint only; no mount, replay or VM resume"
 disposal = "runner exited1 and terminated owned QEMU; zero QEMU confirmed; private artifacts removed after sanitized diagnosis"
 correction = "issue21-only host/guest UTC+epoch and guest monotonic/NTP preflight; validate host against signed-fixture window, disable disposable guest NTP, set guest from host epoch, require at most five-second measured skew before repository/package writes"
+
+[run04]
+candidate_commit = "c2b50f52398b3eacff27f8a07b408a8d618268a7"
+result = "configuration restore/interruption/refusal acceptance passed; linked preparation refused colliding stage receipt; no root rollback"
+clock = "host20:29:02Z; guest before20:29:01Z uptime32.43s; guest after20:29:02Z uptime32.83s NTP disabled; host after20:29:03Z; post-set skew1s within5s"
+completed = "signed native package dependency/file closure, restricted networking, full 72-entry configuration checkpoint/restore, real CLI SIGKILL at WritersStopped and resume, metadata/absence/unrelated-home checks, real emergency admission refusal and rescue return, bad archive and unavailable partner refusal with checkpoints retained"
+source_manifest_sha256 = "58f8b5ba72c00a6bed147e9fcbec92937b42e6450723cbcf89e209f0c69a64ef"
+linked_current_manifest_sha256 = "bd115663f20abe35ca511d1ad9cacf130bc2180b6dbfe89c4400606326e80f7c"
+linked_journal = "CheckpointVerified, root_rollback=null; recovered from fsync-durable Btrfs log tree inline data read directly without replay"
+failure = "prior ConfigurationOnly and new CompleteLinked plans shared source-based stage directory; existing completed receipt bound different scope, so linked open_verified refused IncompleteOrChanged"
+stderr_limit = "original final stderr was not synced before terminal marker; exact collision independently reproduced by focused pre-fix regression (EEXIST), and logged journal/existing receipt corroborate the rejection path"
+source_packages = "source snapshot RPM DB extracted read-only; desktop/runtime/defaults NEVRAs exactly match source manifest"
+disposal = "bounded runner exited1 and automatically stopped owned QEMU; zero QEMU confirmed; private artifacts removed after committed-tree/log-tree diagnosis"
+correction = "stage name is SHA256 of every serialized receipt input; prior stages retained and never adopted for a different receipt; private error/result and filesystem synced before terminal serial markers"
