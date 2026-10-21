@@ -65,3 +65,53 @@ offline networking, reset and owned-resource disposal requirements. A
 console-only lifecycle reports `partial` for desktop coverage even when every
 recovery assertion passes. Native acceptance depends on the linked receipt and
 sanitized report, not the implemented harness or local process tests alone.
+
+## Passing acceptance (22 October 2026)
+
+Fresh Run05 exited **0** on executable candidate
+`c0fd43499dd90b7cfd0d32e115286d206c755351`. Every required #22 result and the
+reused #21 console lifecycle passed. The
+[receipt](../infra/tumbleweed-lab/evidence/issue22-native-20261022.toml) and
+[sanitized report](../infra/tumbleweed-lab/evidence/issue22-native-20261022/run05.txt)
+record exact inputs, comparisons, interrupted phases, unsupported cases, prior
+failed fixtures and their corrections. The candidate's
+[hosted checks](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39682720008)
+passed formatting, strict lints, tests and dependency review.
+
+The tested image was signed Tumbleweed Cloud Snapshot20261016 x86_64, with kernel
+`7.2.10-1-default` / package `7.2.10-1.1.36.11`, GRUB2 `2.16-2.1`, Snapper
+`0.13.1-3.4`, enforcing SELinux and QEMU `11.1.2` with KVM. The derived single-root
+Btrfs/UEFI layout used numbered Snapper roots and dedicated top-level state
+storage. Exact signed image, firmware and repository metadata checks preceded
+package writes; recovery ran with guest egress restricted.
+
+All 72 compiled managed-home records matched after recovery, including regular
+content, declared metadata, a safe sibling symlink and absence. Two unrelated
+home sentinels survived; the #22 sentinel comparison includes POSIX ACL and
+SELinux/capability metadata through a separately pinned Documents descriptor.
+The source generation's retained profile inputs, catalog and current-state
+checkpoints remained verified through actual root rollback and an extra reboot.
+
+Storage reservation left **3,092,480 bytes**, below the mandatory 4 MiB payload.
+The real checkpoint then refused with `InsufficientSpace` requiring 5,370,221
+bytes while 438,272 were available. The fixture asserts the measured pressure
+before expecting refusal. Sealed corrupt manifests/payloads, path traversal,
+FIFO manual and pre-restore capture, missing partners and concurrent supported
+console writers also produced exact refusal exit 2 without the associated
+mutation. Actual capture and every selected restore phase survived the required
+process deaths with retained checkpoints and correct restart behavior.
+
+The actual sandboxed admission service refused incomplete state and admitted its
+display-manager marker after completion. Fresh XFS reset proved the derived
+marker, package, Snapper config and reset sentinel absent. The runner removed
+owned disks, firmware, seed, staged inputs and SSH keys; independent checks found
+the original image hash unchanged and no QEMU process. Private logs were removed
+after recording only the sanitized report and diagnostic hashes. `lab_result`
+remains `partial` because this console gate skips real desktop login.
+
+Local Rust/Cargo 1.99 checks passed: strict workspace Clippy, formatting,
+523 top-level/doctest plus 17 subprocess workspace passes, nine probe/observer
+regressions, both default and #22 lab suites (78 each), offline dependency policy
+and diff checks. Seven existing ignored entries remain; native VM assertions are
+established by Run05 rather than those ignored tests. Issue integration and
+closure remain with the coordinator.
