@@ -1,0 +1,10 @@
+1a321ee6a1e91536e616eddc4b073aaba2155aae7c87d5fd4a40fa9abaf44fb0  SIGNED-RPMS/ryoku-desktop-0.1.0-2.x86_64.rpm
+b80f00701247fd65c4235f36d312b792060bbf564bcec52763b1be7daea556da  SIGNED-RPMS/ryoku-desktop-fonts-0.1.0-2.noarch.rpm
+a52b8e6c3a00eb751a0b027a4d1131dafe7207b6d8c1b3243defc4cfc72f2cae  SIGNED-RPMS/ryoku-desktop-runtime-0.1.0-2.x86_64.rpm
+5230acd5c3ae994725c8edbbb4d4b8e9bb60621905c57b2fa4058742ce6f35c2  SIGNED-RPMS/ryoku-helper-0.1.0-2.x86_64.rpm
+dded5574cf932b6b7fb386f4cdf5d3e0cb42a8ad76dac122393672f4db4b2175  SIGNED-RPMS/ryoku-profile-defaults-0.1.0-2.noarch.rpm
+cada0ff2ff51a6ceb0606ccba704fe68af4d154e1145df4de8818710ff916748  SIGNED-RPMS/ryoku-quickshell-0.3.2-1.x86_64.rpm
+260407b87fe34238c5ef81967fd567ac3abd883da5373e287eabbe5ac895c103  SIGNED-RPMS/ryoku-tools-0.1.0-2.x86_64.rpm
+24f8a232a375e50f64ce4ab7bfde180159328792a5a48b7ade84d9d75cbe102f  SIGNED-RPMS/ryoku-tools-launcher-status-0.1.0-2.x86_64.rpm
+cbb3785e70f2e7139a64e3548f327e676975da223c2608473778a5194fe20985  SIGNED-RPMS/ryoku-tools-state-init-0.1.0-2.x86_64.rpm
+7bb740526242ce9bc559d76644c39045dd0c484c5484f0c4eece3989447ba437  SIGNED-RPMS/ryoku-tools-ui-0.1.0-2.x86_64.rpm

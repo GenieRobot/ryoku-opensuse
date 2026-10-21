@@ -1,0 +1,945 @@
+preservation_fixture=prepared operator_group_before=absent valid_recovery_state=not_created
+/home/tester/runtime-signed/ryoku-desktop-0.1.0-5.x86_64.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-desktop-fonts-0.1.0-5.noarch.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-desktop-runtime-0.1.0-5.x86_64.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-helper-0.1.0-5.x86_64.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-profile-defaults-0.1.0-5.noarch.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-quickshell-0.3.2-2.x86_64.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-tools-0.1.0-5.x86_64.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-tools-launcher-status-0.1.0-5.x86_64.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-tools-state-init-0.1.0-5.x86_64.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-ui-proof-0.1.0-5.x86_64.rpm: digests signatures OK
+'/home/tester/runtime-signed/ryoku-desktop-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-desktop-fonts-0.1.0-5.noarch.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-desktop-runtime-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-helper-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-profile-defaults-0.1.0-5.noarch.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-quickshell-0.3.2-2.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-tools-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-tools-launcher-status-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-tools-state-init-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-ui-proof-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+Loading repository data...
+Reading installed packages...
+Resolving package dependencies...
+
+The following 309 NEW packages are going to be installed:
+  adwaita-icon-theme cups-config dbus-1-tools diffutils fontconfig gdk-pixbuf-query-loaders google-noto-sans-cjk-fonts google-noto-sans-jp-fonts google-noto-sans-kr-fonts google-noto-sans-sc-fonts google-noto-sans-tc-fonts gstreamer gstreamer-plugins-base gtk4-schema gtk4-tools hicolor-icon-theme kf6-syntax-highlighting kf6-syntax-highlighting-imports libaom3 libasound2 libass9 libavahi-client3 libavahi-common3 libavc1394-0 libavcodec62 libavfilter11 libavformat62 libavutil60 libb2-1 libbluetooth3 libbluray4 libbrotlienc1 libbs2b0 libbtrfs0 libbtrfsutil1 libcairo2 libcairo-gobject2 libcairo-script-interpreter2 libcamera0_7 libcamera-base0_7 libcjson1 libcloudproviders0 libcodec2-1_2 libcolord2 libconfig++15 libcpptrace1 libcups2 libdatrie1 libdav1d7 libdisplay-info3 libdouble-conversion3 libdovi3 libdrm2 libdrm_amdgpu1 libdrm_intel1 libdwarf2 libebur128-1 libepoxy0 libevdev2 libfdk-aac2 libffado2 libfftw3-3 libFLAC14 libfontconfig1 libfreeaptx0 libfribidi0 libgbm1 libgdbm6 libgdbm_compat4 libgdk_pixbuf-2_0-0 libglibmm-2_4-1 libglslang16 libglvnd libglycin-2-0 libgomp1 libgraphene-1_0-0 libgraphite2-3 libgsm1 libgstallocators-1_0-0 libgstapp-1_0-0 libgstaudio-1_0-0 libgstgl-1_0-0 libgstpbutils-1_0-0 libgstphotography-1_0-0 libgstplay-1_0-0 libgstreamer-1_0-0 libgstriff-1_0-0 libgsttag-1_0-0 libgstvideo-1_0-0 libgtk-4-1 libgudev-1_0-0 libharfbuzz0 libharfbuzz-subset0 libhwy1 libICE6 libicu78 libicu78-ledata libiec61883-0 libinput10 libjbig2 libjemalloc2 libjpeg8 libjson-glib-1_0-0 libjxl0_12 libKF6SyntaxHighlighting6 liblc3-1 liblcms2-2 libldac2 libLerc4 liblilv-0-0 libLLVM23 libmd4c0 libmp3lame0 libmpg123-0 libmtdev1 libmysofa1 liboapv1 libogg0 libopencore-amrnb0 libopencore-amrwb0 libopenh264-8 libopenjp2-7 libopenmpt0 libopus0 liborc-0_4-0 libpango-1_0-0 libpciaccess0 libpcre2-16-0 libpgm-5_3-0 libpipewire-0_3-0 libpixman-1-0 libplacebo360 libpolkit-agent-1-0 libpolkit-gobject-1-0 libpulse0 libQt6Core6 libQt6DBus6 libQt6Gui6 libQt6LabsAnimation6 libQt6LabsFolderListModel6 libQt6LabsPlatform6 libQt6LabsQmlModels6 libQt6LabsSettings6 libQt6LabsSharedImage6 libQt6LabsStyleKit6 libQt6LabsSynchronizer6 libQt6LabsWavefrontMesh6 libQt6Multimedia6 libQt6MultimediaQuick6 libQt6Network6 libQt6OpenGL6 libQt6Qml6 libQt6QmlCore6 libQt6QmlLocalStorage6 libQt6QmlMeta6 libQt6QmlModels6 libQt6QmlNetwork6 libQt6QmlWorkerScript6 libQt6QmlXmlListModel6 libQt6Quick3D6 libQt6Quick3DRuntimeRender6 libQt6Quick3DSpatialAudio6 libQt6Quick3DUtils6 libQt6Quick6 libQt6QuickControls2-6 libQt6QuickControls2Impl6 libQt6QuickDialogs2-6 libQt6QuickDialogs2QuickImpl6 libQt6QuickDialogs2Utils6 libQt6QuickEffects6 libQt6QuickLayouts6 libQt6QuickParticles6 libQt6QuickShapes6 libQt6QuickTemplates2-6 libQt6QuickTest6 libQt6QuickVectorImage6 libQt6ShaderTools6 libQt6SpatialAudio6 libQt6Sql6 libQt6Svg6 libQt6Test6 libQt6WaylandClient6 libQt6Widgets6 librav1e0_8 libraw1394-11 librist4 librubberband3 libsbc1 libserd-0-0 libshaderc_shared1 libsharpyuv0 libSM6 libsnapper8 libsndfile1 libsodium26 libsord-0-0 libsoxr0 libspandsp3 libspeex1 libSPIRV-Tools-2026_4_rc2 libsratom-0-0 libsrt1_5 libSvtAv1Enc4 libswresample6 libswscale9 libthai0 libthai-data libtheoradec2 libtheoraenc2 libtiff6 libtracker-sparql-3_0-0 libts0 libtwolame0 libudfread3 libunibreak6 libunwind8 libva2 libva-drm2 libva-x11-2 libvdpau1 libvidstab1_2 libvmaf3 libvo-amrwbenc0 libvorbis0 libvorbisenc2 libvorbisfile3 libvpl2 libvpx12 libvulkan1 libvulkan_lvp libwacom9 libwacom-data libwayland-client0 libwayland-cursor0 libwayland-egl1 libwebp7 libwebpmux3 libwebrtc-audio-processing-1-3 libX11-6 libX11-data libX11-xcb1 libXau6 libxcb1 libxcb-cursor0 libxcb-dri3-0 libxcb-glx0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-present0 libxcb-randr0 libxcb-render0 libxcb-render-util0 libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-util1 libxcb-xfixes0 libxcb-xinput0 libxcb-xkb1 libXcursor1 libXdamage1 libXext6 libXfixes3 libXft2 libXi6 libXinerama1 libxkbcommon-x11-0 libxml++-3_0-1 libXrandr2 libXrender1 libxshmfence1 libXv1 libxvidcore4 libXxf86vm1 libyuv0 libzimg2 libzix-0-0 libzmq5 libzvbi0 Mesa Mesa-dri Mesa-libEGL1 Mesa-libGL1 Mesa-vulkan-device-select perl pipewire-modules-0_3 pipewire-spa-plugins-0_2 polkit qt6-declarative-imports qt6-multimedia qt6-multimedia-imports qt6-networkinformation-connman qt6-networkinformation-glib qt6-networkinformation-nm qt6-network-tls qt6-qt5compat-imports qtdeclarative-imports-provides-qt6 ryoku-desktop ryoku-desktop-fonts ryoku-desktop-runtime ryoku-helper ryoku-profile-defaults ryoku-quickshell ryoku-tools ryoku-tools-launcher-status ryoku-tools-state-init ryoku-ui-proof snapper
+
+309 new packages to install.
+
+Package download size:   241.9 MiB
+
+Download only.
+
+Backend:  classic_rpmtrans --download-only
+Continue? [y/n/v/...? shows all options] (y): y
+Preloading Packages [..
+Preloading: libXxf86vm1-1.1.7-1.5.x86_64.rpm [done]
+.
+Preloading: libva-x11-2-2.24.1-1.1.x86_64.rpm [done]
+.
+Preloading: libvdpau1-1.5-5.5.x86_64.rpm [done]
+.
+Preloading: libXcursor1-1.2.3-1.7.x86_64.rpm [done]
+.
+Preloading: libcairo2-1.18.6-1.1.x86_64.rpm [done]
+.
+Preloading: libXft2-2.3.9-1.5.x86_64.rpm [done]
+..
+Preloading: libxcb-cursor0-0.1.6-1.5.x86_64.rpm [done]
+.
+Preloading: liblilv-0-0-0.28.0-1.3.x86_64.rpm [done]
+.
+Preloading: libsndfile1-1.2.2-6.1.x86_64.rpm [done]
+.
+Preloading: libvulkan_lvp-26.2.4-1.1.x86_64.rpm [done]
+.
+Preloading: google-noto-sans-tc-fonts-2.004-7.6.noarch.rpm [done]
+.
+Preloading: libopenmpt0-0.8.9-1.1.x86_64.rpm [done]
+.
+Preloading: libQt6Sql6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6Test6-6.11.2-2.1.x86_64.rpm [done]
+..
+Preloading: libQt6DBus6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libswscale9-8.1.3-3.1.x86_64.rpm [done]
+.
+Preloading: google-noto-sans-sc-fonts-2.004-7.6.noarch.rpm [done]
+.
+Preloading: google-noto-sans-kr-fonts-2.004-7.6.noarch.rpm [done]
+..
+Preloading: libswresample6-8.1.3-3.1.x86_64.rpm [done]
+.
+Preloading: qt6-networkinformation-connman-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: Mesa-libEGL1-26.2.4-1.1.x86_64.rpm [done]
+.
+Preloading: libpango-1_0-0-1.58.2-1.1.x86_64.rpm [done]
+.
+Preloading: libglvnd-1.7.0-2.4.x86_64.rpm [done]
+.
+Preloading: google-noto-sans-jp-fonts-2.004-7.6.noarch.rpm [done]
+..
+Preloading: Mesa-dri-26.2.4-1.1.x86_64.rpm [done]
+.
+Preloading: Mesa-26.2.4-1.1.x86_64.rpm [done]
+.
+Preloading: libcairo-gobject2-1.18.6-1.1.x86_64.rpm [done]
+.
+Preloading: libcairo-script-interpreter2-1.18.6-1.1.x86_64.rpm [done]
+.
+Preloading: libavutil60-8.1.3-3.1.x86_64.rpm [done]
+.
+Preloading: libXv1-1.0.13-1.6.x86_64.rpm [done]
+.
+Preloading: libpulse0-17.0-7.6.x86_64.rpm [done]
+.
+Preloading: qt6-network-tls-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6Network6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: google-noto-sans-cjk-fonts-2.004-7.6.noarch.rpm [done]
+.
+Preloading: libXi6-1.8.3-3.1.x86_64.rpm [done]
+.
+Preloading: libXinerama1-1.1.6-1.5.x86_64.rpm [done]
+..
+Preloading: libXrandr2-1.5.5-1.5.x86_64.rpm [done]
+.
+Preloading: libass9-0.17.5-1.3.x86_64.rpm [done]
+.
+Preloading: libxcb-keysyms1-0.4.1-1.11.x86_64.rpm [done]
+.
+Preloading: libharfbuzz-subset0-14.6.0-1.1.x86_64.rpm [done]
+.
+Preloading: snapper-0.13.1-3.4.x86_64.rpm [done]
+.
+Preloading: libcups2-2.4.19-4.1.x86_64.rpm [done]
+.
+Preloading: libxcb-glx0-1.17.0-2.7.x86_64.rpm [done]
+.
+Preloading: libX11-6-1.8.13-3.1.x86_64.rpm [done]
+.
+Preloading: libxcb-dri3-0-1.17.0-2.7.x86_64.rpm [done]
+.
+Preloading: libopenh264-8-2.6.0-2.suse1699.10.x86_64.rpm [done]
+.
+Preloading: perl-5.44.0-1.2.x86_64.rpm [done]
+.
+Preloading: libxcb-icccm4-0.4.2-1.10.x86_64.rpm [done]
+..
+Preloading: libxcb-render0-1.17.0-2.7.x86_64.rpm [done]
+.
+Preloading: libQt6Core6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libxcb-shape0-1.17.0-2.7.x86_64.rpm [done]
+.
+Preloading: libxcb-present0-1.17.0-2.7.x86_64.rpm [done]
+.
+Preloading: libxcb-shm0-1.17.0-2.7.x86_64.rpm [done]
+.
+Preloading: libxcb-sync1-1.17.0-2.7.x86_64.rpm [done]
+.
+Preloading: libxcb-util1-0.4.1-1.10.x86_64.rpm [done]
+.
+Preloading: libxcb-xfixes0-1.17.0-2.7.x86_64.rpm [done]
+.
+Preloading: libsratom-0-0-0.6.22-1.3.x86_64.rpm [done]
+.
+Preloading: libxcb-randr0-1.17.0-2.7.x86_64.rpm [done]
+.
+Preloading: libXext6-1.3.7-1.5.x86_64.rpm [done]
+.
+Preloading: libXfixes3-6.0.2-2.5.x86_64.rpm [done]
+.
+Preloading: libXrender1-0.9.12-2.1.x86_64.rpm [done]
+.
+Preloading: libxcb-render-util0-0.3.10-1.11.x86_64.rpm [done]
+.
+Preloading: Mesa-vulkan-device-select-26.2.4-1.1.x86_64.rpm [done]
+..
+Preloading: libxkbcommon-x11-0-1.13.2-1.3.x86_64.rpm [done]
+.
+Preloading: libXdamage1-1.1.7-1.5.x86_64.rpm [done]
+.
+Preloading: libplacebo360-7.360.1-1.7.x86_64.rpm [done]
+.
+Preloading: libinput10-1.32-1.1.x86_64.rpm [done]
+.
+Preloading: libgstphotography-1_0-0-1.28.8-1.1.x86_64.rpm [done]
+.
+Preloading: libwebpmux3-1.6.0-2.3.x86_64.rpm [done]
+.
+Preloading: libvorbisenc2-1.3.7-5.7.x86_64.rpm [done]
+.
+Preloading: libffado2-2.4.9-4.6.x86_64.rpm [done]
+.
+Preloading: libspandsp3-3.0.0+g57-1.6.x86_64.rpm [done]
+.
+Preloading: libQt6LabsSettings6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libgdk_pixbuf-2_0-0-2.44.7-1.2.x86_64.rpm [done]
+.
+Preloading: libvorbisfile3-1.3.7-5.7.x86_64.rpm [done]
+..
+Preloading: libQt6QmlMeta6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6QuickControls2Impl6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libxcb-image0-0.4.1-1.12.x86_64.rpm [done]
+.
+Preloading: libQt6LabsQmlModels6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6QuickTemplates2-6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: adwaita-icon-theme-50.0+2-2.1.noarch.rpm [done]
+.
+Preloading: libQt6LabsAnimation6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6LabsFolderListModel6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6LabsSynchronizer6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6QuickControls2-6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libgtk-4-1-4.22.5-1.1.x86_64.rpm [done]
+..
+Preloading: libQt6LabsSharedImage6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6LabsWavefrontMesh6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6QmlLocalStorage6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6QmlModels6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6QmlNetwork6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6QmlXmlListModel6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6QuickEffects6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: qt6-declarative-imports-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: qt6-multimedia-imports-6.11.2-1.2.x86_64.rpm [done]
+.
+Preloading: libQt6Quick3DSpatialAudio6-6.11.2-1.2.x86_64.rpm [done]
+.
+Preloading: libQt6Quick3D6-6.11.2-1.1.x86_64.rpm [done]
+.
+Preloading: libQt6Quick3DRuntimeRender6-6.11.2-1.1.x86_64.rpm [done]
+..
+Preloading: qt6-qt5compat-imports-6.11.2-1.1.x86_64.rpm [done]
+.
+Preloading: kf6-syntax-highlighting-imports-6.31.0-1.1.x86_64.rpm [done]
+.
+Preloading: libQt6Quick3DUtils6-6.11.2-1.1.x86_64.rpm [done]
+.
+Preloading: libQt6MultimediaQuick6-6.11.2-1.2.x86_64.rpm [done]
+.
+Preloading: qtdeclarative-imports-provides-qt6-1.0-1.55.x86_64.rpm [done]
+.
+Preloading: libQt6QuickDialogs2-6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6QuickLayouts6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6QmlCore6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6SpatialAudio6-6.11.2-1.2.x86_64.rpm [done]
+.
+Preloading: libQt6QuickDialogs2QuickImpl6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6Multimedia6-6.11.2-1.2.x86_64.rpm [done]
+.
+Preloading: qt6-multimedia-6.11.2-1.2.x86_64.rpm [done]
+..
+Preloading: libQt6LabsPlatform6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libgstallocators-1_0-0-1.28.8-1.1.x86_64.rpm [done]
+.
+Preloading: libQt6WaylandClient6-6.11.2-2.1.x86_64.rpm [done]
+..
+Preloading: libgstgl-1_0-0-1.28.8-1.1.x86_64.rpm [done]
+.
+Preloading: libgstvideo-1_0-0-1.28.8-1.1.x86_64.rpm [done]
+..
+Preloading: libavfilter11-8.1.3-3.1.x86_64.rpm [done]
+.
+Preloading: pipewire-spa-plugins-0_2-1.6.9-2.1.x86_64.rpm [done]
+.
+Preloading: gtk4-tools-4.22.5-1.1.x86_64.rpm [done]
+..
+Preloading: libgstpbutils-1_0-0-1.28.8-1.1.x86_64.rpm [done]
+.
+Preloading: libQt6LabsStyleKit6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6OpenGL6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: gstreamer-plugins-base-1.28.8-1.1.x86_64.rpm [done]
+.
+Preloading: libavformat62-8.1.3-3.1.x86_64.rpm [done]
+.
+Preloading: qt6-networkinformation-nm-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6Widgets6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libcamera0_7-0.7.2-1.2.x86_64.rpm [done]
+.
+Preloading: libgstaudio-1_0-0-1.28.8-1.1.x86_64.rpm [done]
+..
+Preloading: qt6-networkinformation-glib-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: Mesa-libGL1-26.2.4-1.1.x86_64.rpm [done]
+.
+Preloading: libgsttag-1_0-0-1.28.8-1.1.x86_64.rpm [done]
+.
+Preloading: libgstriff-1_0-0-1.28.8-1.1.x86_64.rpm [done]
+.
+Preloading: libavcodec62-8.1.3-3.1.x86_64.rpm [done]
+.
+Preloading: libQt6QuickParticles6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6QuickShapes6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6QuickTest6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libgstplay-1_0-0-1.28.8-1.1.x86_64.rpm [done]
+.
+Preloading: libQt6QmlWorkerScript6-6.11.2-2.1.x86_64.rpm [done]
+..
+Preloading: libQt6QuickVectorImage6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libxcb-xkb1-1.17.0-2.7.x86_64.rpm [done]
+.
+Preloading: libQt6Quick6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: pipewire-modules-0_3-1.6.9-2.1.x86_64.rpm [done]
+.
+Preloading: libpipewire-0_3-0-1.6.9-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6Qml6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: kf6-syntax-highlighting-6.31.0-1.1.x86_64.rpm [done]
+.
+Preloading: libKF6SyntaxHighlighting6-6.31.0-1.1.x86_64.rpm [done]
+.
+Preloading: libQt6Gui6-6.11.2-2.1.x86_64.rpm [done]
+..
+Preloading: libQt6QuickDialogs2Utils6-6.11.2-2.1.x86_64.rpm [done]
+.
+Preloading: libQt6Svg6-6.11.2-1.1.x86_64.rpm [done]
+.
+Preloading: libgstapp-1_0-0-1.28.8-1.1.x86_64.rpm [done]
+.
+Preloading: libgraphite2-3-1.3.15-1.3.x86_64.rpm [done]
+.
+Preloading: libjson-glib-1_0-0-1.10.8-2.1.x86_64.rpm [done]
+.
+Preloading: libjpeg8-8.3.2-85.1.x86_64.rpm [done]
+.
+Preloading: libQt6ShaderTools6-6.11.2-1.1.x86_64.rpm [done]
+.
+Preloading: libjemalloc2-5.4.0-1.1.x86_64.rpm [done]
+.
+Preloading: libgudev-1_0-0-238-1.11.x86_64.rpm [done]
+.
+Preloading: libhwy1-1.4.0-3.1.x86_64.rpm [done]
+.
+Preloading: liblc3-1-1.1.3-1.7.x86_64.rpm [done]
+.
+Preloading: libjbig2-2.1-5.9.x86_64.rpm [done]
+..
+Preloading: libgsm1-1.0.24-1.4.x86_64.rpm [done]
+.
+Preloading: liblcms2-2-2.19.1-1.3.x86_64.rpm [done]
+.
+Preloading: libgomp1-16.2.1+git9713-1.1.x86_64.rpm [done]
+.
+Preloading: libgdbm6-1.26-1.5.x86_64.rpm [done]
+.
+Preloading: libgraphene-1_0-0-1.10.8-3.1.x86_64.rpm [done]
+.
+Preloading: libglibmm-2_4-1-2.66.10-1.1.x86_64.rpm [done]
+.
+Preloading: libicu78-ledata-78.3-1.4.noarch.rpm [done]
+.
+Preloading: libfribidi0-1.0.17-1.1.x86_64.rpm [done]
+.
+Preloading: libfreeaptx0-0.2.2-2.1.x86_64.rpm [done]
+.
+Preloading: libfontconfig1-2.18.3-1.1.x86_64.rpm [done]
+.
+Preloading: fontconfig-2.18.3-1.1.x86_64.rpm [done]
+.
+Preloading: libopencore-amrnb0-0.1.6-1.11.x86_64.rpm [done]
+.
+Preloading: libpolkit-agent-1-0-127-7.2.x86_64.rpm [done]
+.
+Preloading: libpgm-5_3-0-5.3.128-3.5.x86_64.rpm [done]
+..
+Preloading: libpixman-1-0-0.46.4-2.5.x86_64.rpm [done]
+.
+Preloading: libpciaccess0-0.19-1.4.x86_64.rpm [done]
+.
+Preloading: liborc-0_4-0-0.4.44-1.1.x86_64.rpm [done]
+.
+Preloading: libopus0-1.6.1-1.5.x86_64.rpm [done]
+.
+Preloading: libopenjp2-7-2.5.4-2.6.x86_64.rpm [done]
+.
+Preloading: libopencore-amrwb0-0.1.6-1.11.x86_64.rpm [done]
+.
+Preloading: liboapv1-1.1.2.0-3.1.x86_64.rpm [done]
+.
+Preloading: libfftw3-3-3.3.10-6.5.x86_64.rpm [done]
+.
+Preloading: libogg0-1.3.6-1.5.x86_64.rpm [done]
+.
+Preloading: libpcre2-16-0-10.49-2.1.x86_64.rpm [done]
+.
+Preloading: libmysofa1-1.3.5-1.1.x86_64.rpm [done]
+.
+Preloading: libmpg123-0-1.33.7-1.1.x86_64.rpm [done]
+..
+Preloading: libmtdev1-1.1.6-1.21.x86_64.rpm [done]
+.
+Preloading: libldac2-2.0.2.5-1.3.x86_64.rpm [done]
+.
+Preloading: libmp3lame0-3.100-5.16.x86_64.rpm [done]
+.
+Preloading: libbluetooth3-5.87-3.1.x86_64.rpm [done]
+.
+Preloading: libmd4c0-0.5.3-1.4.x86_64.rpm [done]
+.
+Preloading: libbrotlienc1-1.2.0-2.4.x86_64.rpm [done]
+.
+Preloading: libbs2b0-3.1.0-14.9.x86_64.rpm [done]
+.
+Preloading: libLerc4-4.1.0-3.3.x86_64.rpm [done]
+.
+Preloading: libavahi-common3-0.8-45.2.x86_64.rpm [done]
+.
+Preloading: libXau6-1.0.12-2.5.x86_64.rpm [done]
+.
+Preloading: libX11-data-1.8.13-3.1.noarch.rpm [done]
+..
+Preloading: libbtrfs0-7.1-1.2.x86_64.rpm [done]
+.
+Preloading: libasound2-1.2.16.1-3.1.x86_64.rpm [done]
+.
+Preloading: libICE6-1.1.2-1.6.x86_64.rpm [done]
+.
+Preloading: hicolor-icon-theme-0.18-1.5.noarch.rpm [done]
+.
+Preloading: libSPIRV-Tools-2026_4_rc2-2026.4~rc2-1.1.x86_64.rpm [done]
+.
+Preloading: gdk-pixbuf-query-loaders-2.44.7-1.2.x86_64.rpm [done]
+.
+Preloading: libSvtAv1Enc4-4.2.0-1.2.x86_64.rpm [done]
+.
+Preloading: gtk4-schema-4.22.5-1.1.noarch.rpm [done]
+..
+Preloading: diffutils-3.12-1.5.x86_64.rpm [done]
+.
+Preloading: dbus-1-tools-1.14.10-5.7.x86_64.rpm [done]
+.
+Preloading: cups-config-2.4.19-4.1.x86_64.rpm [done]
+.
+Preloading: libdisplay-info3-0.3.0-2.5.x86_64.rpm [done]
+.
+Preloading: libevdev2-1.13.7-1.1.x86_64.rpm [done]
+.
+Preloading: libfdk-aac2-2.0.3-1.2.x86_64.rpm [done]
+.
+Preloading: libebur128-1-1.2.6-2.7.x86_64.rpm [done]
+.
+Preloading: libepoxy0-1.5.10-2.12.x86_64.rpm [done]
+.
+Preloading: libdrm2-2.4.134-2.2.x86_64.rpm [done]
+.
+Preloading: libdouble-conversion3-3.4.0-1.5.x86_64.rpm [done]
+.
+Preloading: libdwarf2-2.3.3-1.1.x86_64.rpm [done]
+..
+Preloading: libpolkit-gobject-1-0-127-7.2.x86_64.rpm [done]
+.
+Preloading: libdatrie1-0.2.14-1.6.x86_64.rpm [done]
+.
+Preloading: libconfig++15-1.8.1-1.6.x86_64.rpm [done]
+.
+Preloading: libdav1d7-1.5.4-1.2.x86_64.rpm [done]
+.
+Preloading: libdovi3-3.4.0-1.3.x86_64.rpm [done]
+.
+Preloading: libcloudproviders0-0.4.1-1.1.x86_64.rpm [done]
+.
+Preloading: libcjson1-1.7.19-3.2.x86_64.rpm [done]
+.
+Preloading: libcamera-base0_7-0.7.2-1.2.x86_64.rpm [done]
+.
+Preloading: libbtrfsutil1-7.1-1.2.x86_64.rpm [done]
+.
+Preloading: libb2-1-0.98.1-2.5.x86_64.rpm [done]
+..
+Preloading: libcodec2-1_2-1.2.0-2.7.x86_64.rpm [done]
+.
+Preloading: libcolord2-1.4.8-3.1.x86_64.rpm [done]
+.
+Preloading: libtracker-sparql-3_0-0-3.11.1-1.4.x86_64.rpm [done]
+.
+Preloading: libvorbis0-1.3.7-5.7.x86_64.rpm [done]
+.
+Preloading: libtiff6-4.7.2-1.2.x86_64.rpm [done]
+.
+Preloading: libyuv0-20230517+a377993-2.5.x86_64.rpm [done]
+..
+Preloading: libglycin-2-0-2.1.5-1.3.x86_64.rpm [done]
+.
+Preloading: libtheoraenc2-1.2.0-3.1.x86_64.rpm [done]
+.
+Preloading: libharfbuzz0-14.6.0-1.1.x86_64.rpm [done]
+.
+Preloading: libjxl0_12-0.12.0-1.1.x86_64.rpm [done]
+.
+Preloading: libvidstab1_2-1.1.1-2.5.x86_64.rpm [done]
+.
+Preloading: libxml++-3_0-1-3.2.5-2.6.x86_64.rpm [done]
+.
+Preloading: libgdbm_compat4-1.26-1.5.x86_64.rpm [done]
+..
+Preloading: libsoxr0-0.1.3-4.1.x86_64.rpm [done]
+.
+Preloading: librubberband3-4.0.0-1.5.x86_64.rpm [done]
+.
+Preloading: libdrm_amdgpu1-2.4.134-2.2.x86_64.rpm [done]
+.
+Preloading: libgbm1-26.2.4-1.1.x86_64.rpm [done]
+.
+Preloading: librist4-0.2.20-1.2.x86_64.rpm [done]
+.
+Preloading: libshaderc_shared1-2026.4-1.1.x86_64.rpm [done]
+.
+Preloading: libsord-0-0-0.16.22-1.3.x86_64.rpm [done]
+.
+Preloading: libicu78-78.3-1.4.x86_64.rpm [done]
+.
+Preloading: libgstreamer-1_0-0-1.28.8-1.1.x86_64.rpm [done]
+..
+Preloading: libwayland-cursor0-1.26.0-1.2.x86_64.rpm [done]
+.
+Preloading: libwacom9-2.19.1-1.1.x86_64.rpm [done]
+.
+Preloading: libva-drm2-2.24.1-1.1.x86_64.rpm [done]
+.
+Preloading: gstreamer-1.28.8-1.1.x86_64.rpm [done]
+.
+Preloading: libcpptrace1-1.0.4-1.4.x86_64.rpm [done]
+.
+Preloading: libzmq5-4.3.5-1.11.x86_64.rpm [done]
+.
+Preloading: libLLVM23-23.1.3-1.1.x86_64.rpm [done]
+..
+Preloading: libthai0-0.1.30-1.5.x86_64.rpm [done]
+.
+Preloading: libwebp7-1.6.0-2.3.x86_64.rpm [done]
+.
+Preloading: libaom3-3.13.1-2.5.x86_64.rpm [done]
+.
+Preloading: libsnapper8-0.13.1-3.4.x86_64.rpm [done]
+.
+Preloading: libbluray4-1.5.0-1.1.x86_64.rpm [done]
+.
+Preloading: libavc1394-0-0.5.4-20.8.x86_64.rpm [done]
+.
+Preloading: libiec61883-0-1.2.0-9.5.x86_64.rpm [done]
+.
+Preloading: libdrm_intel1-2.4.134-2.2.x86_64.rpm [done]
+.
+Preloading: libFLAC14-1.5.0-1.6.x86_64.rpm [done]
+.
+Preloading: libvmaf3-3.2.1-1.1.x86_64.rpm [done]
+.
+Preloading: libunwind8-1.8.3-3.3.x86_64.rpm [done]
+.
+Preloading: libsrt1_5-1.5.7-1.1.x86_64.rpm [done]
+.
+Preloading: libva2-2.24.1-1.1.x86_64.rpm [done]
+.
+Preloading: libunibreak6-6.1-1.5.x86_64.rpm [done]
+.
+Preloading: libtwolame0-0.4.0-1.25.x86_64.rpm [done]
+..
+Preloading: libudfread3-1.2.0-1.5.x86_64.rpm [done]
+.
+Preloading: libts0-1.24-1.5.x86_64.rpm [done]
+.
+Preloading: libtheoradec2-1.2.0-3.1.x86_64.rpm [done]
+.
+Preloading: libvo-amrwbenc0-0.1.3+5-1.10.x86_64.rpm [done]
+.
+Preloading: libspeex1-1.2.1-2.8.x86_64.rpm [done]
+.
+Preloading: libthai-data-0.1.30-1.5.x86_64.rpm [done]
+.
+Preloading: libsharpyuv0-1.6.0-2.3.x86_64.rpm [done]
+.
+Preloading: libsodium26-1.0.22-2.1.x86_64.rpm [done]
+.
+Preloading: libraw1394-11-2.1.2-2.8.x86_64.rpm [done]
+.
+Preloading: libserd-0-0-0.32.10-1.1.x86_64.rpm [done]
+.
+Preloading: libsbc1-2.2-2.1.x86_64.rpm [done]
+.
+Preloading: libavahi-client3-0.8-45.2.x86_64.rpm [done]
+.
+Preloading: libxvidcore4-1.3.7-4.5.x86_64.rpm [done]
+.
+Preloading: polkit-127-7.2.x86_64.rpm [done]
+.
+Preloading: libxcb1-1.17.0-2.7.x86_64.rpm [done]
+.
+Preloading: libX11-xcb1-1.8.13-3.1.x86_64.rpm [done]
+..
+Preloading: libzix-0-0-0.8.0-1.5.x86_64.rpm [done]
+.
+Preloading: libSM6-1.2.6-1.5.x86_64.rpm [done]
+.
+Preloading: libglslang16-16.6.0-1.1.x86_64.rpm [done]
+.
+Preloading: libzimg2-3.0.6+20260720.g1ad1895-1.1.x86_64.rpm [done]
+.
+Preloading: libxcb-xinput0-1.17.0-2.7.x86_64.rpm [done]
+.
+Preloading: libxshmfence1-1.3.3-1.6.x86_64.rpm [done]
+.
+Preloading: libwayland-egl1-1.26.0-1.2.x86_64.rpm [done]
+.
+Preloading: libzvbi0-0.2.45-1.1.x86_64.rpm [done]
+.
+Preloading: libwebrtc-audio-processing-1-3-1.3-2.5.x86_64.rpm [done]
+.
+Preloading: libwayland-client0-1.26.0-1.2.x86_64.rpm [done]
+.
+Preloading: libwacom-data-2.19.1-1.1.x86_64.rpm [done]
+..
+Preloading: libvulkan1-1.4.363-1.1.x86_64.rpm [done]
+.
+Preloading: libvpl2-2.17.0-1.2.x86_64.rpm [done]
+.
+Preloading: libvpx12-1.17.0-1.1.x86_64.rpm [done]
+.
+Preloading: librav1e0_8-0.8.1-2.4.x86_64.rpm [done]
+.done]
+Retrieving: libopenh264-8-2.6.0-2.suse1699.10.x86_64 (Open H.264 Codec (openSUSE Tumbleweed)) (1/309), 460.0 KiB
+Retrieving: cups-config-2.4.19-4.1.x86_64 (openSUSE-Tumbleweed-Oss) (2/309), 286.3 KiB
+Retrieving: dbus-1-tools-1.14.10-5.7.x86_64 (openSUSE-Tumbleweed-Oss) (3/309),  41.2 KiB
+Retrieving: diffutils-3.12-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (4/309), 195.1 KiB
+Retrieving: gdk-pixbuf-query-loaders-2.44.7-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (5/309),  20.5 KiB
+Retrieving: gtk4-schema-4.22.5-1.1.noarch (openSUSE-Tumbleweed-Oss) (6/309),  76.1 KiB
+Retrieving: hicolor-icon-theme-0.18-1.5.noarch (openSUSE-Tumbleweed-Oss) (7/309),  76.3 KiB
+Retrieving: libICE6-1.1.2-1.6.x86_64 (openSUSE-Tumbleweed-Oss) (8/309),  56.1 KiB
+Retrieving: libLLVM23-23.1.3-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (9/309),  33.9 MiB
+Retrieving: libLerc4-4.1.0-3.3.x86_64 (openSUSE-Tumbleweed-Oss) (10/309), 226.1 KiB
+Retrieving: libSPIRV-Tools-2026_4_rc2-2026.4~rc2-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (11/309),   1.7 MiB
+Retrieving: libSvtAv1Enc4-4.2.0-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (12/309),   1.9 MiB
+Retrieving: libX11-data-1.8.13-3.1.noarch (openSUSE-Tumbleweed-Oss) (13/309), 141.4 KiB
+Retrieving: libXau6-1.0.12-2.5.x86_64 (openSUSE-Tumbleweed-Oss) (14/309),  15.9 KiB
+Retrieving: libasound2-1.2.16.1-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (15/309), 467.2 KiB
+Retrieving: libavahi-common3-0.8-45.2.x86_64 (openSUSE-Tumbleweed-Oss) (16/309),  32.3 KiB
+Retrieving: libbluetooth3-5.87-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (17/309), 122.8 KiB
+Retrieving: libbrotlienc1-1.2.0-2.4.x86_64 (openSUSE-Tumbleweed-Oss) (18/309), 270.4 KiB
+Retrieving: libbs2b0-3.1.0-14.9.x86_64 (openSUSE-Tumbleweed-Oss) (19/309),  18.4 KiB
+Retrieving: libbtrfs0-7.1-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (20/309),  43.0 KiB
+Retrieving: libbtrfsutil1-7.1-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (21/309),  46.0 KiB
+Retrieving: libcamera-base0_7-0.7.2-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (22/309),  81.9 KiB
+Retrieving: libcjson1-1.7.19-3.2.x86_64 (openSUSE-Tumbleweed-Oss) (23/309),  41.2 KiB
+Retrieving: libcloudproviders0-0.4.1-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (24/309),  40.6 KiB
+Retrieving: libcodec2-1_2-1.2.0-2.7.x86_64 (openSUSE-Tumbleweed-Oss) (25/309), 661.0 KiB
+Retrieving: libconfig++15-1.8.1-1.6.x86_64 (openSUSE-Tumbleweed-Oss) (26/309),  60.6 KiB
+Retrieving: libdatrie1-0.2.14-1.6.x86_64 (openSUSE-Tumbleweed-Oss) (27/309),  51.5 KiB
+Retrieving: libdav1d7-1.5.4-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (28/309), 651.6 KiB
+Retrieving: libdisplay-info3-0.3.0-2.5.x86_64 (openSUSE-Tumbleweed-Oss) (29/309),  82.1 KiB
+Retrieving: libdouble-conversion3-3.4.0-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (30/309),  41.2 KiB
+Retrieving: libdovi3-3.4.0-1.3.x86_64 (openSUSE-Tumbleweed-Oss) (31/309), 354.2 KiB
+Retrieving: libdrm2-2.4.134-2.2.x86_64 (openSUSE-Tumbleweed-Oss) (32/309),  53.7 KiB
+Retrieving: libdwarf2-2.3.3-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (33/309), 275.2 KiB
+Retrieving: libebur128-1-1.2.6-2.7.x86_64 (openSUSE-Tumbleweed-Oss) (34/309),  23.8 KiB
+Retrieving: libepoxy0-1.5.10-2.12.x86_64 (openSUSE-Tumbleweed-Oss) (35/309), 229.4 KiB
+Retrieving: libevdev2-1.13.7-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (36/309),  43.4 KiB
+Retrieving: libfdk-aac2-2.0.3-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (37/309), 339.8 KiB
+Retrieving: libfftw3-3-3.3.10-6.5.x86_64 (openSUSE-Tumbleweed-Oss) (38/309),   1.4 MiB
+Retrieving: libfontconfig1-2.18.3-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (39/309), 183.0 KiB
+Retrieving: fontconfig-2.18.3-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (40/309),  70.1 KiB
+Retrieving: libfreeaptx0-0.2.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (41/309),  28.1 KiB
+Retrieving: libfribidi0-1.0.17-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (42/309),  42.1 KiB
+Retrieving: libgdbm6-1.26-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (43/309),  56.4 KiB
+Retrieving: libglibmm-2_4-1-2.66.10-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (44/309), 247.2 KiB
+Retrieving: libgomp1-16.2.1+git9713-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (45/309), 219.9 KiB
+Retrieving: libgraphene-1_0-0-1.10.8-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (46/309),  54.1 KiB
+Retrieving: libgraphite2-3-1.3.15-1.3.x86_64 (openSUSE-Tumbleweed-Oss) (47/309),  70.4 KiB
+Retrieving: libgsm1-1.0.24-1.4.x86_64 (openSUSE-Tumbleweed-Oss) (48/309),  31.0 KiB
+Retrieving: libgudev-1_0-0-238-1.11.x86_64 (openSUSE-Tumbleweed-Oss) (49/309),  32.1 KiB
+Retrieving: libhwy1-1.4.0-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (50/309), 471.0 KiB
+Retrieving: libicu78-ledata-78.3-1.4.noarch (openSUSE-Tumbleweed-Oss) (51/309),   8.8 MiB
+Retrieving: libjbig2-2.1-5.9.x86_64 (openSUSE-Tumbleweed-Oss) (52/309),  37.1 KiB
+Retrieving: libjemalloc2-5.4.0-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (53/309), 300.9 KiB
+Retrieving: libjpeg8-8.3.2-85.1.x86_64 (openSUSE-Tumbleweed-Oss) (54/309), 267.5 KiB
+Retrieving: libjson-glib-1_0-0-1.10.8-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (55/309),  71.8 KiB
+Retrieving: liblc3-1-1.1.3-1.7.x86_64 (openSUSE-Tumbleweed-Oss) (56/309), 105.2 KiB
+Retrieving: liblcms2-2-2.19.1-1.3.x86_64 (openSUSE-Tumbleweed-Oss) (57/309), 184.4 KiB
+Retrieving: libldac2-2.0.2.5-1.3.x86_64 (openSUSE-Tumbleweed-Oss) (58/309),  40.4 KiB
+Retrieving: libmd4c0-0.5.3-1.4.x86_64 (openSUSE-Tumbleweed-Oss) (59/309),  73.8 KiB
+Retrieving: libmp3lame0-3.100-5.16.x86_64 (openSUSE-Tumbleweed-Oss) (60/309), 158.2 KiB
+Retrieving: libmpg123-0-1.33.7-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (61/309), 204.0 KiB
+Retrieving: libmtdev1-1.1.6-1.21.x86_64 (openSUSE-Tumbleweed-Oss) (62/309),  19.3 KiB
+Retrieving: libmysofa1-1.3.5-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (63/309),   1.1 MiB
+Retrieving: liboapv1-1.1.2.0-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (64/309),  73.0 KiB
+Retrieving: libogg0-1.3.6-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (65/309),  32.2 KiB
+Retrieving: libopencore-amrnb0-0.1.6-1.11.x86_64 (openSUSE-Tumbleweed-Oss) (66/309), 105.9 KiB
+Retrieving: libopencore-amrwb0-0.1.6-1.11.x86_64 (openSUSE-Tumbleweed-Oss) (67/309),  58.9 KiB
+Retrieving: libopenjp2-7-2.5.4-2.6.x86_64 (openSUSE-Tumbleweed-Oss) (68/309), 184.9 KiB
+Retrieving: libopus0-1.6.1-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (69/309), 253.9 KiB
+Retrieving: liborc-0_4-0-0.4.44-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (70/309), 320.0 KiB
+Retrieving: libpciaccess0-0.19-1.4.x86_64 (openSUSE-Tumbleweed-Oss) (71/309),  28.1 KiB
+Retrieving: libpcre2-16-0-10.49-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (72/309), 257.3 KiB
+Retrieving: libpgm-5_3-0-5.3.128-3.5.x86_64 (openSUSE-Tumbleweed-Oss) (73/309), 183.4 KiB
+Retrieving: libpixman-1-0-0.46.4-2.5.x86_64 (openSUSE-Tumbleweed-Oss) (74/309), 294.9 KiB
+Retrieving: libpolkit-agent-1-0-127-7.2.x86_64 (openSUSE-Tumbleweed-Oss) (75/309),  29.8 KiB
+Retrieving: libpolkit-gobject-1-0-127-7.2.x86_64 (openSUSE-Tumbleweed-Oss) (76/309),  57.0 KiB
+Retrieving: polkit-127-7.2.x86_64 (openSUSE-Tumbleweed-Oss) (77/309), 149.7 KiB
+Retrieving: librav1e0_8-0.8.1-2.4.x86_64 (openSUSE-Tumbleweed-Oss) (78/309),   1.0 MiB
+Retrieving: libraw1394-11-2.1.2-2.8.x86_64 (openSUSE-Tumbleweed-Oss) (79/309),  33.0 KiB
+Retrieving: libsbc1-2.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (80/309),  50.3 KiB
+Retrieving: libserd-0-0-0.32.10-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (81/309),  60.4 KiB
+Retrieving: libsharpyuv0-1.6.0-2.3.x86_64 (openSUSE-Tumbleweed-Oss) (82/309),  20.9 KiB
+Retrieving: libsodium26-1.0.22-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (83/309), 213.6 KiB
+Retrieving: libspeex1-1.2.1-2.8.x86_64 (openSUSE-Tumbleweed-Oss) (84/309),  67.3 KiB
+Retrieving: libsrt1_5-1.5.7-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (85/309), 390.0 KiB
+Retrieving: libthai-data-0.1.30-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (86/309), 156.8 KiB
+Retrieving: libtheoradec2-1.2.0-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (87/309),  55.3 KiB
+Retrieving: libts0-1.24-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (88/309),  18.3 KiB
+Retrieving: libtwolame0-0.4.0-1.25.x86_64 (openSUSE-Tumbleweed-Oss) (89/309),  59.0 KiB
+Retrieving: libudfread3-1.2.0-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (90/309),  31.1 KiB
+Retrieving: libunibreak6-6.1-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (91/309),  30.4 KiB
+Retrieving: libunwind8-1.8.3-3.3.x86_64 (openSUSE-Tumbleweed-Oss) (92/309),  69.1 KiB
+Retrieving: libva2-2.24.1-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (93/309),  90.0 KiB
+Retrieving: libvmaf3-3.2.1-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (94/309), 338.0 KiB
+Retrieving: libvo-amrwbenc0-0.1.3+5-1.10.x86_64 (openSUSE-Tumbleweed-Oss) (95/309),  82.5 KiB
+Retrieving: libvpl2-2.17.0-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (96/309), 150.1 KiB
+Retrieving: libvpx12-1.17.0-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (97/309), 882.5 KiB
+Retrieving: libvulkan1-1.4.363-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (98/309), 183.4 KiB
+Retrieving: libwacom-data-2.19.1-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (99/309), 221.9 KiB
+Retrieving: libwayland-client0-1.26.0-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (100/309),  38.8 KiB
+Retrieving: libwayland-egl1-1.26.0-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (101/309),  12.6 KiB
+Retrieving: libwebrtc-audio-processing-1-3-1.3-2.5.x86_64 (openSUSE-Tumbleweed-Oss) (102/309), 441.5 KiB
+Retrieving: libxshmfence1-1.3.3-1.6.x86_64 (openSUSE-Tumbleweed-Oss) (103/309),  11.9 KiB
+Retrieving: libxvidcore4-1.3.7-4.5.x86_64 (openSUSE-Tumbleweed-Oss) (104/309), 228.3 KiB
+Retrieving: libzimg2-3.0.6+20260720.g1ad1895-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (105/309), 244.5 KiB
+Retrieving: libzix-0-0-0.8.0-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (106/309),  34.0 KiB
+Retrieving: libzvbi0-0.2.45-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (107/309), 246.3 KiB
+Retrieving: libSM6-1.2.6-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (108/309),  25.2 KiB
+Retrieving: libglslang16-16.6.0-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (109/309),   1.1 MiB
+Retrieving: libX11-xcb1-1.8.13-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (110/309),  16.8 KiB
+Retrieving: libxcb1-1.17.0-2.7.x86_64 (openSUSE-Tumbleweed-Oss) (111/309),  54.2 KiB
+Retrieving: libavahi-client3-0.8-45.2.x86_64 (openSUSE-Tumbleweed-Oss) (112/309),  37.4 KiB
+Retrieving: libsnapper8-0.13.1-3.4.x86_64 (openSUSE-Tumbleweed-Oss) (113/309), 370.1 KiB
+Retrieving: librist4-0.2.20-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (114/309), 143.0 KiB
+Retrieving: libgbm1-26.2.4-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (115/309),  63.9 KiB
+Retrieving: libdrm_amdgpu1-2.4.134-2.2.x86_64 (openSUSE-Tumbleweed-Oss) (116/309),  41.6 KiB
+Retrieving: librubberband3-4.0.0-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (117/309), 183.7 KiB
+Retrieving: libgdbm_compat4-1.26-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (118/309),  26.9 KiB
+Retrieving: libxml++-3_0-1-3.2.5-2.6.x86_64 (openSUSE-Tumbleweed-Oss) (119/309), 106.5 KiB
+Retrieving: libvidstab1_2-1.1.1-2.5.x86_64 (openSUSE-Tumbleweed-Oss) (120/309),  44.9 KiB
+Retrieving: libsoxr0-0.1.3-4.1.x86_64 (openSUSE-Tumbleweed-Oss) (121/309),  99.3 KiB
+Retrieving: libb2-1-0.98.1-2.5.x86_64 (openSUSE-Tumbleweed-Oss) (122/309),  23.4 KiB
+Retrieving: libharfbuzz0-14.6.0-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (123/309), 647.6 KiB
+Retrieving: libjxl0_12-0.12.0-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (124/309),   1.0 MiB
+Retrieving: libicu78-78.3-1.4.x86_64 (openSUSE-Tumbleweed-Oss) (125/309),   2.3 MiB
+Retrieving: libyuv0-20230517+a377993-2.5.x86_64 (openSUSE-Tumbleweed-Oss) (126/309), 198.1 KiB
+Retrieving: libtiff6-4.7.2-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (127/309), 246.7 KiB
+Retrieving: libtracker-sparql-3_0-0-3.11.1-1.4.x86_64 (openSUSE-Tumbleweed-Oss) (128/309), 328.6 KiB
+Retrieving: libglycin-2-0-2.1.5-1.3.x86_64 (openSUSE-Tumbleweed-Oss) (129/309),   1.6 MiB
+Retrieving: libcolord2-1.4.8-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (130/309), 156.3 KiB
+Retrieving: libvorbis0-1.3.7-5.7.x86_64 (openSUSE-Tumbleweed-Oss) (131/309), 107.5 KiB
+Retrieving: libtheoraenc2-1.2.0-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (132/309), 110.7 KiB
+Retrieving: libFLAC14-1.5.0-1.6.x86_64 (openSUSE-Tumbleweed-Oss) (133/309), 256.6 KiB
+Retrieving: libdrm_intel1-2.4.134-2.2.x86_64 (openSUSE-Tumbleweed-Oss) (134/309),  82.1 KiB
+Retrieving: libiec61883-0-1.2.0-9.5.x86_64 (openSUSE-Tumbleweed-Oss) (135/309),  40.3 KiB
+Retrieving: libavc1394-0-0.5.4-20.8.x86_64 (openSUSE-Tumbleweed-Oss) (136/309),  20.9 KiB
+Retrieving: libwebp7-1.6.0-2.3.x86_64 (openSUSE-Tumbleweed-Oss) (137/309), 255.6 KiB
+Retrieving: libthai0-0.1.30-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (138/309),  25.4 KiB
+Retrieving: libbluray4-1.5.0-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (139/309), 146.2 KiB
+Retrieving: libzmq5-4.3.5-1.11.x86_64 (openSUSE-Tumbleweed-Oss) (140/309), 265.7 KiB
+Retrieving: libgstreamer-1_0-0-1.28.8-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (141/309), 960.7 KiB
+Retrieving: gstreamer-1.28.8-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (142/309), 514.9 KiB
+Retrieving: libcpptrace1-1.0.4-1.4.x86_64 (openSUSE-Tumbleweed-Oss) (143/309), 190.3 KiB
+Retrieving: libva-drm2-2.24.1-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (144/309),  18.2 KiB
+Retrieving: libaom3-3.13.1-2.5.x86_64 (openSUSE-Tumbleweed-Oss) (145/309),   1.9 MiB
+Retrieving: libwacom9-2.19.1-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (146/309),  50.8 KiB
+Retrieving: libwayland-cursor0-1.26.0-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (147/309),  19.6 KiB
+Retrieving: libsord-0-0-0.16.22-1.3.x86_64 (openSUSE-Tumbleweed-Oss) (148/309),  25.5 KiB
+Retrieving: libshaderc_shared1-2026.4-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (149/309),  48.9 KiB
+Retrieving: libxcb-xkb1-1.17.0-2.7.x86_64 (openSUSE-Tumbleweed-Oss) (150/309),  39.4 KiB
+Retrieving: libxcb-xinput0-1.17.0-2.7.x86_64 (openSUSE-Tumbleweed-Oss) (151/309),  42.8 KiB
+Retrieving: libxcb-xfixes0-1.17.0-2.7.x86_64 (openSUSE-Tumbleweed-Oss) (152/309),  17.2 KiB
+Retrieving: libxcb-util1-0.4.1-1.10.x86_64 (openSUSE-Tumbleweed-Oss) (153/309),  16.0 KiB
+Retrieving: libxcb-sync1-1.17.0-2.7.x86_64 (openSUSE-Tumbleweed-Oss) (154/309),  16.7 KiB
+Retrieving: libxcb-shm0-1.17.0-2.7.x86_64 (openSUSE-Tumbleweed-Oss) (155/309),  13.4 KiB
+Retrieving: libxcb-shape0-1.17.0-2.7.x86_64 (openSUSE-Tumbleweed-Oss) (156/309),  13.6 KiB
+Retrieving: libxcb-render0-1.17.0-2.7.x86_64 (openSUSE-Tumbleweed-Oss) (157/309),  23.1 KiB
+Retrieving: libxcb-randr0-1.17.0-2.7.x86_64 (openSUSE-Tumbleweed-Oss) (158/309),  24.8 KiB
+Retrieving: libxcb-present0-1.17.0-2.7.x86_64 (openSUSE-Tumbleweed-Oss) (159/309),  13.4 KiB
+Retrieving: libxcb-keysyms1-0.4.1-1.11.x86_64 (openSUSE-Tumbleweed-Oss) (160/309),  12.1 KiB
+Retrieving: libxcb-icccm4-0.4.2-1.10.x86_64 (openSUSE-Tumbleweed-Oss) (161/309),  14.9 KiB
+Retrieving: libxcb-glx0-1.17.0-2.7.x86_64 (openSUSE-Tumbleweed-Oss) (162/309),  30.7 KiB
+Retrieving: libxcb-dri3-0-1.17.0-2.7.x86_64 (openSUSE-Tumbleweed-Oss) (163/309),  14.7 KiB
+Retrieving: libX11-6-1.8.13-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (164/309), 673.8 KiB
+Retrieving: libcups2-2.4.19-4.1.x86_64 (openSUSE-Tumbleweed-Oss) (165/309), 321.0 KiB
+Retrieving: snapper-0.13.1-3.4.x86_64 (openSUSE-Tumbleweed-Oss) (166/309), 406.3 KiB
+Retrieving: perl-5.44.0-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (167/309),   8.5 MiB
+Retrieving: libharfbuzz-subset0-14.6.0-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (168/309), 622.2 KiB
+Retrieving: libass9-0.17.5-1.3.x86_64 (openSUSE-Tumbleweed-Oss) (169/309), 124.4 KiB
+Retrieving: libQt6Core6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (170/309),   2.4 MiB
+Retrieving: libspandsp3-3.0.0+g57-1.6.x86_64 (openSUSE-Tumbleweed-Oss) (171/309), 388.2 KiB
+Retrieving: libgdk_pixbuf-2_0-0-2.44.7-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (172/309), 156.4 KiB
+Retrieving: libvorbisfile3-1.3.7-5.7.x86_64 (openSUSE-Tumbleweed-Oss) (173/309),  25.7 KiB
+Retrieving: libvorbisenc2-1.3.7-5.7.x86_64 (openSUSE-Tumbleweed-Oss) (174/309),  85.8 KiB
+Retrieving: libffado2-2.4.9-4.6.x86_64 (openSUSE-Tumbleweed-Oss) (175/309), 896.8 KiB
+Retrieving: libwebpmux3-1.6.0-2.3.x86_64 (openSUSE-Tumbleweed-Oss) (176/309),  30.5 KiB
+Retrieving: libgstphotography-1_0-0-1.28.8-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (177/309),  79.6 KiB
+Retrieving: libinput10-1.32-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (178/309), 205.7 KiB
+Retrieving: libsratom-0-0-0.6.22-1.3.x86_64 (openSUSE-Tumbleweed-Oss) (179/309),  28.2 KiB
+Retrieving: libplacebo360-7.360.1-1.7.x86_64 (openSUSE-Tumbleweed-Oss) (180/309), 448.7 KiB
+Retrieving: libxkbcommon-x11-0-1.13.2-1.3.x86_64 (openSUSE-Tumbleweed-Oss) (181/309),  30.0 KiB
+Retrieving: libxcb-image0-0.4.1-1.12.x86_64 (openSUSE-Tumbleweed-Oss) (182/309),  16.9 KiB
+Retrieving: libxcb-render-util0-0.3.10-1.11.x86_64 (openSUSE-Tumbleweed-Oss) (183/309),  14.1 KiB
+Retrieving: Mesa-vulkan-device-select-26.2.4-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (184/309),  99.3 KiB
+Retrieving: libXrender1-0.9.12-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (185/309),  28.1 KiB
+Retrieving: libXfixes3-6.0.2-2.5.x86_64 (openSUSE-Tumbleweed-Oss) (186/309),  19.1 KiB
+Retrieving: libXext6-1.3.7-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (187/309),  38.0 KiB
+Retrieving: libXdamage1-1.1.7-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (188/309),  12.3 KiB
+Retrieving: google-noto-sans-tc-fonts-2.004-7.6.noarch (openSUSE-Tumbleweed-Oss) (189/309),  13.5 MiB
+Retrieving: google-noto-sans-sc-fonts-2.004-7.6.noarch (openSUSE-Tumbleweed-Oss) (190/309),  13.5 MiB
+Retrieving: google-noto-sans-kr-fonts-2.004-7.6.noarch (openSUSE-Tumbleweed-Oss) (191/309),  13.5 MiB
+Retrieving: google-noto-sans-jp-fonts-2.004-7.6.noarch (openSUSE-Tumbleweed-Oss) (192/309),  13.5 MiB
+Retrieving: libQt6Test6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (193/309), 197.9 KiB
+Retrieving: libQt6Sql6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (194/309), 151.4 KiB
+Retrieving: libQt6DBus6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (195/309), 296.6 KiB
+Retrieving: libopenmpt0-0.8.9-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (196/309), 795.6 KiB
+Retrieving: libsndfile1-1.2.2-6.1.x86_64 (openSUSE-Tumbleweed-Oss) (197/309), 213.3 KiB
+Retrieving: liblilv-0-0-0.28.0-1.3.x86_64 (openSUSE-Tumbleweed-Oss) (198/309),  54.5 KiB
+Retrieving: libxcb-cursor0-0.1.6-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (199/309),  17.7 KiB
+Retrieving: libvulkan_lvp-26.2.4-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (200/309),   2.4 MiB
+Retrieving: libXft2-2.3.9-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (201/309),  54.3 KiB
+Retrieving: libXcursor1-1.2.3-1.7.x86_64 (openSUSE-Tumbleweed-Oss) (202/309),  31.5 KiB
+Retrieving: libvdpau1-1.5-5.5.x86_64 (openSUSE-Tumbleweed-Oss) (203/309),  21.7 KiB
+Retrieving: libva-x11-2-2.24.1-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (204/309),  24.1 KiB
+Retrieving: libcairo2-1.18.6-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (205/309), 612.8 KiB
+Retrieving: libXxf86vm1-1.1.7-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (206/309),  17.9 KiB
+Retrieving: libXv1-1.0.13-1.6.x86_64 (openSUSE-Tumbleweed-Oss) (207/309),  18.0 KiB
+Retrieving: libXrandr2-1.5.5-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (208/309),  26.4 KiB
+Retrieving: libXinerama1-1.1.6-1.5.x86_64 (openSUSE-Tumbleweed-Oss) (209/309),  11.7 KiB
+Retrieving: libXi6-1.8.3-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (210/309),  41.8 KiB
+Retrieving: google-noto-sans-cjk-fonts-2.004-7.6.noarch (openSUSE-Tumbleweed-Oss) (211/309),  14.6 KiB
+Retrieving: libQt6Network6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (212/309), 744.1 KiB
+Retrieving: qt6-network-tls-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (213/309), 139.6 KiB
+Retrieving: libpulse0-17.0-7.6.x86_64 (openSUSE-Tumbleweed-Oss) (214/309), 309.6 KiB
+Retrieving: libavutil60-8.1.3-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (215/309), 379.7 KiB
+Retrieving: libpango-1_0-0-1.58.2-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (216/309), 315.7 KiB
+Retrieving: libcairo-script-interpreter2-1.18.6-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (217/309),  68.6 KiB
+Retrieving: libcairo-gobject2-1.18.6-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (218/309),  22.4 KiB
+Retrieving: Mesa-26.2.4-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (219/309),  62.1 KiB
+Retrieving: Mesa-dri-26.2.4-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (220/309),  11.3 MiB
+Retrieving: libglvnd-1.7.0-2.4.x86_64 (openSUSE-Tumbleweed-Oss) (221/309), 388.0 KiB
+Retrieving: Mesa-libEGL1-26.2.4-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (222/309), 196.0 KiB
+Retrieving: qt6-networkinformation-connman-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (223/309),  46.3 KiB
+Retrieving: libswscale9-8.1.3-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (224/309), 322.8 KiB
+Retrieving: libswresample6-8.1.3-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (225/309),  74.3 KiB
+Retrieving: libgsttag-1_0-0-1.28.8-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (226/309), 150.4 KiB
+Retrieving: Mesa-libGL1-26.2.4-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (227/309), 188.0 KiB
+Retrieving: qt6-networkinformation-glib-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (228/309),  26.6 KiB
+Retrieving: libavcodec62-8.1.3-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (229/309),   4.7 MiB
+Retrieving: libgstaudio-1_0-0-1.28.8-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (230/309), 261.7 KiB
+Retrieving: libcamera0_7-0.7.2-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (231/309), 672.1 KiB
+Retrieving: qt6-networkinformation-nm-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (232/309),  46.0 KiB
+Retrieving: libavformat62-8.1.3-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (233/309),   1.2 MiB
+Retrieving: libgstallocators-1_0-0-1.28.8-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (234/309),  60.1 KiB
+Retrieving: libQt6Gui6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (235/309),   4.2 MiB
+Retrieving: libQt6Widgets6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (236/309),   2.8 MiB
+Retrieving: libQt6OpenGL6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (237/309), 236.1 KiB
+Retrieving: libavfilter11-8.1.3-3.1.x86_64 (openSUSE-Tumbleweed-Oss) (238/309),   1.7 MiB
+Retrieving: libgstvideo-1_0-0-1.28.8-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (239/309), 352.9 KiB
+Retrieving: libgstgl-1_0-0-1.28.8-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (240/309), 273.1 KiB
+Retrieving: libQt6WaylandClient6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (241/309), 357.7 KiB
+Retrieving: pipewire-spa-plugins-0_2-1.6.9-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (242/309),   1.9 MiB
+Retrieving: libgstpbutils-1_0-0-1.28.8-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (243/309), 148.8 KiB
+Retrieving: gstreamer-plugins-base-1.28.8-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (244/309),   1.1 MiB
+Retrieving: libgstapp-1_0-0-1.28.8-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (245/309),  81.2 KiB
+Retrieving: libQt6Svg6-6.11.2-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (246/309), 299.0 KiB
+Retrieving: libQt6ShaderTools6-6.11.2-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (247/309),   1.8 MiB
+Retrieving: libQt6QuickDialogs2Utils6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (248/309),  27.0 KiB
+Retrieving: libKF6SyntaxHighlighting6-6.31.0-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (249/309),   1.6 MiB
+Retrieving: kf6-syntax-highlighting-6.31.0-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (250/309),  47.5 KiB
+Retrieving: libpipewire-0_3-0-1.6.9-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (251/309), 500.8 KiB
+Retrieving: pipewire-modules-0_3-1.6.9-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (252/309), 990.7 KiB
+Retrieving: libgstriff-1_0-0-1.28.8-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (253/309),  71.9 KiB
+Retrieving: libQt6Quick6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (254/309),   2.6 MiB
+Retrieving: libQt6Qml6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (255/309),   1.9 MiB
+Retrieving: libQt6QuickVectorImage6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (256/309), 220.0 KiB
+Retrieving: libQt6QmlWorkerScript6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (257/309),  46.5 KiB
+Retrieving: libgstplay-1_0-0-1.28.8-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (258/309), 118.7 KiB
+Retrieving: libQt6QuickTest6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (259/309), 107.6 KiB
+Retrieving: libQt6QuickShapes6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (260/309), 201.2 KiB
+Retrieving: libQt6QuickParticles6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (261/309), 265.7 KiB
+Retrieving: libQt6QuickLayouts6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (262/309), 129.3 KiB
+Retrieving: libQt6QuickEffects6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (263/309), 239.6 KiB
+Retrieving: libQt6QmlXmlListModel6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (264/309),  61.8 KiB
+Retrieving: libQt6QmlNetwork6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (265/309),  52.3 KiB
+Retrieving: libQt6QmlModels6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (266/309), 411.1 KiB
+Retrieving: libQt6QmlLocalStorage6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (267/309),  34.9 KiB
+Retrieving: libQt6LabsWavefrontMesh6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (268/309),  33.4 KiB
+Retrieving: libQt6LabsSynchronizer6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (269/309),  39.1 KiB
+Retrieving: libQt6LabsSharedImage6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (270/309),  32.2 KiB
+Retrieving: libQt6LabsSettings6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (271/309),  34.5 KiB
+Retrieving: libQt6LabsFolderListModel6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (272/309),  57.0 KiB
+Retrieving: libQt6LabsAnimation6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (273/309),  31.2 KiB
+Retrieving: gtk4-tools-4.22.5-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (274/309),   1.6 MiB
+Retrieving: adwaita-icon-theme-50.0+2-2.1.noarch (openSUSE-Tumbleweed-Oss) (275/309), 659.5 KiB
+Retrieving: libgtk-4-1-4.22.5-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (276/309),   3.6 MiB
+Retrieving: libQt6QuickTemplates2-6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (277/309), 737.3 KiB
+Retrieving: libQt6QmlMeta6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (278/309),  78.6 KiB
+Retrieving: libQt6LabsQmlModels6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (279/309),  88.5 KiB
+Retrieving: libQt6QuickControls2Impl6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (280/309), 198.9 KiB
+Retrieving: libQt6QuickControls2-6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (281/309), 706.5 KiB
+Retrieving: libQt6LabsStyleKit6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (282/309), 192.5 KiB
+Retrieving: libQt6LabsPlatform6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (283/309), 112.7 KiB
+Retrieving: libQt6Multimedia6-6.11.2-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (284/309), 637.2 KiB
+Retrieving: qt6-multimedia-6.11.2-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (285/309), 443.5 KiB
+Retrieving: libQt6QuickDialogs2QuickImpl6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (286/309), 269.9 KiB
+Retrieving: libQt6SpatialAudio6-6.11.2-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (287/309), 255.1 KiB
+Retrieving: libQt6QuickDialogs2-6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (288/309),  67.1 KiB
+Retrieving: libQt6QmlCore6-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (289/309),  57.3 KiB
+Retrieving: qt6-declarative-imports-6.11.2-2.1.x86_64 (openSUSE-Tumbleweed-Oss) (290/309), 883.2 KiB
+Retrieving: qtdeclarative-imports-provides-qt6-1.0-1.55.x86_64 (openSUSE-Tumbleweed-Oss) (291/309),  24.2 KiB
+Retrieving: libQt6Quick3DUtils6-6.11.2-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (292/309), 243.3 KiB
+Retrieving: libQt6MultimediaQuick6-6.11.2-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (293/309), 100.8 KiB
+Retrieving: kf6-syntax-highlighting-imports-6.31.0-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (294/309),  54.8 KiB
+Retrieving: qt6-qt5compat-imports-6.11.2-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (295/309), 372.2 KiB
+Retrieving: libQt6Quick3DRuntimeRender6-6.11.2-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (296/309),   1.7 MiB
+Retrieving: libQt6Quick3D6-6.11.2-1.1.x86_64 (openSUSE-Tumbleweed-Oss) (297/309), 561.4 KiB
+Retrieving: libQt6Quick3DSpatialAudio6-6.11.2-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (298/309),  33.9 KiB
+Retrieving: qt6-multimedia-imports-6.11.2-1.2.x86_64 (openSUSE-Tumbleweed-Oss) (299/309),  30.9 KiB
+Retrieving: ryoku-helper-0.1.0-5.x86_64 (Plain RPM files cache) (300/309), 479.7 KiB
+Retrieving: ryoku-profile-defaults-0.1.0-5.noarch (Plain RPM files cache) (301/309),  19.5 KiB
+Retrieving: ryoku-tools-0.1.0-5.x86_64 (Plain RPM files cache) (302/309), 459.0 KiB
+Retrieving: ryoku-desktop-fonts-0.1.0-5.noarch (Plain RPM files cache) (303/309),   7.5 MiB
+Retrieving: ryoku-tools-state-init-0.1.0-5.x86_64 (Plain RPM files cache) (304/309), 415.8 KiB
+Retrieving: ryoku-ui-proof-0.1.0-5.x86_64 (Plain RPM files cache) (305/309), 363.4 KiB
+Retrieving: ryoku-quickshell-0.3.2-2.x86_64 (Plain RPM files cache) (306/309),   1.8 MiB
+Retrieving: ryoku-tools-launcher-status-0.1.0-5.x86_64 (Plain RPM files cache) (307/309), 355.1 KiB
+Retrieving: ryoku-desktop-runtime-0.1.0-5.x86_64 (Plain RPM files cache) (308/309),  17.2 MiB
+Retrieving: ryoku-desktop-0.1.0-5.x86_64 (Plain RPM files cache) (309/309),  22.7 KiB
+bash: line 9: cmp: command not found

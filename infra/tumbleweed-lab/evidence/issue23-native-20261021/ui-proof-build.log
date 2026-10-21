@@ -1,0 +1,177 @@
+warning: Could not canonicalize hostname: ryoku-lab
+Executing(%mkbuilddir): /usr/bin/bash -e /var/tmp/rpm-tmp.WTDWc0
+Executing(%prep): /usr/bin/bash -e /var/tmp/rpm-tmp.Lg8Gm2
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build
++ cd <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build
++ rm -rf ryoku-opensuse-0.1.0
++ /usr/lib/rpm/rpmuncompress -x <RPM_TOPDIR>/SOURCES/ryoku-opensuse-0.1.0.tar.gz
++ STATUS=0
++ '[' 0 -ne 0 ']'
++ cd ryoku-opensuse-0.1.0
++ /usr/lib/rpm/rpmuncompress -x <RPM_TOPDIR>/SOURCES/ryoku-opensuse-vendor-0.1.0.tar.xz
++ STATUS=0
++ '[' 0 -ne 0 ']'
++ /usr/bin/chmod -Rf a+rX,u+w,g-w,o-w .
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%build): /usr/bin/bash -e /var/tmp/rpm-tmp.BDxuvZ
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build
++ /usr/bin/rm -rf <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/BUILDROOT
+++ dirname <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/BUILDROOT
++ /usr/bin/mkdir -p <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build
++ /usr/bin/mkdir <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/BUILDROOT
++ cd ryoku-opensuse-0.1.0
++ CARGO_NET_OFFLINE=true
++ cargo --config 'source.crates-io.replace-with="vendored-sources"' --config 'source.vendored-sources.directory="vendor"' build --offline --locked --release -p ryoku-ui --features gtk-ui --bin ryoku-ui-gtk
+   Compiling winnow v1.0.4
+   Compiling toml_datetime v1.1.2+spec-1.1.0
+   Compiling target-lexicon v0.13.5
+   Compiling serde_spanned v1.1.2
+   Compiling heck v0.5.0
+   Compiling smallvec v1.16.3
+   Compiling cfg-expr v0.20.10
+   Compiling toml_parser v1.1.5+spec-1.1.0
+   Compiling pkg-config v0.3.34
+   Compiling toml v1.1.8+spec-1.1.0
+   Compiling version-compare v0.2.1
+   Compiling system-deps v7.0.8
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling libc v0.2.190
+   Compiling glib-sys v0.21.5
+   Compiling syn v3.0.9
+   Compiling gobject-sys v0.21.5
+   Compiling gio-sys v0.21.5
+   Compiling bitflags v2.13.2
+   Compiling equivalent v1.0.2
+   Compiling memchr v2.8.3
+   Compiling hashbrown v0.17.1
+   Compiling indexmap v2.14.2
+   Compiling toml_edit v0.25.17+spec-1.1.0
+   Compiling futures-core v0.3.34
+   Compiling proc-macro-crate v3.5.0
+   Compiling futures-macro v0.3.34
+   Compiling syn v2.0.119
+   Compiling slab v0.4.12
+   Compiling pin-project-lite v0.2.17
+   Compiling futures-task v0.3.34
+   Compiling version_check v0.9.5
+   Compiling generic-array v0.14.7
+   Compiling futures-util v0.3.34
+   Compiling futures-executor v0.3.34
+   Compiling futures-channel v0.3.34
+   Compiling pango-sys v0.21.5
+   Compiling glib-macros v0.21.5
+   Compiling cairo-sys-rs v0.21.5
+   Compiling gdk-pixbuf-sys v0.21.5
+   Compiling typenum v1.20.1
+   Compiling serde_core v1.0.229
+   Compiling gdk4-sys v0.10.3
+   Compiling graphene-sys v0.21.5
+   Compiling zmij v1.0.23
+   Compiling glib v0.21.5
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling rustix v1.1.5
+   Compiling serde v1.0.229
+   Compiling futures-io v0.3.34
+   Compiling serde_json v1.0.154
+   Compiling digest v0.10.7
+   Compiling serde_derive v1.0.229
+   Compiling gsk4-sys v0.10.3
+   Compiling linux-raw-sys v0.12.1
+   Compiling itoa v1.0.18
+   Compiling cpufeatures v0.2.17
+   Compiling cfg-if v1.0.5
+   Compiling semver v1.0.28
+   Compiling autocfg v1.5.1
+   Compiling memoffset v0.9.1
+   Compiling rustc_version v0.4.1
+   Compiling sha2 v0.10.9
+   Compiling gio v0.21.5
+   Compiling pango v0.21.5
+   Compiling gdk-pixbuf v0.21.5
+   Compiling cairo-rs v0.21.5
+   Compiling field-offset v0.3.6
+   Compiling gtk4-sys v0.10.3
+   Compiling gdk4 v0.10.3
+   Compiling ryoku-snapper v0.1.0 (<RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/ryoku-opensuse-0.1.0/suse/snapper)
+   Compiling ryoku-profiles v0.1.0 (<RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/ryoku-opensuse-0.1.0/suse/profiles)
+   Compiling graphene-rs v0.21.5
+   Compiling ryoku-recovery v0.1.0 (<RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/ryoku-opensuse-0.1.0/suse/recovery)
+   Compiling gsk4 v0.10.3
+   Compiling gtk4-macros v0.10.3
+   Compiling gtk4 v0.10.3
+   Compiling ryoku-service v0.1.0 (<RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/ryoku-opensuse-0.1.0/suse/service)
+   Compiling ryoku-ui v0.1.0 (<RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/ryoku-opensuse-0.1.0/suse/ui)
+    Finished `release` profile [optimized] target(s) in 2m 11s
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%install): /usr/bin/bash -e /var/tmp/rpm-tmp.ZQ0ifF
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build
++ /usr/bin/rm -rf <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/BUILDROOT
++ /usr/bin/mkdir -p <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build
++ /usr/bin/mkdir <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/BUILDROOT
++ cd ryoku-opensuse-0.1.0
++ install -D -m 0755 /home/tester/rpmbuild/cargo-target/release/ryoku-ui-gtk <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/BUILDROOT/usr/bin/ryoku-ui-gtk
++ install -D -m 0644 packaging/rpm/applications/org.ryoku.OpenSUSE.UiProof.desktop <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/BUILDROOT/usr/share/applications/org.ryoku.OpenSUSE.UiProof.desktop
++ install -D -m 0644 packaging/rpm/icons/org.ryoku.OpenSUSE.UiProof.svg <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/BUILDROOT/usr/share/icons/hicolor/scalable/apps/org.ryoku.OpenSUSE.UiProof.svg
++ /usr/lib/rpm/find-debuginfo -j2 -n --run-dwz --dwz-low-mem-die-limit 10000000 --dwz-max-die-limit 50000000 -S debugsourcefiles.list <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/ryoku-opensuse-0.1.0
+find-debuginfo: starting
+WARNING: /usr/bin/ryoku-ui-gtk is already stripped!
+Extracting debug info from 0 files
+find-debuginfo: done
++ /usr/lib/rpm/brp-compress
++ /usr/lib/rpm/brp-suse
+Reading <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/SPECPARTS/rpm-debuginfo.specpart
+Executing(%check): /usr/bin/bash -e /var/tmp/rpm-tmp.myALWA
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build
++ cd ryoku-opensuse-0.1.0
++ desktop-file-validate packaging/rpm/applications/org.ryoku.OpenSUSE.UiProof.desktop
+packaging/rpm/applications/org.ryoku.OpenSUSE.UiProof.desktop: hint: value "System;Utility;" for key "Categories" in group "Desktop Entry" contains more than one main category; application might appear more than once in the application menu
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Processing files: ryoku-ui-proof-0.1.0-5.x86_64
+Executing(%license): /usr/bin/bash -e /var/tmp/rpm-tmp.RbsPkr
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build
++ cd ryoku-opensuse-0.1.0
++ LICENSEDIR=<RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-ui-proof
++ export LC_ALL=C.UTF-8
++ LC_ALL=C.UTF-8
++ export LICENSEDIR
++ /usr/bin/mkdir -p <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-ui-proof
++ cp -pr <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/ryoku-opensuse-0.1.0/LICENSE <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-ui-proof
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Provides: application() application(org.ryoku.OpenSUSE.UiProof.desktop) ryoku-ui-proof = 0.1.0-5 ryoku-ui-proof(x86-64) = 0.1.0-5
+Requires(rpmlib): rpmlib(CompressedFileNames) <= 3.0.4-1 rpmlib(FileDigests) <= 4.6.0-1 rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+Requires: ld-linux-x86-64.so.2()(64bit) ld-linux-x86-64.so.2(GLIBC_2.3)(64bit) libc.so.6()(64bit) libc.so.6(GLIBC_2.14)(64bit) libc.so.6(GLIBC_2.16)(64bit) libc.so.6(GLIBC_2.17)(64bit) libc.so.6(GLIBC_2.18)(64bit) libc.so.6(GLIBC_2.2.5)(64bit) libc.so.6(GLIBC_2.28)(64bit) libc.so.6(GLIBC_2.3)(64bit) libc.so.6(GLIBC_2.3.4)(64bit) libc.so.6(GLIBC_2.30)(64bit) libc.so.6(GLIBC_2.32)(64bit) libc.so.6(GLIBC_2.33)(64bit) libc.so.6(GLIBC_2.34)(64bit) libgcc_s.so.1()(64bit) libgcc_s.so.1(GCC_3.0)(64bit) libgcc_s.so.1(GCC_3.3)(64bit) libgcc_s.so.1(GCC_4.2.0)(64bit) libgio-2.0.so.0()(64bit) libglib-2.0.so.0()(64bit) libgobject-2.0.so.0()(64bit) libgtk-4.so.1()(64bit)
+Processing files: ryoku-ui-proof-debugsource-0.1.0-5.x86_64
+Checking for unpackaged file(s): /usr/lib/rpm/check-files <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/BUILDROOT
+warning: Empty %files file <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/ryoku-opensuse-0.1.0/debugsourcefiles.list
+Wrote: <RPM_TOPDIR>/SRPMS/ryoku-ui-proof-0.1.0-5.src.rpm
+Wrote: <RPM_TOPDIR>/RPMS/x86_64/ryoku-ui-proof-debugsource-0.1.0-5.x86_64.rpm
+Wrote: <RPM_TOPDIR>/RPMS/x86_64/ryoku-ui-proof-0.1.0-5.x86_64.rpm
+Executing(rmbuild): /usr/bin/bash -e /var/tmp/rpm-tmp.whRhdT
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build
++ test -d <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build
++ /usr/bin/chmod -Rf a+rX,u+w,g-w,o-w <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build
++ rm -rf <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build
++ RPM_EC=0
+++ jobs -p
++ exit 0
+
+RPM build warnings:
+    Could not canonicalize hostname: ryoku-lab
+    Empty %files file <RPM_TOPDIR>/BUILD/ryoku-ui-proof-0.1.0-build/ryoku-opensuse-0.1.0/debugsourcefiles.list

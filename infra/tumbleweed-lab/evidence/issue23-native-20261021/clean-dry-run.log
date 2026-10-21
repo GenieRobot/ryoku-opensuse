@@ -1,0 +1,31 @@
+'/home/tester/runtime-signed/ryoku-desktop-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-desktop-fonts-0.1.0-5.noarch.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-desktop-runtime-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-helper-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-profile-defaults-0.1.0-5.noarch.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-quickshell-0.3.2-2.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-tools-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-tools-launcher-status-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-tools-state-init-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-ui-proof-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+Loading repository data...
+Reading installed packages...
+Resolving package dependencies...
+
+The following 309 NEW packages are going to be installed:
+  adwaita-icon-theme cups-config dbus-1-tools diffutils fontconfig gdk-pixbuf-query-loaders google-noto-sans-cjk-fonts google-noto-sans-jp-fonts google-noto-sans-kr-fonts google-noto-sans-sc-fonts google-noto-sans-tc-fonts gstreamer gstreamer-plugins-base gtk4-schema gtk4-tools hicolor-icon-theme kf6-syntax-highlighting kf6-syntax-highlighting-imports libaom3 libasound2 libass9 libavahi-client3 libavahi-common3 libavc1394-0 libavcodec62 libavfilter11 libavformat62 libavutil60 libb2-1 libbluetooth3 libbluray4 libbrotlienc1 libbs2b0 libbtrfs0 libbtrfsutil1 libcairo2 libcairo-gobject2 libcairo-script-interpreter2 libcamera0_7 libcamera-base0_7 libcjson1 libcloudproviders0 libcodec2-1_2 libcolord2 libconfig++15 libcpptrace1 libcups2 libdatrie1 libdav1d7 libdisplay-info3 libdouble-conversion3 libdovi3 libdrm2 libdrm_amdgpu1 libdrm_intel1 libdwarf2 libebur128-1 libepoxy0 libevdev2 libfdk-aac2 libffado2 libfftw3-3 libFLAC14 libfontconfig1 libfreeaptx0 libfribidi0 libgbm1 libgdbm6 libgdbm_compat4 libgdk_pixbuf-2_0-0 libglibmm-2_4-1 libglslang16 libglvnd libglycin-2-0 libgomp1 libgraphene-1_0-0 libgraphite2-3 libgsm1 libgstallocators-1_0-0 libgstapp-1_0-0 libgstaudio-1_0-0 libgstgl-1_0-0 libgstpbutils-1_0-0 libgstphotography-1_0-0 libgstplay-1_0-0 libgstreamer-1_0-0 libgstriff-1_0-0 libgsttag-1_0-0 libgstvideo-1_0-0 libgtk-4-1 libgudev-1_0-0 libharfbuzz0 libharfbuzz-subset0 libhwy1 libICE6 libicu78 libicu78-ledata libiec61883-0 libinput10 libjbig2 libjemalloc2 libjpeg8 libjson-glib-1_0-0 libjxl0_12 libKF6SyntaxHighlighting6 liblc3-1 liblcms2-2 libldac2 libLerc4 liblilv-0-0 libLLVM23 libmd4c0 libmp3lame0 libmpg123-0 libmtdev1 libmysofa1 liboapv1 libogg0 libopencore-amrnb0 libopencore-amrwb0 libopenh264-8 libopenjp2-7 libopenmpt0 libopus0 liborc-0_4-0 libpango-1_0-0 libpciaccess0 libpcre2-16-0 libpgm-5_3-0 libpipewire-0_3-0 libpixman-1-0 libplacebo360 libpolkit-agent-1-0 libpolkit-gobject-1-0 libpulse0 libQt6Core6 libQt6DBus6 libQt6Gui6 libQt6LabsAnimation6 libQt6LabsFolderListModel6 libQt6LabsPlatform6 libQt6LabsQmlModels6 libQt6LabsSettings6 libQt6LabsSharedImage6 libQt6LabsStyleKit6 libQt6LabsSynchronizer6 libQt6LabsWavefrontMesh6 libQt6Multimedia6 libQt6MultimediaQuick6 libQt6Network6 libQt6OpenGL6 libQt6Qml6 libQt6QmlCore6 libQt6QmlLocalStorage6 libQt6QmlMeta6 libQt6QmlModels6 libQt6QmlNetwork6 libQt6QmlWorkerScript6 libQt6QmlXmlListModel6 libQt6Quick3D6 libQt6Quick3DRuntimeRender6 libQt6Quick3DSpatialAudio6 libQt6Quick3DUtils6 libQt6Quick6 libQt6QuickControls2-6 libQt6QuickControls2Impl6 libQt6QuickDialogs2-6 libQt6QuickDialogs2QuickImpl6 libQt6QuickDialogs2Utils6 libQt6QuickEffects6 libQt6QuickLayouts6 libQt6QuickParticles6 libQt6QuickShapes6 libQt6QuickTemplates2-6 libQt6QuickTest6 libQt6QuickVectorImage6 libQt6ShaderTools6 libQt6SpatialAudio6 libQt6Sql6 libQt6Svg6 libQt6Test6 libQt6WaylandClient6 libQt6Widgets6 librav1e0_8 libraw1394-11 librist4 librubberband3 libsbc1 libserd-0-0 libshaderc_shared1 libsharpyuv0 libSM6 libsnapper8 libsndfile1 libsodium26 libsord-0-0 libsoxr0 libspandsp3 libspeex1 libSPIRV-Tools-2026_4_rc2 libsratom-0-0 libsrt1_5 libSvtAv1Enc4 libswresample6 libswscale9 libthai0 libthai-data libtheoradec2 libtheoraenc2 libtiff6 libtracker-sparql-3_0-0 libts0 libtwolame0 libudfread3 libunibreak6 libunwind8 libva2 libva-drm2 libva-x11-2 libvdpau1 libvidstab1_2 libvmaf3 libvo-amrwbenc0 libvorbis0 libvorbisenc2 libvorbisfile3 libvpl2 libvpx12 libvulkan1 libvulkan_lvp libwacom9 libwacom-data libwayland-client0 libwayland-cursor0 libwayland-egl1 libwebp7 libwebpmux3 libwebrtc-audio-processing-1-3 libX11-6 libX11-data libX11-xcb1 libXau6 libxcb1 libxcb-cursor0 libxcb-dri3-0 libxcb-glx0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-present0 libxcb-randr0 libxcb-render0 libxcb-render-util0 libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-util1 libxcb-xfixes0 libxcb-xinput0 libxcb-xkb1 libXcursor1 libXdamage1 libXext6 libXfixes3 libXft2 libXi6 libXinerama1 libxkbcommon-x11-0 libxml++-3_0-1 libXrandr2 libXrender1 libxshmfence1 libXv1 libxvidcore4 libXxf86vm1 libyuv0 libzimg2 libzix-0-0 libzmq5 libzvbi0 Mesa Mesa-dri Mesa-libEGL1 Mesa-libGL1 Mesa-vulkan-device-select perl pipewire-modules-0_3 pipewire-spa-plugins-0_2 polkit qt6-declarative-imports qt6-multimedia qt6-multimedia-imports qt6-networkinformation-connman qt6-networkinformation-glib qt6-networkinformation-nm qt6-network-tls qt6-qt5compat-imports qtdeclarative-imports-provides-qt6 ryoku-desktop ryoku-desktop-fonts ryoku-desktop-runtime ryoku-helper ryoku-profile-defaults ryoku-quickshell ryoku-tools ryoku-tools-launcher-status ryoku-tools-state-init ryoku-ui-proof snapper
+
+309 new packages to install.
+
+Package download size:
+            |     241.9 MiB  overall package size
+       0 B  |  -  241.9 MiB  already in cache
+
+Package install size change:
+              |     798.7 MiB  required by packages that will be installed
+   798.7 MiB  |  -      0 B    released by packages that will be removed
+
+Backend:  classic_rpmtrans --dry-run
+Continue? [y/n/v/...? shows all options] (y): y
+
+Checking for file conflicts: [.......done]

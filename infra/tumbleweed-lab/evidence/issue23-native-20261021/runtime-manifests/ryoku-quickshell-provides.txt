@@ -1,0 +1,14 @@
+qt6qmlimport(Quickshell)
+qt6qmlimport(Quickshell.Bluetooth)
+qt6qmlimport(Quickshell.Hyprland)
+qt6qmlimport(Quickshell.Io)
+qt6qmlimport(Quickshell.Networking)
+qt6qmlimport(Quickshell.Services.Mpris)
+qt6qmlimport(Quickshell.Services.Notifications)
+qt6qmlimport(Quickshell.Services.Pipewire)
+qt6qmlimport(Quickshell.Services.UPower)
+qt6qmlimport(Quickshell.Wayland)
+qt6qmlimport(Quickshell.Widgets)
+qt6qmlimport(Quickshell.WindowManager)
+ryoku-quickshell = 0.3.2-2
+ryoku-quickshell(x86-64) = 0.3.2-2

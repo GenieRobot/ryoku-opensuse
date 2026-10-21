@@ -1,0 +1,3 @@
+target/issue23-packaging-20261016/disk.qcow2: OK
+target/issue23-packaging-20261016/OVMF_VARS.fd: OK
+target/issue23-packaging-20261016/seed.iso: OK

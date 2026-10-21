@@ -1,6 +1,6 @@
 Name:           ryoku-ui-proof
 Version:        0.1.0
-Release:        1%{?dist}
+Release:        5%{?dist}
 Summary:        GTK proof for Ryoku's typed read-only UI boundary
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse
@@ -31,7 +31,7 @@ CARGO_NET_OFFLINE=true cargo \
 desktop-file-validate packaging/rpm/applications/org.ryoku.OpenSUSE.UiProof.desktop
 
 %install
-install -D -m 0755 target/release/ryoku-ui-gtk \
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-ui-gtk" \
     %{buildroot}%{_bindir}/ryoku-ui-gtk
 install -D -m 0644 packaging/rpm/applications/org.ryoku.OpenSUSE.UiProof.desktop \
     %{buildroot}%{_datadir}/applications/org.ryoku.OpenSUSE.UiProof.desktop

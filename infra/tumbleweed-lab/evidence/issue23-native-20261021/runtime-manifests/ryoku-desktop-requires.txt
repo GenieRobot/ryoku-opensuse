@@ -1,0 +1,8 @@
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+ryoku-desktop-runtime = 0.1.0-5
+ryoku-helper = 0.1.0-5
+ryoku-profile-defaults = 0.1.0-5
+ryoku-tools = 0.1.0-5

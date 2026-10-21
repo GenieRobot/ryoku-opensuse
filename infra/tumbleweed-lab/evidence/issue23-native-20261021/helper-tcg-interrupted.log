@@ -1,0 +1,45 @@
+warning: Could not canonicalize hostname: ryoku-lab
+Executing(%mkbuilddir): /usr/bin/bash -e /var/tmp/rpm-tmp.7oYcmk
+Executing(%prep): /usr/bin/bash -e /var/tmp/rpm-tmp.PXFqQ0
++ umask 022
++ cd <INITIAL_RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build
++ cd <INITIAL_RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build
++ rm -rf ryoku-opensuse-0.1.0
++ /usr/lib/rpm/rpmuncompress -x <INITIAL_RPM_TOPDIR>/SOURCES/ryoku-opensuse-0.1.0.tar.gz
++ STATUS=0
++ '[' 0 -ne 0 ']'
++ cd ryoku-opensuse-0.1.0
++ /usr/lib/rpm/rpmuncompress -x <INITIAL_RPM_TOPDIR>/SOURCES/ryoku-opensuse-vendor-0.1.0.tar.xz
++ STATUS=0
++ '[' 0 -ne 0 ']'
++ /usr/bin/chmod -Rf a+rX,u+w,g-w,o-w .
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%build): /usr/bin/bash -e /var/tmp/rpm-tmp.3G42l6
++ umask 022
++ cd <INITIAL_RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build
++ /usr/bin/rm -rf <INITIAL_RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT
+++ dirname <INITIAL_RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT
++ /usr/bin/mkdir -p <INITIAL_RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build
++ /usr/bin/mkdir <INITIAL_RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT
++ cd ryoku-opensuse-0.1.0
++ CARGO_NET_OFFLINE=true
++ cargo --config 'source.crates-io.replace-with="vendored-sources"' --config 'source.vendored-sources.directory="vendor"' build --offline --locked --release -p ryoku-service --bin ryoku-helper --bin ryoku-service
+   Compiling version_check v0.9.5
+   Compiling proc-macro2 v1.0.107
+   Compiling generic-array v0.14.7
+   Compiling quote v1.0.47
+   Compiling typenum v1.20.1
+   Compiling unicode-ident v1.0.27
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling syn v3.0.9
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling serde v1.0.229
+   Compiling rustix v1.1.5
+   Compiling serde_json v1.0.154
+   Compiling serde_derive v1.0.229
+   Compiling digest v0.10.7
+Connection to 127.0.0.1 closed by remote host.

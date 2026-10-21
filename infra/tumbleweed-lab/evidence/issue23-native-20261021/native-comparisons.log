@@ -1,0 +1,5 @@
+header_payload_digests=unchanged
+installed_manifests=match_all_ten_artifacts
+reinstalled_manifests=identical
+full_package_inventory_after_reinstall=identical
+download_package_inventory=unchanged

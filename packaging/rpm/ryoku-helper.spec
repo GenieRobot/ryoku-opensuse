@@ -1,6 +1,6 @@
 Name:           ryoku-helper
 Version:        0.1.0
-Release:        1%{?dist}
+Release:        5%{?dist}
 Summary:        Deny-only privileged helper boundary for Ryoku
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse
@@ -12,9 +12,9 @@ BuildRequires:  systemd-rpm-macros
 Requires:       systemd
 Requires:       rpm >= 4.19
 
-# Tumbleweed's RPM >= 4.19 applies packaged sysusers declarations before
-# unpacking the payload. No compatibility scriptlet is needed because this
-# package has no files owned by the group it declares.
+# Tumbleweed systemd processes this group-only sysusers declaration through
+# its distribution-owned transaction trigger. All payload files are root-owned;
+# no project scriptlet or pre-unpack group ownership is required.
 
 %description
 Installs Ryoku's socket-activated privileged helper boundary. The current
@@ -22,8 +22,8 @@ helper rejects all valid operations and performs no system mutation. Access
 to its socket is limited to explicitly selected members of ryoku-operators.
 
 This build includes only the implemented user service and deny-only helper.
-The recovery crate currently has no executable target and is not a standalone
-recovery command.
+The recovery executables are packaged separately in ryoku-tools; installing
+this package does not initialize state or enable the socket or either service.
 
 %prep
 %autosetup -n ryoku-opensuse-%{version} -a 1
@@ -36,9 +36,9 @@ CARGO_NET_OFFLINE=true cargo \
     -p ryoku-service --bin ryoku-helper --bin ryoku-service
 
 %install
-install -D -m 0755 target/release/ryoku-helper \
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-helper" \
     %{buildroot}%{_libexecdir}/ryoku/ryoku-helper
-install -D -m 0755 target/release/ryoku-service \
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-service" \
     %{buildroot}%{_libexecdir}/ryoku/ryoku-service
 install -D -m 0644 packaging/rpm/systemd/ryoku-helper.service \
     %{buildroot}%{_unitdir}/ryoku-helper.service

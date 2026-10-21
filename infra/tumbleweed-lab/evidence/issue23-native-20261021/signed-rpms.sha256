@@ -1,0 +1,10 @@
+931c7bf844d7d96a56da06a7b09f0660cd0bc8b864b8ad7b0e00f4c49eba6e67  runtime-signed/ryoku-desktop-0.1.0-5.x86_64.rpm
+98b7524ad44c9f964c39cc39d1dec1094b9d0ac09463c255af5d0944f5300448  runtime-signed/ryoku-desktop-fonts-0.1.0-5.noarch.rpm
+8060279764b806699cc3b111d58c0791a6830fb7038a308f6810d55109e530d2  runtime-signed/ryoku-desktop-runtime-0.1.0-5.x86_64.rpm
+257c6a2d6d6f7ceef7dcc45a7002760ffc9a0bc3e073d47ece92cd2673f10400  runtime-signed/ryoku-helper-0.1.0-5.x86_64.rpm
+b4017de6952b27f5ac621c43f60bc6940d2fe70027deb719634573f33f499462  runtime-signed/ryoku-profile-defaults-0.1.0-5.noarch.rpm
+eda92195df9c62f9feac55f93d599a1ad07fb98f547e564ba6959e7fdf2309b5  runtime-signed/ryoku-quickshell-0.3.2-2.x86_64.rpm
+e702c1f7d1d6161d19693868e05fb36cd6916697f5cf6b6bf8c52d5eefe5635b  runtime-signed/ryoku-tools-0.1.0-5.x86_64.rpm
+d210072b1cf5b38464e5feb4eea92152ee7aea1c74d0400874f1718d2cde9a27  runtime-signed/ryoku-tools-launcher-status-0.1.0-5.x86_64.rpm
+a8cbbf93a9367bf68b8e08c08d9764797f9cab26e43d42694cf02e4f6828b69f  runtime-signed/ryoku-tools-state-init-0.1.0-5.x86_64.rpm
+24f67a934e1765781c5d2c99186bc24ae8c45d5bd1cae121d7a6496a7fdca543  runtime-signed/ryoku-ui-proof-0.1.0-5.x86_64.rpm

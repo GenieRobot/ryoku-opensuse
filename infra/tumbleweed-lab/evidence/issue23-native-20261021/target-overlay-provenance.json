@@ -1,0 +1,41 @@
+{
+    "children": [
+        {
+            "name": "file",
+            "info": {
+                "children": [
+                ],
+                "virtual-size": 262656,
+                "filename": "target/issue23-clean-install-20261021/disk.qcow2",
+                "format": "file",
+                "actual-size": 204800,
+                "format-specific": {
+                    "type": "file",
+                    "data": {
+                    }
+                },
+                "dirty-flag": false
+            }
+        }
+    ],
+    "backing-filename-format": "qcow2",
+    "virtual-size": 21474836480,
+    "filename": "target/issue23-clean-install-20261021/disk.qcow2",
+    "cluster-size": 65536,
+    "format": "qcow2",
+    "actual-size": 204800,
+    "format-specific": {
+        "type": "qcow2",
+        "data": {
+            "compat": "1.1",
+            "compression-type": "zlib",
+            "lazy-refcounts": false,
+            "refcount-bits": 16,
+            "corrupt": false,
+            "extended-l2": false
+        }
+    },
+    "full-backing-filename": "<WORKSPACE>/target/wsl-current-assets-20261016/openSUSE-Tumbleweed-Minimal-VM.x86_64-1.0.0-Cloud-Snapshot20261016.qcow2",
+    "backing-filename": "<WORKSPACE>/target/wsl-current-assets-20261016/openSUSE-Tumbleweed-Minimal-VM.x86_64-1.0.0-Cloud-Snapshot20261016.qcow2",
+    "dirty-flag": false
+}

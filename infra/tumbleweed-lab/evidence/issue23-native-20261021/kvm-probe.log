@@ -1,0 +1,5 @@
+{"QMP": {"version": {"qemu": {"micro": 2, "minor": 1, "major": 11}, "package": "openSUSE Tumbleweed"}, "capabilities": ["oob"]}}
+{"return": {}, "id": "caps"}
+{"return": {"enabled": true, "present": true}, "id": "kvm"}
+{"timestamp": {"seconds": 1792602051, "microseconds": 172276}, "event": "SHUTDOWN", "data": {"guest": false, "reason": "host-qmp-quit"}}
+{"return": {}, "id": "quit"}

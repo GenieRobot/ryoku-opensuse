@@ -1,0 +1,60 @@
+'/home/tester/runtime-signed/ryoku-desktop-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-desktop-fonts-0.1.0-5.noarch.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-desktop-runtime-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-helper-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-profile-defaults-0.1.0-5.noarch.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-quickshell-0.3.2-2.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-tools-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-tools-launcher-status-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-tools-state-init-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-ui-proof-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+Loading repository data...
+Reading installed packages...
+Forcing installation of 'ryoku-desktop-fonts-0.1.0-5.noarch' from repository 'Plain RPM files cache'.
+Forcing installation of 'ryoku-desktop-runtime-0.1.0-5.x86_64' from repository 'Plain RPM files cache'.
+Forcing installation of 'ryoku-desktop-0.1.0-5.x86_64' from repository 'Plain RPM files cache'.
+Forcing installation of 'ryoku-helper-0.1.0-5.x86_64' from repository 'Plain RPM files cache'.
+Forcing installation of 'ryoku-profile-defaults-0.1.0-5.noarch' from repository 'Plain RPM files cache'.
+Forcing installation of 'ryoku-quickshell-0.3.2-2.x86_64' from repository 'Plain RPM files cache'.
+Forcing installation of 'ryoku-tools-launcher-status-0.1.0-5.x86_64' from repository 'Plain RPM files cache'.
+Forcing installation of 'ryoku-tools-state-init-0.1.0-5.x86_64' from repository 'Plain RPM files cache'.
+Forcing installation of 'ryoku-tools-0.1.0-5.x86_64' from repository 'Plain RPM files cache'.
+Forcing installation of 'ryoku-ui-proof-0.1.0-5.x86_64' from repository 'Plain RPM files cache'.
+Resolving package dependencies...
+
+The following 10 packages are going to be reinstalled:
+  ryoku-desktop ryoku-desktop-fonts ryoku-desktop-runtime ryoku-helper ryoku-profile-defaults ryoku-quickshell ryoku-tools ryoku-tools-launcher-status ryoku-tools-state-init ryoku-ui-proof
+
+10 packages to reinstall.
+
+Package download size:    28.5 MiB
+
+Package install size change:
+            |     100.3 MiB  required by packages that will be installed
+       0 B  |  -  100.3 MiB  released by packages that will be removed
+
+Backend:  classic_rpmtrans
+Continue? [y/n/v/...? shows all options] (y): y
+Retrieving: ryoku-desktop-fonts-0.1.0-5.noarch (Plain RPM files cache) (1/10),   7.5 MiB
+Retrieving: ryoku-helper-0.1.0-5.x86_64 (Plain RPM files cache) (2/10), 479.7 KiB
+Retrieving: ryoku-profile-defaults-0.1.0-5.noarch (Plain RPM files cache) (3/10),  19.5 KiB
+Retrieving: ryoku-quickshell-0.3.2-2.x86_64 (Plain RPM files cache) (4/10),   1.8 MiB
+Retrieving: ryoku-tools-0.1.0-5.x86_64 (Plain RPM files cache) (5/10), 459.0 KiB
+Retrieving: ryoku-tools-state-init-0.1.0-5.x86_64 (Plain RPM files cache) (6/10), 415.8 KiB
+Retrieving: ryoku-ui-proof-0.1.0-5.x86_64 (Plain RPM files cache) (7/10), 363.4 KiB
+Retrieving: ryoku-tools-launcher-status-0.1.0-5.x86_64 (Plain RPM files cache) (8/10), 355.1 KiB
+Retrieving: ryoku-desktop-runtime-0.1.0-5.x86_64 (Plain RPM files cache) (9/10),  17.2 MiB
+Retrieving: ryoku-desktop-0.1.0-5.x86_64 (Plain RPM files cache) (10/10),  22.7 KiB
+
+Checking for file conflicts: [...done]
+( 1/10) Installing: ryoku-desktop-fonts-0.1.0-5.noarch [...done]
+( 2/10) Installing: ryoku-helper-0.1.0-5.x86_64 [..done]
+( 3/10) Installing: ryoku-profile-defaults-0.1.0-5.noarch [..done]
+( 4/10) Installing: ryoku-quickshell-0.3.2-2.x86_64 [..done]
+( 5/10) Installing: ryoku-tools-0.1.0-5.x86_64 [..done]
+( 6/10) Installing: ryoku-tools-state-init-0.1.0-5.x86_64 [..done]
+( 7/10) Installing: ryoku-ui-proof-0.1.0-5.x86_64 [..done]
+( 8/10) Installing: ryoku-tools-launcher-status-0.1.0-5.x86_64 [..done]
+( 9/10) Installing: ryoku-desktop-runtime-0.1.0-5.x86_64 [....done]
+(10/10) Installing: ryoku-desktop-0.1.0-5.x86_64 [..done]
+Running post-transaction scripts [.......done]

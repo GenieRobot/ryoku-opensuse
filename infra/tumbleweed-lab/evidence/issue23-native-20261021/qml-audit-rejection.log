@@ -1,0 +1,4 @@
+   Compiling ryoku-automation v0.1.0 (<WORKSPACE>/target/issue23-install-packaging/automation)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.34s
+     Running `target/debug/rpm-package-audit <WORKSPACE>/target/issue23-build-20261021/runtime-original <WORKSPACE>/target/issue23-build-20261021/rejected-runtime-manifests`
+RPM audit failed: Qt6 import scanner output is absent or incomplete
