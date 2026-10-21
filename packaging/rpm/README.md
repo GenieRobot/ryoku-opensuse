@@ -73,3 +73,16 @@ Personal/system override layers and recovery state are absent from every
 package payload. Reinstallation replaces package defaults while preserving
 user-owned state. Native conflict and reinstall checks must prove this on the
 chosen guest; metadata alone does not prove installation acceptance.
+
+`rpm-install-fixture` is an acceptance utility, absent from every RPM payload.
+It has no install, activation or command-dispatch operation. Its fixed fixture
+paths can be created only as root in the marked x86_64 Snapshot20261016 QEMU
+guest, with the issue-specific owned-overlay marker and
+`RYOKU_RPM_TEST_AUTHORIZED=issue23-owned-overlay`. It refuses existing fixture
+files and requires the operator group to be absent before preparation. The
+subsequent receipt checks preserve exact file bytes, link targets, ownership,
+modes, mtime, inode and hard-link counts, require an empty newly created
+operator group and reject package activation links. Its protected-state
+namespace sentinel is explicitly invalid recovery state; it creates no valid
+profile object, machine identity or restore point. Normal Zypper transactions
+are invoked separately in the authorized disposable VM.
