@@ -58,25 +58,33 @@ the current coordination entry points.
   output reproducibility across separately provisioned SDKs and production
   release signatures are also outside this evidence.
 - #25 remains open and canonical draft [PR #169](https://github.com/GenieRobot/ryoku-opensuse/pull/169)
-  is partial at exact head `c99c08fb907d22f48fc6571538baa726e0c10381`. Hosted
-  Rust CI [run 39650401347](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39650401347/job/119396914353)
-  passed formatting, strict Clippy, workspace tests and dependency review; the
-  configured main-only GTK artifact job was skipped. Local formatting,
-  all-target/all-feature strict Clippy, locked all-feature workspace tests
-  (491 recorded passes, 0 failures, 5 existing ignored), focused session tests
-  (9 passed), session binary build and cargo-deny passed.
-- Native `rpmbuild -ba` stopped before `%prep` because host BuildRequires
-  `cargo >= 1.99` and `rust >= 1.99` are unavailable; dependency checks stayed
-  enabled and no native binary RPM was produced. See the
-  [build log](https://github.com/GenieRobot/ryoku-opensuse/blob/c99c08fb907d22f48fc6571538baa726e0c10381/infra/tumbleweed-lab/evidence/issue25-session-rpm-host-build.log),
-  [acceptance/evidence receipt](https://github.com/GenieRobot/ryoku-opensuse/blob/c99c08fb907d22f48fc6571538baa726e0c10381/infra/tumbleweed-lab/evidence/issue25-session-consolidation-20261021.toml),
-  [session contract](https://github.com/GenieRobot/ryoku-opensuse/blob/c99c08fb907d22f48fc6571538baa726e0c10381/docs/session-port.md)
-  and [workflow checklist](https://github.com/GenieRobot/ryoku-opensuse/blob/c99c08fb907d22f48fc6571538baa726e0c10381/docs/native-desktop-workflows.md).
-- Earlier staged login/reboot/KDE receipts are historical, not acceptance for
-  the exact #169 candidate. Native RPM build/install, cold SDDM startup, login,
-  reboot, KDE roundtrip and fallback, notifications, clipboard, audio,
-  network, Bluetooth, screenshots, screen sharing, authentication and locking
-  remain pending; no VM was launched for this candidate.
+  is partial at exact head
+  [`b02f69b`](https://github.com/GenieRobot/ryoku-opensuse/commit/b02f69bc558a8b9de9931e2075f110b63198bb9e).
+  The prior hosted Rust CI
+  [run 39650401347](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39650401347/job/119396914353)
+  passed at the preceding `c99c08f` head; hosted CI for `b02f69b` is
+  [run 39651972315](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39651972315)
+  (in progress at this update). Local checks were rerun and passed: formatting,
+  all-target/all-feature strict Clippy, 474 top-level plus 17 subprocess tests
+  (0 failures, 5 existing ignored), session build and cargo-deny.
+- BuildRequires-enabled `rpmbuild -ba` still stops before `%prep` because host
+  RPMDB lacks `cargo >= 1.99` and `rust >= 1.99`; that failure is preserved.
+  Separate non-acceptance mechanics using `rpmbuild -ba --nodeps`, isolated
+  temporary directories and the exact source/vendor archives passed `%prep`,
+  locked offline vendored build, RPM `%install` payload staging and manifest
+  checks.
+  `--nodeps` bypassed only missing RPMDB providers; the output was unsigned
+  RPM/SRPM artifacts with 15 root-owned entries and empty scriptlets. See the
+  [BuildRequires build log](https://github.com/GenieRobot/ryoku-opensuse/blob/b02f69bc558a8b9de9931e2075f110b63198bb9e/infra/tumbleweed-lab/evidence/issue25-session-rpm-host-build.log),
+  [mechanics log](https://github.com/GenieRobot/ryoku-opensuse/blob/b02f69bc558a8b9de9931e2075f110b63198bb9e/infra/tumbleweed-lab/evidence/issue25-session-rpm-mechanics.log),
+  [mechanics manifest](https://github.com/GenieRobot/ryoku-opensuse/blob/b02f69bc558a8b9de9931e2075f110b63198bb9e/infra/tumbleweed-lab/evidence/issue25-session-rpm-mechanics-files.tsv),
+  and [acceptance receipt](https://github.com/GenieRobot/ryoku-opensuse/blob/b02f69bc558a8b9de9931e2075f110b63198bb9e/infra/tumbleweed-lab/evidence/issue25-session-consolidation-20261021.toml).
+- Native BuildRequires/Tumbleweed ABI/install, SDDM/login, reboot/KDE
+  roundtrip/fallback and all core workflows remain unaccepted. Earlier staged
+  login/reboot/KDE receipts are historical, not acceptance for this exact
+  candidate. Notifications, clipboard, audio, network, Bluetooth, screenshots,
+  sharing, authentication and locking remain pending. No package was installed
+  into a guest; no VM was launched or retained disk changed.
 - Legacy [PR #156](https://github.com/GenieRobot/ryoku-opensuse/pull/156) is
   closed as superseded by #169. Its unique equalizer, standalone clipboard and
   lock/idle candidates remain unaccepted; its source branch is retained for

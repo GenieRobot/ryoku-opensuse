@@ -65,26 +65,34 @@ coordinator records.
   byte-identical binaries across separately provisioned SDKs or production
   release signatures.
 - #25 remains open and draft. Canonical draft [PR #169](https://github.com/GenieRobot/ryoku-opensuse/pull/169)
-  is at exact head `c99c08fb907d22f48fc6571538baa726e0c10381`. Hosted Rust CI
+  is at exact head [`b02f69b`](https://github.com/GenieRobot/ryoku-opensuse/commit/b02f69bc558a8b9de9931e2075f110b63198bb9e).
+  The preceding hosted Rust checks
   [run 39650401347](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39650401347/job/119396914353)
-  passed formatting, strict Clippy, workspace tests and dependency review; the
-  configured main-only GTK artifact job was skipped. Local formatting,
-  all-target/all-feature strict Clippy, locked all-feature workspace tests
-  (491 recorded passes, 0 failures, 5 existing ignored), focused session tests
-  (9 passed), session binary build, and cargo-deny passed.
-- Native `rpmbuild -ba` stopped before `%prep` because host BuildRequires
-  `cargo >= 1.99` and `rust >= 1.99` are unavailable; dependency checks remained
-  enabled, and no native binary RPM was produced. See the
-  [build log](https://github.com/GenieRobot/ryoku-opensuse/blob/c99c08fb907d22f48fc6571538baa726e0c10381/infra/tumbleweed-lab/evidence/issue25-session-rpm-host-build.log),
-  [evidence receipt](https://github.com/GenieRobot/ryoku-opensuse/blob/c99c08fb907d22f48fc6571538baa726e0c10381/infra/tumbleweed-lab/evidence/issue25-session-consolidation-20261021.toml),
-  [session contract](https://github.com/GenieRobot/ryoku-opensuse/blob/c99c08fb907d22f48fc6571538baa726e0c10381/docs/session-port.md),
-  and [workflow checklist](https://github.com/GenieRobot/ryoku-opensuse/blob/c99c08fb907d22f48fc6571538baa726e0c10381/docs/native-desktop-workflows.md).
+  passed at `c99c08f`; hosted Rust CI for the current head is
+  [run 39651972315](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39651972315)
+  (in progress at this update). Local source checks were rerun: formatting,
+  all-target/all-feature strict Clippy, 474 top-level plus 17 subprocess tests
+  (0 failed, 5 existing ignored), session build and cargo-deny passed.
+- BuildRequires-enabled `rpmbuild -ba` still stops before `%prep` because host
+  RPMDB lacks `cargo >= 1.99` and `rust >= 1.99`; the failure is preserved.
+  Separate non-acceptance mechanics using `rpmbuild -ba --nodeps`, isolated
+  temporary directories, and the exact source/vendor archives passed `%prep`,
+  locked offline vendored build, RPM `%install` payload staging, and manifest
+  checks. `--nodeps` bypassed only missing RPMDB providers;
+  it produced unsigned RPM/SRPM artifacts, with 15 root-owned entries and
+  empty scriptlets. See the [BuildRequires build log](https://github.com/GenieRobot/ryoku-opensuse/blob/b02f69bc558a8b9de9931e2075f110b63198bb9e/infra/tumbleweed-lab/evidence/issue25-session-rpm-host-build.log),
+  [mechanics log](https://github.com/GenieRobot/ryoku-opensuse/blob/b02f69bc558a8b9de9931e2075f110b63198bb9e/infra/tumbleweed-lab/evidence/issue25-session-rpm-mechanics.log),
+  [mechanics manifest](https://github.com/GenieRobot/ryoku-opensuse/blob/b02f69bc558a8b9de9931e2075f110b63198bb9e/infra/tumbleweed-lab/evidence/issue25-session-rpm-mechanics-files.tsv),
+  and [acceptance receipt](https://github.com/GenieRobot/ryoku-opensuse/blob/b02f69bc558a8b9de9931e2075f110b63198bb9e/infra/tumbleweed-lab/evidence/issue25-session-consolidation-20261021.toml).
+  Native BuildRequires/Tumbleweed ABI/install, SDDM/login, reboot/KDE
+  roundtrip/fallback, and all core workflows remain unaccepted; no package was
+  installed into a guest and no system state changed.
 - Earlier staged login/reboot/KDE receipts are historical evidence, not
-  acceptance for the exact `c99c08f` candidate. Native RPM build/install,
-  cold SDDM startup, login, reboot, KDE roundtrip and fallback, plus
-  notifications, clipboard, audio, network, Bluetooth, screenshots, screen
-  sharing, authentication and locking remain pending. No VM was launched for
-  this candidate.
+  acceptance for the exact `b02f69b` candidate. Native RPM install, cold SDDM
+  startup, login, reboot, KDE roundtrip and fallback, plus notifications,
+  clipboard, audio, network, Bluetooth, screenshots, screen sharing,
+  authentication and locking remain pending. No VM was launched for this
+  candidate.
 - Legacy [PR #156](https://github.com/GenieRobot/ryoku-opensuse/pull/156) is
   closed as superseded by #169. Its unique equalizer, standalone clipboard and
   lock/idle candidates remain unaccepted; its source branch is retained for
