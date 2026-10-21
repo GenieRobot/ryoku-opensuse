@@ -7,7 +7,7 @@ runtime_source_tree = "c0e13d4aa251835f837b77e0849c8872f164f205"
 runtime_patch_base = "5efc726"
 runtime_patch_sha256 = "b7079e58528a9cc410e6f6aa3d80fae6f88f3287bc28ef3729ffd8d4cc8eebd7"
 runtime_patch_method = "git diff --binary 5efc726 59ec6d7 -- automation suse Cargo.toml Cargo.lock rust-toolchain.toml infra/tumbleweed-lab/issue20-fixture.toml | sha256sum"
-status = "Final identical-input #20 native normal/interrupted fixture pair passed; draft PR and issue retained for coordinator source/CI review"
+status = "Pre-rebase identical-input pair passed; repeat with final rebased-built orchestrator pending. Draft PR and issue retained for coordinator review"
 supersedes = "The final-pair pending status in issue20-mutation-20261021.toml; earlier run results and explicit production limits remain historical evidence"
 
 [inputs]
@@ -58,6 +58,20 @@ cleanup = "Both runs proved offline Snapper fixture restore, durable sentinel be
 local = "Final runtime source/pin tree passed 472 top-level tests plus 17 isolated subprocess passes; 5 existing ignored; no failures. Strict workspace Clippy, formatting, whitespace, offline cargo-deny and explicit runtime-boundary test passed"
 runtime_source_ci = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39653304549/job/119406966617"
 runtime_source_ci_result = "Formatting, Clippy, workspace tests and dependency review passed; main-only GTK artifact job skipped as configured"
+
+[integration]
+base_commit = "34d3c88ef1525dc0f8833c988b61cf9a0a22e41b"
+checked_rebased_commit = "1501444c252c35918fc3f59f0ee0ca6b6aa60d3e"
+rebase = "Six commits replayed onto current main without conflicts; same existing issue20 branch/worktree"
+source_equivalence = "git diff --exit-code 59ec6d7 1501444 -- suse automation/src/lab rust-toolchain.toml infra/tumbleweed-lab/issue20-fixture.toml returned 0"
+accepted_main_delta = "Three RPM audit/install-fixture Rust binaries plus serde_json added to the automation dependencies. No native lab or suse runtime source changes"
+rebuilt_orchestrator_sha256 = "d87e5ce3873166d54d418d7dc1722b0e3c2adad05565c6a7fd7b2fe28786989a"
+rebuilt_other_inputs = "Initializer, mutation probe and mutation console are bit-identical to the recorded run09/run10 hashes"
+native_status = "Repeat normal/interrupted pair with all staged rebased-built binaries in progress; prior pair is retained, and its orchestrator hash is not claimed to match this build"
+local_checks = "480 top-level passes plus 17 isolated subprocess passes, 0 failed, 5 existing ignored; full strict Clippy, formatting, whitespace, offline cargo-deny, separate runtime-boundary test and native fixture build passed"
+history_bundle = "target/issue20-before-main-rebase-20261021.bundle"
+history_bundle_sha256 = "0e5a40c3154b9d8e9a88b8e44034379e36c6f5e676ecb102d9a52fb37b333c0c"
+history_bundle_verification = "Complete history ending at pre-rebase 5b3a2c9 verified with git bundle verify before rewriting the same branch"
 
 [limits]
 supported_actions = "No provider write capability enabled; marker actuator and local profile/package identities are synthetic fixture inputs"

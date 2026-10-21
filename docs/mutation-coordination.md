@@ -199,3 +199,11 @@ This completes the #20 native mutation-fixture pair. Provider capabilities stay
 disabled; fixture inputs do not certify a provider write or a production linked
 restore. Console-only results still report partial desktop/lifecycle acceptance.
 Keep the draft and issue open for coordinator review of the final source and CI.
+
+The branch has since been mechanically rebased onto main `34d3c88`. Its native
+lab/runtime sources and fixture are unchanged. Rebuilt initializer, probe and
+console hashes match the recorded pair; the orchestrator hash changed after
+main added the already-pinned `serde_json` automation dependency. Local rebased
+checks passed. A repeat pair with all final rebased-built binaries is required
+before claiming native acceptance for that build; its current status is in the
+final-pair receipt.
