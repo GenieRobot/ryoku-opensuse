@@ -46,6 +46,21 @@ additional_review_correction = "corruption inputs retain sealed mode0400 before 
 acceptance = false
 disposal = "owned QEMU exited; private disk/logs and userspace diagnostic copy removed after preserving sanitized report and log hash; no reset acceptance credited"
 
+[run04]
+source = "87bbafb52c146415fc9e15b39b0d65d495494262"
+source_dirty_at_launch = false
+result = "failed at final sandboxed normal-session admission after failure cases, durable phase sweeps and actual linked/system rollback reboots"
+report = "issue22-native-20261022/run04.txt"
+report_sha256 = "5b72b8c5f05212d14701cd23f874ae111e7a7cd37018de429161ecc3fec45b75"
+private_log_sha256 = "9a89a98e43f241e10402dc0948773d2620fa10b1a1bf3d6f307346de7e823f59"
+private_admission_log_sha256 = "3d64009319de560ea2c7d1c95972f26a66cbbb673dd02d60f58eddd3a853b3aa"
+diagnostic = "issue22 gate failed: protected state mount is read-only"
+cause = "fixture launcher used writable mount guard for admission service, whose existing ProtectSystem=strict and ReadOnlyPaths correctly make state read-only"
+correction = "only exact admit-session passthrough uses independently verified read-only state collector; all other fixture invocations retain writable guard; no production service or console change"
+additional_observer_correction = "track successful waitpid reaping and never signal a reusable numeric child PID afterward; real fsync/death and early-exit tests assert exactly one and zero kill calls respectively"
+acceptance = false
+disposal = "owned QEMU exited; private disk/logs/journal and userspace diagnostic copy removed after preserving sanitized report and diagnostic hashes; no reset acceptance credited"
+
 [scope]
 providers = "writes remain disabled"
 desktop = "actual desktop login unclaimed"

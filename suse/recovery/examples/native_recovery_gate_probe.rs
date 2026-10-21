@@ -67,6 +67,24 @@ fn require_backup_pressure(available: u64, required_payload: u64) -> Result<()> 
         "fixture has enough nominal space for its mandatory payload; exhaustion is unproven",
     )
 }
+fn read_only_invocation(args: &[String]) -> bool {
+    matches!(args, [command] if command == "admit-session")
+}
+fn guard_readonly() -> Result<()> {
+    require(rustix::process::geteuid().as_raw() == 0, "root fixture mode required")?;
+    require(
+        fs::read_to_string("/etc/ryoku-lab-fixture")? == "disposable-issue13\n",
+        "requires the seeded disposable fixture",
+    )?;
+    require(
+        fs::read_to_string("/sys/class/dmi/id/sys_vendor")?.trim() == "QEMU",
+        "requires the owned QEMU guest",
+    )?;
+    let root = File::open("/")?;
+    let record = ryoku_recovery::machine_state::read_machine_state_record(&root)?;
+    ryoku_recovery::state_mount::collect_and_open_state_mount_readonly(&root, record.identity())?;
+    Ok(())
+}
 fn fixture() -> Result<()> {
     let (uid, gid) = account()?;
     for (index, relative) in PREFERENCES.iter().enumerate() {
@@ -437,8 +455,14 @@ fn report() -> Result<()> {
     Ok(())
 }
 fn run() -> Result<()> {
-    guard()?;
     let args: Vec<_> = std::env::args().skip(1).collect();
+    if read_only_invocation(&args) {
+        // Admission's real systemd sandbox makes protected state read-only.
+        // Preserve that supported read path without authorizing fixture writes.
+        guard_readonly()?;
+    } else {
+        guard()?;
+    }
     match args.first().map(String::as_str) {
         Some("--install") => {
             // Install the Rust observer as a fixture-only launcher. The exact
@@ -567,5 +591,22 @@ mod tests {
         assert!(require_backup_pressure(payload, payload).is_err());
         assert!(require_backup_pressure(2 * 1024 * 1024, payload).is_ok());
         assert!(require_backup_pressure(0, 0).is_err());
+    }
+
+    #[test]
+    fn only_exact_admission_invocation_uses_the_readonly_fixture_guard() {
+        assert!(read_only_invocation(&["admit-session".into()]));
+        for arguments in [
+            vec![],
+            vec!["admit-session", "extra"],
+            vec!["--exercise"],
+            vec!["--normal-session-marker"],
+            vec!["manual-checkpoint", SOURCE, "tester"],
+            vec!["prepare-configuration", RESTORE, SOURCE],
+        ] {
+            assert!(!read_only_invocation(
+                &arguments.iter().map(|value| (*value).to_owned()).collect::<Vec<_>>()
+            ));
+        }
     }
 }

@@ -10,11 +10,27 @@ use std::{
     time::{Duration, Instant},
 };
 
-struct Traced(Child);
+struct Traced {
+    child: Child,
+    reaped: bool,
+}
+#[cfg(test)]
+thread_local! {
+    static KILL_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+impl Traced {
+    fn kill_owned(&mut self) -> std::io::Result<()> {
+        #[cfg(test)]
+        KILL_CALLS.with(|calls| calls.set(calls.get() + 1));
+        self.child.kill()
+    }
+}
 impl Drop for Traced {
     fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
+        if !self.reaped {
+            let _ = self.kill_owned();
+            let _ = self.child.wait();
+        }
     }
 }
 
@@ -45,8 +61,8 @@ pub fn kill_after_sync(
             Ok(())
         });
     }
-    let mut child = Traced(command.spawn()?);
-    let pid = i32::try_from(child.0.id())?;
+    let mut child = Traced { child: command.spawn()?, reaped: false };
+    let pid = i32::try_from(child.child.id())?;
     let deadline = Instant::now() + Duration::from_secs(120);
     let mut initialized = false;
     loop {
@@ -59,7 +75,17 @@ pub fn kill_after_sync(
             continue;
         }
         if waited == -1 {
-            return Err(std::io::Error::last_os_error().into());
+            let error = std::io::Error::last_os_error();
+            if error.kind() == std::io::ErrorKind::Interrupted {
+                continue;
+            }
+            if error.raw_os_error() == Some(libc::ECHILD) {
+                child.reaped = true;
+            }
+            return Err(error.into());
+        }
+        if libc::WIFEXITED(status) || libc::WIFSIGNALED(status) {
+            child.reaped = true;
         }
         require(libc::WIFSTOPPED(status), "CLI exited before the selected durable boundary")?;
         let signal = libc::WSTOPSIG(status);
@@ -80,18 +106,32 @@ pub fn kill_after_sync(
             if regs.orig_rax == libc::SYS_fsync as u64 && regs.rax == 0 {
                 let path = fs::read_link(format!("/proc/{pid}/fd/{}", regs.rdi))?;
                 if selected(path.to_str().ok_or("non-UTF8 fixture descriptor")?)? {
-                    child.0.kill()?;
+                    child.kill_owned()?;
                     // Reap through waitpid because Child::wait cannot interpret
                     // intermediate tracing stops after a termination signal.
                     loop {
                         let mut killed = 0;
                         // SAFETY: same owned child and valid status pointer.
                         if unsafe { libc::waitpid(pid, &mut killed, 0) } == -1 {
-                            return Err(std::io::Error::last_os_error().into());
+                            let error = std::io::Error::last_os_error();
+                            if error.kind() == std::io::ErrorKind::Interrupted {
+                                continue;
+                            }
+                            if error.raw_os_error() == Some(libc::ECHILD) {
+                                child.reaped = true;
+                            }
+                            return Err(error.into());
                         }
                         if libc::WIFSIGNALED(killed) {
+                            // Do not signal this numeric pid again after waitpid
+                            // has reaped it; the kernel may reuse that identity.
+                            child.reaped = true;
                             require(libc::WTERMSIG(killed) == libc::SIGKILL, "wrong death signal")?;
                             return Ok(());
+                        }
+                        if libc::WIFEXITED(killed) {
+                            child.reaped = true;
+                            return Err("observed child exited instead of receiving SIGKILL".into());
                         }
                         ptrace(libc::PTRACE_CONT, pid, 0)?;
                     }
@@ -114,6 +154,7 @@ mod tests {
 
     #[test]
     fn kills_only_after_successful_fsync_and_reaps_child() {
+        KILL_CALLS.with(|calls| calls.set(0));
         let path = std::env::temp_dir().join(format!("ryoku22-trace-{}", std::process::id()));
         assert!(!path.exists());
         kill_after_sync(
@@ -129,12 +170,15 @@ mod tests {
             |fd| Ok(fd == path.to_str().unwrap()),
         )
         .unwrap();
+        KILL_CALLS.with(|calls| assert_eq!(calls.get(), 1, "reaped pid was signalled again"));
         assert_eq!(fs::read(&path).unwrap(), b"\0");
         fs::remove_file(path).unwrap();
     }
 
     #[test]
     fn exit_before_a_selected_durability_boundary_is_an_error() {
+        KILL_CALLS.with(|calls| calls.set(0));
         assert!(kill_after_sync("/usr/bin/true", &[], |_| Ok(true)).is_err());
+        KILL_CALLS.with(|calls| assert_eq!(calls.get(), 0, "exited child no longer owns its pid"));
     }
 }
