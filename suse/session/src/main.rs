@@ -110,12 +110,24 @@ fn activate() -> Result<()> {
     let mut import = Command::new("/usr/bin/dbus-update-activation-environment");
     import.arg("--systemd").args(&present);
     let outcome = checked(import).and_then(|()| start_session_target());
-    if outcome.is_err()
-        && let Err(error) = stop_session()
-    {
-        eprintln!("ryoku-session: activation cleanup failed: {error}");
+    if outcome.is_err() {
+        if let Err(error) = stop_session() {
+            eprintln!("ryoku-session: activation cleanup failed: {error}");
+        }
+        // exec-once errors do not terminate Hyprland. Return to the native
+        // greeter when required shell startup fails, so KDE stays reachable
+        // without an empty compositor trapping the user at a black screen.
+        if let Err(error) = checked(exit_compositor_command()) {
+            eprintln!("ryoku-session: failed compositor exit: {error}");
+        }
     }
     outcome
+}
+
+fn exit_compositor_command() -> Command {
+    let mut command = Command::new("/usr/bin/hyprctl");
+    command.args(["dispatch", "exit"]).stdin(Stdio::null());
+    command
 }
 
 fn start_session_target() -> Result<()> {
@@ -319,6 +331,14 @@ mod tests {
             assert!(validate_identity(uid, euid, gid, egid).is_err());
         }
         assert!(validate_identity(1000, 1000, 100, 100).is_ok());
+    }
+
+    #[test]
+    fn failed_activation_exits_the_inherited_compositor_without_a_shell() {
+        let command = exit_compositor_command();
+        assert_eq!(command.get_program(), "/usr/bin/hyprctl");
+        assert_eq!(command.get_args().collect::<Vec<_>>(), ["dispatch", "exit"]);
+        assert_eq!(command.get_envs().count(), 0);
     }
 
     #[test]
