@@ -65,6 +65,8 @@ impl LocalLayer {
 pub struct InstalledProfileBundle {
     schema_version: u16,
     package: DefaultsPackage,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    defaults_absent: Option<bool>,
     defaults: LocalLayer,
     system: Option<LocalLayer>,
     companion: Option<LocalLayer>,
@@ -93,12 +95,52 @@ impl InstalledProfileBundle {
         let result = Self {
             schema_version: BUNDLE_SCHEMA,
             package,
+            defaults_absent: None,
             defaults: LocalLayer::new(defaults)?,
             system: system.map(LocalLayer::new).transpose()?,
             companion: companion.map(LocalLayer::new).transpose()?,
         };
         result.validate()?;
         Ok(result)
+    }
+    /// Installer-only schema 2: no defaults RPM existed at this boundary.
+    /// The neutral document resolves existing typed overrides without inventing
+    /// an installed package. Only an inventory with no defaults RPM can match.
+    pub fn without_installed_defaults(
+        system: Option<&[u8]>,
+        companion: Option<&[u8]>,
+    ) -> Result<Self, ProfileStoreError> {
+        let document = ProfileDocument::new(
+            ryoku_profiles::ProfileId::new("generic-desktop")
+                .map_err(|_| ProfileStoreError::InvalidDocument)?,
+            ryoku_profiles::SettingsLayer::default(),
+        )
+        .canonical_bytes()
+        .map_err(|_| ProfileStoreError::InvalidDocument)?;
+        let mut bundle = Self::from_local_documents(
+            DefaultsPackage {
+                name: PackageName::new(crate::rpm_defaults::DEFAULTS_PACKAGE)
+                    .map_err(|_| ProfileStoreError::InvalidDocument)?,
+                nevra: Revision::new("absent").map_err(|_| ProfileStoreError::InvalidDocument)?,
+                upstream_revision: None,
+            },
+            &document,
+            system,
+            companion,
+        )?;
+        bundle.schema_version = 2;
+        bundle.defaults_absent = Some(true);
+        bundle.validate()?;
+        Ok(bundle)
+    }
+    pub fn system_source_bytes(&self) -> Option<&[u8]> {
+        self.system.as_ref().map(|layer| layer.source_json.as_bytes())
+    }
+    pub fn companion_source_bytes(&self) -> Option<&[u8]> {
+        self.companion.as_ref().map(|layer| layer.source_json.as_bytes())
+    }
+    pub fn defaults_are_absent(&self) -> bool {
+        self.defaults_absent == Some(true)
     }
     pub fn package(&self) -> &DefaultsPackage {
         &self.package
@@ -133,8 +175,25 @@ impl InstalledProfileBundle {
         Ok(result)
     }
     fn validate(&self) -> Result<(), ProfileStoreError> {
-        if self.schema_version != BUNDLE_SCHEMA {
-            return Err(ProfileStoreError::UnsupportedSchema);
+        match (self.schema_version, self.defaults_absent) {
+            (BUNDLE_SCHEMA, None) => {}
+            (2, Some(true)) => {
+                let neutral = ProfileDocument::new(
+                    ryoku_profiles::ProfileId::new("generic-desktop")
+                        .map_err(|_| ProfileStoreError::InvalidDocument)?,
+                    ryoku_profiles::SettingsLayer::default(),
+                )
+                .canonical_bytes()
+                .map_err(|_| ProfileStoreError::InvalidDocument)?;
+                if self.package.name.as_str() != crate::rpm_defaults::DEFAULTS_PACKAGE
+                    || self.package.nevra.as_str() != "absent"
+                    || self.package.upstream_revision.is_some()
+                    || self.defaults.source_json.as_bytes() != neutral
+                {
+                    return Err(ProfileStoreError::InvalidDocument);
+                }
+            }
+            _ => return Err(ProfileStoreError::UnsupportedSchema),
         }
         let defaults = self.defaults.document()?;
         for layer in [&self.system, &self.companion].into_iter().flatten() {
@@ -188,11 +247,34 @@ impl InstalledProfileBundle {
             },
         })
     }
+    pub(crate) fn validate_checkpoint_inputs(
+        &self,
+        reason: &crate::OperationReason,
+        packages: &[PackageRevision],
+    ) -> Result<(), ProfileStoreError> {
+        if self.defaults_are_absent() && !crate::installer_state::is_installer(reason) {
+            return Err(ProfileStoreError::UnsupportedSchema);
+        }
+        if crate::installer_state::is_installer(reason) {
+            crate::installer_state::validate_inventory(packages)
+                .map_err(|_| ProfileStoreError::PackageMismatch)?;
+        }
+        if !self.matches_packages(packages) {
+            return Err(ProfileStoreError::PackageMismatch);
+        }
+        Ok(())
+    }
     /// Match the exact installed default package recorded in a generation.
     /// Package inventory must itself come from the native trusted provider.
     pub fn matches_packages(&self, packages: &[PackageRevision]) -> bool {
         let matching: Vec<_> =
             packages.iter().filter(|package| package.package_name == self.package.name).collect();
+        if self.defaults_are_absent() {
+            return matching.len() == 1
+                && matching[0].before_nevra.is_none()
+                && matching[0].after_nevra.is_none()
+                && matching[0].upstream_revision.is_none();
+        }
         matching.len() == 1
             && matching[0].before_nevra.as_ref() == Some(&self.package.nevra)
             && matching[0].upstream_revision == self.package.upstream_revision
@@ -438,9 +520,7 @@ impl ProfileBundleStore {
         let provenance =
             manifest.profile_revision.as_ref().ok_or(ProfileStoreError::UnknownBundleRevision)?;
         let bundle = self.load_revision(&provenance.profile_revision)?;
-        if !bundle.bundle.matches_packages(&manifest.package_revisions) {
-            return Err(ProfileStoreError::PackageMismatch);
-        }
+        bundle.bundle.validate_checkpoint_inputs(&manifest.reason, &manifest.package_revisions)?;
         let record = manifest
             .files()
             .iter()

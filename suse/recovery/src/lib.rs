@@ -30,6 +30,7 @@ pub mod installed_capture;
 pub mod installed_inventory;
 #[cfg(target_os = "linux")]
 pub mod installed_profiles;
+pub mod installer_state;
 pub mod linked_checkpoint;
 #[cfg(target_os = "linux")]
 pub mod machine_state;

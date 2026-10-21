@@ -212,10 +212,21 @@ pub enum MutationOutcome {
     CancelledBeforeChange,
     MayHaveMutated,
     PostChangeCaptureFailed,
+    InstallerRestored,
 }
 
 /// Exact plan and linked checkpoint association stored in the same synchronized
 /// record as each phase. This is historical evidence, never a replay permit.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InstallerRestoreReceipt {
+    pub restore_id: Identifier,
+    pub source_manifest_sha256: Sha256,
+}
+
+/// Installer reconciliation is written only after an exact complete linked
+/// restore and current package/configuration verification. Old readers fail
+/// closed on the new receipt/outcome instead of treating the failure as clear.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MutationContext {
@@ -224,10 +235,17 @@ pub struct MutationContext {
     pub post_checkpoint: Option<LinkedGeneration>,
     pub stage: MutationStage,
     pub outcome: Option<MutationOutcome>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub installer_restore: Option<InstallerRestoreReceipt>,
 }
 
 impl MutationContext {
     pub(crate) fn valid_for(&self, status: &OperationStatus) -> bool {
+        if self.installer_restore.is_some()
+            != (self.outcome == Some(MutationOutcome::InstallerRestored))
+        {
+            return false;
+        }
         if !self.plan.valid() || status.progress.is_some() {
             return false;
         }
@@ -271,6 +289,22 @@ impl MutationContext {
                             MutationStage::Applying | MutationStage::HealthChecking
                         ) && status.error == Some(ServiceError::Failed)
                     }
+                    MutationOutcome::InstallerRestored => {
+                        self.installer_restore.as_ref().is_some_and(|receipt| {
+                            self.checkpoint.as_ref().is_some_and(|checkpoint| {
+                                checkpoint.manifest_sha256 == receipt.source_manifest_sha256
+                                    && checkpoint.transaction_id.as_str()
+                                        == format!("{}-pre", status.operation_id.as_str())
+                            })
+                        }) && matches!(
+                            (self.plan.operation_key.as_str(), status.action),
+                            ("installer-install-v1", ManagedActionKind::InstallPackage)
+                                | ("installer-remove-v1", ManagedActionKind::RemovePackage)
+                                | ("installer-migrate-v1", ManagedActionKind::ApplyProfile)
+                        ) && !self.stage.before_change()
+                            && self.stage != MutationStage::Complete
+                            && status.error == Some(ServiceError::RecoveryUnavailable)
+                    }
                     MutationOutcome::PostChangeCaptureFailed => {
                         self.stage == MutationStage::PostChangeCapture
                             && status.error == Some(ServiceError::Failed)
@@ -282,6 +316,14 @@ impl MutationContext {
     }
 
     pub(crate) fn follows(&self, previous: &Self) -> bool {
+        if self.outcome == Some(MutationOutcome::InstallerRestored) {
+            return previous.outcome != Some(MutationOutcome::InstallerRestored)
+                && self.plan == previous.plan
+                && self.checkpoint == previous.checkpoint
+                && self.post_checkpoint == previous.post_checkpoint
+                && self.stage == previous.stage
+                && previous.installer_restore.is_none();
+        }
         if previous.outcome.is_some()
             || previous.stage == MutationStage::Complete
             || self.plan != previous.plan
@@ -318,6 +360,7 @@ impl MutationContext {
             && self.checkpoint.is_none()
             && self.post_checkpoint.is_none()
             && self.outcome.is_none()
+            && self.installer_restore.is_none()
     }
 }
 
@@ -590,6 +633,7 @@ pub(crate) fn coordinate_mutation_locked<I: MutationIntegration>(
         post_checkpoint: None,
         stage: MutationStage::Preflight,
         outcome: None,
+        installer_restore: None,
     });
     operation.record(OperationPhase::Accepted, None)?;
     if integration.cancellation_requested() {

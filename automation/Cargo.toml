@@ -17,6 +17,7 @@ issue19-lab = ["wsl-lab"]
 issue20-lab = ["wsl-lab"]
 issue21-lab = ["wsl-lab"]
 issue22-lab = ["issue21-lab"]
+issue24-lab = ["issue21-lab"]
 
 [dependencies]
 serde_json = "1"

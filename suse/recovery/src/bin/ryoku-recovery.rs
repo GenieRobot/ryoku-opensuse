@@ -210,11 +210,14 @@ fn execute_with(
                             "/.snapshots/{}/snapshot",
                             manifest.snapper_snapshot_id
                         ));
-                        let compatibility = match ryoku_package_revisions(Some(&snapshot_root)) {
-                            Ok(revisions) if revisions == manifest.package_revisions() => "match",
-                            Ok(_) => "mismatch",
-                            Err(_) => "unavailable",
-                        };
+                        let compatibility =
+                            match revisions_for_source(Some(&snapshot_root), &manifest) {
+                                Ok(revisions) if revisions == manifest.package_revisions() => {
+                                    "match"
+                                }
+                                Ok(_) => "mismatch",
+                                Err(_) => "unavailable",
+                            };
                         ("verified", compatibility)
                     } else {
                         ("unavailable", "unavailable")
@@ -1010,7 +1013,7 @@ fn verify_system_source_compatibility(
     let snapshot_descriptor = File::open(&snapshot_root).map_err(|error| error.to_string())?;
     ryoku_recovery::session_admission::verify_installed_units(&snapshot_descriptor)
         .map_err(|error| format!("rollback source cannot enforce graphical admission: {error}"))?;
-    let system = match ryoku_package_revisions(Some(&snapshot_root)) {
+    let system = match revisions_for_source(Some(&snapshot_root), manifest) {
         Ok(revisions) if revisions == manifest.package_revisions() => {
             CompatibilityStatus::Compatible
         }
@@ -1345,7 +1348,7 @@ fn prepare_configuration_scope_on_host(
         }
     }
     let recorded = source.manifest().package_revisions();
-    let installed = installed_ryoku_revisions()?;
+    let installed = revisions_for_source(None, source.manifest())?;
     if scope == RestoreScope::ConfigurationOnly && recorded != installed {
         return Err(
             "source Ryoku package revisions differ from the installed settings writers".into()
@@ -1451,7 +1454,7 @@ fn prepare_configuration_scope_on_host(
         let prepared = stores
             .resume(restore_id, &compatibility, &checkpoint_snapshot, &current_roots)
             .map_err(|error| error.to_string())?;
-        if installed_ryoku_revisions()? != installed {
+        if revisions_for_source(None, source.manifest())? != installed {
             return Err("Ryoku packages changed during preparation resume".into());
         }
         return Ok(format!(
@@ -1530,7 +1533,7 @@ fn prepare_configuration_scope_on_host(
             },
         })
         .map_err(|error| error.to_string())?;
-    if installed_ryoku_revisions()? != installed {
+    if revisions_for_source(None, source.manifest())? != installed {
         return Err("Ryoku packages changed during restore preparation; staged attempt retained for reconciliation".into());
     }
     let checkpoint = prepared.checkpoint().manifest();
@@ -1932,6 +1935,20 @@ fn generation_id_for(transaction: &Identifier) -> Identifier {
 
 fn installed_ryoku_revisions() -> Result<Vec<PackageRevision>, String> {
     ryoku_package_revisions(None)
+}
+
+/// Installer source manifests explicitly name every recognized RPM, including
+/// absence. Ordinary recovery retains the original three required packages.
+fn revisions_for_source(
+    root: Option<&std::path::Path>,
+    manifest: &ryoku_recovery::RecoveryManifest,
+) -> Result<Vec<PackageRevision>, String> {
+    if ryoku_recovery::installer_state::is_installer(&manifest.reason) {
+        ryoku_recovery::installer_state::validate_inventory(manifest.package_revisions())?;
+        ryoku_recovery::installer_state::query(root)
+    } else {
+        ryoku_package_revisions(root)
+    }
 }
 
 const RPM_REVISION_FORMAT: &str = "%{NAME}-%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n";

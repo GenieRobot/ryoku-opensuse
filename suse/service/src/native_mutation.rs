@@ -111,7 +111,7 @@ fn run_bound_mutation<P: NativeMutationProvider>(
     mutation_gate::coordinate_mutation_locked(&planned, &mut operation, &mut integration)
 }
 
-fn open_journal(directory: &File) -> Result<OperationJournal> {
+pub(crate) fn open_journal(directory: &File) -> Result<OperationJournal> {
     let file = File::from(
         fs::openat2(
             directory,

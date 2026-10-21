@@ -620,3 +620,91 @@ fn journal_replay_rejects_changed_bindings_actions_missing_proof_and_bad_shapes(
     ));
     assert_eq!(fs::read(&scenario.path).unwrap(), oversized);
 }
+
+#[test]
+fn installer_recovery_journal_requires_matching_source_receipt_after_applying() {
+    let mut original_plan = plan();
+    original_plan.operation_key = "installer-install-v1".into();
+    let operation = OperationId::new("installer-test").unwrap();
+    let mut checkpoint = linked();
+    checkpoint.transaction_id = Identifier::new("installer-test-pre").unwrap();
+    let old = MutationContext {
+        plan: original_plan,
+        checkpoint: Some(checkpoint.clone()),
+        post_checkpoint: None,
+        stage: MutationStage::Applying,
+        outcome: None,
+        installer_restore: None,
+    };
+    let status = OperationStatus {
+        operation_id: operation,
+        action: ManagedActionKind::InstallPackage,
+        phase: OperationPhase::Failed,
+        progress: None,
+        error: Some(ServiceError::RecoveryUnavailable),
+    };
+    let mut restored = old.clone();
+    restored.outcome = Some(MutationOutcome::InstallerRestored);
+    // A terminal label without the independently bound receipt never clears.
+    assert!(!restored.valid_for(&status));
+    restored.installer_restore = Some(InstallerRestoreReceipt {
+        restore_id: Identifier::new("restore-installer").unwrap(),
+        source_manifest_sha256: checkpoint.manifest_sha256.clone(),
+    });
+    assert!(restored.valid_for(&status));
+    assert!(restored.follows(&old));
+    for variant in 0..7 {
+        let mut changed = restored.clone();
+        match variant {
+            0 => {
+                changed.installer_restore.as_mut().unwrap().source_manifest_sha256 =
+                    Sha256::new("cc".repeat(32)).unwrap()
+            }
+            1 => {
+                changed.checkpoint.as_mut().unwrap().transaction_id =
+                    Identifier::new("other-pre").unwrap()
+            }
+            2 => changed.stage = MutationStage::Revalidating,
+            3 => changed.plan.operation_key = "install:synthetic".into(),
+            4 => changed.installer_restore = None,
+            5 => changed.outcome = None,
+            6 => changed.stage = MutationStage::Complete,
+            _ => unreachable!(),
+        }
+        assert!(!changed.valid_for(&status), "variant {variant}");
+    }
+    // Both a crash with no terminal failure and a durable uncertain failure
+    // preserve their original stage/plan/link when the recovery record follows.
+    let mut failed = old.clone();
+    failed.outcome = Some(MutationOutcome::MayHaveMutated);
+    assert!(restored.follows(&failed));
+    assert!(!restored.follows(&restored));
+    let scenario = Scenario::new();
+    let mut journal = journal(&scenario.path);
+    let mut initial = old.clone();
+    initial.checkpoint = None;
+    initial.stage = MutationStage::Preflight;
+    let mut phase =
+        OperationStatus { phase: OperationPhase::Accepted, error: None, ..status.clone() };
+    journal.record_mutation(phase.clone(), initial.clone()).unwrap();
+    for stage in [
+        MutationStage::StateChecking,
+        MutationStage::Capturing,
+        MutationStage::Revalidating,
+        MutationStage::Applying,
+    ] {
+        initial.stage = stage;
+        phase.phase = stage.phase();
+        if stage == MutationStage::Revalidating {
+            initial.checkpoint = Some(checkpoint.clone());
+        }
+        journal.record_mutation(phase.clone(), initial.clone()).unwrap();
+    }
+    assert_eq!(journal.recovery_required().len(), 1);
+    journal.record_mutation(status.clone(), restored.clone()).unwrap();
+    drop(journal);
+    let reopened = super::coordination_tests::journal(&scenario.path);
+    assert!(reopened.recovery_required().is_empty());
+    assert_eq!(reopened.mutation_context(&status.operation_id), Some(&restored));
+    assert_eq!(reopened.get(&status.operation_id).unwrap().phase, OperationPhase::Failed);
+}

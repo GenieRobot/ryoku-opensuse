@@ -101,6 +101,42 @@ impl NativeCaptureSession {
         Ok(())
     }
 
+    /// Installer schema-1 filename migration may add only the fixed personal
+    /// profile. All other enrolled bytes, metadata and absence must match its
+    /// verified preimage while the same writer lease remains held.
+    pub fn verify_installer_migration_inventory(&self, manifest: &RecoveryManifest) -> Result<()> {
+        self.revalidate()?;
+        if !crate::installer_state::is_installer(&manifest.reason)
+            || manifest.account_principal() != Some(&self.account.principal)
+        {
+            return Err(CaptureSessionError::UnsafeBoundary);
+        }
+        let inventory =
+            InstalledInventory::for_home(&self.home).map_err(CaptureSessionError::Capture)?;
+        let actual = crate::capture::capture_inventory(
+            &self.home,
+            crate::StateRoot::UserHome,
+            inventory
+                .paths_for_root(crate::StateRoot::UserHome)
+                .ok_or(CaptureSessionError::UnsafeBoundary)?,
+            Default::default(),
+        )
+        .map_err(|error| CaptureSessionError::Capture(error.into()))?;
+        let retained = |records: &[crate::FileRecord]| {
+            records
+                .iter()
+                .filter(|record| {
+                    record.path.as_str() != crate::installed_inventory::PERSONAL_PROFILE
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+        };
+        if retained(&actual.records) != retained(manifest.files()) {
+            return Err(CaptureSessionError::UnsafeBoundary);
+        }
+        self.revalidate()
+    }
+
     /// Conservative room for both maximum bounded generations. Later
     /// allocation/fsync failures still fail the checkpoint; this is no reserve.
     pub fn ensure_checkpoint_space(&self) -> Result<()> {
@@ -140,12 +176,23 @@ impl NativeCaptureSession {
         system: Option<&[u8]>,
         companion: Option<&[u8]>,
     ) -> Result<VerifiedProfileBundle> {
-        use crate::installed_profiles::{
-            InstalledProfileBundle, ProfileBundleStore, ProfileStoreError,
-        };
+        use crate::installed_profiles::InstalledProfileBundle;
         self.revalidate()?;
         let bundle = InstalledProfileBundle::load_packaged_defaults(system, companion)
             .map_err(CaptureSessionError::Profile)?;
+        self.publish_installer_bundle(transaction, &bundle)
+    }
+
+    /// Retain an installer boundary bundle, including the schema-2 affirmative
+    /// absence of defaults. The trusted installer independently verifies RPM
+    /// presence/absence and exact package association before capture.
+    pub fn publish_installer_bundle(
+        &self,
+        transaction: &crate::Identifier,
+        bundle: &crate::installed_profiles::InstalledProfileBundle,
+    ) -> Result<VerifiedProfileBundle> {
+        use crate::installed_profiles::{ProfileBundleStore, ProfileStoreError};
+        self.revalidate()?;
         let store = match ProfileBundleStore::open_state_mount() {
             Ok(store) => store,
             Err(ProfileStoreError::Filesystem(rustix::io::Errno::NOENT)) => {
@@ -156,7 +203,7 @@ impl NativeCaptureSession {
         };
         self.revalidate()?;
         let bundle =
-            store.publish_candidate(transaction, &bundle).map_err(CaptureSessionError::Profile)?;
+            store.publish_candidate(transaction, bundle).map_err(CaptureSessionError::Profile)?;
         self.revalidate()?;
         Ok(bundle)
     }

@@ -7,6 +7,7 @@
 
 pub mod account_state;
 pub mod helper_protocol;
+pub mod installer;
 pub mod mutation_gate;
 pub mod native_mutation;
 #[cfg(target_os = "linux")]
@@ -645,6 +646,7 @@ impl OperationJournal {
                     Some(
                         mutation_gate::MutationOutcome::FailedBeforeChange
                             | mutation_gate::MutationOutcome::CancelledBeforeChange
+                            | mutation_gate::MutationOutcome::InstallerRestored
                     )
                 ),
                 _ => true,

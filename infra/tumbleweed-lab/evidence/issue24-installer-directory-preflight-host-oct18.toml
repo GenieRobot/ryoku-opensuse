@@ -1,0 +1,44 @@
+# Host fixture coverage for direct RPM directory payload preflight.
+schema_version = 1
+issue = 24
+date = "2026-10-18"
+scope = "read-only package preflight; direct directory destination type and snapshot checks"
+command = "cargo test --locked --offline -p ryoku-recovery --bin ryoku-install"
+result = "passed: 15 passed, 0 failed"
+clippy = "cargo clippy --locked --offline -p ryoku-recovery --bin ryoku-install -- -D warnings; passed"
+diff_check = "git diff --check; passed"
+covered = [
+  "existing direct directory payload destinations must be directories, with final symlinks refused",
+  "RPM directory entries must request root:root and existing directory mode, UID, and GID must match exactly",
+  "directory metadata and installed RPM owner set are bound into the preview recheck digest",
+  "shared directory ownership is allowed when actual metadata matches the selected RPM payload",
+]
+not_covered = [
+  "transitive dependency payload conflicts beyond Zypper solver output",
+  "native RPM install or disposable Tumbleweed VM acceptance",
+]
+issue_24_complete = false
+
+[rpm_owner_query_compatibility]
+date = "2026-10-18"
+environment = "openSUSE Tumbleweed 20260723; RPM 4.20.1"
+source = "suse/recovery/src/bin/ryoku-install.rs"
+source_sha256 = "8e3470131cdb9f5307bef0e98aa65f6b92ba19b2f95fcd8f0fb9924b1cd79663"
+query_format = "[P%{NAME:json}\\n[F%{FILENAMES:json}\\n]]"
+command = "/usr/bin/rpm -qa --qf '<tagged JSON package and filename records>'"
+result = "passed against complete host RPM inventory: 809 packages, 44407 file records, 2257581 output bytes; every tagged JSON record decoded and every path passed canonical absolute path and control-byte checks"
+query_output_limit_bytes = 33554432
+installer_preflight = "read-only host query-format compatibility only; no package transaction or user/system file mutation"
+issue_24_complete = false
+
+[canonical_payload_and_owner_parser_followup]
+date = "2026-10-18"
+source = "suse/recovery/src/bin/ryoku-install.rs"
+source_sha256 = "8e3470131cdb9f5307bef0e98aa65f6b92ba19b2f95fcd8f0fb9924b1cd79663"
+change = "Incoming and installed RPM payload inventories now reject non-canonical spellings. Installed RPM ownership records use tagged JSON-escaped RPM query values, preventing filenames with embedded control bytes from being parsed as forged package-owner records."
+command = "cargo test --locked --offline -p ryoku-recovery --bin ryoku-install"
+result = "passed: 17 passed, 0 failed"
+build = "cargo build --locked --offline -p ryoku-recovery --bin ryoku-install; passed"
+clippy = "cargo clippy --locked --offline -p ryoku-recovery --bin ryoku-install -- -D warnings; passed"
+diff_check = "git diff --check; passed"
+issue_24_complete = false

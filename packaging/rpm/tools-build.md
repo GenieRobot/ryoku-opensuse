@@ -7,9 +7,9 @@ enroll a user, initialize state or invoke recovery.
 
 `ryoku-ui-proof.spec` remains the sole owner of `/usr/bin/ryoku-ui-gtk` and its
 proof application entry/icon. `ryoku-tools.spec` builds the recovery inspector,
-explicit administrator initializer and lightweight launcher provider from the
+explicit administrator initializer, protected installer and lightweight launcher provider from the
 existing workspace. Its launcher provider uses `--no-default-features` so it
-does not acquire GTK dependencies. The inspector, initializer and provider
+does not acquire GTK dependencies. The inspector, initializer, installer and provider
 build in one Cargo invocation so the service's additional Rustix `event`
 feature is unified once, avoiding duplicate dependency/recovery compilation. The launcher configuration example is only
 documentation; installation never writes a live user configuration.

@@ -556,11 +556,10 @@ pub(crate) fn capture_installed_configuration_checked(
             return Err(InventoryError::InvalidEnrollment.into());
         }
         bundle.revalidate().map_err(GenerationCaptureError::ProfileStore)?;
-        if !bundle.bundle().matches_packages(&request.package_revisions) {
-            return Err(GenerationCaptureError::ProfileStore(
-                crate::installed_profiles::ProfileStoreError::PackageMismatch,
-            ));
-        }
+        bundle
+            .bundle()
+            .validate_checkpoint_inputs(&request.reason, &request.package_revisions)
+            .map_err(GenerationCaptureError::ProfileStore)?;
     }
     let mut declared = Vec::new();
     for (root, paths) in &inventory.paths {
