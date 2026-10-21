@@ -8,8 +8,10 @@ snapshots and next actions are superseded. See the tracked
 [roadmap issue #1](https://github.com/GenieRobot/ryoku-opensuse/issues/1) for
 the current coordination entry points.
 
-- `main` and `origin/main` are at
-  `e025c7b8c96e55c6c0582462a1bec2f782fd1a20` (merged PR #149, #23).
+- GitHub `origin/main` is at
+  `413a1d22e517728653075d6da4f29d4d681b1120`, the merge of PR #167. At the
+  last cleanup check, the coordinator's local `main` checkout was clean at
+  `e025c7b8c96e55c6c0582462a1bec2f782fd1a20`, one commit behind `origin/main`.
 - #15 is closed as completed M0 provider feasibility after merged PRs
   [#162](https://github.com/GenieRobot/ryoku-opensuse/pull/162) and
   [#163](https://github.com/GenieRobot/ryoku-opensuse/pull/163). The initial
