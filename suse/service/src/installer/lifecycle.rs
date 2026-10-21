@@ -20,6 +20,7 @@ use ryoku_recovery::{
     snapper_catalog::ProtectedSnapperCatalog,
 };
 use std::ffi::{OsStr, OsString};
+use std::path::Path;
 
 const RETAINED: &[&str] = &["ryoku-tools", "ryoku-tools-state-init"];
 const POLICY_FILES: &[&str] = &[
@@ -29,6 +30,12 @@ const POLICY_FILES: &[&str] = &[
     "/etc/selinux/config",
     "/etc/sysconfig/security",
     "/etc/sysconfig/displaymanager",
+];
+const KDE_FALLBACK_FILES: &[&str] = &[
+    "/usr/share/wayland-sessions/plasmawayland.desktop",
+    "/usr/share/wayland-sessions/plasma.desktop",
+    "/usr/share/xsessions/plasma.desktop",
+    "/usr/share/xsessions/plasmax11.desktop",
 ];
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Action {
@@ -136,6 +143,32 @@ impl Account {
         }
         Ok(())
     }
+}
+
+fn bootstrap_caller(args: &[OsString], uid: u32, gid: u32) -> Result<(), String> {
+    if args.len() != 1 || args[0] != "account-bootstrap" {
+        return Err("usage: ryoku-install account-bootstrap (as the target account)".into());
+    }
+    if !(1000..65534).contains(&uid) || gid == 0 {
+        return Err("account bootstrap requires the ordinary target account".into());
+    }
+    Ok(())
+}
+
+/// Initialize only the kernel caller's existing private runtime namespace.
+/// Native runtime mounting remains an administrator/logind prerequisite.
+pub(super) fn account_bootstrap(args: &[OsString], output: &mut impl Write) -> Result<(), String> {
+    let uid = rustix::process::geteuid().as_raw();
+    let gid = rustix::process::getegid().as_raw();
+    bootstrap_caller(args, uid, gid)?;
+    let account = Account::resolve(uid)?;
+    if account.gid != gid {
+        return Err("account bootstrap group differs from the account record".into());
+    }
+    ryoku_recovery::writer_protocol::initialize_writer_namespace()
+        .map_err(|error| format!("account writer namespace unavailable: {error}"))?;
+    writeln!(output, "account_writer_namespace=initialized target_uid={uid} mutation=not_performed")
+        .map_err(|error| error.to_string())
 }
 
 pub(super) fn execute(args: &[OsString], output: &mut impl Write) -> Result<(), String> {
@@ -338,6 +371,20 @@ fn require_console() -> Result<(), String> {
     }
     Ok(())
 }
+fn hash_kde_fallback(root: &Path, hash: &mut Sha256) -> Result<(), String> {
+    let mut found = false;
+    for path in KDE_FALLBACK_FILES {
+        if let Ok(bytes) = fs::read(root.join(path.trim_start_matches('/'))) {
+            found = true;
+            hash.update(path.as_bytes());
+            hash.update(bytes);
+        }
+    }
+    if !found {
+        return Err("existing KDE fallback session is required".into());
+    }
+    Ok(())
+}
 fn policy_snapshot() -> Result<String, String> {
     let mut hash = Sha256::new();
     for path in POLICY_FILES {
@@ -354,22 +401,7 @@ fn policy_snapshot() -> Result<String, String> {
             Err(e) => return Err(e.to_string()),
         }
     }
-    let kde = [
-        "/usr/share/wayland-sessions/plasma.desktop",
-        "/usr/share/xsessions/plasma.desktop",
-        "/usr/share/xsessions/plasmax11.desktop",
-    ];
-    let mut found = false;
-    for path in kde {
-        if let Ok(bytes) = fs::read(path) {
-            found = true;
-            hash.update(path.as_bytes());
-            hash.update(bytes);
-        }
-    }
-    if !found {
-        return Err("existing KDE fallback session is required".into());
-    }
+    hash_kde_fallback(Path::new("/"), &mut hash)?;
     let inventory = bounded_command(
         "/usr/bin/rpm",
         &[OsStr::new("-qa"), OsStr::new("--qf"), OsStr::new("%{NAME}\t%{NEVRA}\n")],
@@ -961,7 +993,38 @@ fn recover(args: &[OsString], output: &mut impl Write) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn account_bootstrap_accepts_only_the_ordinary_caller_and_exact_arguments() {
+        let args = vec![OsString::from("account-bootstrap")];
+        assert!(bootstrap_caller(&args, 1000, 1000).is_ok());
+        for (uid, gid) in [(0, 0), (0, 1000), (999, 1000), (65534, 1000), (1000, 0)] {
+            assert!(bootstrap_caller(&args, uid, gid).is_err());
+        }
+        assert!(bootstrap_caller(&[], 1000, 1000).is_err());
+        assert!(bootstrap_caller(&["other".into()], 1000, 1000).is_err());
+        assert!(bootstrap_caller(&[args[0].clone(), "1001".into()], 1000, 1000).is_err());
+    }
     use std::os::unix::fs::symlink;
+
+    #[test]
+    fn current_tumbleweed_kde_fallback_is_required_and_fingerprinted() {
+        let fixture = Fixture::new();
+        let sessions = fixture.path.join("usr/share/wayland-sessions");
+        fs::create_dir_all(&sessions).unwrap();
+        fs::write(sessions.join("unrelated.desktop"), b"unrelated").unwrap();
+        assert!(hash_kde_fallback(&fixture.path, &mut Sha256::new()).is_err());
+        let kde = sessions.join("plasmawayland.desktop");
+        fs::write(&kde, b"signed KDE session").unwrap();
+        let mut before = Sha256::new();
+        hash_kde_fallback(&fixture.path, &mut before).unwrap();
+        fs::write(&kde, b"changed session").unwrap();
+        let mut after = Sha256::new();
+        hash_kde_fallback(&fixture.path, &mut after).unwrap();
+        assert_ne!(before.finalize(), after.finalize());
+        fs::remove_file(kde).unwrap();
+        assert!(hash_kde_fallback(&fixture.path, &mut Sha256::new()).is_err());
+    }
     struct Fixture {
         path: PathBuf,
         account: Account,

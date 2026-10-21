@@ -61,6 +61,9 @@ pub fn main() -> ExitCode {
 }
 
 fn execute(arguments: Vec<std::ffi::OsString>, output: &mut impl Write) -> Result<(), String> {
+    if arguments.first().is_some_and(|arg| arg == "account-bootstrap") {
+        return lifecycle::account_bootstrap(&arguments, output);
+    }
     if rustix::process::geteuid().as_raw() != 0 {
         return Err("run installer commands as root".into());
     }

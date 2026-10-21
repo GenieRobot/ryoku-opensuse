@@ -22,6 +22,23 @@ before the first desktop checkpoint. Bootstrap does not create personal
 configuration or activate a desktop. Distro dependencies and KDE must already
 be installed through the distribution's normal signed package policy.
 
+After entering the maintenance console, establish the target account's native
+runtime and writer coordination namespace before a preview or capture:
+
+```console
+sudo systemctl start user-runtime-dir@UID.service
+sudo setpriv --reuid=UID --regid=GID --init-groups /usr/sbin/ryoku-install account-bootstrap
+```
+
+Use the account's NSS UID and primary GID. `account-bootstrap` accepts no
+arguments and initializes only its ordinary kernel caller's writer namespace
+and lock in the existing native `/run/user/UID`. Root, extra arguments, a
+different primary group and missing/unsafe runtime prerequisites refuse. It
+does not create runtime directories, change account preferences or publish a
+checkpoint. Reestablish it after rescue isolation or reboot if logind removed
+the account runtime. The protected capture lease continues to refuse a missing
+namespace; its existing #22 behavior is unchanged.
+
 The candidate closure uses desktop/runtime/fonts/helper/defaults/tools release
 `0.1.0-7` and unchanged Quickshell `0.3.2-2`. Desktop requires matching
 runtime/helper/defaults/tools releases; runtime requires matching fonts and the

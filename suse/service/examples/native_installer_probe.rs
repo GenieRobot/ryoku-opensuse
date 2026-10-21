@@ -593,10 +593,64 @@ fn interrupted(operation: &str, stage: &str) -> Result<()> {
     )?;
     Ok(())
 }
+fn bootstrap_account_namespace() -> Result<()> {
+    let (uid, gid) = account()?;
+    let history_before = match fs::read(format!("{STATE}/mutations.log")) {
+        Ok(bytes) => Some(bytes),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => return Err(error.into()),
+    };
+    marker("account-writer-bootstrap")?;
+    refuses(&["account-bootstrap"])?;
+    let runtime_unit = format!("user-runtime-dir@{uid}.service");
+    command("/usr/bin/systemctl", &["stop", &format!("user@{uid}.service"), &runtime_unit])?;
+    require(
+        !Path::new(&format!("/run/user/{uid}")).exists(),
+        "runtime negative precondition missing",
+    )?;
+    let uid_arg = format!("--reuid={uid}");
+    let gid_arg = format!("--regid={gid}");
+    let prefix = [&*uid_arg, &*gid_arg, "--init-groups", INSTALLER];
+    for action in [vec!["account-bootstrap"], vec!["account-bootstrap", "extra"]] {
+        let mut args = prefix.to_vec();
+        args.extend(action);
+        let status = Command::new("/usr/bin/setpriv").args(args).output()?;
+        require(status.status.code() == Some(2), "unsafe bootstrap was not refused")?;
+    }
+    command("/usr/bin/systemctl", &["start", &runtime_unit])?;
+    let mut args = prefix.to_vec();
+    args.push("account-bootstrap");
+    let initialized = command("/usr/bin/setpriv", &args)?;
+    require(
+        initialized
+            == format!(
+                "account_writer_namespace=initialized target_uid={uid} mutation=not_performed\n"
+            ),
+        "account bootstrap evidence differs",
+    )?;
+    let entries = fs::read_dir(format!("/run/user/{uid}/ryoku-writers"))?
+        .map(|entry| entry.map(|entry| entry.file_name()))
+        .collect::<std::io::Result<Vec<_>>>()?;
+    require(
+        entries == [std::ffi::OsString::from("writers.lock")],
+        "bootstrap created extra state",
+    )?;
+    require(
+        fs::read(format!("{STATE}/mutations.log")).ok() == history_before,
+        "bootstrap changed mutation history",
+    )?;
+    Ok(())
+}
 fn exercise() -> Result<()> {
     guard()?;
     command("/usr/bin/systemctl", &["isolate", "rescue.target"])?;
     command("/usr/bin/systemctl", &["start", "systemd-logind.service"])?;
+    // Fresh bootstrap has no desktop writer process to initialize its private
+    // namespace. Keep the shared capture lease contract and explicitly enroll
+    // the target account through its fixed own-account installer command.
+    if !Path::new(&format!("/run/user/{}/ryoku-writers", account()?.0)).exists() {
+        bootstrap_account_namespace()?;
+    }
     match fs::read_to_string(state("phase")) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             retain_layers()?;
@@ -712,6 +766,9 @@ fn run() -> Result<()> {
 fn main() {
     if let Err(error) = run() {
         eprintln!("native24 fixture failed: {error}");
+        // The host stops the failed VM as soon as it sees the serial marker.
+        // Make the regular-file stderr diagnostic durable before that marker.
+        let _ = rustix::fs::fsync(std::io::stderr());
         let _ = OpenOptions::new()
             .write(true)
             .open("/dev/ttyS0")

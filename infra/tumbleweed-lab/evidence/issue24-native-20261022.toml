@@ -49,3 +49,14 @@ guarded_cli_sha256 = "9b971920081d26bffd8b84817eb92e9516fbbabd9126449209794dfb6d
 command = "root invocation of temporary guarded CLI with internal-lifecycle and no action"
 result = "exit 2 and installer lifecycle action is required; no panic, no mutation"
 limits = "separate error-path check; not credited as normal RPM/source lifecycle acceptance"
+
+[run03]
+candidate = "7047b5e6448647dc1afddb4dfbe17000c49d2694"
+report = "issue24-native-20261022/run03.txt"
+result = "failed-before-first-installer-preview-and-before-runtime-install"
+observed = "native BuildRequires-enabled desktop/helper/defaults/tools builds; signed exact closure; distro dependency preparation; tools/state-init-only bootstrap"
+failure = "fresh account had no writer namespace; existing protected capture session refused ENOENT after rescue entry"
+correction = "fixed own-account namespace bootstrap through existing writer API; unchanged capture guard"
+diagnostic_preview = "after bootstrap, identified signed plasmawayland.desktop name; corrected fixed KDE preservation list; native read-only preview then exited0"
+acceptance = "none; diagnostic working-tree binaries do not replace exact Run03 RPM source"
+disposal = "failed and diagnostic disks, firmware, seed, keys and staged VM inputs removed; final diagnostic QEMU exit0 and independent zero-process scan"
