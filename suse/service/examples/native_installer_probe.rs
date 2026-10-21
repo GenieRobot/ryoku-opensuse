@@ -26,6 +26,29 @@ const UNIT: &str = "ryoku-native24-exercise.service";
 const PROBE: &str = "/usr/local/sbin/ryoku-native24-probe";
 const INSTALLER: &str = "/usr/sbin/ryoku-install";
 const DIRECTORY: &str = "/usr/local/share/ryoku-native24-packages";
+const BUILD_DEPENDENCIES: &[&str] = &[
+    "rpm",
+    "rpm-build",
+    "gpg2",
+    "cargo",
+    "rust",
+    "go",
+    "patch",
+    "cmake",
+    "ninja",
+    "gcc-c++",
+    "qt6-base-devel",
+    "qt6-declarative-devel",
+    "qt6-shadertools-devel",
+    "qt6-multimedia-devel",
+    "qml-autoreqprov",
+    "qmlpluginexports-qt6",
+    "systemd-rpm-macros",
+    "pkgconf-pkg-config",
+];
+fn valid_signing_provider(value: &str) -> bool {
+    value == "rpm-0:4.20.1-11.1.x86_64\n"
+}
 const SOURCES: &[&str] = &[
     "issue14-runtime-payload.tar.gz",
     "ryoku-desktop.spec",
@@ -210,34 +233,17 @@ fn setup() -> Result<()> {
         source.trim().len() == 40 && source.trim().bytes().all(|byte| byte.is_ascii_hexdigit()),
         "invalid exact source commit",
     )?;
-    command_for(
-        "/usr/bin/zypper",
-        &[
-            "--non-interactive",
-            "--no-refresh",
-            "install",
-            "--no-recommends",
-            "rpm-build",
-            "rpm-sign",
-            "gpg2",
-            "cargo",
-            "rust",
-            "go",
-            "patch",
-            "cmake",
-            "ninja",
-            "gcc-c++",
-            "qt6-base-devel",
-            "qt6-declarative-devel",
-            "qt6-shadertools-devel",
-            "qt6-multimedia-devel",
-            "qml-autoreqprov",
-            "qmlpluginexports-qt6",
-            "systemd-rpm-macros",
-            "pkgconf-pkg-config",
-        ],
-        "1800s",
+    let provider = command(
+        "/usr/bin/rpm",
+        &["-qf", "--qf", "%{NAME}-%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n", "/usr/bin/rpmsign"],
     )?;
+    require(
+        valid_signing_provider(&provider),
+        "rpmsign owner differs from authenticated pinned rpm provider",
+    )?;
+    let mut dependencies = vec!["--non-interactive", "--no-refresh", "install", "--no-recommends"];
+    dependencies.extend_from_slice(BUILD_DEPENDENCIES);
+    command_for("/usr/bin/zypper", &dependencies, "1800s")?;
     let top = "/var/tmp/ryoku-native24-rpm";
     fs::create_dir(top)?;
     for spec in [
@@ -709,6 +715,20 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn native_sdk_uses_authenticated_rpm_signing_provider() {
+        assert!(BUILD_DEPENDENCIES.contains(&"rpm"));
+        assert!(!BUILD_DEPENDENCIES.contains(&"rpm-sign"));
+        assert!(valid_signing_provider("rpm-0:4.20.1-11.1.x86_64\n"));
+        for wrong in [
+            "rpm-sign-0:4.20.1-11.1.x86_64\n",
+            "rpm-0:4.20.1-9.1.x86_64\n",
+            "rpm-0:4.20.1-11.1.aarch64\n",
+            "",
+        ] {
+            assert!(!valid_signing_provider(wrong));
+        }
+    }
     #[test]
     fn archive_is_exact_and_closed() {
         archive_names(&format!("{}\n", SOURCES.join("\n"))).unwrap();

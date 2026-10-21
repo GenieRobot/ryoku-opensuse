@@ -1,0 +1,29 @@
+schema = 1
+issue = 24
+status = "incomplete-native-acceptance"
+
+[run01]
+candidate = "0f2ff6f43871b5abbb5c44b9e843e79d0c0ecce9"
+source_bundle_sha256 = "c1504cb67cb1721c3611f4fac4e486fced05462bdd31604ee412e3af91ce45b2"
+report = "issue24-native-20261022/run01.txt"
+report_sha256 = "df2fae93dd40010e726b49b72f8b1daf37bb1c99b1afe46f379309b5474929a5"
+private_diagnostic_sha256 = "6216fb74d2ac8cbc1129071fb13d2833468addd48081c7b8f5759e35edeefc86"
+result = "failed-before-native-build-and-before-Ryoku-install"
+observed = "signed fresh XFS image; disposable Btrfs/UEFI derivation and sole-disk boot; SELinux enforcing; state initializer fresh/resume/repeat; signed KDE provisioning"
+failure = "fixture requested nonexistent rpm-sign package; native Zypper refused dependency provisioning"
+ryoku_runtime_installed = false
+qemu_exit = "owned runner Drop terminated and reaped QEMU; independently verified absent"
+acceptance = "none; no clean/repeat/migration/removal/interruption acceptance credited"
+
+[provider_correction]
+repository = "https://downloadcontent2.opensuse.org/history/20261016/tumbleweed/repo/oss/"
+repomd_sha256 = "1d891e33c8abd582b71e579118e6b4c94e5e57ecdc1b77a2a7fc1abf7cc930a0"
+repomd_signature = "valid detached signature from openSUSE key AD485664E901B867051AB15F35A2F86E29B700A4"
+primary_compressed_sha512 = "00c8e15be77a2a6e1f49e58f3c1c66142e2987fda576cceec54c9db0e9a7f789e43233f12f463d0d5313f941f665928aa45e79cba73de6699b847d560cc454ad"
+primary_open_sha512 = "b78e3942f0585d06a9c1d10115e78d23f357b31cc23a95d550b4de46be090a670782c0d23fa10e21bbcfe7f485b1f85250700f6a77b203021c728e22913605df"
+provider = "rpm-0:4.20.1-11.1.x86_64"
+file = "/usr/bin/rpmsign"
+provider_package_sha512 = "8ea75d4aabd8e57120932eb48be67539ecdd3d67db73c0a125106bc7bd3d7114bce93b51c153b3c16df9044781db1ab09dd1db18ef40ab3c613948641a8d7c9b"
+verification = "authenticated primary metadata names exact RPM/file owner; compressed/open primary hashes both checked; no fixture pin or trust bypass"
+guest_preflight = "query fixed /usr/bin/rpmsign owner and require exact pinned NEVRA before SDK provisioning"
+regression = "native_sdk_uses_authenticated_rpm_signing_provider rejects missing/obsolete/foreign identities and forbids rpm-sign in the fixed SDK set"
