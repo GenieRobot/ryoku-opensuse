@@ -31,6 +31,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some("guest-inspect") => guest::inspect(),
         Some("guest-inspect-base") => guest::inspect_base(),
         Some("guest-base-setup") => guest::base_setup(),
+        Some("guest-issue19-rollback-setup") if cfg!(feature = "issue19-lab") => {
+            guest::issue19_rollback_setup()
+        }
         Some("guest-login-prepare") if args.len() == 2 => desktop::prepare(),
         Some("guest-login-inspect") if args.len() == 2 => desktop::inspect(),
         Some("guest-ui-install") if args.len() == 2 => guest::install_ui_runtime(),

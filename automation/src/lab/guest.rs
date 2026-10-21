@@ -92,6 +92,85 @@ pub(crate) fn fixture_only() -> Result<()> {
     )
 }
 
+/// Prepare only the new issue19 console disk for native default-root rollback.
+/// The shared fixture and retained guests are never adopted by this path.
+pub(crate) fn issue19_rollback_setup() -> Result<()> {
+    fixture_only()?;
+    require(cfg!(feature = "issue19-lab"), "issue19 fixture selection required")?;
+    require(
+        command("findmnt", &["-n", "-o", "FSROOT", "/"])?.trim() == "/@",
+        "unexpected initial root",
+    )?;
+    let fstab = fs::read_to_string("/etc/fstab")?;
+    require(
+        !fstab.lines().any(|line| line.split_whitespace().nth(1) == Some("/.snapshots")),
+        "snapshot namespace already configured",
+    )?;
+    let root_line = fstab
+        .lines()
+        .find(|line| line.split_whitespace().nth(1) == Some("/"))
+        .ok_or("root mount missing")?;
+    let source = root_line.split_whitespace().next().ok_or("root source missing")?;
+    require(source.starts_with("UUID="), "unbound root source")?;
+    fs::write(
+        "/etc/fstab",
+        format!("{fstab}{source} /.snapshots btrfs defaults,subvol=@/.snapshots 0 0\n"),
+    )?;
+    command("mount", &["/.snapshots"])?;
+    let grub = fs::read_to_string("/etc/default/grub")?;
+    let mut updated = grub
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("SUSE_BTRFS_SNAPSHOT_BOOTING="))
+        .collect::<Vec<_>>()
+        .join("\n");
+    updated.push_str("\nSUSE_BTRFS_SNAPSHOT_BOOTING=\"true\"\n");
+    fs::write("/etc/default/grub", updated)?;
+    command("grub2-mkconfig", &["-o", "/boot/grub2/grub.cfg"])?;
+    command(
+        "grub2-install",
+        &[
+            "--target=x86_64-efi",
+            "--efi-directory=/boot/efi",
+            "--boot-directory=/boot",
+            "--removable",
+            "--no-nvram",
+        ],
+    )?;
+    // The generic migration boots @ directly. A standard Snapper rollback
+    // layout instead boots a numbered writable default snapshot. Bootstrap
+    // that disposable layout before initializing any Ryoku state or evidence.
+    let source = command(
+        "snapper",
+        &["--config", "root", "create", "--type", "single", "--read-only", "--print-number"],
+    )?;
+    let source = source.trim();
+    require(
+        source.parse::<u64>().is_ok_and(|n| n > 0 && n.to_string() == source),
+        "invalid bootstrap snapshot",
+    )?;
+    let target = command(
+        "snapper",
+        &[
+            "--quiet",
+            "--ambit",
+            "classic",
+            "--config",
+            "root",
+            "rollback",
+            "--print-number",
+            source,
+        ],
+    )?;
+    let target = target.trim();
+    require(
+        target.parse::<u64>().is_ok_and(|n| n > 0 && n.to_string() == target),
+        "invalid bootstrap target",
+    )?;
+    command("sync", &[])?;
+    println!("native_issue19_rollback_layout=prepared");
+    Ok(())
+}
+
 pub(crate) fn command(program: &str, args: &[&str]) -> Result<String> {
     let result = Command::new(program).args(args).output()?;
     if !result.status.success() {

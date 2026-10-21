@@ -96,7 +96,8 @@ The parent lab harness owns VM creation, root rollback/reboot, and cleanup.
    disposable-guest rollback and reboot, then run `--verify-after-root-change`.
    This requires historical lookup to pass while fresh-root ancestry
    verification fails specifically because the running root changed. The
-   probe itself never rolls back root or asserts that boot files are covered.
+   explicit `--prepare-root-rollback` mode uses the typed backend and verifies
+   its reboot handoff; it does not assert that boot files are covered.
 4. `--exercise-failures` temporarily makes only its recorded snapshot writable,
    moves it aside to test absence, substitutes a second probe-owned native
    snapshot at the recorded path, and temporarily moves the exact generation.
@@ -110,7 +111,7 @@ The journal is a synthetic `Planned` persistence fixture, not a prepared
 restore attempt or proof of a fresh current-state checkpoint. Capture uses a
 fixed synthetic timestamp and payload. Local build, Clippy, and unprivileged
 host refusal pass; native component evidence is linked below. Actual root
-rollback remains unproven. A returned historical handle is
+rollback evidence is recorded in the 21 October section below. A returned historical handle is
 only an observation at lookup time: an eventual mutation executor must reopen
 and compare both catalog/generation and native snapshot under its cleanup and
 mutation lock immediately before use.
@@ -122,7 +123,8 @@ hashes each input before starting, checks installed guest digests, and runs
 capture, the actual CLI's `pending`/`verify-linked`, partner failure checks,
 normal reboot, fresh-process read-back, and the same CLI commands again.
 All exact fixture markers are validated before being accepted as evidence.
-This path has no root-switch command or boot configuration changes.
+The ordinary feature retains normal-reboot behavior. The explicit `issue19-lab`
+feature selects the separate rollback fixture described below.
 
 `--observe-layout` records bounded read-only observations of the original
 kernel command line, fstab, GRUB defaults/generated configuration, Snapper
@@ -235,3 +237,44 @@ layout/additional-snapshot discovery, package-hook integration, catalog and
 journal survival through actual root rollback, and native cleanup ownership
 still require acceptance evidence. Existing native linked-partner evidence
 remains a separate slice; this host validation does not establish boot safety.
+
+## Changed-root persistence (21 October 2026)
+
+The isolated `issue19-lab` console fixture selects signed Tumbleweed 20261016
+and KVM, reuses the Rust migration/VM lifecycle, and changes only its fresh disk.
+It initializes protected state on the original direct-child root, configures a
+persistent Snapper namespace and snapshot-aware GRUB, then bootstraps a numbered
+writable default root. Fresh state provisioning still requires a direct-child
+root. Reopening an already initialized store validates its recorded mount,
+generation store, mount unit and unfinished journals before returning; it no
+longer applies creation-only root constraints to a healthy rollback root.
+
+Run07 captured snapshot `root:5` from root `@/.snapshots/4/snapshot` (subvolume
+264), then invoked the typed rollback backend and booted
+`@/.snapshots/8/snapshot` (subvolume 268). The snapshot namespace stayed on
+subvolume 259 and protected state stayed on `@ryoku-state` subvolume 261 with
+`nosuid,nodev,noexec`. A new process reopened the original sealed snapshot,
+transaction catalog, generation payload and exact synthetic Planned journal.
+The actual recovery CLI verified the same partners before and after rollback.
+The fixture removed only its verified Planned journal and the state initializer
+then reopened the healthy store on the changed root.
+
+Native Snapper 0.13.1 requires explicitly selected `read-only` list columns;
+its default JSON omits that field. Rollback also needs global `--quiet` for
+`--print-number` to return only the numeric target. Exact-argument regressions
+cover both production adapter corrections. Failed runs remain failed evidence:
+run03 refused changed Update metadata, run04 refused the omitted inventory
+field, run05 refused a direct-root layout without a numbered default, and run06
+refused fresh initialization after the numbered-root bootstrap. The separate
+fixture pins the newly signature-verified Update metadata; shared pins are
+unchanged.
+
+Run07 also passed offline controlled-byte restoration, signed-base fresh-boot
+reset, base-image hash comparison and disk/key disposal. Desktop acceptance
+was not requested, so the generic lifecycle result remains `partial`.
+Detailed hashes and command provenance are in
+[`issue19-root-rollback-20261021.toml`](../infra/tumbleweed-lab/evidence/issue19-root-rollback-20261021.toml).
+This demonstrates persistence of the linked catalog and synthetic Planned
+journal. It does not demonstrate a complete linked restore or boot compatibility,
+and does not close the separate layout/additional-ID, package-hook and retention
+ownership gates.

@@ -68,7 +68,6 @@ fn initialize(action: Action) -> Result<()> {
         return Err("root user and group required".into());
     }
     let root = File::open("/")?;
-    let uuid = provisioning_root_uuid(&root)?;
     let run = open_owned_parent(&root, "run")?;
     let initializer_lock = File::from(openat2(
         &run,
@@ -108,6 +107,9 @@ fn initialize(action: Action) -> Result<()> {
             Err(error) => return Err(error.into()),
         }
     }
+    // Fresh provisioning and resume require a direct-child root. An existing
+    // validated store also remains available from a numbered rollback root.
+    let uuid = provisioning_root_uuid(&root)?;
     verify_snapper_mapping(&root)?;
     if matches!(&action, Action::Initialize) && has_pending_state_creation(&root)? {
         return Err(

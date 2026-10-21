@@ -15,7 +15,8 @@ use ryoku_recovery::{
     state_mount::collect_and_open_state_mount,
 };
 use ryoku_snapper::{
-    ConfigName, SnapperCheckpointBackend, SnapperCliError, SnapshotPairRequest, TransactionId,
+    ConfigName, RootRollbackRequest, SnapperCheckpointBackend, SnapperCliError,
+    SnapperRollbackBackend, SnapshotId, SnapshotPairRequest, TransactionId,
 };
 use std::{
     fs::{self, File},
@@ -46,6 +47,7 @@ fn main() -> ProbeResult<()> {
                 | "--exercise-failures"
                 | "--observe-layout"
                 | "--cleanup-journal"
+                | "--prepare-root-rollback"
         )
         || rustix::process::geteuid().as_raw() != 0
         || rustix::process::getegid().as_raw() != 0
@@ -62,10 +64,32 @@ fn main() -> ProbeResult<()> {
         "--exercise-failures" => exercise_failures(&root)?,
         "--observe-layout" => observe_layout()?,
         "--cleanup-journal" => cleanup_journal(&root)?,
+        "--prepare-root-rollback" => prepare_root_rollback(&root)?,
         _ => unreachable!(),
     }
     println!("native_linked_boot_compatibility=unproven");
     println!("native_linked_restore_execution=unproven");
+    Ok(())
+}
+
+fn prepare_root_rollback(root: &File) -> ProbeResult<()> {
+    verify(root, false)?;
+    let reader = GenerationReader::open_state_mount()?;
+    let manifest = reader.verify_transaction(&id(TRANSACTION)?)?;
+    let receipt = SnapperRollbackBackend.rollback_to(&RootRollbackRequest {
+        config: ConfigName::new("root").map_err(|_| "invalid fixed config")?,
+        source_snapshot: SnapshotId::new(&manifest.snapper_snapshot_id)
+            .map_err(|_| "invalid source")?,
+        transaction_id: TransactionId::new("issue19-root-rollback")
+            .map_err(|_| "invalid rollback tag")?,
+    })?;
+    SnapperRollbackBackend.verify_reboot_handoff(
+        &receipt.config,
+        &receipt.rollback_target_snapshot,
+        &receipt.backup_snapshot,
+        &receipt.transaction_id,
+    )?;
+    println!("native_linked_root_rollback_target={}", receipt.rollback_target_snapshot.as_str());
     Ok(())
 }
 

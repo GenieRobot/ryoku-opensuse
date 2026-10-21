@@ -1,4 +1,4 @@
-//! Optional linked-partner component run. It never switches the guest root.
+//! Optional linked-partner run. The issue19 fixture also exercises root rollback.
 use super::*;
 
 const READBACK: &[&str] = &[
@@ -33,6 +33,23 @@ fn validate_probe(mode: &str, text: &str) -> Result<()> {
             .concat()
         }
         "--verify" => [READBACK, LIMITS].concat(),
+        "--verify-after-root-change" => {
+            [&["native_linked_changed_root_historical_readback=passed"][..], READBACK, LIMITS]
+                .concat()
+        }
+        "--prepare-root-rollback" => {
+            let index = READBACK.len();
+            let number = lines
+                .get(index)
+                .and_then(|line| line.strip_prefix("native_linked_root_rollback_target="))
+                .ok_or("missing rollback target")?;
+            require(
+                number.parse::<u64>().is_ok_and(|n| n > 0 && n.to_string() == number),
+                "invalid rollback target",
+            )?;
+            lines.remove(index);
+            [READBACK, LIMITS].concat()
+        }
         "--exercise-failures" => [
             READBACK,
             &[
@@ -166,9 +183,16 @@ impl Lab {
 
     pub(super) fn linked_after_reboot(&mut self) -> Result<()> {
         self.linked_probe_mode("--observe-layout", "linked-layout-after-private.log")?;
-        self.linked_probe_mode("--verify", "linked-after-reboot-private.log")?;
+        self.linked_probe_mode(
+            if cfg!(feature = "issue19-lab") { "--verify-after-root-change" } else { "--verify" },
+            "linked-after-reboot-private.log",
+        )?;
         self.linked_cli("after")?;
-        self.evidence("native_linked_normal_reboot_readback=passed")?;
+        self.evidence(if cfg!(feature = "issue19-lab") {
+            "native_linked_root_rollback_readback=passed"
+        } else {
+            "native_linked_normal_reboot_readback=passed"
+        })?;
         // The initializer correctly refuses pending recovery. Remove only this
         // fixture's exact verified Planned journal before its healthy check.
         self.linked_probe_mode("--cleanup-journal", "linked-cleanup-private.log")?;
@@ -181,6 +205,10 @@ impl Lab {
             "CLI pending not empty after owning fixture cleanup",
         )?;
         self.evidence("native_linked_cli_empty_after_cleanup=passed")
+    }
+
+    pub(super) fn linked_prepare_rollback(&mut self) -> Result<()> {
+        self.linked_probe_mode("--prepare-root-rollback", "linked-rollback-private.log")
     }
 }
 
@@ -207,6 +235,25 @@ mod tests {
             cli.replace("issue19-linked-generation", "other-generation"),
         ] {
             assert!(validate_cli_link(&bad).is_err());
+        }
+    }
+
+    #[test]
+    fn rollback_readback_requires_changed_root_and_a_canonical_target() {
+        let changed =
+            [&["native_linked_changed_root_historical_readback=passed"][..], READBACK, LIMITS]
+                .concat()
+                .join("\n");
+        validate_probe("--verify-after-root-change", &changed).unwrap();
+        assert!(
+            validate_probe("--verify-after-root-change", &[READBACK, LIMITS].concat().join("\n"))
+                .is_err()
+        );
+        assert!(validate_probe("--verify", &changed).is_err());
+        for target in ["42", "0", "042", "42\n42", "other", ""] {
+            let line = format!("native_linked_root_rollback_target={target}");
+            let result = [READBACK, &[line.as_str()], LIMITS].concat().join("\n");
+            assert_eq!(validate_probe("--prepare-root-rollback", &result).is_ok(), target == "42");
         }
     }
 }

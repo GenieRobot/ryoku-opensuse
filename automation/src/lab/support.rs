@@ -67,6 +67,10 @@ pub fn public_evidence(line: &str) -> bool {
         "native_linked_cli_pending",
         "native_linked_cli_verify",
         "native_linked_normal_reboot_readback",
+        "native_issue19_rollback_layout",
+        "native_issue19_numbered_root_boot",
+        "native_linked_changed_root_historical_readback",
+        "native_linked_root_rollback_readback",
         "native_linked_cli_empty_after_cleanup",
         "zypp_probe_sha256",
         "orchestrator_sha256",
@@ -240,6 +244,15 @@ mod tests {
         assert!(public_evidence("native_linked_normal_reboot_readback=passed"));
         assert!(!public_evidence("boot_fact={\"file\":\"/proc/cmdline\"}"));
         assert!(!public_evidence("native_linked_snapshot_id=42"));
+        assert!(!public_evidence("native_linked_root_rollback_target=42"));
+        for key in [
+            "native_issue19_rollback_layout",
+            "native_issue19_numbered_root_boot",
+            "native_linked_changed_root_historical_readback",
+            "native_linked_root_rollback_readback",
+        ] {
+            assert!(public_evidence(&format!("{key}=passed")));
+        }
         assert!(public_evidence("sddm=0.21.0+git57-1.1"));
         assert!(public_evidence("desktop_authentication=sddm-pam"));
         assert!(public_evidence("desktop_login_reason=active_session_absent_or_mismatch"));

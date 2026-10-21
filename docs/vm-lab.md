@@ -6,8 +6,8 @@ The user authorized this existing openSUSE WSL VM for development and tests on
 2026-10-15. Build `vm-lab` with `--features wsl-lab` to select the separate
 [`wsl-fixture.toml`](../infra/tumbleweed-lab/wsl-fixture.toml) input set.
 The default build retains the original cloud fixture and proxy requirements.
-An all-features build also selects WSL; do not use an all-features binary for
-the original cloud run. Each host copies its own executable into the guest,
+An all-features build selects the issue #19 rollback fixture (and WSL); do not
+use an all-features binary for the ordinary cloud or WSL run. Each host copies its own executable into the guest,
 so guest repository, package, and snapshot assertions use the same input set.
 
 This runner uses installed `/usr/bin` tools: QEMU 11.1.2, `qemu-img`, and
@@ -755,3 +755,15 @@ only the linked-partner probe/CLI harness integration; the shared preflight and
 KVM launch changes used by that historical build are excluded. Current checks
 reuse an already running guest and are recorded in the
 [18 October evidence](../infra/tumbleweed-lab/evidence/issue19-current-main-linked-partners-20261018.toml).
+
+## Issue #19 rollback acceptance fixture
+
+Build the orchestrator with `--features issue19-lab` and use the separate
+[`issue19-fixture.toml`](../infra/tumbleweed-lab/issue19-fixture.toml) signed
+20261016 input set. This feature requires the console linked probe and state
+initializer options and KVM. It creates a fresh owned disk, prepares a numbered
+Snapper default-root layout, captures linked state, performs actual root rollback,
+and requires changed-root historical catalog/journal readback before normal
+reset/disposal. Use a short absolute run path so its QMP socket fits Linux's
+108-byte Unix socket address. Existing run directories are always refused.
+The generic WSL/cloud feature paths retain their existing fixtures and TCG.

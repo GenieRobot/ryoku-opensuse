@@ -460,7 +460,7 @@ fn rollback_inventory_with(
     config: &ConfigName,
     run: &mut impl FnMut(&[String]) -> Result<Vec<u8>, SnapperCliError>,
 ) -> Result<Vec<RollbackSnapshotRecord>, SnapperCliError> {
-    let bytes = run(&snapper_list_args(config))?;
+    let bytes = run(&rollback_list_args(config))?;
     let records = parse_snapper_json(config, &bytes)?;
     validate_inventory(&records)?;
     let value: Value = serde_json::from_slice(&bytes).map_err(|_| SnapperCliError::InvalidJson)?;
@@ -497,6 +497,7 @@ fn rollback_inventory_with(
 
 fn root_rollback_args(request: &RootRollbackRequest) -> Vec<String> {
     vec![
+        "--quiet".into(),
         "--config".into(),
         request.config.as_str().into(),
         "rollback".into(),
@@ -507,6 +508,15 @@ fn root_rollback_args(request: &RootRollbackRequest) -> Vec<String> {
         format!("{TRANSACTION_USERDATA_KEY}={}", request.transaction_id.as_str()),
         request.source_snapshot.as_str().into(),
     ]
+}
+
+fn rollback_list_args(config: &ConfigName) -> Vec<String> {
+    let mut args = snapper_list_args(config).to_vec();
+    args.extend([
+        "--columns".into(),
+        "number,type,pre-number,userdata,default,active,read-only".into(),
+    ]);
+    args
 }
 
 fn pair_list_with(
@@ -953,7 +963,8 @@ mod tests {
             calls += 1;
             match calls {
                 1 => {
-                    assert_eq!(args, snapper_list_args(&config()));
+                    assert_eq!(args, ["--jsonout", "--config", "root", "list", "--columns",
+                        "number,type,pre-number,userdata,default,active,read-only"]);
                     Ok(br#"{"root":[
                         {"number":42,"type":"single","default":false,"active":false,"read-only":true,"userdata":{"ryoku-transaction-id":"source-transaction"}},
                         {"number":43,"type":"single","default":true,"active":true,"read-only":false},
@@ -961,7 +972,7 @@ mod tests {
                     ]}"#.to_vec())
                 }
                 2 => {
-                    assert_eq!(args, ["--config", "root", "rollback", "--print-number",
+                    assert_eq!(args, ["--quiet", "--config", "root", "rollback", "--print-number",
                         "--description", "Ryoku offline recovery", "--userdata",
                         "ryoku-transaction-id=restore-attempt-1:rollback", "42"]);
                     Ok(b"45\n".to_vec())
@@ -1099,7 +1110,7 @@ mod tests {
         let mut calls = 0;
         verify_running_target_with(&config, &target, &transaction, |args| {
             calls += 1;
-            assert_eq!(args, snapper_list_args(&config));
+            assert_eq!(args, rollback_list_args(&config));
             Ok(br#"{"root":[
                 {"number":45,"type":"single","default":true,"active":true,"read-only":false,"userdata":{"ryoku-transaction-id":"restore-attempt-1"}},
                 {"number":44,"type":"single","default":false,"active":false,"read-only":true,"userdata":{"ryoku-transaction-id":"restore-attempt-1"}}

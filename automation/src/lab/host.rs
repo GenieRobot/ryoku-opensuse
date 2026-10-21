@@ -454,9 +454,9 @@ impl Lab {
                 "-machine",
                 scalar("machine")?,
                 "-accel",
-                "tcg,thread=multi",
+                if cfg!(feature = "issue19-lab") { "kvm" } else { "tcg,thread=multi" },
                 "-cpu",
-                "max",
+                if cfg!(feature = "issue19-lab") { "host" } else { "max" },
                 "-smp",
                 scalar("cpus")?,
                 "-m",
@@ -1578,6 +1578,10 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         recovery_cli,
         console_only,
     } = options;
+    require(
+        !cfg!(feature = "issue19-lab") || (console_only && linked_probe.is_some()),
+        "issue19-lab requires the isolated linked console fixture",
+    )?;
     let image = scalar("image")?;
     let hash = scalar("sha256")?;
     let signer = scalar("release_key_fingerprint")?;
@@ -1585,7 +1589,8 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
     let memory = scalar("memory_mib")?;
     let cpus = scalar("cpus")?;
     require(
-        scalar("architecture")? == "x86_64" && scalar("accelerator")? == "tcg",
+        scalar("architecture")? == "x86_64"
+            && scalar("accelerator")? == if cfg!(feature = "issue19-lab") { "kvm" } else { "tcg" },
         "unsupported fixture architecture or accelerator",
     )?;
     let assets = fs::canonicalize(assets)?;
@@ -1627,6 +1632,10 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         .transpose()?;
     let run_path = Path::new(run);
     require(run_path.is_absolute(), "run directory must be absolute")?;
+    require(
+        run_path.join("qmp-private.sock").as_os_str().len() < 108,
+        "run path exceeds Unix socket path limit",
+    )?;
     safe_component(run_path.file_name().and_then(|x| x.to_str()).ok_or("missing run name")?)?;
     let parent = fs::canonicalize(run_path.parent().ok_or("missing parent")?)?;
     runner::validate_host(&assets, &parent)?;
@@ -1705,7 +1714,8 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         report: fs::File::create(run_path.join("evidence.txt"))?,
     };
     let runner_name = if runner::WSL { "existing-opensuse-wsl" } else { "existing-managed-cloud" };
-    lab.evidence(&format!("fixture_sha256={hash}\nrelease_signer={signer}\nhost_runner={runner_name}\naccelerator=tcg\nvm_memory_mib={memory}\nvm_cpus={cpus}"))?;
+    let accelerator = scalar("accelerator")?;
+    lab.evidence(&format!("fixture_sha256={hash}\nrelease_signer={signer}\nhost_runner={runner_name}\naccelerator={accelerator}\nvm_memory_mib={memory}\nvm_cpus={cpus}"))?;
     let version = output(lab.tool("qemu-system-x86_64").arg("--version"))?;
     require(
         version.starts_with(&format!("QEMU emulator version {qemu}")),
@@ -1756,6 +1766,44 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
     let base = lab.ssh("sudo /tmp/ryoku-vm-lab guest-base-setup")?;
     lab.evidence(&base)?;
     lab.evidence("derived_btrfs_boot=passed")?;
+    if cfg!(feature = "issue19-lab") {
+        // Provision on the original direct-child root before capturing the
+        // fixture bootstrap. Numbered roots reopen the recorded state only.
+        lab.initialize_state()?;
+        let setup = lab.ssh("sudo /tmp/ryoku-vm-lab guest-issue19-rollback-setup")?;
+        require(
+            setup.trim() == "native_issue19_rollback_layout=prepared",
+            "rollback layout setup failed",
+        )?;
+        lab.evidence(&setup)?;
+        let before = lab.ssh("cat /proc/sys/kernel/random/boot_id")?;
+        let _ = lab.ssh("sudo systemctl reboot");
+        let deadline = Instant::now() + Duration::from_secs(600);
+        let mut rebooted = false;
+        while Instant::now() < deadline {
+            if let Ok(after) = lab.ssh("cat /proc/sys/kernel/random/boot_id")
+                && before.trim() != after.trim()
+            {
+                rebooted = true;
+                break;
+            }
+            thread::sleep(Duration::from_secs(3));
+        }
+        require(rebooted, "issue19 bootstrap root did not reboot")?;
+        lab.wait_ssh()?;
+        let root = lab.ssh("findmnt --noheadings --output FSROOT /")?;
+        let number = root
+            .trim()
+            .strip_prefix("/@/.snapshots/")
+            .and_then(|path| path.strip_suffix("/snapshot"))
+            .ok_or("issue19 bootstrap did not boot a numbered root")?;
+        require(
+            number.parse::<u64>().is_ok_and(|n| n > 0 && n.to_string() == number),
+            "invalid booted root number",
+        )?;
+        lab.copy_binary()?;
+        lab.evidence("native_issue19_numbered_root_boot=passed")?;
+    }
     // The migrated disk is standalone and has now booted without the XFS
     // source attached. Retain the signed base for the later reset check,
     // but release the disposable migration source before desktop setup.
@@ -1764,7 +1812,7 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
     if lab.state_probe.is_some() {
         lab.state_probe()?;
     }
-    if lab.state_initializer.is_some() {
+    if lab.state_initializer.is_some() && !cfg!(feature = "issue19-lab") {
         lab.initialize_state()?;
     }
     if lab.linked_probe.is_some() {
@@ -1836,6 +1884,9 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         })?;
     }
     let before = lab.ssh("cat /proc/sys/kernel/random/boot_id")?;
+    if cfg!(feature = "issue19-lab") {
+        lab.linked_prepare_rollback()?;
+    }
     let _ = lab.ssh("sudo systemctl reboot");
     let deadline = Instant::now() + Duration::from_secs(600);
     let mut changed = false;
