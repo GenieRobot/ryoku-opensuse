@@ -24,7 +24,7 @@ observes and invokes the real console. It is not installed by a project RPM.
 | Concurrent supported console writers | While the actual capture owner is paused with its machine lock, a second capture and restore preparation run concurrently and both refuse without publishing |
 | Capture process death | SIGKILL after a successful staging fsync; same transaction tag refuses restart, incomplete artifacts remain for explicit inspection, and a fresh independent transaction succeeds |
 | Restore process death | SIGKILL after each selected successful journal-directory fsync; exact journal/checkpoint readback, incomplete-session refusal and real console restart |
-| Complete comparison | All 72 compiled preference records, including absent paths, regular bytes, modes, ownership, ACLs, xattrs and symlink values match; unrelated-home bytes and complete captured metadata match |
+| Complete comparison | All 72 compiled preference records, including absent paths, regular bytes, modes, ownership, POSIX ACLs, SELinux/capability metadata and symlink values match; unrelated-home bytes and the same captured metadata match |
 | Linked/system rollback | Actual Snapper rollback, reboot and native boot confirmation; matching generation/catalog/checkpoints remain available after both rollback and an extra reboot |
 
 The phase sweep covers `Planned`, `CheckpointVerified`, `ContentStaged`,
@@ -53,7 +53,7 @@ separate typed mutation coordinator; this probe does not enable another provider
 System restoration supports the verified single-root Btrfs/Snapper layout with
 the dedicated top-level state subvolume and standard XDG home inventory.
 Additional restore roots, external ESP recovery, disk-loss backup, arbitrary
-root administrators and unregistered external writers are unsupported. A
+root administrators, arbitrary user xattrs and unregistered external writers are unsupported. A
 rollback killed before a durable native handoff receipt still requires manual
 inspection; this probe does not automatically retry that uncertain operation.
 Installed package revisions must match the source; no complete alternate signed

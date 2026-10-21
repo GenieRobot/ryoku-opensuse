@@ -80,12 +80,6 @@ fn fixture() -> Result<()> {
     command("/usr/bin/setfacl", &["-m", &format!("u:{uid}:r--"), &sentinel])?;
     let shell = format!("{HOME}/.config/ryoku/shell.json");
     command("/usr/bin/setfacl", &["-m", &format!("u:{uid}:r--"), &shell])?;
-    rustix::fs::setxattr(
-        shell.as_str(),
-        "user.ryoku22",
-        b"managed metadata",
-        rustix::fs::XattrFlags::empty(),
-    )?;
     let link = format!("{HOME}/.config/ryoku/profile/hero.jpg");
     if fs::symlink_metadata(&link).is_ok() {
         fs::remove_file(&link)?;
@@ -98,13 +92,7 @@ fn fixture() -> Result<()> {
         Some(rustix::fs::Gid::from_raw(gid)),
         rustix::fs::AtFlags::SYMLINK_NOFOLLOW,
     )?;
-    let unrelated = capture_declared(
-        &File::open(HOME)?,
-        StateRoot::UserHome,
-        &[ryoku_recovery::RelativePath::new("Documents/native22-unrelated")
-            .map_err(|_| "invalid fixed sentinel path")?],
-        CaptureLimits::default(),
-    )?;
+    let unrelated = sentinel_records(Path::new(HOME))?;
     write_new(&receipt("sentinel.json"), &serde_json::to_vec(&unrelated)?, 0o600)?;
     Ok(())
 }
@@ -126,19 +114,23 @@ fn compare() -> Result<()> {
     Ok(())
 }
 fn compare_sentinel() -> Result<()> {
-    let paths = [ryoku_recovery::RelativePath::new("Documents/native22-unrelated")
-        .map_err(|_| "invalid fixed sentinel path")?];
-    let actual = capture_declared(
-        &File::open(HOME)?,
-        StateRoot::UserHome,
-        &paths,
-        CaptureLimits::default(),
-    )?;
+    let actual = sentinel_records(Path::new(HOME))?;
     require(
         serde_json::to_vec(&actual)? == fs::read(receipt("sentinel.json"))?,
         "unrelated sentinel bytes/ownership/mode/ACL/xattrs changed",
     )?;
     Ok(())
+}
+fn sentinel_records(home: &Path) -> Result<Vec<ryoku_recovery::FileRecord>> {
+    // This synthetic comparison root is never enrolled or published. UserHome
+    // remains restricted to the compiled managed preference inventory.
+    Ok(capture_declared(
+        &File::open(home.join("Documents"))?,
+        StateRoot::UserRyokuConfig,
+        &[ryoku_recovery::RelativePath::new("native22-unrelated")
+            .map_err(|_| "invalid fixed sentinel path")?],
+        CaptureLimits::default(),
+    )?)
 }
 fn no_attempt(attempt: &str) -> Result<()> {
     require(
@@ -305,7 +297,6 @@ fn phases() -> Result<()> {
     fs::write(&shell, b"{\"corrupted\":true}")?;
     fs::set_permissions(&shell, fs::Permissions::from_mode(0o640))?;
     command("/usr/bin/setfacl", &["-b", &shell])?;
-    rustix::fs::removexattr(shell.as_str(), "user.ryoku22")?;
     let link = format!("{HOME}/.config/ryoku/profile/hero.jpg");
     fs::remove_file(&link)?;
     write_new(&link, b"replace with original symlink", 0o600)?;
@@ -454,5 +445,35 @@ fn main() {
             let _ = serial_line("native_issue21_result=failed");
         }
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn unrelated_sentinel_comparison_never_enrolls_it_in_managed_home() {
+        let root = std::env::temp_dir().join(format!("native22-sentinel-{}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(root.join("Documents")).unwrap();
+        let sentinel = root.join("Documents/native22-unrelated");
+        fs::write(&sentinel, b"preserved outside inventory").unwrap();
+        let before = sentinel_records(&root).unwrap();
+        assert_eq!(before.len(), 1);
+        assert_eq!(before[0].root, StateRoot::UserRyokuConfig);
+        assert!(
+            capture_declared(
+                &File::open(&root).unwrap(),
+                StateRoot::UserHome,
+                &[ryoku_recovery::RelativePath::new("Documents/native22-unrelated").unwrap()],
+                CaptureLimits::default(),
+            )
+            .is_err()
+        );
+        assert!(!PREFERENCES.contains(&"Documents/native22-unrelated"));
+        assert_eq!(sentinel_records(&root).unwrap(), before);
+        fs::write(&sentinel, b"changed").unwrap();
+        assert_ne!(sentinel_records(&root).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
     }
 }

@@ -1,0 +1,25 @@
+issue = 22
+date = "2026-10-22"
+branch = "codex/issue22-recovery-gate"
+status = "native_retry_pending"
+issue_complete = false
+
+[run01]
+source = "44e8cb4cd4a093ddb117e243e48274f8cff9b62b"
+source_dirty = false
+result = "failed after entering offline mode, before first issue22 checkpoint"
+report = "issue22-native-20261022/run01.txt"
+report_sha256 = "01afd41f7c4fb140f71ede3403badbbcf0940495cec9e084930016048c5c5112"
+private_log_sha256 = "b5dd48d27da5f8f82f0f9f6b14f899341b212f1fba7fd14dc103f51a3d51a761"
+diagnostic = "captured record is invalid: UndeclaredHomePath"
+cause = "fixture attempted to compare an unrelated Documents sentinel as managed UserHome state; validator correctly refused the path outside the compiled inventory"
+correction = "read only the fixed sentinel through a separately pinned Documents descriptor and synthetic comparison root; never enroll or publish it; regression verifies managed UserHome still refuses the sentinel and detects its byte changes"
+acceptance = false
+disposal = "owned QEMU exited; private disk/logs and offline diagnostic copies removed after extracting only this sanitized report and log hash; no fresh-reset acceptance credited to failed run"
+
+[scope]
+providers = "writes remain disabled"
+desktop = "actual desktop login unclaimed"
+packages = "exact signed seven release5 runtime fixture; candidate CLI and Rust observer staged directly, candidate RPM install unclaimed"
+layout = "single-root Btrfs/Snapper only; dedicated top-level state subvolume; standard compiled home preferences"
+unsupported = ["external ESP restore", "additional restore roots", "arbitrary user xattrs", "unregistered external writers", "disk loss", "automatic retry of uncertain rollback before durable native receipt", "native incompatible-package refusal without alternate complete signed runtime set"]
