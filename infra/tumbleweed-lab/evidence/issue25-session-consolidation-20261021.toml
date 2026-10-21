@@ -31,6 +31,18 @@ clippy_sha256 = "99f71393b9903dca098310bb446022a4bdee195ea9996f351a787195555210a
 dependencies_sha256 = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
 build_sha256 = "948c9c9e95c7fdb3a498660ba055b8d3c8846a5538fd5fdd538efbfa4514503a"
 
+[rpm_build_attempt]
+command = "rpmbuild -ba --define '_topdir <workspace>/target/issue25-session-rpm' <workspace>/target/issue25-session-rpm/SPECS/ryoku-session.spec"
+rpm_version = "4.20.1"
+exit_code = 11
+result = "blocked before prep: host RPM database cannot satisfy cargo >= 1.99 and rust >= 1.99 BuildRequires; no dependency check bypass, RPM package install or host system mutation"
+source_commit = "67b50add9a501c1be23a3f5a85c01682ce3b9053"
+source0_sha256 = "295898f4a58e114442ef318b4211f97f8405428fdd8d237f45261e3fc754c2c3"
+source1_sha256 = "fd3b11c454529b58a8e2be4ebc07c7cc68ec1ad69c9160420755f5b52ae7febb"
+source1_provenance = "Unchanged accepted issue23 vendor archive; session adds only existing rustix dependency, with no registry package changes"
+public_log = "issue25-session-rpm-host-build.log"
+binary_rpm_produced = false
+
 [native_acceptance]
 new_qemu_launched = false
 availability = "WSL2 host has QEMU and /dev/kvm, but no active QEMU/vm-lab. Historical retained disk/readiness are stopped/stale; current lab has no authenticated development-resume path. No preserved disk was booted or changed."
