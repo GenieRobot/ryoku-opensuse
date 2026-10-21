@@ -1,0 +1,67 @@
+schema = 1
+date = "2026-10-21"
+issue = 20
+pull_request = 152
+runtime_source_commit = "59ec6d7fc2fdeca4720a58e97ec7b00c7a426449"
+runtime_source_tree = "c0e13d4aa251835f837b77e0849c8872f164f205"
+runtime_patch_base = "5efc726"
+runtime_patch_sha256 = "b7079e58528a9cc410e6f6aa3d80fae6f88f3287bc28ef3729ffd8d4cc8eebd7"
+runtime_patch_method = "git diff --binary 5efc726 59ec6d7 -- automation suse Cargo.toml Cargo.lock rust-toolchain.toml infra/tumbleweed-lab/issue20-fixture.toml | sha256sum"
+status = "Final identical-input #20 native normal/interrupted fixture pair passed; draft PR and issue retained for coordinator source/CI review"
+supersedes = "The final-pair pending status in issue20-mutation-20261021.toml; earlier run results and explicit production limits remain historical evidence"
+
+[inputs]
+fixture_file = "infra/tumbleweed-lab/issue20-fixture.toml"
+fixture_toml_sha256 = "6c663b582f0ed03c1321220f6748cf2e853e4d51e2f0bc563a06ba17a7f6faf3"
+snapshot = "20261016"
+image_sha256 = "ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231"
+release_signer = "AD485664E901B867051AB15F35A2F86E29B700A4"
+qemu = "11.1.2"
+accelerator = "kvm"
+cpus = 2
+memory_mib = 6144
+ovmf_code_sha256 = "72cf8e1a3653f031d2cf9dace93702b99cfa5c16b897a7d0a495c1bf03bf8690"
+ovmf_variables_sha256 = "5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e"
+vgabios_sha256 = "ef8adebf5f2f860404706efff8fdc17628c7cc7f07e6692353f931ca1010bd6e"
+orchestrator_sha256 = "b7b201ee31bb3937053086b208325e72497c73687c1a11b7f830cafb4d253402"
+initializer_sha256 = "90217e5ce35c3f4a2c2ff140807e590f7fbb0461045b2f008ee3580eda2c0916"
+mutation_probe_sha256 = "23f7eef7ace63374c0166a7ff3b8e27f57945a2e7ff2be5048a71611c88bda0d"
+mutation_console_sha256 = "ac4a9a25e8f08efce90be63ea3277547c92a55ad0df68fe155ab279bfe65bfe7"
+binary_provenance = "Final orchestrator built with issue20-lab and copied outside Cargo outputs before both runs. The retained immutable initializer/probe/console sources are unchanged between 2d0cb2a and 59ec6d7, including Cargo manifests/lock and toolchain"
+repository_inputs = "Both native signed refreshes passed exact OSS/non-OSS/codec/update metadata hashes compiled from the same fixture before package installation; install used --no-refresh with mandatory signatures"
+update_pin = "3667c679dfdf3a981fc00aae6789928a5309e228943b921f83c89a386afbe589"
+update_pin_evidence = "issue20-cache-diagnostic-20261021.toml and preserved detached-signed nonempty metadata; no generic/#19 pin changes"
+reproducibility_limit = "Codec/update URLs are moving sources. Future changed bytes refuse rather than silently replacing pins; these successful runs establish a same-input pair, not indefinite availability of historical package repositories"
+
+[runs.run09]
+variant = "normal complete operations plus distinct final post-capture failure"
+exit_code = 0
+evidence_file = "issue20-run09-normal-20261021.txt"
+evidence_sha256 = "16481b5666baa560c873b690759505b908d82e26fb964433b305f15ebb500530"
+result = "Common #20 native checks, complete pre/post associations and PostChangeCaptureFailed accounting passed; exact retained preimage/history reopened through independent console and helper startup after reboot"
+
+[runs.run10]
+variant = "interrupted Applying"
+exit_code = 0
+evidence_file = "issue20-run10-interrupted-20261021.txt"
+evidence_sha256 = "4e3ac07b18f24f860a8249cb79ab0720f6ceb3f90b57b9cf36458b835086b03a"
+result = "Common #20 native checks passed; child exited without destructors after durable Applying, exact verified native preimage and actuator marker. Restart retained stage/preimage, invented no outcome/postimage, and required recovery"
+refusal = "New transaction refused without apply; root console refused before-change reconciliation of potentially mutating work. Exact stage/checkpoint/marker and one unresolved history entry remained after reboot"
+
+[pair]
+comparison = "Full allowlisted evidence diff contains only native_issue20_post_capture_failure=passed versus native_issue20_interrupted_apply=passed. All four executable hashes and common input/result rows match exactly"
+common = "Actual Btrfs ENOSPC plus direct unnamed 128 MiB allocation refusal; capture failure; changed plan/path; cancellation; interrupted prechange; independent process serialization; retained writer lease; durable verified-before-first-write ordering"
+reboot = "Both runs changed boot identity, reopened exact original checkpoint associations and exercised protected helper startup plus independent root console"
+cleanup = "Both runs proved offline Snapper fixture restore, durable sentinel before discard and absence after fresh signed XFS reset; base image unchanged; owned disks, firmware variables, seed, keys, known_hosts and QMP sockets removed. No QEMU remained after pair"
+
+[validation]
+local = "Final runtime source/pin tree passed 472 top-level tests plus 17 isolated subprocess passes; 5 existing ignored; no failures. Strict workspace Clippy, formatting, whitespace, offline cargo-deny and explicit runtime-boundary test passed"
+runtime_source_ci = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39653304549/job/119406966617"
+runtime_source_ci_result = "Formatting, Clippy, workspace tests and dependency review passed; main-only GTK artifact job skipped as configured"
+
+[limits]
+supported_actions = "No provider write capability enabled; marker actuator and local profile/package identities are synthetic fixture inputs"
+coverage = "Single default root Snapper config plus complete compiled account preferences; extra configs refuse; external ESP/general boot compatibility excluded"
+atomicity = "Serialized verified observations; no multi-subvolume atomicity claim; ordinary external editors are not frozen"
+recovery = "Independent history and fixture root restore are proven; no production linked restore, automatic provider replay or application-health certification claimed"
+desktop = "Console-only run intentionally skips KDE provisioning/login; lab_result and lifecycle_result remain partial. #20 evidence does not satisfy desktop or first-sprint gates"

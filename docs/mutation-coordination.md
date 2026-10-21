@@ -172,21 +172,30 @@ phase, cancellation on both sides of Applying, independent stale journal views,
 malformed/tampered replay and missing/reused/mismatched postimage proofs. Native
 results and exact artifact hashes are recorded with the issue acceptance evidence.
 
-### Current native evidence and remaining gate
+### Current native evidence
 
-The [2026-10-21 evidence](../infra/tumbleweed-lab/evidence/issue20-mutation-20261021.toml)
-records a completed normal run03 and interrupted-Applying run04, including
-first-mutation ordering, independent helper serialization, retained writer leases,
-failure history through reboot, and signed-base reset/disposal. Run04 also proves
-the final direct unnamed-allocation ENOSPC assertion. Run03 predates that extra
-fixture assertion; the two runs are qualified evidence, not an identical-input
-final pair.
+The [final identical-input pair](../infra/tumbleweed-lab/evidence/issue20-final-pair-20261021.toml)
+records normal run09 and interrupted-Applying run10, both exiting 0. They use the
+same image, firmware, four staged executable hashes and signed repository pins.
+Their allowlisted output differs only at the expected final scenario result.
+Both prove the direct unnamed-allocation ENOSPC assertion, capture/plan/path
+failure refusal, independent helper serialization, retained writer leases,
+first-mutation ordering, reboot history readback, offline fixture recovery and
+fresh signed-base reset/disposal. The normal variant records distinct
+post-capture failure; the interrupted variant retains Applying and its exact
+preimage, refuses new work and unsafe reconciliation, and invents no postimage.
 
-Run05 and run06 failed repository-cache verification before any mutation. The
-isolated update metadata pin was refreshed only after detached-signature
-verification; run06 still failed, so no further pin change was made. A bounded
-offline diagnostic confirmed a changed diagnostic SSH host key and could not
-recover the runtime repository hashes. Strict host verification remained enabled.
-The evidence records failed setup attempts and owned-artifact cleanup. Issue #20
-remains incomplete pending a reproducible authenticated repository diagnosis and
-fresh normal/interrupted runs with identical final binaries and verified inputs.
+The [cache diagnosis](../infra/tumbleweed-lab/evidence/issue20-cache-diagnostic-20261021.toml)
+records authenticated fresh run08 identifying the update repository's changed,
+nonempty metadata. Its exact digest matched a host download whose detached
+signature verified against the pinned openSUSE key before updating the isolated
+#20 pin. Empty metadata now fails explicitly; mismatch diagnostics retain the
+alias and both digests. SSH host verification remained enforced. The
+[earlier evidence](../infra/tumbleweed-lab/evidence/issue20-mutation-20261021.toml)
+remains historical: run03/run04 are qualified nonidentical inputs, while run05
+and run06 failed setup and their unrecorded cache digests remain unknown.
+
+This completes the #20 native mutation-fixture pair. Provider capabilities stay
+disabled; fixture inputs do not certify a provider write or a production linked
+restore. Console-only results still report partial desktop/lifecycle acceptance.
+Keep the draft and issue open for coordinator review of the final source and CI.
