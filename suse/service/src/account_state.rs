@@ -192,6 +192,26 @@ impl AccountStateRoot {
     pub fn configuration(&self) -> &File {
         &self.configuration
     }
+    /// Duplicate the already NSS-bound home for native capture. Revalidation
+    /// remains required before every protected boundary.
+    pub fn capture_home(&self) -> Result<File, AccountStateError> {
+        self.home.try_clone().map_err(|_| AccountStateError::LookupFailed)
+    }
+    pub fn capture_account(
+        &self,
+    ) -> Result<ryoku_recovery::installed_capture::CaptureAccount, AccountStateError> {
+        Ok(ryoku_recovery::installed_capture::CaptureAccount {
+            uid: self.account.uid,
+            gid: self.account.gid,
+            principal: ryoku_recovery::AccountPrincipal::from_account(
+                self.account.uid,
+                self.account.gid,
+                &self.account.name,
+                &self.account.home,
+            )
+            .map_err(|_| AccountStateError::InvalidAccount)?,
+        })
+    }
     /// Re-resolve NSS and reopen the fixed path. A renamed/replaced directory,
     /// changed account identity or metadata cannot reuse the previous binding.
     /// Callers still retain the operation lock and freeze all enrolled writers.

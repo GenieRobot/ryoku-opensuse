@@ -168,6 +168,7 @@ impl PlannedChange {
 #[serde(rename_all = "snake_case")]
 pub enum MutationStage {
     Preflight,
+    StateChecking,
     Capturing,
     Revalidating,
     Applying,
@@ -179,7 +180,8 @@ pub enum MutationStage {
 impl MutationStage {
     fn next(self) -> Option<Self> {
         match self {
-            Self::Preflight => Some(Self::Capturing),
+            Self::Preflight => Some(Self::StateChecking),
+            Self::StateChecking => Some(Self::Capturing),
             Self::Capturing => Some(Self::Revalidating),
             Self::Revalidating => Some(Self::Applying),
             Self::Applying => Some(Self::HealthChecking),
@@ -191,14 +193,14 @@ impl MutationStage {
     fn phase(self) -> OperationPhase {
         match self {
             Self::Preflight => OperationPhase::Accepted,
-            Self::Capturing | Self::Revalidating => OperationPhase::Capturing,
+            Self::StateChecking | Self::Capturing | Self::Revalidating => OperationPhase::Capturing,
             Self::Applying => OperationPhase::Applying,
             Self::HealthChecking | Self::PostChangeCapture => OperationPhase::Verifying,
             Self::Complete => OperationPhase::Succeeded,
         }
     }
     fn before_change(self) -> bool {
-        matches!(self, Self::Preflight | Self::Capturing | Self::Revalidating)
+        matches!(self, Self::Preflight | Self::StateChecking | Self::Capturing | Self::Revalidating)
     }
 }
 
@@ -229,8 +231,10 @@ impl MutationContext {
         if !self.plan.valid() || status.progress.is_some() {
             return false;
         }
-        let needs_checkpoint =
-            !matches!(self.stage, MutationStage::Preflight | MutationStage::Capturing);
+        let needs_checkpoint = !matches!(
+            self.stage,
+            MutationStage::Preflight | MutationStage::StateChecking | MutationStage::Capturing
+        );
         if self.checkpoint.is_some() != needs_checkpoint
             || self.checkpoint.as_ref().is_some_and(|checkpoint| !checkpoint.valid())
         {
@@ -522,6 +526,7 @@ pub fn with_verified_prechange<T>(
 pub trait MutationIntegration {
     type Output;
     fn preflight(&mut self, plan: &PlannedChange) -> Result<(), GateError>;
+    fn state_space_check(&mut self, plan: &PlannedChange) -> Result<(), GateError>;
     fn capture(&mut self, plan: &PlannedChange) -> Result<CheckpointEvidence, GateError>;
     fn revalidate(
         &mut self,
@@ -562,6 +567,19 @@ pub fn coordinate_mutation<I: MutationIntegration>(
     // lock across every phase, preventing records or provider work from
     // interleaving around one operation.
     let _writer = lock.acquire()?;
+    coordinate_mutation_locked(planned, operation, integration)
+}
+
+/// Internal entry for a native capture session which already owns the same
+/// machine lock. Never acquire a second flock description inside that session.
+pub(crate) fn coordinate_mutation_locked<I: MutationIntegration>(
+    planned: &PlannedChange,
+    operation: &mut JournaledOperation<'_>,
+    integration: &mut I,
+) -> Result<I::Output, GateError> {
+    if !planned.valid() {
+        return Err(GateError::InvalidPlan);
+    }
     operation.journal.refresh().map_err(GateError::Journal)?;
     if !operation.journal.recovery_required().is_empty() {
         return Err(GateError::RecoveryRequired);
@@ -578,6 +596,13 @@ pub fn coordinate_mutation<I: MutationIntegration>(
         return Err(operation.fail(ServiceError::Failed, GateError::CancelledBeforeChange));
     }
     if let Err(error) = integration.preflight(planned) {
+        return Err(operation.fail(pre_change_error(&error), error));
+    }
+    if integration.cancellation_requested() {
+        return Err(operation.fail(ServiceError::Failed, GateError::CancelledBeforeChange));
+    }
+    operation.advance(MutationStage::StateChecking)?;
+    if let Err(error) = integration.state_space_check(planned) {
         return Err(operation.fail(pre_change_error(&error), error));
     }
     if integration.cancellation_requested() {
@@ -674,6 +699,9 @@ fn with_journaled_verified_mutation<T>(
     {
         type Output = T;
         fn preflight(&mut self, _: &PlannedChange) -> Result<(), GateError> {
+            Ok(())
+        }
+        fn state_space_check(&mut self, _: &PlannedChange) -> Result<(), GateError> {
             Ok(())
         }
         fn capture(&mut self, _: &PlannedChange) -> Result<CheckpointEvidence, GateError> {
@@ -993,6 +1021,7 @@ mod tests {
             persisted_phases(&path, &id),
             [
                 OperationPhase::Accepted,
+                OperationPhase::Capturing,
                 OperationPhase::Capturing,
                 OperationPhase::Capturing,
                 OperationPhase::Applying,

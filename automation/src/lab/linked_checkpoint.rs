@@ -139,9 +139,11 @@ impl Lab {
         self.evidence(&result)
     }
 
-    fn install_linked_input(&self, binary: &Path, name: &str) -> Result<()> {
+    pub(super) fn install_linked_input(&self, binary: &Path, name: &str) -> Result<()> {
         require(
-            matches!(name, "ryoku-linked-probe" | "ryoku-recovery"),
+            matches!(name, "ryoku-linked-probe" | "ryoku-recovery")
+                || (cfg!(feature = "issue20-lab")
+                    && matches!(name, "ryoku-mutation-probe" | "ryoku-mutation-history")),
             "invalid linked binary target",
         )?;
         let port = self.port.ok_or("owned SSH endpoint unknown")?;

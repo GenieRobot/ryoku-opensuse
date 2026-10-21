@@ -17,6 +17,8 @@ use std::{
 
 #[path = "linked_checkpoint.rs"]
 mod linked_checkpoint;
+#[path = "mutation.rs"]
+mod mutation;
 #[path = "qmp.rs"]
 mod qmp;
 
@@ -363,6 +365,8 @@ struct Lab {
     state_prepare: Option<PathBuf>,
     linked_probe: Option<PathBuf>,
     recovery_cli: Option<PathBuf>,
+    mutation_probe: Option<PathBuf>,
+    mutation_console: Option<PathBuf>,
     zypp_package: Option<String>,
     port: Option<u16>,
     vm: Option<Child>,
@@ -454,9 +458,17 @@ impl Lab {
                 "-machine",
                 scalar("machine")?,
                 "-accel",
-                if cfg!(feature = "issue19-lab") { "kvm" } else { "tcg,thread=multi" },
+                if cfg!(any(feature = "issue19-lab", feature = "issue20-lab")) {
+                    "kvm"
+                } else {
+                    "tcg,thread=multi"
+                },
                 "-cpu",
-                if cfg!(feature = "issue19-lab") { "host" } else { "max" },
+                if cfg!(any(feature = "issue19-lab", feature = "issue20-lab")) {
+                    "host"
+                } else {
+                    "max"
+                },
                 "-smp",
                 scalar("cpus")?,
                 "-m",
@@ -1576,11 +1588,20 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         state_prepare,
         linked_probe,
         recovery_cli,
+        mutation_probe,
+        mutation_console,
+        mutation_interrupt,
         console_only,
     } = options;
     require(
-        !cfg!(feature = "issue19-lab") || (console_only && linked_probe.is_some()),
+        !cfg!(feature = "issue19-lab")
+            || cfg!(feature = "issue20-lab")
+            || (console_only && linked_probe.is_some()),
         "issue19-lab requires the isolated linked console fixture",
+    )?;
+    require(
+        !cfg!(feature = "issue20-lab") || (console_only && mutation_probe.is_some()),
+        "issue20-lab requires its isolated mutation console fixture",
     )?;
     let image = scalar("image")?;
     let hash = scalar("sha256")?;
@@ -1590,7 +1611,12 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
     let cpus = scalar("cpus")?;
     require(
         scalar("architecture")? == "x86_64"
-            && scalar("accelerator")? == if cfg!(feature = "issue19-lab") { "kvm" } else { "tcg" },
+            && scalar("accelerator")?
+                == if cfg!(any(feature = "issue19-lab", feature = "issue20-lab")) {
+                    "kvm"
+                } else {
+                    "tcg"
+                },
         "unsupported fixture architecture or accelerator",
     )?;
     let assets = fs::canonicalize(assets)?;
@@ -1600,6 +1626,11 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
     let state_prepare = state_prepare.map(fs::canonicalize).transpose()?;
     let linked_probe = linked_probe.map(fs::canonicalize).transpose()?;
     let recovery_cli = recovery_cli.map(fs::canonicalize).transpose()?;
+    let mutation_probe = mutation_probe.map(fs::canonicalize).transpose()?;
+    let mutation_console = mutation_console.map(fs::canonicalize).transpose()?;
+    for binary in [&mutation_probe, &mutation_console].into_iter().flatten() {
+        require(binary.is_file(), "mutation fixture input is not a regular file")?;
+    }
     for binary in [&linked_probe, &recovery_cli].into_iter().flatten() {
         require(binary.is_file(), "linked checkpoint input is not a regular file")?;
     }
@@ -1659,6 +1690,12 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
     let recovery_cli = recovery_cli
         .map(|source| stage_input_binary(&source, &run_path.join("input-recovery-cli")))
         .transpose()?;
+    let mutation_probe = mutation_probe
+        .map(|source| stage_input_binary(&source, &run_path.join("input-mutation-probe")))
+        .transpose()?;
+    let mutation_console = mutation_console
+        .map(|source| stage_input_binary(&source, &run_path.join("input-mutation-console")))
+        .transpose()?;
     let zypp_probe = zypp_probe
         .map(|(source, package)| {
             stage_input_binary(&source, &run_path.join("input-zypp-probe"))
@@ -1707,6 +1744,8 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         state_prepare,
         linked_probe,
         recovery_cli,
+        mutation_probe,
+        mutation_console,
         zypp_probe: zypp_probe.as_ref().map(|(binary, _)| binary.clone()),
         zypp_package: zypp_probe.as_ref().map(|(_, package)| package.clone()),
         port: None,
@@ -1729,6 +1768,8 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         ("state_prepare_sha256", lab.state_prepare.clone()),
         ("linked_probe_sha256", lab.linked_probe.clone()),
         ("recovery_cli_sha256", lab.recovery_cli.clone()),
+        ("mutation_probe_sha256", lab.mutation_probe.clone()),
+        ("mutation_console_sha256", lab.mutation_console.clone()),
         ("zypp_probe_sha256", lab.zypp_probe.clone()),
         ("orchestrator_sha256", Some(PathBuf::from(format!("/proc/{}/exe", std::process::id())))),
     ] {
@@ -1766,7 +1807,7 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
     let base = lab.ssh("sudo /tmp/ryoku-vm-lab guest-base-setup")?;
     lab.evidence(&base)?;
     lab.evidence("derived_btrfs_boot=passed")?;
-    if cfg!(feature = "issue19-lab") {
+    if cfg!(feature = "issue19-lab") && !cfg!(feature = "issue20-lab") {
         // Provision on the original direct-child root before capturing the
         // fixture bootstrap. Numbered roots reopen the recorded state only.
         lab.initialize_state()?;
@@ -1812,11 +1853,16 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
     if lab.state_probe.is_some() {
         lab.state_probe()?;
     }
-    if lab.state_initializer.is_some() && !cfg!(feature = "issue19-lab") {
+    if lab.state_initializer.is_some()
+        && (!cfg!(feature = "issue19-lab") || cfg!(feature = "issue20-lab"))
+    {
         lab.initialize_state()?;
     }
     if lab.linked_probe.is_some() {
         lab.linked_capture()?;
+    }
+    if lab.mutation_probe.is_some() {
+        lab.mutation_capture(mutation_interrupt)?;
     }
     let kde_installed = if console_only {
         lab.evidence("kde_provisioning=skipped_console_probe")?;
@@ -1884,7 +1930,7 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         })?;
     }
     let before = lab.ssh("cat /proc/sys/kernel/random/boot_id")?;
-    if cfg!(feature = "issue19-lab") {
+    if cfg!(feature = "issue19-lab") && !cfg!(feature = "issue20-lab") {
         lab.linked_prepare_rollback()?;
     }
     let _ = lab.ssh("sudo systemctl reboot");
@@ -1904,6 +1950,9 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
     lab.copy_binary()?;
     if lab.linked_probe.is_some() {
         lab.linked_after_reboot()?;
+    }
+    if lab.mutation_probe.is_some() {
+        lab.mutation_after_reboot(mutation_interrupt)?;
     }
     if lab.state_initializer.is_some() {
         let result = lab.ssh("sudo /usr/local/sbin/ryoku-state-init initialize")?;
@@ -2074,6 +2123,8 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         &lab.state_prepare,
         &lab.linked_probe,
         &lab.recovery_cli,
+        &lab.mutation_probe,
+        &lab.mutation_console,
         &lab.zypp_probe,
     ]
     .into_iter()

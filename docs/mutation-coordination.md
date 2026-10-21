@@ -1,127 +1,170 @@
 # Durable mutation coordination
 
-This is component evidence for [issue #20](https://github.com/GenieRobot/ryoku-opensuse/issues/20).
-`mutation_gate::coordinate_mutation` orchestrates a trusted integration under the
-existing `MutationLock`; no integration is installed and no supported mutation
-is enabled. Helper requests still return structured rejections. The recovery
-console remains read-only. This change does not establish helper/console writer
-coordination, native capture completeness, or multi-subvolume atomicity.
+Issue [#20](https://github.com/GenieRobot/ryoku-opensuse/issues/20) connects the
+durable mutation gate to native linked capture, complete installed configuration
+capture, account writer leases, protected history and an independent root history
+console. **The installed supported provider action set remains empty.** The
+helper dispatcher continues returning typed unsupported responses; the native
+fixture actuator is confined to the seeded disposable QEMU experiment. This
+library does not certify package/provider hooks or enable a protected write.
 
-## State machine and exact association
+## State machine
 
-The coordinator validates a bounded plan before acceptance, acquires the existing
-interprocess lock, and reloads the shared operation journal while holding that
-lock. An unresolved operation prevents acceptance of new work. A duplicate
-operation ID cannot restart an action. The caller must supply the same protected
-journal and lock directory for every cooperating entry point, and must open or
-repair shared journal storage only while holding the coordinator lock. A per-user
-status journal is not the protected coordinator journal.
+`coordinate_mutation` serializes trusted integrations with `MutationLock`.
+`native_mutation::run_operator_mutation` first authenticates a kernel socket peer
+against operator policy, resolves only that account through NSS and opens a
+`NativeCaptureSession`. That session owns the existing fixed machine lock,
+`/var/lib/ryoku-state/mutation.lock`, and stops all registered account writers.
+The native coordinator enters its internal locked path without acquiring a
+second flock description. The session remains alive through final accounting.
 
-Each row is synchronized before its integration hook starts. The socket retains
-its protocol-v1 coarse status; journal schema 2 adds the detailed context.
+Every detailed phase is synchronized in `/var/lib/ryoku-state/mutations.log`
+before its corresponding work starts. The lock is acquired before opening,
+repairing or refreshing this shared journal. A duplicate ID or unresolved prior
+operation prevents another accepted operation. Per-user status journals cannot
+substitute for this protected coordinator journal.
 
-| Detailed stage | Socket phase | Work after durable record |
+| Detailed stage | Protocol-v1 phase | Work after durable record |
 | --- | --- | --- |
-| Preflight | accepted | Recheck reviewed plan authorization, persistent state and space |
-| Capturing | capturing | Capture, publish and independently read back every required component |
-| Revalidating | capturing | Recheck the exact plan, covered paths and current native checkpoint |
-| Applying | applying | Enter the provider mutation |
-| HealthChecking | verifying | Check the resulting system/provider state |
-| PostChangeCapture | verifying | Capture and verify the required post-change state |
-| Complete | succeeded | Persist the verified post-change checkpoint reference and return the result |
+| Preflight | accepted | Recheck exact plan authorization, NSS/path bindings and complete inventory |
+| StateChecking | capturing | Validate protected mount, space, native layout and catalog availability |
+| Capturing | capturing | Create native root checkpoint; capture, seal, publish and reopen full installed configuration; verify native partners and retention catalog |
+| Revalidating | capturing | Reauthorize and recheck plan, all covered paths, exact sealed/native partners and catalog completeness |
+| Applying | applying | Repeat final native/plan checks, then enter the trusted provider mutation |
+| HealthChecking | verifying | Revalidate boundaries and inspect provider result |
+| PostChangeCapture | verifying | Create and verify fresh native/configuration state and retention linkage |
+| Complete | succeeded | Persist exact verified postimage alongside retained preimage and return result |
 
-Every record binds the same operation ID, action, bounded operation key and two
-canonical SHA-256 fingerprints: the reviewed plan and affected-state inventory.
-Before revalidation, the coordinator also persists the exact transaction ID,
-generation ID, manifest SHA-256 and Snapper config/snapshot/filesystem link.
-`LinkedGeneration::from_verified_generation` copies that reference from a
-persistently verified generation. A sealed manifest digest also binds any native
-snapshot receipt it contains. The integration must reopen and match that exact
-generation/digest and independently revalidate its native receipt before apply.
-An ID or saved successful phase is not proof that a snapshot remains available.
+`MutationContext` binds each operation/action to its immutable operation key,
+canonical SHA-256 plan fingerprint and complete affected-inventory fingerprint.
+The native inventory fingerprint includes content, metadata, safe links and
+explicit absent entries across the compiled first-sprint inventory. Two live
+reads must agree; unknown managed files refuse the operation. Provider `plan()`
+must separately describe its entire typed write set and current provider state.
+The coordinator replaces its affected-state fingerprint with the independently
+collected account inventory. A reviewed result supplies no authorization token:
+a fresh execution must compare it under a new lease.
 
-The post-change hook returns `VerifiedPostChangeGeneration`, explicitly bound
-to that exact preimage. Its reference must have fresh transaction/generation IDs,
-manifest digest and native snapshot number for the same Snapper configuration
-and filesystem. Reusing any preimage identity, missing required verification or
-binding the result to another preimage fails in the PostChangeCapture stage.
-The Complete record requires this post-change reference alongside the retained
-pre-change reference; replay rejects a missing/reused postimage or subsequent
-terminal rewrites. Both verification wrappers remain trusted integration
-attestations rather than independent native proof.
+After capture, the same synchronized record binds the transaction ID, generation
+ID, manifest digest and native Snapper config/number/filesystem identity.
+Native readback opens the original sealed receipt and matches exact kernel
+snapshot identity, payloads and metadata; it never manufactures provenance from
+a later observation. The retained cleanup catalog must independently report
+complete. The coordinator repeats these checks after authorization/capture and
+again immediately before the provider call. An ID or saved successful phase
+never authorizes apply.
 
-The plan, operation/action association and checkpoint reference cannot change
-across later phases or replay. Replay rejects missing checkpoint context after
-capture, changed associations, skipped/repeated phases, invalid fingerprint or
-snapshot shapes, terminal transitions and inconsistent failure classifications.
-Every line is read and written through a 16 KiB bound; operation keys are at most
-256 printable ASCII bytes and snapshot numbers are canonical nonzero `u64`s.
+The postimage must use fresh transaction/generation IDs, digest and native
+snapshot number for the same filesystem/config, bound to the exact preimage.
+Replay rejects changed associations, skipped phases, missing/reused postimages,
+invalid fingerprint/reference shapes and terminal rewrites. Schema 2 adds this
+context to the append-only journal; schema 1 status records remain readable with
+no invented checkpoint proof. Older binaries refuse unknown schema/stages.
+Deployment/binary rollback compatibility remains separate from this component.
 
-`MutationIntegration` requires explicit preflight, capture, revalidation, apply,
-health and post-change hooks. The caller authenticates and authorizes the peer
-before entering this coordinator. It must freeze every affected writer across
-capture, revalidation, apply and accounting. The advisory lock coordinates
-cooperating processes; it cannot stop independent editors or provider writers.
-The older reduced callback wrapper is available only in unit-test builds.
+## Native scope and writer coordination
 
-## Failure, cancellation and restart
+The native integration supports one default root Snapper config and the full
+compiled account preference inventory. Extra Snapper configurations refuse
+rather than silently omitting their subvolumes. Layout and catalog checks retain
+#19's root/boot-file coverage limits and exclude the ESP. There is **no
+multi-subvolume atomicity claim**, general boot compatibility proof or automatic
+rollback. The two captures are serialized observations around one provider.
 
-Failures preserve the detailed stage where work stopped and one of four outcomes:
+Every registered writer retains its #18 lease from before root capture until
+post-change capture and final history synchronization finish. New registered
+writers wait on their shared coordination lock. A dead wrapper, stale endpoint,
+changed namespace, lost connection or failed lease check prevents pre-change
+mutation. Ordinary external editors are not frozen; double collection and later
+boundary checks reject observed changes without claiming a home snapshot.
+Native provider-internal writers must independently obey the machine lock before
+that provider can be enabled. The installed helper's capability policy and
+zero-certified-provider-write boundary are unchanged.
 
-| Outcome | Meaning and restart policy |
+Native systemd may mount `/run/user/<uid>` separately. The writer reader permits
+only that exact tmpfs root with private UID/GID ownership and `rw,nosuid,nodev`.
+It pins and rechecks the descriptor mount ID and inode. Runtime bind substitution,
+symlinks and mounts below that boundary refuse; descendant opens retain
+`NO_XDEV`. The fixed root-owned runtime parent must remain safe.
+
+State space checks conservatively require room for bounded pre/post generations
+and native root changes. They are estimates, not reservations. Later allocation,
+capture, metadata or synchronization errors still prevent apply. The protected
+store is validated against its independent machine identity at each boundary.
+
+## Cancellation, failures and restart
+
+| Durable outcome | Meaning |
 | --- | --- |
-| FailedBeforeChange | Preflight/space, capture or plan revalidation failed; apply was never entered |
-| CancelledBeforeChange | Cancellation was observed before Applying; apply was never entered |
-| MayHaveMutated | Applying or health checks failed; explicit recovery/reconciliation is required |
-| PostChangeCaptureFailed | Provider change and health checks ran, but required post-change capture failed; explicit recovery/reconciliation is required |
+| FailedBeforeChange | Preflight, state/space, capture or revalidation failed; apply was never entered |
+| CancelledBeforeChange | Cancellation observed before Applying; apply was never entered |
+| MayHaveMutated | Applying or health failed; explicit recovery/reconciliation required |
+| PostChangeCaptureFailed | Mutation and health ran, required post capture failed; explicit recovery/reconciliation required |
 
-Pre-change recovery failures keep the socket code `recovery_unavailable`; stale
-plans use `stale_request`. Cancellation and failures after apply use the existing
-generic `failed` code. The detailed persisted outcome distinguishes them without
-adding socket fields old clients cannot deserialize.
+Cancellation is checked before preflight, after preflight, after state/space
+checks, after capture and after revalidation. Once Applying is synchronized,
+a cancellation flag cannot skip health or accounting or claim provider undo.
+Pre-change recovery errors retain protocol-v1 `recovery_unavailable`; stale plans
+use `stale_request`. The persisted outcome distinguishes cancellation and
+potentially mutating failures from these coarse error codes.
 
-Cancellation is checked before preflight, after preflight, after capture and after
-revalidation. A cancellation request observed after Applying does not skip health
-or post-change capture and does not claim that the provider was cancelled. Provider
-failure after entry remains potentially mutating even when the provider calls it
-cancellation. There is no automatic rollback or unsafe provider interruption.
+Process death, panic or failed journal sync preserves the last synchronized
+stage. An Applying record conservatively means the provider may have run.
+`OperationJournal::recovery_required` reports unfinished operations and terminal
+failures that may have changed state. The coordinator reloads and checks that
+list under the machine lock before accepting work; it never automatically
+replays apply or resumes a provider from a status record.
 
-`OperationJournal::recovery_required` reports every unfinished operation and
-terminal failures that may have changed state. The coordinator reloads and checks
-this list under the common lock before accepting another operation. A process
-death, callback panic or failed journal append leaves the last synchronized phase;
-an Applying record conservatively means the callback may have run. No status
-record authorizes automatic resume, replay or another apply. This component does
-not yet provide an authorized reconciliation operation to clear that gate.
+`ryoku-mutation-history status` independently opens the same protected state,
+lock and journal and prints exact history plus the unresolved count. It is
+root-only and accepts no path/identity override. The production helper startup
+uses this same history gate. Since the console serializes replay against
+mutation, it can wait until an active operation releases the lock.
 
-The new reader preserves legacy schema-1 status records with no invented context.
-Unfinished legacy operations and legacy failures require reconciliation; a legacy
-success is historical status and supplies no missing checkpoint proof. Schema-2
-records require mutation context and schema-1 records cannot acquire it midway
-through an existing operation. Older binaries fail closed on the new schema;
-the socket protocol stays at version 1. Binary rollback/migration policy still
-needs deployment validation before enabling mutations.
+`ryoku-mutation-history reconcile-before-change OPERATION_ID` is an explicit
+root console action that seals an unfinished Preflight, StateChecking, Capturing
+or Revalidating record as failed before mutation. It neither deletes checkpoints
+nor repeats a provider. Applying, HealthChecking, PostChangeCapture, completed
+and terminal records refuse reconciliation. Potentially mutating work remains
+blocked for the separate authorized recovery workflow. This history console
+executes no restore and does not replace the #21 offline restore gate.
 
-## Evidence and remaining integration
+## Reproducing the native fixture
 
-The Rust `mutation_coordination_tests` fixture independently reopens the on-disk
-journal before each hook. It checks the exact association before a synthetic
-provider write, injects low-space/capture/stale-plan/apply/health/post-capture
-failures, and exercises cancellation before and after Applying. Independent lock
-and initially stale journal handles serialize complete operations without phase
-interleaving. Child processes exit without destructors from each of the six hooks;
-restart preserves that phase and blocks new work without appending or reapplying.
-Replay tests reject altered plan/checkpoint/action associations and malformed or
-oversized records, missing/reused postimages and terminal reference rewrites.
-Post-capture tests reject each missing verification dimension and reused
-transaction/generation/digest/snapshot identity, and a result bound to the wrong
-preimage. These are local synthetic orchestration tests, not native
-Snapper, complete configuration capture, reboot or console restore evidence.
+Use only the existing signed Snapshot20261016 asset bundle and a fresh short
+issue20 run path. Build from this checkout:
 
-The existing `CheckpointEvidence` booleans remain trusted integration
-attestations. Their validation checks reference shape; it does not prove native
-capture, installed inventory completeness or writer exclusion. Enabling an action
-still requires the independently verified native receipt and audited installed
-capture boundary from #18/#19, an authenticated executor, one protected shared
-journal/lock used by helper and console, affected-writer coordination, and native
-interruption/recovery evidence. Issue #20 remains open.
+```text
+cargo build --locked --offline -p ryoku-automation --features issue20-lab --bin vm-lab -p ryoku-recovery --bin ryoku-state-init -p ryoku-service --bin ryoku-mutation-history --example native_mutation_probe
+```
+
+From the authorized WSL workspace root:
+
+```text
+RYOKU_LAB_AUTHORIZED=existing-wsl-vm PATH_TO_BUILD/vm-lab run EXISTING_SIGNED_ASSETS FRESH_ISSUE20_RUN --console-only --state-initializer PATH_TO_BUILD/ryoku-state-init --mutation-probe PATH_TO_BUILD/examples/native_mutation_probe --mutation-console PATH_TO_BUILD/ryoku-mutation-history
+```
+
+Repeat with a second fresh run path and `--mutation-interrupt` for process death
+inside Applying. `issue20-lab` selects only `issue20-fixture.toml`; #19 and generic
+fixture inputs/defaults are unchanged. Input binaries are staged and hashed
+before boot. The harness requires exact allowlisted results and normal signed
+boot, reboot, offline fixture recovery, fresh-base reset and owned-disk/key
+disposal. Console-only results remain partial desktop/lifecycle acceptance.
+
+The fixture's local imported profile defaults and marker actuator are synthetic
+inputs; native Snapper, Btrfs, configuration capture, writer wrapper, kernel peer
+authentication, journal, console and process boundaries are real. It exercises
+actual low space by allocating its owned disk, an invalid personal profile that
+fails capture, changed provider plans and external enrolled-path changes after
+capture, cancellation, independent concurrent processes and retained writer
+leases. Before every first marker write it independently reopens the durable
+Applying association and native generation/catalog, checks that the preimage
+lacks the marker, then synchronizes a verification event before mutation. A
+successful postimage must contain the exact marker. Process exits without Rust
+destructors at Revalidating and Applying test restart refusal; post-capture
+failure remains distinguishable after reboot through the independent console.
+
+The instrumented Rust unit suite also covers failures and process death at every
+phase, cancellation on both sides of Applying, independent stale journal views,
+malformed/tampered replay and missing/reused/mismatched postimage proofs. Native
+results and exact artifact hashes are recorded with the issue acceptance evidence.

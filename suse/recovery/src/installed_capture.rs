@@ -109,6 +109,39 @@ pub struct InstalledInventory {
     profiles: Option<ProfileSources>,
 }
 impl InstalledInventory {
+    /// Independently collect the complete code-owned scope twice for plan
+    /// binding. This includes absence, content and metadata; unknown managed
+    /// files refuse. The caller holds the native account writer lease.
+    pub(crate) fn fingerprint(
+        &self,
+        home: &File,
+        account: &CaptureAccount,
+    ) -> Result<crate::Sha256, GenerationCaptureError> {
+        Self::validate_home(home)?;
+        let paths =
+            self.paths.get(&StateRoot::UserHome).ok_or(InventoryError::IncompleteInventory)?;
+        let first = crate::capture::capture_inventory(
+            home,
+            StateRoot::UserHome,
+            paths,
+            crate::capture::CaptureLimits::default(),
+        )?;
+        let second = crate::capture::capture_inventory(
+            home,
+            StateRoot::UserHome,
+            paths,
+            crate::capture::CaptureLimits::default(),
+        )?;
+        self.validate_records(&first.records, account)?;
+        self.validate_records(&second.records, account)?;
+        if first.records != second.records || first.metadata_payloads != second.metadata_payloads {
+            return Err(GenerationCaptureError::CoordinationLost);
+        }
+        Self::validate_home(home)?;
+        let bytes =
+            serde_json::to_vec(&first.records).map_err(|_| InventoryError::InvalidEnrollment)?;
+        crate::Sha256::new(digest(&bytes)).map_err(|_| InventoryError::InvalidEnrollment.into())
+    }
     /// Validate bounded asset/override namespaces before selecting the fixed
     /// inventory. An unsupported managed file blocks capture instead of being
     /// silently omitted from a supposedly complete generation.

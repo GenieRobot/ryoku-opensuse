@@ -58,6 +58,14 @@ impl ProtectedState {
                     .map_err(ProtectedStateError::Store)
             },
         )?;
+        // The helper and independent root history console replay exactly the
+        // same protected journal under the machine mutation lock. A malformed
+        // history prevents helper startup, even though its dispatcher currently
+        // exposes no provider mutation.
+        drop(
+            crate::native_mutation::ProtectedMutationHistory::open()
+                .map_err(|_| ProtectedStateError::Store(GenerationError::InvalidStore))?,
+        );
         Ok(Self { store })
     }
 

@@ -8,8 +8,9 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-const STAGES: [MutationStage; 6] = [
+const STAGES: [MutationStage; 7] = [
     MutationStage::Preflight,
+    MutationStage::StateChecking,
     MutationStage::Capturing,
     MutationStage::Revalidating,
     MutationStage::Applying,
@@ -149,7 +150,10 @@ impl Instrumented {
         assert_eq!(persisted.get(&self.operation_id).unwrap().phase, stage.phase());
         assert_eq!(
             context.checkpoint,
-            if matches!(stage, MutationStage::Preflight | MutationStage::Capturing) {
+            if matches!(
+                stage,
+                MutationStage::Preflight | MutationStage::StateChecking | MutationStage::Capturing
+            ) {
                 None
             } else {
                 Some(linked())
@@ -172,6 +176,10 @@ impl MutationIntegration for Instrumented {
     fn preflight(&mut self, _: &PlannedChange) -> Result<(), GateError> {
         self.enter(MutationStage::Preflight);
         self.finish(MutationStage::Preflight, GateError::InsufficientSpace)
+    }
+    fn state_space_check(&mut self, _: &PlannedChange) -> Result<(), GateError> {
+        self.enter(MutationStage::StateChecking);
+        self.finish(MutationStage::StateChecking, GateError::InsufficientSpace)
     }
     fn capture(&mut self, _: &PlannedChange) -> Result<CheckpointEvidence, GateError> {
         self.enter(MutationStage::Capturing);
@@ -358,6 +366,7 @@ fn cancellation_is_honored_only_before_first_mutation() {
     for cancel_after in [
         None,
         Some(MutationStage::Preflight),
+        Some(MutationStage::StateChecking),
         Some(MutationStage::Capturing),
         Some(MutationStage::Revalidating),
     ] {
@@ -476,12 +485,12 @@ fn common_lock_serializes_whole_operations_using_independent_stale_journals() {
         .lines()
         .map(|line| serde_json::from_str(line).unwrap())
         .collect();
-    assert_eq!(records.len(), 14);
+    assert_eq!(records.len(), 16);
     assert!(
-        records[..7].iter().all(|record| record.status.operation_id.as_str() == "operation-first")
+        records[..8].iter().all(|record| record.status.operation_id.as_str() == "operation-first")
     );
     assert!(
-        records[7..].iter().all(|record| record.status.operation_id.as_str() == "operation-second")
+        records[8..].iter().all(|record| record.status.operation_id.as_str() == "operation-second")
     );
     assert!(journal(&scenario.path).recovery_required().is_empty());
 }

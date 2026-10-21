@@ -624,6 +624,7 @@ dependencies = [
  "libc",
  "rustix",
  "ryoku-recovery",
+ "ryoku-snapper",
  "serde",
  "serde_json",
 ]

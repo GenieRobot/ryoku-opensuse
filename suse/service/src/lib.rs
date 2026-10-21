@@ -8,6 +8,7 @@
 pub mod account_state;
 pub mod helper_protocol;
 pub mod mutation_gate;
+pub mod native_mutation;
 #[cfg(target_os = "linux")]
 pub mod protected_state;
 pub mod runtime;
@@ -596,6 +597,10 @@ impl OperationJournal {
     pub fn get(&self, id: &OperationId) -> Option<&OperationStatus> {
         self.current.get(id)
     }
+    /// Durable historical view. These records never grant replay permission.
+    pub fn statuses(&self) -> impl Iterator<Item = &OperationStatus> {
+        self.current.values()
+    }
 
     pub(crate) fn refresh_after_write_failure(&mut self) -> Result<(), JournalError> {
         self.refresh_with_sync(File::sync_all)
@@ -659,7 +664,11 @@ impl OperationJournal {
         self.record_inner(status, Some(context), File::sync_all)
     }
 
-    fn record_with_sync(&mut self, status: OperationStatus, sync: impl FnMut(&File) -> std::io::Result<()>) -> Result<(), JournalError> {
+    fn record_with_sync(
+        &mut self,
+        status: OperationStatus,
+        sync: impl FnMut(&File) -> std::io::Result<()>,
+    ) -> Result<(), JournalError> {
         self.record_inner(status, None, sync)
     }
 
@@ -669,7 +678,9 @@ impl OperationJournal {
         mutation: Option<mutation_gate::MutationContext>,
         mut sync: impl FnMut(&File) -> std::io::Result<()>,
     ) -> Result<(), JournalError> {
-        if self.write_failed { return Err(JournalError::Io); }
+        if self.write_failed {
+            return Err(JournalError::Io);
+        }
         validate_journal_record(
             self.current.get(&status.operation_id),
             self.mutations.get(&status.operation_id),
