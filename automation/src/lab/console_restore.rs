@@ -26,25 +26,33 @@ fn validate(text: &str) -> Result<()> {
     )
 }
 
+fn known_operation(value: &str) -> bool {
+    matches!(
+        value,
+        "admit-session"
+            | "manual-checkpoint"
+            | "verify-linked"
+            | "plan"
+            | "prepare-configuration"
+            | "restore-configuration"
+            | "prepare-linked"
+            | "rollback-linked"
+            | "confirm-rollback"
+            | "prepare-system"
+            | "rollback-system"
+            | "complete-system"
+            | "offline"
+            | "admission-refused"
+            | "interrupted-restore"
+            | "refusal-cases"
+    )
+}
+
 fn failed_operation(serial: &str) -> Option<&str> {
     let mut operation = "before-console";
     for line in serial.lines().map(|line| line.trim_end_matches('\r')) {
         if let Some(value) = line.strip_prefix("native_issue21_operation=") {
-            if matches!(
-                value,
-                "admit-session"
-                    | "manual-checkpoint"
-                    | "verify-linked"
-                    | "plan"
-                    | "prepare-configuration"
-                    | "restore-configuration"
-                    | "prepare-linked"
-                    | "rollback-linked"
-                    | "confirm-rollback"
-                    | "prepare-system"
-                    | "rollback-system"
-                    | "complete-system"
-            ) {
+            if known_operation(value) {
                 operation = value;
             }
         } else if line == "native_issue21_result=failed" {
@@ -52,6 +60,34 @@ fn failed_operation(serial: &str) -> Option<&str> {
         }
     }
     None
+}
+
+fn serial_progress(serial: &str) -> Option<&str> {
+    serial.lines().map(|line| line.trim_end_matches('\r')).rev().find(|line| {
+        line.strip_prefix("native_issue21_operation=").is_some_and(known_operation)
+            || line.strip_prefix("native_issue21_completed=").is_some_and(known_operation)
+            || matches!(
+                *line,
+                "native_issue21_handoff=linked"
+                    | "native_issue21_handoff=system"
+                    | "native_issue21_result=passed"
+                    | "native_issue21_result=failed"
+            )
+    })
+}
+
+struct ProgressWatch {
+    marker: Option<String>,
+    since: Instant,
+}
+impl ProgressWatch {
+    fn stalled(&mut self, marker: Option<&str>, now: Instant) -> bool {
+        if marker != self.marker.as_deref() {
+            self.marker = marker.map(str::to_owned);
+            self.since = now;
+        }
+        now.saturating_duration_since(self.since) >= Duration::from_secs(180)
+    }
 }
 
 fn serial_tail(path: &Path) -> Result<String> {
@@ -148,15 +184,19 @@ impl Lab {
         self.ssh("sudo systemctl start --no-block ryoku-native21-exercise.service")?;
         let deadline = Instant::now() + Duration::from_secs(15 * 60);
         let mut result = None;
+        let mut progress = ProgressWatch { marker: None, since: Instant::now() };
         while Instant::now() < deadline {
-            if let Some(operation) =
-                failed_operation(&serial_tail(&self.run.join("serial-private.log"))?)
-            {
+            let serial = serial_tail(&self.run.join("serial-private.log"))?;
+            if let Some(operation) = failed_operation(&serial) {
                 return Err(format!(
                     "native console fixture failed during {operation}; private disk/logs retained"
                 )
                 .into());
             }
+            require(
+                !progress.stalled(serial_progress(&serial), Instant::now()),
+                "native console fixture stopped reporting progress; private disk/logs retained",
+            )?;
             if let Ok(text) = self.ssh("sudo /usr/local/sbin/ryoku-native21-probe --report") {
                 result = Some(text);
                 break;
@@ -225,6 +265,33 @@ mod tests {
             None
         );
         assert_eq!(failed_operation("native_issue21_operation=restore-configuration\n"), None);
+        assert_eq!(
+            serial_progress(
+                "native_issue21_operation=manual-checkpoint\nnative_issue21_completed=manual-checkpoint\n"
+            ),
+            Some("native_issue21_completed=manual-checkpoint")
+        );
+        assert_eq!(serial_progress("native_issue21_completed=secret\n"), None);
+        assert_eq!(
+            serial_progress("native_issue21_handoff=linked\n"),
+            Some("native_issue21_handoff=linked")
+        );
+    }
+
+    #[test]
+    fn bounded_progress_watch_requires_new_valid_events() {
+        let now = Instant::now();
+        let mut watch = ProgressWatch { marker: None, since: now };
+        assert!(!watch.stalled(None, now + Duration::from_secs(179)));
+        assert!(watch.stalled(None, now + Duration::from_secs(180)));
+        let start = serial_progress("native_issue21_operation=manual-checkpoint\n");
+        assert!(!watch.stalled(start, now + Duration::from_secs(181)));
+        assert!(!watch.stalled(start, now + Duration::from_secs(360)));
+        assert!(watch.stalled(start, now + Duration::from_secs(361)));
+        assert!(!watch.stalled(
+            serial_progress("native_issue21_completed=manual-checkpoint\n"),
+            now + Duration::from_secs(362)
+        ));
     }
 
     #[test]

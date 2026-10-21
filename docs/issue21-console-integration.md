@@ -40,7 +40,7 @@ path, not manually launched compositors from arbitrary root-controlled consoles.
 ## Local verification and pending acceptance
 
 Formatting, strict workspace Clippy, offline cargo-deny and the complete workspace
-suite passed: 519 top-level test/doctest passes plus 17 isolated subprocess passes,
+suite passed: 520 top-level test/doctest passes plus 17 isolated subprocess passes,
 zero failures and seven ignored entries (including the restore crash-test child
 that its parent executes explicitly). The recovery crate contributes 210 library,
 26 console and two initializer tests. Tests cover staged publication failure,
@@ -68,6 +68,14 @@ installs and verifies the exact seven signed release5 runtime RPMs and resolves
 their official dependencies before restricting networking. Fixed serial operation
 and failure markers permit bounded host diagnosis while rescue refuses SSH.
 See the [native receipt](../infra/tumbleweed-lab/evidence/issue21-native-20261021.toml).
+The second run verified the signed dependency closure, source/current checkpoints
+and configuration staging. The real admission service refused the pending journal
+and entered emergency mode. That transition stopped the fixture service through
+its default sysinit dependency; configuration preparation had completed and the
+journal/checkpoint remained intact. The fixture now has explicit filesystem and
+shutdown ordering without default dependencies, an independent Rust stop marker,
+operation completion markers and a bounded host progress watchdog. Full native
+restore/interruption acceptance is still pending.
 
 There is no complete signed alternate desktop/runtime/defaults package set in the
 existing lab assets. Native incompatible-package refusal is explicitly unclaimed;

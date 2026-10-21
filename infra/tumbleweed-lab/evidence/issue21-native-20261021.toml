@@ -15,3 +15,14 @@ diagnosis = "preserved stopped qcow2 converted to a separate sparse raw copy; bt
 diagnostic_tool = "official btrfsprogs-7.1-1.2 RPM verified in isolated temporary RPM DB against pinned fixture openSUSE key, extracted into /tmp, never installed on host"
 disposal = "owned QEMU and host polling runner stopped; no QEMU remained; private run artifacts removed after diagnosis"
 correction = "install exact seven signed release5 Ryoku dependency closure before offline boot; fixed CLI RPM query newline; fixed operation/failure serial markers permit bounded diagnosis while rescue refuses SSH"
+
+[run02]
+candidate_commit = "62828e53074ec5aba52f85f9d13cbfe2275e4143"
+result = "fixture lifecycle stopped after expected fail-closed admission; restore acceptance incomplete"
+completed = "verified seven signed RPM dependency/file closure, restricted network, source checkpoint, linked verification, scope preview, verified current-state checkpoint and configuration staging"
+journal = "ContentStaged; source and current checkpoint retained; no configuration apply or root rollback began"
+admission = "actual admission service refused pending journal with exit2; display-manager dependency failed; OnFailure correctly entered emergency.target"
+fixture_failure = "emergency isolation stopped sysinit.target; exercise service default dependencies stopped it by SIGTERM despite IgnoreOnIsolate; CLI prepare had already exited successfully"
+diagnosis = "separate read-only-derived partition image; btrfs restore recovered state and persistent system journal; no original-image mutation or resume"
+disposal = "owned QEMU and polling runner stopped; no QEMU remained; private run artifacts removed after diagnosis"
+correction = "fixture DefaultDependencies=no with filesystem/shutdown ordering, Rust ExecStopPost terminal/handoff classification, CLI/helper completion markers, bounded refusal commands and 180-second host progress watchdog"

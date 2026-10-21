@@ -82,7 +82,16 @@ fn cli(args: &[&str]) -> Result<String> {
     serial_phase(args[0])?;
     let result = command(CLI, args)?;
     eprintln!("console {args:?}: {}", result.trim());
+    serial_complete(args[0])?;
     Ok(result)
+}
+fn serial_line(line: &str) -> Result<()> {
+    let mut serial = OpenOptions::new().write(true).open("/dev/ttyS0")?;
+    writeln!(serial, "\n{line}")?;
+    Ok(())
+}
+fn serial_complete(operation: &str) -> Result<()> {
+    serial_line(&format!("native_issue21_completed={operation}"))
 }
 fn serial_phase(operation: &str) -> Result<()> {
     require(
@@ -100,16 +109,21 @@ fn serial_phase(operation: &str) -> Result<()> {
                 | "prepare-system"
                 | "rollback-system"
                 | "complete-system"
+                | "offline"
+                | "admission-refused"
+                | "interrupted-restore"
+                | "refusal-cases"
         ),
         "unrecognized fixture console operation",
     )?;
-    let mut serial = OpenOptions::new().write(true).open("/dev/ttyS0")?;
-    writeln!(serial, "\nnative_issue21_operation={operation}")?;
-    Ok(())
+    serial_line(&format!("native_issue21_operation={operation}"))
 }
 fn refuses(args: &[&str]) -> Result<()> {
-    let out = Command::new(CLI).args(args).output()?;
-    require(!out.status.success(), "unsafe recovery command unexpectedly succeeded")
+    let out = Command::new("/usr/bin/timeout")
+        .args(["--signal=TERM", "--kill-after=3s", "120s", CLI])
+        .args(args)
+        .output()?;
+    require(out.status.code() == Some(2), "recovery command did not produce a bounded refusal")
 }
 fn systemctl(args: &[&str]) -> Result<String> {
     command("/usr/bin/systemctl", args)
@@ -134,13 +148,20 @@ fn phase(value: &str) -> Result<()> {
     Ok(())
 }
 fn offline() -> Result<()> {
+    serial_phase("offline")?;
     systemctl(&["isolate", "rescue.target"])?;
     systemctl(&["start", "systemd-logind.service"])?;
     require(
         systemctl(&["is-active", "rescue.target"])?.trim() == "active",
         "rescue target inactive",
     )?;
-    Ok(())
+    serial_complete("offline")
+}
+
+fn exercise_service() -> String {
+    format!(
+        "[Unit]\nDescription=Disposable issue21 offline console exercise\nDefaultDependencies=no\nAfter=local-fs.target var-lib-ryoku\\x2dstate.mount\nBefore=shutdown.target umount.target\nConflicts=shutdown.target\nIgnoreOnIsolate=yes\n[Service]\nType=oneshot\nExecStart={PROBE} --exercise\nExecStopPost={PROBE} --service-stopped\nTimeoutStartSec=15min\nTimeoutStopSec=15s\nStandardOutput=append:{STATE}/native21-private.log\nStandardError=append:{STATE}/native21-private.log\n[Install]\nWantedBy=multi-user.target\n"
+    )
 }
 fn account() -> Result<(u32, u32)> {
     Ok((
@@ -229,8 +250,7 @@ fn install() -> Result<()> {
     }
     write_new("/etc/systemd/system/display-manager.service",
         format!("[Unit]\nDescription=Disposable Rust normal-session marker\n[Service]\nType=oneshot\nExecStart={PROBE} --normal-session-marker\nRemainAfterExit=yes\n").as_bytes(), 0o644)?;
-    write_new(&format!("/etc/systemd/system/{UNIT}"),
-        format!("[Unit]\nDescription=Disposable issue21 offline console exercise\nAfter=local-fs.target\nIgnoreOnIsolate=yes\n[Service]\nType=oneshot\nExecStart={PROBE} --exercise\nTimeoutStartSec=15min\nStandardOutput=append:{STATE}/native21-private.log\nStandardError=append:{STATE}/native21-private.log\n[Install]\nWantedBy=multi-user.target\n").as_bytes(), 0o644)?;
+    write_new(&format!("/etc/systemd/system/{UNIT}"), exercise_service().as_bytes(), 0o644)?;
     for relative in [".config", ".config/ryoku", ".config/ryoku/profile", "Documents"] {
         let path = format!("{HOME}/{relative}");
         if !Path::new(&path).exists() {
@@ -371,18 +391,25 @@ fn checkpoint_retained(restore: &str) -> Result<()> {
     )
 }
 fn admission_refused() -> Result<()> {
+    serial_phase("admission-refused")?;
     refuses(&["admit-session"])?;
     let _ = systemctl(&["start", "display-manager.service"]);
     require(
         !Path::new(&state_path("native21-normal-session")).exists(),
         "half-restored normal session started",
     )?;
+    require(
+        systemctl(&["is-failed", "ryoku-recovery-admission.service"])?.trim() == "failed",
+        "admission unit did not fail closed",
+    )?;
     // Clear only this fixture's unit failures; return to the recovery target.
     let _ =
         systemctl(&["reset-failed", "display-manager.service", "ryoku-recovery-admission.service"]);
-    offline()
+    offline()?;
+    serial_complete("admission-refused")
 }
 fn interrupted_restore() -> Result<()> {
+    serial_phase("interrupted-restore")?;
     let mut child = Command::new(CLI)
         .args(["restore-configuration", CONFIG])
         .stdout(Stdio::null())
@@ -415,9 +442,11 @@ fn interrupted_restore() -> Result<()> {
     admission_refused()?;
     cli(&["restore-configuration", CONFIG])?;
     require(journal_phase(CONFIG)? == RestorePhase::Complete, "configuration resume incomplete")?;
-    verify_configuration(SOURCE)
+    verify_configuration(SOURCE)?;
+    serial_complete("interrupted-restore")
 }
 fn failure_cases() -> Result<()> {
+    serial_phase("refusal-cases")?;
     let reader = GenerationReader::open_state_mount()?;
     let source = reader.open_verified_transaction(&id(SOURCE)?)?;
     let record = source
@@ -431,7 +460,7 @@ fn failure_cases() -> Result<()> {
     };
     let original = source.read_payload(sha256)?;
     let payload = format!(
-        "{STATE}/generations/{}/payloads/{}",
+        "{STATE}/generations/{}/payloads/{}.blob",
         source.manifest().generation_id.as_str(),
         sha256.as_str()
     );
@@ -457,7 +486,7 @@ fn failure_cases() -> Result<()> {
 
     // No complete signed alternate desktop/runtime/defaults set is available.
     // Native incompatible-version acceptance remains explicitly unclaimed.
-    Ok(())
+    serial_complete("refusal-cases")
 }
 
 fn exercise() -> Result<()> {
@@ -544,8 +573,44 @@ fn report() -> Result<()> {
     print!("{result}");
     Ok(())
 }
+fn stop_event(
+    phase: &str,
+    complete: bool,
+    journal: Option<RestorePhase>,
+    rollback: bool,
+) -> &'static str {
+    if phase == "complete" && complete {
+        "native_issue21_result=passed"
+    } else if journal == Some(RestorePhase::WritersStopped) && rollback {
+        match phase {
+            "linked" => "native_issue21_handoff=linked",
+            "system" => "native_issue21_handoff=system",
+            _ => "native_issue21_result=failed",
+        }
+    } else {
+        "native_issue21_result=failed"
+    }
+}
+fn service_stopped() -> Result<()> {
+    let phase = fs::read_to_string(state_path("native21-phase")).unwrap_or_default();
+    let restore = match phase.as_str() {
+        "linked" => Some(LINKED),
+        "system" => Some(SYSTEM),
+        _ => None,
+    };
+    let journal = restore.and_then(|restore| {
+        RestoreJournalStore::open_existing_state_mount().ok()?.load(&id(restore).ok()?).ok()
+    });
+    let completed =
+        fs::read_to_string(state_path("native21-result")).is_ok_and(|value| value == RESULTS);
+    serial_line(stop_event(
+        &phase,
+        completed,
+        journal.as_ref().map(|j| j.phase),
+        journal.as_ref().is_some_and(|j| j.root_rollback.is_some()),
+    ))
+}
 fn run() -> Result<()> {
-    guard()?;
     match std::env::args().nth(1).as_deref() {
         Some("--install") => install(),
         Some("--arm") => {
@@ -553,6 +618,7 @@ fn run() -> Result<()> {
             Ok(())
         }
         Some("--exercise") => exercise(),
+        Some("--service-stopped") => service_stopped(),
         Some("--report") => report(),
         Some("--normal-session-marker") => {
             write_new(&state_path("native21-normal-session"), b"admitted\n", 0o600)
@@ -561,14 +627,16 @@ fn run() -> Result<()> {
     }
 }
 fn main() {
+    if let Err(error) = guard() {
+        eprintln!("native console fixture refused: {error}");
+        std::process::exit(1);
+    }
     if let Err(error) = run() {
         eprintln!("native console fixture failed: {error}");
         if std::env::args().nth(1).as_deref() == Some("--exercise") {
             let _ =
                 write_new(&state_path("native21-result"), b"native_issue21_result=failed\n", 0o600);
-            if let Ok(mut serial) = OpenOptions::new().write(true).open("/dev/ttyS0") {
-                let _ = writeln!(serial, "\nnative_issue21_result=failed");
-            }
+            let _ = serial_line("native_issue21_result=failed");
         }
         std::process::exit(1);
     }
@@ -577,6 +645,40 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fixture_survives_emergency_isolation_and_records_every_service_exit() {
+        let unit = exercise_service();
+        for line in [
+            "DefaultDependencies=no",
+            "IgnoreOnIsolate=yes",
+            "After=local-fs.target var-lib-ryoku\\x2dstate.mount",
+            "Before=shutdown.target umount.target",
+            "Conflicts=shutdown.target",
+        ] {
+            assert!(unit.lines().any(|candidate| candidate == line));
+        }
+        assert!(unit.contains(&format!("ExecStopPost={PROBE} --service-stopped\n")));
+        assert_eq!(stop_event("", false, None, false), "native_issue21_result=failed");
+        assert_eq!(
+            stop_event("linked", false, Some(RestorePhase::ContentStaged), true),
+            "native_issue21_result=failed"
+        );
+        assert_eq!(
+            stop_event("linked", false, Some(RestorePhase::WritersStopped), false),
+            "native_issue21_result=failed"
+        );
+        assert_eq!(
+            stop_event("linked", false, Some(RestorePhase::WritersStopped), true),
+            "native_issue21_handoff=linked"
+        );
+        assert_eq!(
+            stop_event("system", false, Some(RestorePhase::WritersStopped), true),
+            "native_issue21_handoff=system"
+        );
+        assert_eq!(stop_event("complete", false, None, false), "native_issue21_result=failed");
+        assert_eq!(stop_event("complete", true, None, false), "native_issue21_result=passed");
+    }
 
     #[test]
     fn package_archive_requires_exact_regular_signed_package_names() {
