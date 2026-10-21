@@ -1,0 +1,17 @@
+schema = 1
+issue = 21
+candidate_branch = "codex/issue21-console-integration"
+fixture_sha256 = "ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231"
+fixture_signer = "AD485664E901B867051AB15F35A2F86E29B700A4"
+native_acceptance = "pending"
+native_incompatible_package_refusal = "unclaimed: no complete signed alternate desktop/runtime/defaults package set available; focused compatibility refusal tests remain required"
+
+[run01]
+result = "failed before source generation or destructive restore"
+completed = "fresh signed XFS boot, derived standalone Btrfs/UEFI boot, SELinux enforcing, initializer fresh/resume/repeat, exact admission units, initial admit-session"
+failure = "manual-checkpoint refused missing required ryoku-desktop package; initial fixture had installed profile defaults only"
+journal = "no restore journal or generation created"
+diagnosis = "preserved stopped qcow2 converted to a separate sparse raw copy; btrfs restore read-only extraction of state log; original guest image never mounted or changed"
+diagnostic_tool = "official btrfsprogs-7.1-1.2 RPM verified in isolated temporary RPM DB against pinned fixture openSUSE key, extracted into /tmp, never installed on host"
+disposal = "owned QEMU and host polling runner stopped; no QEMU remained; private run artifacts removed after diagnosis"
+correction = "install exact seven signed release5 Ryoku dependency closure before offline boot; fixed CLI RPM query newline; fixed operation/failure serial markers permit bounded diagnosis while rescue refuses SSH"

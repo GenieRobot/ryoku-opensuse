@@ -238,59 +238,8 @@ impl PreparationStores<'_> {
         Ok(())
     }
 
-    /// Apply the staged configuration and stop at `ConfigurationRestored`.
-    /// Offline consoles use this boundary so an operator or a separate trusted
-    /// health checker can inspect the result before the journal opens the
-    /// normal-session gate.
-    pub fn apply_configuration_for_console<G>(
-        &self,
-        prepared: &mut PreparedConfigurationRestore,
-        destinations: &[ConfigurationDestination<'_>],
-        stop_writers: impl FnOnce() -> Result<G, String>,
-    ) -> Result<RestoreJournal, RestoreExecutionError> {
-        let ready = match prepared.journal.plan.scope {
-            RestoreScope::ConfigurationOnly => matches!(
-                prepared.journal.phase,
-                RestorePhase::ContentStaged
-                    | RestorePhase::WritersStopped
-                    | RestorePhase::ConfigurationRestored
-            ),
-            RestoreScope::CompleteLinked => matches!(
-                prepared.journal.phase,
-                RestorePhase::RootRollbackComplete | RestorePhase::ConfigurationRestored
-            ),
-            RestoreScope::SystemOnly => false,
-        };
-        if !ready {
-            return Err(RestoreExecutionError::WrongScopeOrPhase);
-        }
-        if prepared.journal.phase == RestorePhase::ConfigurationRestored {
-            return Ok(prepared.journal.clone());
-        }
-        let _writer_guard = stop_writers().map_err(RestoreExecutionError::WriterQuiescence)?;
-        if prepared.journal.plan.scope == RestoreScope::ConfigurationOnly
-            && prepared.journal.phase == RestorePhase::ContentStaged
-        {
-            self.journals
-                .advance(&mut prepared.journal, RestorePhase::WritersStopped)
-                .map_err(RestoreExecutionError::Journal)?;
-        }
-        prepared.journal = apply_with_owner(
-            &prepared.source,
-            self.stages,
-            self.journals,
-            &prepared.journal.restore_id,
-            destinations,
-            |_| std::ops::ControlFlow::Continue(()),
-            rustix::process::geteuid().as_raw(),
-        )
-        .map_err(RestoreExecutionError::Apply)?;
-        Ok(prepared.journal.clone())
-    }
-
-    /// On the booted system, independently match the running Btrfs root to
-    /// the target and backup recorded before reboot. Only this native evidence
-    /// can advance a system or complete-linked attempt beyond `WritersStopped`.
+    /// Confirm the exact booted native target before advancing a system or
+    /// complete-linked attempt beyond `WritersStopped`. Later phases stay intact.
     pub fn confirm_booted_root_rollback(
         &self,
         restore_id: &Identifier,
@@ -427,26 +376,12 @@ impl PreparationStores<'_> {
         Ok(RootRollbackHandoff { journal: journal.clone(), receipt, writer_guard })
     }
 
-    /// Execute or resume a configuration-only restore after obtaining a
-    /// caller-owned guard that keeps every enrolled writer stopped. The guard
-    /// remains alive through idempotent file application and health checking.
-    /// Authentication and the native writer-stop implementation are caller
-    /// responsibilities; a callback returning success is not independent
-    /// evidence of either.
-    pub fn execute_configuration_only<G>(
-        &self,
-        prepared: &mut PreparedConfigurationRestore,
-        destinations: &[ConfigurationDestination<'_>],
-        stop_writers: impl FnOnce() -> Result<G, String>,
-        health_check: impl FnOnce(&RestoreJournal) -> Result<(), String>,
-    ) -> Result<RestoreJournal, RestoreExecutionError> {
-        self.execute_configuration_restore(prepared, destinations, stop_writers, health_check)
-    }
-
     /// Apply the selected configuration after the root target has been
     /// independently verified as the running root for a complete-linked
     /// restore, or apply a configuration-only restore while its enrolled
     /// writers are stopped.
+    /// The caller-owned guard remains alive through application and health
+    /// checks; the caller authenticates the operator and implements writer stop.
     pub fn execute_configuration_restore<G>(
         &self,
         prepared: &mut PreparedConfigurationRestore,

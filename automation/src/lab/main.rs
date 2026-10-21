@@ -60,6 +60,7 @@ pub(crate) struct RunOptions<'a> {
     mutation_console: Option<&'a str>,
     mutation_interrupt: bool,
     console_only: bool,
+    console_restore: Option<(&'a str, &'a str, &'a str)>,
 }
 
 fn run_options(args: &[String]) -> Result<RunOptions<'_>, &'static str> {
@@ -78,10 +79,21 @@ fn run_options(args: &[String]) -> Result<RunOptions<'_>, &'static str> {
         mutation_console: None,
         mutation_interrupt: false,
         console_only: false,
+        console_restore: None,
     };
     let mut index = 4;
     while index < args.len() {
         match args[index].as_str() {
+            "--console-restore-probe"
+                if cfg!(feature = "issue21-lab")
+                    && options.console_restore.is_none()
+                    && index + 3 < args.len()
+                    && args[index + 1..=index + 3].iter().all(|arg| !arg.is_empty()) =>
+            {
+                options.console_restore =
+                    Some((&args[index + 1], &args[index + 2], &args[index + 3]));
+                index += 4;
+            }
             "--mutation-probe"
                 if cfg!(feature = "issue20-lab")
                     && options.mutation_probe.is_none()
@@ -196,7 +208,8 @@ fn run_options(args: &[String]) -> Result<RunOptions<'_>, &'static str> {
     if options.state_prepare.is_some() && options.state_initializer.is_none() {
         return Err(usage());
     }
-    if options.linked_probe.is_some() != options.recovery_cli.is_some()
+    if (options.linked_probe.is_some() || options.console_restore.is_some())
+        != options.recovery_cli.is_some()
         || (options.linked_probe.is_some()
             && (!options.console_only || options.state_initializer.is_none()))
     {
@@ -212,16 +225,65 @@ fn run_options(args: &[String]) -> Result<RunOptions<'_>, &'static str> {
     {
         return Err(usage());
     }
+    if options.console_restore.is_some()
+        && (!options.console_only
+            || options.state_initializer.is_none()
+            || options.linked_probe.is_some()
+            || options.mutation_probe.is_some()
+            || options.state_prepare.is_some()
+            || options.state_probe.is_some()
+            || options.zypp_probe.is_some())
+    {
+        return Err(usage());
+    }
     Ok(options)
 }
 
 fn usage() -> &'static str {
-    "usage: vm-lab run ASSET_DIRECTORY FRESH_RUN_DIRECTORY [--capture-ui GTK_BINARY] [--zypp-probe PROBE_BINARY PACKAGE] [--state-probe PROBE_BINARY] [--state-initializer INITIALIZER_BINARY] [--state-prepare-probe PROBE_BINARY] [--linked-checkpoint-probe PROBE_BINARY --recovery-cli CLI_BINARY] [--mutation-probe PROBE_BINARY --mutation-console CONSOLE_BINARY [--mutation-interrupt]] [--console-only]"
+    "usage: vm-lab run ASSET_DIRECTORY FRESH_RUN_DIRECTORY [--capture-ui GTK_BINARY] [--zypp-probe PROBE_BINARY PACKAGE] [--state-probe PROBE_BINARY] [--state-initializer INITIALIZER_BINARY] [--state-prepare-probe PROBE_BINARY] [--linked-checkpoint-probe PROBE_BINARY --recovery-cli CLI_BINARY] [--mutation-probe PROBE_BINARY --mutation-console CONSOLE_BINARY [--mutation-interrupt]] [--console-restore-probe PROBE PACKAGES_TAR SIGNING_KEY --recovery-cli CLI] [--console-only]"
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn console_restore_requires_its_feature_and_complete_isolated_inputs() {
+        let args = [
+            "vm-lab",
+            "run",
+            "assets",
+            "fresh-run",
+            "--console-only",
+            "--state-initializer",
+            "init",
+            "--recovery-cli",
+            "cli",
+            "--console-restore-probe",
+            "probe",
+            "packages.tar",
+            "key.asc",
+        ]
+        .map(str::to_owned);
+        if cfg!(feature = "issue21-lab") {
+            assert_eq!(
+                run_options(&args).unwrap().console_restore,
+                Some(("probe", "packages.tar", "key.asc"))
+            );
+        } else {
+            assert!(run_options(&args).is_err());
+        }
+        assert!(run_options(&args[..args.len() - 1]).is_err());
+        for extra in [
+            vec!["--linked-checkpoint-probe", "other"],
+            vec!["--mutation-probe", "other", "--mutation-console", "history"],
+            vec!["--state-prepare-probe", "other"],
+        ] {
+            let mut mixed = args.to_vec();
+            mixed.extend(extra.into_iter().map(str::to_owned));
+            assert!(run_options(&mixed).is_err());
+        }
+    }
 
     #[test]
     fn mutation_inputs_require_the_isolated_initialized_console_feature() {

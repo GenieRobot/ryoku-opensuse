@@ -36,9 +36,40 @@ pub fn public_evidence(line: &str) -> bool {
     if key == "desktop_login_reason" {
         return desktop_login_reason(line).is_some();
     }
-    if matches!(key, "mutation_probe_sha256" | "mutation_console_sha256") {
+    if matches!(
+        key,
+        "mutation_probe_sha256"
+            | "mutation_console_sha256"
+            | "console_restore_probe_sha256"
+            | "console_packages_sha256"
+            | "console_signing_key_sha256"
+    ) {
         return value.len() == 64
             && value.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase());
+    }
+    if matches!(
+        key,
+        "native_issue21_fixture_installed"
+            | "native_issue21_offline_cli"
+            | "native_issue21_configuration_metadata_absence"
+            | "native_issue21_unrelated_home"
+            | "native_issue21_interrupted_apply_resume"
+            | "native_issue21_pending_graphical_admission_refused"
+            | "native_issue21_linked_root_reboot_resume"
+            | "native_issue21_system_only_scope"
+            | "native_issue21_current_checkpoint_retained"
+            | "native_issue21_bad_archive_refused"
+            | "native_issue21_unavailable_partner_refused"
+            | "native_issue21_complete_graphical_admission"
+            | "native_issue21_completed_journals_after_reboot"
+    ) {
+        return value == "passed";
+    }
+    if key == "native_issue21_provider_actions" {
+        return value == "not_exercised";
+    }
+    if matches!(key, "native_issue21_desktop_login" | "native_issue21_incompatible_packages") {
+        return value == "unclaimed";
     }
     if matches!(
         key,

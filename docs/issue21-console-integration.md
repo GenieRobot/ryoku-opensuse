@@ -40,10 +40,10 @@ path, not manually launched compositors from arbitrary root-controlled consoles.
 ## Local verification and pending acceptance
 
 Formatting, strict workspace Clippy, offline cargo-deny and the complete workspace
-suite passed: 513 top-level test/doctest passes plus 17 isolated subprocess passes,
+suite passed: 519 top-level test/doctest passes plus 17 isolated subprocess passes,
 zero failures and seven ignored entries (including the restore crash-test child
 that its parent executes explicitly). The recovery crate contributes 210 library,
-25 console and two initializer tests. Tests cover staged publication failure,
+26 console and two initializer tests. Tests cover staged publication failure,
 configuration replay/metadata/absence and unrelated files, durable phase
 interruptions, rollback receipt/boot verification, resume without phase rewind,
 and admission refusal at every incomplete linked phase and for corrupt journals.
@@ -60,4 +60,19 @@ recorded offline Tumbleweed exercise covering corrupted content/metadata,
 unrelated-home preservation, real interruption/resume, system/linked reboot
 handoff, unavailable partners, incompatible versions and bad archives with the
 checkpoint retained. Historical Run04–Run13 component receipts do not validate
-this candidate. No VM has been started for this candidate yet.
+this candidate. The first fresh signed KVM run reached the offline CLI but refused
+its first manual checkpoint because fixture provisioning omitted `ryoku-desktop`.
+No restore journal or generation was created. Read-only extraction confirmed the
+failure; the owned VM and private artifacts were removed. The corrected fixture
+installs and verifies the exact seven signed release5 runtime RPMs and resolves
+their official dependencies before restricting networking. Fixed serial operation
+and failure markers permit bounded host diagnosis while rescue refuses SSH.
+See the [native receipt](../infra/tumbleweed-lab/evidence/issue21-native-20261021.toml).
+
+There is no complete signed alternate desktop/runtime/defaults package set in the
+existing lab assets. Native incompatible-package refusal is explicitly unclaimed;
+focused compatibility tests cover refusal and current-checkpoint retention. The
+fixture installs the exact candidate console/admission unit files after the
+existing signed runtime packages; it does not prove installation of a newly built
+candidate RPM or an actual desktop login. Its normal-session marker exercises the
+display-manager dependency and admission service only.

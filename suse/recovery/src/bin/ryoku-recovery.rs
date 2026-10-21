@@ -539,6 +539,7 @@ fn restore_configuration_on_host(restore_id: &Identifier) -> Result<String, Stri
     let source = generations
         .open_verified_transaction(&journal.plan.transaction_id)
         .map_err(|error| error.to_string())?;
+    verify_profile_source(&source)?;
     if journal.plan.scope == RestoreScope::ConfigurationOnly
         && source.manifest().package_revisions() != installed_ryoku_revisions()?.as_slice()
     {
@@ -966,11 +967,21 @@ fn rollback_system_on_host(restore_id: &Identifier) -> Result<String, String> {
     ))
 }
 
+fn verify_profile_source(
+    source: &ryoku_recovery::generation::VerifiedGeneration,
+) -> Result<(), String> {
+    ryoku_recovery::installed_profiles::ProfileBundleStore::open_state_mount()
+        .and_then(|store| store.resolve_generation(source))
+        .map(|_| ())
+        .map_err(|error| format!("saved profile inputs are unavailable or incompatible: {error}"))
+}
+
 fn verify_system_source_compatibility(
     root: &File,
     reader: &GenerationReader,
     source: &ryoku_recovery::generation::VerifiedGeneration,
 ) -> Result<RestoreCompatibility, String> {
+    verify_profile_source(source)?;
     let manifest = source.manifest();
     let catalog = ProtectedSnapperCatalog::open(root).map_err(|error| error.to_string())?;
     let status = catalog.status(&manifest.transaction_id).map_err(|error| error.to_string())?;
@@ -1312,6 +1323,7 @@ fn prepare_configuration_scope_on_host(
         generations.open_verified_transaction(source_id).map_err(|error| error.to_string())?;
     reader.open_historical_transaction(&root, source_id).map_err(|error| error.to_string())?;
 
+    verify_profile_source(&source)?;
     let inventory = InstalledInventory::current().map_err(|error| error.to_string())?;
     let local_account = resolve_local_account(
         &root,
@@ -1922,6 +1934,8 @@ fn installed_ryoku_revisions() -> Result<Vec<PackageRevision>, String> {
     ryoku_package_revisions(None)
 }
 
+const RPM_REVISION_FORMAT: &str = "%{NAME}-%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n";
+
 fn ryoku_package_revisions(root: Option<&std::path::Path>) -> Result<Vec<PackageRevision>, String> {
     ["ryoku-desktop", "ryoku-desktop-runtime", "ryoku-profile-defaults"]
         .into_iter()
@@ -1937,28 +1951,32 @@ fn ryoku_package_revisions(root: Option<&std::path::Path>) -> Result<Vec<Package
                 command.arg("--root").arg(root);
             }
             let output = command
-                .args(["-q", "--qf", "%{NAME}-%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\\n", name])
+                .args(["-q", "--qf", RPM_REVISION_FORMAT, name])
                 .output()
                 .map_err(|_| format!("package database query could not start: {name}"))?;
             if !output.status.success() || output.stdout.len() > 1024 {
                 return Err(format!("required Ryoku package is unavailable: {name}"));
             }
-            let value = String::from_utf8(output.stdout)
-                .map_err(|_| format!("invalid RPM response for {name}"))?;
-            let value = value.trim_end_matches('\n');
-            if value.lines().count() != 1 || !value.starts_with(&format!("{name}-")) {
-                return Err(format!("ambiguous RPM response for {name}"));
-            }
-            let revision = Revision::new(value)
-                .map_err(|error| format!("invalid installed RPM revision: {error:?}"))?;
-            Ok(PackageRevision {
-                package_name: PackageName::new(name).map_err(|error| format!("{error:?}"))?,
-                before_nevra: Some(revision.clone()),
-                after_nevra: Some(revision),
-                upstream_revision: None,
-            })
+            parse_installed_revision(name, &output.stdout)
         })
         .collect()
+}
+
+fn parse_installed_revision(name: &str, output: &[u8]) -> Result<PackageRevision, String> {
+    let value =
+        std::str::from_utf8(output).map_err(|_| format!("invalid RPM response for {name}"))?;
+    let value = value.trim_end_matches('\n');
+    if value.lines().count() != 1 || !value.starts_with(&format!("{name}-")) {
+        return Err(format!("ambiguous RPM response for {name}"));
+    }
+    let revision = Revision::new(value)
+        .map_err(|error| format!("invalid installed RPM revision: {error:?}"))?;
+    Ok(PackageRevision {
+        package_name: PackageName::new(name).map_err(|error| format!("{error:?}"))?,
+        before_nevra: Some(revision.clone()),
+        after_nevra: Some(revision),
+        upstream_revision: None,
+    })
 }
 
 fn current_utc_timestamp() -> Result<String, String> {
@@ -2569,6 +2587,23 @@ fn write_configuration_preview(entries: &[FileRecord], output: &mut impl Write) 
 mod tests {
     use super::*;
     use ryoku_recovery::RelativePath;
+
+    #[test]
+    fn installed_rpm_query_uses_a_real_newline_and_rejects_ambiguous_revisions() {
+        assert!(RPM_REVISION_FORMAT.ends_with('\n'));
+        assert!(!RPM_REVISION_FORMAT.contains('\\'));
+        let parsed =
+            parse_installed_revision("ryoku-desktop", b"ryoku-desktop-0:0.1.0-5.x86_64\n").unwrap();
+        assert_eq!(parsed.after_nevra.unwrap().as_str(), "ryoku-desktop-0:0.1.0-5.x86_64");
+        for output in [
+            b"ryoku-desktop-0:0.1.0-5.x86_64\\n".as_slice(),
+            b"ryoku-desktop-0:0.1.0-5.x86_64\nryoku-desktop-0:0.1.0-6.x86_64\n",
+            b"other-0:0.1.0-5.x86_64\n",
+            b"\xff",
+        ] {
+            assert!(parse_installed_revision("ryoku-desktop", output).is_err());
+        }
+    }
 
     #[test]
     fn rejects_unknown_commands_without_partial_output() {
