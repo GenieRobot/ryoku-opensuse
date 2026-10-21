@@ -1,0 +1,131 @@
+warning: Could not canonicalize hostname: ryoku-lab
+Executing(%mkbuilddir): /usr/bin/bash -e /var/tmp/rpm-tmp.0L1EQj
+Executing(%prep): /usr/bin/bash -e /var/tmp/rpm-tmp.ciXHQh
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build
++ cd <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build
++ rm -rf ryoku-opensuse-0.1.0
++ /usr/lib/rpm/rpmuncompress -x <RPM_TOPDIR>/SOURCES/ryoku-opensuse-0.1.0.tar.gz
++ STATUS=0
++ '[' 0 -ne 0 ']'
++ cd ryoku-opensuse-0.1.0
++ /usr/lib/rpm/rpmuncompress -x <RPM_TOPDIR>/SOURCES/ryoku-opensuse-vendor-0.1.0.tar.xz
++ STATUS=0
++ '[' 0 -ne 0 ']'
++ /usr/bin/chmod -Rf a+rX,u+w,g-w,o-w .
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%build): /usr/bin/bash -e /var/tmp/rpm-tmp.JfU6Xp
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build
++ /usr/bin/rm -rf <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT
+++ dirname <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT
++ /usr/bin/mkdir -p <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build
++ /usr/bin/mkdir <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT
++ cd ryoku-opensuse-0.1.0
++ CARGO_NET_OFFLINE=true
++ cargo --config 'source.crates-io.replace-with="vendored-sources"' --config 'source.vendored-sources.directory="vendor"' build --offline --locked --release -p ryoku-service --bin ryoku-helper --bin ryoku-service
+   Compiling version_check v0.9.5
+   Compiling proc-macro2 v1.0.107
+   Compiling generic-array v0.14.7
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling typenum v1.20.1
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling syn v3.0.9
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling serde v1.0.229
+   Compiling rustix v1.1.5
+   Compiling serde_json v1.0.154
+   Compiling serde_derive v1.0.229
+   Compiling digest v0.10.7
+   Compiling linux-raw-sys v0.12.1
+   Compiling itoa v1.0.18
+   Compiling cpufeatures v0.2.17
+   Compiling memchr v2.8.3
+   Compiling bitflags v2.13.2
+   Compiling cfg-if v1.0.5
+   Compiling sha2 v0.10.9
+   Compiling libc v0.2.190
+   Compiling ryoku-snapper v0.1.0 (<RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/ryoku-opensuse-0.1.0/suse/snapper)
+   Compiling ryoku-profiles v0.1.0 (<RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/ryoku-opensuse-0.1.0/suse/profiles)
+   Compiling ryoku-recovery v0.1.0 (<RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/ryoku-opensuse-0.1.0/suse/recovery)
+   Compiling ryoku-service v0.1.0 (<RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/ryoku-opensuse-0.1.0/suse/service)
+    Finished `release` profile [optimized] target(s) in 40.23s
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%install): /usr/bin/bash -e /var/tmp/rpm-tmp.eKkcvR
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build
++ /usr/bin/rm -rf <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT
++ /usr/bin/mkdir -p <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build
++ /usr/bin/mkdir <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT
++ cd ryoku-opensuse-0.1.0
++ install -D -m 0755 /home/tester/rpmbuild/cargo-target/release/ryoku-helper <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT/usr/libexec/ryoku/ryoku-helper
++ install -D -m 0755 /home/tester/rpmbuild/cargo-target/release/ryoku-service <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT/usr/libexec/ryoku/ryoku-service
++ install -D -m 0644 packaging/rpm/systemd/ryoku-helper.service <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT/usr/lib/systemd/system/ryoku-helper.service
++ install -D -m 0644 packaging/rpm/systemd/ryoku-helper.socket <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT/usr/lib/systemd/system/ryoku-helper.socket
++ install -D -m 0644 packaging/rpm/systemd/user/ryoku-service.service <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT/usr/lib/systemd/user/ryoku-service.service
++ install -D -m 0644 packaging/rpm/sysusers.d/ryoku.conf <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT/usr/lib/sysusers.d/ryoku.conf
++ /usr/lib/rpm/find-debuginfo -j2 -n --run-dwz --dwz-low-mem-die-limit 10000000 --dwz-max-die-limit 50000000 -S debugsourcefiles.list <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/ryoku-opensuse-0.1.0
+find-debuginfo: starting
+WARNING: /usr/libexec/ryoku/ryoku-helper is already stripped!
+WARNING: /usr/libexec/ryoku/ryoku-service is already stripped!
+Extracting debug info from 0 files
+find-debuginfo: done
++ /usr/lib/rpm/brp-compress
++ /usr/lib/rpm/brp-suse
+Reading <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/SPECPARTS/rpm-debuginfo.specpart
+Processing files: ryoku-helper-0.1.0-5.x86_64
+Executing(%doc): /usr/bin/bash -e /var/tmp/rpm-tmp.zw4vhw
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build
++ cd ryoku-opensuse-0.1.0
++ DOCDIR=<RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-helper
++ export LC_ALL=C.UTF-8
++ LC_ALL=C.UTF-8
++ export DOCDIR
++ /usr/bin/mkdir -p <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-helper
++ cp -pr <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/ryoku-opensuse-0.1.0/packaging/rpm/README.md <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-helper
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%license): /usr/bin/bash -e /var/tmp/rpm-tmp.Aou3Za
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build
++ cd ryoku-opensuse-0.1.0
++ LICENSEDIR=<RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-helper
++ export LC_ALL=C.UTF-8
++ LC_ALL=C.UTF-8
++ export LICENSEDIR
++ /usr/bin/mkdir -p <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-helper
++ cp -pr <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/ryoku-opensuse-0.1.0/LICENSE <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-helper
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Provides: ryoku-helper = 0.1.0-5 ryoku-helper(x86-64) = 0.1.0-5
+Requires(rpmlib): rpmlib(CompressedFileNames) <= 3.0.4-1 rpmlib(FileDigests) <= 4.6.0-1 rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+Requires: ld-linux-x86-64.so.2()(64bit) ld-linux-x86-64.so.2(GLIBC_2.3)(64bit) libc.so.6()(64bit) libc.so.6(GLIBC_2.10)(64bit) libc.so.6(GLIBC_2.14)(64bit) libc.so.6(GLIBC_2.16)(64bit) libc.so.6(GLIBC_2.17)(64bit) libc.so.6(GLIBC_2.18)(64bit) libc.so.6(GLIBC_2.2.5)(64bit) libc.so.6(GLIBC_2.28)(64bit) libc.so.6(GLIBC_2.3)(64bit) libc.so.6(GLIBC_2.3.4)(64bit) libc.so.6(GLIBC_2.30)(64bit) libc.so.6(GLIBC_2.32)(64bit) libc.so.6(GLIBC_2.33)(64bit) libc.so.6(GLIBC_2.34)(64bit) libgcc_s.so.1()(64bit) libgcc_s.so.1(GCC_3.0)(64bit) libgcc_s.so.1(GCC_3.3)(64bit) libgcc_s.so.1(GCC_4.2.0)(64bit)
+Processing files: ryoku-helper-debugsource-0.1.0-5.x86_64
+Checking for unpackaged file(s): /usr/lib/rpm/check-files <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/BUILDROOT
+warning: Empty %files file <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/ryoku-opensuse-0.1.0/debugsourcefiles.list
+Wrote: <RPM_TOPDIR>/SRPMS/ryoku-helper-0.1.0-5.src.rpm
+Wrote: <RPM_TOPDIR>/RPMS/x86_64/ryoku-helper-debugsource-0.1.0-5.x86_64.rpm
+Wrote: <RPM_TOPDIR>/RPMS/x86_64/ryoku-helper-0.1.0-5.x86_64.rpm
+Executing(rmbuild): /usr/bin/bash -e /var/tmp/rpm-tmp.ozr8gx
++ umask 022
++ cd <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build
++ test -d <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build
++ /usr/bin/chmod -Rf a+rX,u+w,g-w,o-w <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build
++ rm -rf <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build
++ RPM_EC=0
+++ jobs -p
++ exit 0
+
+RPM build warnings:
+    Could not canonicalize hostname: ryoku-lab
+    Empty %files file <RPM_TOPDIR>/BUILD/ryoku-helper-0.1.0-build/ryoku-opensuse-0.1.0/debugsourcefiles.list

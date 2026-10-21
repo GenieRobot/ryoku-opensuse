@@ -1,0 +1,2 @@
+ryoku-tools-state-init = 0.1.0-5
+ryoku-tools-state-init(x86-64) = 0.1.0-5

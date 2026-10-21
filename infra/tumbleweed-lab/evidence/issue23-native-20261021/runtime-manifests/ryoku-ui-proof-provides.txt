@@ -1,0 +1,4 @@
+application()
+application(org.ryoku.OpenSUSE.UiProof.desktop)
+ryoku-ui-proof = 0.1.0-5
+ryoku-ui-proof(x86-64) = 0.1.0-5

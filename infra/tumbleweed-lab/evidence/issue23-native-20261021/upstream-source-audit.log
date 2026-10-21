@@ -1,0 +1,7 @@
+   Compiling ryoku-automation v0.1.0 (<WORKSPACE>/target/issue23-install-packaging/automation)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.57s
+     Running `target/debug/upstream-source-audit <WORKSPACE>/target/issue23-integrated-build/upstream-tree.json 49cf710dea4a8bc2c5aa2c4b524be46c5c9a2cff <WORKSPACE>/target/issue23-integrated-build/upstream packaging/rpm/upstream-writer-paths.txt`
+git_tree=49cf710dea4a8bc2c5aa2c4b524be46c5c9a2cff
+verified_tree_objects=452
+verified_source_files=2269
+source_identity=passed

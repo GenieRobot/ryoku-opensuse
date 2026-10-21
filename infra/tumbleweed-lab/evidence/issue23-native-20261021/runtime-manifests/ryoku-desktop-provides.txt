@@ -1,0 +1,2 @@
+ryoku-desktop = 0.1.0-5
+ryoku-desktop(x86-64) = 0.1.0-5

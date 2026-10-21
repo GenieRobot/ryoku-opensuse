@@ -63,6 +63,12 @@ resolution and installation evidence; historic 20261013 results are provenance
 for those older artifacts only. Rolling-release updates require compatible
 dependency resolution, especially for Quickshell's private Qt ABI.
 
+The [2026-10-21 native acceptance receipt](../../infra/tumbleweed-lab/evidence/issue23-native-acceptance-20261021.toml)
+records the exact six-spec source closure, ten-package manifests and signed
+fresh Snapshot20261016 dependency, install and reinstall checks. The linked
+logs include native Qt6 scanning, first sysusers group creation and strict
+override preservation. Its fixture signing key is not a release key.
+
 ## Defaults and mutable overrides
 
 `ryoku-profile-defaults` owns only the generic port profile under

@@ -1,0 +1,17 @@
+libryoku-blobs.so()(64bit)
+libryoku-blobsplugin.so()(64bit)
+qt6qmlimport(Ryoku.Blobs)
+qt6qmlimport(Ryoku.Blobs.1) = 0
+qt6qmlimport(Ryoku.FrameBars)
+qt6qmlimport(Ryoku.FrameBars.1) = 0
+qt6qmlimport(Ryoku.PluginKit)
+qt6qmlimport(Ryoku.PluginKit.1) = 0
+qt6qmlimport(Ryoku.PluginKit.Singletons)
+qt6qmlimport(Ryoku.Ui)
+qt6qmlimport(Ryoku.Ui.1) = 0
+qt6qmlimport(Ryoku.Ui.Singletons)
+qt6qmlimport(Ryoku.Wm.Hyprland)
+qt6qmlimport(shell.barkit)
+qt6qmlimport(shell.services)
+ryoku-desktop-runtime = 0.1.0-5
+ryoku-desktop-runtime(x86-64) = 0.1.0-5

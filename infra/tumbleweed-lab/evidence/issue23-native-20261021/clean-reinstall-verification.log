@@ -1,0 +1,23 @@
+preservation_fixture=unchanged files=5 bytes_links_owner_mode_mtime_inode=matched operator_group_gid=474 group_members=empty activation_links=absent
+ryoku-operators:x:474:
+uid=1000(tester) gid=1001(tester) groups=1001(tester),1000(wheel)
+Id=ryoku-helper.socket
+ActiveState=inactive
+UnitFileState=disabled
+
+Id=ryoku-helper.service
+ActiveState=inactive
+UnitFileState=static
+Id=ryoku-service.service
+ActiveState=inactive
+UnitFileState=disabled
+/usr/share/ryoku/config/profile.json 644 root:root
+605ac095a781ee4b3908272591f15b56f3a9f5d9a251e177e7d60dbbade02ba5  /usr/share/ryoku/config/profile.json
+/home/tester/.config/ryoku/opensuse-profile.json	1000	1001	100600	1792604264	425834791	42991746	1	78	7b22736368656d615f76657273696f6e223a312c226964223a22697373756532332d706572736f6e616c222c2273657474696e6773223a7b2264656e73697479223a22636f6d70616374227d7d0a
+/home/tester/.config/ryoku/profile.json	1000	1001	100600	1792604264	432833537	42991747	1	51	7b2269737375653233223a226f706171756520757073747265616d2070726f66696c6520707265736572766174696f6e227d0a
+/home/tester/issue23-unrelated-home-sentinel	1000	1001	100600	1792604264	438832462	4194441	1	55	756e72656c6174656420686f6d65206279746573206d7573742073757276697665207061636b616765207472616e73616374696f6e730a
+/home/tester/.config/ryoku/issue23-preservation-link	1000	1001	120777	1792604264	443831566	42991748	1	44	2f686f6d652f7465737465722f697373756532332d756e72656c617465642d686f6d652d73656e74696e656c
+/var/lib/ryoku-state/issue23-preservation-only	0	0	100600	1792604264	444831387	44040323	1	64	707265736572766174696f6e2066697874757265206f6e6c793b206e6f2076616c6964207265636f76657279207374617465206f722072656164696e6573730a
+Loading repository data...
+Reading installed packages...
+Dependencies of all installed packages are satisfied.

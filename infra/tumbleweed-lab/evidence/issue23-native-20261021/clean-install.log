@@ -1,0 +1,664 @@
+'/home/tester/runtime-signed/ryoku-desktop-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-desktop-fonts-0.1.0-5.noarch.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-desktop-runtime-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-helper-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-profile-defaults-0.1.0-5.noarch.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-quickshell-0.3.2-2.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-tools-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-tools-launcher-status-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-tools-state-init-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+'/home/tester/runtime-signed/ryoku-ui-proof-0.1.0-5.x86_64.rpm' looks like an RPM file. Will try to use it.
+Loading repository data...
+Reading installed packages...
+Resolving package dependencies...
+
+The following 309 NEW packages are going to be installed:
+  adwaita-icon-theme cups-config dbus-1-tools diffutils fontconfig gdk-pixbuf-query-loaders google-noto-sans-cjk-fonts google-noto-sans-jp-fonts google-noto-sans-kr-fonts google-noto-sans-sc-fonts google-noto-sans-tc-fonts gstreamer gstreamer-plugins-base gtk4-schema gtk4-tools hicolor-icon-theme kf6-syntax-highlighting kf6-syntax-highlighting-imports libaom3 libasound2 libass9 libavahi-client3 libavahi-common3 libavc1394-0 libavcodec62 libavfilter11 libavformat62 libavutil60 libb2-1 libbluetooth3 libbluray4 libbrotlienc1 libbs2b0 libbtrfs0 libbtrfsutil1 libcairo2 libcairo-gobject2 libcairo-script-interpreter2 libcamera0_7 libcamera-base0_7 libcjson1 libcloudproviders0 libcodec2-1_2 libcolord2 libconfig++15 libcpptrace1 libcups2 libdatrie1 libdav1d7 libdisplay-info3 libdouble-conversion3 libdovi3 libdrm2 libdrm_amdgpu1 libdrm_intel1 libdwarf2 libebur128-1 libepoxy0 libevdev2 libfdk-aac2 libffado2 libfftw3-3 libFLAC14 libfontconfig1 libfreeaptx0 libfribidi0 libgbm1 libgdbm6 libgdbm_compat4 libgdk_pixbuf-2_0-0 libglibmm-2_4-1 libglslang16 libglvnd libglycin-2-0 libgomp1 libgraphene-1_0-0 libgraphite2-3 libgsm1 libgstallocators-1_0-0 libgstapp-1_0-0 libgstaudio-1_0-0 libgstgl-1_0-0 libgstpbutils-1_0-0 libgstphotography-1_0-0 libgstplay-1_0-0 libgstreamer-1_0-0 libgstriff-1_0-0 libgsttag-1_0-0 libgstvideo-1_0-0 libgtk-4-1 libgudev-1_0-0 libharfbuzz0 libharfbuzz-subset0 libhwy1 libICE6 libicu78 libicu78-ledata libiec61883-0 libinput10 libjbig2 libjemalloc2 libjpeg8 libjson-glib-1_0-0 libjxl0_12 libKF6SyntaxHighlighting6 liblc3-1 liblcms2-2 libldac2 libLerc4 liblilv-0-0 libLLVM23 libmd4c0 libmp3lame0 libmpg123-0 libmtdev1 libmysofa1 liboapv1 libogg0 libopencore-amrnb0 libopencore-amrwb0 libopenh264-8 libopenjp2-7 libopenmpt0 libopus0 liborc-0_4-0 libpango-1_0-0 libpciaccess0 libpcre2-16-0 libpgm-5_3-0 libpipewire-0_3-0 libpixman-1-0 libplacebo360 libpolkit-agent-1-0 libpolkit-gobject-1-0 libpulse0 libQt6Core6 libQt6DBus6 libQt6Gui6 libQt6LabsAnimation6 libQt6LabsFolderListModel6 libQt6LabsPlatform6 libQt6LabsQmlModels6 libQt6LabsSettings6 libQt6LabsSharedImage6 libQt6LabsStyleKit6 libQt6LabsSynchronizer6 libQt6LabsWavefrontMesh6 libQt6Multimedia6 libQt6MultimediaQuick6 libQt6Network6 libQt6OpenGL6 libQt6Qml6 libQt6QmlCore6 libQt6QmlLocalStorage6 libQt6QmlMeta6 libQt6QmlModels6 libQt6QmlNetwork6 libQt6QmlWorkerScript6 libQt6QmlXmlListModel6 libQt6Quick3D6 libQt6Quick3DRuntimeRender6 libQt6Quick3DSpatialAudio6 libQt6Quick3DUtils6 libQt6Quick6 libQt6QuickControls2-6 libQt6QuickControls2Impl6 libQt6QuickDialogs2-6 libQt6QuickDialogs2QuickImpl6 libQt6QuickDialogs2Utils6 libQt6QuickEffects6 libQt6QuickLayouts6 libQt6QuickParticles6 libQt6QuickShapes6 libQt6QuickTemplates2-6 libQt6QuickTest6 libQt6QuickVectorImage6 libQt6ShaderTools6 libQt6SpatialAudio6 libQt6Sql6 libQt6Svg6 libQt6Test6 libQt6WaylandClient6 libQt6Widgets6 librav1e0_8 libraw1394-11 librist4 librubberband3 libsbc1 libserd-0-0 libshaderc_shared1 libsharpyuv0 libSM6 libsnapper8 libsndfile1 libsodium26 libsord-0-0 libsoxr0 libspandsp3 libspeex1 libSPIRV-Tools-2026_4_rc2 libsratom-0-0 libsrt1_5 libSvtAv1Enc4 libswresample6 libswscale9 libthai0 libthai-data libtheoradec2 libtheoraenc2 libtiff6 libtracker-sparql-3_0-0 libts0 libtwolame0 libudfread3 libunibreak6 libunwind8 libva2 libva-drm2 libva-x11-2 libvdpau1 libvidstab1_2 libvmaf3 libvo-amrwbenc0 libvorbis0 libvorbisenc2 libvorbisfile3 libvpl2 libvpx12 libvulkan1 libvulkan_lvp libwacom9 libwacom-data libwayland-client0 libwayland-cursor0 libwayland-egl1 libwebp7 libwebpmux3 libwebrtc-audio-processing-1-3 libX11-6 libX11-data libX11-xcb1 libXau6 libxcb1 libxcb-cursor0 libxcb-dri3-0 libxcb-glx0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-present0 libxcb-randr0 libxcb-render0 libxcb-render-util0 libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-util1 libxcb-xfixes0 libxcb-xinput0 libxcb-xkb1 libXcursor1 libXdamage1 libXext6 libXfixes3 libXft2 libXi6 libXinerama1 libxkbcommon-x11-0 libxml++-3_0-1 libXrandr2 libXrender1 libxshmfence1 libXv1 libxvidcore4 libXxf86vm1 libyuv0 libzimg2 libzix-0-0 libzmq5 libzvbi0 Mesa Mesa-dri Mesa-libEGL1 Mesa-libGL1 Mesa-vulkan-device-select perl pipewire-modules-0_3 pipewire-spa-plugins-0_2 polkit qt6-declarative-imports qt6-multimedia qt6-multimedia-imports qt6-networkinformation-connman qt6-networkinformation-glib qt6-networkinformation-nm qt6-network-tls qt6-qt5compat-imports qtdeclarative-imports-provides-qt6 ryoku-desktop ryoku-desktop-fonts ryoku-desktop-runtime ryoku-helper ryoku-profile-defaults ryoku-quickshell ryoku-tools ryoku-tools-launcher-status ryoku-tools-state-init ryoku-ui-proof snapper
+
+309 new packages to install.
+
+Package download size:
+            |     241.9 MiB  overall package size
+       0 B  |  -  241.9 MiB  already in cache
+
+Package install size change:
+              |     798.7 MiB  required by packages that will be installed
+   798.7 MiB  |  -      0 B    released by packages that will be removed
+
+Backend:  classic_rpmtrans
+Continue? [y/n/v/...? shows all options] (y): y
+In cache libopenh264-8-2.6.0-2.suse1699.10.x86_64.rpm (1/309), 460.0 KiB
+In cache cups-config-2.4.19-4.1.x86_64.rpm (2/309), 286.3 KiB
+In cache dbus-1-tools-1.14.10-5.7.x86_64.rpm (3/309),  41.2 KiB
+In cache diffutils-3.12-1.5.x86_64.rpm (4/309), 195.1 KiB
+In cache gdk-pixbuf-query-loaders-2.44.7-1.2.x86_64.rpm (5/309),  20.5 KiB
+In cache gtk4-schema-4.22.5-1.1.noarch.rpm (6/309),  76.1 KiB
+In cache hicolor-icon-theme-0.18-1.5.noarch.rpm (7/309),  76.3 KiB
+In cache libICE6-1.1.2-1.6.x86_64.rpm (8/309),  56.1 KiB
+In cache libLLVM23-23.1.3-1.1.x86_64.rpm (9/309),  33.9 MiB
+In cache libLerc4-4.1.0-3.3.x86_64.rpm (10/309), 226.1 KiB
+In cache libSPIRV-Tools-2026_4_rc2-2026.4~rc2-1.1.x86_64.rpm (11/309),   1.7 MiB
+In cache libSvtAv1Enc4-4.2.0-1.2.x86_64.rpm (12/309),   1.9 MiB
+In cache libX11-data-1.8.13-3.1.noarch.rpm (13/309), 141.4 KiB
+In cache libXau6-1.0.12-2.5.x86_64.rpm (14/309),  15.9 KiB
+In cache libasound2-1.2.16.1-3.1.x86_64.rpm (15/309), 467.2 KiB
+In cache libavahi-common3-0.8-45.2.x86_64.rpm (16/309),  32.3 KiB
+In cache libbluetooth3-5.87-3.1.x86_64.rpm (17/309), 122.8 KiB
+In cache libbrotlienc1-1.2.0-2.4.x86_64.rpm (18/309), 270.4 KiB
+In cache libbs2b0-3.1.0-14.9.x86_64.rpm (19/309),  18.4 KiB
+In cache libbtrfs0-7.1-1.2.x86_64.rpm (20/309),  43.0 KiB
+In cache libbtrfsutil1-7.1-1.2.x86_64.rpm (21/309),  46.0 KiB
+In cache libcamera-base0_7-0.7.2-1.2.x86_64.rpm (22/309),  81.9 KiB
+In cache libcjson1-1.7.19-3.2.x86_64.rpm (23/309),  41.2 KiB
+In cache libcloudproviders0-0.4.1-1.1.x86_64.rpm (24/309),  40.6 KiB
+In cache libcodec2-1_2-1.2.0-2.7.x86_64.rpm (25/309), 661.0 KiB
+In cache libconfig++15-1.8.1-1.6.x86_64.rpm (26/309),  60.6 KiB
+In cache libdatrie1-0.2.14-1.6.x86_64.rpm (27/309),  51.5 KiB
+In cache libdav1d7-1.5.4-1.2.x86_64.rpm (28/309), 651.6 KiB
+In cache libdisplay-info3-0.3.0-2.5.x86_64.rpm (29/309),  82.1 KiB
+In cache libdouble-conversion3-3.4.0-1.5.x86_64.rpm (30/309),  41.2 KiB
+In cache libdovi3-3.4.0-1.3.x86_64.rpm (31/309), 354.2 KiB
+In cache libdrm2-2.4.134-2.2.x86_64.rpm (32/309),  53.7 KiB
+In cache libdwarf2-2.3.3-1.1.x86_64.rpm (33/309), 275.2 KiB
+In cache libebur128-1-1.2.6-2.7.x86_64.rpm (34/309),  23.8 KiB
+In cache libepoxy0-1.5.10-2.12.x86_64.rpm (35/309), 229.4 KiB
+In cache libevdev2-1.13.7-1.1.x86_64.rpm (36/309),  43.4 KiB
+In cache libfdk-aac2-2.0.3-1.2.x86_64.rpm (37/309), 339.8 KiB
+In cache libfftw3-3-3.3.10-6.5.x86_64.rpm (38/309),   1.4 MiB
+In cache libfontconfig1-2.18.3-1.1.x86_64.rpm (39/309), 183.0 KiB
+In cache fontconfig-2.18.3-1.1.x86_64.rpm (40/309),  70.1 KiB
+In cache libfreeaptx0-0.2.2-2.1.x86_64.rpm (41/309),  28.1 KiB
+In cache libfribidi0-1.0.17-1.1.x86_64.rpm (42/309),  42.1 KiB
+In cache libgdbm6-1.26-1.5.x86_64.rpm (43/309),  56.4 KiB
+In cache libglibmm-2_4-1-2.66.10-1.1.x86_64.rpm (44/309), 247.2 KiB
+In cache libgomp1-16.2.1+git9713-1.1.x86_64.rpm (45/309), 219.9 KiB
+In cache libgraphene-1_0-0-1.10.8-3.1.x86_64.rpm (46/309),  54.1 KiB
+In cache libgraphite2-3-1.3.15-1.3.x86_64.rpm (47/309),  70.4 KiB
+In cache libgsm1-1.0.24-1.4.x86_64.rpm (48/309),  31.0 KiB
+In cache libgudev-1_0-0-238-1.11.x86_64.rpm (49/309),  32.1 KiB
+In cache libhwy1-1.4.0-3.1.x86_64.rpm (50/309), 471.0 KiB
+In cache libicu78-ledata-78.3-1.4.noarch.rpm (51/309),   8.8 MiB
+In cache libjbig2-2.1-5.9.x86_64.rpm (52/309),  37.1 KiB
+In cache libjemalloc2-5.4.0-1.1.x86_64.rpm (53/309), 300.9 KiB
+In cache libjpeg8-8.3.2-85.1.x86_64.rpm (54/309), 267.5 KiB
+In cache libjson-glib-1_0-0-1.10.8-2.1.x86_64.rpm (55/309),  71.8 KiB
+In cache liblc3-1-1.1.3-1.7.x86_64.rpm (56/309), 105.2 KiB
+In cache liblcms2-2-2.19.1-1.3.x86_64.rpm (57/309), 184.4 KiB
+In cache libldac2-2.0.2.5-1.3.x86_64.rpm (58/309),  40.4 KiB
+In cache libmd4c0-0.5.3-1.4.x86_64.rpm (59/309),  73.8 KiB
+In cache libmp3lame0-3.100-5.16.x86_64.rpm (60/309), 158.2 KiB
+In cache libmpg123-0-1.33.7-1.1.x86_64.rpm (61/309), 204.0 KiB
+In cache libmtdev1-1.1.6-1.21.x86_64.rpm (62/309),  19.3 KiB
+In cache libmysofa1-1.3.5-1.1.x86_64.rpm (63/309),   1.1 MiB
+In cache liboapv1-1.1.2.0-3.1.x86_64.rpm (64/309),  73.0 KiB
+In cache libogg0-1.3.6-1.5.x86_64.rpm (65/309),  32.2 KiB
+In cache libopencore-amrnb0-0.1.6-1.11.x86_64.rpm (66/309), 105.9 KiB
+In cache libopencore-amrwb0-0.1.6-1.11.x86_64.rpm (67/309),  58.9 KiB
+In cache libopenjp2-7-2.5.4-2.6.x86_64.rpm (68/309), 184.9 KiB
+In cache libopus0-1.6.1-1.5.x86_64.rpm (69/309), 253.9 KiB
+In cache liborc-0_4-0-0.4.44-1.1.x86_64.rpm (70/309), 320.0 KiB
+In cache libpciaccess0-0.19-1.4.x86_64.rpm (71/309),  28.1 KiB
+In cache libpcre2-16-0-10.49-2.1.x86_64.rpm (72/309), 257.3 KiB
+In cache libpgm-5_3-0-5.3.128-3.5.x86_64.rpm (73/309), 183.4 KiB
+In cache libpixman-1-0-0.46.4-2.5.x86_64.rpm (74/309), 294.9 KiB
+In cache libpolkit-agent-1-0-127-7.2.x86_64.rpm (75/309),  29.8 KiB
+In cache libpolkit-gobject-1-0-127-7.2.x86_64.rpm (76/309),  57.0 KiB
+In cache polkit-127-7.2.x86_64.rpm (77/309), 149.7 KiB
+In cache librav1e0_8-0.8.1-2.4.x86_64.rpm (78/309),   1.0 MiB
+In cache libraw1394-11-2.1.2-2.8.x86_64.rpm (79/309),  33.0 KiB
+In cache libsbc1-2.2-2.1.x86_64.rpm (80/309),  50.3 KiB
+In cache libserd-0-0-0.32.10-1.1.x86_64.rpm (81/309),  60.4 KiB
+In cache libsharpyuv0-1.6.0-2.3.x86_64.rpm (82/309),  20.9 KiB
+In cache libsodium26-1.0.22-2.1.x86_64.rpm (83/309), 213.6 KiB
+In cache libspeex1-1.2.1-2.8.x86_64.rpm (84/309),  67.3 KiB
+In cache libsrt1_5-1.5.7-1.1.x86_64.rpm (85/309), 390.0 KiB
+In cache libthai-data-0.1.30-1.5.x86_64.rpm (86/309), 156.8 KiB
+In cache libtheoradec2-1.2.0-3.1.x86_64.rpm (87/309),  55.3 KiB
+In cache libts0-1.24-1.5.x86_64.rpm (88/309),  18.3 KiB
+In cache libtwolame0-0.4.0-1.25.x86_64.rpm (89/309),  59.0 KiB
+In cache libudfread3-1.2.0-1.5.x86_64.rpm (90/309),  31.1 KiB
+In cache libunibreak6-6.1-1.5.x86_64.rpm (91/309),  30.4 KiB
+In cache libunwind8-1.8.3-3.3.x86_64.rpm (92/309),  69.1 KiB
+In cache libva2-2.24.1-1.1.x86_64.rpm (93/309),  90.0 KiB
+In cache libvmaf3-3.2.1-1.1.x86_64.rpm (94/309), 338.0 KiB
+In cache libvo-amrwbenc0-0.1.3+5-1.10.x86_64.rpm (95/309),  82.5 KiB
+In cache libvpl2-2.17.0-1.2.x86_64.rpm (96/309), 150.1 KiB
+In cache libvpx12-1.17.0-1.1.x86_64.rpm (97/309), 882.5 KiB
+In cache libvulkan1-1.4.363-1.1.x86_64.rpm (98/309), 183.4 KiB
+In cache libwacom-data-2.19.1-1.1.x86_64.rpm (99/309), 221.9 KiB
+In cache libwayland-client0-1.26.0-1.2.x86_64.rpm (100/309),  38.8 KiB
+In cache libwayland-egl1-1.26.0-1.2.x86_64.rpm (101/309),  12.6 KiB
+In cache libwebrtc-audio-processing-1-3-1.3-2.5.x86_64.rpm (102/309), 441.5 KiB
+In cache libxshmfence1-1.3.3-1.6.x86_64.rpm (103/309),  11.9 KiB
+In cache libxvidcore4-1.3.7-4.5.x86_64.rpm (104/309), 228.3 KiB
+In cache libzimg2-3.0.6+20260720.g1ad1895-1.1.x86_64.rpm (105/309), 244.5 KiB
+In cache libzix-0-0-0.8.0-1.5.x86_64.rpm (106/309),  34.0 KiB
+In cache libzvbi0-0.2.45-1.1.x86_64.rpm (107/309), 246.3 KiB
+In cache libSM6-1.2.6-1.5.x86_64.rpm (108/309),  25.2 KiB
+In cache libglslang16-16.6.0-1.1.x86_64.rpm (109/309),   1.1 MiB
+In cache libX11-xcb1-1.8.13-3.1.x86_64.rpm (110/309),  16.8 KiB
+In cache libxcb1-1.17.0-2.7.x86_64.rpm (111/309),  54.2 KiB
+In cache libavahi-client3-0.8-45.2.x86_64.rpm (112/309),  37.4 KiB
+In cache libsnapper8-0.13.1-3.4.x86_64.rpm (113/309), 370.1 KiB
+In cache librist4-0.2.20-1.2.x86_64.rpm (114/309), 143.0 KiB
+In cache libgbm1-26.2.4-1.1.x86_64.rpm (115/309),  63.9 KiB
+In cache libdrm_amdgpu1-2.4.134-2.2.x86_64.rpm (116/309),  41.6 KiB
+In cache librubberband3-4.0.0-1.5.x86_64.rpm (117/309), 183.7 KiB
+In cache libgdbm_compat4-1.26-1.5.x86_64.rpm (118/309),  26.9 KiB
+In cache libxml++-3_0-1-3.2.5-2.6.x86_64.rpm (119/309), 106.5 KiB
+In cache libvidstab1_2-1.1.1-2.5.x86_64.rpm (120/309),  44.9 KiB
+In cache libsoxr0-0.1.3-4.1.x86_64.rpm (121/309),  99.3 KiB
+In cache libb2-1-0.98.1-2.5.x86_64.rpm (122/309),  23.4 KiB
+In cache libharfbuzz0-14.6.0-1.1.x86_64.rpm (123/309), 647.6 KiB
+In cache libjxl0_12-0.12.0-1.1.x86_64.rpm (124/309),   1.0 MiB
+In cache libicu78-78.3-1.4.x86_64.rpm (125/309),   2.3 MiB
+In cache libyuv0-20230517+a377993-2.5.x86_64.rpm (126/309), 198.1 KiB
+In cache libtiff6-4.7.2-1.2.x86_64.rpm (127/309), 246.7 KiB
+In cache libtracker-sparql-3_0-0-3.11.1-1.4.x86_64.rpm (128/309), 328.6 KiB
+In cache libglycin-2-0-2.1.5-1.3.x86_64.rpm (129/309),   1.6 MiB
+In cache libcolord2-1.4.8-3.1.x86_64.rpm (130/309), 156.3 KiB
+In cache libvorbis0-1.3.7-5.7.x86_64.rpm (131/309), 107.5 KiB
+In cache libtheoraenc2-1.2.0-3.1.x86_64.rpm (132/309), 110.7 KiB
+In cache libFLAC14-1.5.0-1.6.x86_64.rpm (133/309), 256.6 KiB
+In cache libdrm_intel1-2.4.134-2.2.x86_64.rpm (134/309),  82.1 KiB
+In cache libiec61883-0-1.2.0-9.5.x86_64.rpm (135/309),  40.3 KiB
+In cache libavc1394-0-0.5.4-20.8.x86_64.rpm (136/309),  20.9 KiB
+In cache libwebp7-1.6.0-2.3.x86_64.rpm (137/309), 255.6 KiB
+In cache libthai0-0.1.30-1.5.x86_64.rpm (138/309),  25.4 KiB
+In cache libbluray4-1.5.0-1.1.x86_64.rpm (139/309), 146.2 KiB
+In cache libzmq5-4.3.5-1.11.x86_64.rpm (140/309), 265.7 KiB
+In cache libgstreamer-1_0-0-1.28.8-1.1.x86_64.rpm (141/309), 960.7 KiB
+In cache gstreamer-1.28.8-1.1.x86_64.rpm (142/309), 514.9 KiB
+In cache libcpptrace1-1.0.4-1.4.x86_64.rpm (143/309), 190.3 KiB
+In cache libva-drm2-2.24.1-1.1.x86_64.rpm (144/309),  18.2 KiB
+In cache libaom3-3.13.1-2.5.x86_64.rpm (145/309),   1.9 MiB
+In cache libwacom9-2.19.1-1.1.x86_64.rpm (146/309),  50.8 KiB
+In cache libwayland-cursor0-1.26.0-1.2.x86_64.rpm (147/309),  19.6 KiB
+In cache libsord-0-0-0.16.22-1.3.x86_64.rpm (148/309),  25.5 KiB
+In cache libshaderc_shared1-2026.4-1.1.x86_64.rpm (149/309),  48.9 KiB
+In cache libxcb-xkb1-1.17.0-2.7.x86_64.rpm (150/309),  39.4 KiB
+In cache libxcb-xinput0-1.17.0-2.7.x86_64.rpm (151/309),  42.8 KiB
+In cache libxcb-xfixes0-1.17.0-2.7.x86_64.rpm (152/309),  17.2 KiB
+In cache libxcb-util1-0.4.1-1.10.x86_64.rpm (153/309),  16.0 KiB
+In cache libxcb-sync1-1.17.0-2.7.x86_64.rpm (154/309),  16.7 KiB
+In cache libxcb-shm0-1.17.0-2.7.x86_64.rpm (155/309),  13.4 KiB
+In cache libxcb-shape0-1.17.0-2.7.x86_64.rpm (156/309),  13.6 KiB
+In cache libxcb-render0-1.17.0-2.7.x86_64.rpm (157/309),  23.1 KiB
+In cache libxcb-randr0-1.17.0-2.7.x86_64.rpm (158/309),  24.8 KiB
+In cache libxcb-present0-1.17.0-2.7.x86_64.rpm (159/309),  13.4 KiB
+In cache libxcb-keysyms1-0.4.1-1.11.x86_64.rpm (160/309),  12.1 KiB
+In cache libxcb-icccm4-0.4.2-1.10.x86_64.rpm (161/309),  14.9 KiB
+In cache libxcb-glx0-1.17.0-2.7.x86_64.rpm (162/309),  30.7 KiB
+In cache libxcb-dri3-0-1.17.0-2.7.x86_64.rpm (163/309),  14.7 KiB
+In cache libX11-6-1.8.13-3.1.x86_64.rpm (164/309), 673.8 KiB
+In cache libcups2-2.4.19-4.1.x86_64.rpm (165/309), 321.0 KiB
+In cache snapper-0.13.1-3.4.x86_64.rpm (166/309), 406.3 KiB
+In cache perl-5.44.0-1.2.x86_64.rpm (167/309),   8.5 MiB
+In cache libharfbuzz-subset0-14.6.0-1.1.x86_64.rpm (168/309), 622.2 KiB
+In cache libass9-0.17.5-1.3.x86_64.rpm (169/309), 124.4 KiB
+In cache libQt6Core6-6.11.2-2.1.x86_64.rpm (170/309),   2.4 MiB
+In cache libspandsp3-3.0.0+g57-1.6.x86_64.rpm (171/309), 388.2 KiB
+In cache libgdk_pixbuf-2_0-0-2.44.7-1.2.x86_64.rpm (172/309), 156.4 KiB
+In cache libvorbisfile3-1.3.7-5.7.x86_64.rpm (173/309),  25.7 KiB
+In cache libvorbisenc2-1.3.7-5.7.x86_64.rpm (174/309),  85.8 KiB
+In cache libffado2-2.4.9-4.6.x86_64.rpm (175/309), 896.8 KiB
+In cache libwebpmux3-1.6.0-2.3.x86_64.rpm (176/309),  30.5 KiB
+In cache libgstphotography-1_0-0-1.28.8-1.1.x86_64.rpm (177/309),  79.6 KiB
+In cache libinput10-1.32-1.1.x86_64.rpm (178/309), 205.7 KiB
+In cache libsratom-0-0-0.6.22-1.3.x86_64.rpm (179/309),  28.2 KiB
+In cache libplacebo360-7.360.1-1.7.x86_64.rpm (180/309), 448.7 KiB
+In cache libxkbcommon-x11-0-1.13.2-1.3.x86_64.rpm (181/309),  30.0 KiB
+In cache libxcb-image0-0.4.1-1.12.x86_64.rpm (182/309),  16.9 KiB
+In cache libxcb-render-util0-0.3.10-1.11.x86_64.rpm (183/309),  14.1 KiB
+In cache Mesa-vulkan-device-select-26.2.4-1.1.x86_64.rpm (184/309),  99.3 KiB
+In cache libXrender1-0.9.12-2.1.x86_64.rpm (185/309),  28.1 KiB
+In cache libXfixes3-6.0.2-2.5.x86_64.rpm (186/309),  19.1 KiB
+In cache libXext6-1.3.7-1.5.x86_64.rpm (187/309),  38.0 KiB
+In cache libXdamage1-1.1.7-1.5.x86_64.rpm (188/309),  12.3 KiB
+In cache google-noto-sans-tc-fonts-2.004-7.6.noarch.rpm (189/309),  13.5 MiB
+In cache google-noto-sans-sc-fonts-2.004-7.6.noarch.rpm (190/309),  13.5 MiB
+In cache google-noto-sans-kr-fonts-2.004-7.6.noarch.rpm (191/309),  13.5 MiB
+In cache google-noto-sans-jp-fonts-2.004-7.6.noarch.rpm (192/309),  13.5 MiB
+In cache libQt6Test6-6.11.2-2.1.x86_64.rpm (193/309), 197.9 KiB
+In cache libQt6Sql6-6.11.2-2.1.x86_64.rpm (194/309), 151.4 KiB
+In cache libQt6DBus6-6.11.2-2.1.x86_64.rpm (195/309), 296.6 KiB
+In cache libopenmpt0-0.8.9-1.1.x86_64.rpm (196/309), 795.6 KiB
+In cache libsndfile1-1.2.2-6.1.x86_64.rpm (197/309), 213.3 KiB
+In cache liblilv-0-0-0.28.0-1.3.x86_64.rpm (198/309),  54.5 KiB
+In cache libxcb-cursor0-0.1.6-1.5.x86_64.rpm (199/309),  17.7 KiB
+In cache libvulkan_lvp-26.2.4-1.1.x86_64.rpm (200/309),   2.4 MiB
+In cache libXft2-2.3.9-1.5.x86_64.rpm (201/309),  54.3 KiB
+In cache libXcursor1-1.2.3-1.7.x86_64.rpm (202/309),  31.5 KiB
+In cache libvdpau1-1.5-5.5.x86_64.rpm (203/309),  21.7 KiB
+In cache libva-x11-2-2.24.1-1.1.x86_64.rpm (204/309),  24.1 KiB
+In cache libcairo2-1.18.6-1.1.x86_64.rpm (205/309), 612.8 KiB
+In cache libXxf86vm1-1.1.7-1.5.x86_64.rpm (206/309),  17.9 KiB
+In cache libXv1-1.0.13-1.6.x86_64.rpm (207/309),  18.0 KiB
+In cache libXrandr2-1.5.5-1.5.x86_64.rpm (208/309),  26.4 KiB
+In cache libXinerama1-1.1.6-1.5.x86_64.rpm (209/309),  11.7 KiB
+In cache libXi6-1.8.3-3.1.x86_64.rpm (210/309),  41.8 KiB
+In cache google-noto-sans-cjk-fonts-2.004-7.6.noarch.rpm (211/309),  14.6 KiB
+In cache libQt6Network6-6.11.2-2.1.x86_64.rpm (212/309), 744.1 KiB
+In cache qt6-network-tls-6.11.2-2.1.x86_64.rpm (213/309), 139.6 KiB
+In cache libpulse0-17.0-7.6.x86_64.rpm (214/309), 309.6 KiB
+In cache libavutil60-8.1.3-3.1.x86_64.rpm (215/309), 379.7 KiB
+In cache libpango-1_0-0-1.58.2-1.1.x86_64.rpm (216/309), 315.7 KiB
+In cache libcairo-script-interpreter2-1.18.6-1.1.x86_64.rpm (217/309),  68.6 KiB
+In cache libcairo-gobject2-1.18.6-1.1.x86_64.rpm (218/309),  22.4 KiB
+In cache Mesa-26.2.4-1.1.x86_64.rpm (219/309),  62.1 KiB
+In cache Mesa-dri-26.2.4-1.1.x86_64.rpm (220/309),  11.3 MiB
+In cache libglvnd-1.7.0-2.4.x86_64.rpm (221/309), 388.0 KiB
+In cache Mesa-libEGL1-26.2.4-1.1.x86_64.rpm (222/309), 196.0 KiB
+In cache qt6-networkinformation-connman-6.11.2-2.1.x86_64.rpm (223/309),  46.3 KiB
+In cache libswscale9-8.1.3-3.1.x86_64.rpm (224/309), 322.8 KiB
+In cache libswresample6-8.1.3-3.1.x86_64.rpm (225/309),  74.3 KiB
+In cache libgsttag-1_0-0-1.28.8-1.1.x86_64.rpm (226/309), 150.4 KiB
+In cache Mesa-libGL1-26.2.4-1.1.x86_64.rpm (227/309), 188.0 KiB
+In cache qt6-networkinformation-glib-6.11.2-2.1.x86_64.rpm (228/309),  26.6 KiB
+In cache libavcodec62-8.1.3-3.1.x86_64.rpm (229/309),   4.7 MiB
+In cache libgstaudio-1_0-0-1.28.8-1.1.x86_64.rpm (230/309), 261.7 KiB
+In cache libcamera0_7-0.7.2-1.2.x86_64.rpm (231/309), 672.1 KiB
+In cache qt6-networkinformation-nm-6.11.2-2.1.x86_64.rpm (232/309),  46.0 KiB
+In cache libavformat62-8.1.3-3.1.x86_64.rpm (233/309),   1.2 MiB
+In cache libgstallocators-1_0-0-1.28.8-1.1.x86_64.rpm (234/309),  60.1 KiB
+In cache libQt6Gui6-6.11.2-2.1.x86_64.rpm (235/309),   4.2 MiB
+In cache libQt6Widgets6-6.11.2-2.1.x86_64.rpm (236/309),   2.8 MiB
+In cache libQt6OpenGL6-6.11.2-2.1.x86_64.rpm (237/309), 236.1 KiB
+In cache libavfilter11-8.1.3-3.1.x86_64.rpm (238/309),   1.7 MiB
+In cache libgstvideo-1_0-0-1.28.8-1.1.x86_64.rpm (239/309), 352.9 KiB
+In cache libgstgl-1_0-0-1.28.8-1.1.x86_64.rpm (240/309), 273.1 KiB
+In cache libQt6WaylandClient6-6.11.2-2.1.x86_64.rpm (241/309), 357.7 KiB
+In cache pipewire-spa-plugins-0_2-1.6.9-2.1.x86_64.rpm (242/309),   1.9 MiB
+In cache libgstpbutils-1_0-0-1.28.8-1.1.x86_64.rpm (243/309), 148.8 KiB
+In cache gstreamer-plugins-base-1.28.8-1.1.x86_64.rpm (244/309),   1.1 MiB
+In cache libgstapp-1_0-0-1.28.8-1.1.x86_64.rpm (245/309),  81.2 KiB
+In cache libQt6Svg6-6.11.2-1.1.x86_64.rpm (246/309), 299.0 KiB
+In cache libQt6ShaderTools6-6.11.2-1.1.x86_64.rpm (247/309),   1.8 MiB
+In cache libQt6QuickDialogs2Utils6-6.11.2-2.1.x86_64.rpm (248/309),  27.0 KiB
+In cache libKF6SyntaxHighlighting6-6.31.0-1.1.x86_64.rpm (249/309),   1.6 MiB
+In cache kf6-syntax-highlighting-6.31.0-1.1.x86_64.rpm (250/309),  47.5 KiB
+In cache libpipewire-0_3-0-1.6.9-2.1.x86_64.rpm (251/309), 500.8 KiB
+In cache pipewire-modules-0_3-1.6.9-2.1.x86_64.rpm (252/309), 990.7 KiB
+In cache libgstriff-1_0-0-1.28.8-1.1.x86_64.rpm (253/309),  71.9 KiB
+In cache libQt6Quick6-6.11.2-2.1.x86_64.rpm (254/309),   2.6 MiB
+In cache libQt6Qml6-6.11.2-2.1.x86_64.rpm (255/309),   1.9 MiB
+In cache libQt6QuickVectorImage6-6.11.2-2.1.x86_64.rpm (256/309), 220.0 KiB
+In cache libQt6QmlWorkerScript6-6.11.2-2.1.x86_64.rpm (257/309),  46.5 KiB
+In cache libgstplay-1_0-0-1.28.8-1.1.x86_64.rpm (258/309), 118.7 KiB
+In cache libQt6QuickTest6-6.11.2-2.1.x86_64.rpm (259/309), 107.6 KiB
+In cache libQt6QuickShapes6-6.11.2-2.1.x86_64.rpm (260/309), 201.2 KiB
+In cache libQt6QuickParticles6-6.11.2-2.1.x86_64.rpm (261/309), 265.7 KiB
+In cache libQt6QuickLayouts6-6.11.2-2.1.x86_64.rpm (262/309), 129.3 KiB
+In cache libQt6QuickEffects6-6.11.2-2.1.x86_64.rpm (263/309), 239.6 KiB
+In cache libQt6QmlXmlListModel6-6.11.2-2.1.x86_64.rpm (264/309),  61.8 KiB
+In cache libQt6QmlNetwork6-6.11.2-2.1.x86_64.rpm (265/309),  52.3 KiB
+In cache libQt6QmlModels6-6.11.2-2.1.x86_64.rpm (266/309), 411.1 KiB
+In cache libQt6QmlLocalStorage6-6.11.2-2.1.x86_64.rpm (267/309),  34.9 KiB
+In cache libQt6LabsWavefrontMesh6-6.11.2-2.1.x86_64.rpm (268/309),  33.4 KiB
+In cache libQt6LabsSynchronizer6-6.11.2-2.1.x86_64.rpm (269/309),  39.1 KiB
+In cache libQt6LabsSharedImage6-6.11.2-2.1.x86_64.rpm (270/309),  32.2 KiB
+In cache libQt6LabsSettings6-6.11.2-2.1.x86_64.rpm (271/309),  34.5 KiB
+In cache libQt6LabsFolderListModel6-6.11.2-2.1.x86_64.rpm (272/309),  57.0 KiB
+In cache libQt6LabsAnimation6-6.11.2-2.1.x86_64.rpm (273/309),  31.2 KiB
+In cache gtk4-tools-4.22.5-1.1.x86_64.rpm (274/309),   1.6 MiB
+In cache adwaita-icon-theme-50.0+2-2.1.noarch.rpm (275/309), 659.5 KiB
+In cache libgtk-4-1-4.22.5-1.1.x86_64.rpm (276/309),   3.6 MiB
+In cache libQt6QuickTemplates2-6-6.11.2-2.1.x86_64.rpm (277/309), 737.3 KiB
+In cache libQt6QmlMeta6-6.11.2-2.1.x86_64.rpm (278/309),  78.6 KiB
+In cache libQt6LabsQmlModels6-6.11.2-2.1.x86_64.rpm (279/309),  88.5 KiB
+In cache libQt6QuickControls2Impl6-6.11.2-2.1.x86_64.rpm (280/309), 198.9 KiB
+In cache libQt6QuickControls2-6-6.11.2-2.1.x86_64.rpm (281/309), 706.5 KiB
+In cache libQt6LabsStyleKit6-6.11.2-2.1.x86_64.rpm (282/309), 192.5 KiB
+In cache libQt6LabsPlatform6-6.11.2-2.1.x86_64.rpm (283/309), 112.7 KiB
+In cache libQt6Multimedia6-6.11.2-1.2.x86_64.rpm (284/309), 637.2 KiB
+In cache qt6-multimedia-6.11.2-1.2.x86_64.rpm (285/309), 443.5 KiB
+In cache libQt6QuickDialogs2QuickImpl6-6.11.2-2.1.x86_64.rpm (286/309), 269.9 KiB
+In cache libQt6SpatialAudio6-6.11.2-1.2.x86_64.rpm (287/309), 255.1 KiB
+In cache libQt6QuickDialogs2-6-6.11.2-2.1.x86_64.rpm (288/309),  67.1 KiB
+In cache libQt6QmlCore6-6.11.2-2.1.x86_64.rpm (289/309),  57.3 KiB
+In cache qt6-declarative-imports-6.11.2-2.1.x86_64.rpm (290/309), 883.2 KiB
+In cache qtdeclarative-imports-provides-qt6-1.0-1.55.x86_64.rpm (291/309),  24.2 KiB
+In cache libQt6Quick3DUtils6-6.11.2-1.1.x86_64.rpm (292/309), 243.3 KiB
+In cache libQt6MultimediaQuick6-6.11.2-1.2.x86_64.rpm (293/309), 100.8 KiB
+In cache kf6-syntax-highlighting-imports-6.31.0-1.1.x86_64.rpm (294/309),  54.8 KiB
+In cache qt6-qt5compat-imports-6.11.2-1.1.x86_64.rpm (295/309), 372.2 KiB
+In cache libQt6Quick3DRuntimeRender6-6.11.2-1.1.x86_64.rpm (296/309),   1.7 MiB
+In cache libQt6Quick3D6-6.11.2-1.1.x86_64.rpm (297/309), 561.4 KiB
+In cache libQt6Quick3DSpatialAudio6-6.11.2-1.2.x86_64.rpm (298/309),  33.9 KiB
+In cache qt6-multimedia-imports-6.11.2-1.2.x86_64.rpm (299/309),  30.9 KiB
+In cache ryoku-helper-0.1.0-5.x86_64.rpm (300/309), 479.7 KiB
+In cache ryoku-profile-defaults-0.1.0-5.noarch.rpm (301/309),  19.5 KiB
+In cache ryoku-tools-0.1.0-5.x86_64.rpm (302/309), 459.0 KiB
+In cache ryoku-desktop-fonts-0.1.0-5.noarch.rpm (303/309),   7.5 MiB
+In cache ryoku-tools-state-init-0.1.0-5.x86_64.rpm (304/309), 415.8 KiB
+In cache ryoku-ui-proof-0.1.0-5.x86_64.rpm (305/309), 363.4 KiB
+In cache ryoku-quickshell-0.3.2-2.x86_64.rpm (306/309),   1.8 MiB
+In cache ryoku-tools-launcher-status-0.1.0-5.x86_64.rpm (307/309), 355.1 KiB
+In cache ryoku-desktop-runtime-0.1.0-5.x86_64.rpm (308/309),  17.2 MiB
+In cache ryoku-desktop-0.1.0-5.x86_64.rpm (309/309),  22.7 KiB
+
+Checking for file conflicts: [.......done]
+(  1/309) Installing: libopenh264-8-2.6.0-2.suse1699.10.x86_64 [..done]
+(  2/309) Installing: cups-config-2.4.19-4.1.x86_64 [..done]
+(  3/309) Installing: dbus-1-tools-1.14.10-5.7.x86_64 [..done]
+(  4/309) Installing: diffutils-3.12-1.5.x86_64 [..done]
+(  5/309) Installing: gdk-pixbuf-query-loaders-2.44.7-1.2.x86_64 [..done]
+(  6/309) Installing: gtk4-schema-4.22.5-1.1.noarch [..done]
+(  7/309) Installing: hicolor-icon-theme-0.18-1.5.noarch [..done]
+(  8/309) Installing: libICE6-1.1.2-1.6.x86_64 [..done]
+(  9/309) Installing: libLLVM23-23.1.3-1.1.x86_64 [.......done]
+( 10/309) Installing: libLerc4-4.1.0-3.3.x86_64 [..done]
+( 11/309) Installing: libSPIRV-Tools-2026_4_rc2-2026.4~rc2-1.1.x86_64 [..done]
+( 12/309) Installing: libSvtAv1Enc4-4.2.0-1.2.x86_64 [..done]
+( 13/309) Installing: libX11-data-1.8.13-3.1.noarch [..done]
+( 14/309) Installing: libXau6-1.0.12-2.5.x86_64 [..done]
+( 15/309) Installing: libasound2-1.2.16.1-3.1.x86_64 [..done]
+( 16/309) Installing: libavahi-common3-0.8-45.2.x86_64 [..done]
+( 17/309) Installing: libbluetooth3-5.87-3.1.x86_64 [..done]
+( 18/309) Installing: libbrotlienc1-1.2.0-2.4.x86_64 [..done]
+( 19/309) Installing: libbs2b0-3.1.0-14.9.x86_64 [..done]
+( 20/309) Installing: libbtrfs0-7.1-1.2.x86_64 [..done]
+( 21/309) Installing: libbtrfsutil1-7.1-1.2.x86_64 [..done]
+( 22/309) Installing: libcamera-base0_7-0.7.2-1.2.x86_64 [..done]
+( 23/309) Installing: libcjson1-1.7.19-3.2.x86_64 [..done]
+( 24/309) Installing: libcloudproviders0-0.4.1-1.1.x86_64 [..done]
+( 25/309) Installing: libcodec2-1_2-1.2.0-2.7.x86_64 [..done]
+( 26/309) Installing: libconfig++15-1.8.1-1.6.x86_64 [..done]
+( 27/309) Installing: libdatrie1-0.2.14-1.6.x86_64 [..done]
+( 28/309) Installing: libdav1d7-1.5.4-1.2.x86_64 [..done]
+( 29/309) Installing: libdisplay-info3-0.3.0-2.5.x86_64 [..done]
+( 30/309) Installing: libdouble-conversion3-3.4.0-1.5.x86_64 [..done]
+( 31/309) Installing: libdovi3-3.4.0-1.3.x86_64 [..done]
+( 32/309) Installing: libdrm2-2.4.134-2.2.x86_64 [..done]
+( 33/309) Installing: libdwarf2-2.3.3-1.1.x86_64 [..done]
+( 34/309) Installing: libebur128-1-1.2.6-2.7.x86_64 [..done]
+( 35/309) Installing: libepoxy0-1.5.10-2.12.x86_64 [..done]
+( 36/309) Installing: libevdev2-1.13.7-1.1.x86_64 [..done]
+( 37/309) Installing: libfdk-aac2-2.0.3-1.2.x86_64 [..done]
+( 38/309) Installing: libfftw3-3-3.3.10-6.5.x86_64 [..done]
+( 39/309) Installing: libfontconfig1-2.18.3-1.1.x86_64 [..done]
+( 40/309) Installing: fontconfig-2.18.3-1.1.x86_64 [..done]
+( 41/309) Installing: libfreeaptx0-0.2.2-2.1.x86_64 [..done]
+( 42/309) Installing: libfribidi0-1.0.17-1.1.x86_64 [..done]
+( 43/309) Installing: libgdbm6-1.26-1.5.x86_64 [..done]
+( 44/309) Installing: libglibmm-2_4-1-2.66.10-1.1.x86_64 [..done]
+( 45/309) Installing: libgomp1-16.2.1+git9713-1.1.x86_64 [..done]
+( 46/309) Installing: libgraphene-1_0-0-1.10.8-3.1.x86_64 [..done]
+( 47/309) Installing: libgraphite2-3-1.3.15-1.3.x86_64 [..done]
+( 48/309) Installing: libgsm1-1.0.24-1.4.x86_64 [..done]
+( 49/309) Installing: libgudev-1_0-0-238-1.11.x86_64 [..done]
+( 50/309) Installing: libhwy1-1.4.0-3.1.x86_64 [..done]
+( 51/309) Installing: libicu78-ledata-78.3-1.4.noarch [...done]
+( 52/309) Installing: libjbig2-2.1-5.9.x86_64 [..done]
+( 53/309) Installing: libjemalloc2-5.4.0-1.1.x86_64 [..done]
+( 54/309) Installing: libjpeg8-8.3.2-85.1.x86_64 [..done]
+( 55/309) Installing: libjson-glib-1_0-0-1.10.8-2.1.x86_64 [..done]
+( 56/309) Installing: liblc3-1-1.1.3-1.7.x86_64 [..done]
+( 57/309) Installing: liblcms2-2-2.19.1-1.3.x86_64 [..done]
+( 58/309) Installing: libldac2-2.0.2.5-1.3.x86_64 [..done]
+( 59/309) Installing: libmd4c0-0.5.3-1.4.x86_64 [..done]
+( 60/309) Installing: libmp3lame0-3.100-5.16.x86_64 [..done]
+( 61/309) Installing: libmpg123-0-1.33.7-1.1.x86_64 [..done]
+( 62/309) Installing: libmtdev1-1.1.6-1.21.x86_64 [..done]
+( 63/309) Installing: libmysofa1-1.3.5-1.1.x86_64 [..done]
+( 64/309) Installing: liboapv1-1.1.2.0-3.1.x86_64 [..done]
+( 65/309) Installing: libogg0-1.3.6-1.5.x86_64 [..done]
+( 66/309) Installing: libopencore-amrnb0-0.1.6-1.11.x86_64 [..done]
+( 67/309) Installing: libopencore-amrwb0-0.1.6-1.11.x86_64 [..done]
+( 68/309) Installing: libopenjp2-7-2.5.4-2.6.x86_64 [..done]
+( 69/309) Installing: libopus0-1.6.1-1.5.x86_64 [..done]
+( 70/309) Installing: liborc-0_4-0-0.4.44-1.1.x86_64 [..done]
+( 71/309) Installing: libpciaccess0-0.19-1.4.x86_64 [..done]
+( 72/309) Installing: libpcre2-16-0-10.49-2.1.x86_64 [..done]
+( 73/309) Installing: libpgm-5_3-0-5.3.128-3.5.x86_64 [..done]
+( 74/309) Installing: libpixman-1-0-0.46.4-2.5.x86_64 [..done]
+( 75/309) Installing: libpolkit-agent-1-0-127-7.2.x86_64 [..done]
+( 76/309) Installing: libpolkit-gobject-1-0-127-7.2.x86_64 [..done]
+( 77/309) Installing: polkit-127-7.2.x86_64 [..
+/usr/bin/systemd-sysusers --replace=/usr/lib/sysusers.d/polkitd.conf -
+Creating group 'polkitd' with GID 475.
+Creating user 'polkitd' (User for polkitd) with UID 475 and GID 475.
+done]
+( 78/309) Installing: librav1e0_8-0.8.1-2.4.x86_64 [..done]
+( 79/309) Installing: libraw1394-11-2.1.2-2.8.x86_64 [..done]
+( 80/309) Installing: libsbc1-2.2-2.1.x86_64 [..done]
+( 81/309) Installing: libserd-0-0-0.32.10-1.1.x86_64 [..done]
+( 82/309) Installing: libsharpyuv0-1.6.0-2.3.x86_64 [..done]
+( 83/309) Installing: libsodium26-1.0.22-2.1.x86_64 [..done]
+( 84/309) Installing: libspeex1-1.2.1-2.8.x86_64 [..done]
+( 85/309) Installing: libsrt1_5-1.5.7-1.1.x86_64 [..done]
+( 86/309) Installing: libthai-data-0.1.30-1.5.x86_64 [..done]
+( 87/309) Installing: libtheoradec2-1.2.0-3.1.x86_64 [..done]
+( 88/309) Installing: libts0-1.24-1.5.x86_64 [..done]
+( 89/309) Installing: libtwolame0-0.4.0-1.25.x86_64 [..done]
+( 90/309) Installing: libudfread3-1.2.0-1.5.x86_64 [..done]
+( 91/309) Installing: libunibreak6-6.1-1.5.x86_64 [..done]
+( 92/309) Installing: libunwind8-1.8.3-3.3.x86_64 [..done]
+( 93/309) Installing: libva2-2.24.1-1.1.x86_64 [..done]
+( 94/309) Installing: libvmaf3-3.2.1-1.1.x86_64 [..done]
+( 95/309) Installing: libvo-amrwbenc0-0.1.3+5-1.10.x86_64 [..done]
+( 96/309) Installing: libvpl2-2.17.0-1.2.x86_64 [..done]
+( 97/309) Installing: libvpx12-1.17.0-1.1.x86_64 [..done]
+( 98/309) Installing: libvulkan1-1.4.363-1.1.x86_64 [..done]
+( 99/309) Installing: libwacom-data-2.19.1-1.1.x86_64 [..done]
+(100/309) Installing: libwayland-client0-1.26.0-1.2.x86_64 [..done]
+(101/309) Installing: libwayland-egl1-1.26.0-1.2.x86_64 [..done]
+(102/309) Installing: libwebrtc-audio-processing-1-3-1.3-2.5.x86_64 [..done]
+(103/309) Installing: libxshmfence1-1.3.3-1.6.x86_64 [..done]
+(104/309) Installing: libxvidcore4-1.3.7-4.5.x86_64 [..done]
+(105/309) Installing: libzimg2-3.0.6+20260720.g1ad1895-1.1.x86_64 [..done]
+(106/309) Installing: libzix-0-0-0.8.0-1.5.x86_64 [..done]
+(107/309) Installing: libzvbi0-0.2.45-1.1.x86_64 [..done]
+(108/309) Installing: libSM6-1.2.6-1.5.x86_64 [..done]
+(109/309) Installing: libglslang16-16.6.0-1.1.x86_64 [..done]
+(110/309) Installing: libX11-xcb1-1.8.13-3.1.x86_64 [..done]
+(111/309) Installing: libxcb1-1.17.0-2.7.x86_64 [..done]
+(112/309) Installing: libavahi-client3-0.8-45.2.x86_64 [..done]
+(113/309) Installing: libsnapper8-0.13.1-3.4.x86_64 [..
+Updating /etc/sysconfig/snapper ...
+done]
+(114/309) Installing: librist4-0.2.20-1.2.x86_64 [..done]
+(115/309) Installing: libgbm1-26.2.4-1.1.x86_64 [..done]
+(116/309) Installing: libdrm_amdgpu1-2.4.134-2.2.x86_64 [..done]
+(117/309) Installing: librubberband3-4.0.0-1.5.x86_64 [..done]
+(118/309) Installing: libgdbm_compat4-1.26-1.5.x86_64 [..done]
+(119/309) Installing: libxml++-3_0-1-3.2.5-2.6.x86_64 [..done]
+(120/309) Installing: libvidstab1_2-1.1.1-2.5.x86_64 [..done]
+(121/309) Installing: libsoxr0-0.1.3-4.1.x86_64 [..done]
+(122/309) Installing: libb2-1-0.98.1-2.5.x86_64 [..done]
+(123/309) Installing: libharfbuzz0-14.6.0-1.1.x86_64 [..done]
+(124/309) Installing: libjxl0_12-0.12.0-1.1.x86_64 [..done]
+(125/309) Installing: libicu78-78.3-1.4.x86_64 [..done]
+(126/309) Installing: libyuv0-20230517+a377993-2.5.x86_64 [..done]
+(127/309) Installing: libtiff6-4.7.2-1.2.x86_64 [..done]
+(128/309) Installing: libtracker-sparql-3_0-0-3.11.1-1.4.x86_64 [..done]
+(129/309) Installing: libglycin-2-0-2.1.5-1.3.x86_64 [..done]
+(130/309) Installing: libcolord2-1.4.8-3.1.x86_64 [..done]
+(131/309) Installing: libvorbis0-1.3.7-5.7.x86_64 [..done]
+(132/309) Installing: libtheoraenc2-1.2.0-3.1.x86_64 [..done]
+(133/309) Installing: libFLAC14-1.5.0-1.6.x86_64 [..done]
+(134/309) Installing: libdrm_intel1-2.4.134-2.2.x86_64 [..done]
+(135/309) Installing: libiec61883-0-1.2.0-9.5.x86_64 [..done]
+(136/309) Installing: libavc1394-0-0.5.4-20.8.x86_64 [..done]
+(137/309) Installing: libwebp7-1.6.0-2.3.x86_64 [..done]
+(138/309) Installing: libthai0-0.1.30-1.5.x86_64 [..done]
+(139/309) Installing: libbluray4-1.5.0-1.1.x86_64 [..done]
+(140/309) Installing: libzmq5-4.3.5-1.11.x86_64 [..done]
+(141/309) Installing: libgstreamer-1_0-0-1.28.8-1.1.x86_64 [..done]
+(142/309) Installing: gstreamer-1.28.8-1.1.x86_64 [..
+/usr/libexec/gstreamer-1.0/gst-ptp-helper: setting to root:root 0755 "cap_net_bind_service=ep". (missing capabilities)
+done]
+(143/309) Installing: libcpptrace1-1.0.4-1.4.x86_64 [..done]
+(144/309) Installing: libva-drm2-2.24.1-1.1.x86_64 [..done]
+(145/309) Installing: libaom3-3.13.1-2.5.x86_64 [..done]
+(146/309) Installing: libwacom9-2.19.1-1.1.x86_64 [..done]
+(147/309) Installing: libwayland-cursor0-1.26.0-1.2.x86_64 [..done]
+(148/309) Installing: libsord-0-0-0.16.22-1.3.x86_64 [..done]
+(149/309) Installing: libshaderc_shared1-2026.4-1.1.x86_64 [..done]
+(150/309) Installing: libxcb-xkb1-1.17.0-2.7.x86_64 [..done]
+(151/309) Installing: libxcb-xinput0-1.17.0-2.7.x86_64 [..done]
+(152/309) Installing: libxcb-xfixes0-1.17.0-2.7.x86_64 [..done]
+(153/309) Installing: libxcb-util1-0.4.1-1.10.x86_64 [..done]
+(154/309) Installing: libxcb-sync1-1.17.0-2.7.x86_64 [..done]
+(155/309) Installing: libxcb-shm0-1.17.0-2.7.x86_64 [..done]
+(156/309) Installing: libxcb-shape0-1.17.0-2.7.x86_64 [..done]
+(157/309) Installing: libxcb-render0-1.17.0-2.7.x86_64 [..done]
+(158/309) Installing: libxcb-randr0-1.17.0-2.7.x86_64 [..done]
+(159/309) Installing: libxcb-present0-1.17.0-2.7.x86_64 [..done]
+(160/309) Installing: libxcb-keysyms1-0.4.1-1.11.x86_64 [..done]
+(161/309) Installing: libxcb-icccm4-0.4.2-1.10.x86_64 [..done]
+(162/309) Installing: libxcb-glx0-1.17.0-2.7.x86_64 [..done]
+(163/309) Installing: libxcb-dri3-0-1.17.0-2.7.x86_64 [..done]
+(164/309) Installing: libX11-6-1.8.13-3.1.x86_64 [..done]
+(165/309) Installing: libcups2-2.4.19-4.1.x86_64 [..done]
+(166/309) Installing: snapper-0.13.1-3.4.x86_64 [..
+Created symlink '/etc/systemd/system/timers.target.wants/snapper-cleanup.timer' -> '/usr/lib/systemd/system/snapper-cleanup.timer'.
+Created symlink '/etc/systemd/system/timers.target.wants/snapper-timeline.timer' -> '/usr/lib/systemd/system/snapper-timeline.timer'.
+done]
+(167/309) Installing: perl-5.44.0-1.2.x86_64 [......done]
+(168/309) Installing: libharfbuzz-subset0-14.6.0-1.1.x86_64 [..done]
+(169/309) Installing: libass9-0.17.5-1.3.x86_64 [..done]
+(170/309) Installing: libQt6Core6-6.11.2-2.1.x86_64 [..done]
+(171/309) Installing: libspandsp3-3.0.0+g57-1.6.x86_64 [..done]
+(172/309) Installing: libgdk_pixbuf-2_0-0-2.44.7-1.2.x86_64 [..done]
+(173/309) Installing: libvorbisfile3-1.3.7-5.7.x86_64 [..done]
+(174/309) Installing: libvorbisenc2-1.3.7-5.7.x86_64 [..done]
+(175/309) Installing: libffado2-2.4.9-4.6.x86_64 [..done]
+(176/309) Installing: libwebpmux3-1.6.0-2.3.x86_64 [..done]
+(177/309) Installing: libgstphotography-1_0-0-1.28.8-1.1.x86_64 [..done]
+(178/309) Installing: libinput10-1.32-1.1.x86_64 [..done]
+(179/309) Installing: libsratom-0-0-0.6.22-1.3.x86_64 [..done]
+(180/309) Installing: libplacebo360-7.360.1-1.7.x86_64 [..done]
+(181/309) Installing: libxkbcommon-x11-0-1.13.2-1.3.x86_64 [..done]
+(182/309) Installing: libxcb-image0-0.4.1-1.12.x86_64 [..done]
+(183/309) Installing: libxcb-render-util0-0.3.10-1.11.x86_64 [..done]
+(184/309) Installing: Mesa-vulkan-device-select-26.2.4-1.1.x86_64 [..done]
+(185/309) Installing: libXrender1-0.9.12-2.1.x86_64 [..done]
+(186/309) Installing: libXfixes3-6.0.2-2.5.x86_64 [..done]
+(187/309) Installing: libXext6-1.3.7-1.5.x86_64 [..done]
+(188/309) Installing: libXdamage1-1.1.7-1.5.x86_64 [..done]
+(189/309) Installing: google-noto-sans-tc-fonts-2.004-7.6.noarch [...done]
+(190/309) Installing: google-noto-sans-sc-fonts-2.004-7.6.noarch [...done]
+(191/309) Installing: google-noto-sans-kr-fonts-2.004-7.6.noarch [...done]
+(192/309) Installing: google-noto-sans-jp-fonts-2.004-7.6.noarch [...done]
+(193/309) Installing: libQt6Test6-6.11.2-2.1.x86_64 [..done]
+(194/309) Installing: libQt6Sql6-6.11.2-2.1.x86_64 [..done]
+(195/309) Installing: libQt6DBus6-6.11.2-2.1.x86_64 [..done]
+(196/309) Installing: libopenmpt0-0.8.9-1.1.x86_64 [..done]
+(197/309) Installing: libsndfile1-1.2.2-6.1.x86_64 [..done]
+(198/309) Installing: liblilv-0-0-0.28.0-1.3.x86_64 [..done]
+(199/309) Installing: libxcb-cursor0-0.1.6-1.5.x86_64 [..done]
+(200/309) Installing: libvulkan_lvp-26.2.4-1.1.x86_64 [..done]
+(201/309) Installing: libXft2-2.3.9-1.5.x86_64 [..done]
+(202/309) Installing: libXcursor1-1.2.3-1.7.x86_64 [..done]
+(203/309) Installing: libvdpau1-1.5-5.5.x86_64 [..done]
+(204/309) Installing: libva-x11-2-2.24.1-1.1.x86_64 [..done]
+(205/309) Installing: libcairo2-1.18.6-1.1.x86_64 [..done]
+(206/309) Installing: libXxf86vm1-1.1.7-1.5.x86_64 [..done]
+(207/309) Installing: libXv1-1.0.13-1.6.x86_64 [..done]
+(208/309) Installing: libXrandr2-1.5.5-1.5.x86_64 [..done]
+(209/309) Installing: libXinerama1-1.1.6-1.5.x86_64 [..done]
+(210/309) Installing: libXi6-1.8.3-3.1.x86_64 [..done]
+(211/309) Installing: google-noto-sans-cjk-fonts-2.004-7.6.noarch [..done]
+(212/309) Installing: libQt6Network6-6.11.2-2.1.x86_64 [..done]
+(213/309) Installing: qt6-network-tls-6.11.2-2.1.x86_64 [..done]
+(214/309) Installing: libpulse0-17.0-7.6.x86_64 [..done]
+(215/309) Installing: libavutil60-8.1.3-3.1.x86_64 [..done]
+(216/309) Installing: libpango-1_0-0-1.58.2-1.1.x86_64 [..done]
+(217/309) Installing: libcairo-script-interpreter2-1.18.6-1.1.x86_64 [..done]
+(218/309) Installing: libcairo-gobject2-1.18.6-1.1.x86_64 [..done]
+(219/309) Installing: Mesa-26.2.4-1.1.x86_64 [..done]
+(220/309) Installing: Mesa-dri-26.2.4-1.1.x86_64 [...done]
+(221/309) Installing: libglvnd-1.7.0-2.4.x86_64 [...done]
+(222/309) Installing: Mesa-libEGL1-26.2.4-1.1.x86_64 [..done]
+(223/309) Installing: qt6-networkinformation-connman-6.11.2-2.1.x86_64 [..done]
+(224/309) Installing: libswscale9-8.1.3-3.1.x86_64 [...done]
+(225/309) Installing: libswresample6-8.1.3-3.1.x86_64 [..done]
+(226/309) Installing: libgsttag-1_0-0-1.28.8-1.1.x86_64 [..done]
+(227/309) Installing: Mesa-libGL1-26.2.4-1.1.x86_64 [..done]
+(228/309) Installing: qt6-networkinformation-glib-6.11.2-2.1.x86_64 [..done]
+(229/309) Installing: libavcodec62-8.1.3-3.1.x86_64 [.....done]
+(230/309) Installing: libgstaudio-1_0-0-1.28.8-1.1.x86_64 [..done]
+(231/309) Installing: libcamera0_7-0.7.2-1.2.x86_64 [..done]
+(232/309) Installing: qt6-networkinformation-nm-6.11.2-2.1.x86_64 [..done]
+(233/309) Installing: libavformat62-8.1.3-3.1.x86_64 [...done]
+(234/309) Installing: libgstallocators-1_0-0-1.28.8-1.1.x86_64 [..done]
+(235/309) Installing: libQt6Gui6-6.11.2-2.1.x86_64 [......done]
+(236/309) Installing: libQt6Widgets6-6.11.2-2.1.x86_64 [..done]
+(237/309) Installing: libQt6OpenGL6-6.11.2-2.1.x86_64 [..done]
+(238/309) Installing: libavfilter11-8.1.3-3.1.x86_64 [..done]
+(239/309) Installing: libgstvideo-1_0-0-1.28.8-1.1.x86_64 [..done]
+(240/309) Installing: libgstgl-1_0-0-1.28.8-1.1.x86_64 [..done]
+(241/309) Installing: libQt6WaylandClient6-6.11.2-2.1.x86_64 [..done]
+(242/309) Installing: pipewire-spa-plugins-0_2-1.6.9-2.1.x86_64 [..done]
+(243/309) Installing: libgstpbutils-1_0-0-1.28.8-1.1.x86_64 [..done]
+(244/309) Installing: gstreamer-plugins-base-1.28.8-1.1.x86_64 [..done]
+(245/309) Installing: libgstapp-1_0-0-1.28.8-1.1.x86_64 [..done]
+(246/309) Installing: libQt6Svg6-6.11.2-1.1.x86_64 [..done]
+(247/309) Installing: libQt6ShaderTools6-6.11.2-1.1.x86_64 [..done]
+(248/309) Installing: libQt6QuickDialogs2Utils6-6.11.2-2.1.x86_64 [..done]
+(249/309) Installing: libKF6SyntaxHighlighting6-6.31.0-1.1.x86_64 [..done]
+(250/309) Installing: kf6-syntax-highlighting-6.31.0-1.1.x86_64 [..done]
+(251/309) Installing: libpipewire-0_3-0-1.6.9-2.1.x86_64 [..done]
+(252/309) Installing: pipewire-modules-0_3-1.6.9-2.1.x86_64 [..done]
+(253/309) Installing: libgstriff-1_0-0-1.28.8-1.1.x86_64 [..done]
+(254/309) Installing: libQt6Quick6-6.11.2-2.1.x86_64 [..done]
+(255/309) Installing: libQt6Qml6-6.11.2-2.1.x86_64 [..done]
+(256/309) Installing: libQt6QuickVectorImage6-6.11.2-2.1.x86_64 [..done]
+(257/309) Installing: libQt6QmlWorkerScript6-6.11.2-2.1.x86_64 [..done]
+(258/309) Installing: libgstplay-1_0-0-1.28.8-1.1.x86_64 [..done]
+(259/309) Installing: libQt6QuickTest6-6.11.2-2.1.x86_64 [..done]
+(260/309) Installing: libQt6QuickShapes6-6.11.2-2.1.x86_64 [..done]
+(261/309) Installing: libQt6QuickParticles6-6.11.2-2.1.x86_64 [..done]
+(262/309) Installing: libQt6QuickLayouts6-6.11.2-2.1.x86_64 [..done]
+(263/309) Installing: libQt6QuickEffects6-6.11.2-2.1.x86_64 [..done]
+(264/309) Installing: libQt6QmlXmlListModel6-6.11.2-2.1.x86_64 [..done]
+(265/309) Installing: libQt6QmlNetwork6-6.11.2-2.1.x86_64 [..done]
+(266/309) Installing: libQt6QmlModels6-6.11.2-2.1.x86_64 [..done]
+(267/309) Installing: libQt6QmlLocalStorage6-6.11.2-2.1.x86_64 [..done]
+(268/309) Installing: libQt6LabsWavefrontMesh6-6.11.2-2.1.x86_64 [..done]
+(269/309) Installing: libQt6LabsSynchronizer6-6.11.2-2.1.x86_64 [..done]
+(270/309) Installing: libQt6LabsSharedImage6-6.11.2-2.1.x86_64 [..done]
+(271/309) Installing: libQt6LabsSettings6-6.11.2-2.1.x86_64 [..done]
+(272/309) Installing: libQt6LabsFolderListModel6-6.11.2-2.1.x86_64 [..done]
+(273/309) Installing: libQt6LabsAnimation6-6.11.2-2.1.x86_64 [..done]
+(274/309) Installing: gtk4-tools-4.22.5-1.1.x86_64 [..done]
+(275/309) Installing: adwaita-icon-theme-50.0+2-2.1.noarch [...done]
+(276/309) Installing: libgtk-4-1-4.22.5-1.1.x86_64 [..done]
+(277/309) Installing: libQt6QuickTemplates2-6-6.11.2-2.1.x86_64 [..done]
+(278/309) Installing: libQt6QmlMeta6-6.11.2-2.1.x86_64 [..done]
+(279/309) Installing: libQt6LabsQmlModels6-6.11.2-2.1.x86_64 [..done]
+(280/309) Installing: libQt6QuickControls2Impl6-6.11.2-2.1.x86_64 [..done]
+(281/309) Installing: libQt6QuickControls2-6-6.11.2-2.1.x86_64 [..done]
+(282/309) Installing: libQt6LabsStyleKit6-6.11.2-2.1.x86_64 [..done]
+(283/309) Installing: libQt6LabsPlatform6-6.11.2-2.1.x86_64 [..done]
+(284/309) Installing: libQt6Multimedia6-6.11.2-1.2.x86_64 [..done]
+(285/309) Installing: qt6-multimedia-6.11.2-1.2.x86_64 [..done]
+(286/309) Installing: libQt6QuickDialogs2QuickImpl6-6.11.2-2.1.x86_64 [..done]
+(287/309) Installing: libQt6SpatialAudio6-6.11.2-1.2.x86_64 [..done]
+(288/309) Installing: libQt6QuickDialogs2-6-6.11.2-2.1.x86_64 [..done]
+(289/309) Installing: libQt6QmlCore6-6.11.2-2.1.x86_64 [..done]
+(290/309) Installing: qt6-declarative-imports-6.11.2-2.1.x86_64 [...done]
+(291/309) Installing: qtdeclarative-imports-provides-qt6-1.0-1.55.x86_64 [..done]
+(292/309) Installing: libQt6Quick3DUtils6-6.11.2-1.1.x86_64 [..done]
+(293/309) Installing: libQt6MultimediaQuick6-6.11.2-1.2.x86_64 [..done]
+(294/309) Installing: kf6-syntax-highlighting-imports-6.31.0-1.1.x86_64 [..done]
+(295/309) Installing: qt6-qt5compat-imports-6.11.2-1.1.x86_64 [..done]
+(296/309) Installing: libQt6Quick3DRuntimeRender6-6.11.2-1.1.x86_64 [..done]
+(297/309) Installing: libQt6Quick3D6-6.11.2-1.1.x86_64 [..done]
+(298/309) Installing: libQt6Quick3DSpatialAudio6-6.11.2-1.2.x86_64 [..done]
+(299/309) Installing: qt6-multimedia-imports-6.11.2-1.2.x86_64 [..done]
+(300/309) Installing: ryoku-helper-0.1.0-5.x86_64 [..done]
+(301/309) Installing: ryoku-profile-defaults-0.1.0-5.noarch [..done]
+(302/309) Installing: ryoku-tools-0.1.0-5.x86_64 [..done]
+(303/309) Installing: ryoku-desktop-fonts-0.1.0-5.noarch [...done]
+(304/309) Installing: ryoku-tools-state-init-0.1.0-5.x86_64 [..done]
+(305/309) Installing: ryoku-ui-proof-0.1.0-5.x86_64 [..done]
+(306/309) Installing: ryoku-quickshell-0.3.2-2.x86_64 [..done]
+(307/309) Installing: ryoku-tools-launcher-status-0.1.0-5.x86_64 [..done]
+(308/309) Installing: ryoku-desktop-runtime-0.1.0-5.x86_64 [.....done]
+(309/309) Installing: ryoku-desktop-0.1.0-5.x86_64 [..done]
+Running post-transaction scripts [...
+%transfiletriggerin(systemd-261.3-1.1.x86_64) script output:
+Creating group 'ryoku-operators' with GID 474.
+..done]

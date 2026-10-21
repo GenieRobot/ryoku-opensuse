@@ -1,0 +1,2 @@
+ryoku-tools-launcher-status = 0.1.0-5
+ryoku-tools-launcher-status(x86-64) = 0.1.0-5

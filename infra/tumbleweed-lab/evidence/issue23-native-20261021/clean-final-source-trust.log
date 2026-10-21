@@ -1,0 +1,34 @@
+/home/tester/runtime-signed/ryoku-desktop-0.1.0-5.x86_64.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-desktop-fonts-0.1.0-5.noarch.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-desktop-runtime-0.1.0-5.x86_64.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-helper-0.1.0-5.x86_64.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-profile-defaults-0.1.0-5.noarch.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-quickshell-0.3.2-2.x86_64.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-tools-0.1.0-5.x86_64.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-tools-launcher-status-0.1.0-5.x86_64.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-tools-state-init-0.1.0-5.x86_64.rpm: digests signatures OK
+/home/tester/runtime-signed/ryoku-ui-proof-0.1.0-5.x86_64.rpm: digests signatures OK
+931c7bf844d7d96a56da06a7b09f0660cd0bc8b864b8ad7b0e00f4c49eba6e67  /home/tester/runtime-signed/ryoku-desktop-0.1.0-5.x86_64.rpm
+98b7524ad44c9f964c39cc39d1dec1094b9d0ac09463c255af5d0944f5300448  /home/tester/runtime-signed/ryoku-desktop-fonts-0.1.0-5.noarch.rpm
+8060279764b806699cc3b111d58c0791a6830fb7038a308f6810d55109e530d2  /home/tester/runtime-signed/ryoku-desktop-runtime-0.1.0-5.x86_64.rpm
+257c6a2d6d6f7ceef7dcc45a7002760ffc9a0bc3e073d47ece92cd2673f10400  /home/tester/runtime-signed/ryoku-helper-0.1.0-5.x86_64.rpm
+b4017de6952b27f5ac621c43f60bc6940d2fe70027deb719634573f33f499462  /home/tester/runtime-signed/ryoku-profile-defaults-0.1.0-5.noarch.rpm
+eda92195df9c62f9feac55f93d599a1ad07fb98f547e564ba6959e7fdf2309b5  /home/tester/runtime-signed/ryoku-quickshell-0.3.2-2.x86_64.rpm
+e702c1f7d1d6161d19693868e05fb36cd6916697f5cf6b6bf8c52d5eefe5635b  /home/tester/runtime-signed/ryoku-tools-0.1.0-5.x86_64.rpm
+d210072b1cf5b38464e5feb4eea92152ee7aea1c74d0400874f1718d2cde9a27  /home/tester/runtime-signed/ryoku-tools-launcher-status-0.1.0-5.x86_64.rpm
+a8cbbf93a9367bf68b8e08c08d9764797f9cab26e43d42694cf02e4f6828b69f  /home/tester/runtime-signed/ryoku-tools-state-init-0.1.0-5.x86_64.rpm
+24f67a934e1765781c5d2c99186bc24ae8c45d5bd1cae121d7a6496a7fdca543  /home/tester/runtime-signed/ryoku-ui-proof-0.1.0-5.x86_64.rpm
+ca-certificates-2+git20260727.241e0ff-1.1.noarch
+ca-certificates-mozilla-2.90-1.1.noarch
+p11-kit-0.26.5-1.1.x86_64
+ca-certificates	RSA/SHA512, Wed 29 Jul 2026 05:25:54 PM UTC, Key ID 35a2f86e29b700a4
+ca-certificates-mozilla	RSA/SHA512, Fri 18 Sep 2026 08:44:50 PM UTC, Key ID 35a2f86e29b700a4
+p11-kit	RSA/SHA512, Wed 23 Sep 2026 12:58:34 PM UTC, Key ID 35a2f86e29b700a4
+a7f061031bbcc905eff8c2ddd2e760a2d780e05433559062761b008e465542cf  /var/cache/zypp/raw/repo-non-oss/repodata/repomd.xml
+57b42e1c830f50adf5fd3424b2ed0260671e3d709804f51064d71a446ceb9dd1  /var/cache/zypp/raw/repo-openh264/repodata/repomd.xml
+1d891e33c8abd582b71e579118e6b4c94e5e57ecdc1b77a2a7fc1abf7cc930a0  /var/cache/zypp/raw/repo-oss/repodata/repomd.xml
+834b4de254c4b18ff5d47328ffa3965ace9673fe07189708abbf736c3ed0827d  /var/cache/zypp/raw/repo-update/repodata/repomd.xml
+1package rust is not installed
+package cargo is not installed
+package gcc is not installed
+package cmake is not installed

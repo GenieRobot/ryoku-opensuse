@@ -1,0 +1,1771 @@
+warning: Could not canonicalize hostname: ryoku-lab
+Executing(%mkbuilddir): /usr/bin/bash -e /var/tmp/rpm-tmp.NeF9tG
+Executing(%prep): /usr/bin/bash -e /var/tmp/rpm-tmp.SsusAp
++ umask 022
++ cd <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build
++ printf '81151cef1a613b01ad8e6187df2e93cbfed70e1621de0ee2e7455d2904fc3e74  %s\n' <INITIAL_RPM_TOPDIR>/SOURCES/issue14-runtime-payload.tar.gz
++ sha256sum --check --status
++ cd <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build
++ rm -rf ryoku-opensuse-0.1.0
++ /usr/lib/rpm/rpmuncompress -x <INITIAL_RPM_TOPDIR>/SOURCES/ryoku-opensuse-0.1.0.tar.gz
++ STATUS=0
++ '[' 0 -ne 0 ']'
++ cd ryoku-opensuse-0.1.0
++ /usr/lib/rpm/rpmuncompress -x <INITIAL_RPM_TOPDIR>/SOURCES/ryoku-opensuse-vendor-0.1.0.tar.xz
++ STATUS=0
++ '[' 0 -ne 0 ']'
++ /usr/bin/chmod -Rf a+rX,u+w,g-w,o-w .
++ mkdir runtime
++ tar -xzf <INITIAL_RPM_TOPDIR>/SOURCES/issue14-runtime-payload.tar.gz -C runtime
++ cd runtime
++ sha256sum --check --status SHA256SUMS
++ cd ..
++ printf 'bf6790f07f643dc7b3f282b0ce3b918b7f0efdb5c343a7572c5dd5ab9477feed  %s\n' <INITIAL_RPM_TOPDIR>/SOURCES/ryoku-writers-98a0368.tar.xz
++ sha256sum --check --status
++ mkdir upstream-writers
++ tar -xJf <INITIAL_RPM_TOPDIR>/SOURCES/ryoku-writers-98a0368.tar.xz -C upstream-writers
++ patch --batch --forward -p1 -d upstream-writers
+patching file ryoku/shell/systemd/user/ryoku-shell.service
+patching file ryoku/shell/systemd/user/ryogami.service
+patching file ryoku/shell/quickshell/shell/services/Capture.qml
+patching file ryoku/shell/quickshell/shell/modules/launcher/shared/providers/actions/catalog.js
+patching file ryoku/shell/quickshell/shell/modules/bar/Frame.qml
+patching file ryoku/shell/quickshell/ryopin/Pin.qml
+patching file ryoku/hyprland/modules/ryoshot.lua
+patching file ryoku/hyprland/modules/binds.lua
+patching file ryoku/hyprland/modules/autostart.lua
+patching file ryoku/shell/ipc/daemon.go
+patching file ryoku/shell/ipc/control.go
+patching file ryoku/shell/ryogami/daemon/process.go
+patching file ryoku/shell/ipc/actions.go
+patching file ryoku/shell/ipc/bar.go
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%build): /usr/bin/bash -e /var/tmp/rpm-tmp.zFt0Xk
++ umask 022
++ cd <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build
++ /usr/bin/rm -rf <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT
+++ dirname <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT
++ /usr/bin/mkdir -p <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build
++ /usr/bin/mkdir <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT
++ cd ryoku-opensuse-0.1.0
++ CARGO_NET_OFFLINE=true
++ cargo --config 'source.crates-io.replace-with="vendored-sources"' --config 'source.vendored-sources.directory="vendor"' build --offline --locked --release -p ryoku-recovery --bin ryoku-writer
+   Compiling version_check v0.9.5
+   Compiling proc-macro2 v1.0.107
+   Compiling generic-array v0.14.7
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling typenum v1.20.1
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling syn v3.0.9
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling serde v1.0.229
+   Compiling serde_json v1.0.154
+   Compiling rustix v1.1.5
+   Compiling serde_derive v1.0.229
+   Compiling digest v0.10.7
+   Compiling linux-raw-sys v0.12.1
+   Compiling memchr v2.8.3
+   Compiling itoa v1.0.18
+   Compiling bitflags v2.13.2
+   Compiling cpufeatures v0.2.17
+   Compiling cfg-if v1.0.5
+   Compiling sha2 v0.10.9
+   Compiling libc v0.2.190
+   Compiling ryoku-snapper v0.1.0 (<INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/suse/snapper)
+   Compiling ryoku-profiles v0.1.0 (<INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/suse/profiles)
+   Compiling ryoku-recovery v0.1.0 (<INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/suse/recovery)
+    Finished `release` profile [optimized] target(s) in 34.94s
++ cd upstream-writers/ryoku/shell/ipc
++ GOTOOLCHAIN=local
++ GOPROXY=off
++ GOSUMDB=off
++ GOWORK=off
++ CGO_ENABLED=0
++ go build -trimpath -mod=vendor -buildvcs=false -o ../../../ryoku-shell .
++ cd ../../..
++ cd ryoku/wm/hyprland
++ GOTOOLCHAIN=local
++ GOPROXY=off
++ GOSUMDB=off
++ GOWORK=off
++ CGO_ENABLED=0
++ go build -trimpath -mod=vendor -buildvcs=false -o ../../../ryoku-wm-hyprland .
++ cd ../../..
++ cd ryoku/hub/backend
++ GOTOOLCHAIN=local
++ GOPROXY=off
++ GOSUMDB=off
++ GOWORK=off
++ CGO_ENABLED=0
++ go build -trimpath -mod=vendor -buildvcs=false -o ../../../ryoku-hub .
++ cd ../../..
++ cd ryoku/shell/ryogami/daemon
++ GOTOOLCHAIN=local
++ GOPROXY=off
++ GOSUMDB=off
++ GOWORK=off
++ CGO_ENABLED=0
++ go build -trimpath -mod=vendor -buildvcs=false -o ../../../../ryogami .
++ cd ../../../..
++ mkdir -p licenses/go
++++ go env GOROOT
+++ basename /usr/lib64/go/1.27
++ cp -a /usr/share/doc/packages/go/1.27/LICENSE licenses/go/LICENSE
++ find ryoku -path '*/vendor/*' -type f '(' -iname '*license*' -o -iname '*copying*' -o -iname '*notice*' ')' -exec cp --parents -t licenses '{}' +
++ cd ..
++ cmake -S runtime/native/ryoku-blobs -B blobs-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_FULLY_DISCONNECTED=ON
+-- The CXX compiler identification is GNU 16.2.1
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Performing Test HAVE_STDATOMIC
+-- Performing Test HAVE_STDATOMIC - Success
+-- Found WrapAtomic: TRUE
+-- Found OpenGL: /usr/lib64/libOpenGL.so
+-- Found WrapOpenGL: TRUE
+-- Found WrapVulkanHeaders: /usr/include
+shaders/blob.vert -> shaders/blob.vert.qsb exposed as ://shaders/blob.vert.qsb
+shaders/blob.frag -> shaders/blob.frag.qsb exposed as ://shaders/blob.frag.qsb
+-- Configuring done (0.6s)
+-- Generating done (0.0s)
+CMake Warning (unused-cli):
+  Manually-specified variables were not used by the project:
+
+    FETCHCONTENT_FULLY_DISCONNECTED
+
+
+-- Build files have been written to: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/blobs-build
++ cmake --build blobs-build --parallel 2
+[1/26] Copying ryoku-blobs qml resources into build dir
+[2/26] Copying ryoku-blobs qml sources into build dir
+[3/26] Populating .qmlls.ini file at <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/blobs-build/.qt/.qmlls.build.ini
+[4/26] Automatic MOC and UIC for target ryoku-blobs
+[5/26] Running AUTOMOC file extraction for target ryoku-blobs
+[6/26] Running moc --collect-json for target ryoku-blobs
+[7/26] Generating .qsb/shaders/blob.vert.qsb
+[8/26] Generating .qsb/shaders/blob.frag.qsb
+[9/26] Running rcc for resource qmake_Ryoku_Blobs
+[10/26] Running rcc for resource blob_shaders
+[11/26] Automatic QML type registration for target ryoku-blobs
+[12/26] Building CXX object CMakeFiles/ryoku-blobs.dir/ryoku-blobs_qmltyperegistrations.cpp.o
+[13/26] Building CXX object CMakeFiles/ryoku-blobs.dir/ryoku-blobs_autogen/mocs_compilation.cpp.o
+[14/26] Building CXX object CMakeFiles/ryoku-blobs.dir/.qt/rcc/qrc_qmake_Ryoku_Blobs.cpp.o
+[15/26] Building CXX object CMakeFiles/ryoku-blobs.dir/blobgroup.cpp.o
+[16/26] Building CXX object CMakeFiles/ryoku-blobs.dir/blobshape.cpp.o
+[17/26] Building CXX object CMakeFiles/ryoku-blobs.dir/blobinvertedrect.cpp.o
+[18/26] Building CXX object CMakeFiles/ryoku-blobs.dir/blobrect.cpp.o
+[19/26] Building CXX object CMakeFiles/ryoku-blobs.dir/blobmaterial.cpp.o
+[20/26] Building CXX object CMakeFiles/ryoku-blobs.dir/.qt/rcc/qrc_blob_shaders.cpp.o
+[21/26] Building CXX object CMakeFiles/ryoku-blobs.dir/camerafeed.cpp.o
+[22/26] Linking CXX shared library qml/Ryoku/Blobs/libryoku-blobs.so
+[23/26] Automatic MOC and UIC for target ryoku-blobsplugin
+[24/26] Building CXX object CMakeFiles/ryoku-blobsplugin.dir/ryoku-blobsplugin_autogen/mocs_compilation.cpp.o
+[25/26] Building CXX object CMakeFiles/ryoku-blobsplugin.dir/ryoku-blobsplugin_Ryoku_BlobsPlugin.cpp.o
+[26/26] Linking CXX shared module qml/Ryoku/Blobs/libryoku-blobsplugin.so
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%install): /usr/bin/bash -e /var/tmp/rpm-tmp.wAaKVC
++ umask 022
++ cd <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build
++ /usr/bin/rm -rf <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT
++ /usr/bin/mkdir -p <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build
++ /usr/bin/mkdir <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT
++ cd ryoku-opensuse-0.1.0
++ install -d <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/ryoku/shell <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/ryoku/hub <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/ryoku/i18n
++ cp -a upstream-writers/ryoku/shell/quickshell <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/ryoku/shell/
++ cp -a upstream-writers/ryoku/hub/quickshell <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/ryoku/hub/
++ cp -a runtime/i18n/catalog <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/ryoku/i18n/
++ install -d <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/lib64/qt6/qml
++ cp -a runtime/qml/Ryoku <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/lib64/qt6/qml/
++ install -d <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/lib64/qt6/qml/Ryoku/Wm
++ cp -a upstream-writers/ryoku/wm/hyprland/qml <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/lib64/qt6/qml/Ryoku/Wm/Hyprland
++ install -d <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/ryogami
++ cp -a upstream-writers/ryoku/shell/ryogami/wall-ui/. <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/ryogami/
++ install -D -m 0755 /home/tester/rpmbuild/cargo-target/release/ryoku-writer <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/ryoku-writer
++ install -D -m 0755 upstream-writers/ryoku-shell <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell
++ install -D -m 0755 upstream-writers/ryoku-wm-hyprland <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland
++ install -D -m 0755 upstream-writers/ryoku-hub <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub
++ install -D -m 0755 upstream-writers/ryogami <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami
++ install -d <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/bin <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/quickshell
++ ln -s /usr/libexec/ryoku/ryoku-writer <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/bin/ryoku-shell
++ ln -s /usr/libexec/ryoku/ryoku-writer <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/bin/ryoku-wm-hyprland
++ ln -s /usr/libexec/ryoku/ryoku-writer <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/bin/ryoku-hub
++ ln -s /usr/libexec/ryoku/ryoku-writer <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/bin/ryogami
++ ln -s bin/qs <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/quickshell/qs
++ install -D -m 0755 blobs-build/qml/Ryoku/Blobs/libryoku-blobs.so <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/lib64/qt6/qml/Ryoku/Blobs/libryoku-blobs.so
++ install -D -m 0755 blobs-build/qml/Ryoku/Blobs/libryoku-blobsplugin.so <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/lib64/qt6/qml/Ryoku/Blobs/libryoku-blobsplugin.so
++ install -D -m 0644 blobs-build/qml/Ryoku/Blobs/qmldir <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/lib64/qt6/qml/Ryoku/Blobs/qmldir
++ install -D -m 0644 blobs-build/qml/Ryoku/Blobs/ryoku-blobs.qmltypes <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/lib64/qt6/qml/Ryoku/Blobs/ryoku-blobs.qmltypes
++ install -d <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/fonts/truetype/ryoku-opensuse
++ cp -a runtime/fonts/. <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/fonts/truetype/ryoku-opensuse/
++ /usr/lib/rpm/find-debuginfo -j2 -n --run-dwz --dwz-low-mem-die-limit 10000000 --dwz-max-die-limit 50000000 -S debugsourcefiles.list <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0
+find-debuginfo: starting
+WARNING: /usr/libexec/ryoku/ryoku-writer is already stripped!
+Extracting debug info from 6 files
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryogami: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-hub: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-shell: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+debugedit: <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/libexec/ryoku/upstream/ryoku-wm-hyprland: Unsupported .debug_line directory 0 path DW_FORM_0x8
+DWARF-compressing 6 files
+dwz: ./usr/libexec/ryoku/upstream/ryogami.debug: Unknown debugging section .debug_addr
+dwz: ./usr/libexec/ryoku/upstream/ryoku-hub.debug: Unknown debugging section .debug_addr
+dwz: ./usr/libexec/ryoku/upstream/ryoku-shell.debug: Unknown debugging section .debug_addr
+dwz: ./usr/libexec/ryoku/upstream/ryoku-wm-hyprland.debug: Unknown debugging section .debug_addr
+sepdebugcrcfix: Updated 2 CRC32s, 4 CRC32s did match.
+find-debuginfo: done
++ /usr/lib/rpm/brp-compress
++ /usr/lib/rpm/brp-suse
+Reading <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/SPECPARTS/rpm-debuginfo.specpart
+Processing files: ryoku-desktop-0.1.0-4.x86_64
+Executing(%doc): /usr/bin/bash -e /var/tmp/rpm-tmp.zqOBwQ
++ umask 022
++ cd <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build
++ cd ryoku-opensuse-0.1.0
++ DOCDIR=<INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-desktop
++ export LC_ALL=C.UTF-8
++ LC_ALL=C.UTF-8
++ export DOCDIR
++ /usr/bin/mkdir -p <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-desktop
++ cp -pr <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/packaging/rpm/desktop-build.md <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-desktop
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%license): /usr/bin/bash -e /var/tmp/rpm-tmp.qoNQfp
++ umask 022
++ cd <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build
++ cd ryoku-opensuse-0.1.0
++ LICENSEDIR=<INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-desktop
++ export LC_ALL=C.UTF-8
++ LC_ALL=C.UTF-8
++ export LICENSEDIR
++ /usr/bin/mkdir -p <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-desktop
++ cp -pr <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/LICENSE <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-desktop
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Provides: ryoku-desktop = 0.1.0-4 ryoku-desktop(x86-64) = 0.1.0-4
+Requires(rpmlib): rpmlib(CompressedFileNames) <= 3.0.4-1 rpmlib(FileDigests) <= 4.6.0-1 rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+Processing files: ryoku-desktop-runtime-0.1.0-4.x86_64
+Executing(%doc): /usr/bin/bash -e /var/tmp/rpm-tmp.MOa6Nc
++ umask 022
++ cd <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build
++ cd ryoku-opensuse-0.1.0
++ DOCDIR=<INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-desktop-runtime
++ export LC_ALL=C.UTF-8
++ LC_ALL=C.UTF-8
++ export DOCDIR
++ /usr/bin/mkdir -p <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-desktop-runtime
++ cp -pr <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/packaging/rpm/desktop-build.md <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-desktop-runtime
++ cp -pr <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/upstream/ryoku-runtime.toml <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-desktop-runtime
++ cp -pr <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/runtime/SHA256SUMS <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-desktop-runtime
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%license): /usr/bin/bash -e /var/tmp/rpm-tmp.h6iPT8
++ umask 022
++ cd <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build
++ cd ryoku-opensuse-0.1.0
++ LICENSEDIR=<INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-desktop-runtime
++ export LC_ALL=C.UTF-8
++ LC_ALL=C.UTF-8
++ export LICENSEDIR
++ /usr/bin/mkdir -p <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-desktop-runtime
++ cp -pr <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/runtime/LICENSE <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-desktop-runtime
++ cp -pr <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/runtime/NOTICE <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-desktop-runtime
++ cp -pr <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/upstream-writers/licenses <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-desktop-runtime
++ RPM_EC=0
+++ jobs -p
++ exit 0
+warning: absolute symlink: /usr/bin/ryogami -> /usr/libexec/ryoku/ryoku-writer
+warning: absolute symlink: /usr/bin/ryoku-hub -> /usr/libexec/ryoku/ryoku-writer
+warning: absolute symlink: /usr/bin/ryoku-shell -> /usr/libexec/ryoku/ryoku-writer
+warning: absolute symlink: /usr/bin/ryoku-wm-hyprland -> /usr/libexec/ryoku/ryoku-writer
+Ignoring QtQml.2
+Ignoring QtQml.Models.6
+Ignoring QtQuick.6
+Ignoring QtQml.6
+Ignoring QtQml.WorkerScript.2
+Ignoring QtQml.WorkerScript.6
+Ignoring QtQml.Models.2
+Ignoring QML.1
+Ignoring QtQuick.2
+<INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/lib64/qt6/qml/Ryoku/PluginKit/Singletons/qmldir has no module declaration - ignoring
+<INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/lib64/qt6/qml/Ryoku/Ui/Singletons/qmldir has no module declaration - ignoring
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+Failed to guess Qt version!
+<INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/lib64/qt6/qml/Ryoku/PluginKit/Singletons/qmldir has no module declaration - ignoring
+<INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/lib64/qt6/qml/Ryoku/Ui/Singletons/qmldir has no module declaration - ignoring
+Provides: libryoku-blobs.so()(64bit) libryoku-blobsplugin.so()(64bit) qt6qmlimport(Ryoku.Blobs) qt6qmlimport(Ryoku.Blobs.1) = 0 qt6qmlimport(Ryoku.FrameBars) qt6qmlimport(Ryoku.FrameBars.1) = 0 qt6qmlimport(Ryoku.PluginKit) qt6qmlimport(Ryoku.PluginKit.1) = 0 qt6qmlimport(Ryoku.Ui) qt6qmlimport(Ryoku.Ui.1) = 0 qt6qmlimport(Ryoku.Wm.Hyprland) qt6qmlimport(shell.barkit) qt6qmlimport(shell.services) ryoku-desktop-runtime = 0.1.0-4 ryoku-desktop-runtime(x86-64) = 0.1.0-4
+Requires(rpmlib): rpmlib(CompressedFileNames) <= 3.0.4-1 rpmlib(FileDigests) <= 4.6.0-1 rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+Requires: /bin/bash /usr/bin/env ld-linux-x86-64.so.2()(64bit) ld-linux-x86-64.so.2(GLIBC_2.3)(64bit) libGLX.so.0()(64bit) libOpenGL.so.0()(64bit) libQt6Core.so.6()(64bit) libQt6Core.so.6(Qt_6)(64bit) libQt6Core.so.6(Qt_6.11)(64bit) libQt6Gui.so.6()(64bit) libQt6Gui.so.6(Qt_6)(64bit) libQt6Multimedia.so.6()(64bit) libQt6Multimedia.so.6(Qt_6)(64bit) libQt6Network.so.6()(64bit) libQt6OpenGL.so.6()(64bit) libQt6Qml.so.6()(64bit) libQt6Qml.so.6(Qt_6)(64bit) libQt6Quick.so.6()(64bit) libQt6Quick.so.6(Qt_6)(64bit) libc.so.6()(64bit) libc.so.6(GLIBC_2.10)(64bit) libc.so.6(GLIBC_2.14)(64bit) libc.so.6(GLIBC_2.15)(64bit) libc.so.6(GLIBC_2.16)(64bit) libc.so.6(GLIBC_2.17)(64bit) libc.so.6(GLIBC_2.18)(64bit) libc.so.6(GLIBC_2.2.5)(64bit) libc.so.6(GLIBC_2.28)(64bit) libc.so.6(GLIBC_2.29)(64bit) libc.so.6(GLIBC_2.3)(64bit) libc.so.6(GLIBC_2.3.4)(64bit) libc.so.6(GLIBC_2.30)(64bit) libc.so.6(GLIBC_2.32)(64bit) libc.so.6(GLIBC_2.33)(64bit) libc.so.6(GLIBC_2.34)(64bit) libc.so.6(GLIBC_2.39)(64bit) libc.so.6(GLIBC_2.9)(64bit) libgcc_s.so.1()(64bit) libgcc_s.so.1(GCC_3.0)(64bit) libgcc_s.so.1(GCC_3.3)(64bit) libgcc_s.so.1(GCC_4.2.0)(64bit) libm.so.6()(64bit) libryoku-blobs.so()(64bit) libstdc++.so.6()(64bit) libstdc++.so.6(CXXABI_1.3)(64bit) libstdc++.so.6(CXXABI_1.3.9)(64bit) libstdc++.so.6(GLIBCXX_3.4)(64bit)
+Processing files: ryoku-desktop-fonts-0.1.0-4.noarch
+Executing(%doc): /usr/bin/bash -e /var/tmp/rpm-tmp.V8GzU5
++ umask 022
++ cd <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build
++ cd ryoku-opensuse-0.1.0
++ DOCDIR=<INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-desktop-fonts
++ export LC_ALL=C.UTF-8
++ LC_ALL=C.UTF-8
++ export DOCDIR
++ /usr/bin/mkdir -p <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-desktop-fonts
++ cp -pr <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/runtime/FONT-FAMILIES.txt <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-desktop-fonts
++ cp -pr <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/upstream/ryoku-runtime.toml <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-desktop-fonts
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Provides: font(:lang=aa) font(:lang=af) font(:lang=agr) font(:lang=an) font(:lang=ast) font(:lang=ay) font(:lang=ayc) font(:lang=az-az) font(:lang=bem) font(:lang=bi) font(:lang=bin) font(:lang=br) font(:lang=bs) font(:lang=ca) font(:lang=ch) font(:lang=co) font(:lang=crh) font(:lang=cs) font(:lang=csb) font(:lang=cy) font(:lang=da) font(:lang=de) font(:lang=dsb) font(:lang=en) font(:lang=eo) font(:lang=es) font(:lang=et) font(:lang=eu) font(:lang=fi) font(:lang=fil) font(:lang=fj) font(:lang=fo) font(:lang=fr) font(:lang=fur) font(:lang=fy) font(:lang=gd) font(:lang=gl) font(:lang=gn) font(:lang=gv) font(:lang=haw) font(:lang=ho) font(:lang=hr) font(:lang=hsb) font(:lang=ht) font(:lang=hu) font(:lang=ia) font(:lang=id) font(:lang=ie) font(:lang=ig) font(:lang=io) font(:lang=is) font(:lang=it) font(:lang=ki) font(:lang=kj) font(:lang=kl) font(:lang=ku-tr) font(:lang=kw) font(:lang=kwm) font(:lang=la) font(:lang=lb) font(:lang=lg) font(:lang=li) font(:lang=lij) font(:lang=lt) font(:lang=lv) font(:lang=mfe) font(:lang=mg) font(:lang=mh) font(:lang=miq) font(:lang=mjw) font(:lang=ms) font(:lang=mt) font(:lang=na) font(:lang=nb) font(:lang=nds) font(:lang=ng) font(:lang=nhn) font(:lang=niu) font(:lang=nl) font(:lang=nn) font(:lang=no) font(:lang=nr) font(:lang=nso) font(:lang=nv) font(:lang=ny) font(:lang=oc) font(:lang=om) font(:lang=pap-an) font(:lang=pap-aw) font(:lang=pl) font(:lang=pt) font(:lang=qu) font(:lang=quz) font(:lang=rm) font(:lang=rn) font(:lang=ro) font(:lang=rw) font(:lang=sc) font(:lang=se) font(:lang=sg) font(:lang=sgs) font(:lang=sk) font(:lang=sl) font(:lang=sm) font(:lang=sma) font(:lang=smj) font(:lang=smn) font(:lang=sn) font(:lang=sq) font(:lang=ss) font(:lang=st) font(:lang=sv) font(:lang=sw) font(:lang=szl) font(:lang=tk) font(:lang=tn) font(:lang=to) font(:lang=tpi) font(:lang=tr) font(:lang=ts) font(:lang=ty) font(:lang=unm) font(:lang=uz) font(:lang=vi) font(:lang=vo) font(:lang=vot) font(:lang=wa) font(:lang=wae) font(:lang=wen) font(:lang=wo) font(:lang=xh) font(:lang=yap) font(:lang=yuw) font(:lang=za) font(:lang=zu) font(fraunces) font(materialsymbolsrounded) font(spacegrotesk) font(spacegrotesklight) font(spacemono) font(spacemononerdfont) ryoku-desktop-fonts = 0.1.0-4
+Requires(rpmlib): rpmlib(CompressedFileNames) <= 3.0.4-1 rpmlib(FileDigests) <= 4.6.0-1 rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+Processing files: ryoku-desktop-debugsource-0.1.0-4.x86_64
+warning: Empty %files file <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/debugsourcefiles.list
+Processing files: ryoku-desktop-runtime-debuginfo-0.1.0-4.x86_64
+Provides: debuginfo(build-id) = 2414c2bceee86e4f22503650ae39a03f191e642c debuginfo(build-id) = 50e972b536cc3938647f73668ae4fb7e42caab0b debuginfo(build-id) = 739e64d8890c2af69725cfa0133b42aca853212b debuginfo(build-id) = 9057e9e0d30e9039435bfc19bb2c051459de17bd debuginfo(build-id) = 9aaf8982e8aa807a0036ef90bba76a76b7d39775 debuginfo(build-id) = bead4ccab0377b7ae4d4a5cd263975b9d727de76 ryoku-desktop-runtime-debuginfo = 0.1.0-4 ryoku-desktop-runtime-debuginfo(x86-64) = 0.1.0-4
+Requires(rpmlib): rpmlib(CompressedFileNames) <= 3.0.4-1 rpmlib(FileDigests) <= 4.6.0-1 rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+Recommends: ryoku-desktop-debugsource(x86-64) = 0.1.0-4
+Checking for unpackaged file(s): /usr/lib/rpm/check-files <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/BUILDROOT
+Wrote: <INITIAL_RPM_TOPDIR>/SRPMS/ryoku-desktop-0.1.0-4.src.rpm
+Wrote: <INITIAL_RPM_TOPDIR>/RPMS/noarch/ryoku-desktop-fonts-0.1.0-4.noarch.rpm
+Wrote: <INITIAL_RPM_TOPDIR>/RPMS/x86_64/ryoku-desktop-runtime-debuginfo-0.1.0-4.x86_64.rpm
+Wrote: <INITIAL_RPM_TOPDIR>/RPMS/x86_64/ryoku-desktop-0.1.0-4.x86_64.rpm
+Wrote: <INITIAL_RPM_TOPDIR>/RPMS/x86_64/ryoku-desktop-debugsource-0.1.0-4.x86_64.rpm
+Wrote: <INITIAL_RPM_TOPDIR>/RPMS/x86_64/ryoku-desktop-runtime-0.1.0-4.x86_64.rpm
+Executing(rmbuild): /usr/bin/bash -e /var/tmp/rpm-tmp.vhDbsT
++ umask 022
++ cd <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build
++ test -d <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build
++ /usr/bin/chmod -Rf a+rX,u+w,g-w,o-w <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build
++ rm -rf <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build
++ RPM_EC=0
+++ jobs -p
++ exit 0
+
+RPM build warnings:
+    Could not canonicalize hostname: ryoku-lab
+    absolute symlink: /usr/bin/ryogami -> /usr/libexec/ryoku/ryoku-writer
+    absolute symlink: /usr/bin/ryoku-hub -> /usr/libexec/ryoku/ryoku-writer
+    absolute symlink: /usr/bin/ryoku-shell -> /usr/libexec/ryoku/ryoku-writer
+    absolute symlink: /usr/bin/ryoku-wm-hyprland -> /usr/libexec/ryoku/ryoku-writer
+    Empty %files file <INITIAL_RPM_TOPDIR>/BUILD/ryoku-desktop-0.1.0-build/ryoku-opensuse-0.1.0/debugsourcefiles.list

@@ -1,0 +1,2 @@
+ryoku-tools = 0.1.0-5
+ryoku-tools(x86-64) = 0.1.0-5

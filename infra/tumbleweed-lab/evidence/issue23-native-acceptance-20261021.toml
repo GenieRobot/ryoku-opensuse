@@ -1,0 +1,108 @@
+schema = 1
+date = "2026-10-21"
+issue = 23
+pull_request = 149
+source = "3d2598ddf510288fd046cf1e27b9d4c015ba7778"
+base = "e319ddfe9a9a32a536c88d6a1e0460dfef1acc9b"
+evidence_directory = "issue23-native-20261021"
+log_sanitization = "allowlisted build/query/transaction receipts only; deterministic host/SDK path substitutions, CRLF normalization and trailing line-padding removal; no SSH keys, user-data, raw serial/journal logs or private companion data published"
+scope = "six native spec builds, exact source closure, ten-runtime-RPM audit and signed fresh-target dependency/install/reinstall acceptance"
+issue_status_at_publication = "open; draft PR retained for review"
+
+[source_closure]
+source_archive_sha256 = "260e2d913527a9ffbd888353480c2f1d6e620a9efdf6e1c783b1f7ae15a0e4b0"
+vendor_archive_sha256 = "ea2ee665f0dcc0b6e9ccaaa32e51ee3f34feec20bfe7cac21fcbc926007879cc"
+cargo_lock_sha256 = "2e5fd73e5c7f41497882d7e881bfaf6a82fe0d9fba02f9b0bbfddbd8e11dd16e"
+source_date_epoch = 1792603275
+source_generation = "native git archive of the recorded commit with gzip -n; independently regenerated Source0 is byte-identical; locked vendor archive uses sorted paths, fixed epoch and numeric root ownership"
+native_srpm_audit = "srpm-inputs.tsv: SHA256 file-digest algorithm 8; five port SRPMs embed the identical Source0; all four vendor-consuming SRPMs embed the identical vendor archive; defaults requires no vendor archive; exact six spec hashes match lock-specs.sha256"
+runtime_source_sha256 = "81151cef1a613b01ad8e6187df2e93cbfed70e1621de0ee2e7455d2904fc3e74"
+writers_source_sha256 = "bf6790f07f643dc7b3f282b0ce3b918b7f0efdb5c343a7572c5dd5ab9477feed"
+quickshell_source_sha256 = "5e8a7b7a1a1e40de641ee6cfd24f40aa612e13c27353e5746fc79b2861ca9fd0"
+quickshell_provenance = "independent pinned upstream Source0 and unchanged release-2 spec; fresh successful native build retained separately; it consumes neither the port Source0 nor vendor archive"
+upstream_audit = "upstream-source-audit.log: tree 49cf710dea4a8bc2c5aa2c4b524be46c5c9a2cff; 452 Git tree objects and 2269 source files verified"
+reproduction_boundary = "recorded source inputs and ordinary native rpmbuild commands are reproducible; no claim of byte-identical binary RPM output across independently provisioned SDKs"
+
+[native_build]
+environment = "separate Btrfs SDK snapshot inside an owned COW overlay of the authorized preserved 20261016 guest; never used as the clean install target"
+command = "ordinary tester user: rpmbuild -ba --define '_topdir /home/tester/issue23-3d2598d' --define '_smp_build_ncpus 2' SPEC; CARGO_BUILD_JOBS=2 CARGO_TARGET_DIR=/home/tester/rpmbuild/cargo-target; native BuildRequires enabled; Rust builds locked/offline"
+versions = "rust/cargo 1.99.0-1.1; go 1.27-1.1 (go1.27.2); cmake 4.4.4-1.1; gcc-c++ 16-1.1; rpm-build 4.20.1-11.1; Qt 6.11.2; qml-autoreqprov 1.4.1-1.7; qmlpluginexports-qt6 1.0-1.47"
+desktop_exit = 0
+helper_exit = 0
+tools_exit = 0
+ui_proof_exit = 0
+defaults_exit = 0
+quickshell_exit = 0
+port_version_release = "0.1.0-5"
+quickshell_version_release = "0.3.2-2"
+logs = ["desktop-build.log", "helper-build.log", "tools-build.log", "ui-proof-build.log", "defaults-build.log", "quickshell-build.log"]
+sdk_inventory = "retained privately with artifacts in target/issue23-build-20261021/sdk-rpm-inventory.tsv; not counted as target dependencies"
+trust_repair = "SDK snapshot lacked generated CA output; native distribution update-ca-certificates regenerated it from signed installed ca-certificates 2+git20260727.241e0ff-1.1, ca-certificates-mozilla 2.90-1.1 and p11-kit 0.26.5-1.1, signed by openSUSE key 35A2F86E29B700A4; rpm -V empty; no TLS bypass or hand-built trust bundle"
+accelerator = "initial TCG helper build intentionally interrupted by orderly guest poweroff; diskless KVM probe then proved present=true enabled=true; complete helper and subsequent builds restarted with KVM; helper-tcg-interrupted.log is not a passing build"
+
+[qml_and_manifest_audit]
+regression = "release-4 rpmbuild exited zero despite qml.req failing to guess Qt version in mixed Qt5/Qt6 SDK; those RPMs rejected and excluded; desktop-qt-guess-rejected.log and qml-audit-rejection.log preserve the failure"
+correction = "explicit native qml.req --qtver 6; full QML and ELF scanning remains enabled; exact shipped singleton/private module Provides only; native actual desktop-runtime RPM has 32 non-empty Qt6 import requirements"
+quickshell_provides = "twelve exact modules compiled into the private executable from unchanged source; no blanket namespace capability"
+audit = "runtime-audit.log: runtime_packages=10 unique_paths=1607 non_directory_conflicts=0 mutable_paths=0 scriptlets=0 qt6_scanning=verified internal_qml_imports=resolved"
+manifests = "runtime-manifests contains each package identity, complete file ownership/mode/capability inventory, Requires, Provides and empty script/trigger listings"
+ownership = "all payloads root:root under /usr; no set-ID, file capabilities or group/world-writable non-symlink entries; shared directories match modes; all non-directory paths have one Ryoku owner"
+installed_manifest = "installed-file-manifest.tsv and reinstalled-file-manifest.tsv each byte-match the concatenated ten original artifact file manifests"
+defaults = "/usr/share/ryoku/config/profile.json, owned by ryoku-profile-defaults, root:root 0644, SHA256 605ac095a781ee4b3908272591f15b56f3a9f5d9a251e177e7d60dbbade02ba5"
+units = "only ryoku-helper owns helper socket/service, user service and sysusers declaration; no package owns home overrides or /var/lib/ryoku-state; no custom scriptlet or activation hook"
+
+[image_and_repositories]
+image = "openSUSE-Tumbleweed-Minimal-VM.x86_64-1.0.0-Cloud-Snapshot20261016.qcow2"
+image_sha256 = "ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231"
+signer = "AD485664E901B867051AB15F35A2F86E29B700A4"
+signature_evidence = "image-signature.log and repo-{oss,non-oss,openh264,update}-signature.log independently verify detached signatures against the retained openSUSE public keyring"
+guest = "fresh owned COW overlay directly over the verified official image; expanded overlay to 20 GiB; new copied firmware and task-owned NoCloud seed; Q35/KVM x86_64, kernel 7.2.10-1-default, XFS root, SELinux enforcing"
+baseline = "clean-baseline.log: no Ryoku packages, rust, cargo, gcc or cmake; no ryoku-operators group; initial inventory after fixture public-key import is target-before-install.tsv (373 packages)"
+oss = "https://downloadcontent2.opensuse.org/history/20261016/tumbleweed/repo/oss/"
+oss_repomd_sha256 = "1d891e33c8abd582b71e579118e6b4c94e5e57ecdc1b77a2a7fc1abf7cc930a0"
+non_oss = "https://downloadcontent2.opensuse.org/history/20261016/tumbleweed/repo/non-oss/"
+non_oss_repomd_sha256 = "a7f061031bbcc905eff8c2ddd2e760a2d780e05433559062761b008e465542cf"
+openh264 = "https://codecs.opensuse.org/openh264/openSUSE_Tumbleweed/"
+openh264_repomd_sha256 = "57b42e1c830f50adf5fd3424b2ed0260671e3d709804f51064d71a446ceb9dd1"
+update = "https://downloadcontent2.opensuse.org/update/tumbleweed/"
+update_repomd_sha256 = "834b4de254c4b18ff5d47328ffa3965ace9673fe07189708abbf736c3ed0827d"
+cache_method = "native zypper refresh --build-only --force-build regenerated local solver databases from signature-verified frozen raw metadata; its 'refreshed' output is not a fresh-current metadata test; all transaction commands use --no-refresh and final repomd hashes still match"
+checks = "enabled repositories retain gpgcheck=1 repo_gpgcheck=1 pkg_gpgcheck=1; official dependency downloads use normal HTTPS and RPM signature checks; no --no-gpg-checks, TLS disabling, forced file replacement or SDK dependency injection"
+
+[signing]
+fixture_public_key = "fixture-signing-public.asc"
+fixture_fingerprint = "E01DA0D8B231A8EA3090A2D07F743FE79240F8D1"
+method = "separate copies signed with a one-day disposable RSA test key; host verification uses a separate task-owned RPM database; guest trusts the public fixture key only within the disposable target"
+verification = "signed-verification.log and clean-final-source-trust.log: all ten RPMs have valid digests/signatures; signed-header-payload.tsv is byte-identical to unsigned SHA256HEADER/PAYLOADDIGEST queries"
+hashes = ["original-rpms.sha256", "signed-rpms.sha256", "source-rpms.sha256"]
+boundary = "fixture trust only; not a production release key, repository publication or deployment claim; private signing key excluded and removed after tests"
+
+[transactions]
+download = "native signed zypper install --no-recommends --download-only of explicit ten RPMs resolved 309 new packages, 241.9 MiB; 10 Ryoku and 299 official dependencies; before/after inventories byte-identical"
+download_observation = "download transaction succeeded; the trailing guest cmp command failed because the minimal image lacks cmp; the exact captured before/after inventories were then compared successfully with native host cmp"
+dry_run = "clean-dry-run.log: native zypper install --no-recommends --dry-run passed dependency resolution and complete file-conflict check with all packages already cached"
+first_install = "clean-install.log: native signed zypper install --no-recommends passed all 309 packages; rpm -V of all ten Ryoku packages empty"
+sysusers_first_creation = "distribution-owned systemd transaction-file trigger created previously absent ryoku-operators with GID 474; getent confirms empty membership; tester remains outside it; declaration creates a group only, no service user"
+reinstall = "clean-reinstall.log: native zypper install --force --no-recommends reinstalled exactly the same ten signed RPMs; complete file-conflict check and all ten packages passed; rpm -V empty"
+idempotence = "target-after-install.tsv and target-after-reinstall.tsv are byte-identical (682 packages); both installed file inventories match originals; zypper verify --dry-run reports dependencies of all installed packages satisfied"
+activation = "both verification logs: helper socket inactive/disabled, helper service inactive/static, user service inactive/disabled; no socket or global user enablement links"
+
+[preservation]
+fixture = "strict Rust rpm-install-fixture built from recorded source, never shipped in an RPM; requires root, exact Q35/20261016/x86_64 identity, legacy lab marker, issue23 ownership marker and explicit authorized-overlay environment value"
+guard_regression = "fixture-unmarked-refusal.log: native marked build VM without the issue23 clean-target ownership marker refused preparation; no fixture paths created"
+initial = "operator group absent; prepare refuses preexisting fixed paths; creates personal and opaque upstream overrides, unrelated home file, symlink and deliberately invalid protected-state sentinel"
+result = "clean-install-verification.log and clean-reinstall-verification.log: all five paths retain exact bytes/link targets, UID/GID, type/mode, mtime/nanoseconds, inode, link count and size; no activation links and group remains empty"
+boundary = "atime/ctime excluded; five explicit disposable sentinels, not a claim about every possible user file; no valid recovery state, machine identity, profile object or restore point provisioned"
+
+[cleanup]
+owned_build_overlay = "target/issue23-resume-20261021/disk.qcow2 backed only by preserved target/issue23-packaging-20261016/disk.qcow2; original disk never booted or opened writable"
+owned_target_overlay = "target/issue23-clean-install-20261021/disk.qcow2 backed only by official image; provenance JSON retained"
+completed = "both owned VMs orderly powered off; no QEMU remains; only the two task-owned writable overlays, their copied firmware, fresh target seed and disposable private signing directory removed; native RPM/SRPM artifacts, logs and overlay provenance retained"
+preserved = "original issue23 disk, firmware and seed hashes match pre-run receipt after cleanup; official image SHA256 unchanged; original SSH key/known_hosts and logs retained; issue20 and preserved issue25 worktree/VM state untouched"
+receipt = "preserved-inputs-after-cleanup.log and official-image-after.sha256"
+
+[validation_and_limits]
+exact_source_ci = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39643344573 (3d2598d, success)"
+local_checks = "cargo fmt --all -- --check; locked/offline workspace all-target/all-feature strict Clippy; locked/offline workspace all-feature tests; cargo deny --all-features check"
+prior_evidence = "older 20261018/20261013 SDK-equipped guest results remain historical provenance; rejected release-4 QML results and intentionally interrupted TCG log are explicitly distinguished"
+limits = "issue23 package acceptance only. No installed graphical session, PAM/provider execution, Btrfs recovery, production deployment, complete user-home preservation, supported installer transaction, or rollback readiness is asserted; issue17 limits remain in force; issue25 session adapters excluded"

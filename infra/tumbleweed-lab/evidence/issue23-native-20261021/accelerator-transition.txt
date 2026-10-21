@@ -1,0 +1,10 @@
+source=da9d7f7953cf6776e297c39bf3ba4ef7f1d58521
+initial_accelerator=tcg,thread=multi
+reason=filesystem sandbox hid /dev/kvm; authorized direct host inspection found writable KVM
+probe=diskless QEMU 11.1.2 query-kvm returned enabled=true,present=true and exited 0
+shutdown=guest systemctl poweroff of owned COW overlay only
+interrupted_build=ryoku-helper; SSH exit255 during intentional poweroff; partial native log retained; not a source-build failure
+resume_accelerator=kvm
+resume_cpu=host
+rebuild=rerun complete rpmbuild -ba from unchanged source/spec inputs with native BuildRequires enabled
+preserved=original issue23 disk, original firmware, signed image and historical logs
