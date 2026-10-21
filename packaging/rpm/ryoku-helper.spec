@@ -1,6 +1,6 @@
 Name:           ryoku-helper
 Version:        0.1.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Deny-only privileged helper boundary for Ryoku
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse
@@ -36,9 +36,9 @@ CARGO_NET_OFFLINE=true cargo \
     -p ryoku-service --bin ryoku-helper --bin ryoku-service
 
 %install
-install -D -m 0755 target/release/ryoku-helper \
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-helper" \
     %{buildroot}%{_libexecdir}/ryoku/ryoku-helper
-install -D -m 0755 target/release/ryoku-service \
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-service" \
     %{buildroot}%{_libexecdir}/ryoku/ryoku-service
 install -D -m 0644 packaging/rpm/systemd/ryoku-helper.service \
     %{buildroot}%{_unitdir}/ryoku-helper.service

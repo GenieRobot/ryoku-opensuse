@@ -1,6 +1,6 @@
 Name:           ryoku-ui-proof
 Version:        0.1.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        GTK proof for Ryoku's typed read-only UI boundary
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse

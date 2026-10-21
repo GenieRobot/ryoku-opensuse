@@ -3,7 +3,7 @@
 
 Name:           ryoku-quickshell
 Version:        0.3.2
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Pinned private Quickshell runtime for the experimental Ryoku desktop
 License:        LGPL-3.0-only
 URL:            https://git.outfoxxed.me/quickshell/quickshell
@@ -34,6 +34,22 @@ BuildRequires:  qt6-shadertools-devel = 6.11.2
 BuildRequires:  qt6-quick-private-devel = 6.11.2
 BuildRequires:  qt6-waylandclient-private-devel = 6.11.2
 BuildRequires:  qt6-gui-private-devel = 6.11.2
+
+# Upstream links these modules into qs. They have no dynamically installed
+# qmldir/plugin pair for the distribution's automatic provides generator.
+# These are the public modules imported by the pinned Ryoku payload.
+Provides:       qt6qmlimport(Quickshell)
+Provides:       qt6qmlimport(Quickshell.Bluetooth)
+Provides:       qt6qmlimport(Quickshell.Hyprland)
+Provides:       qt6qmlimport(Quickshell.Io)
+Provides:       qt6qmlimport(Quickshell.Networking)
+Provides:       qt6qmlimport(Quickshell.Services.Mpris)
+Provides:       qt6qmlimport(Quickshell.Services.Notifications)
+Provides:       qt6qmlimport(Quickshell.Services.Pipewire)
+Provides:       qt6qmlimport(Quickshell.Services.UPower)
+Provides:       qt6qmlimport(Quickshell.Wayland)
+Provides:       qt6qmlimport(Quickshell.Widgets)
+Provides:       qt6qmlimport(Quickshell.WindowManager)
 
 %description
 Builds unchanged official Quickshell 0.3.2 at the immutable upstream revision

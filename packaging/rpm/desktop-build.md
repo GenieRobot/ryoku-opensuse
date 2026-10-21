@@ -94,6 +94,17 @@ Desktop-runtime owns the relative `qs -> bin/qs` link required by the issue
 #18 fixed launch contract. Both own their shared parent as mode 0755. This
 keeps original Quickshell build inputs independently auditable.
 
+Tumbleweed's QML requires scanner remains enabled for the complete payload.
+Its provides generator recognizes `qmldir` files only below `/qt6/qml/`, so
+the runtime explicitly provides its two private `shell.services` and
+`shell.barkit` modules under `/usr/share`. Quickshell's twelve public modules
+used by this payload are statically embedded in its private `qs` executable;
+the Quickshell spec declares their unversioned QML provides. Shared `Ryoku.*`
+modules retain automatic provides from their standard Qt paths. The desktop
+build requires the native QML generators so missing tooling cannot silently
+remove the import requirements. These declarations do not make Quickshell's
+private modules available to an unrelated Qt executable.
+
 Quickshell requires Qt private APIs. Its SDK and runtime imports are pinned to
 Qt 6.11.2 and RPM generates the native ELF dependency requirements. A rolling
 Tumbleweed update with a changed private ABI requires rebuilding and validating
@@ -117,9 +128,11 @@ An unchanged Quickshell artifact may be reused only when its original build
 log, SRPM, source/spec hashes and native inputs match this spec, and the chosen
 current guest passes normal dependency/ABI resolution, install and reinstall.
 Record its original unsigned digest separately from any fixture-signed copy;
-do not describe it as rebuilt by the current PR.
+do not describe it as rebuilt by the current PR. Release 2 changes its QML
+provides and requires a new native build; the old Release 1 artifact cannot
+substitute for it.
 
-The tools, UI proof and desktop-runtime specs honor Cargo's standard
+The helper, tools, UI proof and desktop-runtime specs honor Cargo's standard
 `CARGO_TARGET_DIR` for both compilation and installation. An ordinary-user,
 native build-root cache outside rpmbuild's package build directories can be
 shared between those builds; Cargo still checks source fingerprints and the
@@ -134,3 +147,16 @@ capabilities. Compare every non-directory path across packages and against
 installed ownership before native installation. Never force-replace local
 prototype files. Retain native dependency-resolution, install and reinstall
 results with exact guest snapshot and repository/package identities.
+
+Run the read-only Rust inventory command against a directory containing exactly
+the ten runtime RPMs, with a fresh output directory:
+
+```console
+cargo run --locked --offline -p ryoku-automation --bin rpm-package-audit -- RUNTIME_RPMS FRESH_MANIFEST_DIRECTORY
+```
+
+It checks root ownership, immutable `/usr` paths, modes, capabilities, all
+scriptlet/trigger classes and cross-package file conflicts, and writes native
+RPM identity/file/requires/provides inventories. It permits shared directories
+only with identical modes. Native Zypper must additionally check installed
+ownership and resolve dependencies in the selected clean target before install.

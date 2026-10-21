@@ -4,7 +4,7 @@
 
 Name:           ryoku-desktop
 Version:        0.1.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Pinned upstream Ryoku desktop package set
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse
@@ -24,6 +24,8 @@ BuildRequires:  qt6-base-devel = 6.11.2
 BuildRequires:  qt6-declarative-devel = 6.11.2
 BuildRequires:  qt6-shadertools-devel = 6.11.2
 BuildRequires:  qt6-multimedia-devel = 6.11.2
+BuildRequires:  qml-autoreqprov
+BuildRequires:  qmlpluginexports-qt6
 Requires:       ryoku-desktop-runtime = %{version}-%{release}
 Requires:       ryoku-helper = %{version}-%{release}
 Requires:       ryoku-profile-defaults = %{version}-%{release}
@@ -38,7 +40,7 @@ are implemented separately by issue 25, which depends on this package set.
 %package runtime
 Summary:        Pinned Ryoku surfaces and coordinated native writers
 License:        GPL-3.0-only AND MIT AND BSD-3-Clause
-Requires:       ryoku-quickshell = 0.3.2
+Requires:       ryoku-quickshell = 0.3.2-2
 Requires:       ryoku-desktop-fonts = %{version}-%{release}
 Requires:       qt6-declarative-imports = 6.11.2
 Requires:       qt6-multimedia-imports = 6.11.2
@@ -48,6 +50,12 @@ Requires:       google-noto-sans-cjk-fonts
 Requires:       systemd
 Requires:       util-linux
 Requires:       dbus-1-tools
+# These qmldir modules are private to the shell's import root under /usr/share.
+# Tumbleweed's generator recognizes provides only below /qt6/qml/, while its
+# requires scanner also sees these private module imports. Keep all scanning
+# enabled and declare exactly the two modules shipped in this package.
+Provides:       qt6qmlimport(shell.services)
+Provides:       qt6qmlimport(shell.barkit)
 
 %description runtime
 Preserves the shell, Hub, Ryoku.Ui, FrameBars, PluginKit, Hyprland QML bridges
