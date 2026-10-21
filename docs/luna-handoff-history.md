@@ -45,9 +45,11 @@ the current coordination entry points.
   readback. The final same-input native normal/interrupted pair has not passed:
   run05/run06 stopped before mutation because repository-cache verification
   could not be established. The diagnostic overlay had a different SSH host
-  key and zero-length cached repomd files, so strict host verification stayed
-  enabled and no cache pin was changed. Keep PR #152 draft and #20 open until
-  that final gate is reproducibly satisfied.
+  key and zero-length cached repomd files. The issue20 fixture pin was updated
+  to `32bc…` after detached signature verification; the later native cache
+  mismatch remains unresolved and no further pin change was made without
+  in-guest evidence. Keep PR #152 draft and #20 open until that final gate is
+  reproducibly satisfied.
 - Continue #20's explicit gates for durable preflight/capture/verification/
   mutation/post-capture phases; serialization and affected-writer
   coordination; plan/path revalidation before mutation; safe cancellation and
