@@ -101,6 +101,28 @@ pub(crate) fn issue19_rollback_setup() -> Result<()> {
         command("findmnt", &["-n", "-o", "FSROOT", "/"])?.trim() == "/@",
         "unexpected initial root",
     )?;
+    run_zypper(
+        &["--non-interactive", "--no-refresh", "install", "--no-recommends", "snapper-zypp-plugin"],
+        None,
+        "ISSUE19_PLUGIN_INSTALL_TIMEOUT",
+        "ISSUE19_PLUGIN_INSTALL_FAILED",
+    )?;
+    let extra = "/mnt/ryoku-issue19-extra";
+    require(!Path::new(extra).exists(), "additional fixture target already exists")?;
+    command("btrfs", &["subvolume", "create", extra])?;
+    command("restorecon", &["-RF", extra])?;
+    command("snapper", &["--config", "issue19-extra", "create-config", extra])?;
+    command("snapper", &["--config", "issue19-extra", "set-config", "TIMELINE_CREATE=no"])?;
+    // The native SELinux policy supports additional snapshot namespaces under
+    // /mnt. Preserve its snapshot-content exclusion instead of inventing a
+    // broad label mapping or disabling enforcement for an arbitrary path.
+    command("restorecon", &["-RF", extra])?;
+    require(command("getenforce", &[])?.trim() == "Enforcing", "SELinux enforcement missing")?;
+    let namespace = format!("{extra}/.snapshots");
+    require(
+        command("matchpathcon", &["-V", &namespace])?.contains("verified"),
+        "snapshot namespace label mismatch",
+    )?;
     let fstab = fs::read_to_string("/etc/fstab")?;
     require(
         !fstab.lines().any(|line| line.split_whitespace().nth(1) == Some("/.snapshots")),
@@ -114,7 +136,9 @@ pub(crate) fn issue19_rollback_setup() -> Result<()> {
     require(source.starts_with("UUID="), "unbound root source")?;
     fs::write(
         "/etc/fstab",
-        format!("{fstab}{source} /.snapshots btrfs defaults,subvol=@/.snapshots 0 0\n"),
+        format!(
+            "{fstab}{source} /.snapshots btrfs defaults,subvol=@/.snapshots 0 0\n{source} /mnt/ryoku-issue19-extra btrfs defaults,subvol=@/mnt/ryoku-issue19-extra 0 0\n"
+        ),
     )?;
     command("mount", &["/.snapshots"])?;
     let grub = fs::read_to_string("/etc/default/grub")?;
@@ -138,7 +162,7 @@ pub(crate) fn issue19_rollback_setup() -> Result<()> {
     )?;
     // The generic migration boots @ directly. A standard Snapper rollback
     // layout instead boots a numbered writable default snapshot. Bootstrap
-    // that disposable layout before initializing any Ryoku state or evidence.
+    // that disposable layout after state provisioning and before linked capture.
     let source = command(
         "snapper",
         &["--config", "root", "create", "--type", "single", "--read-only", "--print-number"],

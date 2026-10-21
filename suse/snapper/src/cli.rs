@@ -37,12 +37,71 @@ pub struct SnapperCliBackend;
 #[derive(Clone, Eq, PartialEq)]
 pub struct RootConfigValues(std::collections::BTreeMap<String, String>);
 
+/// Effective config mapping reported by Snapper, not yet kernel verified.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SnapperConfigMapping {
+    pub config: ConfigName,
+    pub subvolume: String,
+}
+
 impl SnapperCliBackend {
+    pub fn configurations(&self) -> Result<Vec<SnapperConfigMapping>, SnapperCliError> {
+        parse_configurations(&run_snapper(&[
+            "--jsonout".into(),
+            "list-configs".into(),
+            "--columns".into(),
+            "config,subvolume".into(),
+        ])?)
+    }
+
     /// Read only the fixed root configuration. No target/config override.
     pub fn root_configuration(&self) -> Result<RootConfigValues, SnapperCliError> {
         parse_root_configuration(&run_snapper(&root_configuration_args())?)
     }
 }
+fn parse_configurations(bytes: &[u8]) -> Result<Vec<SnapperConfigMapping>, SnapperCliError> {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Configs {
+        configs: Vec<Row>,
+    }
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Row {
+        config: String,
+        subvolume: String,
+    }
+    if bytes.len() > 128 * 1024 {
+        return Err(SnapperCliError::OutputTooLarge);
+    }
+    let parsed: Configs =
+        serde_json::from_slice(bytes).map_err(|_| SnapperCliError::InvalidInventory)?;
+    if parsed.configs.len() > 64 {
+        return Err(SnapperCliError::InvalidInventory);
+    }
+    let mut names = std::collections::BTreeSet::new();
+    let mut paths = std::collections::BTreeSet::new();
+    parsed
+        .configs
+        .into_iter()
+        .map(|row| {
+            let config = ConfigName::new(row.config).map_err(SnapperCliError::InvalidValue)?;
+            let path = &row.subvolume;
+            if !names.insert(config.clone())
+                || !paths.insert(path.clone())
+                || path.len() > 4096
+                || !path.starts_with('/')
+                || (path != "/"
+                    && path[1..].split('/').any(|s| s.is_empty() || s == "." || s == ".."))
+                || path.bytes().any(|b| b.is_ascii_control())
+            {
+                return Err(SnapperCliError::InvalidInventory);
+            }
+            Ok(SnapperConfigMapping { config, subvolume: row.subvolume })
+        })
+        .collect()
+}
+
 fn root_configuration_args() -> [String; 4] {
     ["--jsonout".into(), "--config".into(), "root".into(), "get-config".into()]
 }
@@ -697,7 +756,7 @@ fn validate_inventory(records: &[SnapshotRecord]) -> Result<(), SnapperCliError>
     Ok(())
 }
 
-fn run_snapper(args: &[String]) -> Result<Vec<u8>, SnapperCliError> {
+pub(super) fn run_snapper(args: &[String]) -> Result<Vec<u8>, SnapperCliError> {
     run_bounded(native_command(args), COMMAND_TIMEOUT)
 }
 fn native_command(args: &[String]) -> Command {
@@ -904,6 +963,21 @@ mod tests {
 
     fn config() -> ConfigName {
         ConfigName::new("root").unwrap()
+    }
+
+    #[test]
+    fn config_discovery_rejects_aliases_ambiguous_paths_and_duplicate_fields() {
+        let good = br#"{"configs":[{"config":"root","subvolume":"/"},{"config":"home","subvolume":"/home"}]}"#;
+        assert_eq!(parse_configurations(good).unwrap().len(), 2);
+        for bad in [
+            r#"{"configs":[{"config":"root","subvolume":"/"},{"config":"root","subvolume":"/home"}]}"#,
+            r#"{"configs":[{"config":"root","subvolume":"/"},{"config":"home","subvolume":"/"}]}"#,
+            r#"{"configs":[{"config":"home","subvolume":"/home/../etc"}]}"#,
+            r#"{"configs":[{"config":"root","config":"other","subvolume":"/"}]}"#,
+            r#"{"configs":[{"config":"root","subvolume":"/","extra":true}]}"#,
+        ] {
+            assert!(parse_configurations(bad.as_bytes()).is_err());
+        }
     }
 
     #[test]

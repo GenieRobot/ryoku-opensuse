@@ -767,3 +767,17 @@ and requires changed-root historical catalog/journal readback before normal
 reset/disposal. Use a short absolute run path so its QMP socket fits Linux's
 108-byte Unix socket address. Existing run directories are always refused.
 The generic WSL/cloud feature paths retain their existing fixtures and TCG.
+
+
+The issue19 fixture also installs the stock signed `snapper-zypp-plugin` and
+creates only its own additional Snapper config under `/mnt`, whose native SELinux
+snapshot context rules are verified with enforcement retained. Its explicit
+coordination probe exercises full root/boot-file and downgraded layouts, an actual
+transaction-tagged package hook pair without nested pair creation, additional
+snapshot receipts, protected catalog corruption/missing-partner refusal, durable
+manual and boot-verified known-working pins, and real zero-limit number cleanup.
+All linked snapshots must survive automatic cleanup; explicitly deleting the
+owned additional partner must invalidate completeness. The external ESP remains
+outside protection. The package hook experiment makes no write-veto or protected
+provider claim. Final acceptance and owned-run disposal are recorded in
+[`issue19-coordination-20261021.toml`](../infra/tumbleweed-lab/evidence/issue19-coordination-20261021.toml).

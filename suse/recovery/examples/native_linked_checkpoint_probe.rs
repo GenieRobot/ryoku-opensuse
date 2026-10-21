@@ -1,6 +1,6 @@
 //! Component experiment restricted to the seeded disposable QEMU fixture.
-//! The harness must initialize state storage first. This does not restore root
-//! or configuration; it records/reopens a linked generation and Planned journal.
+//! The harness initializes state storage first. Explicit rollback mode changes
+//! only the owned disposable root; no complete linked restoration is claimed.
 //! Fixed probe snapshots and records are retained until the disk is discarded.
 
 use ryoku_recovery::{
@@ -25,6 +25,9 @@ use std::{
     process::Command,
 };
 
+#[path = "support/issue19_coordination.rs"]
+mod coordination;
+
 type ProbeResult<T> = Result<T, Box<dyn std::error::Error>>;
 const TRANSACTION: &str = "issue19-linked-probe";
 const GENERATION: &str = "issue19-linked-generation";
@@ -48,6 +51,8 @@ fn main() -> ProbeResult<()> {
                 | "--observe-layout"
                 | "--cleanup-journal"
                 | "--prepare-root-rollback"
+                | "--coordination-capture"
+                | "--coordination-after-boot"
         )
         || rustix::process::geteuid().as_raw() != 0
         || rustix::process::getegid().as_raw() != 0
@@ -65,6 +70,8 @@ fn main() -> ProbeResult<()> {
         "--observe-layout" => observe_layout()?,
         "--cleanup-journal" => cleanup_journal(&root)?,
         "--prepare-root-rollback" => prepare_root_rollback(&root)?,
+        "--coordination-capture" => coordination::capture(&root)?,
+        "--coordination-after-boot" => coordination::after_boot(&root)?,
         _ => unreachable!(),
     }
     println!("native_linked_boot_compatibility=unproven");

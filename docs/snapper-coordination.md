@@ -1,31 +1,73 @@
-# Snapper coordination primitives
+# Snapper coordination and protected catalog
 
-This is a partial implementation for [issue #19](https://github.com/GenieRobot/ryoku-opensuse/issues/19). The `ryoku-snapper` crate provides pure layout classification, validated identifiers, a bounded read-only Snapper CLI backend, exact transaction-ID pre/post pair correlation, and in-memory catalog validity and retention-pin primitives.
+Issue [#19](https://github.com/GenieRobot/ryoku-opensuse/issues/19) provides typed
+Snapper operations, live layout discovery, and a durable catalog joining native
+snapshots to sealed Ryoku generations. The final native acceptance matrix and
+hashes are recorded in
+[`issue19-coordination-20261021.toml`](../infra/tumbleweed-lab/evidence/issue19-coordination-20261021.toml).
+The sections below dated before the final coordination acceptance describe
+historical partial results; their remaining gates are superseded by that matrix.
 
-## Behavior implemented
+## Current contract
 
-- `FullSystem` classifies only root and boot snapshot coverage: it requires a Btrfs root subvolume, a ready root Snapper config, and boot content that is either inside root or independently known to be snapshotted. It does not assert that a Ryoku generation exists or is linked. A separate unsnapshotted `/boot` cannot be reported as full-system protected.
-- Configuration-only capability is reported when the Ryoku configuration target itself is confirmed as Btrfs with a ready Snapper config. Unsupported or unknown observations never produce full-system capability.
-- Package-hook pairs match only on exact config and transaction ID. One matching pre snapshot is reported as incomplete; duplicate matching pre or post records are ambiguous. Description text and timestamps are not correlation keys.
-- Pure Rust pair reconciliation reuses an exact existing package-hook pair, permits creation only when no exact pair exists, and requires explicit reconciliation for incomplete or ambiguous matches. `reconcile_pair` classifies supplied observations without querying or mutating Snapper.
-- `query_pair` is a generic read-only runtime boundary: it asks a `SnapperBackend` for one config-scoped inventory, rejects foreign-config rows and duplicate snapshot IDs, then applies exact transaction correlation. It never calls either creation method.
-- `SnapperCliBackend` now provides a concrete read-only list implementation. It invokes only fixed `/usr/bin/snapper` with `--jsonout --config <validated-name> list`, has no root/path override, clears the inherited environment, applies a 15-second deadline and bounded output capture, and returns sanitized error categories. It parses only the selected top-level config array and typed snapshot IDs/types. Pair correlation uses only explicit `userdata["ryoku-transaction-id"]`; descriptions are ignored. The adapter's create operations fail closed without invoking Snapper.
-- Catalog completeness separately requires root/boot capability, a verified system snapshot partner, and a caller-confirmed present and verified Ryoku generation partner. Duplicate transaction IDs are rejected. Manual and known-working retention pins can only be set on complete entries.
-- `CatalogStore` persists a versioned, bounded catalog relative to an already-open directory descriptor. It requires the expected owner and exact private directory/file modes, uses a fixed filename, flock plus a process mutex, no-follow descriptor-relative reads, a SHA-256 payload checksum, and temp-file `fsync` + atomic rename + directory `fsync`. It rejects unknown schema fields, invalid identifiers, tampered/truncated documents, oversized files, and duplicate transaction IDs. The checksum detects corruption but is not a keyed authenticator; the store cannot prove the directory is outside rollback scope, and the caller must provide and protect the correct persistent location.
-- Snapper values are typed and bounded. `SnapperBackend` describes typed list/pre/post operations; the CLI backend implements list and explicitly rejects pre/post creation.
+- `snapper_layout::discover_layout` queries bounded native config mappings and
+  inventories, then binds them to kernel Btrfs identities through no-follow
+  descriptors. `FullSystem` means root and tracked `/boot` **file coverage**.
+  The external ESP is explicitly excluded; this is not boot compatibility or
+  restore readiness. A separate unsupported `/boot` yields configuration-only
+  coverage when the configuration target is tracked, or unsupported otherwise.
+- `SnapperCliBackend`, `SnapperPairBackend` and `SnapperRollbackBackend` separate
+  read-only discovery from explicit mutation. Exact config/transaction IDs and
+  pre-number linkage correlate existing package hook pairs. Ambiguous or
+  incomplete pairs require reconciliation. Creation refuses an existing pair;
+  no description/time heuristic or automatic mutation retry is used.
+- `ProtectedSnapperCatalog` anchors `CatalogStore` at the validated independent
+  state mount's `snapper-catalog` directory. Root-owned private metadata,
+  no-follow descriptor access, locked updates, checksums and atomic synchronized
+  replacement protect durable publication. Checksums detect corruption, not a
+  malicious root writer able to recompute them. Catalog schema 2 records exact
+  root/generation IDs plus config, snapshot ID and kernel identity for every
+  additional partner. Root-only schema 1 remains readable.
+- Every status lookup reopens the sealed historical generation and root receipt,
+  verifies additional native identities and transaction tags, and checks current
+  layout and cleanup ownership. Stored verification flags cannot establish
+  completeness. Missing, deleted, substituted or writable partners invalidate
+  complete status; corrupt catalog state is unavailable.
+- Publication removes all linked snapshots from Snapper automatic cleanup and
+  verifies the change before publishing. An interrupted publication can retain
+  extra snapshots but cannot publish unprotected partners. Manual pins persist;
+  known-working promotion additionally requires the exact writable rollback
+  target actually running and no unfinished recovery journals. This records
+  boot/storage health, not application health.
+- Retention is deliberately conservative: every catalog-linked snapshot remains
+  excluded from automatic cleanup. The pure retention planner preserves manual
+  and known-working pins and requires reconciliation for missing/ambiguous
+  partners. There is no automatic deletion actor; a future authorized pruning
+  coordinator must revalidate partners and honor those pins.
 
-## Remaining acceptance work
+These library operations require an authorized coordinator and existing mutation
+serialization. They do not enable a provider write veto, helper restore dispatch,
+complete linked restore, application health checks, or ESP rollback. A root
+snapshot alone is not linked recovery. The package transaction in the native
+fixture demonstrates stock hook correlation, not protected package writes.
 
-This crate does **not** complete issue #19. The following work and evidence remain:
+## Acceptance matrix (21 October 2026)
 
-1. Implement and review a read-only detector for supported openSUSE Btrfs, Snapper config, mount, and boot layouts; confirm every observation against real supported Tumbleweed fixtures. This crate currently classifies supplied observations only.
-2. Verify the read-only CLI adapter and its output against the supported guest's Snapper version, and integrate an authorized mutation helper only after its identity and authorization are established. The adapter currently requires explicit `ryoku-transaction-id` userdata; stock zypp hook records do not prove that this key is present. `query_pair` validates the backend inventory boundary, but there is not yet an authorized create implementation.
-3. Integrate `CatalogStore` with the privileged service and establish the directory's persistent mount, owner, and exclusion from every root rollback scope. Add authenticated integrity protection if the threat model requires detection of a same-owner writer who can recompute the checksum. Prove catalog and journal survival across root rollback and reject tampered or truncated state on the supported guest.
-4. Connect catalog entries to #18's generation store and verify both partners before claiming complete status; recheck partner existence after cleanup and rollback.
-5. Implement and test retention ownership so manual checkpoints and the known-working generation are protected and Snapper cleanup cannot orphan catalog links.
-6. Represent and demonstrate all required root/additional snapshot IDs without duplicate pairs, invalidation when either partner is missing, and configuration-only/unsupported behavior on actual layouts. This primitive catalog currently records one root snapshot ID per entry.
+| Issue requirement | Evidence |
+| --- | --- |
+| Supported root/boot-files, configuration-only and unsupported layouts | Live signed Tumbleweed fixture; separate tmpfs `/boot` and untracked target cases; ESP exclusion explicit |
+| Typed operations and root/additional IDs | Native root receipt and additional `issue19-extra` config; exact kernel identities; bounded parser/argument regressions |
+| Existing package hooks, no redundant pair | Real initially absent `hello` RPM installed with transaction userdata; stock pre/post pair reused and explicit creation refused without inventory change |
+| Rollback-independent catalog and journal | Actual numbered-root rollback/reboot; sealed generation, both catalogs, exact synthetic Planned journal and additional receipt reopened |
+| Missing/deleted/corrupt partners | Native missing root, generation and additional paths; writable/substituted root refusal; deleted additional snapshot; truncated/tampered protected catalog refusal |
+| Manual/known-working and cleanup ownership | Durable manual pin across rollback; premature known-working refusal then exact booted-source promotion; native number cleanup at zero limits preserves all catalog partners while deleting a sacrificial snapshot |
+| Lifecycle and isolation | Enforcing SELinux, offline byte restoration, fresh signed XFS reset, unchanged seed hash, owned disk/key disposal; no other issue guest used |
 
-No VM, Snapper command, system mutation, protected-mount placement, or rollback claim was used to validate this primitive slice. Unit tests exercise descriptor-relative durable replacement in a temporary directory. Keep #19 open until its listed acceptance evidence is attached.
+The journal is a synthetic `Planned` persistence fixture. Console lifecycle
+coverage is intentionally `partial` because desktop acceptance is outside this
+run. Full linked restore and general boot compatibility remain separate gates.
+
+## Historical implementation and evidence
 
 ## Original native identity and linked historical lookup
 
@@ -276,5 +318,5 @@ Detailed hashes and command provenance are in
 [`issue19-root-rollback-20261021.toml`](../infra/tumbleweed-lab/evidence/issue19-root-rollback-20261021.toml).
 This demonstrates persistence of the linked catalog and synthetic Planned
 journal. It does not demonstrate a complete linked restore or boot compatibility,
-and does not close the separate layout/additional-ID, package-hook and retention
-ownership gates.
+and at that stage did not close the separate layout/additional-ID, package-hook
+and retention ownership gates. The final coordination matrix above covers them.

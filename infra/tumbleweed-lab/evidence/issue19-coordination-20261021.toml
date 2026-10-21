@@ -1,0 +1,100 @@
+schema = 1
+date = "2026-10-21"
+issue = 19
+pull_request = 151
+base_commit = "9bd1c06fcfbcdd63997dac5b80ca6135a2beccc4"
+runtime_patch_sha256 = "272640c91814e870cba71b7a60d7e82683d1578395bcbe86f2e3367e86fb9884"
+runtime_patch_method = "git diff --cached --binary BASE -- automation suse Cargo.toml Cargo.lock rust-toolchain.toml infra/tumbleweed-lab/issue19-fixture.toml; all new runtime files staged; docs/evidence excluded"
+fixture_toml_sha256 = "3aba4bf569150ba511a8dfd74a73a16b44ff345eea88473f5cf3c2a729661f20"
+
+[commands]
+build = "cargo build --locked --offline -p ryoku-automation --features issue19-lab --bin vm-lab -p ryoku-recovery --bin ryoku-state-init --bin ryoku-recovery --example native_linked_checkpoint_probe"
+run = "RYOKU_LAB_AUTHORIZED=existing-wsl-vm vm-lab run EXISTING_SIGNED_ASSETS FRESH_ISSUE19_RUN --console-only --state-initializer ryoku-state-init --linked-checkpoint-probe native_linked_checkpoint_probe --recovery-cli ryoku-recovery"
+tests = "cargo test --locked --offline --workspace --all-features"
+clippy = "cargo clippy --locked --offline --workspace --all-targets --all-features -- -D warnings"
+audit = "cargo deny --offline --all-features check"
+format = "cargo fmt --all --check; git diff --check"
+top_level_tests_passed = 457
+additional_isolated_subprocess_passes = 17
+ignored = 5
+failed = 0
+checks = "passed"
+
+[native]
+run = "issue19-run10"
+exit_code = 0
+fixture_sha256 = "ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231"
+release_signer = "AD485664E901B867051AB15F35A2F86E29B700A4"
+qemu = "11.1.2"
+snapshot = "20261016"
+kernel_running = "7.2.10-1-default"
+snapper = "0.13.1-3.4"
+orchestrator_sha256 = "5d04f693f4b89fdac8e40b1ef2678b47fad4b73a66352c116176957d9d550a6b"
+state_initializer_sha256 = "098b7b6c74c1254ec08270af6128601f4e7c50dc207c128f71d314da53ad803a"
+linked_probe_sha256 = "6bb3de105a1e7e4fc308fe1d3572adce04b6048f4596ff4af087fb02f9f09599"
+recovery_cli_sha256 = "c3794bcff7a26aab6170542b71e8f4c4aa6550203d0050e93a054ebcc490e92f"
+root_before = "@/.snapshots/4/snapshot; subvolume 266"
+root_after = "@/.snapshots/10/snapshot; subvolume 273; exact returned writable target"
+root_snapshot = "root:5"
+additional_snapshot = "issue19-extra:1"
+snapshot_namespace = "@/.snapshots; subvolume 259 unchanged"
+protected_state = "@ryoku-state; subvolume 261 unchanged; nosuid,nodev,noexec"
+additional_mount = "@/mnt/ryoku-issue19-extra; subvolume 262 unchanged"
+
+[acceptance]
+layout = "native root and tracked /boot-files FullSystem; external ESP excluded; separate tmpfs /boot config-only for /etc; untracked /run unsupported"
+hook = "stock signed snapper-zypp-plugin; initially absent hello RPM installed with exact transaction userdata; native pre6/post7 reused; typed duplicate pre creation refused and inventory unchanged"
+catalog = "protected independent state mount; exact sealed generation and original root receipt plus additional kernel identity; duplicate publication refused"
+rollback = "actual root switch/reboot; both catalogs, sealed generation payload, exact synthetic Planned journal, root and additional partners reopened; recovery CLI pending/verify-linked passed"
+missing = "root, generation and additional paths removed/restored; complete refused; writable/substituted root refused; final explicit additional deletion invalidated complete while pin intent retained"
+corruption = "native protected catalog truncated then syntactically valid transaction tampering; both refused; original fsynced bytes restored and complete readback required"
+pins = "manual pin persisted through rollback; known-working promotion refused before boot and accepted only after exact writable target boot plus empty unfinished journals"
+cleanup = "root and additional source cleanup classes initially number; publication changed both to empty and verified ownership; real number cleanup at min-age/limits zero retained all partners and removed sacrificial root snapshot"
+selinux = "Enforcing throughout; native /mnt snapshot context rules verified; no policy override"
+lifecycle = "offline controlled-byte restore matched; sentinel present before discard, absent after fresh signed XFS reset; image hash unchanged; all owned disks/firmware/seed/keys removed"
+
+[limits]
+coverage = "Root and /boot file coverage only; ESP excluded; general boot compatibility and full linked restore unproven; no protected provider write or veto enabled"
+journal = "Synthetic Planned journal is persistence evidence, not a prepared linked restore"
+known_working = "Exact boot/storage health only, not application health"
+retention = "Conservative exclusion retains every catalog partner; pure planner honors manual/known-working pins; no automatic deletion actor enabled"
+lifecycle = "Console-only generic lifecycle_result/lab_result partial; desktop provisioning and login skipped"
+
+[history]
+run07 = "actual changed-root catalog/journal persistence passed; earlier artifact retained"
+run08 = "failed before additional publication: arbitrary /srv namespace had unsupported SELinux snapshot labels; diagnosed only through own read-only-backed diagnostic overlay; corrected to native supported /mnt namespace with enforcement unchanged"
+run09 = "all coordination gates passed; run10 strengthened zero additional limits and direct missing-primary/corrupt-catalog checks"
+failed_runs = "01-06 and 08 remain failed; all diagnostics preserved privately; no failed stage relabeled passed"
+cleanup = "Independent audit after run10: issue19 runs01-10 disposable disks, firmware, seed, SSH key and cloud-init credentials absent; no owned QEMU; original signed seed has no backing file and unchanged hash; no other issue assets used"
+retained = "Private logs, sanitized evidence, failed-run nonsecret staged binaries, build outputs only; no main-source temporary changes"
+
+[artifacts]
+"binary-copy-private.log" = "d8760763be63067f00789fcf42648cb7e89259b37690e733415676ec0b8b6596"
+"coordination-after-boot-private.log" = "9a0c6e5694a2a9324d2b3908c0d041844de83ef14f9a718a809eb791f450a7fd"
+"coordination-capture-private.log" = "417dd78769c116ebeef18da522e74e48a7459d124ff7a1f3ededd07b0bc3c305"
+"evidence.txt" = "986895416d8d198177c18bcdb2fe6a3a5bd3ab9efd584fdb40c6668d6ca5e406"
+"guest-private.log" = "d8760763be63067f00789fcf42648cb7e89259b37690e733415676ec0b8b6596"
+"initializer-after-reboot-private.log" = "f9e6d4f5b3cc8c28cce898818b5c68893a5fc9d6a9c65f6f105372aea8e47911"
+"initializer-copy-private.log" = "d8760763be63067f00789fcf42648cb7e89259b37690e733415676ec0b8b6596"
+"initializer-first-private.log" = "00654a9e30688f677e4da610d8d53e73f7baf97089421bf57c2a91f04e4c0c48"
+"initializer-repeat-private.log" = "f9e6d4f5b3cc8c28cce898818b5c68893a5fc9d6a9c65f6f105372aea8e47911"
+"initializer-resume-private.log" = "75fa7c16e0d562484abd3a02f2f650d0e6ec6d9386b31aa71b3391f5e4d8f36c"
+"linked-after-pending-private.log" = "0e09f1694f4d52092e763f95384d54fd56d40a1aee53149f396b78503adf03f0"
+"linked-after-reboot-private.log" = "c71299ea2922680fe2fb8ac48710d8f8256586a772ae5d5406caad9b96443720"
+"linked-after-verify-cli-private.log" = "cbc59a8eaf93044c1039a0fc8063af35fdf7e76979fb7db581fb1096a1faffc6"
+"linked-before-pending-private.log" = "0e09f1694f4d52092e763f95384d54fd56d40a1aee53149f396b78503adf03f0"
+"linked-before-verify-cli-private.log" = "cbc59a8eaf93044c1039a0fc8063af35fdf7e76979fb7db581fb1096a1faffc6"
+"linked-capture-private.log" = "1528427be20f3d5f58f1a986fb5f58545cc2d7a8d00a2cad32b9df0183ff1ae5"
+"linked-cleanup-private.log" = "ca3f2a4c4acf9d3e5cb6858b1558a43454bfc36da1031a2aff9458767569c464"
+"linked-empty-pending-private.log" = "234dc8f5be896e0c07886e97b330b39d711ae7b1406db479cc4c605d958e81f1"
+"linked-failures-private.log" = "a5f737826f5603352a87cf3a58003884174bc5f8f9bd23ae3e16f20ae2cb27c3"
+"linked-layout-after-private.log" = "d85e0e8856c582a4f6f68de7d85302693b32b9c1c9a03915fe9893a376764281"
+"linked-layout-before-private.log" = "e787205e19d570365e334ea93e802161c1d7afd4c44ea21604c99a60ff9e90b3"
+"linked-rollback-private.log" = "c0a4380e3005f9e465fd46c52243a810a37ab2c8eae76ba6c050cb37ee5bfe9d"
+"linked-verify-private.log" = "4f159444c15a65840b4824354ea59e0f20027824e607af3e95512167fcbbf47c"
+"qemu-private.log" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+"ryoku-linked-probe-copy-private.log" = "d8760763be63067f00789fcf42648cb7e89259b37690e733415676ec0b8b6596"
+"ryoku-recovery-copy-private.log" = "d8760763be63067f00789fcf42648cb7e89259b37690e733415676ec0b8b6596"
+"serial-private.log" = "da6e46d090c33d78c7c495178399798b2743dba32b4fa5ab1ed082e4871c7a08"
+"run08/issue19-owned-cleanup.json" = "dd23d34afe3c77aaa5146fce85af3f67a50de79eef345a1625d368cbca40bdcf"
+"run08/diagnostic-cleanup.json" = "e75bef96450ae6c6d4f6df0b502acf08b075ae1b6559f4b1fe3281a8b2a69635"

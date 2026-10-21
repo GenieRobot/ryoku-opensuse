@@ -12,6 +12,33 @@ const LIMITS: &[&str] =
 fn validate_probe(mode: &str, text: &str) -> Result<()> {
     let mut lines: Vec<_> = text.lines().collect();
     let expected: Vec<&str> = match mode {
+        "--coordination-capture" => [
+            &[
+                "native_issue19_full_root_boot_files=passed",
+                "native_issue19_esp_coverage=excluded",
+                "native_issue19_configuration_only=passed",
+                "native_issue19_unsupported_layout=passed",
+                "native_issue19_package_hook_pair=passed",
+                "native_issue19_no_nested_pair=passed",
+                "native_issue19_additional_catalog=passed",
+                "native_issue19_manual_pin=passed",
+                "native_issue19_missing_additional=passed",
+                "native_issue19_missing_primary_partners=passed",
+                "native_issue19_catalog_corruption_refused=passed",
+            ][..],
+            LIMITS,
+        ]
+        .concat(),
+        "--coordination-after-boot" => [
+            &[
+                "native_issue19_catalog_after_rollback=passed",
+                "native_issue19_known_working_pin=passed",
+                "native_issue19_cleanup_ownership=passed",
+                "native_issue19_deleted_partner=passed",
+            ][..],
+            LIMITS,
+        ]
+        .concat(),
         "--capture" => {
             let number = lines
                 .get(1)
@@ -176,6 +203,9 @@ impl Lab {
         )?;
         self.linked_probe_mode("--observe-layout", "linked-layout-before-private.log")?;
         self.linked_probe_mode("--capture", "linked-capture-private.log")?;
+        if cfg!(feature = "issue19-lab") {
+            self.linked_probe_mode("--coordination-capture", "coordination-capture-private.log")?;
+        }
         self.linked_cli("before")?;
         self.linked_probe_mode("--exercise-failures", "linked-failures-private.log")?;
         self.linked_probe_mode("--verify", "linked-verify-private.log")
@@ -204,7 +234,14 @@ impl Lab {
             empty.trim() == "No unfinished recovery attempts",
             "CLI pending not empty after owning fixture cleanup",
         )?;
-        self.evidence("native_linked_cli_empty_after_cleanup=passed")
+        self.evidence("native_linked_cli_empty_after_cleanup=passed")?;
+        if cfg!(feature = "issue19-lab") {
+            self.linked_probe_mode(
+                "--coordination-after-boot",
+                "coordination-after-boot-private.log",
+            )?;
+        }
+        Ok(())
     }
 
     pub(super) fn linked_prepare_rollback(&mut self) -> Result<()> {
