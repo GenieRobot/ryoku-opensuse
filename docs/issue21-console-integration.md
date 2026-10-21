@@ -37,7 +37,7 @@ service. Operators must reload systemd after installation; the preflight refuses
 stale loaded dependencies. The gate covers the supported display-manager login
 path, not manually launched compositors from arbitrary root-controlled consoles.
 
-## Local verification and pending acceptance
+## Verification
 
 Formatting, strict workspace Clippy, offline cargo-deny and the complete workspace
 suite passed: 523 top-level test/doctest passes plus 17 isolated subprocess passes,
@@ -47,56 +47,45 @@ that its parent executes explicitly). The recovery crate contributes 211 library
 configuration replay/metadata/absence and unrelated files, durable phase
 interruptions, rollback receipt/boot verification, resume without phase rewind,
 and admission refusal at every incomplete linked phase and for corrupt journals.
-Native process/ACL tests require the unsandboxed host boundary; a sandboxed run
-failed those environmental checks before the authorized native rerun passed.
+The same-source configuration-to-linked regression proves that different receipt
+inputs cannot reuse a stage. Compatibility refusal tests verify a current-state
+checkpoint remains available without staging or application. Native process/ACL
+tests passed at the authorized host boundary. `rpmspec --parse` also passed.
 
-`rpmspec --parse` passes for the updated tools spec. Host-only systemd verification
-cannot complete because the enrolled mount unit and `/usr/bin/ryoku-recovery` are
-not installed on the development host; this is not recorded as installed-unit
-acceptance. Packaged installation and native admission remain to be exercised.
+Fresh Run05 completed with exit 0 on the exact executable candidate
+`aeed2e71c6b1fdc7d6ac148ebc4a3e4653d1eb9b`; its hosted
+[CI run 39673083227](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39673083227)
+passed. The existing authorized WSL/KVM runner verified the signed 20261016 image,
+pinned repository metadata and seven signed release5 runtime RPMs, then restricted
+guest networking before offline recovery. SELinux remained enforcing. Guest clock
+preflight measured post-set skew 2s within its 5s bound before repository writes.
 
-Issue #21 and PR #155 remain open/draft. The exact current CLI still needs a
-recorded offline Tumbleweed exercise covering corrupted content/metadata,
-unrelated-home preservation, real interruption/resume, system/linked reboot
-handoff, unavailable partners, incompatible versions and bad archives with the
-checkpoint retained. Historical Run04–Run13 component receipts do not validate
-this candidate. The first fresh signed KVM run reached the offline CLI but refused
-its first manual checkpoint because fixture provisioning omitted `ryoku-desktop`.
-No restore journal or generation was created. Read-only extraction confirmed the
-failure; the owned VM and private artifacts were removed. The corrected fixture
-installs and verifies the exact seven signed release5 runtime RPMs and resolves
-their official dependencies before restricting networking. Fixed serial operation
-and failure markers permit bounded host diagnosis while rescue refuses SSH.
-See the [native receipt](../infra/tumbleweed-lab/evidence/issue21-native-20261021.toml).
-The second run verified the signed dependency closure, source/current checkpoints
-and configuration staging. The real admission service refused the pending journal
-and entered emergency mode. That transition stopped the fixture service through
-its default sysinit dependency; configuration preparation had completed and the
-journal/checkpoint remained intact. The fixture now has explicit filesystem and
-shutdown ordering without default dependencies, an independent Rust stop marker,
-operation completion markers and a bounded host progress watchdog. Full native
-restore/interruption acceptance is still pending.
-The third run failed closed during initial migration TLS/signature checks before
-any restore scenario. All pinned repository metadata signatures/hashes and the
-image/repository key still verify unchanged. Guest clock skew is suspected but
-was not captured by the original runner. The isolated #21 fixture now records
-host/guest UTC and epoch, guest monotonic time and NTP state before provisioning;
-it validates host time against the signed-fixture window, sets only the disposable
-guest clock and requires a measured drift of at most five seconds. Other lab
-features and the host clock retain their existing behavior.
-The fourth run passed actual configuration restore, CLI kill/resume, exact
-metadata/absence/unrelated-home checks and bad-archive/missing-partner refusals.
-Linked preparation then refused a completed stage from the same source with a
-different scope. Read-only Btrfs log-tree inspection recovered its retained
-`CheckpointVerified` journal. Stage names now hash the complete receipt inputs,
-and a focused same-source config-to-linked regression verifies isolation and
-receipt substitution refusal. Diagnostics are synced before terminal markers.
-System/linked rollback acceptance remains pending.
+The native CLI passed configuration restoration with exact bytes, metadata and
+absence; unrelated-home preservation; actual SIGKILL at WritersStopped and replay;
+linked and system-only root rollback/reboot/confirmation; retained current-state
+checkpoints; bad-archive and unavailable-partner refusals. Refusals required exact
+exit 2, successful operations exit 0. The actual admission service refused pending
+journals and admitted a fixture display-manager marker only after completion.
+All three journals and checkpoints were checked again after another reboot.
+
+The runner then proved ordinary offline Snapper corruption/restore, discarded the
+owned derived disks and booted a fresh signed XFS reset. Fixture markers, installed
+package, Snapper configuration and reset sentinel were absent. Owned disks,
+firmware, seed and SSH keys were removed; private logs were removed after recording
+the allowlisted report. Independent SHA256 verification confirmed the source image
+unchanged and the QEMU process scan was empty. Overall `lab_result=partial` is the
+expected console-only result because KDE provisioning and actual desktop login
+were skipped; all claimed #21 results passed. The
+[native receipt](../infra/tumbleweed-lab/evidence/issue21-native-20261021.toml) records
+hashes, prior failed runs and corrections; the
+[Run05 report](../infra/tumbleweed-lab/evidence/issue21-native-20261021/run05.txt)
+contains the sanitized lifecycle results.
 
 There is no complete signed alternate desktop/runtime/defaults package set in the
 existing lab assets. Native incompatible-package refusal is explicitly unclaimed;
 focused compatibility tests cover refusal and current-checkpoint retention. The
-fixture installs the exact candidate console/admission unit files after the
-existing signed runtime packages; it does not prove installation of a newly built
-candidate RPM or an actual desktop login. Its normal-session marker exercises the
-display-manager dependency and admission service only.
+fixture installs exact candidate console/admission unit files after the existing
+signed runtime packages; it does not prove installation of a newly built candidate
+RPM or an actual desktop login. Its normal-session marker exercises the
+display-manager dependency and admission service only. Provider actions were not
+exercised. Issue #21 and PR #155 remain open/draft for coordinator review.
