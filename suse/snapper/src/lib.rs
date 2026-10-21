@@ -1,17 +1,23 @@
 //! Typed primitives for Snapper layout discovery and checkpoint correlation.
 //!
-//! The included [`SnapperCliBackend`] is read-only. Durable catalog storage
-//! uses a caller-supplied protected directory descriptor; placement outside
-//! rollback scope remains the caller's responsibility.
-//! Native single-snapshot creation is a separate explicit capability for an
-//! authorized checkpoint coordinator; installed helper integration and guest
-//! acceptance remain incomplete.
+//! [`SnapperCliBackend`] is read-only. [`SnapperPairBackend`] and
+//! [`SnapperCheckpointBackend`] are separate native mutation capabilities for
+//! an authorized coordinator; they do not provide authorization, writer
+//! quiescence, or linked-generation verification. Durable catalog storage uses
+//! a caller-supplied protected directory descriptor; placement outside rollback
+//! scope remains the caller's responsibility.
 
 mod catalog;
 mod cli;
+mod retention;
+pub use retention::SnapperRetentionBackend;
 
-pub use catalog::{CatalogStore, CatalogStoreError};
-pub use cli::{SnapperCheckpointBackend, SnapperCliBackend, SnapperCliError, parse_snapper_json};
+pub use catalog::{CatalogReader, CatalogStore, CatalogStoreError};
+pub use cli::{
+    RootConfigValues, RootRollbackReceipt, RootRollbackRequest, SnapperCheckpointBackend,
+    SnapperCliBackend, SnapperCliError, SnapperConfigMapping, SnapperPairBackend,
+    SnapperRollbackBackend, parse_root_configuration, parse_snapper_json,
+};
 
 use std::collections::BTreeMap;
 
@@ -251,6 +257,8 @@ pub struct SnapshotRecord {
     pub config: ConfigName,
     pub id: SnapshotId,
     pub kind: SnapshotKind,
+    /// Exact pre snapshot referenced by a post record, when this is a post.
+    pub pre_snapshot: Option<SnapshotId>,
     pub transaction_id: Option<TransactionId>,
 }
 
@@ -369,8 +377,9 @@ pub fn reconcile_pair(
 }
 
 /// Matches hook-created records by exact transaction ID and config, never by
-/// descriptions or timestamp proximity. Duplicate IDs are treated as
-/// ambiguous and must not trigger automatic snapshot creation.
+/// descriptions or timestamp proximity. Duplicate IDs or an unexpected
+/// single snapshot with that transaction tag are ambiguous and must not
+/// trigger automatic snapshot creation.
 pub fn correlate_pair(
     config: &ConfigName,
     transaction_id: &TransactionId,
@@ -385,7 +394,7 @@ pub fn correlate_pair(
         match record.kind {
             SnapshotKind::Pre => pre.push(record.id.clone()),
             SnapshotKind::Post => post.push(record.id.clone()),
-            SnapshotKind::Single => {}
+            SnapshotKind::Single => return PairCorrelation::Ambiguous,
         }
     }
     pre.sort();
@@ -394,6 +403,16 @@ pub fn correlate_pair(
         ([], []) => PairCorrelation::Missing,
         ([pre], []) => PairCorrelation::PreOnly { pre: pre.clone() },
         ([pre], [post]) if pre != post => {
+            let matching_pre = records.iter().any(|record| {
+                &record.config == config
+                    && record.transaction_id.as_ref() == Some(transaction_id)
+                    && record.kind == SnapshotKind::Post
+                    && record.id == *post
+                    && record.pre_snapshot.as_ref() == Some(pre)
+            });
+            if !matching_pre {
+                return PairCorrelation::Ambiguous;
+            }
             PairCorrelation::Existing { pre: pre.clone(), post: post.clone() }
         }
         _ => PairCorrelation::Ambiguous,
@@ -408,6 +427,21 @@ pub enum PartnerState {
     Verified,
 }
 
+/// Exact additional partner identity persisted with the transaction catalog.
+/// These fields must originate in fresh kernel observations; readback compares
+/// every field before treating the additional partner as verified.
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdditionalSnapshot {
+    pub config: String,
+    pub path: String,
+    pub snapshot: String,
+    pub filesystem_uuid: String,
+    pub subvolume_id: u64,
+    pub subvolume_uuid: String,
+    pub origin_uuid: String,
+}
+
 /// One catalog row. This is an in-memory domain value, not a durable catalog.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CatalogEntry {
@@ -415,6 +449,7 @@ pub struct CatalogEntry {
     pub root_config: ConfigName,
     pub root_snapshot: SnapshotId,
     pub generation_id: GenerationId,
+    pub additional_snapshots: Vec<AdditionalSnapshot>,
     pub capability: LayoutCapability,
     pub partner: PartnerState,
     pub manual_checkpoint: bool,
@@ -422,27 +457,91 @@ pub struct CatalogEntry {
 }
 
 impl CatalogEntry {
-    /// True only when system and generation partners are both present and
-    /// verified, and the layout supports full-system protection.
-    pub fn is_complete(&self, generation_present_and_verified: bool) -> bool {
-        self.capability == LayoutCapability::FullSystem
+    /// True only when fresh observations confirm both partners and the layout
+    /// supports full-system protection. The persisted partner enum is a last
+    /// recorded status; it does not replace the live Snapper observation.
+    pub fn is_complete(
+        &self,
+        generation_present_and_verified: bool,
+        snapper_partner_present_and_verified: bool,
+    ) -> bool {
+        self.additional_snapshots.is_empty()
+            && self.root_config.as_str() == "root"
+            && self.capability == LayoutCapability::FullSystem
             && self.partner == PartnerState::Verified
             && generation_present_and_verified
+            && snapper_partner_present_and_verified
+    }
+    /// Completeness for the exact complete set, including additional configs.
+    pub fn is_complete_set(&self, observation: &RetentionPartnerObservation) -> bool {
+        self.transaction_id == observation.transaction_id
+            && self.root_config.as_str() == "root"
+            && self.capability == LayoutCapability::FullSystem
+            && self.partner == PartnerState::Verified
+            && observation.generation_present_and_verified
+            && observation.snapper_partner_present_and_verified
+            && self.additional_verified(observation)
+    }
+
+    fn additional_verified(&self, observation: &RetentionPartnerObservation) -> bool {
+        let expected: std::collections::BTreeSet<_> = self
+            .additional_snapshots
+            .iter()
+            .map(|p| (p.config.as_str(), p.snapshot.as_str()))
+            .collect();
+        let actual: std::collections::BTreeSet<_> =
+            observation.verified_additional.iter().map(|(c, n)| (c.as_str(), n.as_str())).collect();
+        expected.len() == self.additional_snapshots.len()
+            && actual.len() == observation.verified_additional.len()
+            && expected == actual
     }
 }
 
 /// In-memory index used to validate uniqueness and mark retention intent.
-/// Persistence, authentication, fsync, rollback survival, and retention
-/// execution are intentionally left to a later implementation.
+/// `CatalogStore` supplies bounded durable persistence; callers remain
+/// responsible for authenticated access, rollback-independent placement, and
+/// safe retention execution.
 #[derive(Clone, Debug, Default)]
 pub struct CatalogIndex {
     entries: BTreeMap<TransactionId, CatalogEntry>,
 }
 
+/// Fresh partner evidence supplied to the retention planner. Both values must
+/// come from reopening the exact linked generation and live Snapper snapshot;
+/// the planner never treats the catalog's last recorded `Verified` state as
+/// current evidence.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RetentionPartnerObservation {
+    pub transaction_id: TransactionId,
+    pub generation_present_and_verified: bool,
+    pub snapper_partner_present_and_verified: bool,
+    pub verified_additional: Vec<(ConfigName, SnapshotId)>,
+}
+
+/// A non-mutating retention decision. `prune` contains only old, unpinned,
+/// full-system rows whose two partners were freshly verified. An authorized
+/// coordinator must still serialize and execute partner cleanup atomically
+/// with respect to catalog publication; this value grants no delete authority.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct RetentionPlan {
+    pub pinned: Vec<TransactionId>,
+    pub keep: Vec<TransactionId>,
+    pub prune: Vec<TransactionId>,
+    pub reconcile: Vec<TransactionId>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RetentionPlanError {
+    KeepAtLeastOneRequired,
+    DuplicateObservation,
+    UnknownTransaction,
+    MissingObservation,
+}
+
 impl CatalogIndex {
-    pub fn insert(&mut self, entry: CatalogEntry) -> Result<(), CatalogEntry> {
+    pub fn insert(&mut self, entry: CatalogEntry) -> Result<(), Box<CatalogEntry>> {
         if self.entries.contains_key(&entry.transaction_id) {
-            return Err(entry);
+            return Err(Box::new(entry));
         }
         self.entries.insert(entry.transaction_id.clone(), entry);
         Ok(())
@@ -461,31 +560,138 @@ impl CatalogIndex {
         self.entries.remove(id)
     }
 
-    pub fn mark_known_working(
-        &mut self,
-        id: &TransactionId,
-        generation_present_and_verified: bool,
-    ) -> bool {
-        let Some(entry) = self.entries.get_mut(id) else { return false };
-        if !entry.is_complete(generation_present_and_verified) {
+    pub fn mark_known_working(&mut self, observation: &RetentionPartnerObservation) -> bool {
+        let Some(entry) = self.entries.get_mut(&observation.transaction_id) else { return false };
+        if !entry.is_complete_set(observation) {
             return false;
         }
         entry.known_working = true;
         true
     }
 
-    pub fn mark_manual_checkpoint(
-        &mut self,
-        id: &TransactionId,
-        generation_present_and_verified: bool,
-    ) -> bool {
-        let Some(entry) = self.entries.get_mut(id) else { return false };
-        if !entry.is_complete(generation_present_and_verified) {
+    pub fn mark_manual_checkpoint(&mut self, observation: &RetentionPartnerObservation) -> bool {
+        let Some(entry) = self.entries.get_mut(&observation.transaction_id) else { return false };
+        // A manual checkpoint can still protect a verified configuration/root
+        // pair when boot coverage is unknown. Keep that retention intent
+        // separate from the stronger known-working/full-system designation,
+        // while still requiring the declared root Snapper partner.
+        if entry.root_config.as_str() != "root"
+            || entry.partner != PartnerState::Verified
+            || !observation.generation_present_and_verified
+            || !observation.snapper_partner_present_and_verified
+            || !entry.additional_verified(observation)
+        {
             return false;
         }
         entry.manual_checkpoint = true;
         true
     }
+
+    /// Plan a conservative retention set from fresh, exact partner
+    /// observations. Manual and known-working entries are always pinned.
+    /// Incomplete, unsupported, duplicated-snapshot, or unverified rows are
+    /// returned for reconciliation and can never be selected for pruning.
+    pub fn plan_retention(
+        &self,
+        keep_latest: usize,
+        observations: &[RetentionPartnerObservation],
+    ) -> Result<RetentionPlan, RetentionPlanError> {
+        if keep_latest == 0 {
+            return Err(RetentionPlanError::KeepAtLeastOneRequired);
+        }
+        let mut observed = BTreeMap::<TransactionId, &RetentionPartnerObservation>::new();
+        for observation in observations {
+            if !self.entries.contains_key(&observation.transaction_id) {
+                return Err(RetentionPlanError::UnknownTransaction);
+            }
+            if observed.insert(observation.transaction_id.clone(), observation).is_some() {
+                return Err(RetentionPlanError::DuplicateObservation);
+            }
+        }
+        if observed.len() != self.entries.len() {
+            return Err(RetentionPlanError::MissingObservation);
+        }
+
+        let mut snapshot_counts = BTreeMap::<String, usize>::new();
+        for entry in self.entries.values() {
+            for key in snapshot_keys(entry) {
+                *snapshot_counts.entry(key).or_default() += 1;
+            }
+        }
+
+        let mut plan = RetentionPlan::default();
+        let mut eligible = Vec::new();
+        for entry in self.entries.values() {
+            let observation = observed
+                .get(&entry.transaction_id)
+                .ok_or(RetentionPlanError::MissingObservation)?;
+            if entry.manual_checkpoint || entry.known_working {
+                plan.pinned.push(entry.transaction_id.clone());
+                let duplicate_snapshot =
+                    snapshot_keys(entry).iter().any(|key| snapshot_counts.get(key) != Some(&1));
+                let invalid_known_working =
+                    entry.known_working && !entry.is_complete_set(observation);
+                if duplicate_snapshot
+                    || entry.root_config.as_str() != "root"
+                    || invalid_known_working
+                    || entry.partner != PartnerState::Verified
+                    || !observation.generation_present_and_verified
+                    || !observation.snapper_partner_present_and_verified
+                    || !entry.additional_verified(observation)
+                {
+                    plan.reconcile.push(entry.transaction_id.clone());
+                }
+                continue;
+            }
+            if snapshot_keys(entry).iter().any(|key| snapshot_counts.get(key) != Some(&1))
+                || entry.root_config.as_str() != "root"
+                || !entry.is_complete_set(observation)
+            {
+                plan.reconcile.push(entry.transaction_id.clone());
+                continue;
+            }
+            eligible.push(entry);
+        }
+
+        eligible.sort_by(|left, right| {
+            compare_snapshot_numbers(&right.root_snapshot, &left.root_snapshot)
+                .then_with(|| left.transaction_id.cmp(&right.transaction_id))
+        });
+        for (index, entry) in eligible.into_iter().enumerate() {
+            if index < keep_latest {
+                plan.keep.push(entry.transaction_id.clone());
+            } else {
+                plan.prune.push(entry.transaction_id.clone());
+            }
+        }
+        Ok(plan)
+    }
+}
+
+fn compare_snapshot_numbers(left: &SnapshotId, right: &SnapshotId) -> std::cmp::Ordering {
+    let left = snapshot_number_key(left);
+    let right = snapshot_number_key(right);
+    left.len().cmp(&right.len()).then_with(|| left.cmp(&right))
+}
+
+fn snapshot_keys(entry: &CatalogEntry) -> Vec<String> {
+    let mut keys = vec![format!(
+        "{}:{}",
+        entry.root_config.as_str(),
+        snapshot_number_key(&entry.root_snapshot)
+    )];
+    keys.extend(
+        entry
+            .additional_snapshots
+            .iter()
+            .map(|extra| format!("{}:{}", extra.config, extra.snapshot.trim_start_matches('0'))),
+    );
+    keys
+}
+
+fn snapshot_number_key(snapshot: &SnapshotId) -> String {
+    let value = snapshot.as_str().trim_start_matches('0');
+    if value.is_empty() { "0".into() } else { value.into() }
 }
 
 #[cfg(test)]
@@ -543,6 +749,7 @@ mod tests {
             config: ConfigName::new(config).unwrap(),
             id: SnapshotId::new(id).unwrap(),
             kind,
+            pre_snapshot: (kind == SnapshotKind::Post).then(|| SnapshotId::new("10").unwrap()),
             transaction_id: Some(TransactionId::new(transaction).unwrap()),
         }
     }
@@ -590,6 +797,17 @@ mod tests {
                 pre: SnapshotId::new("10").unwrap(),
                 post: SnapshotId::new("11").unwrap(),
             }
+        );
+
+        let mut mismatched_link = record(SnapshotKind::Post, "11", "root", "zypp-1234");
+        mismatched_link.pre_snapshot = Some(SnapshotId::new("12").unwrap());
+        assert_eq!(
+            correlate_pair(
+                &config(),
+                &transaction(),
+                &[record(SnapshotKind::Pre, "10", "root", "zypp-1234"), mismatched_link],
+            ),
+            PairCorrelation::Ambiguous
         );
         assert_eq!(existing.disposition(), PairDisposition::ReuseExistingPair);
         assert_eq!(
@@ -743,6 +961,7 @@ mod tests {
             root_config: config(),
             root_snapshot: SnapshotId::new("10").unwrap(),
             generation_id: GenerationId::new("generation-1").unwrap(),
+            additional_snapshots: Vec::new(),
             capability,
             partner,
             manual_checkpoint: false,
@@ -753,19 +972,26 @@ mod tests {
     #[test]
     fn complete_requires_root_boot_capability_and_both_verified_partners() {
         let complete = catalog_entry(LayoutCapability::FullSystem, PartnerState::Verified);
-        assert!(complete.is_complete(true));
-        assert!(!complete.is_complete(false));
+        assert!(complete.is_complete(true, true));
+        assert!(!complete.is_complete(false, true));
+        assert!(!complete.is_complete(true, false));
         assert!(
-            !catalog_entry(LayoutCapability::FullSystem, PartnerState::Missing).is_complete(true)
+            !catalog_entry(LayoutCapability::FullSystem, PartnerState::Missing)
+                .is_complete(true, true)
         );
         assert!(
             !catalog_entry(LayoutCapability::ConfigurationOnly, PartnerState::Verified)
-                .is_complete(true)
+                .is_complete(true, true)
         );
         assert!(
             !catalog_entry(LayoutCapability::FullSystem, PartnerState::PresentUnverified)
-                .is_complete(true)
+                .is_complete(true, true)
         );
+        let non_root = CatalogEntry {
+            root_config: ConfigName::new("home").unwrap(),
+            ..catalog_entry(LayoutCapability::FullSystem, PartnerState::Verified)
+        };
+        assert!(!non_root.is_complete(true, true));
     }
 
     #[test]
@@ -781,12 +1007,250 @@ mod tests {
                 .insert(catalog_entry(LayoutCapability::FullSystem, PartnerState::Verified))
                 .is_err()
         );
-        assert!(!catalog.mark_known_working(&transaction(), false));
-        assert!(catalog.mark_known_working(&transaction(), true));
-        assert!(catalog.mark_manual_checkpoint(&transaction(), true));
+        let mut observation = RetentionPartnerObservation {
+            transaction_id: transaction(),
+            generation_present_and_verified: false,
+            snapper_partner_present_and_verified: true,
+            verified_additional: Vec::new(),
+        };
+        assert!(!catalog.mark_known_working(&observation));
+        observation.generation_present_and_verified = true;
+        observation.snapper_partner_present_and_verified = false;
+        assert!(!catalog.mark_known_working(&observation));
+        observation.snapper_partner_present_and_verified = true;
+        assert!(catalog.mark_known_working(&observation));
+        assert!(catalog.mark_manual_checkpoint(&observation));
+        let wrong_transaction = RetentionPartnerObservation {
+            transaction_id: TransactionId::new("other-transaction").unwrap(),
+            generation_present_and_verified: true,
+            snapper_partner_present_and_verified: true,
+            verified_additional: Vec::new(),
+        };
+        assert!(!catalog.mark_known_working(&wrong_transaction));
+        assert!(!catalog.mark_manual_checkpoint(&wrong_transaction));
         let entry = catalog.get(&transaction()).unwrap();
         assert!(entry.known_working && entry.manual_checkpoint);
         assert_eq!(catalog.remove(&transaction()).unwrap().transaction_id, transaction());
+    }
+
+    #[test]
+    fn manual_checkpoint_retention_intent_does_not_claim_full_system_coverage() {
+        let mut catalog = CatalogIndex::default();
+        let id = transaction();
+        assert!(
+            catalog
+                .insert(catalog_entry(LayoutCapability::Unsupported, PartnerState::Verified))
+                .is_ok()
+        );
+
+        let observation = RetentionPartnerObservation {
+            transaction_id: id.clone(),
+            generation_present_and_verified: true,
+            snapper_partner_present_and_verified: true,
+            verified_additional: Vec::new(),
+        };
+        assert!(catalog.mark_manual_checkpoint(&observation));
+        assert!(!catalog.mark_known_working(&observation));
+        let entry = catalog.get(&id).unwrap();
+        assert!(entry.manual_checkpoint);
+        assert!(!entry.known_working);
+        assert!(!entry.is_complete(true, true));
+    }
+
+    fn retention_entry(
+        transaction_id: &str,
+        snapshot: &str,
+        manual_checkpoint: bool,
+        known_working: bool,
+    ) -> CatalogEntry {
+        CatalogEntry {
+            transaction_id: TransactionId::new(transaction_id).unwrap(),
+            root_config: config(),
+            root_snapshot: SnapshotId::new(snapshot).unwrap(),
+            generation_id: GenerationId::new(format!("generation-{transaction_id}")).unwrap(),
+            additional_snapshots: Vec::new(),
+            capability: LayoutCapability::FullSystem,
+            partner: PartnerState::Verified,
+            manual_checkpoint,
+            known_working,
+        }
+    }
+
+    fn verified_partners(transaction_id: &str) -> RetentionPartnerObservation {
+        RetentionPartnerObservation {
+            transaction_id: TransactionId::new(transaction_id).unwrap(),
+            generation_present_and_verified: true,
+            snapper_partner_present_and_verified: true,
+            verified_additional: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn retention_plan_preserves_pins_and_only_prunes_old_verified_complete_rows() {
+        let mut catalog = CatalogIndex::default();
+        catalog.insert(retention_entry("txn-manual", "3", true, false)).unwrap();
+        catalog.insert(retention_entry("txn-known", "12", false, true)).unwrap();
+        catalog.insert(retention_entry("txn-new", "11", false, false)).unwrap();
+        catalog.insert(retention_entry("txn-old", "9", false, false)).unwrap();
+        catalog
+            .insert(CatalogEntry {
+                capability: LayoutCapability::ConfigurationOnly,
+                ..retention_entry("txn-unsupported", "8", false, false)
+            })
+            .unwrap();
+        catalog
+            .insert(CatalogEntry {
+                root_config: ConfigName::new("home").unwrap(),
+                ..retention_entry("txn-other-config", "7", false, false)
+            })
+            .unwrap();
+        let mut stale = verified_partners("txn-old");
+        stale.snapper_partner_present_and_verified = false;
+
+        let plan = catalog
+            .plan_retention(
+                1,
+                &[
+                    verified_partners("txn-manual"),
+                    verified_partners("txn-known"),
+                    verified_partners("txn-new"),
+                    stale,
+                    verified_partners("txn-unsupported"),
+                    verified_partners("txn-other-config"),
+                ],
+            )
+            .unwrap();
+
+        assert_eq!(
+            plan.pinned,
+            [TransactionId::new("txn-known").unwrap(), TransactionId::new("txn-manual").unwrap()]
+        );
+        assert_eq!(plan.keep, [TransactionId::new("txn-new").unwrap()]);
+        assert!(plan.prune.is_empty());
+        assert_eq!(
+            plan.reconcile,
+            [
+                TransactionId::new("txn-old").unwrap(),
+                TransactionId::new("txn-other-config").unwrap(),
+                TransactionId::new("txn-unsupported").unwrap()
+            ]
+        );
+    }
+
+    #[test]
+    fn missing_partner_keeps_a_pinned_checkpoint_and_requests_reconciliation() {
+        let mut catalog = CatalogIndex::default();
+        catalog.insert(retention_entry("txn-manual", "3", true, false)).unwrap();
+        catalog.insert(retention_entry("txn-known", "12", false, true)).unwrap();
+
+        let mut missing_generation = verified_partners("txn-manual");
+        missing_generation.generation_present_and_verified = false;
+        let mut missing_snapper = verified_partners("txn-known");
+        missing_snapper.snapper_partner_present_and_verified = false;
+
+        let plan = catalog.plan_retention(1, &[missing_generation, missing_snapper]).unwrap();
+
+        assert_eq!(
+            plan.pinned,
+            [TransactionId::new("txn-known").unwrap(), TransactionId::new("txn-manual").unwrap()]
+        );
+        assert_eq!(
+            plan.reconcile,
+            [TransactionId::new("txn-known").unwrap(), TransactionId::new("txn-manual").unwrap()]
+        );
+        assert!(plan.prune.is_empty());
+    }
+
+    #[test]
+    fn pinned_duplicate_and_invalid_known_working_rows_require_reconciliation() {
+        let mut catalog = CatalogIndex::default();
+        catalog.insert(retention_entry("txn-manual", "1", true, false)).unwrap();
+        catalog.insert(retention_entry("txn-duplicate", "01", false, false)).unwrap();
+        catalog
+            .insert(CatalogEntry {
+                capability: LayoutCapability::ConfigurationOnly,
+                ..retention_entry("txn-invalid-known", "2", false, true)
+            })
+            .unwrap();
+
+        let plan = catalog
+            .plan_retention(
+                1,
+                &[
+                    verified_partners("txn-manual"),
+                    verified_partners("txn-duplicate"),
+                    verified_partners("txn-invalid-known"),
+                ],
+            )
+            .unwrap();
+
+        assert_eq!(
+            plan.pinned,
+            [
+                TransactionId::new("txn-invalid-known").unwrap(),
+                TransactionId::new("txn-manual").unwrap()
+            ]
+        );
+        assert_eq!(
+            plan.reconcile,
+            [
+                TransactionId::new("txn-duplicate").unwrap(),
+                TransactionId::new("txn-invalid-known").unwrap(),
+                TransactionId::new("txn-manual").unwrap()
+            ]
+        );
+        assert!(plan.prune.is_empty());
+    }
+
+    #[test]
+    fn retention_plan_prunes_only_verified_old_unpinned_rows() {
+        let mut catalog = CatalogIndex::default();
+        catalog.insert(retention_entry("txn-9", "9", false, false)).unwrap();
+        catalog.insert(retention_entry("txn-10", "10", false, false)).unwrap();
+        catalog.insert(retention_entry("txn-100", "100", false, false)).unwrap();
+        let plan = catalog
+            .plan_retention(
+                1,
+                &[
+                    verified_partners("txn-9"),
+                    verified_partners("txn-10"),
+                    verified_partners("txn-100"),
+                ],
+            )
+            .unwrap();
+        assert_eq!(plan.keep, [TransactionId::new("txn-100").unwrap()]);
+        assert_eq!(
+            plan.prune,
+            [TransactionId::new("txn-10").unwrap(), TransactionId::new("txn-9").unwrap()]
+        );
+    }
+
+    #[test]
+    fn retention_plan_rejects_incomplete_or_ambiguous_observation_sets() {
+        let mut catalog = CatalogIndex::default();
+        catalog.insert(retention_entry("txn-1", "01", false, false)).unwrap();
+        catalog.insert(retention_entry("txn-2", "1", false, false)).unwrap();
+        assert_eq!(
+            catalog.plan_retention(1, &[verified_partners("txn-1")]),
+            Err(RetentionPlanError::MissingObservation)
+        );
+        assert_eq!(
+            catalog.plan_retention(
+                1,
+                &[
+                    verified_partners("txn-1"),
+                    verified_partners("txn-1"),
+                    verified_partners("txn-2"),
+                ]
+            ),
+            Err(RetentionPlanError::DuplicateObservation)
+        );
+        let plan = catalog
+            .plan_retention(1, &[verified_partners("txn-1"), verified_partners("txn-2")])
+            .unwrap();
+        assert!(plan.prune.is_empty());
+        assert_eq!(plan.reconcile.len(), 2);
+        assert_eq!(catalog.plan_retention(0, &[]), Err(RetentionPlanError::KeepAtLeastOneRequired));
     }
 
     #[test]

@@ -1,6 +1,6 @@
 //! Component experiment restricted to the seeded disposable QEMU fixture.
-//! The harness must initialize state storage first. This does not restore root
-//! or configuration; it records/reopens a linked generation and Planned journal.
+//! The harness initializes state storage first. Explicit rollback mode changes
+//! only the owned disposable root; no complete linked restoration is claimed.
 //! Fixed probe snapshots and records are retained until the disk is discarded.
 
 use ryoku_recovery::{
@@ -15,7 +15,8 @@ use ryoku_recovery::{
     state_mount::collect_and_open_state_mount,
 };
 use ryoku_snapper::{
-    ConfigName, SnapperCheckpointBackend, SnapperCliError, SnapshotPairRequest, TransactionId,
+    ConfigName, RootRollbackRequest, SnapperCheckpointBackend, SnapperCliError,
+    SnapperRollbackBackend, SnapshotId, SnapshotPairRequest, TransactionId,
 };
 use std::{
     fs::{self, File},
@@ -23,6 +24,9 @@ use std::{
     os::unix::fs::{DirBuilderExt, OpenOptionsExt},
     process::Command,
 };
+
+#[path = "support/issue19_coordination.rs"]
+mod coordination;
 
 type ProbeResult<T> = Result<T, Box<dyn std::error::Error>>;
 const TRANSACTION: &str = "issue19-linked-probe";
@@ -46,6 +50,9 @@ fn main() -> ProbeResult<()> {
                 | "--exercise-failures"
                 | "--observe-layout"
                 | "--cleanup-journal"
+                | "--prepare-root-rollback"
+                | "--coordination-capture"
+                | "--coordination-after-boot"
         )
         || rustix::process::geteuid().as_raw() != 0
         || rustix::process::getegid().as_raw() != 0
@@ -62,10 +69,34 @@ fn main() -> ProbeResult<()> {
         "--exercise-failures" => exercise_failures(&root)?,
         "--observe-layout" => observe_layout()?,
         "--cleanup-journal" => cleanup_journal(&root)?,
+        "--prepare-root-rollback" => prepare_root_rollback(&root)?,
+        "--coordination-capture" => coordination::capture(&root)?,
+        "--coordination-after-boot" => coordination::after_boot(&root)?,
         _ => unreachable!(),
     }
     println!("native_linked_boot_compatibility=unproven");
     println!("native_linked_restore_execution=unproven");
+    Ok(())
+}
+
+fn prepare_root_rollback(root: &File) -> ProbeResult<()> {
+    verify(root, false)?;
+    let reader = GenerationReader::open_state_mount()?;
+    let manifest = reader.verify_transaction(&id(TRANSACTION)?)?;
+    let receipt = SnapperRollbackBackend.rollback_to(&RootRollbackRequest {
+        config: ConfigName::new("root").map_err(|_| "invalid fixed config")?,
+        source_snapshot: SnapshotId::new(&manifest.snapper_snapshot_id)
+            .map_err(|_| "invalid source")?,
+        transaction_id: TransactionId::new("issue19-root-rollback")
+            .map_err(|_| "invalid rollback tag")?,
+    })?;
+    SnapperRollbackBackend.verify_reboot_handoff(
+        &receipt.config,
+        &receipt.rollback_target_snapshot,
+        &receipt.backup_snapshot,
+        &receipt.transaction_id,
+    )?;
+    println!("native_linked_root_rollback_target={}", receipt.rollback_target_snapshot.as_str());
     Ok(())
 }
 

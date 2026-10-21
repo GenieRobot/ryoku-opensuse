@@ -1,0 +1,72 @@
+schema = 1
+date = "2026-10-21"
+issue = 19
+pull_request = 151
+base_commit = "9bd1c06fcfbcdd63997dac5b80ca6135a2beccc4"
+scope = "actual changed-root linked catalog, generation, snapshot and synthetic Planned journal persistence"
+runtime_patch_sha256 = "7a3b7d04f5d26e93856d2159f52a8cc2c818abd8eca427704315f4d901de9c4a"
+fixture_toml_sha256 = "3aba4bf569150ba511a8dfd74a73a16b44ff345eea88473f5cf3c2a729661f20"
+
+[commands]
+build = "cargo build --locked --offline -p ryoku-automation --features issue19-lab --bin vm-lab -p ryoku-recovery --bin ryoku-state-init --bin ryoku-recovery --example native_linked_checkpoint_probe"
+run = "RYOKU_LAB_AUTHORIZED=existing-wsl-vm vm-lab run EXISTING_SIGNED_ASSETS FRESH_ISSUE19_RUN --console-only --state-initializer ryoku-state-init --linked-checkpoint-probe native_linked_checkpoint_probe --recovery-cli ryoku-recovery"
+tests = "cargo test --locked --offline --workspace --all-features"
+clippy = "cargo clippy --locked --offline --workspace --all-targets --all-features -- -D warnings"
+audit = "cargo deny --offline --all-features check"
+format = "cargo fmt --all --check; git diff --check"
+tests_passed = 467
+tests_ignored = 5
+tests_failed = 0
+checks = "all passed"
+
+[native]
+run = "issue19-run07"
+exit_code = 0
+root_before = "@/.snapshots/4/snapshot; subvolume 264"
+root_after = "@/.snapshots/8/snapshot; subvolume 268; exact returned target"
+original_snapshot = "root:5"
+snapshot_namespace = "@/.snapshots; subvolume 259 unchanged"
+protected_state = "@ryoku-state; subvolume 261 unchanged; nosuid,nodev,noexec"
+readback = "original sealed snapshot receipt, catalog, manifest and payload verified; exact Planned journal equal after changed-root reboot"
+negative_cases = "duplicate checkpoint, writable snapshot, missing snapshot, substituted snapshot and missing generation refused"
+cli = "pending and verify-linked passed before/after; exact owning journal removed then pending empty"
+initializer = "fresh, resume, repeat and healthy reopen after changed-root rollback passed"
+lifecycle = "offline controlled restore; sentinel matched before discard; absent on fresh signed XFS reset; base hash unchanged; disk and SSH keys removed"
+limits = "console lifecycle partial; no full linked restore or general boot compatibility; other issue19 criteria remain open"
+
+[artifacts]
+"binary-copy-private.log" = "d8760763be63067f00789fcf42648cb7e89259b37690e733415676ec0b8b6596"
+"evidence.txt" = "211fd4d29a7304ae5f03a580f48e3cd3e93e44f4e57c98332606a3a05a80ac58"
+"guest-private.log" = "d8760763be63067f00789fcf42648cb7e89259b37690e733415676ec0b8b6596"
+"initializer-after-reboot-private.log" = "f9e6d4f5b3cc8c28cce898818b5c68893a5fc9d6a9c65f6f105372aea8e47911"
+"initializer-copy-private.log" = "d8760763be63067f00789fcf42648cb7e89259b37690e733415676ec0b8b6596"
+"initializer-first-private.log" = "086e730406edbdec58dfb48b645a4a34a775b3456acae1586ee527f53809e4e9"
+"initializer-repeat-private.log" = "f9e6d4f5b3cc8c28cce898818b5c68893a5fc9d6a9c65f6f105372aea8e47911"
+"initializer-resume-private.log" = "75fa7c16e0d562484abd3a02f2f650d0e6ec6d9386b31aa71b3391f5e4d8f36c"
+"linked-after-pending-private.log" = "0e09f1694f4d52092e763f95384d54fd56d40a1aee53149f396b78503adf03f0"
+"linked-after-reboot-private.log" = "c71299ea2922680fe2fb8ac48710d8f8256586a772ae5d5406caad9b96443720"
+"linked-after-verify-cli-private.log" = "cbc59a8eaf93044c1039a0fc8063af35fdf7e76979fb7db581fb1096a1faffc6"
+"linked-before-pending-private.log" = "0e09f1694f4d52092e763f95384d54fd56d40a1aee53149f396b78503adf03f0"
+"linked-before-verify-cli-private.log" = "cbc59a8eaf93044c1039a0fc8063af35fdf7e76979fb7db581fb1096a1faffc6"
+"linked-capture-private.log" = "1528427be20f3d5f58f1a986fb5f58545cc2d7a8d00a2cad32b9df0183ff1ae5"
+"linked-cleanup-private.log" = "ca3f2a4c4acf9d3e5cb6858b1558a43454bfc36da1031a2aff9458767569c464"
+"linked-empty-pending-private.log" = "234dc8f5be896e0c07886e97b330b39d711ae7b1406db479cc4c605d958e81f1"
+"linked-failures-private.log" = "a5f737826f5603352a87cf3a58003884174bc5f8f9bd23ae3e16f20ae2cb27c3"
+"linked-layout-after-private.log" = "ddd582078ef523c795bee52be87eb430434fede0020b5b0be19fb5a42f1d872a"
+"linked-layout-before-private.log" = "57a050ab3e20e2de85de60b6983bb656ee1c2f2d8dbc0db9b23bbbc6a5baff56"
+"linked-rollback-private.log" = "5872c3924c9e66eb7904d45618ef7d4c4800b22c8fcb03958dc12531d99aae89"
+"linked-verify-private.log" = "4f159444c15a65840b4824354ea59e0f20027824e607af3e95512167fcbbf47c"
+"qemu-private.log" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+"ryoku-linked-probe-copy-private.log" = "d8760763be63067f00789fcf42648cb7e89259b37690e733415676ec0b8b6596"
+"ryoku-recovery-copy-private.log" = "d8760763be63067f00789fcf42648cb7e89259b37690e733415676ec0b8b6596"
+"serial-private.log" = "561716f159441cdfeb7ef020e802d36c01c47991afa85e18f333b4b078b96ae7"
+"issue19-completion-tests.log" = "33aa9033f8d4445b77b8df59dc29e9664a18d917a79594aceaefbdca6ce145a5"
+"issue19-completion-clippy.log" = "ea81096ea8bd1a67612080c3fc3f67826a760f535d3eff527eca9fbbe3a90392"
+"issue19-completion-deny.log" = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+
+[lifecycle]
+failed_runs = "run01 through run06 remain failed; private logs and sanitized evidence preserved"
+cleanup = "all issue19-owned stopped disposable disks, firmware variables, cloud-init seed and temporary SSH credentials removed after run07 verification; no other issue guest touched"
+signed_seed_sha256 = "ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231"
+signer = "AD485664E901B867051AB15F35A2F86E29B700A4"
+update_metadata = "native run03 refused drift; separate issue19 fixture pins independently signature-verified Update repomd 16dd9f46f5e068b69d09e0a1f14ce9d596bec7a330e848dcf5daea9cc936d3fc"

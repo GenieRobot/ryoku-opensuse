@@ -11,8 +11,8 @@ use std::{
 
 use rustix::{
     fs::{
-        FlockOperation, Mode, OFlags, RenameFlags, ResolveFlags, fchmod, flock, fsync, openat,
-        openat2, renameat_with,
+        AtFlags, FlockOperation, Mode, OFlags, RenameFlags, ResolveFlags, fchmod, flock, fsync,
+        openat, openat2, renameat_with, statat,
     },
     io::Errno,
 };
@@ -20,8 +20,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    CatalogEntry, CatalogIndex, ConfigName, GenerationId, LayoutCapability, PartnerState,
-    SnapshotId, TransactionId, ValueError,
+    AdditionalSnapshot, CatalogEntry, CatalogIndex, ConfigName, GenerationId, LayoutCapability,
+    PartnerState, SnapshotId, TransactionId, ValueError,
 };
 
 const STORE_NAME: &str = "catalog.json";
@@ -73,9 +73,17 @@ pub struct CatalogStore {
     expected_uid: u32,
 }
 
-impl CatalogStore {
-    /// Duplicates an already-open protected directory descriptor. The
-    /// directory must be owned by `expected_uid` and have exact mode 0700.
+/// Read-only view of a validated Snapper catalog. Atomic rename lets readers
+/// observe either the complete old file or the complete new file without
+/// opening the writer lock for mutation.
+pub struct CatalogReader {
+    root: File,
+    expected_uid: u32,
+}
+
+impl CatalogReader {
+    /// Duplicates an already-open private directory descriptor. This method
+    /// never creates a lock file or changes the directory.
     pub fn open(trusted_root: &File, expected_uid: u32) -> Result<Self, CatalogStoreError> {
         let stat = rustix::fs::fstat(trusted_root)?;
         if rustix::fs::FileType::from_raw_mode(stat.st_mode) != rustix::fs::FileType::Directory
@@ -85,20 +93,52 @@ impl CatalogStore {
             return Err(CatalogStoreError::InvalidStore);
         }
         let root = File::from(rustix::io::dup(trusted_root)?);
-        let lock_file = File::from(openat(
-            &root,
-            LOCK_NAME,
-            OFlags::RDWR | OFlags::CREATE | OFlags::CLOEXEC | OFlags::NOFOLLOW,
-            Mode::from_raw_mode(0o600),
-        )?);
-        let lock_stat = rustix::fs::fstat(&lock_file)?;
-        if rustix::fs::FileType::from_raw_mode(lock_stat.st_mode)
-            != rustix::fs::FileType::RegularFile
-            || lock_stat.st_uid != expected_uid
-            || lock_stat.st_mode & 0o7777 != 0o600
+        Ok(Self { root, expected_uid })
+    }
+
+    /// Reads, bounds, hashes, parses, versions, and validates the catalog.
+    pub fn load(&self) -> Result<CatalogIndex, CatalogStoreError> {
+        read_catalog(&self.root, self.expected_uid)
+    }
+}
+
+impl CatalogStore {
+    /// Duplicates an already-open protected directory descriptor. The
+    /// directory must be owned by `expected_uid` and have exact mode 0700.
+    pub fn open(trusted_root: &File, expected_uid: u32) -> Result<Self, CatalogStoreError> {
+        Self::open_with_lock(trusted_root, expected_uid, true)
+    }
+
+    /// Opens an existing catalog writer without creating or repairing its
+    /// lock inode. Use this on normal recovery and transaction paths; reserve
+    /// [`Self::open`] for explicit state provisioning.
+    pub fn open_existing(
+        trusted_root: &File,
+        expected_uid: u32,
+    ) -> Result<Self, CatalogStoreError> {
+        Self::open_with_lock(trusted_root, expected_uid, false)
+    }
+
+    fn open_with_lock(
+        trusted_root: &File,
+        expected_uid: u32,
+        create_lock: bool,
+    ) -> Result<Self, CatalogStoreError> {
+        let stat = rustix::fs::fstat(trusted_root)?;
+        if rustix::fs::FileType::from_raw_mode(stat.st_mode) != rustix::fs::FileType::Directory
+            || stat.st_uid != expected_uid
+            || stat.st_mode & 0o7777 != 0o700
         {
             return Err(CatalogStoreError::InvalidStore);
         }
+        let root = File::from(rustix::io::dup(trusted_root)?);
+        let flags = OFlags::RDWR | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK;
+        let lock_file = File::from(if create_lock {
+            openat(&root, LOCK_NAME, flags | OFlags::CREATE, Mode::from_raw_mode(0o600))?
+        } else {
+            openat(&root, LOCK_NAME, flags, Mode::empty())?
+        });
+        validate_lock_path(&root, &lock_file, expected_uid)?;
         Ok(Self { root, lock_file, process_lock: Mutex::new(()), expected_uid })
     }
 
@@ -116,13 +156,32 @@ impl CatalogStore {
         })
     }
 
+    /// Serialize read-modify-publish with other catalog writers. The callback
+    /// may retain owned native partners before publication; failure never
+    /// publishes a partial catalog or releases their retention protection.
+    pub fn update(
+        &self,
+        update: impl FnOnce(&mut CatalogIndex) -> Result<(), CatalogStoreError>,
+    ) -> Result<(), CatalogStoreError> {
+        self.with_lock(|| {
+            let mut catalog = read_catalog(&self.root, self.expected_uid)?;
+            update(&mut catalog)?;
+            self.write_atomic(&encode_catalog(&catalog)?)
+        })
+    }
+
     fn with_lock<T>(
         &self,
         operation: impl FnOnce() -> Result<T, CatalogStoreError>,
     ) -> Result<T, CatalogStoreError> {
         let _process_guard =
             self.process_lock.lock().map_err(|_| CatalogStoreError::InvalidStore)?;
+        validate_lock_path(&self.root, &self.lock_file, self.expected_uid)?;
         flock(&self.lock_file, FlockOperation::LockExclusive)?;
+        if let Err(error) = validate_lock_path(&self.root, &self.lock_file, self.expected_uid) {
+            let _ = flock(&self.lock_file, FlockOperation::Unlock);
+            return Err(error);
+        }
         let result = operation();
         let unlock =
             flock(&self.lock_file, FlockOperation::Unlock).map_err(CatalogStoreError::from);
@@ -157,6 +216,36 @@ impl CatalogStore {
     }
 }
 
+/// Require the fixed lock name to keep referring to the inode we opened.
+/// Checking again after `flock` catches a replacement while acquisition waited
+/// and prevents cooperating writers from serializing on different inodes.
+fn validate_lock_path(
+    root: &File,
+    lock_file: &File,
+    expected_uid: u32,
+) -> Result<(), CatalogStoreError> {
+    let root_stat = rustix::fs::fstat(root)?;
+    if rustix::fs::FileType::from_raw_mode(root_stat.st_mode) != rustix::fs::FileType::Directory
+        || root_stat.st_uid != expected_uid
+        || root_stat.st_mode & 0o7777 != 0o700
+    {
+        return Err(CatalogStoreError::InvalidStore);
+    }
+    let lock_stat = rustix::fs::fstat(lock_file)?;
+    let path_stat = statat(root, LOCK_NAME, AtFlags::SYMLINK_NOFOLLOW)?;
+    if rustix::fs::FileType::from_raw_mode(lock_stat.st_mode) != rustix::fs::FileType::RegularFile
+        || lock_stat.st_uid != expected_uid
+        || lock_stat.st_gid != root_stat.st_gid
+        || lock_stat.st_mode & 0o7777 != 0o600
+        || lock_stat.st_nlink != 1
+        || path_stat.st_dev != lock_stat.st_dev
+        || path_stat.st_ino != lock_stat.st_ino
+    {
+        return Err(CatalogStoreError::InvalidStore);
+    }
+    Ok(())
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CatalogEnvelope {
@@ -178,6 +267,8 @@ struct StoredEntry {
     root_config: String,
     root_snapshot: String,
     generation_id: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    additional_snapshots: Vec<AdditionalSnapshot>,
     capability: StoredCapability,
     partner: StoredPartner,
     manual_checkpoint: bool,
@@ -209,7 +300,7 @@ fn encode_catalog(catalog: &CatalogIndex) -> Result<Vec<u8>, CatalogStoreError> 
         validate_entry(entry)?;
         entries.push(store_entry(entry));
     }
-    let payload = CatalogPayload { schema_version: 1, entries };
+    let payload = CatalogPayload { schema_version: 2, entries };
     let payload_bytes =
         serde_json::to_vec(&payload).map_err(|_| CatalogStoreError::InvalidCatalog)?;
     let envelope = CatalogEnvelope { payload, sha256: hex_digest(&payload_bytes) };
@@ -221,6 +312,13 @@ fn encode_catalog(catalog: &CatalogIndex) -> Result<Vec<u8>, CatalogStoreError> 
 }
 
 fn read_catalog(root: &File, expected_uid: u32) -> Result<CatalogIndex, CatalogStoreError> {
+    let root_stat = rustix::fs::fstat(root)?;
+    if rustix::fs::FileType::from_raw_mode(root_stat.st_mode) != rustix::fs::FileType::Directory
+        || root_stat.st_uid != expected_uid
+        || root_stat.st_mode & 0o7777 != 0o700
+    {
+        return Err(CatalogStoreError::InvalidStore);
+    }
     let fd = openat2(
         root,
         STORE_NAME,
@@ -235,7 +333,9 @@ fn read_catalog(root: &File, expected_uid: u32) -> Result<CatalogIndex, CatalogS
     let stat = rustix::fs::fstat(&file)?;
     if rustix::fs::FileType::from_raw_mode(stat.st_mode) != rustix::fs::FileType::RegularFile
         || stat.st_uid != expected_uid
+        || stat.st_gid != root_stat.st_gid
         || stat.st_mode & 0o7777 != 0o600
+        || stat.st_nlink != 1
         || stat.st_size < 0
     {
         return Err(CatalogStoreError::InvalidCatalog);
@@ -250,7 +350,10 @@ fn read_catalog(root: &File, expected_uid: u32) -> Result<CatalogIndex, CatalogS
     }
     let envelope: CatalogEnvelope =
         serde_json::from_slice(&bytes).map_err(|_| CatalogStoreError::InvalidCatalog)?;
-    if envelope.payload.schema_version != 1 {
+    if ![1, 2].contains(&envelope.payload.schema_version)
+        || (envelope.payload.schema_version == 1
+            && envelope.payload.entries.iter().any(|e| !e.additional_snapshots.is_empty()))
+    {
         return Err(CatalogStoreError::InvalidCatalog);
     }
     let payload_bytes =
@@ -278,6 +381,7 @@ fn store_entry(entry: &CatalogEntry) -> StoredEntry {
         root_config: entry.root_config.as_str().to_owned(),
         root_snapshot: entry.root_snapshot.as_str().to_owned(),
         generation_id: entry.generation_id.as_str().to_owned(),
+        additional_snapshots: entry.additional_snapshots.clone(),
         capability: match entry.capability {
             LayoutCapability::FullSystem => StoredCapability::FullSystem,
             LayoutCapability::ConfigurationOnly => StoredCapability::ConfigurationOnly,
@@ -303,6 +407,7 @@ fn load_entry(stored: StoredEntry) -> Result<CatalogEntry, CatalogStoreError> {
             .map_err(CatalogStoreError::InvalidValue)?,
         generation_id: GenerationId::new(stored.generation_id)
             .map_err(CatalogStoreError::InvalidValue)?,
+        additional_snapshots: stored.additional_snapshots,
         capability: match stored.capability {
             StoredCapability::FullSystem => LayoutCapability::FullSystem,
             StoredCapability::ConfigurationOnly => LayoutCapability::ConfigurationOnly,
@@ -327,6 +432,47 @@ fn validate_entry(entry: &CatalogEntry) -> Result<(), CatalogStoreError> {
         .map_err(CatalogStoreError::InvalidValue)?;
     GenerationId::new(entry.generation_id.as_str().to_owned())
         .map_err(CatalogStoreError::InvalidValue)?;
+    let mut configs = std::collections::BTreeSet::new();
+    let mut paths = std::collections::BTreeSet::new();
+    if entry.additional_snapshots.len() > 32 {
+        return Err(CatalogStoreError::InvalidCatalog);
+    }
+    for extra in &entry.additional_snapshots {
+        ConfigName::new(&extra.config).map_err(CatalogStoreError::InvalidValue)?;
+        SnapshotId::new(&extra.snapshot).map_err(CatalogStoreError::InvalidValue)?;
+        let valid_uuid = |s: &str| {
+            s.len() == 36
+                && s.bytes().enumerate().all(|(i, b)| {
+                    if [8, 13, 18, 23].contains(&i) {
+                        b == b'-'
+                    } else {
+                        b.is_ascii_hexdigit() && !b.is_ascii_uppercase()
+                    }
+                })
+                && s != "00000000-0000-0000-0000-000000000000"
+        };
+        if extra.config == entry.root_config.as_str()
+            || !configs.insert(&extra.config)
+            || !paths.insert(&extra.path)
+            || extra.path.len() > 4096
+            || !extra.path.starts_with('/')
+            || extra.path[1..].split('/').any(|p| p.is_empty() || p == "." || p == "..")
+            || extra.path.bytes().any(|b| b.is_ascii_control())
+            || extra
+                .snapshot
+                .parse::<u64>()
+                .ok()
+                .filter(|n| *n > 0 && n.to_string() == extra.snapshot)
+                .is_none()
+            || extra.subvolume_id < 256
+            || !valid_uuid(&extra.filesystem_uuid)
+            || !valid_uuid(&extra.subvolume_uuid)
+            || !valid_uuid(&extra.origin_uuid)
+            || extra.subvolume_uuid == extra.origin_uuid
+        {
+            return Err(CatalogStoreError::InvalidCatalog);
+        }
+    }
     Ok(())
 }
 
@@ -396,6 +542,7 @@ mod tests {
             root_config: ConfigName::new("root").unwrap(),
             root_snapshot: SnapshotId::new(snapshot).unwrap(),
             generation_id: GenerationId::new("generation-1").unwrap(),
+            additional_snapshots: Vec::new(),
             capability: LayoutCapability::FullSystem,
             partner: PartnerState::Verified,
             manual_checkpoint: false,
@@ -412,6 +559,39 @@ mod tests {
 
     fn store(dir: &File, owner: u32) -> CatalogStore {
         CatalogStore::open(dir, owner).unwrap()
+    }
+
+    #[test]
+    fn read_only_catalog_reader_does_not_create_a_writer_lock() {
+        let (path, dir, owner) = root();
+        let reader = CatalogReader::open(&dir, owner).unwrap();
+        assert!(matches!(reader.load(), Err(CatalogStoreError::Filesystem(Errno::NOENT))));
+        assert!(
+            rustix::fs::statat(&dir, LOCK_NAME, rustix::fs::AtFlags::SYMLINK_NOFOLLOW).is_err()
+        );
+        drop(reader);
+        drop(dir);
+        fs::remove_dir(path).unwrap();
+    }
+
+    #[test]
+    fn existing_catalog_writer_refuses_to_create_a_missing_lock() {
+        let (path, dir, owner) = root();
+        assert!(matches!(
+            CatalogStore::open_existing(&dir, owner),
+            Err(CatalogStoreError::Filesystem(Errno::NOENT))
+        ));
+        assert!(
+            rustix::fs::statat(&dir, LOCK_NAME, rustix::fs::AtFlags::SYMLINK_NOFOLLOW).is_err()
+        );
+        let created = CatalogStore::open(&dir, owner).unwrap();
+        created.replace(&CatalogIndex::default()).unwrap();
+        drop(created);
+        let existing = CatalogStore::open_existing(&dir, owner).unwrap();
+        assert!(existing.load().unwrap().entries().next().is_none());
+        drop(existing);
+        drop(dir);
+        fs::remove_dir_all(path).unwrap();
     }
 
     #[test]
@@ -507,7 +687,7 @@ mod tests {
     fn unsupported_schema_and_oversized_catalog_are_rejected() {
         let (path, dir, owner) = root();
         let store = store(&dir, owner);
-        let payload = CatalogPayload { schema_version: 2, entries: Vec::new() };
+        let payload = CatalogPayload { schema_version: 999, entries: Vec::new() };
         let payload_bytes = serde_json::to_vec(&payload).unwrap();
         let envelope = CatalogEnvelope { payload, sha256: hex_digest(&payload_bytes) };
         fs::write(path.join(STORE_NAME), serde_json::to_vec(&envelope).unwrap()).unwrap();
@@ -536,6 +716,7 @@ mod tests {
                 root_config: "root".into(),
                 root_snapshot: "1".into(),
                 generation_id: "generation-1".into(),
+                additional_snapshots: Vec::new(),
                 capability: StoredCapability::FullSystem,
                 partner: StoredPartner::Verified,
                 manual_checkpoint: false,
@@ -562,5 +743,113 @@ mod tests {
         let envelope: CatalogEnvelope = serde_json::from_slice(&stored).unwrap();
         assert_eq!(envelope.payload.entries[0].transaction_id, "txn-a");
         assert_eq!(envelope.payload.entries[1].transaction_id, "txn-z");
+    }
+}
+
+#[cfg(test)]
+mod additional_tests {
+    use super::*;
+    fn extra() -> AdditionalSnapshot {
+        AdditionalSnapshot {
+            config: "extra".into(),
+            path: "/srv/extra".into(),
+            snapshot: "9".into(),
+            filesystem_uuid: "11111111-1111-1111-1111-111111111111".into(),
+            subvolume_id: 300,
+            subvolume_uuid: "22222222-2222-2222-2222-222222222222".into(),
+            origin_uuid: "33333333-3333-3333-3333-333333333333".into(),
+        }
+    }
+    fn entry() -> CatalogEntry {
+        CatalogEntry {
+            transaction_id: TransactionId::new("txn-extra").unwrap(),
+            root_config: ConfigName::new("root").unwrap(),
+            root_snapshot: SnapshotId::new("7").unwrap(),
+            generation_id: GenerationId::new("generation-extra").unwrap(),
+            additional_snapshots: vec![extra()],
+            capability: LayoutCapability::FullSystem,
+            partner: PartnerState::Verified,
+            manual_checkpoint: false,
+            known_working: false,
+        }
+    }
+    #[test]
+    fn additional_receipts_roundtrip_and_reject_duplicate_config_paths_or_invalid_identity() {
+        let row = entry();
+        validate_entry(&row).unwrap();
+        assert_eq!(load_entry(store_entry(&row)).unwrap(), row);
+        for mutation in 0..8 {
+            let mut bad = row.clone();
+            match mutation {
+                0 => bad.additional_snapshots.push(extra()),
+                1 => bad.additional_snapshots[0].config = "root".into(),
+                2 => bad.additional_snapshots[0].path = "/srv/../etc".into(),
+                3 => bad.additional_snapshots[0].subvolume_id = 5,
+                4 => {
+                    bad.additional_snapshots[0].filesystem_uuid =
+                        "00000000-0000-0000-0000-000000000000".into()
+                }
+                5 => {
+                    bad.additional_snapshots[0].origin_uuid =
+                        bad.additional_snapshots[0].subvolume_uuid.clone()
+                }
+                6 => bad.additional_snapshots[0].snapshot = "09".into(),
+                _ => bad.additional_snapshots[0].path = "/".into(),
+            }
+            assert!(validate_entry(&bad).is_err());
+        }
+    }
+    #[test]
+    fn exact_additional_set_required_for_completeness_pinning_and_pruning() {
+        let row = entry();
+        let mut observation = crate::RetentionPartnerObservation {
+            transaction_id: row.transaction_id.clone(),
+            generation_present_and_verified: true,
+            snapper_partner_present_and_verified: true,
+            verified_additional: vec![],
+        };
+        assert!(!row.is_complete(true, true));
+        assert!(!row.is_complete_set(&observation));
+        let mut index = CatalogIndex::default();
+        index.insert(row.clone()).unwrap();
+        assert!(!index.mark_manual_checkpoint(&observation));
+        assert!(!index.mark_known_working(&observation));
+        assert_eq!(
+            index.plan_retention(1, std::slice::from_ref(&observation)).unwrap().reconcile,
+            std::slice::from_ref(&row.transaction_id)
+        );
+        observation
+            .verified_additional
+            .push((ConfigName::new("extra").unwrap(), SnapshotId::new("9").unwrap()));
+        assert!(row.is_complete_set(&observation));
+        assert!(index.mark_manual_checkpoint(&observation));
+        assert!(index.mark_known_working(&observation));
+        observation.verified_additional.clear();
+        let plan = index.plan_retention(1, &[observation]).unwrap();
+        assert_eq!(plan.pinned.as_slice(), std::slice::from_ref(&row.transaction_id));
+        assert_eq!(plan.reconcile, [row.transaction_id]);
+        assert!(plan.prune.is_empty());
+    }
+    #[test]
+    fn shared_additional_partner_never_pruned_even_with_distinct_root_snapshots() {
+        let first = entry();
+        let mut second = first.clone();
+        second.transaction_id = TransactionId::new("txn-other").unwrap();
+        second.root_snapshot = SnapshotId::new("8").unwrap();
+        let observations = [&first, &second].map(|r| crate::RetentionPartnerObservation {
+            transaction_id: r.transaction_id.clone(),
+            generation_present_and_verified: true,
+            snapper_partner_present_and_verified: true,
+            verified_additional: vec![(
+                ConfigName::new("extra").unwrap(),
+                SnapshotId::new("9").unwrap(),
+            )],
+        });
+        let mut index = CatalogIndex::default();
+        index.insert(first).unwrap();
+        index.insert(second).unwrap();
+        let plan = index.plan_retention(1, &observations).unwrap();
+        assert_eq!(plan.reconcile.len(), 2);
+        assert!(plan.prune.is_empty());
     }
 }

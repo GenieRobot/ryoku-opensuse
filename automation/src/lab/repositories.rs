@@ -192,9 +192,8 @@ mod tests {
         for key in SIGNATURE_SETTINGS {
             assert_eq!(pinned.lines().filter(|line| *line == format!("{key}=1")).count(), 1);
         }
-        let history =
-            if cfg!(feature = "wsl-lab") { "/history/20261013/" } else { "/history/20261011/" };
-        assert!(pinned.contains(history));
+        let history = format!("/history/{}/", scalar("snapshot").unwrap());
+        assert!(pinned.contains(&history));
         assert!(pinned.contains("enabled=1"));
         assert_eq!(pinned_file(&pinned).unwrap().0, pinned);
     }
@@ -218,12 +217,8 @@ mod tests {
     fn core_repository_uses_snapshot_history_and_preserves_signatures() {
         let source = "[repo-oss]\nenabled=1\ngpgcheck=1\nbaseurl=https://downloadcontent2.opensuse.org/tumbleweed/repo/oss/\n";
         let (pinned, aliases) = pinned_file(source).unwrap();
-        let history = if cfg!(feature = "wsl-lab") {
-            "/history/20261013/tumbleweed/repo/oss/"
-        } else {
-            "/history/20261011/tumbleweed/repo/oss/"
-        };
-        assert!(pinned.contains(history));
+        let history = format!("/history/{}/tumbleweed/repo/oss/", scalar("snapshot").unwrap());
+        assert!(pinned.contains(&history));
         assert!(pinned.contains("gpgcheck=1"));
         assert_eq!(aliases, ["repo-oss"]);
         assert_eq!(pinned_file(&pinned).unwrap().0, pinned);
