@@ -113,6 +113,18 @@ no native binary RPM was produced. The [build log](../infra/tumbleweed-lab/evide
 records the exact failure. A native builder satisfying these BuildRequires is
 still required.
 
+A separate, explicitly non-acceptance host mechanics run verified that the
+already installed Rust/Cargo 1.99.0 binaries meet those version minima, then
+used `rpmbuild -ba --nodeps` in an isolated temporary topdir. It reused the exact
+same source/vendor archives and passed prep, offline vendored compilation,
+install and manifest checks. The unsigned RPM contains only the two executables,
+units/drop-in, immutable config/session entry, documentation and license, with
+no scriptlets or home/state paths. The [mechanics log](../infra/tumbleweed-lab/evidence/issue25-session-rpm-mechanics.log)
+and [manifest](../infra/tumbleweed-lab/evidence/issue25-session-rpm-mechanics-files.tsv)
+are separate from the preserved original failure. Bypassing RPMDB dependency
+resolution for this inspection does not satisfy the native BuildRequires,
+Tumbleweed ABI, signed-install or desktop acceptance gates.
+
 No new QEMU was launched during this consolidation. Native acceptance could not
 be repeated because there was no live authorized local guest. Local Rust,
 spec parsing and unit checks cannot replace the required desktop evidence.
