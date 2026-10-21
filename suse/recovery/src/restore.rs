@@ -1,8 +1,10 @@
 //! Typed offline restore-scope planning and a durable, monotonic phase journal.
 //!
-//! This module does not write restore targets, stop services, invoke Snapper,
-//! or coordinate a root rollback. The caller must pass a trusted, persistent
-//! directory descriptor outside every rollback scope to [`RestoreJournalStore`].
+//! This module does not write restore targets, stop services, or invoke
+//! Snapper. It durably records root rollback results and accepts completion only
+//! with native evidence that the recorded target is the running root. The
+//! caller must pass a trusted, persistent directory descriptor outside every
+//! rollback scope to [`RestoreJournalStore`].
 
 use std::{
     fs::File,
@@ -15,8 +17,8 @@ use std::{
 
 use rustix::{
     fs::{
-        FlockOperation, Mode, OFlags, RenameFlags, ResolveFlags, fchmod, flock, fsync, openat,
-        openat2, renameat_with,
+        FileType, FlockOperation, Mode, OFlags, RenameFlags, ResolveFlags, fchmod, flock, fstat,
+        fsync, openat, openat2, renameat_with,
     },
     io::Errno,
 };
@@ -50,6 +52,29 @@ pub struct PreflightEvidence {
     pub system_snapshot: SystemSnapshotStatus,
     pub system_compatibility: CompatibilityStatus,
     pub configuration_compatibility: CompatibilityStatus,
+}
+
+/// Source-side facts that can be validated before creating a current-state
+/// checkpoint. They never establish that the restore is ready to execute.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RestoreSourceEvidence {
+    pub generation: ArtifactStatus,
+    pub archive: ArtifactStatus,
+    pub system_snapshot: SystemSnapshotStatus,
+    pub system_compatibility: CompatibilityStatus,
+    pub configuration_compatibility: CompatibilityStatus,
+}
+
+/// Source validation result that cannot be inserted into a restore journal.
+/// A verified current-state checkpoint is still required to produce a
+/// [`RestorePlan`].
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RestoreSourcePlan(RestorePlan);
+
+impl RestoreSourcePlan {
+    pub fn matches(&self, plan: &RestorePlan) -> bool {
+        &self.0 == plan
+    }
 }
 
 /// Result of comparing a candidate restore partner's package/profile versions
@@ -125,25 +150,64 @@ pub fn plan_restore(
     scope: RestoreScope,
     evidence: &PreflightEvidence,
 ) -> Result<RestorePlan, PreflightError> {
+    if evidence.current_state_checkpoint != ArtifactStatus::Verified {
+        return Err(PreflightError::CheckpointUnavailable);
+    }
+    build_restore_plan(
+        manifest,
+        scope,
+        evidence.generation,
+        evidence.archive,
+        &evidence.system_snapshot,
+        evidence.system_compatibility,
+        evidence.configuration_compatibility,
+    )
+}
+
+/// Validate a restore source before checkpoint capture. This cannot produce a
+/// ready-to-execute plan by itself; callers must still verify and retain a
+/// current-state checkpoint with [`plan_restore`].
+pub fn plan_restore_source(
+    manifest: &RecoveryManifest,
+    scope: RestoreScope,
+    evidence: &RestoreSourceEvidence,
+) -> Result<RestoreSourcePlan, PreflightError> {
+    build_restore_plan(
+        manifest,
+        scope,
+        evidence.generation,
+        evidence.archive,
+        &evidence.system_snapshot,
+        evidence.system_compatibility,
+        evidence.configuration_compatibility,
+    )
+    .map(RestoreSourcePlan)
+}
+
+fn build_restore_plan(
+    manifest: &RecoveryManifest,
+    scope: RestoreScope,
+    generation: ArtifactStatus,
+    archive: ArtifactStatus,
+    system_snapshot: &SystemSnapshotStatus,
+    system_compatibility: CompatibilityStatus,
+    configuration_compatibility: CompatibilityStatus,
+) -> Result<RestorePlan, PreflightError> {
     if !manifest.is_mutation_ready() || manifest.validate().is_err() {
         return Err(PreflightError::ManifestInvalid);
     }
     if matches!(scope, RestoreScope::ConfigurationOnly | RestoreScope::CompleteLinked) {
-        match evidence.generation {
+        match generation {
             ArtifactStatus::Verified => {}
             ArtifactStatus::Missing => return Err(PreflightError::GenerationUnavailable),
             ArtifactStatus::Invalid => return Err(PreflightError::GenerationInvalid),
         }
-        match evidence.archive {
+        match archive {
             ArtifactStatus::Verified => {}
             ArtifactStatus::Missing => return Err(PreflightError::ArchiveUnavailable),
             ArtifactStatus::Invalid => return Err(PreflightError::ArchiveInvalid),
         }
     }
-    if evidence.current_state_checkpoint != ArtifactStatus::Verified {
-        return Err(PreflightError::CheckpointUnavailable);
-    }
-
     let configuration_entries =
         manifest.files().iter().filter(|record| record.root.is_configuration_state()).count();
     let configuration_entries =
@@ -159,7 +223,7 @@ pub fn plan_restore(
         return Err(PreflightError::ConfigurationScopeEmpty);
     }
     if matches!(scope, RestoreScope::ConfigurationOnly | RestoreScope::CompleteLinked) {
-        match evidence.configuration_compatibility {
+        match configuration_compatibility {
             CompatibilityStatus::Compatible => {}
             CompatibilityStatus::Incompatible => {
                 return Err(PreflightError::ConfigurationIncompatible);
@@ -170,14 +234,14 @@ pub fn plan_restore(
         }
     }
     if matches!(scope, RestoreScope::SystemOnly | RestoreScope::CompleteLinked) {
-        match evidence.system_compatibility {
+        match system_compatibility {
             CompatibilityStatus::Compatible => {}
             CompatibilityStatus::Incompatible => return Err(PreflightError::SystemIncompatible),
             CompatibilityStatus::Unknown => {
                 return Err(PreflightError::SystemCompatibilityUnknown);
             }
         }
-        match &evidence.system_snapshot {
+        match system_snapshot {
             SystemSnapshotStatus::Missing => return Err(PreflightError::SnapshotUnavailable),
             SystemSnapshotStatus::Incompatible => {
                 return Err(PreflightError::SnapshotIncompatible);
@@ -207,8 +271,8 @@ pub fn plan_restore(
     })
 }
 
-/// Durable restore phase. Later phases are defined for recovery continuity, but
-/// this crate currently only plans and journals; it does not execute them.
+/// Durable restore phase shared by configuration-only, system-only, and linked
+/// recovery. `ContentStaged` and `ConfigurationRestored` depend on the scope.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum RestorePhase {
@@ -223,17 +287,36 @@ pub enum RestorePhase {
 }
 
 impl RestorePhase {
-    fn next(self) -> Option<Self> {
-        Some(match self {
-            Self::Planned => Self::CheckpointVerified,
-            Self::CheckpointVerified => Self::ContentStaged,
-            Self::ContentStaged => Self::WritersStopped,
-            Self::WritersStopped => Self::RootRollbackComplete,
-            Self::RootRollbackComplete => Self::ConfigurationRestored,
-            Self::ConfigurationRestored => Self::HealthChecked,
-            Self::HealthChecked => Self::Complete,
-            Self::Complete => return None,
-        })
+    fn next(self, scope: RestoreScope) -> Option<Self> {
+        match self {
+            Self::Planned => Some(Self::CheckpointVerified),
+            Self::CheckpointVerified => match scope {
+                RestoreScope::SystemOnly => Some(Self::WritersStopped),
+                RestoreScope::ConfigurationOnly | RestoreScope::CompleteLinked => {
+                    Some(Self::ContentStaged)
+                }
+            },
+            Self::ContentStaged => Some(Self::WritersStopped),
+            Self::WritersStopped => match scope {
+                RestoreScope::ConfigurationOnly => Some(Self::ConfigurationRestored),
+                RestoreScope::SystemOnly | RestoreScope::CompleteLinked => {
+                    Some(Self::RootRollbackComplete)
+                }
+            },
+            Self::RootRollbackComplete => match scope {
+                RestoreScope::CompleteLinked => Some(Self::ConfigurationRestored),
+                RestoreScope::SystemOnly => Some(Self::HealthChecked),
+                RestoreScope::ConfigurationOnly => None,
+            },
+            Self::ConfigurationRestored => match scope {
+                RestoreScope::ConfigurationOnly | RestoreScope::CompleteLinked => {
+                    Some(Self::HealthChecked)
+                }
+                RestoreScope::SystemOnly => None,
+            },
+            Self::HealthChecked => Some(Self::Complete),
+            Self::Complete => None,
+        }
     }
 }
 
@@ -247,10 +330,68 @@ pub struct RestoreJournal {
     pub plan: RestorePlan,
     pub current_state_generation: Identifier,
     pub current_state_manifest_sha256: Sha256,
+    /// Snapper's verified backup/target pair for an in-progress system restore.
+    /// This stays present across reboot until the complete attempt is retired.
+    #[serde(default)]
+    pub root_rollback: Option<RootRollbackResult>,
     pub phase: RestorePhase,
 }
 
+/// Derive the distinct Snapper tag used for the root rollback created by one
+/// restore attempt. The restore ID itself already tags the retained current
+/// state checkpoint, so reusing it would make Snapper reject the rollback as a
+/// duplicate transaction.
+pub fn root_rollback_tag(
+    restore_id: &Identifier,
+) -> Result<ryoku_snapper::TransactionId, JournalError> {
+    ryoku_snapper::TransactionId::new(format!("{}:rollback", restore_id.as_str()))
+        .map_err(|_| JournalError::InvalidJournal)
+}
+
+/// Native Snapper rollback identities retained in the rollback-independent
+/// journal. Values are canonical numeric snapshot IDs, not command text.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RootRollbackResult {
+    previous_default_snapshot: String,
+    backup_snapshot: String,
+    target_snapshot: String,
+}
+
+impl RootRollbackResult {
+    pub fn from_snapper(
+        receipt: &ryoku_snapper::RootRollbackReceipt,
+    ) -> Result<Self, JournalError> {
+        let result = Self {
+            previous_default_snapshot: receipt.previous_default_snapshot.as_str().into(),
+            backup_snapshot: receipt.backup_snapshot.as_str().into(),
+            target_snapshot: receipt.rollback_target_snapshot.as_str().into(),
+        };
+        if !valid_root_rollback_result(&result) {
+            return Err(JournalError::InvalidJournal);
+        }
+        Ok(result)
+    }
+
+    pub fn target_snapshot(&self) -> &str {
+        &self.target_snapshot
+    }
+
+    pub fn backup_snapshot(&self) -> &str {
+        &self.backup_snapshot
+    }
+}
+
 impl RestoreJournal {
+    /// A known Snapper receipt persisted while writers are stopped means the
+    /// native rollback call must not run again; the remaining safe action is
+    /// only to hand off to reboot and verify the booted target.
+    pub fn has_recorded_root_rollback_handoff(&self, scope: RestoreScope) -> bool {
+        self.plan.scope == scope
+            && self.phase == RestorePhase::WritersStopped
+            && self.root_rollback.is_some()
+    }
+
     pub fn new(
         restore_id: Identifier,
         plan: RestorePlan,
@@ -258,11 +399,12 @@ impl RestoreJournal {
         current_state_manifest_sha256: Sha256,
     ) -> Self {
         Self {
-            schema_version: 3,
+            schema_version: 4,
             restore_id,
             plan,
             current_state_generation,
             current_state_manifest_sha256,
+            root_rollback: None,
             phase: RestorePhase::Planned,
         }
     }
@@ -276,6 +418,7 @@ pub enum JournalError {
     AlreadyExists,
     InvalidTransition,
     TooLarge,
+    Busy,
     Filesystem(Errno),
     Io(std::io::Error),
     Validation(ValidationError),
@@ -291,6 +434,7 @@ impl std::fmt::Display for JournalError {
             Self::AlreadyExists => f.write_str("restore journal already exists"),
             Self::InvalidTransition => f.write_str("restore phase transition is not monotonic"),
             Self::TooLarge => f.write_str("restore journal exceeds its fixed size bound"),
+            Self::Busy => f.write_str("restore journal is busy with another operation"),
             Self::Filesystem(error) => write!(f, "restore journal filesystem error: {error}"),
             Self::Io(error) => write!(f, "restore journal I/O error: {error}"),
             Self::Validation(error) => {
@@ -337,6 +481,27 @@ impl RestoreJournalStore {
         Self::state_directory(&File::from(state), false)
     }
 
+    /// Read the protected recovery journal in a sandbox where its verified
+    /// dedicated mount is made read-only. Mutating preparation uses the regular
+    /// writable-state entry point above.
+    pub fn open_existing_state_mount_readonly() -> Result<Self, JournalError> {
+        let root = File::open("/")?;
+        let record = crate::machine_state::read_machine_state_record(&root)
+            .map_err(JournalError::Machine)?;
+        let (state, _) =
+            crate::state_mount::collect_and_open_state_mount_readonly(&root, record.identity())
+                .map_err(JournalError::Mount)?;
+        Self::open_existing_state_directory_readonly(&File::from(state))
+    }
+
+    /// Open existing journal storage through an already validated, pinned
+    /// state-mount descriptor. Callers that coordinate with the mutation lock
+    /// must use the same descriptor for both operations so a mount change
+    /// cannot split the lock and journal scan across different mount instances.
+    pub fn open_existing_state_directory_readonly(state: &File) -> Result<Self, JournalError> {
+        Self::state_directory(state, false)
+    }
+
     /// Explicit provisioning only: create the private journal directory and
     /// lock on a mount matching the caller's trusted creation identity.
     pub fn initialize_state_mount(
@@ -348,8 +513,24 @@ impl RestoreJournalStore {
         Self::state_directory(&File::from(state), true)
     }
 
+    /// Provision the common mutation lock after verifying the fixed protected
+    /// state mount. This is an explicit administrator initialization action;
+    /// the session gate itself only opens the existing inode read-only.
+    pub fn ensure_mutation_lock_state_mount(
+        expected: &crate::state_mount::StateMountIdentity,
+    ) -> Result<(), JournalError> {
+        let root = File::open("/")?;
+        let (state, _) = crate::state_mount::collect_and_open_state_mount(&root, expected)
+            .map_err(JournalError::Mount)?;
+        let state = File::from(state);
+        ensure_mutation_lock(&state)?;
+        fsync(&state)?;
+        Ok(())
+    }
+
     fn state_directory(state: &File, create: bool) -> Result<Self, JournalError> {
         if create {
+            ensure_mutation_lock(state)?;
             match rustix::fs::mkdirat(state, "restore-journals", Mode::from_raw_mode(0o700)) {
                 Ok(()) => (),
                 Err(Errno::EXIST) => (),
@@ -446,34 +627,133 @@ impl RestoreJournalStore {
     /// from a previous client. The scan and reads share the journal writer lock.
     /// Any unexpected entry (including an interrupted temporary publication),
     /// corrupt record or excessive directory size refuses an all-clear result.
+    /// A concurrent journal operation returns [`JournalError::Busy`] instead
+    /// of making a session-start check wait behind the writer.
     /// This is journal evidence only; callers must still validate the persistent
     /// mount and enforce their session/recovery policy under the operation lock.
     pub fn incomplete_attempts(&self) -> Result<Vec<RestoreJournal>, JournalError> {
+        self.with_nonblocking_lock(|| self.scan_incomplete_attempts())
+    }
+
+    /// Scan without taking the journal's exclusive flock. This is reserved for
+    /// a caller that already holds the common Ryoku mutation lock in shared or
+    /// exclusive mode and has opened the state mount read-only. Every writer
+    /// must participate in that common lock before changing journal state.
+    pub fn incomplete_attempts_under_mutation_lock(
+        &self,
+    ) -> Result<Vec<RestoreJournal>, JournalError> {
+        self.scan_incomplete_attempts()
+    }
+
+    /// Persist the independently inventoried result of a Snapper classic-root
+    /// rollback attempt. This keeps the backup and target identities outside
+    /// root rollback scope before the machine is rebooted. The attempt remains
+    /// in `WritersStopped`, so the session gate continues to refuse Ryoku.
+    pub fn record_root_rollback_result(
+        &self,
+        journal: &mut RestoreJournal,
+        receipt: &ryoku_snapper::RootRollbackReceipt,
+    ) -> Result<(), JournalError> {
+        if journal.phase != RestorePhase::WritersStopped
+            || !matches!(
+                journal.plan.scope,
+                RestoreScope::SystemOnly | RestoreScope::CompleteLinked
+            )
+            || journal.plan.snapper_config.as_str() != "root"
+            || receipt.config.as_str() != journal.plan.snapper_config.as_str()
+            || receipt.source_snapshot.as_str() != journal.plan.snapshot_id
+            || receipt.transaction_id != root_rollback_tag(&journal.restore_id)?
+        {
+            return Err(JournalError::InvalidTransition);
+        }
+        let result = RootRollbackResult::from_snapper(receipt)?;
+        if result.previous_default_snapshot == result.target_snapshot
+            || result.backup_snapshot == result.target_snapshot
+            || result.backup_snapshot == result.previous_default_snapshot
+            || result.target_snapshot == journal.plan.snapshot_id
+        {
+            return Err(JournalError::InvalidJournal);
+        }
+
         self.with_lock(|| {
-            let mut entries = rustix::fs::Dir::read_from(&self.root)?;
-            let mut count = 0;
-            let mut pending = Vec::new();
-            for entry in &mut entries {
-                let entry = entry?;
-                let name = entry.file_name();
-                if matches!(name.to_bytes(), b"." | b".." | b".restore-journal.lock") {
-                    continue;
-                }
-                count += 1;
-                if count > MAX_JOURNAL_DIRECTORY_ENTRIES {
-                    return Err(JournalError::TooLarge);
-                }
-                let name = name.to_str().map_err(|_| JournalError::InvalidJournal)?;
-                let id = name.strip_suffix(".json").ok_or(JournalError::InvalidJournal)?;
-                Identifier::new(id).map_err(|_| JournalError::InvalidJournal)?;
-                let journal = read_journal(&self.root, name)?;
-                if journal.phase != RestorePhase::Complete {
-                    pending.push(journal);
-                }
+            let name = journal_name(&journal.restore_id)?;
+            if read_journal(&self.root, &name)? != *journal {
+                return Err(JournalError::InvalidTransition);
             }
-            pending.sort_by(|left, right| left.restore_id.cmp(&right.restore_id));
-            Ok(pending)
+            if journal.root_rollback.as_ref().is_some_and(|existing| existing != &result) {
+                return Err(JournalError::InvalidTransition);
+            }
+            let mut updated = journal.clone();
+            updated.schema_version = 4;
+            updated.root_rollback = Some(result);
+            validate_journal(&updated)?;
+            self.write_atomic(&name, &updated)?;
+            *journal = updated;
+            Ok(())
         })
+    }
+
+    /// Advance only after native Btrfs identity confirms that the exact
+    /// journaled target is now the running writable root. A Snapper success
+    /// receipt or caller-written phase is insufficient.
+    pub fn confirm_root_rollback_booted(
+        &self,
+        journal: &mut RestoreJournal,
+        evidence: &crate::native_checkpoint::VerifiedRunningRollbackTarget,
+    ) -> Result<(), JournalError> {
+        let Some(result) = &journal.root_rollback else {
+            return Err(JournalError::InvalidTransition);
+        };
+        if journal.phase != RestorePhase::WritersStopped
+            || !matches!(
+                journal.plan.scope,
+                RestoreScope::SystemOnly | RestoreScope::CompleteLinked
+            )
+            || evidence.restore_id() != &journal.restore_id
+            || evidence.target_snapshot() != result.target_snapshot()
+            || evidence.filesystem_uuid() != journal.plan.filesystem_uuid
+        {
+            return Err(JournalError::InvalidTransition);
+        }
+        self.with_lock(|| {
+            let name = journal_name(&journal.restore_id)?;
+            if read_journal(&self.root, &name)? != *journal {
+                return Err(JournalError::InvalidTransition);
+            }
+            let mut updated = journal.clone();
+            updated.schema_version = 4;
+            updated.phase = RestorePhase::RootRollbackComplete;
+            validate_journal(&updated)?;
+            self.write_atomic(&name, &updated)?;
+            *journal = updated;
+            Ok(())
+        })
+    }
+
+    fn scan_incomplete_attempts(&self) -> Result<Vec<RestoreJournal>, JournalError> {
+        let mut entries = rustix::fs::Dir::read_from(&self.root)?;
+        let mut count = 0;
+        let mut pending = Vec::new();
+        for entry in &mut entries {
+            let entry = entry?;
+            let name = entry.file_name();
+            if matches!(name.to_bytes(), b"." | b".." | b".restore-journal.lock") {
+                continue;
+            }
+            count += 1;
+            if count > MAX_JOURNAL_DIRECTORY_ENTRIES {
+                return Err(JournalError::TooLarge);
+            }
+            let name = name.to_str().map_err(|_| JournalError::InvalidJournal)?;
+            let id = name.strip_suffix(".json").ok_or(JournalError::InvalidJournal)?;
+            Identifier::new(id).map_err(|_| JournalError::InvalidJournal)?;
+            let journal = read_journal(&self.root, name)?;
+            if journal.phase != RestorePhase::Complete {
+                pending.push(journal);
+            }
+        }
+        pending.sort_by(|left, right| left.restore_id.cmp(&right.restore_id));
+        Ok(pending)
     }
 
     /// Persists exactly one next phase before updating the caller's value.
@@ -483,7 +763,9 @@ impl RestoreJournalStore {
         next: RestorePhase,
     ) -> Result<(), JournalError> {
         self.with_lock(|| {
-            if journal.phase.next() != Some(next) {
+            if next == RestorePhase::RootRollbackComplete
+                || journal.phase.next(journal.plan.scope) != Some(next)
+            {
                 return Err(JournalError::InvalidTransition);
             }
             let name = journal_name(&journal.restore_id)?;
@@ -491,7 +773,9 @@ impl RestoreJournalStore {
                 return Err(JournalError::InvalidTransition);
             }
             let mut updated = journal.clone();
+            updated.schema_version = 4;
             updated.phase = next;
+            validate_journal(&updated)?;
             self.write_atomic(&name, &updated)?;
             *journal = updated;
             Ok(())
@@ -504,6 +788,28 @@ impl RestoreJournalStore {
     ) -> Result<T, JournalError> {
         let _process_guard = self.process_lock.lock().map_err(|_| JournalError::InvalidStore)?;
         flock(&self.lock_file, FlockOperation::LockExclusive).map_err(JournalError::Filesystem)?;
+        let result = operation();
+        let unlock =
+            flock(&self.lock_file, FlockOperation::Unlock).map_err(JournalError::Filesystem);
+        match (result, unlock) {
+            (Err(error), _) => Err(error),
+            (Ok(_), Err(error)) => Err(error),
+            (Ok(value), Ok(())) => Ok(value),
+        }
+    }
+
+    fn with_nonblocking_lock<T>(
+        &self,
+        operation: impl FnOnce() -> Result<T, JournalError>,
+    ) -> Result<T, JournalError> {
+        let _process_guard = self.process_lock.try_lock().map_err(|_| JournalError::Busy)?;
+        flock(&self.lock_file, FlockOperation::NonBlockingLockExclusive).map_err(|error| {
+            if error == Errno::AGAIN || error == Errno::WOULDBLOCK {
+                JournalError::Busy
+            } else {
+                JournalError::Filesystem(error)
+            }
+        })?;
         let result = operation();
         let unlock =
             flock(&self.lock_file, FlockOperation::Unlock).map_err(JournalError::Filesystem);
@@ -536,6 +842,52 @@ impl RestoreJournalStore {
     }
 }
 
+fn ensure_mutation_lock(state: &File) -> Result<(), JournalError> {
+    let state_stat = fstat(state)?;
+    if FileType::from_raw_mode(state_stat.st_mode) != FileType::Directory
+        || state_stat.st_uid != 0
+        || state_stat.st_gid != 0
+        || state_stat.st_mode & 0o7777 != 0o700
+    {
+        return Err(JournalError::InvalidStore);
+    }
+    let (lock, created) = match openat(
+        state,
+        crate::state_mount::MUTATION_LOCK_NAME,
+        OFlags::RDWR | OFlags::CREATE | OFlags::EXCL | OFlags::CLOEXEC | OFlags::NOFOLLOW,
+        Mode::from_raw_mode(0o600),
+    ) {
+        Ok(lock) => (File::from(lock), true),
+        Err(Errno::EXIST) => (
+            File::from(openat(
+                state,
+                crate::state_mount::MUTATION_LOCK_NAME,
+                OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW,
+                Mode::empty(),
+            )?),
+            false,
+        ),
+        Err(error) => return Err(error.into()),
+    };
+    if created {
+        fchmod(&lock, Mode::from_raw_mode(0o600))?;
+    }
+    let lock_stat = fstat(&lock)?;
+    if FileType::from_raw_mode(lock_stat.st_mode) != FileType::RegularFile
+        || lock_stat.st_uid != state_stat.st_uid
+        || lock_stat.st_gid != state_stat.st_gid
+        || lock_stat.st_mode & 0o7777 != 0o600
+        || lock_stat.st_nlink != 1
+    {
+        return Err(JournalError::InvalidStore);
+    }
+    if created {
+        fsync(&lock)?;
+        fsync(state)?;
+    }
+    Ok(())
+}
+
 fn journal_name(id: &Identifier) -> Result<String, JournalError> {
     Identifier::new(id.as_str())?;
     Ok(format!("{}.json", id.as_str()))
@@ -554,14 +906,81 @@ fn validate_plan(plan: &RestorePlan) -> bool {
     linked_snapshot_is_valid && config_scope_has_valid_count
 }
 
+fn valid_snapshot_number(value: &str) -> bool {
+    value.parse::<u64>().is_ok_and(|number| number > 0 && number.to_string() == value)
+}
+
+fn valid_root_rollback_result(result: &RootRollbackResult) -> bool {
+    valid_snapshot_number(&result.previous_default_snapshot)
+        && valid_snapshot_number(&result.backup_snapshot)
+        && valid_snapshot_number(&result.target_snapshot)
+        && result.previous_default_snapshot != result.backup_snapshot
+        && result.previous_default_snapshot != result.target_snapshot
+        && result.backup_snapshot != result.target_snapshot
+}
+
 fn validate_journal(journal: &RestoreJournal) -> Result<(), JournalError> {
-    if journal.schema_version != 3
+    let root_rollback_phase = matches!(
+        journal.phase,
+        RestorePhase::RootRollbackComplete
+            | RestorePhase::ConfigurationRestored
+            | RestorePhase::HealthChecked
+            | RestorePhase::Complete
+    ) && journal.plan.scope != RestoreScope::ConfigurationOnly;
+    if !matches!(journal.schema_version, 3 | 4)
         || journal.restore_id == journal.plan.transaction_id
         || !validate_plan(&journal.plan)
+        || !phase_matches_scope(journal.phase, journal.plan.scope)
+        || (journal.schema_version == 3 && journal.root_rollback.is_some())
+        || (journal.schema_version == 3 && root_rollback_phase)
+        || (journal.root_rollback.is_some()
+            && (journal.schema_version != 4
+                || journal.plan.snapper_config.as_str() != "root"
+                || !matches!(
+                    journal.plan.scope,
+                    RestoreScope::SystemOnly | RestoreScope::CompleteLinked
+                )
+                || !matches!(
+                    journal.phase,
+                    RestorePhase::WritersStopped
+                        | RestorePhase::RootRollbackComplete
+                        | RestorePhase::ConfigurationRestored
+                        | RestorePhase::HealthChecked
+                        | RestorePhase::Complete
+                )
+                || !valid_root_rollback_result(journal.root_rollback.as_ref().unwrap())
+                || journal.root_rollback.as_ref().unwrap().target_snapshot
+                    == journal.plan.snapshot_id))
+        || (root_rollback_phase && journal.root_rollback.is_none())
     {
         return Err(JournalError::InvalidJournal);
     }
     Ok(())
+}
+
+fn phase_matches_scope(phase: RestorePhase, scope: RestoreScope) -> bool {
+    match scope {
+        RestoreScope::ConfigurationOnly => matches!(
+            phase,
+            RestorePhase::Planned
+                | RestorePhase::CheckpointVerified
+                | RestorePhase::ContentStaged
+                | RestorePhase::WritersStopped
+                | RestorePhase::ConfigurationRestored
+                | RestorePhase::HealthChecked
+                | RestorePhase::Complete
+        ),
+        RestoreScope::SystemOnly => matches!(
+            phase,
+            RestorePhase::Planned
+                | RestorePhase::CheckpointVerified
+                | RestorePhase::WritersStopped
+                | RestorePhase::RootRollbackComplete
+                | RestorePhase::HealthChecked
+                | RestorePhase::Complete
+        ),
+        RestoreScope::CompleteLinked => true,
+    }
 }
 
 fn create_temp(root: &File) -> Result<(String, File), JournalError> {
@@ -623,23 +1042,27 @@ fn read_journal(root: &File, name: &str) -> Result<RestoreJournal, JournalError>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::StateRoot;
     use crate::{
         EntryKind, EntryMetadata, ExtendedMetadata, FileRecord, OperationReason, RelativePath,
-        SnapshotLink, StateRoot, VerificationStatus,
+        SnapshotLink, VerificationStatus,
     };
     use std::{
         fs,
         os::unix::fs::PermissionsExt,
+        process::Command,
         sync::atomic::{AtomicU64, Ordering},
+        time::{SystemTime, UNIX_EPOCH},
     };
 
     static NEXT_ROOT: AtomicU64 = AtomicU64::new(0);
 
     fn root() -> (std::path::PathBuf, File) {
         let path = std::env::temp_dir().join(format!(
-            "ryoku-restore-journal-{}-{}",
+            "ryoku-restore-journal-{}-{}-{}",
             std::process::id(),
-            NEXT_ROOT.fetch_add(1, Ordering::Relaxed)
+            NEXT_ROOT.fetch_add(1, Ordering::Relaxed),
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
         ));
         fs::create_dir(&path).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
@@ -722,6 +1145,34 @@ mod tests {
     }
 
     #[test]
+    fn root_rollback_uses_a_distinct_snapper_tag_from_its_checkpoint() {
+        let restore_id = Identifier::new("restore-attempt-1").unwrap();
+        let checkpoint_tag = ryoku_snapper::TransactionId::new(restore_id.as_str()).unwrap();
+        let rollback_tag = root_rollback_tag(&restore_id).unwrap();
+        assert_ne!(checkpoint_tag, rollback_tag);
+        assert_eq!(rollback_tag.as_str(), "restore-attempt-1:rollback");
+    }
+
+    fn confirm_test_root_rollback(store: &RestoreJournalStore, attempt: &mut RestoreJournal) {
+        let receipt = ryoku_snapper::RootRollbackReceipt {
+            config: ryoku_snapper::ConfigName::new("root").unwrap(),
+            source_snapshot: ryoku_snapper::SnapshotId::new(attempt.plan.snapshot_id.clone())
+                .unwrap(),
+            previous_default_snapshot: ryoku_snapper::SnapshotId::new("48").unwrap(),
+            backup_snapshot: ryoku_snapper::SnapshotId::new("49").unwrap(),
+            rollback_target_snapshot: ryoku_snapper::SnapshotId::new("50").unwrap(),
+            transaction_id: root_rollback_tag(&attempt.restore_id).unwrap(),
+        };
+        store.record_root_rollback_result(attempt, &receipt).unwrap();
+        let evidence = crate::native_checkpoint::test_running_rollback_target(
+            attempt.restore_id.clone(),
+            "50".into(),
+            attempt.plan.filesystem_uuid.clone(),
+        );
+        store.confirm_root_rollback_booted(attempt, &evidence).unwrap();
+    }
+
+    #[test]
     fn preflight_rejects_bad_archives_and_unavailable_linked_partner() {
         let manifest = manifest();
         let mut facts = evidence();
@@ -736,6 +1187,28 @@ mod tests {
             plan_restore(&manifest, RestoreScope::CompleteLinked, &facts),
             Err(PreflightError::SnapshotUnavailable)
         );
+    }
+
+    #[test]
+    fn source_plan_cannot_replace_a_verified_current_state_checkpoint() {
+        let manifest = manifest();
+        let mut facts = evidence();
+        facts.current_state_checkpoint = ArtifactStatus::Missing;
+        let source = RestoreSourceEvidence {
+            generation: facts.generation,
+            archive: facts.archive,
+            system_snapshot: facts.system_snapshot.clone(),
+            system_compatibility: facts.system_compatibility,
+            configuration_compatibility: facts.configuration_compatibility,
+        };
+        let source_plan =
+            plan_restore_source(&manifest, RestoreScope::SystemOnly, &source).unwrap();
+        assert_eq!(
+            plan_restore(&manifest, RestoreScope::SystemOnly, &facts),
+            Err(PreflightError::CheckpointUnavailable)
+        );
+        let ready = plan_restore(&manifest, RestoreScope::SystemOnly, &evidence()).unwrap();
+        assert!(source_plan.matches(&ready));
     }
 
     #[test]
@@ -841,6 +1314,7 @@ mod tests {
         let (path, fd) = root();
         let store = RestoreJournalStore::open(&fd).unwrap();
         assert!(store.incomplete_attempts().unwrap().is_empty());
+        assert!(crate::session_admission::require_complete_journal(&store).is_ok());
         let plan = plan_restore(&manifest(), RestoreScope::CompleteLinked, &evidence()).unwrap();
         let mut state = journal(plan);
         store.create(&state).unwrap();
@@ -855,13 +1329,24 @@ mod tests {
             RestorePhase::Complete,
         ] {
             if state.phase != phase {
-                store.advance(&mut state, phase).unwrap();
+                if phase == RestorePhase::RootRollbackComplete {
+                    confirm_test_root_rollback(&store, &mut state);
+                } else {
+                    store.advance(&mut state, phase).unwrap();
+                }
             }
             let reopened = RestoreJournalStore::open(&fd).unwrap();
             let expected =
                 if phase == RestorePhase::Complete { vec![] } else { vec![state.clone()] };
             assert_eq!(reopened.incomplete_attempts().unwrap(), expected);
+            assert_eq!(
+                crate::session_admission::require_complete_journal(&reopened).is_ok(),
+                phase == RestorePhase::Complete,
+                "graphical admission must refuse interruption at {phase:?}",
+            );
         }
+        fs::write(path.join("unexpected-partial.json"), b"{incomplete").unwrap();
+        assert!(crate::session_admission::require_complete_journal(&store).is_err());
         fs::remove_dir_all(path).unwrap();
     }
 
@@ -945,6 +1430,70 @@ mod tests {
     }
 
     #[test]
+    fn journal_transitions_follow_the_selected_restore_scope() {
+        let (path, fd) = root();
+        let store = RestoreJournalStore::open(&fd).unwrap();
+        for (scope, id, phases) in [
+            (
+                RestoreScope::ConfigurationOnly,
+                "restore-config-only",
+                vec![
+                    RestorePhase::CheckpointVerified,
+                    RestorePhase::ContentStaged,
+                    RestorePhase::WritersStopped,
+                    RestorePhase::ConfigurationRestored,
+                    RestorePhase::HealthChecked,
+                    RestorePhase::Complete,
+                ],
+            ),
+            (
+                RestoreScope::SystemOnly,
+                "restore-system-only",
+                vec![
+                    RestorePhase::CheckpointVerified,
+                    RestorePhase::WritersStopped,
+                    RestorePhase::RootRollbackComplete,
+                    RestorePhase::HealthChecked,
+                    RestorePhase::Complete,
+                ],
+            ),
+            (
+                RestoreScope::CompleteLinked,
+                "restore-complete-linked",
+                vec![
+                    RestorePhase::CheckpointVerified,
+                    RestorePhase::ContentStaged,
+                    RestorePhase::WritersStopped,
+                    RestorePhase::RootRollbackComplete,
+                    RestorePhase::ConfigurationRestored,
+                    RestorePhase::HealthChecked,
+                    RestorePhase::Complete,
+                ],
+            ),
+        ] {
+            let plan = plan_restore(&manifest(), scope, &evidence()).unwrap();
+            let mut attempt = journal(plan);
+            attempt.restore_id = Identifier::new(id).unwrap();
+            store.create(&attempt).unwrap();
+            for phase in phases {
+                if phase == RestorePhase::RootRollbackComplete {
+                    confirm_test_root_rollback(&store, &mut attempt);
+                } else {
+                    store.advance(&mut attempt, phase).unwrap();
+                }
+                assert_eq!(store.load(&attempt.restore_id).unwrap().phase, phase);
+            }
+        }
+        let mut invalid = journal(
+            plan_restore(&manifest(), RestoreScope::ConfigurationOnly, &evidence()).unwrap(),
+        );
+        invalid.restore_id = Identifier::new("restore-invalid-root-phase").unwrap();
+        invalid.phase = RestorePhase::RootRollbackComplete;
+        assert!(matches!(store.create(&invalid), Err(JournalError::InvalidJournal)));
+        fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
     fn journal_load_rejects_invalid_snapshot_reference() {
         let (path, fd) = root();
         let store = RestoreJournalStore::open(&fd).unwrap();
@@ -994,7 +1543,10 @@ mod tests {
         ] {
             invalid = valid.clone();
             invalid.phase = phase;
-            assert!(matches!(store.create(&invalid), Err(JournalError::InvalidTransition)));
+            assert!(matches!(
+                store.create(&invalid),
+                Err(JournalError::InvalidTransition | JournalError::InvalidJournal)
+            ));
         }
         assert!(!path.join("restore-attempt-1.json").exists());
         store.create(&valid).unwrap();
@@ -1056,7 +1608,11 @@ mod tests {
             RestorePhase::HealthChecked,
             RestorePhase::Complete,
         ] {
-            store.advance(&mut state, phase).unwrap();
+            if phase == RestorePhase::RootRollbackComplete {
+                confirm_test_root_rollback(&store, &mut state);
+            } else {
+                store.advance(&mut state, phase).unwrap();
+            }
             let reopened = RestoreJournalStore::open(&File::open(&path).unwrap()).unwrap();
             assert_eq!(reopened.load(&state.restore_id).unwrap(), state);
         }
@@ -1069,6 +1625,202 @@ mod tests {
             store.load(&Identifier::new("wrong-attempt").unwrap()),
             Err(JournalError::InvalidJournal)
         ));
+    }
+
+    #[test]
+    fn process_exit_after_every_scope_phase_is_discoverable_and_resumable() {
+        const CHILD: &str = "restore::tests::restore_phase_process_exit_child";
+        let scenarios = [
+            (
+                RestoreScope::ConfigurationOnly,
+                "configuration-only",
+                vec![
+                    RestorePhase::CheckpointVerified,
+                    RestorePhase::ContentStaged,
+                    RestorePhase::WritersStopped,
+                    RestorePhase::ConfigurationRestored,
+                    RestorePhase::HealthChecked,
+                    RestorePhase::Complete,
+                ],
+            ),
+            (
+                RestoreScope::SystemOnly,
+                "system-only",
+                vec![
+                    RestorePhase::CheckpointVerified,
+                    RestorePhase::WritersStopped,
+                    RestorePhase::RootRollbackComplete,
+                    RestorePhase::HealthChecked,
+                    RestorePhase::Complete,
+                ],
+            ),
+            (
+                RestoreScope::CompleteLinked,
+                "complete-linked",
+                vec![
+                    RestorePhase::CheckpointVerified,
+                    RestorePhase::ContentStaged,
+                    RestorePhase::WritersStopped,
+                    RestorePhase::RootRollbackComplete,
+                    RestorePhase::ConfigurationRestored,
+                    RestorePhase::HealthChecked,
+                    RestorePhase::Complete,
+                ],
+            ),
+        ];
+
+        for (_, scope_name, phases) in scenarios {
+            for (boundary, expected_phase) in phases.into_iter().enumerate() {
+                let (path, descriptor) = root();
+                let store = RestoreJournalStore::open(&descriptor).unwrap();
+                let scope = match scope_name {
+                    "configuration-only" => RestoreScope::ConfigurationOnly,
+                    "system-only" => RestoreScope::SystemOnly,
+                    "complete-linked" => RestoreScope::CompleteLinked,
+                    _ => unreachable!(),
+                };
+                let plan = plan_restore(&manifest(), scope, &evidence()).unwrap();
+                let state = journal(plan);
+                store.create(&state).unwrap();
+                drop(store);
+
+                let status = Command::new(std::env::current_exe().unwrap())
+                    .args(["--exact", CHILD, "--ignored"])
+                    .env("RYOKU_RESTORE_PHASE_ROOT", &path)
+                    .env("RYOKU_RESTORE_PHASE_SCOPE", scope_name)
+                    .env("RYOKU_RESTORE_PHASE_BOUNDARY", boundary.to_string())
+                    .status()
+                    .unwrap();
+                assert_eq!(status.code(), Some(77), "child missed {scope_name} {expected_phase:?}");
+
+                let reopened =
+                    RestoreJournalStore::open_existing(&File::open(&path).unwrap()).unwrap();
+                let recovered =
+                    reopened.load(&Identifier::new("restore-attempt-1").unwrap()).unwrap();
+                assert_eq!(recovered.phase, expected_phase, "{scope_name} boundary {boundary}");
+                let pending = reopened.incomplete_attempts().unwrap();
+                if expected_phase == RestorePhase::Complete {
+                    assert!(pending.is_empty());
+                } else {
+                    assert_eq!(pending.as_slice(), std::slice::from_ref(&recovered));
+                }
+                let mut resumed = recovered;
+                while let Some(next) = resumed.phase.next(scope) {
+                    if next == RestorePhase::RootRollbackComplete {
+                        confirm_test_root_rollback(&reopened, &mut resumed);
+                    } else {
+                        reopened.advance(&mut resumed, next).unwrap();
+                    }
+                }
+                assert_eq!(resumed.phase, RestorePhase::Complete);
+                assert!(reopened.incomplete_attempts().unwrap().is_empty());
+                fs::remove_dir_all(path).unwrap();
+            }
+        }
+    }
+
+    #[test]
+    fn process_exit_after_root_rollback_receipt_preserves_the_single_reboot_handoff() {
+        const CHILD: &str = "restore::tests::rollback_receipt_process_exit_child";
+        for (scope, scope_name) in [
+            (RestoreScope::SystemOnly, "system-only"),
+            (RestoreScope::CompleteLinked, "complete-linked"),
+        ] {
+            let (path, descriptor) = root();
+            let store = RestoreJournalStore::open(&descriptor).unwrap();
+            let plan = plan_restore(&manifest(), scope, &evidence()).unwrap();
+            store.create(&journal(plan)).unwrap();
+            drop(store);
+
+            let status = Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", CHILD, "--ignored"])
+                .env("RYOKU_ROLLBACK_RECEIPT_ROOT", &path)
+                .env("RYOKU_ROLLBACK_RECEIPT_SCOPE", scope_name)
+                .status()
+                .unwrap();
+            assert_eq!(status.code(), Some(77));
+
+            let reopened = RestoreJournalStore::open_existing(&File::open(&path).unwrap()).unwrap();
+            let recovered = reopened.load(&Identifier::new("restore-attempt-1").unwrap()).unwrap();
+            assert_eq!(recovered.phase, RestorePhase::WritersStopped);
+            assert!(recovered.has_recorded_root_rollback_handoff(scope));
+            assert_eq!(recovered.root_rollback.as_ref().unwrap().target_snapshot(), "50");
+            assert_eq!(reopened.incomplete_attempts().unwrap(), vec![recovered]);
+            fs::remove_dir_all(path).unwrap();
+        }
+    }
+
+    #[test]
+    #[ignore = "spawned by process_exit_after_root_rollback_receipt_preserves_the_single_reboot_handoff"]
+    fn rollback_receipt_process_exit_child() {
+        let (Ok(root_path), Ok(scope_name)) = (
+            std::env::var("RYOKU_ROLLBACK_RECEIPT_ROOT"),
+            std::env::var("RYOKU_ROLLBACK_RECEIPT_SCOPE"),
+        ) else {
+            return;
+        };
+        let scope = match scope_name.as_str() {
+            "system-only" => RestoreScope::SystemOnly,
+            "complete-linked" => RestoreScope::CompleteLinked,
+            _ => panic!("unknown restore scope"),
+        };
+        let root = File::open(root_path).unwrap();
+        let store = RestoreJournalStore::open(&root).unwrap();
+        let mut attempt = store.load(&Identifier::new("restore-attempt-1").unwrap()).unwrap();
+        store.advance(&mut attempt, RestorePhase::CheckpointVerified).unwrap();
+        if scope == RestoreScope::CompleteLinked {
+            store.advance(&mut attempt, RestorePhase::ContentStaged).unwrap();
+        }
+        store.advance(&mut attempt, RestorePhase::WritersStopped).unwrap();
+        let receipt = ryoku_snapper::RootRollbackReceipt {
+            config: ryoku_snapper::ConfigName::new("root").unwrap(),
+            source_snapshot: ryoku_snapper::SnapshotId::new(attempt.plan.snapshot_id.clone())
+                .unwrap(),
+            previous_default_snapshot: ryoku_snapper::SnapshotId::new("48").unwrap(),
+            backup_snapshot: ryoku_snapper::SnapshotId::new("49").unwrap(),
+            rollback_target_snapshot: ryoku_snapper::SnapshotId::new("50").unwrap(),
+            transaction_id: root_rollback_tag(&attempt.restore_id).unwrap(),
+        };
+        store.record_root_rollback_result(&mut attempt, &receipt).unwrap();
+        // Simulate an unclean process exit after the receipt sync, before any
+        // caller can request reboot or run the Snapper operation again.
+        std::process::exit(77);
+    }
+
+    #[test]
+    #[ignore = "spawned by process_exit_after_every_scope_phase_is_discoverable_and_resumable"]
+    fn restore_phase_process_exit_child() {
+        let (Ok(root_path), Ok(scope_name), Ok(boundary)) = (
+            std::env::var("RYOKU_RESTORE_PHASE_ROOT"),
+            std::env::var("RYOKU_RESTORE_PHASE_SCOPE"),
+            std::env::var("RYOKU_RESTORE_PHASE_BOUNDARY"),
+        ) else {
+            return;
+        };
+        let scope = match scope_name.as_str() {
+            "configuration-only" => RestoreScope::ConfigurationOnly,
+            "system-only" => RestoreScope::SystemOnly,
+            "complete-linked" => RestoreScope::CompleteLinked,
+            _ => panic!("unknown restore scope"),
+        };
+        let boundary = boundary.parse::<usize>().unwrap();
+        let root = File::open(root_path).unwrap();
+        let store = RestoreJournalStore::open(&root).unwrap();
+        let mut state = store.load(&Identifier::new("restore-attempt-1").unwrap()).unwrap();
+        let mut completed = 0;
+        while let Some(next) = state.phase.next(scope) {
+            if next == RestorePhase::RootRollbackComplete {
+                confirm_test_root_rollback(&store, &mut state);
+            } else {
+                store.advance(&mut state, next).unwrap();
+            }
+            if completed == boundary {
+                // Bypass destructors to leave only durable journal state.
+                std::process::exit(77);
+            }
+            completed += 1;
+        }
+        panic!("restore child advanced past selected boundary {boundary}");
     }
 
     #[test]

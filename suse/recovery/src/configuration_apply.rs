@@ -1,4 +1,5 @@
-//! Idempotent configuration application after writer shutdown/root rollback.
+//! Idempotent configuration application after writer shutdown and, for linked
+//! restores, root rollback.
 //! The privileged coordinator must authenticate the operator, validate root
 //! identities and the retained checkpoint, and keep writers stopped throughout.
 //! Journal phases are caller observations, not proof of those native actions.
@@ -8,7 +9,7 @@ use crate::{
     configuration_stage::StagedConfiguration,
     disk_stage::{DiskStageError, DiskStageStore},
     inode_metadata::{InodeMetadataError, prepare_inode_metadata, prepare_symlink_metadata},
-    restore::{JournalError, RestoreJournal, RestoreJournalStore, RestorePhase},
+    restore::{JournalError, RestoreJournal, RestoreJournalStore, RestorePhase, RestoreScope},
 };
 use rustix::{
     fs::{
@@ -18,7 +19,7 @@ use rustix::{
     io::Errno,
 };
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs::File,
     io::{Read, Write},
     ops::ControlFlow,
@@ -105,19 +106,32 @@ pub(crate) fn apply_with_owner(
     owner: u32,
 ) -> Result<RestoreJournal> {
     let mut journal = journals.load(restore_id)?;
-    if journal.plan != *source.plan()
-        || !matches!(
+    let phase_ready = match journal.plan.scope {
+        RestoreScope::ConfigurationOnly => matches!(
             journal.phase,
-            RestorePhase::RootRollbackComplete | RestorePhase::ConfigurationRestored
-        )
-    {
+            RestorePhase::WritersStopped
+                | RestorePhase::ConfigurationRestored
+                | RestorePhase::HealthChecked
+        ),
+        RestoreScope::CompleteLinked => matches!(
+            journal.phase,
+            RestorePhase::RootRollbackComplete
+                | RestorePhase::ConfigurationRestored
+                | RestorePhase::HealthChecked
+        ),
+        RestoreScope::SystemOnly => false,
+    };
+    if journal.plan != *source.plan() || !phase_ready {
         return Err(ConfigurationApplyError::WrongPhaseOrPlan);
     }
     let _verified_stage = stages.open_verified(source)?;
     let mut roots = BTreeMap::new();
+    let mut root_inodes = BTreeSet::new();
     for destination in destinations {
+        let metadata = destination.directory.metadata()?;
         if destination.root == StateRoot::StateGeneration
-            || !destination.directory.metadata()?.is_dir()
+            || !metadata.is_dir()
+            || !root_inodes.insert((metadata.dev(), metadata.ino()))
             || roots.insert(destination.root, destination.directory).is_some()
         {
             return Err(ConfigurationApplyError::InvalidInventory);
@@ -352,7 +366,9 @@ pub(crate) fn apply_with_owner(
         checkpoint()?;
     }
     verify_live(source, &roots)?;
-    journals.advance(&mut journal, RestorePhase::ConfigurationRestored)?;
+    if matches!(journal.phase, RestorePhase::WritersStopped | RestorePhase::RootRollbackComplete) {
+        journals.advance(&mut journal, RestorePhase::ConfigurationRestored)?;
+    }
     Ok(journal)
 }
 

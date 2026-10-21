@@ -11,6 +11,8 @@ use crate::{
 };
 
 pub const WSL: bool = cfg!(feature = "wsl-lab");
+pub const KVM: bool =
+    cfg!(any(feature = "issue19-lab", feature = "issue20-lab", feature = "issue21-lab"));
 
 pub fn tool(assets: &Path, binary: &str) -> Command {
     if WSL {
@@ -95,6 +97,11 @@ pub fn validate_host(assets: &Path, parent: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pinned_fixture_acceleration_matches_the_selected_host_policy() {
+        assert_eq!(scalar("accelerator").unwrap(), if KVM { "kvm" } else { "tcg" });
+    }
 
     #[test]
     fn native_runner_does_not_load_extracted_cloud_tools_or_libraries() {

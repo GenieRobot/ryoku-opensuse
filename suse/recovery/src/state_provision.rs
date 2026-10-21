@@ -10,8 +10,8 @@
 use crate::{
     machine_state::{MachineStateError, MachineStateRecord},
     state_mount::{
-        StateMountError, format_uuid, read_btrfs_fs_info, read_btrfs_subvolume_info,
-        validate_trusted_root,
+        StateMountError, StateMountIdentity, format_uuid, read_btrfs_fs_info,
+        read_btrfs_subvolume_info, validate_trusted_root,
     },
 };
 use rustix::{
@@ -30,6 +30,25 @@ pub const STATE_MOUNT_UNIT: &str = "var-lib-ryoku\\x2dstate.mount";
 /// Read-only preflight of the running writable direct-child Btrfs root.
 /// Reject unsupported roots before an initializer creates even a checkpoint.
 pub fn provisioning_root_uuid(root: &File) -> Result<String, StateProvisionError> {
+    initialization_root_uuid(root, None)
+}
+
+/// Read-only existing-store preflight permits a writable Snapper rollback root
+/// nested below the snapshot namespace. It still requires the actual safe
+/// Btrfs process root on the independently recorded filesystem, distinct from
+/// the protected state subvolume. This does not authorize creation or resume;
+/// callers must also verify the live state mount, store, boot unit and journals.
+pub fn verify_initialized_state_root(
+    root: &File,
+    record: &MachineStateRecord,
+) -> Result<(), StateProvisionError> {
+    initialization_root_uuid(root, Some(record.identity())).map(|_| ())
+}
+
+fn initialization_root_uuid(
+    root: &File,
+    existing: Option<&StateMountIdentity>,
+) -> Result<String, StateProvisionError> {
     validate_trusted_root(root).map_err(StateProvisionError::Observation)?;
     let fs = read_btrfs_fs_info(root).map_err(StateProvisionError::Observation)?;
     let volume = read_btrfs_subvolume_info(root).map_err(StateProvisionError::Observation)?;
@@ -37,9 +56,7 @@ pub fn provisioning_root_uuid(root: &File) -> Result<String, StateProvisionError
     if rustix::fs::fstatvfs(root)?.f_flag.contains(rustix::fs::StatVfsMountFlags::RDONLY) {
         return Err(StateProvisionError::IdentityMismatch);
     }
-    if fs.fsid == [0; 16]
-        || volume.treeid < 256
-        || volume.parent_id != 5
+    if volume.treeid < 256
         || stat.st_ino != 256
         || stat.st_uid != 0
         || stat.st_gid != 0
@@ -48,7 +65,28 @@ pub fn provisioning_root_uuid(root: &File) -> Result<String, StateProvisionError
     {
         return Err(StateProvisionError::IdentityMismatch);
     }
-    Ok(format_uuid(&fs.fsid))
+    validate_initialization_root_identity(&fs.fsid, volume.treeid, volume.parent_id, existing)
+}
+
+fn validate_initialization_root_identity(
+    fsid: &[u8; 16],
+    root_id: u64,
+    parent_id: u64,
+    existing: Option<&StateMountIdentity>,
+) -> Result<String, StateProvisionError> {
+    let uuid = format_uuid(fsid);
+    let parent_supported = match existing {
+        None => parent_id == 5,
+        Some(expected) => {
+            (parent_id == 5 || parent_id >= 256)
+                && uuid == expected.filesystem_uuid
+                && root_id != expected.subvolume_id
+        }
+    };
+    if *fsid == [0; 16] || !parent_supported {
+        return Err(StateProvisionError::IdentityMismatch);
+    }
+    Ok(uuid)
 }
 
 #[derive(Debug)]
@@ -352,6 +390,34 @@ pub(crate) fn reopen_created_state_mount(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn initialized_rollback_root_does_not_relax_fresh_creation_identity() {
+        let fsid = [3; 16];
+        let record =
+            MachineStateRecord::from_provisioned_subvolume(format_uuid(&fsid), 261).unwrap();
+        let check = |root, parent, existing| {
+            validate_initialization_root_identity(&fsid, root, parent, existing)
+        };
+        assert!(check(256, 5, None).is_ok());
+        assert!(check(256, 5, Some(record.identity())).is_ok());
+        // Classic rollback creates a distinct writable root in /.snapshots,
+        // while the same independent state volume remains directly under ID 5.
+        assert!(check(300, 259, Some(record.identity())).is_ok());
+        assert!(check(300, 259, None).is_err());
+        assert!(check(261, 5, Some(record.identity())).is_err());
+        for parent in [0, 1, 6, 255] {
+            assert!(check(300, parent, None).is_err());
+            assert!(check(300, parent, Some(record.identity())).is_err());
+        }
+        for foreign in [[0; 16], [4; 16]] {
+            assert!(
+                validate_initialization_root_identity(&foreign, 300, 259, Some(record.identity()))
+                    .is_err()
+            );
+        }
+        assert!(validate_initialization_root_identity(&[0; 16], 256, 5, None).is_err());
+    }
 
     #[test]
     fn public_creation_rejects_unprivileged_or_non_root_descriptor_before_ioctl() {

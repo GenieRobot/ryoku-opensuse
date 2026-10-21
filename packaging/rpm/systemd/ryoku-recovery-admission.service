@@ -1,0 +1,22 @@
+[Unit]
+Description=Verify Ryoku recovery is complete before graphical login
+Requires=var-lib-ryoku\x2dstate.mount
+After=var-lib-ryoku\x2dstate.mount
+Before=display-manager.service
+PartOf=graphical.target
+Conflicts=rescue.target emergency.target
+OnFailure=emergency.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/ryoku-recovery admit-session
+RemainAfterExit=yes
+User=root
+Group=root
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+RestrictAddressFamilies=AF_UNIX
+ReadOnlyPaths=/var/lib/ryoku-state

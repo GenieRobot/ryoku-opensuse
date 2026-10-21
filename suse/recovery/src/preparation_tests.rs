@@ -313,9 +313,7 @@ fn preparation_does_not_rewind_a_later_recovery_phase() {
     let journal = journals(&fixture);
     let mut state = ready.journal().clone();
     journal.advance(&mut state, RestorePhase::WritersStopped).unwrap();
-    assert!(matches!(
-        resume(&fixture, &state.restore_id, &checkpoint_snapshot()),
-        Err(PreparationError::UnexpectedPhase)
-    ));
+    let resumed = resume(&fixture, &state.restore_id, &checkpoint_snapshot()).unwrap();
+    assert_eq!(resumed.journal(), &state);
     assert_eq!(journal.load(&state.restore_id).unwrap(), state);
 }

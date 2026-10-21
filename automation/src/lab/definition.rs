@@ -3,7 +3,9 @@ use crate::support::Result;
 // This fixture deliberately uses unique scalar keys. Refuse ambiguous or
 // malformed values rather than silently using defaults or a moving URL.
 pub fn scalar(key: &str) -> Result<&'static str> {
-    let source = if cfg!(feature = "issue20-lab") {
+    let source = if cfg!(feature = "issue21-lab") {
+        include_str!("../../../infra/tumbleweed-lab/issue21-fixture.toml")
+    } else if cfg!(feature = "issue20-lab") {
         include_str!("../../../infra/tumbleweed-lab/issue20-fixture.toml")
     } else if cfg!(feature = "issue19-lab") {
         include_str!("../../../infra/tumbleweed-lab/issue19-fixture.toml")

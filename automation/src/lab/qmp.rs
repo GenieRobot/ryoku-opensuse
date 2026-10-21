@@ -656,7 +656,10 @@ mod tests {
         let (stream, peer) = UnixStream::pair().unwrap();
         let mut waiting = QmpClient { reader: BufReader::new(stream), next_id: 1 };
         let error = waiting.read_message(Instant::now() + Duration::from_millis(20)).unwrap_err();
-        assert!(matches!(error.kind(), io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock));
+        assert!(
+            matches!(error.kind(), io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock),
+            "unexpected deadline error: {error:?}"
+        );
         drop(peer);
         let (client, mut server) = UnixStream::pair().unwrap();
         let writer = thread::spawn(move || {

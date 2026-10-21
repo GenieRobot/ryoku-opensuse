@@ -109,6 +109,32 @@ pub struct InstalledInventory {
     profiles: Option<ProfileSources>,
 }
 impl InstalledInventory {
+    /// Exact compiled inventory for a root. Recovery may validate a saved
+    /// manifest against these names; it cannot enroll names from that manifest.
+    pub fn paths_for_root(&self, root: StateRoot) -> Option<&[RelativePath]> {
+        self.paths.get(&root).map(Vec::as_slice)
+    }
+
+    /// Validate restore record shape against the same code-owned enrollment
+    /// used by capture. Symlink values are restored as links and never followed.
+    pub fn accepts_record_kind(&self, record: &FileRecord) -> bool {
+        let Some(entry) = self
+            .entries
+            .iter()
+            .find(|entry| entry.root == record.root && entry.path == record.path.as_str())
+        else {
+            return false;
+        };
+        match (&record.kind, entry.kind) {
+            (EntryKind::Absent, _) => entry.absence_allowed,
+            (
+                EntryKind::RegularFile { size, hard_link_group, .. },
+                Kind::Regular | Kind::Preference,
+            ) => *size <= entry.max_bytes && hard_link_group.is_none(),
+            (EntryKind::Symlink { target, .. }, Kind::Preference) => target.len() <= 4096,
+            _ => false,
+        }
+    }
     /// Independently collect the complete code-owned scope twice for plan
     /// binding. This includes absence, content and metadata; unknown managed
     /// files refuse. The caller holds the native account writer lease.

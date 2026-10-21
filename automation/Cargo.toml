@@ -15,6 +15,7 @@ default = []
 wsl-lab = []
 issue19-lab = ["wsl-lab"]
 issue20-lab = ["wsl-lab"]
+issue21-lab = ["wsl-lab"]
 
 [dependencies]
 serde_json = "1"

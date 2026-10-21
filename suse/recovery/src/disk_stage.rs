@@ -13,12 +13,13 @@ use crate::{
 };
 use rustix::{
     fs::{
-        AtFlags, Mode, OFlags, RenameFlags, fsync, linkat, mkdirat, openat, renameat_with,
-        symlinkat, syncfs,
+        AtFlags, FileType, Mode, OFlags, RenameFlags, fsync, linkat, mkdirat, openat,
+        renameat_with, statat, symlinkat, syncfs, unlinkat,
     },
     io::Errno,
 };
 use serde::Serialize;
+use sha2::Digest;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs::{self, File},
@@ -123,10 +124,28 @@ impl DiskStageStore {
         &self,
         source: &StagedConfiguration,
     ) -> Result<VerifiedDiskStage, DiskStageError> {
+        self.create_with_observer(source, |_| {})
+    }
+
+    #[cfg(test)]
+    pub(crate) fn create_with_hook(
+        &self,
+        source: &StagedConfiguration,
+        after_durable_boundary: impl FnMut(usize),
+    ) -> Result<VerifiedDiskStage, DiskStageError> {
+        self.create_with_observer(source, after_durable_boundary)
+    }
+
+    fn create_with_observer(
+        &self,
+        source: &StagedConfiguration,
+        mut after_durable_boundary: impl FnMut(usize),
+    ) -> Result<VerifiedDiskStage, DiskStageError> {
         let receipt = receipt_bytes(source)?;
-        let name = stage_name(source);
+        let name = stage_name(source)?;
         mkdirat(&self.root, name.as_str(), Mode::from_raw_mode(0o700))?;
         fsync(&self.root)?;
+        after_durable_boundary(1);
         let directory = self.open_directory(&name)?;
         let mut links = BTreeMap::new();
         for (index, entry) in source.entries().iter().enumerate() {
@@ -180,6 +199,7 @@ impl DiskStageStore {
         // Include link-count and symlink-inode metadata in the durable flush.
         syncfs(&directory)?;
         verify_objects(&directory, source, false)?;
+        after_durable_boundary(2);
         let mut file = File::from(openat(
             &directory,
             ".receipt.tmp",
@@ -188,9 +208,12 @@ impl DiskStageStore {
         )?);
         file.write_all(&receipt)?;
         fsync(&file)?;
+        fsync(&directory)?;
+        after_durable_boundary(3);
         renameat_with(&directory, ".receipt.tmp", &directory, RECEIPT, RenameFlags::NOREPLACE)?;
         fsync(&directory)?;
         fsync(&self.root)?;
+        after_durable_boundary(4);
         Ok(VerifiedDiskStage { directory, plan: source.plan().clone() })
     }
 
@@ -200,7 +223,7 @@ impl DiskStageStore {
         &self,
         source: &StagedConfiguration,
     ) -> Result<VerifiedDiskStage, DiskStageError> {
-        let directory = self.open_directory(&stage_name(source))?;
+        let directory = self.open_directory(&stage_name(source)?)?;
         let receipt = File::from(openat(
             &directory,
             RECEIPT,
@@ -222,6 +245,117 @@ impl DiskStageStore {
         }
         verify_objects(&directory, source, true)?;
         Ok(VerifiedDiskStage { directory, plan: source.plan().clone() })
+    }
+
+    /// Remove only an incomplete stage for the exact verified source bundle.
+    /// The caller must hold the exclusive recovery lock and prove that the
+    /// journal has not advanced to `ContentStaged`. Complete receipts, unknown
+    /// entries, wrong inode types/owners/modes, external hard links and
+    /// populated staged directories are retained for explicit review.
+    pub fn discard_incomplete(&self, source: &StagedConfiguration) -> Result<(), DiskStageError> {
+        let name = stage_name(source)?;
+        let directory = self.open_directory(&name)?;
+        let receipt = statat(&directory, RECEIPT, AtFlags::SYMLINK_NOFOLLOW);
+        if !matches!(receipt, Err(Errno::NOENT)) {
+            return Err(DiskStageError::IncompleteOrChanged);
+        }
+
+        let mut expected = BTreeMap::new();
+        for (index, entry) in source.entries().iter().enumerate() {
+            if !matches!(entry.record().kind, EntryKind::Absent) {
+                expected.insert(object_name(index), entry);
+            }
+        }
+        let actual_names = fs::read_dir(format!("/proc/self/fd/{}", directory.as_raw_fd()))?
+            .map(|entry| entry.map(|entry| entry.file_name().into_string().unwrap_or_default()))
+            .collect::<Result<BTreeSet<_>, _>>()?;
+        if actual_names
+            .iter()
+            .any(|actual| actual != ".receipt.tmp" && !expected.contains_key(actual.as_str()))
+        {
+            return Err(DiskStageError::IncompleteOrChanged);
+        }
+        if actual_names.len()
+            != actual_names.iter().filter(|name| *name == ".receipt.tmp").count()
+                + actual_names.iter().filter(|name| expected.contains_key(name.as_str())).count()
+        {
+            return Err(DiskStageError::IncompleteOrChanged);
+        }
+
+        let store_stat = rustix::fs::fstat(&directory)?;
+        for actual in &actual_names {
+            let stat = statat(&directory, actual.as_str(), AtFlags::SYMLINK_NOFOLLOW)?;
+            let kind = FileType::from_raw_mode(stat.st_mode);
+            if actual == ".receipt.tmp" {
+                if kind != FileType::RegularFile
+                    || stat.st_uid != store_stat.st_uid
+                    || stat.st_gid != store_stat.st_gid
+                    || stat.st_mode & 0o7777 != 0o600
+                    || stat.st_nlink != 1
+                {
+                    return Err(DiskStageError::IncompleteOrChanged);
+                }
+                continue;
+            }
+            let entry = expected.get(actual.as_str()).ok_or(DiskStageError::IncompleteOrChanged)?;
+            let (expected_type, metadata) = match &entry.record().kind {
+                EntryKind::Directory { metadata } => (FileType::Directory, metadata),
+                EntryKind::RegularFile { metadata, .. } => (FileType::RegularFile, metadata),
+                EntryKind::Symlink { metadata, .. } => (FileType::Symlink, metadata),
+                EntryKind::Absent => return Err(DiskStageError::IncompleteOrChanged),
+            };
+            if kind != expected_type
+                || stat.st_uid != metadata.uid
+                || stat.st_gid != metadata.gid
+                || stat.st_mode & 0o7777 != metadata.mode
+            {
+                return Err(DiskStageError::IncompleteOrChanged);
+            }
+            if let EntryKind::RegularFile { hard_link_group, .. } = &entry.record().kind {
+                let expected_links = match hard_link_group {
+                    Some(group) => expected
+                        .iter()
+                        .filter(|(slot, candidate)| {
+                            actual_names.contains(slot.as_str())
+                                && matches!(
+                                    &candidate.record().kind,
+                                    EntryKind::RegularFile {
+                                        hard_link_group: Some(candidate_group),
+                                        ..
+                                    } if candidate_group == group
+                                )
+                        })
+                        .count() as u64,
+                    None => 1,
+                };
+                if stat.st_nlink != expected_links {
+                    return Err(DiskStageError::IncompleteOrChanged);
+                }
+            }
+            if expected_type == FileType::Directory
+                && fs::read_dir(format!("/proc/self/fd/{}/{}", directory.as_raw_fd(), actual))?
+                    .next()
+                    .is_some()
+            {
+                return Err(DiskStageError::IncompleteOrChanged);
+            }
+        }
+
+        for actual in actual_names {
+            let flags = if expected
+                .get(&actual)
+                .is_some_and(|entry| matches!(entry.record().kind, EntryKind::Directory { .. }))
+            {
+                AtFlags::REMOVEDIR
+            } else {
+                AtFlags::empty()
+            };
+            unlinkat(&directory, actual.as_str(), flags)?;
+        }
+        fsync(&directory)?;
+        unlinkat(&self.root, name.as_str(), AtFlags::REMOVEDIR)?;
+        fsync(&self.root)?;
+        Ok(())
     }
 
     fn open_directory(&self, name: &str) -> Result<File, DiskStageError> {
@@ -246,8 +380,10 @@ fn check_directory(file: &File, owner: u32) -> Result<(), DiskStageError> {
     }
     Ok(())
 }
-fn stage_name(source: &StagedConfiguration) -> String {
-    format!("stage-{}", source.plan().transaction_id.as_str())
+pub(crate) fn stage_name(source: &StagedConfiguration) -> Result<String, DiskStageError> {
+    // Bind every receipt input, including scope. Independent restore plans
+    // for the same source must not reuse an incompatible completed directory.
+    Ok(format!("stage-{:x}", sha2::Sha256::digest(receipt_bytes(source)?)))
 }
 fn object_name(index: usize) -> String {
     format!("object-{index:03}")

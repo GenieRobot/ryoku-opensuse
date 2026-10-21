@@ -1,0 +1,46 @@
+# Issue #21 isolated console fixture; no shared fixture pins are changed.
+# Signed XFS input is derived into a disposable Btrfs/UEFI disk by the lab.
+schema = 1
+architecture = "x86_64"
+snapshot = "20261016"
+image = "openSUSE-Tumbleweed-Minimal-VM.x86_64-1.0.0-Cloud-Snapshot20261016.qcow2"
+provenance = "https://download.opensuse.org/tumbleweed/appliances/"
+sha256 = "ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231"
+release_key_fingerprint = "AD485664E901B867051AB15F35A2F86E29B700A4"
+bootloader = "GRUB2 UEFI"
+filesystem = "Btrfs"
+source_filesystem = "XFS"
+kernel_package = "kernel-default-base"
+kernel_release = "7.2.10-1-default"
+kernel_package_version = "7.2.10-1.1.36.11"
+grub2_package_version = "2.16-2.1"
+root_default_subvolume = "@"
+snapshot_exclusions = ["@/home", "@/var"]
+derivation = "Rust-controlled root copy to blank second GPT/Btrfs disk; native grub2-install and dracut; actual sole-disk boot required"
+snapshot_provider = "Snapper"
+kde_packages = ["plasma6-session", "sddm", "xorg-x11-server", "xf86-input-libinput"]
+package_recommendations = "excluded; hard dependencies and signatures remain enforced"
+repo_oss_url = "https://downloadcontent2.opensuse.org/history/20261016/tumbleweed/repo/oss/"
+repo_oss_repomd_sha256 = "1d891e33c8abd582b71e579118e6b4c94e5e57ecdc1b77a2a7fc1abf7cc930a0"
+repo_non_oss_url = "https://downloadcontent2.opensuse.org/history/20261016/tumbleweed/repo/non-oss/"
+repo_non_oss_repomd_sha256 = "a7f061031bbcc905eff8c2ddd2e760a2d780e05433559062761b008e465542cf"
+repo_codec_url = "https://codecs.opensuse.org/openh264/openSUSE_Tumbleweed/"
+repo_codec_repomd_sha256 = "57b42e1c830f50adf5fd3424b2ed0260671e3d709804f51064d71a446ceb9dd1"
+repo_update_url = "https://downloadcontent2.opensuse.org/update/tumbleweed/"
+repo_update_repomd_sha256 = "3667c679dfdf3a981fc00aae6789928a5309e228943b921f83c89a386afbe589"
+# Exact nonempty metadata observed in authenticated run08; detached signature
+# made 2026-10-21 16:04:49 UTC verifies against release_key_fingerprint.
+repository_policy = "signed archived OSS/non-OSS and exact signed codec/update metadata; changed inputs fail closed"
+
+[hypervisor]
+qemu = "11.1.2"
+qemu_package = "qemu-x86-11.1.2-1.1"
+vgabios_sha256 = "ef8adebf5f2f860404706efff8fdc17628c7cc7f07e6692353f931ca1010bd6e"
+ovmf_package = "ovmf-202608-3.1"
+ovmf_code_sha256 = "72cf8e1a3653f031d2cf9dace93702b99cfa5c16b897a7d0a495c1bf03bf8690"
+ovmf_variables_sha256 = "5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e"
+machine = "q35"
+accelerator = "kvm"
+cpus = 2
+memory_mib = 6144
+disk_virtual_gib = 20

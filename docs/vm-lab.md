@@ -781,3 +781,35 @@ owned additional partner must invalidate completeness. The external ESP remains
 outside protection. The package hook experiment makes no write-veto or protected
 provider claim. Final acceptance and owned-run disposal are recorded in
 [`issue19-coordination-20261021.toml`](../infra/tumbleweed-lab/evidence/issue19-coordination-20261021.toml).
+
+## Issue #21 offline console fixture
+
+Build `vm-lab` with `--features issue21-lab` and the recovery example
+`native_console_restore_probe`. The feature selects only the signed
+[`issue21-fixture.toml`](../infra/tumbleweed-lab/issue21-fixture.toml) KVM input;
+do not use `--all-features` to launch it. Supply `--console-only`,
+`--state-initializer INITIALIZER`, `--recovery-cli CLI` and
+`--console-restore-probe PROBE PACKAGES_TAR SIGNING_KEY` with absolute input paths
+and an absent fresh run directory. The package archive must contain exactly the
+seven signed release5 desktop/runtime/helper/defaults/fonts/quickshell/tools RPMs
+named in the probe, with no directory entries or other files. The current
+console and admission units replace their fixture counterparts after native
+signature checks, dependency resolution and installed-file verification.
+
+The Rust service enters rescue, drives configuration restore and real CLI
+interruption/resume, exercises linked/system-only rollback through actual reboot,
+checks current checkpoints and unrelated-home preservation, refuses bad archives
+and unavailable partners, then tests the display-manager admission dependency
+with a Rust marker. The guest network is restricted before restore. Fixed serial
+failure markers abort polling promptly and preserve the owned disk/private logs
+without enabling user logins in rescue. Generic lab features and the #19 probe
+contract retain their existing behavior. The
+[native receipt](../infra/tumbleweed-lab/evidence/issue21-native-20261021.toml)
+records current results and unclaimed native incompatible-version/package-install
+and actual desktop-login acceptance.
+Only this feature performs a host/guest clock preflight before repository writes.
+It records UTC/epoch and monotonic/NTP observations, validates host time against
+the exact signed fixture metadata timestamp and a finite 30-day window, disables
+NTP in the disposable guest, sets guest time from the host epoch, and refuses more
+than five seconds of measured post-set drift. It never changes the host clock or
+relaxes TLS/signature checks. Full observations remain private.

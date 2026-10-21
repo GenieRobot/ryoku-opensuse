@@ -253,6 +253,37 @@ pub struct ProfileBundleStore {
     native: bool,
 }
 impl ProfileBundleStore {
+    /// Offline console provisioning under the same protected machine lock as
+    /// capture. The named lock must be the pinned inode and remain exclusively
+    /// held by this descriptor; an existing partial store is never repaired.
+    pub fn open_for_console(state: &File, lock: &File) -> Result<Self, ProfileStoreError> {
+        require_same_inode(state, &native_state()?)?;
+        let named = File::from(fs::openat2(
+            state,
+            crate::state_mount::MUTATION_LOCK_NAME,
+            OFlags::RDONLY | OFlags::CLOEXEC,
+            Mode::empty(),
+            RESOLVE,
+        )?);
+        require_same_inode(lock, &named)?;
+        let metadata = fs::fstat(lock)?;
+        if FileType::from_raw_mode(metadata.st_mode) != FileType::RegularFile
+            || metadata.st_uid != 0
+            || metadata.st_gid != 0
+            || metadata.st_mode & 0o7777 != 0o600
+            || metadata.st_nlink != 1
+        {
+            return Err(ProfileStoreError::UnsafeStorage);
+        }
+        fs::flock(lock, fs::FlockOperation::NonBlockingLockExclusive)?;
+        match Self::open_existing(state, 0, 0, true) {
+            Ok(store) => Ok(store),
+            Err(ProfileStoreError::Filesystem(rustix::io::Errno::NOENT)) => {
+                Self::provision_locked(state)
+            }
+            Err(error) => Err(error),
+        }
+    }
     /// Called only by the native session while it owns the machine lock and
     /// has revalidated the dedicated state mount. Partial stores are retained
     /// for reconciliation; an existing object is never repaired or adopted.
