@@ -33,6 +33,7 @@ enum Action {
     Activate,
     Shell,
     Hub,
+    Screenshot,
     Open(Surface),
 }
 
@@ -77,8 +78,9 @@ fn parse(args: &[String]) -> Result<Action> {
         ["activate"] => Ok(Action::Activate),
         ["shell"] => Ok(Action::Shell),
         ["hub"] => Ok(Action::Hub),
+        ["screenshot"] => Ok(Action::Screenshot),
         ["open", surface] => Ok(Action::Open(Surface::parse(surface)?)),
-        _ => Err("usage: ryoku-session compositor [--software-rendering] | activate | shell | hub | open launcher|quicksettings|clipboard|notifications".into()),
+        _ => Err("usage: ryoku-session compositor [--software-rendering] | activate | shell | hub | screenshot | open launcher|quicksettings|clipboard|notifications".into()),
     }
 }
 
@@ -201,6 +203,13 @@ fn surface_command_at(hub: bool, root: &Path, modules: &Path) -> Result<Command>
     Ok(command)
 }
 
+fn screenshot_command_at(root: &Path, modules: &Path) -> Result<Command> {
+    let mut command = Command::new("/usr/bin/setpriv");
+    command.args(["--no-new-privs", WRITER, "ryoshot"]);
+    surface_environment(&mut command, root, modules)?;
+    Ok(command)
+}
+
 fn run(action: Action) -> Result<()> {
     use rustix::process::{getegid, geteuid, getgid, getuid};
     validate_identity(
@@ -212,6 +221,9 @@ fn run(action: Action) -> Result<()> {
     match action {
         Action::Shell => Err(surface_command(false)?.exec().into()),
         Action::Hub => Err(surface_command(true)?.exec().into()),
+        Action::Screenshot => {
+            Err(screenshot_command_at(Path::new(PAYLOAD), Path::new(QML_MODULES))?.exec().into())
+        }
         Action::Open(surface) => checked(open_surface_command(surface)?),
         Action::Activate => activate(),
         Action::Compositor { software } => {
@@ -300,6 +312,7 @@ mod tests {
             assert!(parse(&input).is_err());
         }
         assert_eq!(parse(&args(&["hub"])).unwrap(), Action::Hub);
+        assert_eq!(parse(&args(&["screenshot"])).unwrap(), Action::Screenshot);
         assert_eq!(parse(&args(&["shell"])).unwrap(), Action::Shell);
         assert_eq!(parse(&args(&["compositor"])).unwrap(), Action::Compositor { software: false });
         assert_eq!(
@@ -379,6 +392,12 @@ mod tests {
                 Some(std::ffi::OsStr::new("/usr/libexec/ryoku/quickshell/bin:/usr/bin:/bin"))
             );
         }
+        let screenshot = screenshot_command_at(&root, &modules).unwrap();
+        assert_eq!(screenshot.get_program(), "/usr/bin/setpriv");
+        assert_eq!(
+            screenshot.get_args().collect::<Vec<_>>(),
+            ["--no-new-privs", WRITER, "ryoshot"]
+        );
         std::fs::remove_file(modules.join("Ryoku/Wm/Hyprland/qmldir")).unwrap();
         assert!(surface_command_at(false, &root, &modules).is_err());
         std::fs::remove_dir_all(root).unwrap();

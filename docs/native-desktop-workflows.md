@@ -6,6 +6,13 @@ receipts are in [session-port.md](session-port.md). Each row below remains
 pending for this exact candidate. Source inspection and host tests are not a
 native desktop pass. No physical device behavior is claimed.
 
+The [22 October native checkpoint](../infra/tumbleweed-lab/evidence/issue25-native-20261022.toml)
+records a BuildRequires-enabled native session build, signed fixture installation
+and ordinary SDDM password login rendering the coordinated shell. The separate
+Rust service and portal still failed, so this is partial startup evidence.
+The current portal/screenshot follow-ups require a fresh native pass; the
+workflow rows remain pending.
+
 | Workflow | Implementation boundary | Required native evidence | Current result / device gap |
 | --- | --- | --- | --- |
 | Notifications | Pinned Quickshell NotificationServer; `Super+N` opens `quick-settings#notifications` | Receive a real application notification, review popup/history, open and dismiss; verify service loss/recovery without fabricated events | Pending; no physical device required |
@@ -48,11 +55,11 @@ package paths. Direct unregistered shell launches and the standalone clipboard
 socket owner were replaced by the packaged daemon's existing Rust writer route.
 No unrelated issue branch was merged.
 
-Draft [PR #156](https://github.com/GenieRobot/ryoku-opensuse/pull/156), head
+Closed historical [PR #156](https://github.com/GenieRobot/ryoku-opensuse/pull/156), head
 `c76c3140b1b419eed351664ad55ae75f2ce714d2`, remains an older partial source.
 Its Rust equalizer, clipboard reply-presentation patch, clipboard disable patch,
 and hyprlock/hypridle candidates are not represented or accepted by this change.
-They require individual protocol/recovery/native review before adoption. Do not
-close that PR as fully superseded or advertise those workflows as supported.
-There is one active #25 implementation lane; its historical PR is retained for
-coordinator disposition without creating a second worktree.
+They require individual protocol/recovery/native review before adoption; the
+coordinator closed the older PR as superseded while retaining its source branch
+and explicitly unaccepted unique candidates. There is one active #25
+implementation lane, [PR #169](https://github.com/GenieRobot/ryoku-opensuse/pull/169).

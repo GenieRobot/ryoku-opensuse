@@ -2,7 +2,7 @@
 
 The optional `ryoku-session` RPM adds an SDDM entry named **Ryoku (openSUSE
 experimental)**. It depends on the accepted issue #23 release-5 package set;
-its own native build, install and desktop acceptance remain open. Select KDE
+native desktop acceptance remains open. Select KDE
 normally while those gates are incomplete. Installation changes no SDDM
 default, enables no units, writes no home files and replaces no KDE entry.
 
@@ -21,6 +21,10 @@ which requires the shell unit and wants the existing Rust service. The latter
 continues to use the authenticated typed service contract and fixed socket;
 no new privileged service or authorization policy is introduced. A drop-in
 associates it with session shutdown. No user unit is globally enabled.
+The session target binds to the native `graphical-session.target`, allowing
+native portal activation; its stop-when-unneeded lifecycle releases that target
+after this single graphical session stops. The explicit Hyprland portal package
+and this target binding still need the next native validation pass.
 
 The shell unit invokes `ryoku-session shell`, which runs
 `setpriv --no-new-privs /usr/libexec/ryoku/ryoku-writer daemon daemon` with fixed
@@ -39,6 +43,8 @@ terminal-only `ryoku-app` compatibility command uses native Konsole with literal
 argv. Other application roles return an error. The optional launcher Discover
 provider remains the existing `ryoku-tools-launcher-status` package; this RPM
 does not rewrite the user's launcher configuration.
+`Print` enters the existing coordinated Ryoshot writer through the Rust session
+command; its native capture/error/cancel behavior remains pending.
 
 Normal compositor exit stops the target, reaps its shell cgroup, stops the Rust
 service and clears the declared graphical keys from the user manager. D-Bus
@@ -130,3 +136,33 @@ be repeated because there was no live authorized local guest. Local Rust,
 spec parsing and unit checks cannot replace the required desktop evidence.
 The [consolidation receipt](../infra/tumbleweed-lab/evidence/issue25-session-consolidation-20261021.toml) records exact host commands, results and private-log digests.
 Keep issue #25 open.
+
+## Native continuation, 22 October 2026
+
+The [new native receipt](../infra/tumbleweed-lab/evidence/issue25-native-20261022.toml)
+resolves the earlier host RPMDB blocker: the inherited native SDK snapshot has
+RPM-installed Rust/Cargo 1.99, and ordinary-user BuildRequires-enabled session
+builds passed with offline vendored compilation. A fresh issue25 COW overlay
+installed separate signed fixture copies of the accepted package set and session
+through native Zypper dependency/signature/file checks. It is an inherited Btrfs
+desktop fixture, not a clean-install target.
+
+The first password SDDM login reached Hyprland but failed to start the old packaged
+writer across the native runtime mount. Rebuilding the unchanged current desktop
+spec with main's existing correction produced a working writer. A second native
+password login rendered the genuine shell/bar/calendar with coordinated daemon,
+provider and clipboard descendants. The [reviewed frame](../infra/tumbleweed-lab/evidence/issue25-native-20261022-shell.png)
+proves that visible surface only. The old helper package still makes the separate
+Rust service fail its namespace check, and portal activation reported an inactive
+graphical target. Current helper rebuilding, portal/screenshot metadata changes,
+all workflows and reboot/KDE validation remain pending.
+
+The Rust activation command now requests compositor exit after failed startup
+cleanup, returning users to SDDM instead of an empty compositor. This committed
+binary was built and installed natively; its intentional-failure path still needs
+native exercise. The tested native session source is `422c322`, with exact RPM
+and installed hashes in the receipt; subsequent portal/screenshot changes have
+host checks only. The owned guest was orderly powered off to release the shared
+KVM slot for #22. Its overlay and private logs are preserved; the original
+backing disk and firmware digests are unchanged. Continue native validation on
+this owned overlay after the slot becomes available. Issue #25 remains open.
