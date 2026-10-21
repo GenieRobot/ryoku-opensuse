@@ -27,3 +27,25 @@ provider_package_sha512 = "8ea75d4aabd8e57120932eb48be67539ecdd3d67db73c0a125106
 verification = "authenticated primary metadata names exact RPM/file owner; compressed/open primary hashes both checked; no fixture pin or trust bypass"
 guest_preflight = "query fixed /usr/bin/rpmsign owner and require exact pinned NEVRA before SDK provisioning"
 regression = "native_sdk_uses_authenticated_rpm_signing_provider rejects missing/obsolete/foreign identities and forbids rpm-sign in the fixed SDK set"
+
+[run02]
+candidate = "0e95e39735f1ffe4d2280ffe7693434e260d9c17"
+source_bundle_sha256 = "b56a77a4c9bec81dffb95f9465cedf8c4cc3837731779d2683c745a55e78b78a"
+report = "issue24-native-20261022/run02.txt"
+report_sha256 = "75241a0d11c23727001c94c02bb31b605cea1e373edbdf8629286db9263333d9"
+private_diagnostic_sha256 = "dbbbb5e3fc72e2a3e35db4a7c4f23af94ffbdf454950e2d74875985e98340226"
+result = "failed-during-native-desktop-build-before-Ryoku-install"
+observed = "fresh signed derivation/UEFI boot, SELinux enforcing, initializer/KDE baseline, exact rpm signing owner preflight, native SDK installation, BuildRequires-enabled desktop prep and offline Rust writer release build passed"
+failure = "upstream offline Go build required GOCACHE; the fixture cleared inherited environment without supplying an explicit Go cache"
+ryoku_runtime_installed = false
+acceptance = "none; no RPM-build-completion or installer lifecycle acceptance credited"
+correction = "explicit task-owned GOCACHE/GOPATH child paths plus actual-child environment regression and native go env preflight; no HOME override or upstream/runtime payload change"
+
+[run02_guard_delta]
+candidate = "ff50240d64372d44a0b896e5297ceb1b527972f2"
+normal_rpm_source = "0e95e39735f1ffe4d2280ffe7693434e260d9c17"
+delta = "empty lifecycle argument guards plus recovery-journal invariant tests; normal Run02 RPM inputs were not replaced"
+guarded_cli_sha256 = "9b971920081d26bffd8b84817eb92e9516fbbabd9126449209794dfb6d22e62b"
+command = "root invocation of temporary guarded CLI with internal-lifecycle and no action"
+result = "exit 2 and installer lifecycle action is required; no panic, no mutation"
+limits = "separate error-path check; not credited as normal RPM/source lifecycle acceptance"

@@ -127,6 +127,8 @@ fn command_for(program: &str, args: &[&str], timeout: &str) -> Result<String> {
         .env("PATH", "/usr/bin:/bin")
         .env("CARGO_BUILD_JOBS", "2")
         .env("CARGO_TARGET_DIR", "/var/tmp/ryoku-native24-cargo-target")
+        .env("GOCACHE", "/var/tmp/ryoku-native24-go-cache")
+        .env("GOPATH", "/var/tmp/ryoku-native24-go-workspace")
         .args(["--signal=TERM", "--kill-after=3s", timeout, program])
         .args(args)
         .output()?;
@@ -244,6 +246,11 @@ fn setup() -> Result<()> {
     let mut dependencies = vec!["--non-interactive", "--no-refresh", "install", "--no-recommends"];
     dependencies.extend_from_slice(BUILD_DEPENDENCIES);
     command_for("/usr/bin/zypper", &dependencies, "1800s")?;
+    let caches = command("/usr/bin/go", &["env", "GOCACHE", "GOPATH"])?;
+    require(
+        caches == "/var/tmp/ryoku-native24-go-cache\n/var/tmp/ryoku-native24-go-workspace\n",
+        "native Go cache/workspace preflight failed",
+    )?;
     let top = "/var/tmp/ryoku-native24-rpm";
     fs::create_dir(top)?;
     for spec in [
@@ -715,6 +722,18 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn native_tool_cache_environment_survives_cleared_parent_environment() {
+        let environment = command("/usr/bin/env", &[]).unwrap();
+        let values = environment
+            .lines()
+            .filter_map(|line| line.split_once('='))
+            .collect::<std::collections::BTreeMap<_, _>>();
+        assert_eq!(values.get("GOCACHE"), Some(&"/var/tmp/ryoku-native24-go-cache"));
+        assert_eq!(values.get("GOPATH"), Some(&"/var/tmp/ryoku-native24-go-workspace"));
+        assert_eq!(values.get("CARGO_TARGET_DIR"), Some(&"/var/tmp/ryoku-native24-cargo-target"));
+        assert!(!values.contains_key("HOME"));
+    }
     #[test]
     fn native_sdk_uses_authenticated_rpm_signing_provider() {
         assert!(BUILD_DEPENDENCIES.contains(&"rpm"));
