@@ -10,7 +10,7 @@ coordinator records.
 ## Current coordinator state (21 October 2026)
 
 - `main` and `origin/main` are at
-  [`b8c68ba675f57dab04d4bc465bb437f5574044e5`](https://github.com/GenieRobot/ryoku-opensuse/commit/b8c68ba675f57dab04d4bc465bb437f5574044e5), merged PR #151.
+  [`5efc726f0865516c5089d89efb8d85917ca1123d`](https://github.com/GenieRobot/ryoku-opensuse/commit/5efc726f0865516c5089d89efb8d85917ca1123d).
 - #15 is closed as completed M0 feasibility after merged PRs
   [#162](https://github.com/GenieRobot/ryoku-opensuse/pull/162) and
   [#163](https://github.com/GenieRobot/ryoku-opensuse/pull/163). The initial
@@ -38,18 +38,33 @@ coordinator records.
   automatic Snapper cleanup, but no deletion actor or helper restore dispatch
   is enabled. Console lifecycle remains partial without desktop provisioning
   and login.
-- #17 remains open for installed helper capability execution and Tumbleweed
-  activation; managed provider writes remain disabled. Its closure is not a
-  prerequisite for #20: #20 explicitly depends on #18 and #19, both closed.
-  Therefore #20 is the earliest ready open implementation task.
-- Draft [PR #152](https://github.com/GenieRobot/ryoku-opensuse/pull/152) is
-  partial #20 work and remains draft. Continue the issue's gates for durable
-  preflight/capture/verification/mutation/post-capture phases, serialized
-  supported mutations and affected-writer coordination, plan/path
-  revalidation before mutation, safe cancellation and accurate failure/history
-  states. Demonstrate that every required checkpoint failure blocks mutation
-  and concurrent operations cannot mismatch root/config generations; make no
-  multi-subvolume atomicity claim.
+- #17 is closed completed through PR #148 and the linked native installed
+  acceptance record. Its documented limits remain: managed provider writes
+  are disabled; no RPM install or interactive PAM login is claimed.
+- #20 is the earliest ready open implementation task: its explicit
+  prerequisites #18 and #19 are closed; it does not require #17 to remain
+  open. Draft [PR #152](https://github.com/GenieRobot/ryoku-opensuse/pull/152)
+  remains partial at exact head `5bb9d8bdafe7db0496024ee7a78104c68d8bbe93`,
+  based on `5efc726`. Hosted formatting, Clippy, workspace tests and dependency
+  review passed (the configured main-only GTK artifact job was skipped).
+  Local exact-head checks passed: 471 top-level tests, 17 isolated subprocess
+  checks, 5 existing ignored, and a separate runtime-boundary test.
+- Native run03 passed the normal and post-capture-failure paths. Run04 passed
+  the tightened low-space check and interrupted-`Applying` recovery path,
+  including refusal of new work/unsafe console reconciliation and reboot
+  history readback. The final same-input normal/interrupted native pair is
+  still incomplete: run05/run06 stopped before mutation because repository
+  cache verification could not be established. The diagnostic overlay had a
+  different SSH host key and zero-length cached repomd files. Strict host
+  verification was retained and no cache pin was changed. Keep #20 open and
+  PR #152 draft until the final gate is reproducibly satisfied.
+- Continue #20's durable preflight/state-space-check/linked-capture/
+  verification/plan-revalidation/mutation/health-check/post-capture phases;
+  serialize supported mutations with affected-writer coordination; revalidate
+  plans and covered paths before mutation; expose safe cancellation and
+  accurate durable failure/history states. Show every required checkpoint
+  failure blocks mutation and concurrent operations cannot mismatch root and
+  configuration generations. Make no multi-subvolume atomicity claim.
 - Preserve the clean #25 worktree at
   `target/issue25-native-workflows`. No branch or PR totals are asserted here.
 

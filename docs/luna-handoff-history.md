@@ -9,7 +9,7 @@ snapshots and next actions are superseded. See the tracked
 the current coordination entry points.
 
 - `main` and `origin/main` are at
-  `b8c68ba675f57dab04d4bc465bb437f5574044e5` (merged PR #151, #19).
+  `5efc726f0865516c5089d89efb8d85917ca1123d` (latest main).
 - #15 is closed as completed M0 provider feasibility after merged PRs
   [#162](https://github.com/GenieRobot/ryoku-opensuse/pull/162) and
   [#163](https://github.com/GenieRobot/ryoku-opensuse/pull/163). The initial
@@ -31,18 +31,29 @@ the current coordination entry points.
   excludes catalog partners from automatic cleanup, with no deletion actor or
   helper restore dispatch enabled; and console lifecycle is partial without
   desktop provisioning/login.
-- #17 remains open although its typed service/helper boundaries and installed
-  tests are complete: installed helper capability execution and Tumbleweed
-  activation remain outstanding, and managed provider writes remain disabled.
-  #20 does not depend on #17. Since #20 explicitly requires only #18 and #19,
-  both closed, #20 is the earliest ready open implementation task.
-- Issue #20's existing draft [PR #152](https://github.com/GenieRobot/ryoku-opensuse/pull/152)
-  is partial and remains draft. Continue its explicit gates: durable
-  preflight/capture/verification/mutation/post-capture phases; serialized
-  mutations and affected-writer coordination; revalidation before mutation;
-  safe cancellation and accurate failure/history states; tests showing every
-  required checkpoint failure blocks mutation and concurrent operations cannot
-  mismatch root/config generations. Do not claim multi-subvolume atomicity.
+- #17 is closed completed through PR #148 and its linked native installed
+  acceptance. Its documented limits still apply: managed provider writes
+  remain disabled; no RPM install or interactive PAM login is claimed.
+- #20 remains open. Its draft [PR #152](https://github.com/GenieRobot/ryoku-opensuse/pull/152)
+  is partial at exact head `5bb9d8bdafe7db0496024ee7a78104c68d8bbe93`, based
+  on `5efc726`. Hosted formatting, Clippy, workspace tests and dependency
+  review passed; the configured main-only GTK artifact job was skipped. Local
+  checks passed (471 top-level tests, 17 isolated subprocess checks, 5
+  existing ignored, plus a separate runtime-boundary test). Native run03
+  passed the normal and post-capture-failure paths; run04 passed the tightened
+  low-space check and interrupted-`Applying` recovery path with reboot history
+  readback. The final same-input native normal/interrupted pair has not passed:
+  run05/run06 stopped before mutation because repository-cache verification
+  could not be established. The diagnostic overlay had a different SSH host
+  key and zero-length cached repomd files, so strict host verification stayed
+  enabled and no cache pin was changed. Keep PR #152 draft and #20 open until
+  that final gate is reproducibly satisfied.
+- Continue #20's explicit gates for durable preflight/capture/verification/
+  mutation/post-capture phases; serialization and affected-writer
+  coordination; plan/path revalidation before mutation; safe cancellation and
+  accurate durable failure/history states; and proof that required checkpoint
+  failures block mutation and concurrent operations cannot mismatch root and
+  configuration generations. Do not claim multi-subvolume atomicity.
 - Preserve the clean #25 worktree at `target/issue25-native-workflows`.
   Do not infer repository branch or PR counts from the historical entries below.
 
