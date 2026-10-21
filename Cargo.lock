@@ -691,6 +691,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ryoku-session"
+version = "0.1.0"
+dependencies = [
+ "rustix",
+]
+
+[[package]]
 name = "ryoku-snapper"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,5 @@
+[Unit]
+Description=Ryoku openSUSE experimental desktop session
+Requires=ryoku-desktop-shell.service
+After=ryoku-desktop-shell.service
+Wants=ryoku-service.service
