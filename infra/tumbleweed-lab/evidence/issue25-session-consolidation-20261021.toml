@@ -43,6 +43,30 @@ source1_provenance = "Unchanged accepted issue23 vendor archive; session adds on
 public_log = "issue25-session-rpm-host-build.log"
 binary_rpm_produced = false
 
+[rpm_mechanics_only]
+command = "CARGO_TARGET_DIR=<mechanics-topdir>/target rpmbuild -ba --nodeps --define '_topdir <mechanics-topdir>' --define '_tmppath <mechanics-topdir>/tmp' --define '_buildhost localhost' <mechanics-topdir>/SPECS/ryoku-session.spec"
+exit_code = 0
+scope = "Non-acceptance host mechanics only. Existing actual rustc/cargo 1.99.0 satisfy the declared >=1.99 minima; --nodeps bypasses missing RPMDB provider records, not missing toolchain binaries. No packages installed, no system state changed."
+source_commit = "67b50add9a501c1be23a3f5a85c01682ce3b9053"
+source0_sha256 = "295898f4a58e114442ef318b4211f97f8405428fdd8d237f45261e3fc754c2c3"
+source1_sha256 = "fd3b11c454529b58a8e2be4ebc07c7cc68ec1ad69c9160420755f5b52ae7febb"
+original_failure_preserved = "rpm_build_attempt and issue25-session-rpm-host-build.log remain unchanged"
+result = "prep, offline locked vendored release build, install and unpackaged-file checks passed; unsigned binary RPM and SRPM produced in isolated temporary topdir"
+manifest = "15 RPM entries; root-owned 0755 binaries/directories and 0644 configuration, units, documentation and license; no home/state paths or enablement links; no scriptlets"
+binary_rpm_sha256 = "6d0eba1672b47d2d64202dd439c3a55981bd182f737928b2ab1485039f83a253"
+source_rpm_sha256 = "f0e38cf327867128820808f42058a8b7fb4b9bcd8c85ca88f4bd92ec2a692022"
+public_build_log = "issue25-session-rpm-mechanics.log"
+public_manifest = "issue25-session-rpm-mechanics-files.tsv"
+public_requires = "issue25-session-rpm-mechanics-requires.txt"
+warning = "Host default debugsource machinery also emitted an empty debugsource package warning; no assertion of native debug packaging acceptance"
+sandbox_retry = "First mechanics invocation failed because default /var/tmp is read-only in sandbox; retry scoped _tmppath inside the same isolated topdir and passed"
+acceptance_limits = "Does not satisfy native RPM BuildRequires resolution, Tumbleweed ABI/dependency resolution, signed package install, SDDM/reboot or workflow acceptance"
+
+followup_source_checks = "Formatting, strict workspace Clippy, locked all-feature workspace tests and cargo-deny rerun after mechanics evidence: all passed; 474 top-level + 17 isolated subprocess passes, 0 failed, 5 existing ignored. No source/spec fix was needed."
+followup_tests_log_sha256 = "542c96a2e6f8d8b22e06f3c39cee7f6339e21838dd762734bd0783f8b80cd024"
+followup_clippy_log_sha256 = "8c233a54790c4800d3dd585436af679aa838da259bfdb129412e2d51cdb75cdc"
+followup_deny_log_sha256 = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+
 [native_acceptance]
 new_qemu_launched = false
 availability = "WSL2 host has QEMU and /dev/kvm, but no active QEMU/vm-lab. Historical retained disk/readiness are stopped/stale; current lab has no authenticated development-resume path. No preserved disk was booted or changed."
