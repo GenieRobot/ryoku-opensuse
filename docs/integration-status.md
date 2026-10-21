@@ -70,7 +70,9 @@ coordinator records.
   [run 39650401347](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39650401347/job/119396914353)
   passed at `c99c08f`; hosted Rust CI for the current head is
   [run 39651972315](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39651972315)
-  (in progress at this update). Local source checks were rerun: formatting,
+  passed formatting, lint, tests and dependency review. Its configured
+  main-only GTK proof artifact job was skipped. Local source checks were rerun:
+  formatting,
   all-target/all-feature strict Clippy, 474 top-level plus 17 subprocess tests
   (0 failed, 5 existing ignored), session build and cargo-deny passed.
 - BuildRequires-enabled `rpmbuild -ba` still stops before `%prep` because host

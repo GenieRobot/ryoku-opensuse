@@ -64,7 +64,9 @@ the current coordination entry points.
   [run 39650401347](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39650401347/job/119396914353)
   passed at the preceding `c99c08f` head; hosted CI for `b02f69b` is
   [run 39651972315](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39651972315)
-  (in progress at this update). Local checks were rerun and passed: formatting,
+  passed formatting, lint, tests and dependency review; its configured
+  main-only GTK proof artifact job was skipped. Local checks were rerun and
+  passed: formatting,
   all-target/all-feature strict Clippy, 474 top-level plus 17 subprocess tests
   (0 failures, 5 existing ignored), session build and cargo-deny.
 - BuildRequires-enabled `rpmbuild -ba` still stops before `%prep` because host
