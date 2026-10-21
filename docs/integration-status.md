@@ -1,4 +1,4 @@
-# Integration status (20 October 2026)
+# Integration status (21 October 2026)
 
 This status refresh supersedes the cleanup snapshot below. The older dated
 repository counts and next steps are retained as history, not current facts.
@@ -7,40 +7,60 @@ remain authoritative for fixed decisions and task dependencies. The
 [full Luna handoff history](luna-handoff-history.md) retains earlier dated
 coordinator records.
 
-## Current coordinator state (20 October 2026)
+## Current coordinator state (21 October 2026)
 
 - `main` and `origin/main` are at
-  [`3ac9c7fa0815e995e6b9f2d06a71397c1caca663`](https://github.com/GenieRobot/ryoku-opensuse/commit/3ac9c7fa0815e995e6b9f2d06a71397c1caca663).
+  [`b8c68ba675f57dab04d4bc465bb437f5574044e5`](https://github.com/GenieRobot/ryoku-opensuse/commit/b8c68ba675f57dab04d4bc465bb437f5574044e5), merged PR #151.
 - #15 is closed as completed M0 feasibility after merged PRs
   [#162](https://github.com/GenieRobot/ryoku-opensuse/pull/162) and
   [#163](https://github.com/GenieRobot/ryoku-opensuse/pull/163). The initial
   provider surface proposes zero protected writes. Writes without proven
   provider hooks remain unavailable; #15 does not certify a protected write
   or pass the linked-recovery/first-sprint gates.
-- #18 is closed after PR
-  [#161](https://github.com/GenieRobot/ryoku-opensuse/pull/161). #16 and #17
-  are closed. Since #15, #16 and #17 are #19's prerequisites, #19 is the
-  earliest ready open implementation task in this dependency path.
-- #19 remains open and incomplete. Draft PR
-  [#151](https://github.com/GenieRobot/ryoku-opensuse/pull/151) contains a
-  one-commit partial based on old base `6c10d9f`; its dedicated worker is
-  continuing that work. Keep the PR draft until #19 acceptance evidence passes.
-  Its remaining gates are supported Btrfs/Snapper and boot-layout capability
-  discovery; typed Snapper operations and protected durable catalog; package
-  hook correlation by transaction ID without redundant nested pairs; partner
-  presence/verification and manual/known-working retention coordination; and
-  evidence that catalog/journal survive root rollback and missing partners
-  invalidate complete status.
+- #18 is closed after PR [#161](https://github.com/GenieRobot/ryoku-opensuse/pull/161).
+  #19 is closed by merged PR
+  [#151](https://github.com/GenieRobot/ryoku-opensuse/pull/151) at `b8c68ba`.
+  Exact-head hosted Rust workspace checks passed; local workspace tests, strict
+  Clippy, formatting, cargo-deny and native build passed. The signed Tumbleweed
+  run10 acceptance record exited 0 and covers supported layouts, stock hook
+  pair reuse, root/additional snapshot identities, catalog/journal persistence
+  across actual root rollback, refusal for missing/corrupt/deleted partners,
+  manual/known-working pins, and zero-limit cleanup. See the
+  [acceptance matrix](https://github.com/GenieRobot/ryoku-opensuse/blob/b8c68ba675f57dab04d4bc465bb437f5574044e5/infra/tumbleweed-lab/evidence/issue19-coordination-20261021.toml),
+  [Snapper contract](https://github.com/GenieRobot/ryoku-opensuse/blob/b8c68ba675f57dab04d4bc465bb437f5574044e5/docs/snapper-coordination.md),
+  and [hosted CI run](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39622755741/job/119300204507).
+- #19 does not claim external ESP coverage or general boot compatibility:
+  `FullSystem` covers root plus tracked `/boot` files. The actual-root-rollback
+  persistence result uses a synthetic `Planned` journal and does not establish
+  a prepared/executable linked restore. Known-working promotion verifies
+  boot/storage state, not application health. Hook telemetry is not a
+  protected provider write or veto. Catalog partners are excluded from
+  automatic Snapper cleanup, but no deletion actor or helper restore dispatch
+  is enabled. Console lifecycle remains partial without desktop provisioning
+  and login.
+- #17 remains open for installed helper capability execution and Tumbleweed
+  activation; managed provider writes remain disabled. Its closure is not a
+  prerequisite for #20: #20 explicitly depends on #18 and #19, both closed.
+  Therefore #20 is the earliest ready open implementation task.
+- Draft [PR #152](https://github.com/GenieRobot/ryoku-opensuse/pull/152) is
+  partial #20 work and remains draft. Continue the issue's gates for durable
+  preflight/capture/verification/mutation/post-capture phases, serialized
+  supported mutations and affected-writer coordination, plan/path
+  revalidation before mutation, safe cancellation and accurate failure/history
+  states. Demonstrate that every required checkpoint failure blocks mutation
+  and concurrent operations cannot mismatch root/config generations; make no
+  multi-subvolume atomicity claim.
 - Preserve the clean #25 worktree at
   `target/issue25-native-workflows`. No branch or PR totals are asserted here.
 
 The first-sprint deliverable in #1 remains unchanged: a clean Tumbleweed VM
 must install Ryoku, support login and reboot, return to KDE, preserve overrides
 on reinstall, and demonstrate a verified linked checkpoint plus offline
-console restore. #19 is one prerequisite task and does not complete that gate.
-All fixed decisions in #1, including Rust for new project-owned executable
-code, the verified linked pre-change recovery contract, and preservation of
-unrelated home files, remain in force.
+console restore. Closing #19 does not complete that gate. All fixed decisions
+in #1 remain in force: new project-owned executable code is Rust; supported
+changes require a verified linked pre-change restore point with mutation
+blocked on required capture/verification failure; unrelated home files must be
+preserved; and private companion data remains outside this public repository.
 
 ## Historical Git cleanup snapshot (20 October 2026)
 

@@ -1,6 +1,6 @@
 # Luna handoff: Ryoku on openSUSE
 
-## Current coordinator handoff: 2026-10-20
+## Current coordinator handoff: 2026-10-21
 
 The October 18 coordinator entries below remain historical. Their repository
 snapshots and next actions are superseded. See the tracked
@@ -8,26 +8,43 @@ snapshots and next actions are superseded. See the tracked
 [roadmap issue #1](https://github.com/GenieRobot/ryoku-opensuse/issues/1) for
 the current coordination entry points.
 
-- `main` and `origin/main` are synchronized at `3ac9c7fa0815e995e6b9f2d06a71397c1caca663`.
-  The main checkout was clean at that commit before this handoff refresh.
+- `main` and `origin/main` are at
+  `b8c68ba675f57dab04d4bc465bb437f5574044e5` (merged PR #151, #19).
 - #15 is closed as completed M0 provider feasibility after merged PRs
   [#162](https://github.com/GenieRobot/ryoku-opensuse/pull/162) and
-  [#163](https://github.com/GenieRobot/ryoku-opensuse/pull/163). The selected
-  initial provider surface proposes zero protected writes. All writes without
-  proven hooks remain unavailable; this feasibility result does not satisfy
-  the linked-recovery or first-sprint gates.
-- #18 is closed after PR #161. #16 and #17 are also closed, so #19 is the
-  earliest ready open implementation task among the first-sprint dependencies.
-- #19 remains open and incomplete. Draft PR
-  [#151](https://github.com/GenieRobot/ryoku-opensuse/pull/151) has a one-commit
-  partial based on old base `6c10d9f`; its dedicated worker is continuing it.
-  Keep the PR draft until #19's acceptance evidence passes. Its remaining gates
-  are supported layout/capability discovery, package-hook pair correlation,
-  catalog and journal survival across actual root rollback, and verified
-  missing-partner and manual/known-working retention behavior.
+  [#163](https://github.com/GenieRobot/ryoku-opensuse/pull/163). The initial
+  provider surface proposes zero protected writes; all writes without proven
+  hooks remain unavailable. This does not satisfy the linked-recovery or
+  first-sprint gates.
+- #18 is closed after PR #161. #19 is closed after PR #151 at the current
+  main commit. Exact-head hosted Rust workspace checks passed, and local tests,
+  strict Clippy, formatting, cargo-deny and native build passed. The signed
+  Tumbleweed run10 acceptance record reports exit 0 and covers supported
+  layouts, stock hook-pair reuse, root/additional identities, catalog/journal
+  persistence across actual root rollback, missing/corrupt/deleted-partner
+  refusal, manual/known-working pins, and zero-limit cleanup.
+- #19's limits remain explicit: `FullSystem` covers root and tracked `/boot`
+  files but excludes the external ESP; a synthetic `Planned` journal surviving
+  root rollback is not a prepared or executable linked restore; known-working
+  promotion proves boot/storage state, not application health; stock hook
+  telemetry proves neither a protected provider write nor veto; retention
+  excludes catalog partners from automatic cleanup, with no deletion actor or
+  helper restore dispatch enabled; and console lifecycle is partial without
+  desktop provisioning/login.
+- #17 remains open although its typed service/helper boundaries and installed
+  tests are complete: installed helper capability execution and Tumbleweed
+  activation remain outstanding, and managed provider writes remain disabled.
+  #20 does not depend on #17. Since #20 explicitly requires only #18 and #19,
+  both closed, #20 is the earliest ready open implementation task.
+- Issue #20's existing draft [PR #152](https://github.com/GenieRobot/ryoku-opensuse/pull/152)
+  is partial and remains draft. Continue its explicit gates: durable
+  preflight/capture/verification/mutation/post-capture phases; serialized
+  mutations and affected-writer coordination; revalidation before mutation;
+  safe cancellation and accurate failure/history states; tests showing every
+  required checkpoint failure blocks mutation and concurrent operations cannot
+  mismatch root/config generations. Do not claim multi-subvolume atomicity.
 - Preserve the clean #25 worktree at `target/issue25-native-workflows`.
-  Do not infer repository branch or PR counts from the historical entries
-  below.
+  Do not infer repository branch or PR counts from the historical entries below.
 
 ## Coordinator handoff: 2026-10-18
 
