@@ -145,7 +145,10 @@ RYOKU_LAB_AUTHORIZED=existing-wsl-vm PATH_TO_BUILD/vm-lab run EXISTING_SIGNED_AS
 ```
 
 Repeat with a second fresh run path and `--mutation-interrupt` for process death
-inside Applying. `issue20-lab` selects only `issue20-fixture.toml`; #19 and generic
+inside Applying. Pin copies of all four completed executables outside Cargo's
+output directory before the pair: workspace tests can rebuild ordinary binary
+outputs with a different unified feature set. Both variants must report the same
+staged hashes. `issue20-lab` selects only `issue20-fixture.toml`; #19 and generic
 fixture inputs/defaults are unchanged. Input binaries are staged and hashed
 before boot. The harness requires exact allowlisted results and normal signed
 boot, reboot, offline fixture recovery, fresh-base reset and owned-disk/key
