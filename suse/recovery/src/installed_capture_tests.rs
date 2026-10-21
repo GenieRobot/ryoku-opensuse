@@ -1000,3 +1000,29 @@ fn managed_namespace_and_wallpaper_state_locations_cannot_be_silently_omitted() 
     );
     assert!(InstalledInventory::for_home(&fixture.source).is_err());
 }
+
+#[test]
+fn plan_fingerprint_binds_complete_home_inventory_content_metadata_and_absence() {
+    let fixture = Fixture::new();
+    fs::create_dir_all(fixture.path.join("source/.config/ryoku")).unwrap();
+    let inventory = InstalledInventory::current().unwrap();
+    let absent = inventory.fingerprint(&fixture.source, &fixture.account).unwrap();
+    fixture.write(".config/ryoku/shell.json", b"{}", 0o600);
+    let present = inventory.fingerprint(&fixture.source, &fixture.account).unwrap();
+    assert_ne!(absent, present);
+    assert_eq!(present, inventory.fingerprint(&fixture.source, &fixture.account).unwrap());
+    fixture.write(".config/ryoku/shell.json", b"{\"changed\":true}", 0o600);
+    let changed = inventory.fingerprint(&fixture.source, &fixture.account).unwrap();
+    assert_ne!(present, changed);
+    fs::set_permissions(
+        fixture.path.join("source/.config/ryoku/shell.json"),
+        fs::Permissions::from_mode(0o640),
+    )
+    .unwrap();
+    assert_ne!(changed, inventory.fingerprint(&fixture.source, &fixture.account).unwrap());
+    fixture.write(".config/ryoku/unknown.json", b"{}", 0o600);
+    assert!(inventory.fingerprint(&fixture.source, &fixture.account).is_err());
+    fs::remove_file(fixture.path.join("source/.config/ryoku/unknown.json")).unwrap();
+    fs::remove_file(fixture.path.join("source/.config/ryoku/shell.json")).unwrap();
+    assert_eq!(absent, inventory.fingerprint(&fixture.source, &fixture.account).unwrap());
+}

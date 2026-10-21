@@ -86,6 +86,7 @@ struct Namespace {
     root: File,
     uid: u32,
     gid: u32,
+    native_mount: Option<u64>,
 }
 impl Namespace {
     fn native(uid: u32, gid: u32, create: bool) -> Result<Self> {
@@ -94,14 +95,27 @@ impl Namespace {
             OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
             Mode::empty(),
         )?);
+        let stat = fs::fstat(&run)?;
+        if stat.st_uid != 0 || stat.st_gid != 0 || stat.st_mode & 0o7022 != 0 {
+            return Err(Error::UnsafeBoundary);
+        }
         let runtime = File::from(fs::openat2(
             &run,
             uid.to_string(),
             OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
             Mode::empty(),
-            RESOLVE,
+            RESOLVE.difference(ResolveFlags::NO_XDEV),
         )?);
         directory(&runtime, uid, gid)?;
+        let parent_mount = descriptor_mount(&run)?;
+        let runtime_mount = descriptor_mount(&runtime)?;
+        if parent_mount != runtime_mount {
+            let mut info = String::new();
+            File::open("/proc/self/mountinfo")?.take(1024 * 1024 + 1).read_to_string(&mut info)?;
+            if info.len() > 1024 * 1024 || !runtime_mount_allowed(&info, runtime_mount, uid) {
+                return Err(Error::UnsafeBoundary);
+            }
+        }
         if create {
             if uid != rustix::process::geteuid().as_raw() || uid == 0 {
                 return Err(Error::Unsupported);
@@ -120,7 +134,8 @@ impl Namespace {
             RESOLVE,
         )?);
         directory(&root, uid, gid)?;
-        Ok(Self { root, uid, gid })
+        let mount = descriptor_mount(&root)?;
+        Ok(Self { root, uid, gid, native_mount: Some(mount) })
     }
     fn open_lock(&self, create: bool) -> Result<File> {
         directory(&self.root, self.uid, self.gid)?;
@@ -139,6 +154,16 @@ impl Namespace {
         Ok(file)
     }
     fn check_lock(&self, file: &File) -> Result<()> {
+        if let Some(mount) = self.native_mount {
+            let current = Self::native(self.uid, self.gid, false)?;
+            let original = fs::fstat(&self.root)?;
+            let current_stat = fs::fstat(&current.root)?;
+            if current.native_mount != Some(mount)
+                || (original.st_dev, original.st_ino) != (current_stat.st_dev, current_stat.st_ino)
+            {
+                return Err(Error::UnsafeBoundary);
+            }
+        }
         directory(&self.root, self.uid, self.gid)?;
         let stat = fs::fstat(file)?;
         let current = fs::statat(&self.root, LOCK, AtFlags::SYMLINK_NOFOLLOW)?;
@@ -189,6 +214,37 @@ impl Namespace {
         result.sort();
         Ok(result)
     }
+}
+fn descriptor_mount(file: &File) -> Result<u64> {
+    let stat = fs::statx(file, "", AtFlags::EMPTY_PATH, fs::StatxFlags::MNT_ID)?;
+    if stat.stx_mask & fs::StatxFlags::MNT_ID.bits() == 0 || stat.stx_mnt_id == 0 {
+        return Err(Error::UnsafeBoundary);
+    }
+    Ok(stat.stx_mnt_id)
+}
+// Only the exact systemd runtime tmpfs boundary can cross a mount here. No
+// bind of a subtree, foreign mountpoint/filesystem, symlink or child mount is
+// admitted. Descriptor mount IDs are pinned and rechecked by every lease check.
+fn runtime_mount_allowed(info: &str, mount: u64, uid: u32) -> bool {
+    let mut matching = info.lines().filter_map(|line| {
+        let (before, after) = line.split_once(" - ")?;
+        let before: Vec<_> = before.split_ascii_whitespace().collect();
+        let after: Vec<_> = after.split_ascii_whitespace().collect();
+        (before.first()?.parse::<u64>().ok()? == mount).then_some((before, after))
+    });
+    let Some((before, after)) = matching.next() else {
+        return false;
+    };
+    matching.next().is_none()
+        && before.len() >= 6
+        && after.len() == 3
+        && before[3] == "/"
+        && before[4] == format!("/run/user/{uid}")
+        && after[0] == "tmpfs"
+        && after[1] == "tmpfs"
+        && ["rw", "nosuid", "nodev"]
+            .iter()
+            .all(|required| before[5].split(',').any(|option| option == *required))
 }
 fn directory(file: &File, uid: u32, gid: u32) -> Result<()> {
     let stat = fs::fstat(file)?;

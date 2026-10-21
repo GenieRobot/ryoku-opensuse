@@ -1,0 +1,101 @@
+schema = 1
+date = "2026-10-21"
+issue = 20
+pull_request = 152
+runtime_source_commit = "1501444c252c35918fc3f59f0ee0ca6b6aa60d3e"
+runtime_source_tree = "011eeb004164c95bbd54a7a805160d69a92116c6"
+runtime_patch_base = "34d3c88"
+runtime_patch_sha256 = "84567ec6f49a168ec461bcc461b6a4ce1e7c6bc3c73070dc1fdd4db3ed8a2076"
+runtime_patch_method = "git diff --binary 34d3c88 1501444 -- automation suse Cargo.toml Cargo.lock rust-toolchain.toml infra/tumbleweed-lab/issue20-fixture.toml | sha256sum"
+status = "Final rebased-build identical-input normal/interrupted native pair passed; draft PR and issue retained for exact final-head hosted CI and coordinator review"
+supersedes = "The final-pair pending status in issue20-mutation-20261021.toml; earlier run results and explicit production limits remain historical evidence"
+
+[inputs]
+fixture_file = "infra/tumbleweed-lab/issue20-fixture.toml"
+fixture_toml_sha256 = "6c663b582f0ed03c1321220f6748cf2e853e4d51e2f0bc563a06ba17a7f6faf3"
+snapshot = "20261016"
+image_sha256 = "ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231"
+release_signer = "AD485664E901B867051AB15F35A2F86E29B700A4"
+qemu = "11.1.2"
+accelerator = "kvm"
+cpus = 2
+memory_mib = 6144
+ovmf_code_sha256 = "72cf8e1a3653f031d2cf9dace93702b99cfa5c16b897a7d0a495c1bf03bf8690"
+ovmf_variables_sha256 = "5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e"
+vgabios_sha256 = "ef8adebf5f2f860404706efff8fdc17628c7cc7f07e6692353f931ca1010bd6e"
+orchestrator_sha256 = "d87e5ce3873166d54d418d7dc1722b0e3c2adad05565c6a7fd7b2fe28786989a"
+initializer_sha256 = "90217e5ce35c3f4a2c2ff140807e590f7fbb0461045b2f008ee3580eda2c0916"
+mutation_probe_sha256 = "23f7eef7ace63374c0166a7ff3b8e27f57945a2e7ff2be5048a71611c88bda0d"
+mutation_console_sha256 = "ac4a9a25e8f08efce90be63ea3277547c92a55ad0df68fe155ab279bfe65bfe7"
+binary_provenance = "All four binaries rebuilt after rebase, then staged outside Cargo outputs before run11/run12. Initializer/probe/console rebuilt bit-identically to run09/run10; final orchestrator has its own exact recorded hash. Later evidence/docs changes do not alter runtime sources or inputs"
+repository_inputs = "Both native signed refreshes passed exact OSS/non-OSS/codec/update metadata hashes compiled from the same fixture before package installation; install used --no-refresh with mandatory signatures"
+update_pin = "3667c679dfdf3a981fc00aae6789928a5309e228943b921f83c89a386afbe589"
+update_pin_evidence = "issue20-cache-diagnostic-20261021.toml and preserved detached-signed nonempty metadata; no generic/#19 pin changes"
+reproducibility_limit = "Codec/update URLs are moving sources. Future changed bytes refuse rather than silently replacing pins; these successful runs establish a same-input pair, not indefinite availability of historical package repositories"
+
+[prior_pair]
+source_commit = "59ec6d7fc2fdeca4720a58e97ec7b00c7a426449"
+source_tree = "c0e13d4aa251835f837b77e0849c8872f164f205"
+orchestrator_sha256 = "b7b201ee31bb3937053086b208325e72497c73687c1a11b7f830cafb4d253402"
+comparison = "Run09/run10 each exited 0 with identical common inputs/results. Retained as the successful pre-rebase pair; final rebased-build acceptance uses run11/run12"
+
+[runs.run09]
+variant = "normal complete operations plus distinct final post-capture failure"
+exit_code = 0
+evidence_file = "issue20-run09-normal-20261021.txt"
+evidence_sha256 = "16481b5666baa560c873b690759505b908d82e26fb964433b305f15ebb500530"
+result = "Common #20 native checks, complete pre/post associations and PostChangeCaptureFailed accounting passed; exact retained preimage/history reopened through independent console and helper startup after reboot"
+
+[runs.run10]
+variant = "interrupted Applying"
+exit_code = 0
+evidence_file = "issue20-run10-interrupted-20261021.txt"
+evidence_sha256 = "4e3ac07b18f24f860a8249cb79ab0720f6ceb3f90b57b9cf36458b835086b03a"
+result = "Common #20 native checks passed; child exited without destructors after durable Applying, exact verified native preimage and actuator marker. Restart retained stage/preimage, invented no outcome/postimage, and required recovery"
+refusal = "New transaction refused without apply; root console refused before-change reconciliation of potentially mutating work. Exact stage/checkpoint/marker and one unresolved history entry remained after reboot"
+
+[runs.run11]
+variant = "final rebased-build normal complete operations plus distinct final post-capture failure"
+exit_code = 0
+evidence_file = "issue20-run11-normal-rebased-20261021.txt"
+evidence_sha256 = "835f829be0a9a9e3128511ecd5d8fe344e1ca3c177c4121da7510373cc26e8be"
+result = "All common native checks, successful pre/post associations, distinct PostChangeCaptureFailed accounting, reboot/helper/console readback, offline fixture recovery and fresh signed-base reset/disposal passed"
+
+[runs.run12]
+variant = "final rebased-build interrupted Applying"
+exit_code = 0
+evidence_file = "issue20-run12-interrupted-rebased-20261021.txt"
+evidence_sha256 = "b7e1fc6315071c841a34e2d365720541d947cc635c14dd88176038a1a7bb81bd"
+result = "All common native checks and interruption after durable Applying passed; exact stage/preimage/marker and recovery-required state survived reboot; new work and unsafe reconciliation refused; offline fixture recovery and fresh signed-base reset/disposal passed"
+
+[pair]
+comparison = "Full final run11/run12 allowlisted evidence diff contains only native_issue20_post_capture_failure=passed versus native_issue20_interrupted_apply=passed. All four final rebased-built executable hashes and common input/result rows match exactly"
+common = "Actual Btrfs ENOSPC plus direct unnamed 128 MiB allocation refusal; capture failure; changed plan/path; cancellation; interrupted prechange; independent process serialization; retained writer lease; durable verified-before-first-write ordering"
+reboot = "Both runs changed boot identity, reopened exact original checkpoint associations and exercised protected helper startup plus independent root console"
+cleanup = "Both runs proved offline Snapper fixture restore, durable sentinel before discard and absence after fresh signed XFS reset; base image unchanged; owned disks, firmware variables, seed, keys, known_hosts and QMP sockets removed. No QEMU remained after pair"
+
+[validation]
+local = "Rebased final runtime source/pin tree passed 480 top-level tests plus 17 isolated subprocess passes; 5 existing ignored; no failures. Strict workspace Clippy, formatting, whitespace, offline cargo-deny, explicit runtime-boundary test and native fixture build passed"
+prior_runtime_source_ci = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39653304549/job/119406966617"
+prior_runtime_source_ci_result = "Formatting, Clippy, workspace tests and dependency review passed; main-only GTK artifact job skipped as configured. Final rebased evidence head is subject to its own hosted CI"
+
+[integration]
+base_commit = "34d3c88ef1525dc0f8833c988b61cf9a0a22e41b"
+checked_rebased_commit = "1501444c252c35918fc3f59f0ee0ca6b6aa60d3e"
+rebase = "Six commits replayed onto current main without conflicts; same existing issue20 branch/worktree"
+source_equivalence = "git diff --exit-code 59ec6d7 1501444 -- suse automation/src/lab rust-toolchain.toml infra/tumbleweed-lab/issue20-fixture.toml returned 0"
+accepted_main_delta = "Three RPM audit/install-fixture Rust binaries plus serde_json added to the automation dependencies. No native lab or suse runtime source changes"
+rebuilt_orchestrator_sha256 = "d87e5ce3873166d54d418d7dc1722b0e3c2adad05565c6a7fd7b2fe28786989a"
+rebuilt_other_inputs = "Initializer, mutation probe and mutation console are bit-identical to the recorded run09/run10 hashes"
+native_status = "Final run11/run12 pair completed exit 0 with identical final rebased-built immutable inputs, all required native outcomes and complete reset/disposal. Prior run09/run10 artifacts remain separately identified"
+local_checks = "480 top-level passes plus 17 isolated subprocess passes, 0 failed, 5 existing ignored; full strict Clippy, formatting, whitespace, offline cargo-deny, separate runtime-boundary test and native fixture build passed"
+history_bundle = "target/issue20-before-main-rebase-20261021.bundle"
+history_bundle_sha256 = "0e5a40c3154b9d8e9a88b8e44034379e36c6f5e676ecb102d9a52fb37b333c0c"
+history_bundle_verification = "Complete history ending at pre-rebase 5b3a2c9 verified with git bundle verify before rewriting the same branch"
+
+[limits]
+supported_actions = "No provider write capability enabled; marker actuator and local profile/package identities are synthetic fixture inputs"
+coverage = "Single default root Snapper config plus complete compiled account preferences; extra configs refuse; external ESP/general boot compatibility excluded"
+atomicity = "Serialized verified observations; no multi-subvolume atomicity claim; ordinary external editors are not frozen"
+recovery = "Independent history and fixture root restore are proven; no production linked restore, automatic provider replay or application-health certification claimed"
+desktop = "Console-only run intentionally skips KDE provisioning/login; lab_result and lifecycle_result remain partial. #20 evidence does not satisfy desktop or first-sprint gates"

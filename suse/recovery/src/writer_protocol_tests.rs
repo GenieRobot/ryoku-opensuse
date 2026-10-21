@@ -92,7 +92,7 @@ impl Drop for Fixture {
 fn test_namespace(path: &std::path::Path) -> Namespace {
     let root = File::open(path.join("namespace")).unwrap();
     let stat = fs::fstat(&root).unwrap();
-    Namespace { root, uid: stat.st_uid, gid: stat.st_gid }
+    Namespace { root, uid: stat.st_uid, gid: stat.st_gid, native_mount: None }
 }
 fn test_command(path: &std::path::Path, role: &str, prefix: &str) -> Command {
     let mut command = Command::new(std::env::current_exe().unwrap());
@@ -557,4 +557,22 @@ fn all_pinned_upstream_writer_routes_apply_without_fuzz() {
         assert!(!contents.contains("qs -c ryoshot"), "{path}");
         assert!(!contents.contains("qs -c welcome"), "{path}");
     }
+}
+
+#[test]
+fn native_runtime_exception_is_only_the_exact_private_tmpfs_mount_root() {
+    let valid = "41 22 0:33 / /run/user/1000 rw,nosuid,nodev,relatime - tmpfs tmpfs rw,size=64m,uid=1000,gid=100\n";
+    assert!(runtime_mount_allowed(valid, 41, 1000));
+    for changed in [
+        valid.replace("/run/user/1000", "/run/user/1001"),
+        valid.replace("/run/user/1000", "/run/user/1000/ryoku-writers"),
+        valid.replace("0:33 / ", "0:33 /subtree "),
+        valid.replace("tmpfs tmpfs", "ext4 /dev/vda"),
+        valid.replace("rw,nosuid,nodev", "rw,nodev"),
+        valid.replace("rw,nosuid,nodev", "ro,nosuid,nodev"),
+        format!("{valid}{valid}"),
+    ] {
+        assert!(!runtime_mount_allowed(&changed, 41, 1000));
+    }
+    assert!(!runtime_mount_allowed(valid, 42, 1000));
 }

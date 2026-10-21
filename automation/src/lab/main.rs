@@ -56,6 +56,9 @@ pub(crate) struct RunOptions<'a> {
     state_prepare: Option<&'a str>,
     linked_probe: Option<&'a str>,
     recovery_cli: Option<&'a str>,
+    mutation_probe: Option<&'a str>,
+    mutation_console: Option<&'a str>,
+    mutation_interrupt: bool,
     console_only: bool,
 }
 
@@ -71,11 +74,38 @@ fn run_options(args: &[String]) -> Result<RunOptions<'_>, &'static str> {
         state_prepare: None,
         linked_probe: None,
         recovery_cli: None,
+        mutation_probe: None,
+        mutation_console: None,
+        mutation_interrupt: false,
         console_only: false,
     };
     let mut index = 4;
     while index < args.len() {
         match args[index].as_str() {
+            "--mutation-probe"
+                if cfg!(feature = "issue20-lab")
+                    && options.mutation_probe.is_none()
+                    && index + 1 < args.len()
+                    && !args[index + 1].is_empty() =>
+            {
+                options.mutation_probe = Some(&args[index + 1]);
+                index += 2;
+            }
+            "--mutation-console"
+                if cfg!(feature = "issue20-lab")
+                    && options.mutation_console.is_none()
+                    && index + 1 < args.len()
+                    && !args[index + 1].is_empty() =>
+            {
+                options.mutation_console = Some(&args[index + 1]);
+                index += 2;
+            }
+            "--mutation-interrupt"
+                if cfg!(feature = "issue20-lab") && !options.mutation_interrupt =>
+            {
+                options.mutation_interrupt = true;
+                index += 1;
+            }
             "--linked-checkpoint-probe"
                 if options.linked_probe.is_none() && index + 1 < args.len() =>
             {
@@ -172,16 +202,49 @@ fn run_options(args: &[String]) -> Result<RunOptions<'_>, &'static str> {
     {
         return Err(usage());
     }
+    if options.mutation_probe.is_some() != options.mutation_console.is_some()
+        || (options.mutation_probe.is_some()
+            && (!options.console_only
+                || options.state_initializer.is_none()
+                || options.linked_probe.is_some()
+                || options.state_prepare.is_some()))
+        || (options.mutation_interrupt && options.mutation_probe.is_none())
+    {
+        return Err(usage());
+    }
     Ok(options)
 }
 
 fn usage() -> &'static str {
-    "usage: vm-lab run ASSET_DIRECTORY FRESH_RUN_DIRECTORY [--capture-ui GTK_BINARY] [--zypp-probe PROBE_BINARY PACKAGE] [--state-probe PROBE_BINARY] [--state-initializer INITIALIZER_BINARY] [--state-prepare-probe PROBE_BINARY] [--linked-checkpoint-probe PROBE_BINARY --recovery-cli CLI_BINARY] [--console-only]"
+    "usage: vm-lab run ASSET_DIRECTORY FRESH_RUN_DIRECTORY [--capture-ui GTK_BINARY] [--zypp-probe PROBE_BINARY PACKAGE] [--state-probe PROBE_BINARY] [--state-initializer INITIALIZER_BINARY] [--state-prepare-probe PROBE_BINARY] [--linked-checkpoint-probe PROBE_BINARY --recovery-cli CLI_BINARY] [--mutation-probe PROBE_BINARY --mutation-console CONSOLE_BINARY [--mutation-interrupt]] [--console-only]"
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mutation_inputs_require_the_isolated_initialized_console_feature() {
+        let base =
+            ["vm-lab", "run", "assets", "run", "--console-only", "--state-initializer", "init"]
+                .map(str::to_owned);
+        let mut args = base.to_vec();
+        args.extend(["--mutation-probe", "probe"].map(str::to_owned));
+        assert!(run_options(&args).is_err());
+        args.extend(["--mutation-console", "console"].map(str::to_owned));
+        if cfg!(feature = "issue20-lab") {
+            assert_eq!(run_options(&args).unwrap().mutation_probe, Some("probe"));
+            args.push("--mutation-interrupt".into());
+            assert!(run_options(&args).unwrap().mutation_interrupt);
+            args.extend(
+                ["--linked-checkpoint-probe", "linked", "--recovery-cli", "recovery"]
+                    .map(str::to_owned),
+            );
+            assert!(run_options(&args).is_err());
+        } else {
+            assert!(run_options(&args).is_err());
+        }
+    }
 
     #[test]
     fn linked_probe_requires_exact_binary_pair_and_initialized_console_fixture() {

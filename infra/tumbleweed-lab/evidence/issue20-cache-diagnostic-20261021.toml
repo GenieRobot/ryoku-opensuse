@@ -1,0 +1,53 @@
+schema = 1
+date = "2026-10-21"
+issue = 20
+pull_request = 152
+source_parent = "5bb9d8bdafe7db0496024ee7a78104c68d8bbe93"
+status = "Repository mismatch identified in authenticated fresh run08; final same-input native pair still pending"
+
+[host]
+runner = "existing authorized openSUSE WSL2 with native QEMU/KVM"
+qemu_package = "qemu-x86-11.1.2-1.1"
+ovmf_package = "ovmf-202608-3.1"
+preflight = "Image, firmware, VGA BIOS and all retained immutable executable hashes match the previous #20 receipt"
+sandbox = "Sandbox hides /dev/kvm and denies Unix socket binds; read-only escalation found the expected root:kvm character device 10,232 with mode 0666. Native execution and full workspace checks used the approved escalation path"
+guest_scope = "No retained guest resumed or changed; run08 and follow-up runs use new owned disks derived from the exact signed image. No cloud resources commissioned"
+
+[run07]
+result = "Runner refused invocation before creating a run directory or guest because the requested output parent lay outside the worktree current directory"
+correction = "Invoke the same staged executable from the authorized repository workspace root for fresh run08"
+
+[run08]
+result = "Setup failed before Btrfs migration, state initialization or mutation"
+image_sha256 = "ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231"
+orchestrator_sha256 = "83ea57163ef30b3166fa3bec66eb6d5ca5e91880eb476e320dc72a3f541f9515"
+alias = "repo-update"
+expected_sha256 = "32bc6dca93ec7402a00668ca8578049869553464975a2424347ae583a8ff2279"
+observed_sha256 = "3667c679dfdf3a981fc00aae6789928a5309e228943b921f83c89a386afbe589"
+observed_bytes = 3603
+diagnosis = "The moving update repository published newer signed metadata. Native signed refresh succeeded, but its nonempty cache correctly failed the older exact digest pin"
+ssh = "Fresh per-run key and isolated known_hosts; original authenticated guest session used. Strict host verification retained for subsequent commands. No changed host key or zero-length metadata accepted"
+cleanup = "Owned process exited and was reaped by lab Drop; owned disks, firmware variables, seed, cloud-init data, keys, known_hosts and stale QMP socket removed. Nonsecret staged executables and private diagnostic logs retained"
+historical_limit = "This identifies the present reproducible failure; run05/run06 did not record their differing alias/hash and remain failed setup evidence"
+
+[signature]
+url = "https://downloadcontent2.opensuse.org/update/tumbleweed/repodata/repomd.xml"
+metadata_file = "issue20-update-repomd-run08-20261021.xml"
+metadata_sha256 = "3667c679dfdf3a981fc00aae6789928a5309e228943b921f83c89a386afbe589"
+signature_file = "issue20-update-repomd-run08-20261021.xml.asc"
+signature_sha256 = "10c005cddc670e22786d773d6a78938ef34d178f8ad36f2835197ee0bfd9afc2"
+signer = "AD485664E901B867051AB15F35A2F86E29B700A4"
+signature_utc = "2026-10-21 16:04:49"
+verification = "GnuPG GOODSIG and VALIDSIG using the existing signed image asset keyring; host digest equals the authenticated native observation before changing issue20-fixture.toml"
+scope = "Only isolated #20 update pin changed; generic, WSL and #19 fixture pins unchanged. Prior signed metadata evidence preserved"
+
+[repair]
+implementation = "Repository cache verification now rejects empty files explicitly and reports fixed alias, expected/observed SHA-256 and byte count on mismatch. Exact digest and regular-file gates retained"
+test = "Real temporary cache accepts matching nonempty bytes, rejects changed bytes with both digests and alias, rejects empty bytes even when pinned to SHA-256(empty), and rejects a symlink"
+full_workspace = "472 top-level passes plus 17 isolated subprocess passes, 5 existing ignored, no failures on the final approved host run"
+checks = "Strict full-workspace Clippy, formatting, diff whitespace, offline dependency policy and separately invoked runtime-boundary test passed"
+sandbox_test_limit = "An earlier sandbox workspace attempt failed five existing QMP tests on PermissionDenied at Unix socket bind; all passed in the approved native host run without weakening assertions"
+
+[remaining]
+acceptance = "Final normal and interrupted native runs must use identical staged executable, image, firmware and signed repository input pins and complete reset/disposal. No provider mutation capability enabled"
+issue = "Keep #20 open and PR #152 draft until coordinator review of completed acceptance evidence"

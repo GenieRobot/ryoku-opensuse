@@ -166,23 +166,72 @@ pub fn verify_cache() -> Result<()> {
     fixture_only()?;
     for (alias, _, hash_key, _) in REPOSITORIES {
         let metadata = Path::new("/var/cache/zypp/raw").join(alias).join("repodata/repomd.xml");
-        require(
-            fs::symlink_metadata(&metadata)?.is_file(),
-            "native signed repository metadata cache missing or indirect",
-        )?;
-        let digest = output(Command::new("sha256sum").arg(&metadata))?;
-        require(
-            digest.split_whitespace().next() == Some(scalar(hash_key)?),
-            "native repository metadata differs from signed fixture pin",
-        )?;
+        verify_cache_entry(alias, &metadata, scalar(hash_key)?)?;
     }
     println!("repository_metadata=signature-checked-and-pinned");
+    Ok(())
+}
+
+fn verify_cache_entry(alias: &str, metadata: &Path, expected: &str) -> Result<()> {
+    let stat = fs::symlink_metadata(metadata)?;
+    if !stat.is_file() || stat.len() == 0 {
+        return Err(format!(
+            "native repository metadata invalid: alias={alias} regular={} bytes={}",
+            stat.is_file(),
+            stat.len(),
+        )
+        .into());
+    }
+    let digest = output(Command::new("sha256sum").arg(metadata))?;
+    let observed = digest.split_whitespace().next().ok_or("repository digest missing")?;
+    if observed != expected {
+        return Err(format!(
+            "native repository metadata differs from signed fixture pin: alias={alias} expected={expected} observed={observed} bytes={}",
+            stat.len(),
+        )
+        .into());
+    }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cache_verification_refuses_empty_indirect_and_changed_metadata_with_identity() {
+        use std::os::unix::fs::symlink;
+        let directory = std::env::temp_dir().join(format!(
+            "ryoku-repository-cache-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+        ));
+        fs::create_dir(&directory).unwrap();
+        let metadata = directory.join("repomd.xml");
+        // Even a fixture accidentally pinned to SHA-256(empty) cannot accept
+        // an empty native cache as repository metadata.
+        let empty = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+        fs::write(&metadata, []).unwrap();
+        let error = verify_cache_entry("repo-update", &metadata, empty).unwrap_err().to_string();
+        assert!(error.contains("alias=repo-update regular=true bytes=0"));
+        fs::write(&metadata, b"abc").unwrap();
+        let actual = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        verify_cache_entry("repo-update", &metadata, actual).unwrap();
+        let error = verify_cache_entry("repo-update", &metadata, empty).unwrap_err().to_string();
+        assert!(
+            error
+                .contains(&format!("alias=repo-update expected={empty} observed={actual} bytes=3"))
+        );
+        let indirect = directory.join("indirect.xml");
+        symlink(&metadata, &indirect).unwrap();
+        assert!(
+            verify_cache_entry("repo-update", &indirect, actual)
+                .unwrap_err()
+                .to_string()
+                .contains("alias=repo-update regular=false")
+        );
+        fs::remove_dir_all(directory).unwrap();
+    }
 
     #[test]
     fn native_missing_signature_fields_become_explicit_mandatory_checks() {

@@ -1,0 +1,144 @@
+schema = 1
+date = "2026-10-21"
+issue = 20
+pull_request = 152
+base_commit = "5efc726"
+runtime_source_commit = "2d0cb2af27f5a849848daabfc58e73cc7dd536e6"
+runtime_source_tree = "8c10c2286a299236fbb3f2efc9bd0440cbd8a9c1"
+runtime_patch_sha256 = "221299ad7dae015e5bbda46ef7fe714ed17bc270bbd99ffaeeee5533780f58f0"
+runtime_patch_method = "git diff --binary 5efc726 2d0cb2a -- automation suse Cargo.toml Cargo.lock rust-toolchain.toml infra/tumbleweed-lab/issue20-fixture.toml | sha256sum; docs/evidence excluded"
+fixture_toml_sha256 = "f0103abcf35c3b650263f36ca68cbae7ed93e4f1f1394c6d326d22988530942c"
+acceptance_status = "partial; final identical-input normal/interrupted native pair incomplete; issue remains open and PR draft"
+
+[commands]
+build = "cargo build --locked --offline -p ryoku-automation --features issue20-lab --bin vm-lab -p ryoku-recovery --bin ryoku-state-init -p ryoku-service --bin ryoku-mutation-history --example native_mutation_probe"
+normal = "RYOKU_LAB_AUTHORIZED=existing-wsl-vm vm-lab run EXISTING_SIGNED_ASSETS FRESH_ISSUE20_RUN --console-only --state-initializer ryoku-state-init --mutation-probe native_mutation_probe --mutation-console ryoku-mutation-history"
+interrupted = "same normal command with a fresh owned run directory and --mutation-interrupt"
+tests = "cargo test --locked --offline --workspace --all-features"
+clippy = "cargo clippy --locked --offline --workspace --all-targets --all-features -- -D warnings"
+format = "cargo fmt --all --check; git diff --check"
+dependency_policy = "cargo deny --offline --all-features check"
+explicit_native_runtime = "cargo test --locked --offline -p ryoku-service native_runtime_mount_boundaries_preserve_strict_ownership_and_fixed_namespace -- --ignored"
+
+[checks]
+scope = "Final source and evidence working tree after evidence update; docs/evidence-only commit follows these checks; exact pushed head also subject to hosted CI"
+toolchain = "rustc 1.99.0 (b940084d7 2026-09-28); cargo 1.99.0 (5f94df478 2026-08-27)"
+top_level_passed = 471
+additional_isolated_subprocess_passes = 17
+ignored = 5
+failed = 0
+explicit_native_runtime_passed = 1
+format = "passed"
+clippy = "passed"
+dependency_policy = "advisories ok, bans ok, licenses ok, sources ok; offline local audit"
+ignored_limits = "Four existing recovery tests require privileged ACL/SELinux, another TMPDIR filesystem, exact upstream source or Go daemon; existing service native runtime test separately invoked and passed"
+
+[native]
+snapshot = "20261016"
+image_sha256 = "ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231"
+release_signer = "AD485664E901B867051AB15F35A2F86E29B700A4"
+qemu = "11.1.2"
+accelerator = "kvm"
+memory_mib = 6144
+cpus = 2
+kernel = "7.2.10-1-default"
+snapper = "0.13.1-3.4"
+selinux = "enforcing"
+orchestrator_sha256 = "e62bd8e89e6e4da294a006b09d46922f73864cebe556b86070444d73b924c25a"
+initializer_sha256 = "90217e5ce35c3f4a2c2ff140807e590f7fbb0461045b2f008ee3580eda2c0916"
+mutation_probe_sha256 = "23f7eef7ace63374c0166a7ff3b8e27f57945a2e7ff2be5048a71611c88bda0d"
+mutation_console_sha256 = "ac4a9a25e8f08efce90be63ea3277547c92a55ad0df68fe155ab279bfe65bfe7"
+inputs = "Final immutable inputs used in run06; successful run03/run04 use the historical exact hashes in their committed allowlisted logs. No other issue guest or preserved #25 asset used"
+
+[repository_pin]
+url = "https://downloadcontent2.opensuse.org/update/tumbleweed/repodata/repomd.xml"
+old_sha256 = "16dd9f46f5e068b69d09e0a1f14ce9d596bec7a330e848dcf5daea9cc936d3fc"
+new_sha256 = "32bc6dca93ec7402a00668ca8578049869553464975a2424347ae583a8ff2279"
+signature_sha256 = "2d630e8ec4866a011f7bf1ff78169878f6fa38893cf1a743db8f7bf1ab804004"
+signature_key = "AD485664E901B867051AB15F35A2F86E29B700A4"
+signature_time_utc = "2026-10-21 15:58:43"
+verification = "Detached signature verified using the existing signed asset keyring; OSS/non-OSS/codec host downloads matched their unchanged pins. Only issue20-fixture.toml update pin changed"
+limits = "Host-side verification does not establish the native run05/run06 mismatch; runtime error did not identify the differing alias/hash. Complete historical signed update repository cache was not retained, so run04 inputs cannot be reconstructed from repomd.xml alone"
+
+[runs.run01]
+result = "failed"
+exit_code = 1
+checkpoint = "Signed-image, native Btrfs/UEFI boot, enforcing SELinux and state initialization passed; writer namespace initialization rejected actual systemd /run/user/UID mount with EXDEV"
+mutation = "No actuator entered or accepted mutation recorded"
+repair = "Allow only exact private UID/GID tmpfs runtime root with rw,nosuid,nodev; pin/recheck mount ID and inode; retain no-symlink and descendant NO_XDEV rules"
+cleanup = "Owned disk, firmware, seed, user-data/meta-data, SSH keys, known_hosts and stale QMP socket removed; diagnostics and nonsecret staged executables retained privately"
+
+[runs.run02]
+result = "failed"
+exit_code = 1
+checkpoint = "Runtime tmpfs boundary and substituted runtime mount, child mount and symlink refusal passed; disk-fill fixture reached actual Btrfs ENOSPC before its statvfs stopping threshold"
+mutation = "Failure during fixture disk fill before transaction child; no actuator entered"
+repair = "Stop fill at native NOSPC, release only 4 MiB journal headroom, require matching unnamed 128 MiB allocation to return NOSPC, then require coordinator StateChecking refusal; release fill inode before syncfs"
+cleanup = "Owned disk, firmware, seed, user-data/meta-data, SSH keys, known_hosts and stale QMP socket removed; failed evidence remains failed"
+
+[runs.run03]
+result = "historical completed run"
+exit_code = 0
+checkpoint = "Native pre-change refusal, ordering, writer lease, concurrent complete operations, post-capture failure and reboot/console history passed"
+limits = "Predates the added direct unnamed-allocation NOSPC fixture assertion; unchanged normal mutation/post-capture-failure semantics are evidenced, but this is not a final identical-input pair with run04"
+evidence_file = "issue20-run03-normal-20261021.txt"
+evidence_sha256 = "b90c90ce9758817bc60f93506d727d9080bb0ac14defbaafea8487b331f9f4a3"
+cleanup = "Normal signed fresh-base reset/disposal passed; image unchanged; disks/firmware/seed/keys removed"
+
+[runs.run04]
+result = "passed"
+exit_code = 0
+variant = "interrupted Applying"
+checkpoint = "All common native scenarios and direct unnamed NOSPC assertion passed; process exited without destructors after durable Applying plus verified native proof and marker write"
+restart = "Last stage Applying, original exact preimage retained, no postimage/outcome invented; recovery_required=1; another transaction refused without apply; root console refused before-change reconciliation"
+reboot = "Exact stage, checkpoint, marker and unresolved count reopened through independent console and production helper startup history gate after boot identity changed"
+cleanup = "Offline fixture restore matched; sentinel durable before discard and absent after fresh signed XFS reset; seed image unchanged; owned disk/firmware/seed/keys removed"
+evidence_file = "issue20-run04-interrupted-20261021.txt"
+evidence_sha256 = "a37149111b2350fd0914647816e9b134e4fa4449200f9318afd900052b9de1a5"
+orchestrator_sha256 = "78dde6661eacf2a12508832186ad16505aaa46725b8b7620e53a111f4b40f808"
+update_pin = "16dd9f46f5e068b69d09e0a1f14ce9d596bec7a330e848dcf5daea9cc936d3fc"
+
+[runs.run05]
+result = "failed setup; no mutation acceptance credited"
+exit_code = 1
+variant = "failed post-change capture"
+checkpoint = "Signed fresh XFS boot and four repository refreshes completed; native repository cache hash differed from fixture pin before Btrfs migration/state initialization/mutation"
+inputs = "Workspace tests had also replaced ordinary Cargo probe/console outputs with different unified-feature hashes; final binaries were subsequently copied to isolated immutable paths"
+cleanup = "Owned disks, firmware, seed, user-data/meta-data, SSH keys, known_hosts and QMP socket removed; private failed logs retained"
+
+[runs.run06]
+result = "failed setup; no mutation acceptance credited"
+exit_code = 1
+variant = "interrupted Applying with immutable final executables and refreshed verified update pin"
+checkpoint = "Signed fresh XFS boot and four repository refreshes completed; same native cache verification error before Btrfs migration/state initialization/mutation"
+diagnostic = "Stopped original failed disk retained as read-only backing for an isolated offline diagnostic overlay. Strict SSH refused the changed host key; offline read-only sparse XFS extraction confirmed diagnostic disk public key matched the presented key and differed from preserved run06 pin. SSH verification was never bypassed"
+cache_limits = "Read-only XFS inode inspection of stopped diagnostic disk found core.size=0 and nextents=0 for all four repomd.xml files; extracted empty bytes cannot identify runtime cache mismatch. No cache hash inference or further fixture adjustment made"
+cleanup = "No issue20 QEMU remains. Original and diagnostic disks, sparse raw copies, firmware, seed, user-data/meta-data, SSH keys, known_hosts, extracted public key/cache files and QMP socket removed; private logs and nonsecret staged executables retained"
+
+[follow_up]
+required = "Identify the runtime repository alias and exact cached hash under the authenticated original guest session, verify matching signed metadata without changing generic/#19 defaults, pin reproducible full inputs, then run fresh normal/interrupted variants with identical final executable hashes and complete reset/disposal"
+status = "Not complete; no provider writer enabled, no merge or issue closure authorized"
+
+[acceptance]
+phases = "Every Preflight, StateChecking, Capturing, Revalidating, Applying, HealthChecking, PostChangeCapture and Complete record is synchronized with exact immutable plan/checkpoint context before its hook"
+low_space = "Actual owned disk filled to native ENOSPC; 4 MiB failure-journal headroom; exact unnamed 128 MiB allocation separately required NOSPC; coordinator failed at StateChecking with no mutation marker"
+pre_capture_failure = "Invalid typed personal profile allows inventory review but fails actual complete installed capture at Capturing; provider marker absent"
+revalidation = "Provider fingerprint changes and an external enrolled-path edit after linked capture each fail at Revalidating; marker absent"
+serialization = "Independent helper API processes use one protected mutation.lock and mutations.log; two 8-record successful operations do not interleave; exact native preimage lacks its marker and postimage contains it"
+writers = "Real production wrapper with fixture payload attempts an enrolled preference write during root actuator; preference remains unchanged through post capture and changes only after lease release"
+ordering = "Before each first actuator write, independent journal replay requires Applying plus exact checkpoint; native generation/receipt and cleanup catalog reopen; absent marker in root preimage required; verified event synchronized before mutation event"
+cancellation = "Native initial cancellation blocks before Preflight hook; instrumented Rust suite checks every safe boundary and requires health/post capture despite cancellation after Applying"
+interruption = "Native fresh process exits at Revalidating and Applying; unit subprocesses exit at all seven hooks; restart never replays apply; only root console can seal unfinished prechange stages"
+post_capture = "Health callback introduces an unknown managed file; required post capture fails after actuator; exact retained preimage and PostChangeCaptureFailed remain distinct from failed prechange capture"
+history = "Successful records retain exact pre/post native associations; interrupted and failed post capture records retain exact stage, preimage and recovery-required state through reboot"
+
+[limits]
+installed_actions = "Empty supported provider action set; installed dispatcher remains Unsupported; fixture marker actuator is not a certified provider or protected package hook"
+helper = "Kernel-authenticated operator/NSS API and actual ProtectedState startup gate exercised; no new installed provider RPC, capability expansion or package activation claim"
+scope = "Single default root Snapper config plus complete compiled account preferences; extra Snapper configs refuse; external ESP and general boot compatibility excluded"
+atomicity = "Serialized verified observations, no multi-subvolume atomicity claim; ordinary external editors are not frozen"
+recovery = "Root history console can seal only unfinished stages before Applying; potentially mutating work remains blocked; no automatic resume, provider replay, restore or rollback executed by this coordinator"
+profile = "Synthetic local immutable defaults bundle and fixture package identity; no RPM defaults ownership or real profile application claim"
+space = "Conservative state/root estimates and unnamed allocation check are not continuing space reservations; later capture/allocation/sync failures remain failures"
+lifecycle = "Console-only generic lifecycle_result/lab_result partial; desktop installation/login and full linked restore are separate gates"
+privacy = "Only fixed allowlisted outcomes, versions, hashes and generic paths published; private SSH/user-data, serial/guest logs and companion data excluded"

@@ -36,6 +36,35 @@ pub fn public_evidence(line: &str) -> bool {
     if key == "desktop_login_reason" {
         return desktop_login_reason(line).is_some();
     }
+    if matches!(key, "mutation_probe_sha256" | "mutation_console_sha256") {
+        return value.len() == 64
+            && value.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase());
+    }
+    if matches!(
+        key,
+        "native_issue20_runtime_boundary"
+            | "native_issue20_changed_path_blocks"
+            | "native_issue20_low_space_blocks"
+            | "native_issue20_cancel_blocks"
+            | "native_issue20_capture_error_blocks"
+            | "native_issue20_changed_plan_blocks"
+            | "native_issue20_interruption_before_apply"
+            | "native_issue20_concurrent_generations"
+            | "native_issue20_retained_writer_lease"
+            | "native_issue20_interrupted_apply"
+            | "native_issue20_post_capture_failure"
+            | "native_issue20_first_mutation_order"
+            | "native_issue20_console_history"
+            | "native_issue20_history_after_reboot"
+    ) {
+        return value == "passed";
+    }
+    if key == "native_issue20_provider_capabilities" {
+        return value == "disabled";
+    }
+    if key == "native_issue20_multisubvolume_atomicity" {
+        return value == "unclaimed";
+    }
     let keys = [
         "fixture_sha256",
         "release_signer",
@@ -321,5 +350,19 @@ mod tests {
         assert!(public_evidence("kde_provisioning=timeout"));
         assert!(public_evidence("kde_provisioning=blocked"));
         assert!(!public_evidence("kde_provisioning=zypper timed out after 20 minutes"));
+    }
+}
+#[test]
+fn mutation_evidence_accepts_only_verified_outcomes_and_explicit_limits() {
+    assert!(public_evidence("native_issue20_low_space_blocks=passed"));
+    assert!(public_evidence("native_issue20_provider_capabilities=disabled"));
+    assert!(public_evidence("native_issue20_multisubvolume_atomicity=unclaimed"));
+    for rejected in [
+        "native_issue20_low_space_blocks=private-diagnostic",
+        "native_issue20_provider_capabilities=enabled",
+        "native_issue20_multisubvolume_atomicity=atomic",
+        "mutation_probe_sha256=not-a-digest",
+    ] {
+        assert!(!public_evidence(rejected));
     }
 }

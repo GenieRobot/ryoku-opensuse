@@ -68,6 +68,69 @@ pub struct NativeCaptureSession {
     store: GenerationStore,
 }
 impl NativeCaptureSession {
+    /// Shared protected journal anchor. Access is valid only while this session
+    /// owns the machine lock and all registered account writers are stopped.
+    pub fn coordinator_directory(&self) -> Result<&File> {
+        self.revalidate()?;
+        Ok(&self.state)
+    }
+
+    pub fn inventory_fingerprint(&self) -> Result<crate::Sha256> {
+        self.revalidate()?;
+        let inventory =
+            InstalledInventory::for_home(&self.home).map_err(CaptureSessionError::Capture)?;
+        let fingerprint = inventory
+            .fingerprint(&self.home, &self.account)
+            .map_err(CaptureSessionError::Capture)?;
+        self.revalidate()?;
+        Ok(fingerprint)
+    }
+
+    pub fn verify_inventory(&self, manifest: &RecoveryManifest) -> Result<()> {
+        self.revalidate()?;
+        if manifest.account_principal() != Some(&self.account.principal) {
+            return Err(CaptureSessionError::UnsafeBoundary);
+        }
+        let bytes = serde_json::to_vec(manifest.files())
+            .map_err(|_| CaptureSessionError::UnsafeBoundary)?;
+        use sha2::{Digest, Sha256};
+        let expected = format!("{:x}", Sha256::digest(&bytes));
+        if self.inventory_fingerprint()?.as_str() != expected {
+            return Err(CaptureSessionError::UnsafeBoundary);
+        }
+        Ok(())
+    }
+
+    /// Conservative room for both maximum bounded generations. Later
+    /// allocation/fsync failures still fail the checkpoint; this is no reserve.
+    pub fn ensure_checkpoint_space(&self) -> Result<()> {
+        self.revalidate()?;
+        self.store.ensure_available_space(64 * 1024 * 1024, 512)?;
+        let stats = fs::fstatvfs(&self.state)?;
+        if stats.f_bavail.saturating_mul(stats.f_frsize) < 192 * 1024 * 1024 {
+            return Err(CaptureSessionError::Generation(
+                crate::generation::GenerationError::InsufficientSpace {
+                    required_bytes: 192 * 1024 * 1024,
+                    available_bytes: stats.f_bavail.saturating_mul(stats.f_frsize),
+                },
+            ));
+        }
+        // Btrfs can refuse allocation before statvfs's nominal free count is
+        // exhausted. Probe a maximum pair on an unnamed inode; no path or
+        // reservation survives process death. Later writes must still handle
+        // ENOSPC because this allocation is released before capture.
+        let allocation = fs::openat(
+            &self.state,
+            ".",
+            OFlags::TMPFILE | OFlags::RDWR | OFlags::CLOEXEC,
+            Mode::from_raw_mode(0o600),
+        )?;
+        fs::fallocate(&allocation, fs::FallocateFlags::empty(), 0, 128 * 1024 * 1024)?;
+        drop(allocation);
+        fs::syncfs(&self.state)?;
+        self.revalidate()?;
+        Ok(())
+    }
     /// Retain the installed default RPM and validated local optional inputs as
     /// an immutable object. This publishes candidate bytes; selection and
     /// activation remain separate authenticated coordinator decisions.
