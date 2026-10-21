@@ -95,12 +95,19 @@ Desktop-runtime owns the relative `qs -> bin/qs` link required by the issue
 keeps original Quickshell build inputs independently auditable.
 
 Tumbleweed's QML requires scanner remains enabled for the complete payload.
+The spec explicitly selects its native `--qtver 6` option: an SDK containing
+both Qt5 and Qt6 otherwise makes the generator's version guess fail while
+rpmbuild can still return success. The Rust inventory audit rejects missing
+Qt6 scanner output and unresolved internal module imports.
 Its provides generator recognizes `qmldir` files only below `/qt6/qml/`, so
 the runtime explicitly provides its two private `shell.services` and
 `shell.barkit` modules under `/usr/share`. Quickshell's twelve public modules
 used by this payload are statically embedded in its private `qs` executable;
 the Quickshell spec declares their unversioned QML provides. Shared `Ryoku.*`
-modules retain automatic provides from their standard Qt paths. The desktop
+modules retain automatic provides from their standard Qt paths, except the two
+shipped `Ryoku.Ui.Singletons` and `Ryoku.PluginKit.Singletons` directory imports:
+their upstream qmldir files omit a module line, so their provides are explicit.
+The desktop
 build requires the native QML generators so missing tooling cannot silently
 remove the import requirements. These declarations do not make Quickshell's
 private modules available to an unrelated Qt executable.

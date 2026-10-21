@@ -99,6 +99,26 @@ fn main() {
     }
 }
 
+fn qml_imports(requires: &str, provides: &BTreeSet<String>) -> Result<()> {
+    for required in
+        ["qt6qmlimport(QtQuick)", "qt6qmlimport(QtMultimedia)", "qt6qmlimport(Quickshell)"]
+    {
+        require(
+            requires.lines().any(|line| line == required),
+            "Qt6 import scanner output is absent or incomplete",
+        )?;
+    }
+    for line in requires.lines() {
+        if ["qt6qmlimport(Quickshell", "qt6qmlimport(Ryoku.", "qt6qmlimport(shell."]
+            .iter()
+            .any(|prefix| line.starts_with(prefix))
+        {
+            require(provides.contains(line), &format!("unresolved internal QML import: {line}"))?;
+        }
+    }
+    Ok(())
+}
+
 fn run() -> Result<()> {
     let arguments: Vec<_> = std::env::args_os().skip(1).collect();
     require(
@@ -136,12 +156,18 @@ fn run() -> Result<()> {
         evidence.insert(format!("{name}-provides.txt"), query(path, &["--provides"])?);
         evidence.insert(format!("{name}-scripts.txt"), scripts);
     }
+    let provides = evidence
+        .iter()
+        .filter(|(name, _)| name.ends_with("-provides.txt"))
+        .flat_map(|(_, value)| value.lines().map(str::to_owned))
+        .collect();
+    qml_imports(&evidence["ryoku-desktop-runtime-requires.txt"], &provides)?;
     fs::create_dir(&output)?;
     for (name, bytes) in evidence {
         fs::write(output.join(name), bytes)?;
     }
     println!(
-        "runtime_packages={} unique_paths={} non_directory_conflicts=0 mutable_paths=0 scriptlets=0",
+        "runtime_packages={} unique_paths={} non_directory_conflicts=0 mutable_paths=0 scriptlets=0 qt6_scanning=verified internal_qml_imports=resolved",
         packages.len(),
         owners.len()
     );
@@ -154,6 +180,19 @@ mod tests {
 
     fn row(path: &str, mode: u32) -> String {
         format!("{}\t{mode}\t\"root\"\t\"root\"\t(none)\n", serde_json::to_string(path).unwrap())
+    }
+
+    #[test]
+    fn qml_metadata_rejects_silent_scanner_failure_and_missing_internal_providers() {
+        let required = "qt6qmlimport(QtQuick)\nqt6qmlimport(QtMultimedia)\nqt6qmlimport(Quickshell)\nqt6qmlimport(Ryoku.Ui.Singletons)\n";
+        let mut provided = BTreeSet::from(["qt6qmlimport(Quickshell)".into()]);
+        assert!(qml_imports("libQt6Qml.so.6()(64bit)\n", &provided).is_err());
+        assert!(qml_imports(required, &provided).is_err());
+        provided.insert("qt6qmlimport(Ryoku.Ui.Singletons)".into());
+        assert!(qml_imports(required, &provided).is_ok());
+        assert!(
+            qml_imports(&format!("{required}qt6qmlimport(shell.unknown)\n"), &provided).is_err()
+        );
     }
 
     #[test]

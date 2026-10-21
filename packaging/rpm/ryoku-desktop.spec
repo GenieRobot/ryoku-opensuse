@@ -1,10 +1,13 @@
 %global payload_root %{_datadir}/ryoku
 %global qml_root %{_libdir}/qt6/qml/Ryoku
 %global font_root %{_datadir}/fonts/truetype/ryoku-opensuse
+# The SDK can contain Qt5 and Qt6; the native generator must scan this Qt6
+# payload explicitly rather than silently failing its Qt-version guess.
+%global __qml_requires %{_rpmconfigdir}/qml.req --qtver 6
 
 Name:           ryoku-desktop
 Version:        0.1.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Pinned upstream Ryoku desktop package set
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse
@@ -56,6 +59,9 @@ Requires:       dbus-1-tools
 # enabled and declare exactly the two modules shipped in this package.
 Provides:       qt6qmlimport(shell.services)
 Provides:       qt6qmlimport(shell.barkit)
+# Upstream ships directory imports with singleton exports but no module line.
+Provides:       qt6qmlimport(Ryoku.Ui.Singletons)
+Provides:       qt6qmlimport(Ryoku.PluginKit.Singletons)
 
 %description runtime
 Preserves the shell, Hub, Ryoku.Ui, FrameBars, PluginKit, Hyprland QML bridges

@@ -1,6 +1,6 @@
 Name:           ryoku-helper
 Version:        0.1.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Deny-only privileged helper boundary for Ryoku
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse

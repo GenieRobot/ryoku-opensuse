@@ -1,6 +1,6 @@
 Name:           ryoku-tools
 Version:        0.1.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Read-only native Ryoku recovery inspection tools
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse
