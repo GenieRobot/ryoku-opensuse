@@ -9,9 +9,9 @@ snapshots and next actions are superseded. See the tracked
 the current coordination entry points.
 
 - GitHub `origin/main` is at
-  `311ed44c06b6dbb0a08127e17d1b330e625be275`, the merge of PR #168. The
+  `2d798e194df78e49d602c8e84325364fa6267139`, the merge of PR #152. The
   coordinator's local `main` checkout was last observed clean at
-  `e025c7b8c96e55c6c0582462a1bec2f782fd1a20`, two commits behind `origin/main`.
+  `e025c7b8c96e55c6c0582462a1bec2f782fd1a20`, four commits behind `origin/main`.
 - #15 is closed as completed M0 provider feasibility after merged PRs
   [#162](https://github.com/GenieRobot/ryoku-opensuse/pull/162) and
   [#163](https://github.com/GenieRobot/ryoku-opensuse/pull/163). The initial
@@ -92,28 +92,26 @@ the current coordination entry points.
   lock/idle candidates remain unaccepted; its source branch is retained for
   reference and these candidates are not included in #169. Preserve the current
   #25 branch and `target/issue25-native-workflows` worktree.
-- #20 remains open. Its draft [PR #152](https://github.com/GenieRobot/ryoku-opensuse/pull/152)
-  is partial at exact head `5bb9d8bdafe7db0496024ee7a78104c68d8bbe93`, based
-  on `5efc726`. Hosted formatting, Clippy, workspace tests and dependency
-  review passed; the configured main-only GTK artifact job was skipped. Local
-  checks passed (471 top-level tests, 17 isolated subprocess checks, 5
-  existing ignored, plus a separate runtime-boundary test). Native run03
-  passed the normal and post-capture-failure paths; run04 passed the tightened
-  low-space check and interrupted-`Applying` recovery path with reboot history
-  readback. The final same-input native normal/interrupted pair has not passed:
-  run05/run06 stopped before mutation because repository-cache verification
-  could not be established. The diagnostic overlay had a different SSH host
-  key and zero-length cached repomd files. The issue20 fixture pin was updated
-  to `32bc…` after detached signature verification; the later native cache
-  mismatch remains unresolved and no further pin change was made without
-  in-guest evidence. Keep PR #152 draft and #20 open until that final gate is
-  reproducibly satisfied.
-- Continue #20's explicit gates for durable preflight/capture/verification/
-  mutation/post-capture phases; serialization and affected-writer
-  coordination; plan/path revalidation before mutation; safe cancellation and
-  accurate durable failure/history states; and proof that required checkpoint
-  failures block mutation and concurrent operations cannot mismatch root and
-  configuration generations. Do not claim multi-subvolume atomicity.
+- #20 is closed after merged [PR #152](https://github.com/GenieRobot/ryoku-opensuse/pull/152)
+  at `2d798e1`. Exact-head hosted [CI run 39655902287](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/39655902287)
+  and local checks passed: 480 top-level tests plus 17 subprocess checks (0
+  failures, 5 existing ignored), strict Clippy, formatting, cargo-deny,
+  runtime-boundary test and native fixture build. The final same-input native
+  [run11 normal](https://github.com/GenieRobot/ryoku-opensuse/blob/2d798e194df78e49d602c8e84325364fa6267139/infra/tumbleweed-lab/evidence/issue20-run11-normal-rebased-20261021.txt)
+  and [run12 interrupted](https://github.com/GenieRobot/ryoku-opensuse/blob/2d798e194df78e49d602c8e84325364fa6267139/infra/tumbleweed-lab/evidence/issue20-run12-interrupted-rebased-20261021.txt)
+  both exited 0. Their allowlisted evidence differed only at the expected
+  scenario-result row; executable hashes and signed input pins matched. See the
+  [final pair receipt](https://github.com/GenieRobot/ryoku-opensuse/blob/2d798e194df78e49d602c8e84325364fa6267139/infra/tumbleweed-lab/evidence/issue20-final-pair-20261021.toml).
+- #20 scope is console-only: run08 verified changed repository metadata by
+  detached signature before updating only the #20 pin; empty cache metadata
+  now fails explicitly, and generic/#19 pins plus strict SSH verification are
+  unchanged. No provider mutation capability is enabled. The evidence does
+  not establish provider certification, production linked restore,
+  multi-subvolume atomicity or desktop/first-sprint acceptance.
+- #21 is the next dependency-ready open task because its only explicit
+  prerequisite, #20, is closed. Its offline console restore acceptance remains
+  outstanding. #22 remains open and depends on #21; M1 tracker #3 and the
+  recovery foundation gate are not complete.
 Do not infer repository branch or PR counts from the historical entries below.
 
 ## Coordinator handoff: 2026-10-18
