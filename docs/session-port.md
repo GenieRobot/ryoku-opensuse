@@ -105,6 +105,14 @@ supported fixture before closing #25. Required session evidence is:
    login. Test compositor/crash cleanup separately; normal logout is not proof
    of locked-crash handling.
 
+A real `rpmbuild -ba` attempt with the committed source and unchanged accepted
+vendor closure stopped before `%prep`: the host RPM database cannot satisfy
+`cargo >= 1.99` and `rust >= 1.99`. The available Rustup 1.99 toolchain does
+not satisfy RPM package dependencies. Dependency checks were not bypassed and
+no native binary RPM was produced. The [build log](../infra/tumbleweed-lab/evidence/issue25-session-rpm-host-build.log)
+records the exact failure. A native builder satisfying these BuildRequires is
+still required.
+
 No new QEMU was launched during this consolidation. Native acceptance could not
 be repeated because there was no live authorized local guest. Local Rust,
 spec parsing and unit checks cannot replace the required desktop evidence.
