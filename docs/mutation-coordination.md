@@ -175,7 +175,8 @@ results and exact artifact hashes are recorded with the issue acceptance evidenc
 ### Current native evidence
 
 The [final identical-input pair](../infra/tumbleweed-lab/evidence/issue20-final-pair-20261021.toml)
-records normal run09 and interrupted-Applying run10, both exiting 0. They use the
+records final rebased-build normal run11 and interrupted-Applying run12, both
+exiting 0. They use the
 same image, firmware, four staged executable hashes and signed repository pins.
 Their allowlisted output differs only at the expected final scenario result.
 Both prove the direct unnamed-allocation ENOSPC assertion, capture/plan/path
@@ -200,10 +201,11 @@ disabled; fixture inputs do not certify a provider write or a production linked
 restore. Console-only results still report partial desktop/lifecycle acceptance.
 Keep the draft and issue open for coordinator review of the final source and CI.
 
-The branch has since been mechanically rebased onto main `34d3c88`. Its native
-lab/runtime sources and fixture are unchanged. Rebuilt initializer, probe and
-console hashes match the recorded pair; the orchestrator hash changed after
-main added the already-pinned `serde_json` automation dependency. Local rebased
-checks passed. A repeat pair with all final rebased-built binaries is required
-before claiming native acceptance for that build; its current status is in the
-final-pair receipt.
+The branch was mechanically rebased onto main `34d3c88`. Its native lab/runtime
+sources and fixture are unchanged. Rebuilt initializer, probe and console hashes
+match prior run09/run10; the orchestrator hash changed after main added the
+already-pinned `serde_json` automation dependency. Run11/run12 repeated the full
+pair with all four final rebased-built binaries and completed reboot/readback
+and disposal. The earlier successful pair remains recorded separately with its
+own source/artifact identities. Rebased local workspace checks and native build
+passed; the final PR head remains subject to hosted CI and coordinator review.
