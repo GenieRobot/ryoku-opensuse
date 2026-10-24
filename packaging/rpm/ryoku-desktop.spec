@@ -24,6 +24,7 @@ BuildRequires:  cmake >= 3.28
 BuildRequires:  ninja
 BuildRequires:  gcc-c++
 BuildRequires:  qt6-base-devel = 6.11.2
+BuildRequires:  qt6-concurrent-devel = 6.11.2
 BuildRequires:  qt6-declarative-devel = 6.11.2
 BuildRequires:  qt6-shadertools-devel = 6.11.2
 BuildRequires:  qt6-multimedia-devel = 6.11.2
@@ -52,7 +53,7 @@ are implemented separately by issue 25, which depends on this package set.
 
 %package runtime
 Summary:        Pinned Ryoku surfaces and coordinated native writers
-License:        GPL-3.0-only AND MIT AND BSD-3-Clause
+License:        GPL-3.0-only AND GPL-2.0-or-later AND AGPL-3.0-or-later AND MIT AND BSD-3-Clause AND CC-BY-3.0 AND LicenseRef-sound-theme-freedesktop-0.8-CC-BY-SA
 Requires:       ryoku-quickshell = 0.3.2-2
 Requires:       ryoku-desktop-fonts = %{version}-%{release}
 Requires:       qt6-declarative-imports = 6.11.2
@@ -62,7 +63,7 @@ Requires:       qt6-qt5compat-imports = 6.11.2
 Requires:       qt6-imageformats
 Requires:       ImageMagick
 Requires:       ffmpeg
-Requires:       kf6-syntax-highlighting
+Requires:       kf6-syntax-highlighting-imports = 6.31.0
 Requires:       google-noto-sans-cjk-fonts
 Requires:       systemd
 Requires:       util-linux
@@ -104,7 +105,7 @@ directory. Fontconfig's distribution-owned triggers manage font discovery;
 this package has no custom cache script or home-directory installation.
 
 %prep
-printf '4d8fa2ef015d8c5820d8f5231697e29255821f12c40179898f35ebe9f5e90fe7  %%s\n' '%{SOURCE2}' | sha256sum --check --status
+printf '8aeff20645c14af76f3d341e5d4e7c31923fd249f6671caa704c8b23a6c84e65  %%s\n' '%{SOURCE2}' | sha256sum --check --status
 %autosetup -n ryoku-opensuse-%{version} -a 1
 mkdir runtime
 tar -xzf %{SOURCE2} -C runtime
@@ -114,7 +115,7 @@ cd ..
 printf '7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be  %%s\n' '%{SOURCE3}' | sha256sum --check --status
 mkdir upstream-writers
 tar -xJf %{SOURCE3} -C upstream-writers
-patch --batch --forward -p1 -d upstream-writers < upstream/patches/issue18-writer-launch.patch
+patch --batch --forward --fuzz=0 -p1 -d upstream-writers < upstream/patches/issue18-writer-launch.patch
 
 %build
 CARGO_NET_OFFLINE=true cargo \
@@ -217,6 +218,7 @@ cp -a runtime/fonts/. %{buildroot}%{font_root}/
 %{_bindir}/ryoku-cmd-ryoshot
 %{_bindir}/ryoku-session-intro
 %license runtime/LICENSE runtime/NOTICE upstream-writers/licenses/
+%license packaging/licenses/ryoku-v1.0/
 %license upstream-writers/ryoku/shell/ryogami/picker/LICENSE upstream-writers/ryoku/shell/ryogami/picker/NOTICE
 %doc packaging/rpm/desktop-build.md upstream/ryoku-runtime.toml runtime/SHA256SUMS
 

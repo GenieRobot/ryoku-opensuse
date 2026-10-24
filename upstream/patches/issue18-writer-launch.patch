@@ -1,5 +1,445 @@
+diff --git a/ryoku/hub/quickshell/SettingsSheet.qml b/ryoku/hub/quickshell/SettingsSheet.qml
+index 5fafe64..59c725f 100644
+--- a/ryoku/hub/quickshell/SettingsSheet.qml
++++ b/ryoku/hub/quickshell/SettingsSheet.qml
+@@ -220,14 +220,8 @@ Item {
+     function installPackage(r) {
+         if (!r.pkg || !/^[A-Za-z0-9@._+-]+$/.test(r.pkg)) return;
+         if (r.launch && !/^[A-Za-z0-9._+-]+$/.test(r.launch)) return;
+-        var cmd = "sudo ryoku-host pkg install " + r.pkg;
+-        // A second reader of the keyboard would play every press twice, so start
+-        // one only when none is running; setsid detaches it from the terminal.
+-        if (r.launch)
+-            cmd += " && (command -v " + r.launch + " >/dev/null 2>&1"
+-                + " && ! pgrep -x " + r.launch + " >/dev/null 2>&1"
+-                + " && setsid " + r.launch + " >/dev/null 2>&1 &)";
+-        Spawn.run(["kitty", "--hold", "-e", "sh", "-c", cmd]);
++        Spawn.run(["kitty", "--hold", "-e", "/usr/libexec/ryoku/ryoku-writer",
++            "hub-backend", "package", "install", r.pkg]);
+     }
+ 
+     // A row's option list. Most rows write theirs in the schema; a row whose
+diff --git a/ryoku/hub/quickshell/pages/ConnectionsPage.qml b/ryoku/hub/quickshell/pages/ConnectionsPage.qml
+index 57feb56..1465abb 100644
+--- a/ryoku/hub/quickshell/pages/ConnectionsPage.qml
++++ b/ryoku/hub/quickshell/pages/ConnectionsPage.qml
+@@ -111,7 +111,7 @@ Item {
+     Process {
+         id: killSetProc
+         property string target: ""
+-        command: ["ryoku-host", "network", "kill", target]
++        command: ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "kill", target]
+         stderr: StdioCollector {}
+         onExited: function(exitCode) {
+             pg.killBusy = false;
+@@ -527,7 +527,7 @@ Item {
+             if (wifi.autoBusy || !ssid.length)
+                 return;
+             wifi.autoBusy = true;
+-            autoProc.command = ["nmcli", "connection", "modify", ssid, "connection.autoconnect", enabled ? "yes" : "no"];
++            autoProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "autoconnect", ssid, enabled ? "yes" : "no"];
+             autoProc.running = true;
+         }
+ 
+@@ -537,7 +537,7 @@ Item {
+             if (wifi.backendBusy || choice === wifi.wifiBackend)
+                 return;
+             wifi.backendBusy = true;
+-            backendSetProc.command = ["ryoku-host", "network", "wifi-backend", "set", choice];
++            backendSetProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "wifi-backend", "set", choice];
+             backendSetProc.running = true;
+         }
+ 
+@@ -622,7 +622,7 @@ Item {
+             }
+             if (net.connected) {
+                 if (typeof net.disconnect === "function")
+-                    net.disconnect();
++                    Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "disconnect"]);
+                 return;
+             }
+             var secKnown = wifi.securityMap[ssid] !== undefined;
+@@ -633,7 +633,7 @@ Item {
+                     return;
+                 }
+                 if (typeof net.connect === "function")
+-                    net.connect();
++                    Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "connect"]);
+                 wifi.refresh();
+                 return;
+             }
+@@ -653,7 +653,7 @@ Item {
+             wifi.attemptBand = wifi.pickedBand(ssid);
+             wifi.attemptWasKnown = wifi.knownProfiles[ssid] === true;
+             wifi.pendingPw = pw;
+-            connProc.command = ["nmcli", "--ask", "dev", "wifi", "connect", ssid];
++            connProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "wifi-connect", ssid];
+             connProc.running = true;
+         }
+ 
+@@ -669,7 +669,7 @@ Item {
+             wifi.attemptBand = wifi.pickedBand(ssid);
+             wifi.attemptWasKnown = wifi.knownProfiles[ssid] === true;
+             wifi.pendingPw = "";
+-            connProc.command = ["nmcli", "dev", "wifi", "connect", ssid];
++            connProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "wifi-connect", ssid];
+             connProc.running = true;
+         }
+ 
+@@ -784,7 +784,7 @@ Item {
+                     wifi.pwDraft = "";
+                     wifi.connectFailed = false;
+                     if (wifi.attemptBand.length && wifi.attemptSsid.length) {
+-                        bandProc.command = ["nmcli", "connection", "modify", wifi.attemptSsid,
++                        bandProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "wifi-band", wifi.attemptSsid,
+                             "802-11-wireless.band", wifi.attemptBand];
+                         bandProc.running = true;
+                         return;
+@@ -793,7 +793,7 @@ Item {
+                 } else {
+                     wifi.connectFailed = true;
+                     if (!wifi.attemptWasKnown && wifi.attemptSsid.length) {
+-                        cleanupProc.command = ["nmcli", "connection", "delete", "id", wifi.attemptSsid];
++                        cleanupProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "wifi-delete", wifi.attemptSsid];
+                         cleanupProc.running = true;
+                     }
+                 }
+@@ -951,7 +951,7 @@ Item {
+                     on: wifi.wifiOn
+                     onToggled: (v) => {
+                         if (typeof Networking !== "undefined" && Networking)
+-                            Networking.wifiEnabled = v;
++                            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+                     }
+                 }
+             }
+@@ -1449,7 +1449,7 @@ Item {
+                 return;
+             if (d.connected) {
+                 if (typeof d.disconnect === "function")
+-                    d.disconnect();
++                    Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "disconnect"]);
+                 return;
+             }
+             bt.pairDevice(d);
+@@ -1460,10 +1460,10 @@ Item {
+                 return;
+             scanTimer.stop();
+             if (bt.adapter && bt.adapter.discovering)
+-                bt.adapter.discovering = false;
++                Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+             bt.pairingAddress = d.address;
+             bt.failedAddress = "";
+-            pairProc.command = ["ryoku-bluetooth-link", d.address];
++            pairProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "bluetooth-link", d.address];
+             pairProc.running = true;
+         }
+ 
+@@ -1471,7 +1471,7 @@ Item {
+         function setAdapterEnabled(v) {
+             if (!bt.adapter)
+                 return;
+-            Quickshell.execDetached(["ryoku-bluetooth-power", v ? "on" : "off"]);
++            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "bluetooth-power", v ? "on" : "off"]);
+         }
+ 
+         function startService() {
+@@ -1486,14 +1486,14 @@ Item {
+         Component.onDestruction: {
+             scanTimer.stop();
+             if (bt.adapter && bt.adapter.discovering)
+-                bt.adapter.discovering = false;
++                Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+         }
+ 
+         Timer {
+             id: scanTimer
+             interval: 25000
+             repeat: false
+-            onTriggered: if (bt.adapter) bt.adapter.discovering = false
++            onTriggered: if (bt.adapter) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"])
+         }
+ 
+         Timer {
+@@ -1522,7 +1522,7 @@ Item {
+         // enable --now so it also survives the next boot.
+         Process {
+             id: svcProc
+-            command: ["pkexec", "ryoku-host", "svc", "--system", "enable", "--now", "bluetooth"]
++            command: ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "service", "enable", "bluetooth"]
+             stdout: StdioCollector {}
+             stderr: StdioCollector {}
+             onExited: function(exitCode) {
+@@ -1608,7 +1608,7 @@ Item {
+                         onAct: {
+                             if (!bt.adapter)
+                                 return;
+-                            bt.adapter.discovering = !bt.adapter.discovering;
++                            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+                             if (bt.adapter.discovering)
+                                 scanTimer.restart();
+                             else
+@@ -1882,15 +1882,7 @@ Item {
+             if (hs.hsBusy || hs.hsPw.length < 8)
+                 return;
+             hs.hsBusy = true;
+-            hsApplyProc.command = ["sh", "-c",
+-                'c="' + hs.hsCon + '"; '
+-                + 'if nmcli -t connection show "$c" >/dev/null 2>&1; then '
+-                +   'nmcli connection modify "$c" 802-11-wireless.ssid "$1" 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk "$2"; '
+-                + 'else '
+-                +   'nmcli connection add type wifi ifname "$3" con-name "$c" autoconnect no 802-11-wireless.ssid "$1" 802-11-wireless.mode ap 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk "$2" ipv4.method shared; '
+-                + 'fi; '
+-                + 'nmcli connection up "$c"',
+-                "sh", hs.hsName, hs.hsPw, hs.hsIface];
++            hsApplyProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "hotspot-apply", hs.hsCon, hs.hsName, hs.hsIface];
+             hsApplyProc.running = true;
+         }
+ 
+@@ -1944,7 +1936,7 @@ Item {
+ 
+         Process {
+             id: hsDownProc
+-            command: ["nmcli", "connection", "down", hs.hsCon]
++            command: ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "hotspot-down", hs.hsCon]
+             onExited: {
+                 hs.hsBusy = false;
+                 hs.refreshHotspot();
+diff --git a/ryoku/hub/quickshell/pages/CreditsPage.qml b/ryoku/hub/quickshell/pages/CreditsPage.qml
+index a8b4100..a2a582d 100644
+--- a/ryoku/hub/quickshell/pages/CreditsPage.qml
++++ b/ryoku/hub/quickshell/pages/CreditsPage.qml
+@@ -31,7 +31,7 @@ Item {
+         { "name": "ActivSpot",    "by": "Devvvmn",        "role": I18n.tr("window spotlight"),     "url": "https://github.com/Devvvmn/ActivSpot" },
+         { "name": "hyprmod",      "by": "BlueManCZ",      "role": I18n.tr("Hyprland tooling"),     "url": "https://github.com/BlueManCZ/hyprmod" },
+         { "name": "dotfiles",     "by": "matteogini",     "role": I18n.tr("dotfile craft"),        "url": "https://github.com/matteogini/dotfiles" },
+-        { "name": "inir",         "by": "snowarch",       "role": I18n.tr("launcher grid"),        "url": "" },
++        { "name": "iNiR",         "by": "snowarch",       "role": "Based on iNiR by snowarch (https://github.com/snowarch/inir)", "url": "https://github.com/snowarch/inir" },
+         { "name": "noctalia",     "by": "noctalia-dev",   "role": I18n.tr("shell polish"),         "url": "https://github.com/noctalia-dev/noctalia-shell" },
+         { "name": "DankMaterial", "by": "AvengeMedia",    "role": I18n.tr("material shell"),       "url": "https://github.com/AvengeMedia/DankMaterialShell" },
+         { "name": "Omarchy",      "by": "37signals / DHH", "role": I18n.tr("Nomarchy shell source (MIT)"), "url": "https://github.com/basecamp/omarchy" },
+diff --git a/ryoku/hub/quickshell/pages/DictationPage.qml b/ryoku/hub/quickshell/pages/DictationPage.qml
+index da0a7f3..7f7fe45 100644
+--- a/ryoku/hub/quickshell/pages/DictationPage.qml
++++ b/ryoku/hub/quickshell/pages/DictationPage.qml
+@@ -159,8 +159,8 @@ Item {
+     function installVoxtype() {
+         if (!pg.installAvailable)
+             return;
+-        Spawn.run(["kitty", "--hold", "-e", "ryoku-host", "pkg", "install",
+-            "--aur", "voxtype-bin"]);
++        Spawn.run(["kitty", "--hold", "-e", "/usr/libexec/ryoku/ryoku-writer",
++            "hub-backend", "voxtype", "install-package"]);
+     }
+ 
+     // Removal stops the user service through the init-neutral host seam, then
+@@ -168,11 +168,8 @@ Item {
+     function removeVoxtype() {
+         if (!pg.installAvailable)
+             return;
+-        Spawn.run(["kitty", "--hold", "-e", "sh", "-c",
+-            "ryoku-host svc --user disable --now voxtype.service 2>/dev/null || true; "
+-            + "rm -f \"${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/voxtype.service\"; "
+-            + "ryoku-host svc --user daemon-reload 2>/dev/null || true; "
+-            + "sudo ryoku-host pkg remove voxtype-bin"]);
++        Spawn.run(["kitty", "--hold", "-e", "/usr/libexec/ryoku/ryoku-writer",
++            "hub-backend", "voxtype", "remove-package"]);
+     }
+ 
+     // Re-probe when the package terminal closes and the Hub regains focus.
+diff --git a/ryoku/hub/quickshell/pages/GlobalPage.qml b/ryoku/hub/quickshell/pages/GlobalPage.qml
+index 3fadfca..6fe8b6e 100644
+--- a/ryoku/hub/quickshell/pages/GlobalPage.qml
++++ b/ryoku/hub/quickshell/pages/GlobalPage.qml
+@@ -70,7 +70,7 @@ Item {
+     function readTz() { tzRead.running = false; tzRead.running = true; }
+     function applyTimezone(z) {
+         if (!z) return;
+-        tzApply.command = ["ryoku-host", "time", "set-zone", z];
++        tzApply.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "time", "set-zone", z];
+         tzApply.running = false;
+         tzApply.running = true;
+         tzMap.close();
+@@ -92,7 +92,7 @@ Item {
+     }
+     Process {
+         id: shellRestart
+-        command: ["ryoku-host", "svc", "restart", "ryoku-shell"]
++        command: ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "service", "restart", "ryoku-shell"]
+         onExited: function(code) {
+             if (code === 4) {
+                 shellReload.running = false;
+diff --git a/ryoku/hub/quickshell/pages/InputPage.qml b/ryoku/hub/quickshell/pages/InputPage.qml
+index 4229ba4..27dd843 100644
+--- a/ryoku/hub/quickshell/pages/InputPage.qml
++++ b/ryoku/hub/quickshell/pages/InputPage.qml
+@@ -695,7 +695,7 @@ Item {
+     // edition's initramfs so the disk unlock prompt follows it too.
+     Process {
+         id: sysApplyProc
+-        command: ["ryoku-host", "keymap", "apply", pg.applyLayoutArg(), pg.applyVariantArg(), pg.applyOptionsArg()]
++        command: ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "keymap", "apply", pg.applyLayoutArg(), pg.applyVariantArg(), pg.applyOptionsArg()]
+         onExited: (code, status) => {
+             pg.sysApplyState = code === 0 ? "ok" : "err";
+             sysApplyClear.restart();
+diff --git a/ryoku/hub/quickshell/pages/LockscreenPage.qml b/ryoku/hub/quickshell/pages/LockscreenPage.qml
+index f45c157..ae26fe2 100644
+--- a/ryoku/hub/quickshell/pages/LockscreenPage.qml
++++ b/ryoku/hub/quickshell/pages/LockscreenPage.qml
+@@ -144,7 +144,7 @@ Item {
+         else if (target === "sddm") pg.fsddmPending = true;
+         else pg.fpolkitPending = true;
+         pamApplyProc.target = target;
+-        pamApplyProc.command = ["ryoku-host", "auth", "fingerprint", "set", target, on ? "on" : "off"];
++        pamApplyProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "auth", "fingerprint", "set", target, on ? "on" : "off"];
+         pamApplyProc.running = true;
+     }
+ 
+@@ -279,7 +279,7 @@ Item {
+             return;
+         pg.kstdin = "";
+         pg.kpending = mode;
+-        ksetProc.command = ["ryoku", "keyring", "set", mode];
++        ksetProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "auth", "keyring", "set", mode];
+         ksetProc.running = true;
+     }
+     function kconvert(pw) {
+@@ -288,7 +288,7 @@ Item {
+         pg.kerror = "";
+         pg.kstdin = pw + "\n";
+         pg.kpending = pg.kconvertFor;
+-        ksetProc.command = ["ryoku", "keyring", "set", pg.kconvertFor, "--convert", "--password-stdin"];
++        ksetProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "auth", "keyring", "convert", pg.kconvertFor];
+         ksetProc.running = true;
+     }
+     function kreset() {
+@@ -297,7 +297,7 @@ Item {
+         pg.kerror = "";
+         pg.kstdin = "";
+         pg.kpending = pg.kconvertFor;
+-        ksetProc.command = ["ryoku", "keyring", "set", pg.kconvertFor, "--reset"];
++        ksetProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "auth", "keyring", "reset", pg.kconvertFor];
+         ksetProc.running = true;
+     }
+ 
+@@ -311,7 +311,7 @@ Item {
+             return;
+         pg.skError = I18n.tr("Finish security-key setup in the terminal window, then return here.");
+         pg.skEnrollPolls = 0;
+-        Quickshell.execDetached(["sh", "-c", "exec \"${TERMINAL:-kitty}\" --class=dev.ryoku.passkey -e sh -c 'ryoku security-key enroll; printf \"\\n── press enter to close ──\\n\"; read _'"]);
++        Quickshell.execDetached(["kitty", "--hold", "-e", "/usr/libexec/ryoku/ryoku-writer", "hub-backend", "auth", "security-key", "enroll"]);
+         skEnrollRefresh.restart();
+     }
+     function skremove(id) {
+@@ -320,7 +320,7 @@ Item {
+         pg.skError = "";
+         pg.skPending = "remove";
+         pg.skPendingTarget = id;
+-        skActionProc.command = ["ryoku", "security-key", "remove", id];
++        skActionProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "auth", "security-key", "remove", id];
+         skActionProc.running = true;
+     }
+     function sktoggle(target, on) {
+@@ -329,7 +329,7 @@ Item {
+         pg.skError = "";
+         pg.skPending = "toggle";
+         pg.skPendingTarget = target;
+-        skActionProc.command = ["ryoku", "security-key", "set", target, on ? "on" : "off"];
++        skActionProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "auth", "security-key", "set", target, on ? "on" : "off"];
+         skActionProc.running = true;
+     }
+     function sksetMode(mode) {
+@@ -338,7 +338,7 @@ Item {
+         pg.skError = "";
+         pg.skPending = "mode";
+         pg.skPendingTarget = mode;
+-        skActionProc.command = ["ryoku", "security-key", "set", "mode", mode];
++        skActionProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "auth", "security-key", "set", "mode", mode];
+         skActionProc.running = true;
+     }
+     function sksetFlag(name, on) {
+@@ -347,7 +347,7 @@ Item {
+         pg.skError = "";
+         pg.skPending = "flag";
+         pg.skPendingTarget = name;
+-        skActionProc.command = ["ryoku", "security-key", "set", name, on ? "on" : "off"];
++        skActionProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "auth", "security-key", "set", name, on ? "on" : "off"];
+         skActionProc.running = true;
+     }
+ 
+@@ -436,7 +436,7 @@ Item {
+     function fstartEnroll() {
+         if (pg.fpending !== "" || !pg.fdaemon || !pg.fready)
+             return;
+-        pg.fopenOverlay("enroll", ["fprintd-enroll"], fenrollProc);
++        pg.fopenOverlay("enroll", ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "auth", "fingerprint", "enroll"], fenrollProc);
+         fstagesProc.running = true;
+         stagesRetry.tries = 0;
+         stagesRetry.restart();
+@@ -452,7 +452,7 @@ Item {
+         pg.ferr = "";
+         pg.fdelTarget = finger;
+         pg.fpending = "del";
+-        fdelProc.command = ["fprintd-delete", pg.fuser].concat(finger ? ["-f", finger] : []);
++        fdelProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "auth", "fingerprint", "delete", pg.fuser].concat(finger ? ["-f", finger] : []);
+         fdelProc.running = true;
+     }
+     // pump fresh bytes of one stream; counts each stage exactly once.
+diff --git a/ryoku/hub/quickshell/pages/UpdatesPage.qml b/ryoku/hub/quickshell/pages/UpdatesPage.qml
+index de92d27..a1d0971 100644
+--- a/ryoku/hub/quickshell/pages/UpdatesPage.qml
++++ b/ryoku/hub/quickshell/pages/UpdatesPage.qml
+@@ -422,7 +422,7 @@ Item {
+ 
+     Process {
+         id: guiProc
+-        command: ["ryoku", "update", "--gui"]
++        command: ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "package", "update"]
+         environment: Spawn.env
+         stderr: StdioCollector { id: guiErr }
+         onExited: (code) => {
+@@ -455,7 +455,7 @@ Item {
+     }
+     Process {
+         id: authProc
+-        command: ["ryoku", "update", "--auth"]
++        command: ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "package", "update-auth"]
+         stdinEnabled: true
+         onStarted: {
+             write(pg.pendingSecret + "\n");
+@@ -471,7 +471,7 @@ Item {
+     }
+     Process {
+         id: authCancelProc
+-        command: ["ryoku", "update", "--auth", "--cancel"]
++        command: ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "package", "update-auth-cancel"]
+     }
+ 
+     // stop the run: it gives back what it quiesced (the shell, the sleep
+@@ -482,7 +482,7 @@ Item {
+     }
+     Process {
+         id: stopProc
+-        command: ["ryoku", "update", "--cancel"]
++        command: ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "package", "update-cancel"]
+         environment: Spawn.env
+         stderr: StdioCollector { id: stopErr }
+         onExited: (code) => {
+diff --git a/ryoku/hub/quickshell/pages/users/UsersTab.qml b/ryoku/hub/quickshell/pages/users/UsersTab.qml
+index 2566f00..2869d94 100644
+--- a/ryoku/hub/quickshell/pages/users/UsersTab.qml
++++ b/ryoku/hub/quickshell/pages/users/UsersTab.qml
+@@ -86,7 +86,7 @@ Column {
+         if (!root.canManage || actionProc.running)
+             return;
+         root.actionError = "";
+-        actionProc.command = ["pkexec", "ryoku-host", "users"].concat(args);
++        actionProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "users"].concat(args);
+         actionProc.pendingSecret = password === undefined ? "" : String(password);
+         actionProc.hasSecret = password !== undefined;
+         actionProc.stdinEnabled = actionProc.hasSecret;
 diff --git a/ryoku/shell/ipc/actions.go b/ryoku/shell/ipc/actions.go
-index e053eae2..e1bf1ca5 100644
+index e053eae..e1bf1ca 100644
 --- a/ryoku/shell/ipc/actions.go
 +++ b/ryoku/shell/ipc/actions.go
 @@ -63,7 +63,7 @@ func ipcCall(config, target, fn, arg string) string {
@@ -21,7 +461,7 @@ index e053eae2..e1bf1ca5 100644
  			return "ok"
  		}
 diff --git a/ryoku/shell/ipc/bar.go b/ryoku/shell/ipc/bar.go
-index 6122cc7b..5c85ca64 100644
+index 6122cc7..5c85ca6 100644
 --- a/ryoku/shell/ipc/bar.go
 +++ b/ryoku/shell/ipc/bar.go
 @@ -1200,7 +1200,7 @@ func (d *daemon) barSettings(args []string) string {
@@ -34,7 +474,7 @@ index 6122cc7b..5c85ca64 100644
  }
  
 diff --git a/ryoku/shell/ipc/control.go b/ryoku/shell/ipc/control.go
-index 86b8bb41..ffe49013 100644
+index 86b8bb4..ffe4901 100644
 --- a/ryoku/shell/ipc/control.go
 +++ b/ryoku/shell/ipc/control.go
 @@ -145,7 +145,7 @@ func hubSelect() []string {
@@ -74,7 +514,7 @@ index 86b8bb41..ffe49013 100644
  	}
  	return "err hub: expected open [section] or close"
 diff --git a/ryoku/shell/ipc/daemon.go b/ryoku/shell/ipc/daemon.go
-index 59d13a11..d714adcc 100644
+index 59d13a1..d714adc 100644
 --- a/ryoku/shell/ipc/daemon.go
 +++ b/ryoku/shell/ipc/daemon.go
 @@ -1029,7 +1029,7 @@ func (d *daemon) supervise(name string) {
@@ -86,8 +526,1350 @@ index 59d13a11..d714adcc 100644
  		cmd.Env = qsEnv()
  		// Keep the surface's own output: a config that fails to load reports on
  		// stdout and a loader failure on stderr, and without both a black screen
+diff --git a/ryoku/shell/quickshell/inir/modules/common/models/quickToggles/HotspotToggle.qml b/ryoku/shell/quickshell/inir/modules/common/models/quickToggles/HotspotToggle.qml
+index a5dc6ca..d1fde5f 100644
+--- a/ryoku/shell/quickshell/inir/modules/common/models/quickToggles/HotspotToggle.qml
++++ b/ryoku/shell/quickshell/inir/modules/common/models/quickToggles/HotspotToggle.qml
+@@ -49,13 +49,10 @@ QuickToggleModel {
+             stopProc.running = true
+         } else {
+             const ssid = Config.options?.hotspot?.ssid ?? "Ryoku Hotspot"
+-            const password = Config.options?.hotspot?.password ?? "inirhotspot"
+             const band = Config.options?.hotspot?.band ?? "bg"
+             // Delete any stale "Hotspot" profile first, then create fresh.
+             // Uses sh positional params to safely pass user-configured values.
+-            startProc.exec(["/bin/sh", "-c",
+-                'nmcli connection delete id Hotspot 2>/dev/null; exec nmcli dev wifi hotspot con-name Hotspot ssid "$1" band "$2" password "$3"',
+-                "sh", ssid, band, password])
++            startProc.exec(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "hotspot-start", ssid, band])
+         }
+     }
+ 
+@@ -115,7 +112,7 @@ QuickToggleModel {
+     Process {
+         id: stopProc
+         running: false
+-        command: ["nmcli", "connection", "down", "Hotspot"]
++        command: ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "hotspot-stop"]
+ 
+         stderr: StdioCollector {
+             id: stopErrCollector
+diff --git a/ryoku/shell/quickshell/inir/modules/iris/components/IrisBluetoothList.qml b/ryoku/shell/quickshell/inir/modules/iris/components/IrisBluetoothList.qml
+index ea3a1cf..6a21175 100644
+--- a/ryoku/shell/quickshell/inir/modules/iris/components/IrisBluetoothList.qml
++++ b/ryoku/shell/quickshell/inir/modules/iris/components/IrisBluetoothList.qml
+@@ -1,5 +1,6 @@
+ pragma ComponentBehavior: Bound
+ 
++import Quickshell
+ import QtQuick
+ import QtQuick.Layouts
+ import Quickshell.Bluetooth
+@@ -41,8 +42,8 @@ ColumnLayout {
+             implicitHeight: Math.round(40 * root.d)
+             buttonRadius: IrisStyle.radiusTile
+             onClicked: {
+-                if (deviceRow.modelData.connected) deviceRow.modelData.disconnect()
+-                else deviceRow.modelData.connect()
++                if (deviceRow.modelData.connected) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "disconnect"])
++                else Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "connect"])
+             }
+             RowLayout {
+                 anchors.fill: parent
+diff --git a/ryoku/shell/quickshell/inir/services/Battery.qml b/ryoku/shell/quickshell/inir/services/Battery.qml
+index b16605e..e68654c 100644
+--- a/ryoku/shell/quickshell/inir/services/Battery.qml
++++ b/ryoku/shell/quickshell/inir/services/Battery.qml
+@@ -208,46 +208,8 @@ Singleton {
+     }
+ 
+     function _buildChargeLimitWriteCommand(enable: bool) {
+-        switch (_chargeLimitBackend) {
+-        case "ideapad":
+-        case "samsung":
+-            return [
+-                "/usr/bin/pkexec", "/bin/sh", "-c",
+-                "printf '%s' \"$1\" > \"$2\"",
+-                "battery-charge-limit",
+-                String(_desiredChargeLimitValue(enable)),
+-                _chargeLimitSysfsPath,
+-            ]
+-        case "lg-legacy":
+-            return [
+-                "/usr/bin/pkexec", "/bin/sh", "-c",
+-                "printf '%s' \"$1\" > \"$2\"",
+-                "battery-charge-limit",
+-                String(_desiredChargeLimitValue(enable)),
+-                _chargeLimitSysfsPath,
+-            ]
+-        case "huawei":
+-            return [
+-                "/usr/bin/pkexec", "/bin/sh", "-c",
+-                "printf '%s %s' \"$1\" \"$2\" > \"$3\"",
+-                "battery-charge-limit",
+-                "0",
+-                String(_desiredChargeLimitValue(enable)),
+-                _chargeLimitSysfsPath,
+-            ]
+-        case "threshold":
+-        case "smapi":
+-        case "sony":
+-            return [
+-                "/usr/bin/pkexec", "/bin/sh", "-c",
+-                "printf '%s' \"$1\" > \"$2\"",
+-                "battery-charge-limit",
+-                String(_desiredChargeLimitValue(enable)),
+-                _chargeLimitSysfsPath,
+-            ]
+-        default:
+-            return []
+-        }
++        return ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "battery", "charge-limit",
++            _chargeLimitBackend, String(_desiredChargeLimitValue(enable)), _chargeLimitSysfsPath]
+     }
+ 
+     Process {
+diff --git a/ryoku/shell/quickshell/inir/services/BluetoothStatus.qml b/ryoku/shell/quickshell/inir/services/BluetoothStatus.qml
+index 767f5c7..2da1e08 100644
+--- a/ryoku/shell/quickshell/inir/services/BluetoothStatus.qml
++++ b/ryoku/shell/quickshell/inir/services/BluetoothStatus.qml
+@@ -44,7 +44,7 @@ Singleton {
+     function setEnabled(on: bool): void {
+         if (!Bluetooth.defaultAdapter)
+             return;
+-        Quickshell.execDetached(["ryoku-bluetooth-power", on ? "on" : "off"]);
++        Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "bluetooth-power", on ? "on" : "off"]);
+     }
+ 
+     function toggle(): void {
+diff --git a/ryoku/shell/quickshell/inir/services/Network.qml b/ryoku/shell/quickshell/inir/services/Network.qml
+index 667862c..70f7bf1 100644
+--- a/ryoku/shell/quickshell/inir/services/Network.qml
++++ b/ryoku/shell/quickshell/inir/services/Network.qml
+@@ -72,7 +72,7 @@ Singleton {
+     // Control
+     function enableWifi(enabled = true): void {
+         const cmd = enabled ? "on" : "off";
+-        enableWifiProc.exec(["nmcli", "radio", "wifi", cmd]);
++        enableWifiProc.exec(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "wifi-radio", cmd]);
+     }
+ 
+     function toggleWifi(): void {
+@@ -89,12 +89,12 @@ Singleton {
+         accessPoint.askingPassword = false;
+         root.wifiConnectTarget = accessPoint;
+         // We use this instead of `nmcli connection up SSID` because this also creates a connection profile
+-        connectProc.exec(["nmcli", "dev", "wifi", "connect", accessPoint.ssid])
++        connectProc.exec(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "wifi-connect", accessPoint.ssid])
+ 
+     }
+ 
+     function disconnectWifiNetwork(): void {
+-        if (active) disconnectProc.exec(["nmcli", "connection", "down", active.ssid]);
++        if (active) disconnectProc.exec(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "wifi-disconnect", active.ssid]);
+     }
+ 
+     function refreshActiveNetworkDetails(): void {
+@@ -139,7 +139,7 @@ Singleton {
+         // already nulled the target — restore it so the retry can report back.
+         root.wifiConnectTarget = network;
+         changePasswordProc.exec({
+-            "command": ["nmcli", "connection", "modify", network.ssid, "wifi-sec.psk", password]
++            "command": ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "wifi-password", network.ssid]
+         })
+     }
+ 
+diff --git a/ryoku/shell/quickshell/inir/services/Vpn.qml b/ryoku/shell/quickshell/inir/services/Vpn.qml
+index f6ea4a4..fe242a6 100644
+--- a/ryoku/shell/quickshell/inir/services/Vpn.qml
++++ b/ryoku/shell/quickshell/inir/services/Vpn.qml
+@@ -72,7 +72,7 @@ Singleton {
+     function fixTailscaleOperator(): void {
+         root.busy = true
+         root.lastError = ""
+-        actionProc.exec(["pkexec", "tailscale", "set", "--operator=" + Quickshell.env("USER")])
++        actionProc.exec(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "tailscale-authorise"])
+     }
+ 
+     readonly property bool tailscaleUp: root.tailscaleState === "Running"
+@@ -116,7 +116,7 @@ Singleton {
+         if (String(uuid ?? "").length === 0) return
+         root.busy = true
+         root.lastError = ""
+-        actionProc.exec(["nmcli", "connection", up ? "up" : "down", "uuid", uuid])
++        actionProc.exec(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "connection", up ? "up" : "down", uuid])
+     }
+     function toggleProfile(uuid: string): void {
+         const entry = root.profiles.find(item => item.uuid === uuid)
+@@ -127,13 +127,13 @@ Singleton {
+         if (!root.tailscaleInstalled) return
+         root.busy = true
+         root.lastError = ""
+-        actionProc.exec(["tailscale", up ? "up" : "down"])
++        actionProc.exec(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "tailscale", up ? "up" : "down"])
+     }
+     function setAutoconnect(uuid: string, on: bool): void {
+         if (String(uuid ?? "").length === 0) return
+         root.busy = true
+         root.lastError = ""
+-        actionProc.exec(["nmcli", "connection", "modify", "uuid", uuid, "connection.autoconnect", on ? "yes" : "no"])
++        actionProc.exec(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "connection-autostart", uuid, on ? "yes" : "no"])
+     }
+     // A WireGuard .conf or an OpenVPN .ovpn becomes a NetworkManager profile; its name comes from the file.
+     function importProfile(path: string): void {
+@@ -142,7 +142,7 @@ Singleton {
+         root.lastError = ""
+         if (/\.ovpn$/i.test(file) && !root.hasOpenvpnPlugin) { root.lastError = "missing plugin"; return }
+         root.busy = true
+-        actionProc.exec(["nmcli", "connection", "import", "type", /\.ovpn$/i.test(file) ? "openvpn" : "wireguard", "file", file])
++        actionProc.exec(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "import", file])
+     }
+     // Windows the card hands off to: it closes first, so they never open under it.
+     signal handOff()
+@@ -178,7 +178,7 @@ Singleton {
+         if (!root.tailscaleUp) return
+         root.busy = true
+         root.lastError = ""
+-        actionProc.exec(["tailscale", "set", "--exit-node=" + String(address ?? "")])
++        actionProc.exec(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "tailscale-exit-node", String(address ?? "")])
+     }
+     function toggleTailscale(): void { root.setTailscale(!root.tailscaleUp) }
+     function toggle(): void {
+@@ -186,9 +186,7 @@ Singleton {
+             root.busy = true
+             root.lastError = ""
+             // One process for every profile: a second exec on the same Process would cut the first short.
+-            actionProc.exec(["bash", "-c", 'status=0; [ "$1" = 1 ] && { tailscale down || status=$?; }; shift; '
+-                + 'for uuid in "$@"; do nmcli connection down uuid "$uuid" || status=$?; done; exit $status',
+-                "_", root.tailscaleUp ? "1" : "0", ...root.activeProfiles.map(entry => entry.uuid)])
++            actionProc.exec(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "disconnect-all"])
+             return
+         }
+         if (root.tailscaleInstalled) { root.setTailscale(true); return }
+@@ -288,7 +286,7 @@ Singleton {
+     Process {
+         id: loginProc
+         running: false
+-        command: ["tailscale", "login", "--timeout=120s"]
++        command: ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "tailscale-login"]
+         stderr: StdioCollector {
+             onStreamFinished: {
+                 const line = text.trim().split("\n").find(entry => /access denied|operator|error/i.test(entry)) ?? ""
+diff --git a/ryoku/shell/quickshell/inir/services/deferred/PackageSearch.qml b/ryoku/shell/quickshell/inir/services/deferred/PackageSearch.qml
+index 4346766..fe830e3 100644
+--- a/ryoku/shell/quickshell/inir/services/deferred/PackageSearch.qml
++++ b/ryoku/shell/quickshell/inir/services/deferred/PackageSearch.qml
+@@ -30,25 +30,6 @@ Singleton {
+     // Debounce to avoid spamming package manager
+     property int debounceMs: 300
+ 
+-    function _safeTerminal(): string {
+-        const configured = (Config.options?.apps?.terminal ?? "kitty").trim()
+-        if (configured.length === 0)
+-            return "kitty"
+-        if (!/^[A-Za-z0-9._+-]+$/.test(configured))
+-            return "kitty"
+-        return configured
+-    }
+-
+-    function _runTerminalScript(script: string, args): void {
+-        const command = ["/usr/bin/bash", "-lc", script + "\nprintf \"\\nPress Enter to close...\"\nread", "bash", ...(args ?? [])]
+-        const terminal = root._safeTerminal()
+-        if (terminal === "wezterm") {
+-            ShellExec.execDetachedArgs([terminal, "start", "--always-new-process", "--", ...command], "Run package action")
+-            return
+-        }
+-        ShellExec.execDetachedArgs([terminal, "-e", ...command], "Run package action")
+-    }
+-
+     function isSafePackageName(name: string): bool {
+         const pkg = (name ?? "").trim()
+         return pkg.length > 0 && /^[A-Za-z0-9@._+-]+$/.test(pkg)
+@@ -62,20 +43,8 @@ Singleton {
+             return false
+         }
+ 
+-        const script = preferAurHelper
+-            ? "manager=$(ryoku-host pkgmgr 2>/dev/null) || exit 127; case \"$manager\" in " +
+-                "pacman) if command -v yay &>/dev/null; then yay -S -- \"$1\"; " +
+-                    "elif command -v paru &>/dev/null; then paru -S -- \"$1\"; else sudo pacman -S -- \"$1\"; fi ;; " +
+-                "xbps) sudo xbps-install -S -- \"$1\" ;; " +
+-                "dnf) printf 'The AUR is not available on Fedora\\n' >&2; exit 5 ;; " +
+-                "*) printf 'No supported package manager found\\n' >&2; exit 127 ;; esac"
+-            : "manager=$(ryoku-host pkgmgr 2>/dev/null) || exit 127; case \"$manager\" in " +
+-                "pacman) sudo pacman -S -- \"$1\" ;; " +
+-                "xbps) sudo xbps-install -S -- \"$1\" ;; " +
+-                "dnf) sudo ryoku-host pkg install \"$1\" ;; " +
+-                "*) printf 'No supported package manager found\\n' >&2; exit 127 ;; esac"
+-        root._runTerminalScript(script, [pkg])
+-        return true
++        ShellExec.execDetachedArgs(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "package", "install", pkg], "Run package action")
++        return false
+     }
+ 
+     function removePackage(name: string): bool {
+@@ -86,56 +55,20 @@ Singleton {
+             return false
+         }
+ 
+-        root._runTerminalScript(
+-            "manager=$(ryoku-host pkgmgr 2>/dev/null) || exit 127; case \"$manager\" in " +
+-            "pacman) sudo pacman -Rns -- \"$1\" ;; " +
+-            "xbps) sudo xbps-remove -R -- \"$1\" ;; " +
+-            "dnf) sudo ryoku-host pkg remove \"$1\" ;; " +
+-            "*) printf 'No supported package manager found\\n' >&2; exit 127 ;; esac",
+-            [pkg]
+-        )
+-        return true
++        ShellExec.execDetachedArgs(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "package", "remove", pkg], "Run package action")
++        return false
+     }
+ 
+     function updateSystem(): void {
+-        root._runTerminalScript(
+-            "manager=$(ryoku-host pkgmgr 2>/dev/null) || exit 127; case \"$manager\" in " +
+-            "pacman) if command -v yay &>/dev/null; then yay; elif command -v paru &>/dev/null; then paru; else sudo pacman -Syu; fi ;; " +
+-            "xbps) sudo xbps-install -Su ;; " +
+-            "dnf) ryoku update --system ;; " +
+-            "*) printf 'No supported package manager found\\n' >&2; exit 127 ;; esac",
+-            []
+-        )
++        ShellExec.execDetachedArgs(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "package", "update"], "Run package action")
+     }
+ 
+-    // apps.update is a person's own command. Keep custom commands intact; the
+-    // former stage default is made host-aware so existing Fedora configs never
+-    // try to launch pacman.
+     function runConfiguredUpdate(): void {
+-        const cmd = (Config.options?.apps?.update ?? "").trim()
+-        const oldStageDefault = "kitty -1 --hold=yes fish -i -c 'pkexec pacman -Syu'"
+-        if (cmd === oldStageDefault) {
+-            ShellExec.execCmd("if [ \"$(ryoku-host pkgmgr 2>/dev/null)\" != pacman ]; then " +
+-                "kitty -1 --hold=yes fish -i -c 'ryoku update --system'; else exec " + cmd + "; fi")
+-            return
+-        }
+-        const legacyDefault = cmd === "kitty -e arch-update" || cmd === "kitty -e sudo pacman -Syu"
+-        if (cmd.length === 0 || legacyDefault) {
+-            root.updateSystem()
+-            return
+-        }
+-        ShellExec.execCmd(cmd)
++        root.updateSystem()
+     }
+ 
+     function cleanPackageCache(): void {
+-        root._runTerminalScript(
+-            "manager=$(ryoku-host pkgmgr 2>/dev/null) || exit 127; case \"$manager\" in " +
+-            "pacman) if command -v paccache &>/dev/null; then sudo paccache -rk1; else printf 'paccache is unavailable; install pacman-contrib\\n' >&2; exit 127; fi ;; " +
+-            "xbps) sudo xbps-remove -O ;; " +
+-            "dnf) dnf_cmd=$(command -v dnf5 || command -v dnf) || exit 127; sudo \"$dnf_cmd\" clean packages ;; " +
+-            "*) printf 'No supported package cache cleaner found\\n' >&2; exit 127 ;; esac",
+-            []
+-        )
++        ShellExec.execDetachedArgs(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "package", "clean-cache"], "Run package action")
+     }
+ 
+     function _xbpsSearchPipeline(mode: string, limit: int): string {
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/barstyles/kairos/quicksettings/pages/BluetoothPage.qml b/ryoku/shell/quickshell/shell/modules/bar/barstyles/kairos/quicksettings/pages/BluetoothPage.qml
+index a0878c6..3a144f4 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/barstyles/kairos/quicksettings/pages/BluetoothPage.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/barstyles/kairos/quicksettings/pages/BluetoothPage.qml
+@@ -83,7 +83,7 @@ Column {
+     }
+     function activate(d) {
+         if (!d || page.busy) return;
+-        if (d.connected) d.disconnect();
++        if (d.connected) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "disconnect"]);
+         else page.link(d);
+     }
+     // Drop the pairing on the adapter. A device that has gone stale on the other
+@@ -92,7 +92,7 @@ Column {
+     function forget(d) {
+         if (!d || page.busy) return;
+         page.pairError = "";
+-        d.forget();
++        Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "forget"]);
+     }
+ 
+     Process {
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/bluetooth/Panel.qml b/ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/bluetooth/Panel.qml
+index ce49c1d..f63f4d3 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/bluetooth/Panel.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/bluetooth/Panel.qml
+@@ -275,7 +275,7 @@ Panel {
+ 
+   function connectDevice(device) {
+     if (!device || device.connected || !device.address) return
+-    if (adapter !== null && adapter.discovering) adapter.discovering = false
++    if (adapter !== null && adapter.discovering) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"])
+     owesDiscoveryStop = false
+     runDeviceAction(device, device.paired || device.bonded || device.trusted ? "connect" : "pair", "connecting")
+   }
+@@ -284,7 +284,7 @@ Panel {
+     if (!device || !device.address) return
+     if (!device.connected) return
+     setPendingAction(device.address, "disconnecting")
+-    if (device.disconnect) device.disconnect()
++    if (device.disconnect) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "disconnect"])
+     Quickshell.execDetached(deviceCommand("disconnect", device.address))
+   }
+ 
+@@ -513,7 +513,7 @@ Panel {
+     running: root.opened && root.adapter !== null && root.adapter.enabled && !root.adapter.discovering
+     onTriggered: {
+       root.owesDiscoveryStop = true
+-      root.adapter.discovering = true
++      Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"])
+     }
+   }
+ 
+@@ -550,7 +550,7 @@ Panel {
+       }
+       attempts += 1
+       if (attempts > 3) { root.owesDiscoveryStop = false; return }
+-      root.adapter.discovering = false
++      Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"])
+     }
+   }
+ 
+@@ -575,7 +575,7 @@ Panel {
+     for (var i = 0; i < items.length; i++) {
+       if (items[i] && items[i] !== root) { items[i].owesDiscoveryStop = true; return }
+     }
+-    if (adapter !== null && adapter.discovering) adapter.discovering = false
++    if (adapter !== null && adapter.discovering) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"])
+   }
+ 
+   Timer {
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/network/Model.js b/ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/network/Model.js
+index 512ff96..8e24b73 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/network/Model.js
++++ b/ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/network/Model.js
+@@ -350,19 +350,6 @@ function canForgetNetwork(network) {
+   return !!(network && network.known && !network.connected)
+ }
+ 
+-// The password arrives on stdin and reaches nmcli through the scriptable
+-// `connection edit` editor -- argv is world-readable in /proc, so the secret
+-// must never be an argument (printf is a bash builtin, so no process spawns
+-// with it either).
+-var enterpriseConnectScript =
+-  "u=$(uuidgen); IFS= read -r pw;" +
+-  " nmcli connection add type wifi con-name \"$1\" ssid \"$1\" connection.uuid \"$u\"" +
+-  " wifi-sec.key-mgmt wpa-eap 802-1x.eap peap 802-1x.phase2-auth mschapv2" +
+-  " 802-1x.identity \"$2\" 802-1x.auth-timeout 8 >/dev/null" +
+-  " && printf 'set 802-1x.password %s\\nsave\\nquit\\n' \"$pw\" | nmcli connection edit uuid \"$u\" >/dev/null" +
+-  " && nmcli connection up uuid \"$u\"" +
+-  " || { nmcli connection delete uuid \"$u\" >/dev/null 2>&1; false; }"
+-
+ function networkFailureReason(reason, needsCredentials, reasons) {
+   var r = reasons || {}
+   if (needsCredentials && reason === r.NoSecrets) return "Passphrase required"
+@@ -415,7 +402,6 @@ if (typeof module !== "undefined") {
+     wifiSectionTitle: wifiSectionTitle,
+     requiresCredentials: requiresCredentials,
+     canForgetNetwork: canForgetNetwork,
+-    enterpriseConnectScript: enterpriseConnectScript,
+     networkFailureReason: networkFailureReason,
+     shouldRepromptPassphrase: shouldRepromptPassphrase
+   }
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/network/Panel.qml b/ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/network/Panel.qml
+index 5c408d9..1db1005 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/network/Panel.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/network/Panel.qml
+@@ -203,7 +203,7 @@ Panel {
+ 
+   function toggleNetwork() {
+     if (!networkManagerAvailable) return
+-    Networking.wifiEnabled = !Networking.wifiEnabled
++    Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"])
+     Qt.callLater(function() { root.refresh(true) })
+   }
+ 
+@@ -305,16 +305,16 @@ Panel {
+     var nextDevice = opened ? wifiDevice : null
+ 
+     if (scannerDevice && scannerDevice !== nextDevice)
+-      scannerDevice.scannerEnabled = false
++      Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "scan-stop"])
+ 
+     scannerDevice = nextDevice
+ 
+     if (scannerDevice)
+-      scannerDevice.scannerEnabled = enabled
++      Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "scan"])
+   }
+ 
+   Component.onDestruction: {
+-    if (scannerDevice) scannerDevice.scannerEnabled = false
++    if (scannerDevice) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "scan-stop"])
+   }
+ 
+   // KeyboardPanel primes layer-shell focus whenever the panel opens. That's
+@@ -857,17 +857,17 @@ Panel {
+   }
+ 
+   function connectDirectly(ssid) {
+-    runNetworkAction("connect", networkForSsid(ssid), function(network) { network.connect() })
++    runNetworkAction("connect", networkForSsid(ssid), function(network) { Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "connect"]) })
+   }
+ 
+   function connectWithPassphrase(ssid, passphrase) {
+-    runNetworkAction("connect", networkForSsid(ssid), function(network) { network.connectWithPsk(passphrase) })
++    runNetworkAction("connect", networkForSsid(ssid), function(network) { Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "connectWithPsk"]) })
+   }
+ 
+   function connectEnterprise(ssid, identity, passphrase) {
+     runNetworkAction("connect", networkForSsid(ssid), function(network) {
+       enterpriseConnect.secret = passphrase
+-      enterpriseConnect.command = ["bash", "-c", Model.enterpriseConnectScript, "nmcli-eap", ssid, identity]
++      enterpriseConnect.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "enterprise-connect", ssid, identity]
+       enterpriseConnect.running = true
+     })
+   }
+@@ -885,7 +885,7 @@ Panel {
+   }
+ 
+   function disconnect(network) {
+-    runNetworkAction("disconnect", network || connectedWifiNetwork, function(net) { net.disconnect() })
++    runNetworkAction("disconnect", network || connectedWifiNetwork, function(net) { Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "disconnect"]) })
+   }
+ 
+   // Disconnect from a row's SSID. Rows are primitive snapshots that can outlive
+@@ -898,7 +898,7 @@ Panel {
+   }
+ 
+   function forget(net) {
+-    runNetworkAction("forget", net ? networkForSsid(net.ssid) : null, function(network) { network.forget() })
++    runNetworkAction("forget", net ? networkForSsid(net.ssid) : null, function(network) { Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "forget"]) })
+   }
+ 
+   implicitWidth: button.implicitWidth
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/tailscale/Service.qml b/ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/tailscale/Service.qml
+index be737df..8d3716f 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/tailscale/Service.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/tailscale/Service.qml
+@@ -309,7 +309,7 @@ Item {
+     _loginInProgress = needsLogin
+     _loginUrlOpened = false
+     _preLoginAuthUrl = authUrl
+-    loginProcess.command = plan.command
++    loginProcess.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "tailscale-login"]
+     loginProcess.running = true
+     if (needsLogin) loginTimeoutTimer.restart()
+   }
+@@ -320,7 +320,7 @@ Item {
+     _switchOutput = ""
+     _switchError = ""
+     switchingAccountId = accountId
+-    switchProcess.command = ["tailscale", "switch", accountId]
++    switchProcess.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "tailscale-switch", accountId]
+     switchProcess.running = true
+   }
+ 
+@@ -341,7 +341,7 @@ Item {
+     _exitNodeOutput = ""
+     _exitNodeError = ""
+     settingExitNodeId = String(peer.id || "")
+-    exitNodeProcess.command = ["tailscale", "set", "--exit-node=" + target]
++    exitNodeProcess.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "tailscale-exit-node", target]
+     exitNodeProcess.running = true
+   }
+ 
+@@ -350,7 +350,7 @@ Item {
+     _operatorOutput = ""
+     _operatorError = ""
+     actionStatus = "Authorizing Tailscale operator..."
+-    operatorProcess.command = ["pkexec", "tailscale", "set", "--operator=" + userName]
++    operatorProcess.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "tailscale-authorise", userName]
+     operatorProcess.running = true
+   }
+ 
+@@ -359,7 +359,7 @@ Item {
+     _actionOutput = ""
+     _actionError = ""
+     actionStatus = label || ""
+-    actionProcess.command = command
++    actionProcess.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "tailscale-action"]
+     actionProcess.running = true
+   }
+ 
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/barstyles/orpheus/cards/controls/BluetoothPage.qml b/ryoku/shell/quickshell/shell/modules/bar/barstyles/orpheus/cards/controls/BluetoothPage.qml
+index ce08534..c528272 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/barstyles/orpheus/cards/controls/BluetoothPage.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/barstyles/orpheus/cards/controls/BluetoothPage.qml
+@@ -1,5 +1,6 @@
+ pragma ComponentBehavior: Bound
+ 
++import Quickshell
+ import QtQuick
+ import Quickshell.Bluetooth
+ import Quickshell.Io
+@@ -48,7 +49,7 @@ Item {
+         if (!device || busy)
+             return;
+         if (device.connected) {
+-            device.disconnect();
++            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "disconnect"]);
+             return;
+         }
+         const address = String(device.address || "");
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/Main.qml b/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/Main.qml
+index 39c067e..eab63e9 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/Main.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/Main.qml
+@@ -115,10 +115,10 @@ PanelWindow {
+             if (cmd === "airplane" || targetWidget === "airplane" || cmd === "flight" || targetWidget === "flight") {
+                 let isAirplane = !Networking.wifiEnabled && !RyokuServices.BluetoothPower.enabled;
+                 if (isAirplane) {
+-                    Networking.wifiEnabled = true;
++                    Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+                     RyokuServices.BluetoothPower.setEnabled(true);
+                 } else {
+-                    Networking.wifiEnabled = false;
++                    Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+                     RyokuServices.BluetoothPower.setEnabled(false);
+                 }
+                 return;
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/network/NetworkCardLayer.qml b/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/network/NetworkCardLayer.qml
+index 2511b72..0a32a2e 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/network/NetworkCardLayer.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/network/NetworkCardLayer.qml
+@@ -258,7 +258,7 @@ Item {
+                             if (window.connectingId === macToForget) window.connectingId = "";
+                             if (window.failedId === macToForget) window.failedId = "";
+ 
+-                            devToForget.forget();
++                            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "forget"]);
+                             window.requestBtRebuild();
+                         });
+                     } else {
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/network/NetworkControls.qml b/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/network/NetworkControls.qml
+index f443631..9b935fb 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/network/NetworkControls.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/network/NetworkControls.qml
+@@ -200,9 +200,9 @@ Item {
+                         window.ethPendingResetTimer.restart();
+                         window.ethPower = window.expectedEthPower;
+                         if (window.expectedEthPower === "off") {
+-                            if (window.ethDevice) window.ethDevice.disconnect();
++                            if (window.ethDevice) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "disconnect"]);
+                         } else {
+-                            if (window.ethDevice && window.ethDevice.network) window.ethDevice.network.connect();
++                            if (window.ethDevice && window.ethDevice.network) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "connect"]);
+                         }
+                     } else if (window.activeMode === "wifi") {
+                         if (window.wifiPowerPending) return;
+@@ -212,7 +212,7 @@ Item {
+                         if (window.expectedWifiPower === "on") Sounds.playSfx("network/power_on.wav"); else Sounds.playSfx("network/power_off.wav");
+                         window.wifiPendingResetTimer.restart();
+                         window.wifiPower = window.expectedWifiPower;
+-                        Networking.wifiEnabled = (window.expectedWifiPower === "on");
++                        Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+                         if (window.expectedWifiPower === "on") window.startWifiScan(); else window.stopWifiScan();
+                     } else {
+                         if (window.btPowerPending) return;
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/network/NetworkCoreLayer.qml b/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/network/NetworkCoreLayer.qml
+index b2bea05..ed5cc04 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/network/NetworkCoreLayer.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/network/NetworkCoreLayer.qml
+@@ -499,11 +499,11 @@ Item {
+                             for (let i = 0; i < devList.length; i++) {
+                                 if (devList[i] && devList[i].address === coreContainer.myId) { devToDisconnect = devList[i]; break; }
+                             }
+-                            if (devToDisconnect) devToDisconnect.disconnect();
++                            if (devToDisconnect) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "disconnect"]);
+                         } else if (window.activeMode === "eth") {
+-                            if (window.ethDevice) window.ethDevice.disconnect();
++                            if (window.ethDevice) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "disconnect"]);
+                         } else if (window.activeMode === "wifi") {
+-                            if (window.wifiDevice) window.wifiDevice.disconnect();
++                            if (window.wifiDevice) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "disconnect"]);
+                         }
+ 
+                         centralCore.disconnectFill = 0.0;
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/network/NetworkPopup.qml b/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/network/NetworkPopup.qml
+index 7cf10d0..ce06295 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/network/NetworkPopup.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/network/NetworkPopup.qml
+@@ -442,22 +442,22 @@ Item {
+     }
+ 
+     function startBtScan() {
+-        if (Bluetooth.defaultAdapter) Bluetooth.defaultAdapter.discovering = true;
++        if (Bluetooth.defaultAdapter) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+     }
+ 
+     function stopBtScan() {
+-        if (Bluetooth.defaultAdapter) Bluetooth.defaultAdapter.discovering = false;
++        if (Bluetooth.defaultAdapter) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+     }
+ 
+     function startWifiScan() {
+         if (window.wifiDevice && window.visible && window.activeMode === "wifi" && window.wifiPower === "on") {
+-            window.wifiDevice.scannerEnabled = true;
++            window.Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+         }
+     }
+ 
+     function stopWifiScan() {
+         if (window.wifiDevice) {
+-            window.wifiDevice.scannerEnabled = false;
++            window.Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+         }
+     }
+ 
+@@ -740,7 +740,7 @@ Item {
+ 
+         if (mode === "eth") {
+             if (window.ethDevice && window.ethDevice.network) {
+-                window.ethDevice.network.connect();
++                Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "connect"]);
+             }
+         } else if (mode === "wifi") {
+             if (window.wifiDevice && window.wifiDevice.networks) {
+@@ -751,8 +751,8 @@ Item {
+                     if (net && net.name === macOrSsid) { targetNet = net; break; }
+                 }
+                 if (targetNet) {
+-                    if (password && password !== "") targetNet.connectWithPsk(password);
+-                    else targetNet.connect();
++                    if (password && password !== "") Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "connectWithPsk"]);
++                    else Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "connect"]);
+                 }
+             }
+         } else {
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/popouts/Osd.qml b/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/popouts/Osd.qml
+index 3c31e27..e0be5a9 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/popouts/Osd.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/popouts/Osd.qml
+@@ -501,10 +501,10 @@ PanelWindow {
+                             }
+                         } else if (osdWindow.kind === "airplane") {
+                             if (osdWindow.isToggleActive) {
+-                                Networking.wifiEnabled = true;
++                                Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+                                 BluetoothPower.setEnabled(true);
+                             } else {
+-                                Networking.wifiEnabled = false;
++                                Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+                                 BluetoothPower.setEnabled(false);
+                             }
+                         } else if (osdWindow.kind === "brightness") {
+@@ -671,10 +671,10 @@ PanelWindow {
+                                 }
+                             } else if (osdWindow.kind === "airplane") {
+                                 if (osdWindow.isToggleActive) {
+-                                    Networking.wifiEnabled = true;
++                                    Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+                                     BluetoothPower.setEnabled(true);
+                                 } else {
+-                                    Networking.wifiEnabled = false;
++                                    Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+                                     BluetoothPower.setEnabled(false);
+                                 }
+                             } else if (osdWindow.kind === "brightness") {
+@@ -725,10 +725,10 @@ PanelWindow {
+                             OsdController.restartTimer();
+                             if (osdWindow.kind === "airplane") {
+                                 if (osdWindow.isToggleActive) {
+-                                    Networking.wifiEnabled = true;
++                                    Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+                                     BluetoothPower.setEnabled(true);
+                                 } else {
+-                                    Networking.wifiEnabled = false;
++                                    Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+                                     BluetoothPower.setEnabled(false);
+                                 }
+                             }
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/syspanel/SystemPanelQuickActions.qml b/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/syspanel/SystemPanelQuickActions.qml
+index c514220..91a251a 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/syspanel/SystemPanelQuickActions.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/barstyles/python/syspanel/SystemPanelQuickActions.qml
+@@ -371,7 +371,7 @@ Item {
+             isActive: view.panel.wifiRadioEnabled
+             onLeftClicked: {
+                 Sounds.playSfx("system/quick_click.wav");
+-                Networking.wifiEnabled = !Networking.wifiEnabled;
++                Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+             }
+             onRightClicked: {
+                 view.panel.closeAnim.start();
+@@ -403,14 +403,14 @@ Item {
+                 if (enableAirplane) {
+                     view.panel.btStateBeforeAirplane = view.panel.btRadioEnabled;
+                     view.panel.wifiStateBeforeAirplane = view.panel.wifiRadioEnabled;
+-                    Networking.wifiEnabled = false;
++                    Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+                     BluetoothPower.setEnabled(false);
+                 } else {
+                     let restoreWifi = view.panel.wifiStateBeforeAirplane;
+                     let restoreBt = view.panel.btStateBeforeAirplane;
+                     if (!restoreWifi && !restoreBt)
+                         restoreWifi = true;
+-                    Networking.wifiEnabled = restoreWifi;
++                    Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+                     BluetoothPower.setEnabled(restoreBt);
+                 }
+             }
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/barstyles/qsbar/panels/BluetoothPanel.qml b/ryoku/shell/quickshell/shell/modules/bar/barstyles/qsbar/panels/BluetoothPanel.qml
+index d63efe5..3537f57 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/barstyles/qsbar/panels/BluetoothPanel.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/barstyles/qsbar/panels/BluetoothPanel.qml
+@@ -66,10 +66,10 @@ PanelWindow {
+     function activateDevice(device) {
+         if (!device || btPanel.busy) return
+         if (device.connected) {
+-            device.disconnect()
++            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "disconnect"])
+             return
+         }
+-        if (device.blocked) device.blocked = false
++        if (device.blocked) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"])
+         // Paired and unpaired take the same path: Device1.Connect on an
+         // existing bond fails at once when BlueZ holds keys the device has
+         // forgotten, and nothing here cleared that. BtLink.linkCommand pairs
+@@ -90,7 +90,7 @@ PanelWindow {
+ 
+     function forgetDevice(device) {
+         if (!device || btPanel.busy) return
+-        device.forget()
++        Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "forget"])
+     }
+ 
+     function toggleScan() {
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/barstyles/qsbar/panels/NetworkManagerAdapter.qml b/ryoku/shell/quickshell/shell/modules/bar/barstyles/qsbar/panels/NetworkManagerAdapter.qml
+index fdef5d9..e827666 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/barstyles/qsbar/panels/NetworkManagerAdapter.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/barstyles/qsbar/panels/NetworkManagerAdapter.qml
+@@ -1,3 +1,4 @@
++import Quickshell
+ import QtQuick
+ import Quickshell.Networking
+ import Quickshell.Io
+@@ -114,7 +115,7 @@ Item {
+         }
+     }
+ 
+-    // Only WPA-Personal passphrase types can be joined via network.connectWithPsk(psk).
++    // Only WPA-Personal passphrase types can be joined via Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "connectWithPsk"]).
+     // Everything else must go through the full NetworkManager settings flow.
+     function supportsInlinePsk(sec) {
+         return sec === "psk"
+@@ -202,13 +203,13 @@ Item {
+ 
+         scanning = true
+         if (wifiDevice)
+-            wifiDevice.scannerEnabled = true
++            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"])
+         scanClearTimer.restart()
+         syncNetworks()
+     }
+ 
+     function toggleWifi() {
+-        Networking.wifiEnabled = !Networking.wifiEnabled
++        Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"])
+         syncPanel()
+         if (Networking.wifiEnabled)
+             scan()
+@@ -226,7 +227,7 @@ Item {
+             return
+ 
+         if (entry.sec === "open" || entry.known || entry.conn) {
+-            entry.network.connect()
++            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "connect"])
+             refreshAfterAction.restart()
+             return
+         }
+@@ -252,7 +253,7 @@ Item {
+         if (!entry || !entry.known)
+             return
+         if (entry.network && (entry.network.known || !entry.profileUuid)) {
+-            entry.network.forget()
++            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "forget"])
+             refreshAfterAction.restart()
+         } else if (entry.profileUuid) {
+             runProfileAction("forget", entry)
+@@ -265,9 +266,7 @@ Item {
+         if (panel)
+             panel.networkActionError = ""
+         profileAction.action = action
+-        profileAction.command = action === "connect"
+-            ? ["nmcli", "--wait", "20", "connection", "up", "uuid", entry.profileUuid]
+-            : ["nmcli", "--wait", "20", "connection", "delete", "uuid", entry.profileUuid]
++        profileAction.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", action, entry.profileUuid]
+         profileAction.running = true
+     }
+ 
+@@ -275,13 +274,13 @@ Item {
+         if (!network || psk === "")
+             return
+ 
+-        network.connectWithPsk(psk)
++        Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "connectWithPsk"])
+         refreshAfterAction.restart()
+     }
+ 
+     function refresh() {
+         if (wifiDevice)
+-            wifiDevice.scannerEnabled = panelOpen && !wifiBlocked
++            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"])
+         if (panelOpen && !profileList.running)
+             profileList.running = true
+         syncNetworks()
+@@ -297,7 +296,7 @@ Item {
+     Component.onCompleted: refresh()
+     Component.onDestruction: {
+         if (wifiDevice)
+-            wifiDevice.scannerEnabled = false
++            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"])
+         profileList.running = false
+         profileAction.running = false
+     }
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/barstyles/qsbar/panels/NetworkPanel.qml b/ryoku/shell/quickshell/shell/modules/bar/barstyles/qsbar/panels/NetworkPanel.qml
+index 88465c4..e6a88a1 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/barstyles/qsbar/panels/NetworkPanel.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/barstyles/qsbar/panels/NetworkPanel.qml
+@@ -203,7 +203,7 @@ PanelWindow {
+ 
+         if (entry.conn) {
+             if (nmAdapterReady && entry.network)
+-                entry.network.disconnect()
++                Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "disconnect"])
+             else if (wdev !== "") {
+                 connectProc.command = ["iwctl", "station", wdev, "disconnect"]
+                 connectProc.running = false
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/framebars/menus/MenuBluetooth.qml b/ryoku/shell/quickshell/shell/modules/bar/framebars/menus/MenuBluetooth.qml
+index 06b8eff..6e84677 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/framebars/menus/MenuBluetooth.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/framebars/menus/MenuBluetooth.qml
+@@ -1,5 +1,6 @@
+ pragma ComponentBehavior: Bound
+ 
++import Quickshell
+ import QtQuick
+ import Quickshell.Bluetooth
+ import Quickshell.Io
+@@ -127,10 +128,10 @@ Item {
+         switch (act) {
+         case "connect":
+         case "pair": root.link(d); break;
+-        case "disconnect": d.disconnect(); break;
+-        case "trust": d.trusted = true; break;
+-        case "untrust": d.trusted = false; break;
+-        case "forget": d.forget(); break;
++        case "disconnect": Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "disconnect"]); break;
++        case "trust": Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]); break;
++        case "untrust": Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]); break;
++        case "forget": Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "forget"]); break;
+         }
+     }
+     function link(d) {
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/popouts/BluetoothPopout.qml b/ryoku/shell/quickshell/shell/modules/bar/popouts/BluetoothPopout.qml
+index f507d1b..127e437 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/popouts/BluetoothPopout.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/popouts/BluetoothPopout.qml
+@@ -1,5 +1,6 @@
+ pragma ComponentBehavior: Bound
+ 
++import Quickshell
+ import QtQuick
+ import Quickshell.Bluetooth
+ import Quickshell.Io
+@@ -102,11 +103,11 @@ Item {
+         if (!d)
+             return;
+         if (d.connected) {
+-            d.disconnect();
++            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "disconnect"]);
+             return;
+         }
+         if (d.blocked)
+-            d.blocked = false;
++            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+         // Paired and unpaired both go through the same script. Device1.Connect
+         // on an existing bond was the dead end in #144/#156: it fails at once
+         // when BlueZ holds keys the device has forgotten, and nothing here ever
+@@ -308,7 +309,7 @@ Item {
+             onPrimaryActed: root.primary(root.focusDev)
+             onForgetActed: {
+                 if (root.focusDev) {
+-                    root.focusDev.forget();
++                    Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "forget"]);
+                     root.focusAddr = "";
+                 }
+             }
+diff --git a/ryoku/shell/quickshell/shell/modules/bar/popouts/BtHero.qml b/ryoku/shell/quickshell/shell/modules/bar/popouts/BtHero.qml
+index b1ff6b3..e8672b0 100644
+--- a/ryoku/shell/quickshell/shell/modules/bar/popouts/BtHero.qml
++++ b/ryoku/shell/quickshell/shell/modules/bar/popouts/BtHero.qml
+@@ -1,5 +1,6 @@
+ pragma ComponentBehavior: Bound
+ 
++import Quickshell
+ import QtQuick
+ import Quickshell.Bluetooth
+ import Quickshell.Io
+@@ -352,7 +353,7 @@ Item {
+                     label: I18n.tr("Trusted")
+                     toggle: true
+                     on: root.present && root.device.trusted
+-                    onToggled: if (root.present) root.device.trusted = !root.device.trusted
++                    onToggled: if (root.present) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"])
+                 }
+                 PopoutDetailRow {
+                     width: parent.width
+@@ -369,7 +370,7 @@ Item {
+                     label: I18n.tr("Blocked")
+                     toggle: true
+                     on: root.present && root.device.blocked
+-                    onToggled: if (root.present) root.device.blocked = !root.device.blocked
++                    onToggled: if (root.present) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"])
+                 }
+ 
+                 Item { width: 1; height: 4 * root.s; visible: root.capChips.length > 0 }
+diff --git a/ryoku/shell/quickshell/shell/modules/dock/ii/services/DictationService.qml b/ryoku/shell/quickshell/shell/modules/dock/ii/services/DictationService.qml
+index b70d680..527c49f 100644
+--- a/ryoku/shell/quickshell/shell/modules/dock/ii/services/DictationService.qml
++++ b/ryoku/shell/quickshell/shell/modules/dock/ii/services/DictationService.qml
+@@ -322,7 +322,7 @@ Singleton {
+     /** Restarts our own daemon; a foreign systemd one is left for systemd to manage. */
+     function restartDaemon() {
+         if (root.externalDaemon) {
+-            Quickshell.execDetached(["systemctl", "--user", "restart", "voxtype.service"]);
++            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "voxtype", "restart"]);
+             return;
+         }
+         if (!daemonProc.running)
+@@ -427,7 +427,7 @@ Singleton {
+ 
+     Process {
+         id: gpuEnableProc
+-        command: ["pkexec", "voxtype", "setup", "gpu", "--enable"]
++        command: ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "voxtype", "setup-gpu"]
+         stderr: SplitParser {
+             onRead: data => {
+                 const line = data.trim();
+diff --git a/ryoku/shell/quickshell/shell/modules/phone/KdeConnectService.qml b/ryoku/shell/quickshell/shell/modules/phone/KdeConnectService.qml
+index df5e5f5..649711d 100644
+--- a/ryoku/shell/quickshell/shell/modules/phone/KdeConnectService.qml
++++ b/ryoku/shell/quickshell/shell/modules/phone/KdeConnectService.qml
+@@ -1090,42 +1090,30 @@ Singleton {
+     /** Accepts an incoming pair request for a device (daemon method
+      *  acceptPairing on the device object path). */
+     function acceptPairing(devId) {
+-        if (!devId) return
+-        root.outgoingPairId = ""
++        if (!root._enabled || !devId) return
+         Quickshell.execDetached([
+-            "bash", "-c",
+-            "QDBUS=$(command -v qdbus-qt6 || command -v qdbus6 || command -v qdbus); " +
+-            "$QDBUS org.kde.kdeconnect /modules/kdeconnect/devices/" +
+-            devId + " org.kde.kdeconnect.device.acceptPairing " +
+-            ">/dev/null 2>&1 || true"
++            "/usr/libexec/ryoku/ryoku-writer", "hub-backend", "phone", "accept-pair", devId
+         ])
+-        root._removePairingRequest(devId)
+-        root.actionFeedback(I18n.tr("Pairing accepted"), true)
+     }
+ 
+     /** Cancels/declines an incoming pair request (daemon method
+      *  cancelPairing on the device object path). */
+     function declinePairing(devId) {
+-        if (!devId) return
+-        if (root.outgoingPairId === devId) root.outgoingPairId = ""
++        if (!root._enabled || !devId) return
+         Quickshell.execDetached([
+-            "bash", "-c",
+-            "QDBUS=$(command -v qdbus-qt6 || command -v qdbus6 || command -v qdbus); " +
+-            "$QDBUS org.kde.kdeconnect /modules/kdeconnect/devices/" +
+-            devId + " org.kde.kdeconnect.device.cancelPairing " +
+-            ">/dev/null 2>&1 || true"
++            "/usr/libexec/ryoku/ryoku-writer", "hub-backend", "phone", "reject-pair", devId
+         ])
+-        root._removePairingRequest(devId)
+-        root.actionFeedback(I18n.tr("Pairing declined"), false)
+     }
+     function rejectPairing(devId) { root.declinePairing(devId) }
+ 
+     function requestPairing(devId) {
++        if (!root._enabled || !devId) return
+         root.outgoingPairId = devId
+         root._call(devId, "", "org.kde.kdeconnect.device.requestPairing", [])
+     }
+ 
+     function unpair(devId) {
++        if (!root._enabled || !devId) return
+         if (root.outgoingPairId === devId) root.outgoingPairId = ""
+         root._call(devId, "", "org.kde.kdeconnect.device.unpair", [])
+     }
+@@ -1292,27 +1280,28 @@ Singleton {
+     property string adbAction: ""
+ 
+     function adbWifi(): bool {
++        if (!root._enabled) return false
+         const serial = root.resolvedAdbSerial
+         const ip = root._kdeConnectIp(root.activeDeviceId)
+         if (!serial || serial.indexOf(":") >= 0 || root.adbState !== "device" || !ip)
+             return false
+         root.adbAction = "wifi"
+-        adbActionProc.command = ["bash", "-c",
+-            "adb -s " + root._shellQuote(serial) + " tcpip 5555 && sleep 1 && adb connect "
+-            + root._shellQuote(ip + ":5555")]
++        adbActionProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "phone", "adb-wifi", serial, ip]
+         adbActionProc.running = true
+         return true
+     }
+ 
+     function adbPair(address, code): void {
++        if (!root._enabled) return
+         root.adbAction = "pair"
+-        adbActionProc.command = ["adb", "pair", String(address), String(code)]
++        adbActionProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "phone", "adb-pair", String(address), String(code)]
+         adbActionProc.running = true
+     }
+ 
+     function adbConnect(address): void {
++        if (!root._enabled) return
+         root.adbAction = "connect"
+-        adbActionProc.command = ["adb", "connect", String(address)]
++        adbActionProc.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "phone", "adb-connect", String(address)]
+         adbActionProc.running = true
+     }
+ 
+@@ -1936,17 +1925,10 @@ Singleton {
+     }
+ 
+     function _call(devId, plugin, fullMethod, args) {
+-        if (!devId) return
+-        const path = "/modules/kdeconnect/devices/" + devId
+-            + (plugin ? "/" + plugin : "")
+-        const argString = (args || []).join(" ")
++        if (!root._enabled || !devId) return
+         Quickshell.execDetached([
+-            "bash", "-c",
+-            "QDBUS=$(command -v qdbus-qt6 || command -v qdbus6 || command -v qdbus); " +
+-            "$QDBUS org.kde.kdeconnect " + path + " " + fullMethod
+-                + (argString.length > 0 ? " " + argString : "")
+-                + " >/dev/null 2>&1 || true"
+-        ])
++            "/usr/libexec/ryoku/ryoku-writer", "hub-backend", "phone", "device-call", devId, plugin, fullMethod
++        ].concat(args || []))
+     }
+ 
+     function promptWirelessConnect(devId) {
+diff --git a/ryoku/shell/quickshell/shell/modules/phone/PhoneBridge.qml b/ryoku/shell/quickshell/shell/modules/phone/PhoneBridge.qml
+index f325c28..41fbae0 100644
+--- a/ryoku/shell/quickshell/shell/modules/phone/PhoneBridge.qml
++++ b/ryoku/shell/quickshell/shell/modules/phone/PhoneBridge.qml
+@@ -296,7 +296,7 @@ Item {
+ 
+     Process {
+         id: statusProc
+-        command: ["ryoku-hub", "phone", "status"]
++        command: ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "phone", "status"]
+         environment: Spawn.env
+         running: false
+         stdout: StdioCollector { id: statusOut }
+@@ -425,21 +425,25 @@ Item {
+             return root.ok()
+         }
+         function pair(id: string): string {
++            if (!PhoneState.runtimeReady) return root.fail(I18n.tr("Phone integration is unavailable"))
+             if (!id) return root.fail(I18n.tr("Choose a phone first"))
+             KdeConnectService.requestPairing(id)
+             return root.ok()
+         }
+         function unpair(id: string): string {
++            if (!PhoneState.runtimeReady) return root.fail(I18n.tr("Phone integration is unavailable"))
+             if (!id) return root.fail(I18n.tr("Choose a phone first"))
+             KdeConnectService.unpair(id)
+             return root.ok()
+         }
+         function acceptPair(id: string): string {
++            if (!PhoneState.runtimeReady) return root.fail(I18n.tr("Phone integration is unavailable"))
+             if (!id) return root.fail(I18n.tr("The pairing request is missing"))
+             KdeConnectService.acceptPairing(id)
+             return root.ok()
+         }
+         function rejectPair(id: string): string {
++            if (!PhoneState.runtimeReady) return root.fail(I18n.tr("Phone integration is unavailable"))
+             if (!id) return root.fail(I18n.tr("The pairing request is missing"))
+             KdeConnectService.rejectPairing(id)
+             return root.ok()
+@@ -539,15 +543,18 @@ Item {
+         function micStop(): string { PhoneMicService.stopMic(); return root.ok() }
+         function adbRefresh(): string { KdeConnectService._probeAdb(); return root.ok() }
+         function adbWifi(): string {
++            if (!PhoneState.runtimeReady) return root.fail(I18n.tr("Phone integration is unavailable"))
+             if (!KdeConnectService.adbWifi()) return root.fail(I18n.tr("Connect the phone by USB and keep KDE Connect online first"))
+             return root.ok()
+         }
+         function adbPair(address: string, code: string): string {
++            if (!PhoneState.runtimeReady) return root.fail(I18n.tr("Phone integration is unavailable"))
+             if (!address || !code) return root.fail(I18n.tr("Enter the pairing address and code"))
+             KdeConnectService.adbPair(address, code)
+             return root.ok()
+         }
+         function adbConnect(address: string): string {
++            if (!PhoneState.runtimeReady) return root.fail(I18n.tr("Phone integration is unavailable"))
+             if (!address) return root.fail(I18n.tr("Enter the phone address"))
+             KdeConnectService.adbConnect(address)
+             return root.ok()
+diff --git a/ryoku/shell/quickshell/shell/modules/sidebar/cards/SystemBluetoothPage.qml b/ryoku/shell/quickshell/shell/modules/sidebar/cards/SystemBluetoothPage.qml
+index 2b87400..f84c42a 100644
+--- a/ryoku/shell/quickshell/shell/modules/sidebar/cards/SystemBluetoothPage.qml
++++ b/ryoku/shell/quickshell/shell/modules/sidebar/cards/SystemBluetoothPage.qml
+@@ -73,7 +73,7 @@ Item {
+         if (!device || root.busy)
+             return;
+         if (device.connected)
+-            device.disconnect();
++            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "disconnect"]);
+         else
+             root.link(device);
+     }
+@@ -241,7 +241,7 @@ Item {
+                 text: ""
+                 Accessible.name: deviceRow.device && deviceRow.device.trusted ? I18n.tr("Untrust") : I18n.tr("Trust")
+                 armed: !root.busy
+-                onAct: if (deviceRow.device) deviceRow.device.trusted = !deviceRow.device.trusted
++                onAct: if (deviceRow.device) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"])
+             }
+             SidebarButton {
+                 s: root.s
+@@ -251,7 +251,7 @@ Item {
+                 text: ""
+                 Accessible.name: I18n.tr("Forget")
+                 armed: !root.busy
+-                onAct: if (deviceRow.device) deviceRow.device.forget()
++                onAct: if (deviceRow.device) Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "forget"])
+             }
+             SidebarButton {
+                 s: root.s
+diff --git a/ryoku/shell/quickshell/shell/services/AiUsage.qml b/ryoku/shell/quickshell/shell/services/AiUsage.qml
+index 38aea01..6a1ed95 100644
+--- a/ryoku/shell/quickshell/shell/services/AiUsage.qml
++++ b/ryoku/shell/quickshell/shell/services/AiUsage.qml
+@@ -369,7 +369,7 @@ Singleton {
+ 
+     Process {
+         id: collector
+-        command: ["ryoku-host", "svc", "--user", "start", "ryoku-ai-usage.service"]
++        command: ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "service", "start", "ryoku-ai-usage.service"]
+         onExited: {
+             refreshTimeout.stop();
+             root.reload();
+diff --git a/ryoku/shell/quickshell/shell/services/BluetoothDiscovery.qml b/ryoku/shell/quickshell/shell/services/BluetoothDiscovery.qml
+index 2f01351..25f386a 100644
+--- a/ryoku/shell/quickshell/shell/services/BluetoothDiscovery.qml
++++ b/ryoku/shell/quickshell/shell/services/BluetoothDiscovery.qml
+@@ -12,12 +12,12 @@ Singleton {
+     function setDiscovering(owner, adapter, enabled) {
+         owners = MenuPoll.setOwnership(owners, owner, enabled);
+         if (adapter)
+-            adapter.discovering = owners.length > 0 && adapter.enabled;
++            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+     }
+ 
+     function stopAll(adapter) {
+         owners = [];
+         if (adapter)
+-            adapter.discovering = false;
++            Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+     }
+ }
+diff --git a/ryoku/shell/quickshell/shell/services/BluetoothPower.qml b/ryoku/shell/quickshell/shell/services/BluetoothPower.qml
+index 8df06d8..843eff1 100644
+--- a/ryoku/shell/quickshell/shell/services/BluetoothPower.qml
++++ b/ryoku/shell/quickshell/shell/services/BluetoothPower.qml
+@@ -11,7 +11,7 @@ Singleton {
+     function setEnabled(on: bool): void {
+         if (!Bluetooth.defaultAdapter)
+             return;
+-        Quickshell.execDetached(["ryoku-bluetooth-power", on ? "on" : "off"]);
++        Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "bluetooth-power", on ? "on" : "off"]);
+     }
+ 
+     function toggle(): void {
+diff --git a/ryoku/shell/quickshell/shell/services/BtLink.qml b/ryoku/shell/quickshell/shell/services/BtLink.qml
+index fe0056b..509ee7e 100644
+--- a/ryoku/shell/quickshell/shell/services/BtLink.qml
++++ b/ryoku/shell/quickshell/shell/services/BtLink.qml
+@@ -133,6 +133,6 @@ Singleton {
+     // turn it back on while BlueZ is negotiating the link.
+     function linkCommand(mac) {
+         BluetoothDiscovery.stopAll(Bluetooth.defaultAdapter);
+-        return ["ryoku-bluetooth-link", String(mac || "")];
++        return ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "bluetooth-link", String(mac || "")];
+     }
+ }
+diff --git a/ryoku/shell/quickshell/shell/services/Tailscale.qml b/ryoku/shell/quickshell/shell/services/Tailscale.qml
+index ec6fec0..ffc7fcd 100644
+--- a/ryoku/shell/quickshell/shell/services/Tailscale.qml
++++ b/ryoku/shell/quickshell/shell/services/Tailscale.qml
+@@ -88,7 +88,7 @@ Singleton {
+         const user = Quickshell.env("USER") || "";
+         if (user.length === 0 || authoriser.running)
+             return;
+-        authoriser.command = ["pkexec", "tailscale", "set", "--operator=" + user];
++        authoriser.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "tailscale-authorise", user];
+         authoriser.running = true;
+     }
+ 
+@@ -106,7 +106,7 @@ Singleton {
+             return;
+         root.lastError = "";
+         action.tag = tag;
+-        action.command = command;
++        action.command = ["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "network", "tailscale", tag];
+         action.running = true;
+     }
+ 
+diff --git a/ryoku/shell/quickshell/stage/services/BluetoothStatus.qml b/ryoku/shell/quickshell/stage/services/BluetoothStatus.qml
+index f1e7473..fdac9f1 100644
+--- a/ryoku/shell/quickshell/stage/services/BluetoothStatus.qml
++++ b/ryoku/shell/quickshell/stage/services/BluetoothStatus.qml
+@@ -34,13 +34,13 @@ Singleton {
+     function startDiscovery(): void {
+         if (!root.adapter || !root.enabled || root.adapter.discovering)
+             return;
+-        root.adapter.discovering = true;
++        Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+     }
+ 
+     function stopDiscovery(): void {
+         if (!root.adapter?.discovering)
+             return;
+-        root.adapter.discovering = false;
++        Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "set"]);
+     }
+ 
+     onBlockedChanged: rfkillState.running = true
+@@ -91,7 +91,7 @@ Singleton {
+     function setEnabled(on: bool): void {
+         if (!Bluetooth.defaultAdapter)
+             return;
+-        Quickshell.execDetached(["ryoku-bluetooth-power", on ? "on" : "off"]);
++        Quickshell.execDetached(["/usr/libexec/ryoku/ryoku-writer", "hub-backend", "connectivity", "bluetooth-power", on ? "on" : "off"]);
+     }
+ 
+     function toggle(): void {
+diff --git a/ryoku/shell/quickshell/welcome/Welcome.qml b/ryoku/shell/quickshell/welcome/Welcome.qml
+index b5f2beb..8183cad 100644
+--- a/ryoku/shell/quickshell/welcome/Welcome.qml
++++ b/ryoku/shell/quickshell/welcome/Welcome.qml
+@@ -149,7 +149,7 @@ Rectangle {
+                     font.letterSpacing: Tokens.trackMark
+                 }
+                 Text {
+-                    text: I18n.tr("FIRST RUN")
++                    text: "Based on iNiR by snowarch (https://github.com/snowarch/inir)"
+                     color: Tokens.inkFaint
+                     font.family: Tokens.mono
+                     font.pixelSize: Tokens.fTiny
 diff --git a/ryoku/shell/ryogami/daemon/process.go b/ryoku/shell/ryogami/daemon/process.go
-index 7daaa388..273c502c 100644
+index 7daaa38..273c502 100644
 --- a/ryoku/shell/ryogami/daemon/process.go
 +++ b/ryoku/shell/ryogami/daemon/process.go
 @@ -152,7 +152,7 @@ func (m *managedProcess) launchLocked(extraEnv ...string) {
@@ -100,7 +1882,7 @@ index 7daaa388..273c502c 100644
  	if m.gpuEnv != nil {
  		gpu = m.gpuEnv()
 diff --git a/ryoku/shell/scripts/ryoku-cmd-ryoshot b/ryoku/shell/scripts/ryoku-cmd-ryoshot
-index b1d1e53d..2dd0c582 100755
+index b1d1e53..2dd0c58 100755
 --- a/ryoku/shell/scripts/ryoku-cmd-ryoshot
 +++ b/ryoku/shell/scripts/ryoku-cmd-ryoshot
 @@ -7,7 +7,7 @@ fi
@@ -122,7 +1904,7 @@ index b1d1e53d..2dd0c582 100755
  if [[ -n $restore ]]; then
    for ((tries = 0; tries < 140; tries++)); do
 diff --git a/ryoku/shell/scripts/ryoku-session-intro b/ryoku/shell/scripts/ryoku-session-intro
-index 7ce87a38..5db6503d 100755
+index 7ce87a3..5db6503 100755
 --- a/ryoku/shell/scripts/ryoku-session-intro
 +++ b/ryoku/shell/scripts/ryoku-session-intro
 @@ -105,7 +105,7 @@ welcome)
@@ -144,7 +1926,7 @@ index 7ce87a38..5db6503d 100755
  *)
  	echo "usage: ryoku-session-intro {welcome|keys-hint}" >&2
 diff --git a/ryoku/shell/systemd/user/ryogami.service b/ryoku/shell/systemd/user/ryogami.service
-index 745de722..14a189d8 100644
+index 745de72..14a189d 100644
 --- a/ryoku/shell/systemd/user/ryogami.service
 +++ b/ryoku/shell/systemd/user/ryogami.service
 @@ -12,7 +12,7 @@ StartLimitIntervalSec=60
@@ -157,7 +1939,7 @@ index 745de722..14a189d8 100644
  RestartSec=2
  # Kill only the daemon on stop, not its cgroup: it reaps its own render
 diff --git a/ryoku/shell/systemd/user/ryoku-shell.service b/ryoku/shell/systemd/user/ryoku-shell.service
-index a18ecd57..939872c8 100644
+index a18ecd5..939872c 100644
 --- a/ryoku/shell/systemd/user/ryoku-shell.service
 +++ b/ryoku/shell/systemd/user/ryoku-shell.service
 @@ -28,7 +28,7 @@ Environment=QT_FFMPEG_DECODING_HW_DEVICE_TYPES=

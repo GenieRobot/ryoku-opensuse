@@ -37,7 +37,7 @@ inputs and spec files. The source archive convention is documented in
 | --- | --- |
 | `ryoku-opensuse-0.1.0.tar.gz` | Exact committed port revision, normalized `git archive` with prefix `ryoku-opensuse-0.1.0/` |
 | `ryoku-opensuse-vendor-0.1.0.tar.xz` | Vendor archive from that revision's exact `Cargo.lock` |
-| `ryoku-runtime-a59d051.tar.gz` | Selected Ryoku 1.0.0 tree exports plus 18 individually SHA-256-pinned font assets; archive SHA-256 `4d8fa2ef015d8c5820d8f5231697e29255821f12c40179898f35ebe9f5e90fe7`; 54,316,874 bytes |
+| `ryoku-runtime-a59d051.tar.gz` | Selected Ryoku 1.0.0 tree exports plus 18 individually SHA-256-pinned font assets; archive SHA-256 `8aeff20645c14af76f3d341e5d4e7c31923fd249f6671caa704c8b23a6c84e65`; 54,073,125 bytes; 4,472 files including generated provenance/checksums |
 | `ryoku-writers-a59d051.tar.xz` | Exact 5,861-file export from tree `06b2962f82f43118c3a98372c2a4b435b689b725`, including Go vendor closures, session helper scripts, Ryogami picker and live wallpaper source; archive SHA-256 `7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be` |
 | `issue14-quickshell-0.3.2.tar.gz` | Official Quickshell `4f508be500dea6e5732cc3d50382a0048b17e7b1`; SHA-256 `5e8a7b7a1a1e40de641ee6cfd24f40aa612e13c27353e5746fc79b2861ca9fd0` |
 

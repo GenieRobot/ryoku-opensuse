@@ -1,0 +1,49 @@
+# Selected v1.0 third-party notices
+
+The source revision is `a59d051f0e8080052216f6c7b9eb7e5928935ce8`.
+The runtime preserves the original root NOTICE and nested licenses/notices;
+the RPM also installs the notices in this directory with `%license`.
+
+- `inir-NOTICE` is the exact retained `ryoku/shell/quickshell/inir/NOTICE`.
+  It specifies GPL version 3 with section 7 attribution and identity terms.
+  Based on iNiR by snowarch (https://github.com/snowarch/inir).
+  These are modified components of Ryoku and this openSUSE port. The required
+  attribution is retained in this project's README and the patched upstream
+  Hub credits and welcome metadata. The original deep LICENSE/NOTICE files
+  remain beside the code.
+- `redux-LICENSE` and `redux-UPSTREAM.md` are the exact MIT notice and origin
+  record for embedded `ryoku/hub/backend/assets/redux/`. The Python adapter
+  and setup source remain immutable upstream embedded assets; this project
+  does not implement or enable the model download/setup provider. The Rust
+  Hub command policy refuses `voxtype ensure/download/set/rmmodel` and the
+  direct UI package/setup/service launchers before upstream dispatch.
+- The selected Python bar-style code (the directory name is upstream's)
+  retains its AGPL-3.0 license text and attribution. Upstream root NOTICE
+  identifies Serpantinum revision `cfdd810` as AGPL-3.0-or-later. It is not
+  relicensed as the root project's GPL-only code.
+
+`sound-theme-freedesktop-CREDITS` is copied verbatim from the official
+`sound-theme-freedesktop-0.8.tar.bz2` source archive at
+<https://people.freedesktop.org/~mccann/dist/sound-theme-freedesktop-0.8.tar.bz2>
+(SHA-256 `cb518b20eef05ec2e82dda1fa89a292c1760dc023aba91b8aa69bafac85e8a14`).
+Every one of the ten embedded `ryoku/shell/ipc/assets/*.oga` files is byte
+identical to its counterpart in the signed Tumbleweed
+`sound-theme-freedesktop-0.8-9.20.noarch` RPM from the pinned 20261016 OSS
+metadata. Renamed assets have these original identities:
+
+| Embedded name | Original sound | CREDITS license |
+|---|---|---|
+| battery-full | complete | CC-BY Attribution 3.0 Unported |
+| battery-low, notification-critical | dialog-warning | CC-BY-SA |
+| device-added, power-plug | device-added | CC-BY-SA |
+| device-removed, power-unplug | device-removed | CC-BY-SA |
+| notification | message-new-instant | GPLv2+ |
+| shutter | camera-shutter | CC-BY-SA, relicensed with author permission |
+| volume-change | audio-volume-change | CC-BY-SA, relicensed with author permission |
+
+The exact authors and original source URLs are in CREDITS. Its CC-BY-SA
+entries do not state a version. The candidate RPM records that limitation as
+`LicenseRef-sound-theme-freedesktop-0.8-CC-BY-SA`; it does not invent a version
+or infer a single GPL license from the RPM header. This is a provenance record;
+redistribution/license-metadata closure remains a #173 acceptance item until
+the native package review accepts that recorded license identity.

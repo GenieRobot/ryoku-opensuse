@@ -52,6 +52,7 @@ pub mod state_creation;
 pub mod state_mount;
 pub mod state_provision;
 #[cfg(target_os = "linux")]
+mod writer_command_policy;
 mod writer_freeze;
 #[cfg(target_os = "linux")]
 pub mod writer_protocol;

@@ -435,13 +435,17 @@ fn pinned_daemon_launch_patch_covers_the_supervised_native_surface_tree() {
     assert!(hash.status.success());
     assert_eq!(
         String::from_utf8(hash.stdout).unwrap().trim(),
-        "ca96641ebc22b91b48868e02eecbf4546a7abbea"
+        "a18ecd57a7373d59a5d4611010cec0f04678f115"
     );
     let full_patch = include_str!("../../../upstream/patches/issue18-writer-launch.patch");
     let patch = fixture.path.join("unit.patch");
     std::fs::write(
         &patch,
-        full_patch.split("diff --git").nth(1).map(|text| format!("diff --git{text}")).unwrap(),
+        full_patch
+            .split("diff --git ")
+            .find(|text| text.starts_with("a/ryoku/shell/systemd/user/ryoku-shell.service "))
+            .map(|text| format!("diff --git {text}"))
+            .unwrap(),
     )
     .unwrap();
     let output = Command::new("patch")
@@ -551,11 +555,179 @@ fn all_pinned_upstream_writer_routes_apply_without_fuzz() {
         let contents = std::fs::read_to_string(fixture.path.join(path)).unwrap();
         assert!(
             contents.contains("/usr/libexec/ryoku/ryoku-writer")
-                || contents.contains("/usr/libexec/ryoku/quickshell/qs"),
+                || contents.contains("/usr/libexec/ryoku/quickshell/qs")
+                || contents
+                    .contains("Based on iNiR by snowarch (https://github.com/snowarch/inir)")
+                || (path.ends_with("nomarchy/plugins/panels/network/Model.js")
+                    && !contents.contains("enterpriseConnectScript")),
             "{path}"
         );
         assert!(!contents.contains("qs -c ryoshot"), "{path}");
         assert!(!contents.contains("qs -c welcome"), "{path}");
+        for forbidden in [
+            "Networking.wifiEnabled =",
+            ".discovering =",
+            ".scannerEnabled =",
+            ".trusted =",
+            "d.blocked =",
+            "device.blocked =",
+            "root.device.blocked =",
+            "net.disconnect()",
+            "net.connect()",
+            "network.connect()",
+            "network.forget()",
+            "network.connectWithPsk(psk)",
+            "network.connectWithPsk(passphrase)",
+            "entry.network.connect()",
+            "entry.network.forget()",
+            "d.disconnect()",
+            "d.forget()",
+            "device.disconnect()",
+            "device.forget()",
+            "targetNet.connect()",
+            "targetNet.connectWithPsk(password)",
+            "devToForget.forget()",
+            "devToDisconnect.disconnect()",
+        ] {
+            assert!(
+                !contents.lines().filter(|line| !line.trim_start().starts_with("//")).any(|line| {
+                    line.split_once(forbidden).is_some_and(|(_, suffix)| {
+                        !forbidden.ends_with('=') || !suffix.starts_with('=')
+                    })
+                }),
+                "{path}: {forbidden}"
+            );
+        }
+    }
+    // These QML actuators bypassed the public Hub alias in v1.0. The
+    // applied, blob-verified payload must send them to the Rust refusal
+    // boundary rather than package managers, privileged shells or systemctl.
+    for (path, forbidden) in [
+        ("ryoku/hub/quickshell/SettingsSheet.qml", "sudo ryoku-host pkg install"),
+        ("ryoku/hub/quickshell/pages/DictationPage.qml", "rm -f ~/.config/systemd"),
+        ("ryoku/hub/quickshell/pages/DictationPage.qml", "sudo ryoku-host pkg remove"),
+        ("ryoku/hub/quickshell/pages/ConnectionsPage.qml", "[\"pkexec\""),
+        ("ryoku/hub/quickshell/pages/users/UsersTab.qml", "pkexec"),
+        ("ryoku/hub/quickshell/pages/LockscreenPage.qml", "cmd: [\"fprintd-enroll\""),
+        ("ryoku/shell/quickshell/inir/services/Vpn.qml", "pkexec"),
+        ("ryoku/shell/quickshell/shell/services/Tailscale.qml", "[\"pkexec\""),
+        (
+            "ryoku/shell/quickshell/shell/modules/bar/barstyles/nomarchy/plugins/panels/tailscale/Service.qml",
+            "[\"pkexec\"",
+        ),
+        (
+            "ryoku/shell/quickshell/shell/modules/dock/ii/services/DictationService.qml",
+            "[\"pkexec\"",
+        ),
+        (
+            "ryoku/shell/quickshell/shell/modules/dock/ii/services/DictationService.qml",
+            "[\"systemctl\", \"--user\", \"restart\"",
+        ),
+        ("ryoku/shell/quickshell/inir/services/Battery.qml", "/usr/bin/pkexec"),
+        ("ryoku/shell/quickshell/inir/services/deferred/PackageSearch.qml", "sudo "),
+        ("ryoku/shell/quickshell/inir/services/deferred/PackageSearch.qml", "_runTerminalScript"),
+        (
+            "ryoku/shell/quickshell/inir/services/Network.qml",
+            "[\"nmcli\", \"connection\", \"modify\"",
+        ),
+        (
+            "ryoku/hub/quickshell/pages/ConnectionsPage.qml",
+            "[\"nmcli\", \"connection\", \"modify\"",
+        ),
+        ("ryoku/hub/quickshell/pages/ConnectionsPage.qml", "nmcli connection add"),
+        (
+            "ryoku/shell/quickshell/inir/modules/common/models/quickToggles/HotspotToggle.qml",
+            "nmcli connection delete id Hotspot",
+        ),
+        (
+            "ryoku/shell/quickshell/shell/modules/bar/barstyles/qsbar/panels/NetworkManagerAdapter.qml",
+            "[\"nmcli\", \"--wait\", \"20\", \"connection\"",
+        ),
+        (
+            "ryoku/shell/quickshell/shell/services/AiUsage.qml",
+            "[\"systemctl\", \"--user\", \"start\"",
+        ),
+    ] {
+        let contents = std::fs::read_to_string(fixture.path.join(path)).unwrap();
+        assert!(!contents.contains(forbidden), "{path}: {forbidden}");
+    }
+    let phone = std::fs::read_to_string(
+        fixture.path.join("ryoku/shell/quickshell/shell/modules/phone/KdeConnectService.qml"),
+    )
+    .unwrap();
+    for forbidden in [
+        "Pairing accepted",
+        "Pairing declined",
+        "devId + \" org.kde.kdeconnect.device.acceptPairing",
+        "devId + \" org.kde.kdeconnect.device.cancelPairing",
+        "adbActionProc.command = [\"adb\"",
+        "\" tcpip 5555 && sleep 1 && adb connect ",
+    ] {
+        assert!(!phone.contains(forbidden), "{forbidden}");
+    }
+    for verb in ["accept-pair", "reject-pair", "adb-wifi", "adb-pair", "adb-connect", "device-call"]
+    {
+        assert!(phone.contains(&format!("\"hub-backend\", \"phone\", \"{verb}\"")), "{verb}");
+        assert!(!crate::writer_command_policy::hub_query(&[
+            "phone".into(),
+            verb.into(),
+            "device".into(),
+        ]));
+    }
+    let bridge = std::fs::read_to_string(
+        fixture.path.join("ryoku/shell/quickshell/shell/modules/phone/PhoneBridge.qml"),
+    )
+    .unwrap();
+    assert!(bridge.contains("property bool installed: false"));
+    assert!(bridge.contains("const ready = root.enabled && root.installed"));
+    assert!(bridge.contains("PhoneState.runtimeReady = ready"));
+    assert!(bridge.contains(
+        "command: [\"/usr/libexec/ryoku/ryoku-writer\", \"hub-backend\", \"phone\", \"status\"]"
+    ));
+    for handler in
+        ["pair", "unpair", "acceptPair", "rejectPair", "adbWifi", "adbPair", "adbConnect"]
+    {
+        let function = bridge.split(&format!("function {handler}(")).nth(1).unwrap();
+        let body = function.split('}').next().unwrap();
+        assert!(
+            body.trim_start_matches(|c: char| c != '{')
+                .starts_with("{\n            if (!PhoneState.runtimeReady) return root.fail("),
+            "{handler}"
+        );
+    }
+    // No successful status can reach either existing capability gate: the
+    // public alias and explicit role reject status/devices before child setup.
+    for query in ["status", "devices"] {
+        assert!(matches!(
+            run_writer(WriterKind::HubBackend, &["phone".into(), query.into()]),
+            Err(crate::capture_session::CaptureSessionError::Unsupported)
+        ));
+    }
+    for (path, blob, fragments) in [
+        (
+            "ryoku/shell/quickshell/shell/modules/phone/PhoneState.qml",
+            "3e2b13db7e8deeaf6503bb8f190a70d641a76d12",
+            vec!["property bool runtimeReady: false"],
+        ),
+        (
+            "ryoku/hub/quickshell/pages/PhoneConnectionTab.qml",
+            "d415d3515ae7285eca7bf9b899644b12d1778d9d",
+            vec![
+                "property var status: ({ installed: false",
+                "readonly property bool phoneActive: enabledOnDisk && status.installed",
+                "readonly property bool featureReady: phoneActive",
+                "if (!pg.phoneActive)",
+            ],
+        ),
+    ] {
+        let original = root.join(path);
+        let hash = Command::new("git").arg("hash-object").arg(&original).output().unwrap();
+        assert!(hash.status.success());
+        assert_eq!(String::from_utf8(hash.stdout).unwrap().trim(), blob, "{path}");
+        let contents = std::fs::read_to_string(original).unwrap();
+        for fragment in fragments {
+            assert!(contents.contains(fragment), "{path}: {fragment}");
+        }
     }
 }
 

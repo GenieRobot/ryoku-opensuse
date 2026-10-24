@@ -359,6 +359,9 @@ impl Drop for CaptureWriterLease {
 /// Own a fixed supported upstream process and all of its descendants. The
 /// wrapper never runs as root and forwards no commands through the helper.
 pub fn run_writer(kind: WriterKind, arguments: &[std::ffi::OsString]) -> Result<i32> {
+    if kind == WriterKind::HubBackend && !crate::writer_command_policy::hub_query(arguments) {
+        return Err(Error::Unsupported);
+    }
     let uid = rustix::process::geteuid().as_raw();
     if uid == 0 {
         return Err(Error::Unsupported);

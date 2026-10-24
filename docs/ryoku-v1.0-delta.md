@@ -73,6 +73,10 @@ path set and each excluded set, not just directory totals.
 
 ## Completion state
 
+The reproducible candidate exports, immutable file/blob/site evidence,
+reviewed command refusals, signed snapshot dependency selections and licensing
+dispositions are detailed in [the source review](ryoku-v1.0-source-review.md).
+
 The source-tree path comparison and initial candidate exports are complete.
 Per-file semantic/write-site review, exact RPM dependency resolution, native
 build/load validation, security boundary review, and VM acceptance are still open in
