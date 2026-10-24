@@ -18,9 +18,12 @@ const QUICKSHELL_BIN: &str = "/usr/libexec/ryoku/quickshell/bin";
 const SESSION_BIN: &str = "/usr/libexec/ryoku/session/bin";
 const CLIPBOARD_KEEPER: &str = "/usr/libexec/ryoku/session/upstream/wl-clip-persist";
 const LOCK_UNIT: &str = "ryoku-session-lock.service";
+const LOGOUT_UNIT: &str = "ryoku-session-logout.service";
 const CONFIG: &str = "/usr/share/ryoku-opensuse/session/hyprland.conf";
 const TARGET: &str = "ryoku-desktop-session.target";
 const GRAPHICAL: &str = "graphical-session.target";
+const SURFACE_MODULES: &[&str] =
+    &["Ui", "FrameBars", "PluginKit", "Blobs", "Spatial3D", "Wm/Hyprland"];
 const SESSION_ENV: &[&str] = &[
     "WAYLAND_DISPLAY",
     "DISPLAY",
@@ -41,9 +44,11 @@ enum Action {
     Hub,
     Screenshot,
     Logout,
+    FinishLogout,
     Lock,
     ClipboardKeeper,
     ShellCommand(Vec<OsString>),
+    ProviderCommand(Vec<OsString>),
     Open(Surface),
 }
 
@@ -98,14 +103,34 @@ fn parse(args: &[String]) -> Result<Action> {
 
 fn dispatch(executable: &OsStr, arguments: Vec<OsString>) -> Result<Action> {
     match Path::new(executable).file_name().and_then(OsStr::to_str) {
-        Some("ryoku-shell") if arguments.first().is_some_and(|arg| arg == "lock") => {
+        Some("ryoku-shell")
+            if arguments.first().is_some_and(|arg| arg == "lock" || arg == "logout") =>
+        {
             if arguments.len() == 1 {
-                Ok(Action::Lock)
+                Ok(if arguments[0] == "lock" { Action::Lock } else { Action::Logout })
             } else {
-                Err("lock takes no arguments".into())
+                Err("lock and logout take no arguments".into())
             }
         }
         Some("ryoku-shell") => Ok(Action::ShellCommand(arguments)),
+        Some("ryoku-session-logout") => {
+            if arguments.is_empty() {
+                Ok(Action::FinishLogout)
+            } else {
+                Err("session logout worker takes no arguments".into())
+            }
+        }
+        Some("ryoku-wm-hyprland") => {
+            if arguments.starts_with(&["act".into(), "session.exit".into()]) {
+                if arguments.len() == 2 {
+                    Ok(Action::Logout)
+                } else {
+                    Err("session.exit takes no arguments".into())
+                }
+            } else {
+                Ok(Action::ProviderCommand(arguments))
+            }
+        }
         Some("wl-clip-persist") => {
             if arguments == ["--clipboard", "regular"] {
                 Ok(Action::ClipboardKeeper)
@@ -138,11 +163,7 @@ fn systemctl(args: &[&str]) -> Command {
 }
 
 fn activate() -> Result<()> {
-    for name in ["WAYLAND_DISPLAY", "HYPRLAND_INSTANCE_SIGNATURE"] {
-        if env::var_os(name).is_none_or(|value| value.is_empty()) {
-            return Err(format!("activation requires the compositor's {name}").into());
-        }
-    }
+    require_current_compositor()?;
     // Explicit names avoid importing unrelated process environment (including
     // credentials). Drop old session values before importing the current ones.
     let present: Vec<_> = SESSION_ENV.iter().filter(|name| env::var_os(name).is_some()).collect();
@@ -163,6 +184,25 @@ fn activate() -> Result<()> {
         }
     }
     outcome
+}
+
+fn validate_compositor_environment(
+    wayland: Option<&OsStr>,
+    instance: Option<&OsStr>,
+) -> Result<()> {
+    for (name, value) in [("WAYLAND_DISPLAY", wayland), ("HYPRLAND_INSTANCE_SIGNATURE", instance)] {
+        if value.is_none_or(OsStr::is_empty) {
+            return Err(format!("session action requires the compositor's {name}").into());
+        }
+    }
+    Ok(())
+}
+
+fn require_current_compositor() -> Result<()> {
+    validate_compositor_environment(
+        env::var_os("WAYLAND_DISPLAY").as_deref(),
+        env::var_os("HYPRLAND_INSTANCE_SIGNATURE").as_deref(),
+    )
 }
 
 fn exit_compositor_command() -> Command {
@@ -216,7 +256,7 @@ fn surface_environment(command: &mut Command, root: &Path, modules: &Path) -> Re
             return Err(format!("preserved upstream entrypoint missing: {relative}").into());
         }
     }
-    for module in ["Ui", "FrameBars", "PluginKit", "Blobs", "Wm/Hyprland"] {
+    for module in SURFACE_MODULES {
         if !modules.join("Ryoku").join(module).join("qmldir").is_file() {
             return Err(format!("upstream Ryoku.{module} module missing from payload").into());
         }
@@ -253,6 +293,12 @@ fn daemon_command_at(arguments: &[OsString], root: &Path, modules: &Path) -> Res
     command.args(arguments);
     surface_environment(&mut command, root, modules)?;
     Ok(command)
+}
+
+fn provider_command(arguments: &[OsString]) -> Command {
+    let mut command = Command::new("/usr/bin/setpriv");
+    command.args(["--no-new-privs", WRITER, "provider"]).args(arguments);
+    command
 }
 
 fn clipboard_keeper_command() -> Command {
@@ -292,6 +338,15 @@ fn run(action: Action) -> Result<()> {
             Err(screenshot_command_at(Path::new(PAYLOAD), Path::new(QML_MODULES))?.exec().into())
         }
         Action::Logout => {
+            require_current_compositor()?;
+            // Surface requests arrive from the shell's cgroup. A separate
+            // fixed unit must outlive stopping that cgroup and its portals.
+            checked(systemctl(&["start", "--no-block", LOGOUT_UNIT]))
+        }
+        Action::FinishLogout => {
+            // Never let hyprctl choose a different graphical login when our
+            // session environment has already disappeared from the manager.
+            require_current_compositor()?;
             let stopped = stop_session();
             let exited = checked(exit_compositor_command());
             stopped.and(exited)
@@ -305,6 +360,7 @@ fn run(action: Action) -> Result<()> {
                 .exec()
                 .into())
         }
+        Action::ProviderCommand(arguments) => Err(provider_command(&arguments).exec().into()),
         Action::Open(surface) => checked(open_surface_command(surface)?),
         Action::Activate => activate(),
         Action::Compositor { software } => {
@@ -436,6 +492,13 @@ mod tests {
         use std::os::unix::ffi::OsStringExt;
         assert_eq!(dispatch(OsStr::new("ryoku-shell"), vec!["lock".into()]).unwrap(), Action::Lock);
         assert!(dispatch(OsStr::new("ryoku-shell"), vec!["lock".into(), "extra".into()]).is_err());
+        assert_eq!(
+            dispatch(OsStr::new("ryoku-shell"), vec!["logout".into()]).unwrap(),
+            Action::Logout
+        );
+        assert!(
+            dispatch(OsStr::new("ryoku-shell"), vec!["logout".into(), "extra".into()]).is_err()
+        );
         let literal = OsString::from_vec(vec![b'a', 0xff, b';', b'b']);
         assert_eq!(
             dispatch(OsStr::new("ryoku-shell"), vec!["open".into(), literal.clone()]).unwrap(),
@@ -456,6 +519,57 @@ mod tests {
                 )
                 .is_err()
             );
+        }
+    }
+
+    #[test]
+    fn shell_provider_logout_outlives_its_cgroup_and_other_calls_keep_writer_coordination() {
+        let logout = vec!["act".into(), "session.exit".into()];
+        assert_eq!(
+            dispatch(OsStr::new("ryoku-wm-hyprland"), logout.clone()).unwrap(),
+            Action::Logout
+        );
+        let mut extra = logout;
+        extra.push("unexpected".into());
+        assert!(dispatch(OsStr::new("ryoku-wm-hyprland"), extra).is_err());
+        assert_eq!(
+            dispatch(OsStr::new("ryoku-session-logout"), vec![]).unwrap(),
+            Action::FinishLogout
+        );
+        assert!(dispatch(OsStr::new("ryoku-session-logout"), vec!["extra".into()]).is_err());
+
+        use std::os::unix::ffi::OsStringExt;
+        let literal = OsString::from_vec(vec![b'a', 0xff, b';', b'b']);
+        let args = vec!["act".into(), "window.focus".into(), literal];
+        assert_eq!(
+            dispatch(OsStr::new("ryoku-wm-hyprland"), args.clone()).unwrap(),
+            Action::ProviderCommand(args.clone())
+        );
+        let command = provider_command(&args);
+        assert_eq!(command.get_program(), "/usr/bin/setpriv");
+        let mut expected: Vec<OsString> =
+            ["--no-new-privs", WRITER, "provider"].map(Into::into).into();
+        expected.extend(args);
+        assert_eq!(command.get_args().collect::<Vec<_>>(), expected.iter().collect::<Vec<_>>());
+
+        let unit = include_str!("../../../packaging/rpm/systemd/user/ryoku-session-logout.service");
+        assert!(unit.contains("ExecStart=/usr/libexec/ryoku/session/bin/ryoku-session-logout\n"));
+        assert!(!unit.contains("PartOf="));
+        assert!(!unit.contains("BindsTo="));
+    }
+
+    #[test]
+    fn session_actions_require_both_inherited_compositor_identities() {
+        let wayland = Some(OsStr::new("wayland-1"));
+        let instance = Some(OsStr::new("synthetic-hyprland-instance"));
+        assert!(validate_compositor_environment(wayland, instance).is_ok());
+        for (wayland, instance) in [
+            (None, instance),
+            (wayland, None),
+            (Some(OsStr::new("")), instance),
+            (wayland, Some(OsStr::new(""))),
+        ] {
+            assert!(validate_compositor_environment(wayland, instance).is_err());
         }
     }
 
@@ -497,7 +611,7 @@ mod tests {
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, "synthetic entrypoint").unwrap();
         }
-        for module in ["Ui", "FrameBars", "PluginKit", "Blobs", "Wm/Hyprland"] {
+        for module in SURFACE_MODULES {
             let path = modules.join("Ryoku").join(module);
             std::fs::create_dir_all(&path).unwrap();
             std::fs::write(path.join("qmldir"), "synthetic module").unwrap();
@@ -533,8 +647,12 @@ mod tests {
             screenshot.get_args().collect::<Vec<_>>(),
             ["--no-new-privs", WRITER, "ryoshot"]
         );
-        std::fs::remove_file(modules.join("Ryoku/Wm/Hyprland/qmldir")).unwrap();
-        assert!(surface_command_at(false, &root, &modules).is_err());
+        for module in SURFACE_MODULES {
+            let metadata = modules.join("Ryoku").join(module).join("qmldir");
+            std::fs::remove_file(&metadata).unwrap();
+            assert!(surface_command_at(false, &root, &modules).is_err(), "missing {module}");
+            std::fs::write(metadata, "synthetic module").unwrap();
+        }
         std::fs::remove_dir_all(root).unwrap();
     }
 

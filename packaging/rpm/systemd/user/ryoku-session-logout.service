@@ -1,0 +1,11 @@
+[Unit]
+Description=Orderly Ryoku session logout
+
+[Service]
+Type=oneshot
+# Keep this worker outside the target it stops and the shell's cgroup.
+ExecStart=/usr/libexec/ryoku/session/bin/ryoku-session-logout
+NoNewPrivileges=yes
+TimeoutStartSec=45s
+KillMode=control-group
+Slice=session.slice
