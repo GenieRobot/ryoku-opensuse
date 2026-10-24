@@ -1,6 +1,6 @@
-# Reviewed upstream release pin for docs/upstream-inventory.md. The packaged
-# runtime and its acceptance evidence remain on the prior pin in
-# upstream/ryoku-runtime.toml until issue #173 completes the payload audit.
+# Reviewed upstream release pin for docs/upstream-inventory.md. The candidate
+# runtime archives target this pin; package and VM acceptance remain open in
+# issue #173.
 # The complete object id and tree id make this independent of a moving ref.
 schema_version = 1
 source_name = "Ryoku"

@@ -38,3 +38,7 @@ qml = "/usr/share/ryoku/shell/quickshell/ryoshot"
 [[surfaces]]
 writer_role = "welcome"
 qml = "/usr/share/ryoku/shell/quickshell/welcome"
+
+[[surfaces]]
+writer_role = "keys-hint"
+qml = "/usr/share/ryoku/shell/quickshell/keys-hint"

@@ -1,174 +1,8 @@
-diff --git a/ryoku/shell/systemd/user/ryoku-shell.service b/ryoku/shell/systemd/user/ryoku-shell.service
---- a/ryoku/shell/systemd/user/ryoku-shell.service
-+++ b/ryoku/shell/systemd/user/ryoku-shell.service
-@@ -28,7 +28,7 @@
- # stopped; retained staged clients keep their generation files until unlock.
- ExecStartPre=-/usr/bin/ryoku-shell quit
- ExecStartPre=/usr/bin/ryoku-qylock-activate
--ExecStart=/usr/bin/ryoku-shell daemon
-+ExecStart=/usr/libexec/ryoku/ryoku-writer daemon daemon
- ExecStop=/usr/bin/ryoku-qylock-activate --prepare-stop
- ExecStartPost=-/usr/bin/ryoku-power-cutover qylock-guards-stop
- TimeoutStartSec=0
-diff --git a/ryoku/shell/systemd/user/ryogami.service b/ryoku/shell/systemd/user/ryogami.service
---- a/ryoku/shell/systemd/user/ryogami.service
-+++ b/ryoku/shell/systemd/user/ryogami.service
-@@ -12,7 +12,7 @@
- StartLimitBurst=5
- 
- [Service]
--ExecStart=/usr/bin/ryogami
-+ExecStart=/usr/libexec/ryoku/ryoku-writer ryogami
- Restart=always
- RestartSec=2
- # Kill only the daemon on stop, not its cgroup: it reaps its own render
-diff --git a/ryoku/shell/quickshell/shell/services/Capture.qml b/ryoku/shell/quickshell/shell/services/Capture.qml
---- a/ryoku/shell/quickshell/shell/services/Capture.qml
-+++ b/ryoku/shell/quickshell/shell/services/Capture.qml
-@@ -173,7 +173,7 @@
-             'file) notify-send -a ryoku "Screenshot saved" "Saved to $OUT" >/dev/null 2>&1 || true ;;',
-             '*) notify-send -a ryoku "Screenshot saved & copied" "Saved to $OUT" >/dev/null 2>&1 || true ;;',
-             'esac',
--            '[ -n "$BEAUTIFY" ] && RYOSHOT_OPEN="$OUT" flock -n -o /tmp/ryoshot.lock qs -c ryoshot >/dev/null 2>&1 || true'
-+            '[ -n "$BEAUTIFY" ] && RYOSHOT_OPEN="$OUT" flock -n -o /tmp/ryoshot.lock /usr/libexec/ryoku/ryoku-writer ryoshot >/dev/null 2>&1 || true'
-         ].join("\n");
-         Spawn.run(["sh", "-c", script, "sh",
-             root._pending.flag, root._pending.val, root._outPath, root._save,
-diff --git a/ryoku/shell/quickshell/shell/modules/launcher/shared/providers/actions/catalog.js b/ryoku/shell/quickshell/shell/modules/launcher/shared/providers/actions/catalog.js
---- a/ryoku/shell/quickshell/shell/modules/launcher/shared/providers/actions/catalog.js
-+++ b/ryoku/shell/quickshell/shell/modules/launcher/shared/providers/actions/catalog.js
-@@ -19,7 +19,7 @@
-     { id: "pick-wallpaper",   name: "Wallpaper Picker",   category: "Appearance", icon: "image-multi", exec: ["ryogami", "wallpaper", "ui"] },
-     { id: "toggle-nightlight",name: "Night Light",        category: "Appearance", icon: "moon",        exec: ["ryoku-cmd-nightlight"], caps: "nightLight" },
- 
--    { id: "screenshot",       name: "Screenshot",         category: "Tools",      icon: "camera",      exec: ["sh", "-c", "flock -n -o /tmp/ryoshot.lock qs -c ryoshot"] },
-+    { id: "screenshot",       name: "Screenshot",         category: "Tools",      icon: "camera",      exec: ["sh", "-c", "flock -n -o /tmp/ryoshot.lock /usr/libexec/ryoku/ryoku-writer ryoshot"] },
-     { id: "screen-record",    name: "Screen Record",      category: "Tools",      icon: "video",       exec: ["ryoku-cmd-screenrecord"] },
-     { id: "color-picker",     name: "Color Picker",       category: "Tools",      icon: "eyedropper",  exec: ["ryoku-cmd-color-picker"] },
-     { id: "ocr",              name: "OCR Text Grab",      category: "Tools",      icon: "text-scan",   exec: ["ryoku-cmd-ocr"] },
-diff --git a/ryoku/shell/quickshell/shell/modules/bar/Frame.qml b/ryoku/shell/quickshell/shell/modules/bar/Frame.qml
---- a/ryoku/shell/quickshell/shell/modules/bar/Frame.qml
-+++ b/ryoku/shell/quickshell/shell/modules/bar/Frame.qml
-@@ -68,7 +68,7 @@
-         case "logout":
-         case "reboot":
-         case "shutdown": ShellState.askSessionAction(id, root.modelData ? root.modelData.name : ""); break;
--        case "screenshot": Spawn.run(["sh", "-c", "flock -n -o /tmp/ryoshot.lock qs -c ryoshot"]); break;
-+        case "screenshot": Spawn.run(["sh", "-c", "flock -n -o /tmp/ryoshot.lock /usr/libexec/ryoku/ryoku-writer ryoshot"]); break;
-         case "wallpaper": Quickshell.execDetached(["ryogami", "wallpaper", "ui"]); break;
-         case "color-picker": Quickshell.execDetached(["ryoku-cmd-color-picker"]); break;
-         case "app-launcher": if (root.state) root.state.launcherOpen = !root.state.launcherOpen; break;
-diff --git a/ryoku/shell/quickshell/ryopin/Pin.qml b/ryoku/shell/quickshell/ryopin/Pin.qml
---- a/ryoku/shell/quickshell/ryopin/Pin.qml
-+++ b/ryoku/shell/quickshell/ryopin/Pin.qml
-@@ -82,7 +82,7 @@
-     }
- 
-     function editShot() {
--        Spawn.run(["sh", "-c", "RYOSHOT_OPEN=$1 exec qs -c ryoshot", "sh", entry.path]);
-+        Spawn.run(["sh", "-c", "RYOSHOT_OPEN=$1 exec /usr/libexec/ryoku/ryoku-writer ryoshot", "sh", entry.path]);
-         pin.closeSelf();
-     }
-     function copyShot() { Quickshell.execDetached(["ryoku-shell", "clip-copy", "image/png", entry.path]); }
-diff --git a/ryoku/hyprland/modules/ryoshot.lua b/ryoku/hyprland/modules/ryoshot.lua
---- a/ryoku/hyprland/modules/ryoshot.lua
-+++ b/ryoku/hyprland/modules/ryoshot.lua
-@@ -1,4 +1,4 @@
- local K = require("modules.rebind")
- 
--hl.bind(K("Print"), hl.dsp.exec_cmd("flock -n -o /tmp/ryoshot.lock qs -c ryoshot"))
--hl.bind(K("SHIFT + Print"), hl.dsp.exec_cmd("flock -n -o /tmp/ryoshot.lock env RYOSHOT_MODE=monitor qs -c ryoshot"))
-+hl.bind(K("Print"), hl.dsp.exec_cmd("flock -n -o /tmp/ryoshot.lock /usr/libexec/ryoku/ryoku-writer ryoshot"))
-+hl.bind(K("SHIFT + Print"), hl.dsp.exec_cmd("flock -n -o /tmp/ryoshot.lock env RYOSHOT_MODE=monitor /usr/libexec/ryoku/ryoku-writer ryoshot"))
-diff --git a/ryoku/hyprland/modules/binds.lua b/ryoku/hyprland/modules/binds.lua
---- a/ryoku/hyprland/modules/binds.lua
-+++ b/ryoku/hyprland/modules/binds.lua
-@@ -71,7 +71,7 @@
- hl.bind(K(mod .. " + grave"),     hl.dsp.exec_cmd("ryoku-shell voice"))             -- voice typing: speech-to-text with a mic wave (tap again to stop)
- hl.bind(K(mod .. " + comma"),     hl.dsp.exec_cmd("ryoku-shell hub open"))     -- ryoku settings
- hl.bind(K(mod .. " + S"),         hl.dsp.global("ryoku:stash"))         -- sidebar: screen time and downloads
--hl.bind(K(mod .. " + SHIFT + S"), hl.dsp.exec_cmd("flock -n -o /tmp/ryoshot.lock qs -c ryoshot"))  -- screenshot: capture, annotate and beautify
-+hl.bind(K(mod .. " + SHIFT + S"), hl.dsp.exec_cmd("flock -n -o /tmp/ryoshot.lock /usr/libexec/ryoku/ryoku-writer ryoshot"))  -- screenshot: capture, annotate and beautify
- hl.bind(K(mod .. " + SHIFT + C"), hl.dsp.exec_cmd("hyprpicker -a"))                 -- pick a color
- 
- -- Move/resize with the mouse
-diff --git a/ryoku/hyprland/modules/autostart.lua b/ryoku/hyprland/modules/autostart.lua
---- a/ryoku/hyprland/modules/autostart.lua
-+++ b/ryoku/hyprland/modules/autostart.lua
-@@ -97,7 +97,7 @@
-         seen_file:close()
-     end
-     if seen_version < welcome_version then
--        hl.exec_cmd("flock -n \"${XDG_RUNTIME_DIR:-/tmp}/ryoku-welcome.lock\" qs -c welcome && mkdir -p '" .. welcome_state .. "' && printf '" .. welcome_version .. "' > '" .. welcome_state .. "/welcome-seen'")
-+        hl.exec_cmd("flock -n \"${XDG_RUNTIME_DIR:-/tmp}/ryoku-welcome.lock\" /usr/libexec/ryoku/ryoku-writer welcome && mkdir -p '" .. welcome_state .. "' && printf '" .. welcome_version .. "' > '" .. welcome_state .. "/welcome-seen'")
-     end
- 
-     -- First-boot keyboard hint. A one-shot toast pointing new users at Super+K,
-diff --git a/ryoku/shell/ipc/daemon.go b/ryoku/shell/ipc/daemon.go
---- a/ryoku/shell/ipc/daemon.go
-+++ b/ryoku/shell/ipc/daemon.go
-@@ -758,7 +758,7 @@
- 		// component is a leftover (our own child is tracked, so it is excluded),
- 		// and it goes before we draw over it.
- 		d.reapStrays()
--		cmd := exec.Command("qs", qsSelect(name)...)
-+		cmd := exec.Command("/usr/libexec/ryoku/quickshell/qs", qsSelect(name)...)
- 		cmd.Env = qsEnv()
- 		// Keep the surface's own output: a config that fails to load reports on
- 		// stdout and a loader failure on stderr, and without both a black screen
-diff --git a/ryoku/shell/ipc/control.go b/ryoku/shell/ipc/control.go
---- a/ryoku/shell/ipc/control.go
-+++ b/ryoku/shell/ipc/control.go
-@@ -145,13 +145,13 @@
- // hubNav points a running Hub at a section; true when an instance answered.
- func hubNav(section string) bool {
- 	argv := append(hubSelect(), "ipc", "call", "nav", "open", section)
--	return exec.Command("qs", argv...).Run() == nil
-+	return exec.Command("/usr/libexec/ryoku/quickshell/qs", argv...).Run() == nil
- }
- 
- // hubAlive: a running Hub answers its nav ipc.
- func hubAlive() bool {
- 	argv := append(hubSelect(), "ipc", "call", "nav", "section")
--	return exec.Command("qs", argv...).Run() == nil
-+	return exec.Command("/usr/libexec/ryoku/quickshell/qs", argv...).Run() == nil
- }
- 
- // hubRaise brings the Hub window to the focused workspace. The Hub is the only
-@@ -176,7 +176,7 @@
- 			// one detached grandchild (ryostore, a kitty, xdg-open) then held
- 			// /tmp/ryoku-hub.lock for the rest of the session and every later
- 			// open silently did nothing.
--			argv := append([]string{"-n", "-o", "/tmp/ryoku-hub.lock", "qs"}, hubSelect()...)
-+			argv := append([]string{"-n", "-o", "/tmp/ryoku-hub.lock", "/usr/libexec/ryoku/quickshell/qs"}, hubSelect()...)
- 			cmd := exec.Command("flock", argv...)
- 			if err := cmd.Start(); err != nil {
- 				return
-@@ -196,7 +196,7 @@
- 		return "ok"
- 	case "close":
- 		argv := append(hubSelect(), "ipc", "call", "hub", "close")
--		go func() { _ = exec.Command("qs", argv...).Run() }()
-+		go func() { _ = exec.Command("/usr/libexec/ryoku/quickshell/qs", argv...).Run() }()
- 		return "ok"
- 	}
- 	return "err hub: expected open [section] or close"
-diff --git a/ryoku/shell/ryogami/daemon/process.go b/ryoku/shell/ryogami/daemon/process.go
---- a/ryoku/shell/ryogami/daemon/process.go
-+++ b/ryoku/shell/ryogami/daemon/process.go
-@@ -71,7 +71,7 @@
- 	}
- 	// A leftover instance from a previous daemon holds the surface; clear it.
- 	_ = exec.Command("pkill", "-f", "quickshell .*"+m.qml).Run()
--	cmd := exec.Command("quickshell", "-p", m.qml)
-+	cmd := exec.Command("/usr/libexec/ryoku/quickshell/qs", "-p", m.qml)
- 	cmd.Env = append(append(os.Environ(), m.envK+"="+filepath.Dir(m.qml)), extraEnv...)
- 	cmd.Stdin = nil
- 	if log := managedLogPath("wall-ui"); log != "" {
 diff --git a/ryoku/shell/ipc/actions.go b/ryoku/shell/ipc/actions.go
+index e053eae2..e1bf1ca5 100644
 --- a/ryoku/shell/ipc/actions.go
 +++ b/ryoku/shell/ipc/actions.go
-@@ -63,7 +63,7 @@
+@@ -63,7 +63,7 @@ func ipcCall(config, target, fn, arg string) string {
  	var out []byte
  	var err error
  	for i := 0; i < 10; i++ {
@@ -177,7 +11,7 @@ diff --git a/ryoku/shell/ipc/actions.go b/ryoku/shell/ipc/actions.go
  		if err == nil {
  			return "ok"
  		}
-@@ -84,7 +84,7 @@
+@@ -84,7 +84,7 @@ func ipcCallN(config, target, fn string, args ...string) string {
  	var out []byte
  	var err error
  	for i := 0; i < 10; i++ {
@@ -187,9 +21,10 @@ diff --git a/ryoku/shell/ipc/actions.go b/ryoku/shell/ipc/actions.go
  			return "ok"
  		}
 diff --git a/ryoku/shell/ipc/bar.go b/ryoku/shell/ipc/bar.go
+index 6122cc7b..5c85ca64 100644
 --- a/ryoku/shell/ipc/bar.go
 +++ b/ryoku/shell/ipc/bar.go
-@@ -1191,7 +1191,7 @@
+@@ -1200,7 +1200,7 @@ func (d *daemon) barSettings(args []string) string {
  		route = args[0]
  	}
  	argv := append(qsSelect("shell"), "ipc", "call", "qsbar", "settings", route)
@@ -198,3 +33,139 @@ diff --git a/ryoku/shell/ipc/bar.go b/ryoku/shell/ipc/bar.go
  	return "ok"
  }
  
+diff --git a/ryoku/shell/ipc/control.go b/ryoku/shell/ipc/control.go
+index 86b8bb41..ffe49013 100644
+--- a/ryoku/shell/ipc/control.go
++++ b/ryoku/shell/ipc/control.go
+@@ -145,7 +145,7 @@ func hubSelect() []string {
+ // hubNav points a running Hub at a section; true when an instance answered.
+ func hubNav(section string) bool {
+ 	argv := append(hubSelect(), "ipc", "call", "nav", "open", section)
+-	return exec.Command("qs", argv...).Run() == nil
++	return exec.Command("/usr/libexec/ryoku/quickshell/qs", argv...).Run() == nil
+ }
+ 
+ // Retired Hub links now name their owning Stage Editor catalogue.
+@@ -164,7 +164,7 @@ func hubEditorSection(section string) string {
+ // hubAlive: a running Hub answers its nav ipc.
+ func hubAlive() bool {
+ 	argv := append(hubSelect(), "ipc", "call", "nav", "section")
+-	return exec.Command("qs", argv...).Run() == nil
++	return exec.Command("/usr/libexec/ryoku/quickshell/qs", argv...).Run() == nil
+ }
+ 
+ // hubRaise brings the Hub window to the focused workspace. The Hub is the only
+@@ -193,7 +193,7 @@ func (d *daemon) hub(sub, section string) string {
+ 			// one detached grandchild (ryostore, a kitty, xdg-open) then held
+ 			// /tmp/ryoku-hub.lock for the rest of the session and every later
+ 			// open silently did nothing.
+-			argv := append([]string{"-n", "-o", "/tmp/ryoku-hub.lock", "qs"}, hubSelect()...)
++			argv := append([]string{"-n", "-o", "/tmp/ryoku-hub.lock", "/usr/libexec/ryoku/quickshell/qs"}, hubSelect()...)
+ 			cmd := exec.Command("flock", argv...)
+ 			if err := cmd.Start(); err != nil {
+ 				return
+@@ -213,7 +213,7 @@ func (d *daemon) hub(sub, section string) string {
+ 		return "ok"
+ 	case "close":
+ 		argv := append(hubSelect(), "ipc", "call", "hub", "close")
+-		go func() { _ = exec.Command("qs", argv...).Run() }()
++		go func() { _ = exec.Command("/usr/libexec/ryoku/quickshell/qs", argv...).Run() }()
+ 		return "ok"
+ 	}
+ 	return "err hub: expected open [section] or close"
+diff --git a/ryoku/shell/ipc/daemon.go b/ryoku/shell/ipc/daemon.go
+index 59d13a11..d714adcc 100644
+--- a/ryoku/shell/ipc/daemon.go
++++ b/ryoku/shell/ipc/daemon.go
+@@ -1029,7 +1029,7 @@ func (d *daemon) supervise(name string) {
+ 		// and it goes before we draw over it.
+ 		d.reapStrays()
+ 		ensureStoreIndexDir()
+-		cmd := exec.Command("qs", qsSelect(name)...)
++		cmd := exec.Command("/usr/libexec/ryoku/quickshell/qs", qsSelect(name)...)
+ 		cmd.Env = qsEnv()
+ 		// Keep the surface's own output: a config that fails to load reports on
+ 		// stdout and a loader failure on stderr, and without both a black screen
+diff --git a/ryoku/shell/ryogami/daemon/process.go b/ryoku/shell/ryogami/daemon/process.go
+index 7daaa388..273c502c 100644
+--- a/ryoku/shell/ryogami/daemon/process.go
++++ b/ryoku/shell/ryogami/daemon/process.go
+@@ -152,7 +152,7 @@ func (m *managedProcess) launchLocked(extraEnv ...string) {
+ 	if command == nil {
+ 		command = exec.Command
+ 	}
+-	cmd := command("quickshell", "-p", m.qml)
++	cmd := command("/usr/libexec/ryoku/quickshell/qs", "-p", m.qml)
+ 	var gpu []string
+ 	if m.gpuEnv != nil {
+ 		gpu = m.gpuEnv()
+diff --git a/ryoku/shell/scripts/ryoku-cmd-ryoshot b/ryoku/shell/scripts/ryoku-cmd-ryoshot
+index b1d1e53d..2dd0c582 100755
+--- a/ryoku/shell/scripts/ryoku-cmd-ryoshot
++++ b/ryoku/shell/scripts/ryoku-cmd-ryoshot
+@@ -7,7 +7,7 @@ fi
+ shift
+ 
+ if [[ -n ${RYOSHOT_OPEN:-} ]]; then
+-  exec qs -c ryoshot
++  exec /usr/libexec/ryoku/ryoku-writer ryoshot
+ fi
+ 
+ runtime=${XDG_RUNTIME_DIR:-/tmp}
+@@ -33,7 +33,7 @@ if previous=$(ryoku wm act cursor.visibility hidden 2>/dev/null); then
+   esac
+ fi
+ 
+-qs -c ryoshot &
++/usr/libexec/ryoku/ryoku-writer ryoshot &
+ child=$!
+ if [[ -n $restore ]]; then
+   for ((tries = 0; tries < 140; tries++)); do
+diff --git a/ryoku/shell/scripts/ryoku-session-intro b/ryoku/shell/scripts/ryoku-session-intro
+index 7ce87a38..5db6503d 100755
+--- a/ryoku/shell/scripts/ryoku-session-intro
++++ b/ryoku/shell/scripts/ryoku-session-intro
+@@ -105,7 +105,7 @@ welcome)
+ 	fi
+ 	if (( seen < welcome_version )); then
+ 		flock -n "${XDG_RUNTIME_DIR:-/tmp}/ryoku-welcome.lock" \
+-			env "${qml_env[@]}" qs -c welcome &&
++			env "${qml_env[@]}" /usr/libexec/ryoku/ryoku-writer welcome &&
+ 			mkdir -p "$state" && printf '%s' "$welcome_version" >"$state/welcome-seen"
+ 	fi
+ 	consume_rashin_setup || true
+@@ -114,7 +114,7 @@ keys-hint)
+ 	[[ -e $state/keys-hint-seen ]] && exit 0
+ 	mkdir -p "$state" && printf 'seen' >"$state/keys-hint-seen"
+ 	flock -n "${XDG_RUNTIME_DIR:-/tmp}/ryoku-keys-hint.lock" \
+-		env "${qml_env[@]}" qs -c keys-hint &
++		env "${qml_env[@]}" /usr/libexec/ryoku/ryoku-writer keys-hint &
+ 	;;
+ *)
+ 	echo "usage: ryoku-session-intro {welcome|keys-hint}" >&2
+diff --git a/ryoku/shell/systemd/user/ryogami.service b/ryoku/shell/systemd/user/ryogami.service
+index 745de722..14a189d8 100644
+--- a/ryoku/shell/systemd/user/ryogami.service
++++ b/ryoku/shell/systemd/user/ryogami.service
+@@ -12,7 +12,7 @@ StartLimitIntervalSec=60
+ StartLimitBurst=5
+ 
+ [Service]
+-ExecStart=/usr/bin/ryogami
++ExecStart=/usr/libexec/ryoku/ryoku-writer ryogami
+ Restart=always
+ RestartSec=2
+ # Kill only the daemon on stop, not its cgroup: it reaps its own render
+diff --git a/ryoku/shell/systemd/user/ryoku-shell.service b/ryoku/shell/systemd/user/ryoku-shell.service
+index a18ecd57..939872c8 100644
+--- a/ryoku/shell/systemd/user/ryoku-shell.service
++++ b/ryoku/shell/systemd/user/ryoku-shell.service
+@@ -28,7 +28,7 @@ Environment=QT_FFMPEG_DECODING_HW_DEVICE_TYPES=
+ # stopped; retained staged clients keep their generation files until unlock.
+ ExecStartPre=-/usr/bin/ryoku-shell quit
+ ExecStartPre=/usr/bin/ryoku-qylock-activate
+-ExecStart=/usr/bin/ryoku-shell daemon
++ExecStart=/usr/libexec/ryoku/ryoku-writer daemon daemon
+ ExecStop=/usr/bin/ryoku-qylock-activate --prepare-stop
+ ExecStartPost=-/usr/bin/ryoku-power-cutover qylock-guards-stop
+ # Voxtype is optional. When present, seed its managed config and service after

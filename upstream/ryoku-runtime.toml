@@ -2,17 +2,24 @@
 # acceptance evidence for a newer Tumbleweed rolling-release snapshot.
 schema_version = 1
 source_repository = "https://github.com/Ryoku-dev/ryoku"
-source_revision = "98a0368253d9628be72b853985878a5db90e1547"
-source_tree = "49cf710dea4a8bc2c5aa2c4b524be46c5c9a2cff"
+source_revision = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+source_tree = "06b2962f82f43118c3a98372c2a4b435b689b725"
+source_release = "v1.0.0 Amaterasu"
+previous_source_revision = "98a0368253d9628be72b853985878a5db90e1547"
+source_archive = "ryoku-runtime-a59d051.tar.gz"
+source_archive_sha256 = "4d8fa2ef015d8c5820d8f5231697e29255821f12c40179898f35ebe9f5e90fe7"
+source_archive_bytes = 54316874
+source_file_count = 4470
 source_license = "GPL-3.0"
 production_payload_root = "/usr/share/ryoku"
 compiled_plugin = "qml/Ryoku/Blobs"
 plugin_source = "native/ryoku-blobs"
-plugin_status = "source retained unchanged; native Qt build and shell loading passed in issue14 runtime evidence; rebuild against the guest native Qt before a new launch"
-repository_snapshot = "20261013"
-repository_repomd_sha256 = "c64c293f246a439f0b5e1881fe8adfc980ca44420a84935f31e223949810daa4"
-repository_primary_sha512 = "55cd766fd1a01ac7cd7070158e06c9e9caf391e6b6fd594e5fd500978c41e2379aefcde492f93945243fcdaf14a9abdeb1bd3871711d8bb4bc321174233dc11d"
-guest_packages = ["cmake", "ninja", "gcc-c++", "qt6-base-devel", "qt6-declarative-devel", "qt6-shadertools-devel", "qt6-multimedia-devel", "qt6-declarative-imports", "qt6-multimedia-imports", "qt6-qt5compat-imports", "kf6-syntax-highlighting", "google-noto-sans-cjk-fonts"]
+plugin_status = "Ryoku 1.0 Blobs and Spatial3D source pinned; native build, RPM installation and shell loading require refreshed package acceptance"
+repository_snapshot = "unresolved for the Ryoku 1.0 candidate"
+previous_repository_snapshot = "20261013"
+previous_repository_repomd_sha256 = "c64c293f246a439f0b5e1881fe8adfc980ca44420a84935f31e223949810daa4"
+previous_repository_primary_sha512 = "55cd766fd1a01ac7cd7070158e06c9e9caf391e6b6fd594e5fd500978c41e2379aefcde492f93945243fcdaf14a9abdeb1bd3871711d8bb4bc321174233dc11d"
+guest_packages = ["cmake", "ninja", "gcc-c++", "qt6-base-devel", "qt6-declarative-devel", "qt6-shadertools-devel", "qt6-multimedia-devel", "qt6-quick3d-devel", "qt6-declarative-imports", "qt6-multimedia-imports", "qt6-quick3d-imports", "qt6-qt5compat-imports", "kf6-syntax-highlighting", "google-noto-sans-cjk-fonts"]
 
 [quickshell]
 repository = "https://github.com/quickshell-mirror/quickshell"
@@ -33,19 +40,20 @@ build_packages = ["pkgconf", "cli11-devel", "cpptrace-devel", "jemalloc-devel", 
 rejected_runtime = "official Tumbleweed noctalia-qs 0.0.12-2.5"
 rejection_evidence = "native launch exited immediately: Unrecognized pragma DefaultEnv QSG_RENDER_LOOP=threaded"
 source_audit = "all retained DefaultEnv and UseQApplication pragmas, 11 imported Quickshell modules, and used critical singleton/IO/window APIs inspected; actual native shell/launcher loading and typed service-provider rows passed, full Hub/control compatibility unproven"
-payload_note = "the initial preserved Ryoku/font payload and its preliminary RUNTIME.md remain byte-identical; this repository manifest supersedes its Noctalia candidate"
+payload_note = "Ryoku 1.0.0 selected runtime exports and pinned font assets; source identity is recorded here, while package acceptance remains open in issue 173"
 
 [coordinated_writers]
-source_archive = "ryoku-writers-98a0368.tar.xz"
-source_archive_sha256 = "bf6790f07f643dc7b3f282b0ce3b918b7f0efdb5c343a7572c5dd5ab9477feed"
-source_commit_epoch = 1790452779
+source_archive = "ryoku-writers-a59d051.tar.xz"
+source_archive_sha256 = "7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be"
+source_commit_epoch = 1792838837
 source_scope = "packaging/rpm/upstream-writer-paths.txt"
-verified_tree_objects = 452
-verified_source_files = 2269
-source_audit = "automation/src/bin/upstream-source-audit.rs; complete Git tree reconstruction plus exact exported blob/mode/file-set verification"
-upstream_archive_url = "https://codeload.github.com/Ryoku-dev/ryoku/tar.gz/98a0368253d9628be72b853985878a5db90e1547"
-upstream_archive_sha256 = "af0217a045188d222bf287d189bc88d8f09569541914d42928324e818a5a3b7e"
-upstream_tree_manifest_sha256 = "4152caa5766b9fd9bf28d2270c91137444adab78d5c922aae3b1f6c23f5229cd"
+verified_tree_objects = 1072
+verified_source_files = 5861
+source_audit = "Reconstructed the pinned Git tree and verified selected path set, Git blob IDs, executable modes and 5,861 exported files against the complete recursive GitHub tree manifest."
+previous_upstream_archive_url = "https://codeload.github.com/Ryoku-dev/ryoku/tar.gz/98a0368253d9628be72b853985878a5db90e1547"
+previous_upstream_archive_sha256 = "af0217a045188d222bf287d189bc88d8f09569541914d42928324e818a5a3b7e"
+upstream_tree_manifest_url = "https://api.github.com/repos/Ryoku-dev/ryoku/git/trees/06b2962f82f43118c3a98372c2a4b435b689b725?recursive=1"
+upstream_tree_manifest_sha256 = "5b5fbc92aae8082ba29135a350de5887078e13fd994b74b59c895b190aa9c774"
 launch_patch = "upstream/patches/issue18-writer-launch.patch"
 payload_map = "packaging/writer-coordination/payload-map.toml"
 go_modules = ["ryoku/shell/ipc", "ryoku/wm", "ryoku/hub/backend", "ryoku/shell/ryogami/daemon"]

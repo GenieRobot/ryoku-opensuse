@@ -13,8 +13,8 @@ License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse
 Source0:        ryoku-opensuse-%{version}.tar.gz
 Source1:        ryoku-opensuse-vendor-%{version}.tar.xz
-Source2:        issue14-runtime-payload.tar.gz
-Source3:        ryoku-writers-98a0368.tar.xz
+Source2:        ryoku-runtime-a59d051.tar.gz
+Source3:        ryoku-writers-a59d051.tar.xz
 ExclusiveArch:  x86_64
 BuildRequires:  cargo >= 1.99
 BuildRequires:  rust >= 1.99
@@ -27,12 +27,16 @@ BuildRequires:  qt6-base-devel = 6.11.2
 BuildRequires:  qt6-declarative-devel = 6.11.2
 BuildRequires:  qt6-shadertools-devel = 6.11.2
 BuildRequires:  qt6-multimedia-devel = 6.11.2
-# Ryoku 1.0's StageSpatialScene.qml imports QtQuick3D. Keep the source-pinned
-# payload below on its historical pin until the #173 archive refresh lands.
 BuildRequires:  qt6-quick3d-devel = 6.11.2
-# The v1.0 native source also builds Ryoku.Spatial3D and expands Blobs shader
-# output. Source2 and the install closure are still on the old pin; refresh
-# both together under issue #173 before treating this as a 1.0 package.
+BuildRequires:  qt6-gui-private-devel = 6.11.2
+BuildRequires:  vulkan-headers
+BuildRequires:  wayland-devel
+BuildRequires:  wayland-protocols-devel
+BuildRequires:  pkgconf-pkg-config
+BuildRequires:  pkgconfig(libavformat)
+BuildRequires:  pkgconfig(libavcodec)
+BuildRequires:  pkgconfig(libavutil)
+BuildRequires:  pkgconfig(libswscale)
 BuildRequires:  qml-autoreqprov
 BuildRequires:  qmlpluginexports-qt6
 Requires:       ryoku-desktop-runtime = %{version}-%{release}
@@ -55,6 +59,9 @@ Requires:       qt6-declarative-imports = 6.11.2
 Requires:       qt6-multimedia-imports = 6.11.2
 Requires:       qt6-quick3d-imports = 6.11.2
 Requires:       qt6-qt5compat-imports = 6.11.2
+Requires:       qt6-imageformats
+Requires:       ImageMagick
+Requires:       ffmpeg
 Requires:       kf6-syntax-highlighting
 Requires:       google-noto-sans-cjk-fonts
 Requires:       systemd
@@ -69,18 +76,19 @@ Provides:       qt6qmlimport(shell.barkit)
 # Upstream ships directory imports with singleton exports but no module line.
 Provides:       qt6qmlimport(Ryoku.Ui.Singletons)
 Provides:       qt6qmlimport(Ryoku.PluginKit.Singletons)
+Provides:       qt6qmlimport(Ryoku.Ryogami)
 
 %description runtime
-Preserves the shell, Hub, Ryoku.Ui, FrameBars, PluginKit, Hyprland QML bridges
-and translations at
-Ryoku revision 98a0368253d9628be72b853985878a5db90e1547. The native Blobs
-plugin is built from unchanged source against native Qt. The shell, Hyprland
+Preserves selected Ryoku 1.0.0 shell, Hub, Ryoku.Ui, FrameBars, PluginKit,
+Hyprland QML bridges, Ryogami picker, helper scripts and translations at
+revision a59d051f0e8080052216f6c7b9eb7e5928935ce8. Blobs and Spatial3D native
+modules are built from that source against native Qt. The shell, Hyprland
 provider, Hub and Ryogami Go executables retain their pinned source and vendor
-closure with only the reviewed issue 18 launch patch. Public aliases enter the
-Rust writer coordinator; native payloads are private. The patch also routes
-direct QML launches through the same coordinator. No unit is installed or
-enabled, and no Arch installer, package actuator or privileged Go helper is
-added. Installing these files does not authorize unsupported upstream actions.
+closure with the reviewed v1.0 issue 18 launch patch. Public aliases enter the
+Rust writer coordinator; native payloads are private. No upstream custom
+greeter, PAM setup, display-manager mutation, Arch installer, package actuator
+or privileged Go helper is installed. Installing these files does not
+authorize unsupported upstream actions.
 
 %package fonts
 Summary:        Pinned fonts for the preserved Ryoku desktop
@@ -96,14 +104,14 @@ directory. Fontconfig's distribution-owned triggers manage font discovery;
 this package has no custom cache script or home-directory installation.
 
 %prep
-printf '81151cef1a613b01ad8e6187df2e93cbfed70e1621de0ee2e7455d2904fc3e74  %%s\n' '%{SOURCE2}' | sha256sum --check --status
+printf '4d8fa2ef015d8c5820d8f5231697e29255821f12c40179898f35ebe9f5e90fe7  %%s\n' '%{SOURCE2}' | sha256sum --check --status
 %autosetup -n ryoku-opensuse-%{version} -a 1
 mkdir runtime
 tar -xzf %{SOURCE2} -C runtime
 cd runtime
 sha256sum --check --status SHA256SUMS
 cd ..
-printf 'bf6790f07f643dc7b3f282b0ce3b918b7f0efdb5c343a7572c5dd5ab9477feed  %%s\n' '%{SOURCE3}' | sha256sum --check --status
+printf '7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be  %%s\n' '%{SOURCE3}' | sha256sum --check --status
 mkdir upstream-writers
 tar -xJf %{SOURCE3} -C upstream-writers
 patch --batch --forward -p1 -d upstream-writers < upstream/patches/issue18-writer-launch.patch
@@ -139,6 +147,10 @@ cmake -S runtime/native/ryoku-blobs -B blobs-build -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DFETCHCONTENT_FULLY_DISCONNECTED=ON
 cmake --build blobs-build --parallel %{_smp_build_ncpus}
+cmake -S upstream-writers/ryoku/shell/ryogami/picker -B picker-build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release
+cmake --build picker-build --parallel %{_smp_build_ncpus}
+upstream-writers/ryoku/shell/livewall/build.sh ryogami-live
 
 %install
 install -d %{buildroot}%{payload_root}/shell %{buildroot}%{payload_root}/hub %{buildroot}%{payload_root}/i18n
@@ -150,28 +162,31 @@ cp -a runtime/qml/Ryoku %{buildroot}%{_libdir}/qt6/qml/
 install -d %{buildroot}%{qml_root}/Wm
 cp -a upstream-writers/ryoku/wm/hyprland/qml %{buildroot}%{qml_root}/Wm/Hyprland
 install -d %{buildroot}%{_datadir}/ryogami
-cp -a upstream-writers/ryoku/shell/ryogami/wall-ui/. %{buildroot}%{_datadir}/ryogami/
+install -D -m 0644 upstream-writers/ryoku/shell/ryogami/picker/shell.qml \
+    %{buildroot}%{_datadir}/ryogami/shell.qml
+install -D -m 0644 upstream-writers/ryoku/shell/ryogami/picker/data/ryogami.desktop \
+    %{buildroot}%{_datadir}/applications/ryogami.desktop
 install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-writer" %{buildroot}%{_libexecdir}/ryoku/ryoku-writer
 install -D -m 0755 upstream-writers/ryoku-shell %{buildroot}%{_libexecdir}/ryoku/upstream/ryoku-shell
 install -D -m 0755 upstream-writers/ryoku-wm-hyprland %{buildroot}%{_libexecdir}/ryoku/upstream/ryoku-wm-hyprland
 install -D -m 0755 upstream-writers/ryoku-hub %{buildroot}%{_libexecdir}/ryoku/upstream/ryoku-hub
 install -D -m 0755 upstream-writers/ryogami %{buildroot}%{_libexecdir}/ryoku/upstream/ryogami
+install -D -m 0755 upstream-writers/ryoku/shell/scripts/ryoku-cmd-ryoshot \
+    %{buildroot}%{_bindir}/ryoku-cmd-ryoshot
+install -D -m 0755 upstream-writers/ryoku/shell/scripts/ryoku-session-intro \
+    %{buildroot}%{_bindir}/ryoku-session-intro
 install -d %{buildroot}%{_bindir} %{buildroot}%{_libexecdir}/ryoku/quickshell
 ln -s %{_libexecdir}/ryoku/ryoku-writer %{buildroot}%{_bindir}/ryoku-shell
 ln -s %{_libexecdir}/ryoku/ryoku-writer %{buildroot}%{_bindir}/ryoku-wm-hyprland
 ln -s %{_libexecdir}/ryoku/ryoku-writer %{buildroot}%{_bindir}/ryoku-hub
 ln -s %{_libexecdir}/ryoku/ryoku-writer %{buildroot}%{_bindir}/ryogami
 ln -s bin/qs %{buildroot}%{_libexecdir}/ryoku/quickshell/qs
-install -D -m 0755 blobs-build/qml/Ryoku/Blobs/libryoku-blobs.so \
-    %{buildroot}%{qml_root}/Blobs/libryoku-blobs.so
-install -D -m 0755 blobs-build/qml/Ryoku/Blobs/libryoku-blobsplugin.so \
-    %{buildroot}%{qml_root}/Blobs/libryoku-blobsplugin.so
-install -D -m 0644 blobs-build/qml/Ryoku/Blobs/qmldir \
-    %{buildroot}%{qml_root}/Blobs/qmldir
-install -D -m 0644 blobs-build/qml/Ryoku/Blobs/ryoku-blobs.qmltypes \
-    %{buildroot}%{qml_root}/Blobs/ryoku-blobs.qmltypes
-# The v1.0 candidate must install the complete generated Blobs module (including
-# shader assets) and the full Spatial3D module here after Source2 is refreshed.
+install -d %{buildroot}%{qml_root}
+cp -a blobs-build/qml/Ryoku/Blobs %{buildroot}%{qml_root}/
+cp -a blobs-build/qml/Ryoku/Spatial3D %{buildroot}%{qml_root}/
+cp -a picker-build/qml/Ryoku/Ryogami %{buildroot}%{qml_root}/
+find %{buildroot}%{qml_root} -type f -name '*.qrc' -delete
+install -D -m 0755 ryogami-live %{buildroot}%{_bindir}/ryogami-live
 install -d %{buildroot}%{font_root}
 cp -a runtime/fonts/. %{buildroot}%{font_root}/
 
@@ -186,7 +201,8 @@ cp -a runtime/fonts/. %{buildroot}%{font_root}/
 %{payload_root}/shell/
 %{payload_root}/hub/
 %{payload_root}/i18n/
-%{_datadir}/ryogami/
+%{_datadir}/ryogami/shell.qml
+%{_datadir}/applications/ryogami.desktop
 %{qml_root}/
 %dir %{_libexecdir}/ryoku
 %{_libexecdir}/ryoku/ryoku-writer
@@ -197,7 +213,11 @@ cp -a runtime/fonts/. %{buildroot}%{font_root}/
 %{_bindir}/ryoku-wm-hyprland
 %{_bindir}/ryoku-hub
 %{_bindir}/ryogami
+%{_bindir}/ryogami-live
+%{_bindir}/ryoku-cmd-ryoshot
+%{_bindir}/ryoku-session-intro
 %license runtime/LICENSE runtime/NOTICE upstream-writers/licenses/
+%license upstream-writers/ryoku/shell/ryogami/picker/LICENSE upstream-writers/ryoku/shell/ryogami/picker/NOTICE
 %doc packaging/rpm/desktop-build.md upstream/ryoku-runtime.toml runtime/SHA256SUMS
 
 %files fonts

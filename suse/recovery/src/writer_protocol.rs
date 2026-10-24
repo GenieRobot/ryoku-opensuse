@@ -39,6 +39,7 @@ pub enum WriterKind {
     Ryogami,
     Ryoshot,
     Welcome,
+    KeysHint,
 }
 impl WriterKind {
     pub fn parse(value: &str) -> Result<Self> {
@@ -49,6 +50,7 @@ impl WriterKind {
             "ryogami" => Ok(Self::Ryogami),
             "ryoshot" => Ok(Self::Ryoshot),
             "welcome" => Ok(Self::Welcome),
+            "keys-hint" => Ok(Self::KeysHint),
             _ => Err(Error::Unsupported),
         }
     }
@@ -60,6 +62,7 @@ impl WriterKind {
             Self::Ryogami => "ryogami",
             Self::Ryoshot => "ryoshot",
             Self::Welcome => "welcome",
+            Self::KeysHint => "keys-hint",
         }
     }
     fn command(self) -> Command {
@@ -73,6 +76,7 @@ impl WriterKind {
                 let path = match role {
                     Self::Ryoshot => "/usr/share/ryoku/shell/quickshell/ryoshot",
                     Self::Welcome => "/usr/share/ryoku/shell/quickshell/welcome",
+                    Self::KeysHint => "/usr/share/ryoku/shell/quickshell/keys-hint",
                     _ => unreachable!(),
                 };
                 command.args(["-p", path]);

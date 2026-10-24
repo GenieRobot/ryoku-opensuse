@@ -21,8 +21,8 @@ must be refreshed now, reviewed for the initial desktop, deferred, or excluded.
 | CLI and system lifecycle | 292 paths under `ryoku/cli` (159 added, 128 modified, 5 deleted) | Release channels, tracking/rollback, update and doctor behavior, system/WM adapters, plugin compatibility/import, distro-specific package and service operations | **Adapter contract refresh.** Keep project-owned implementation Rust; update upstream command/API inventory. Explicitly exclude pacman, AUR, DNF and XBPS actuators from this port; route only accepted operations through existing openSUSE provider/recovery contracts. #173, #27–30, #1. |
 | Hub and store | 163 Hub paths; 97 app/store paths | Store catalog and bundle model changes; install progress/product types and backend API changes; Hub surfaces and controls expanded. New QML imports include `Quickshell.Services.UPower`; Ryostore adds `QtMultimedia` and `QtQuick.Controls`; `ryoku/ui` adds `QtQuick.Dialogs`. | **Protocol review required.** Reconcile shipped UI against the port's Rust provider before any supported install/remove action. Preserve non-package catalog presentation only when it cannot trigger unsupported actions. Confirm these framework modules are in the selected RPM closure through generated QML and ELF dependency metadata. #173, #27–30. |
 | Window managers and integrations | 117 `ryoku/wm` paths; 18 `ryoku/hyprland`; new Niri (32 paths) and Wayfire (42 paths) trees; new Wayfire data | Shared WM adapter grew; Niri support substantially expanded; Wayfire support added; compositor-specific settings/keybinds and plugins changed | **Initial release stays Hyprland.** Re-audit Hyprland config/provider references used by #25. Track Niri and Wayfire as deferred compatibility work under #46; do not silently broaden release support. |
-| Lock, greeter, session and sleep security | 14 `ryoku/lockscreen` paths, plus shell systemd/session changes and new SDDM guard files/tests; 49 changed files in the selected lock/session/script/unit surface | Greeter now selects DRM card and renderer conditions, records stderr, supervises Weston, and changes XKB/numlock/display settling. New root `ryoku-greeter-guard` watches SDDM helpers/login1 events and restarts SDDM after a 20-second no-helper window (up to three restarts per boot). Session imports systemd user environment, materializes user state, waits for DRM, supervises compositor and reports failure to SDDM. `sddm/setup` changes PAM keyring/autologin handling and host session state. qylock fixes PAM conversation, empty/hung auth and watchdog/power paths. Shell unit adds optional Voxtype ensure, removes AI usage timer and adds Bluetooth agent unit. | **Security review required before retaining any part.** Exclude upstream install-time `/etc/pam.d/sddm`, SDDM, display-target and service mutations from RPM scriptlets. Review exact Rust-owned equivalents and imported QML against Tumbleweed SDDM/PAM, authenticated lock/recovery handoff and KDE fallback. Test guard restart caps/races, PAM preservation/autologin, XKB, multiple outputs, compositor death/logout, and suspend/resume fail-closed behavior. #173, #25, #36–41. |
-| Additional applications and bridge integrations | 97 app paths; 18 palette-bridge paths; new keysounds and app data | Ryotunes, Ryomanager, Ryostore/Ryovm and other app packaging; palette bridge integrations for Vesktop/Zen/Spotify; optional app and key-sound assets | **Inventory payload closure.** Refresh manifests/notices for shipped files. Defer standalone apps and their package/config writers to #47 or the owning M3 task; no new home-file mutation without scoped ownership/recovery rules. |
+| Lock, greeter, session and sleep security | 14 `ryoku/lockscreen` paths, plus shell systemd/session changes and new SDDM guard files/tests; 49 changed files in the selected lock/session/script/unit surface | Greeter now selects DRM card and renderer conditions, records stderr, supervises Weston, and changes XKB/numlock/display settling. New root `ryoku-greeter-guard` watches SDDM helpers/login1 events and restarts SDDM after a 20-second no-helper window (up to three restarts per boot). Session imports systemd user environment, materializes user state, waits for DRM, supervises compositor and reports failure to SDDM. `sddm/setup` changes PAM keyring/autologin handling and host session state. qylock fixes PAM conversation, empty/hung auth and watchdog/power paths. Shell unit adds optional Voxtype ensure, removes AI usage timer and adds Bluetooth agent unit. | **Upstream greeter/setup/qylock implementations are excluded.** The openSUSE port uses its Rust session launcher, distro SDDM entry and native hyprlock. Verify ordinary SDDM login/logout/error return, distro PAM/password/autologin preservation and KDE fallback. Do not claim upstream qylock suspend/resume or crash guarantees for hyprlock. Upstream Bluetooth agent/link (which can remove and re-pair a bond) is excluded until a protected Rust provider and linked-recovery contract are implemented. #173, #25, #36–41. |
+| Additional applications and bridge integrations | 97 app paths; 18 palette-bridge paths; new keysounds and app data | Ryotunes, Ryomanager, Ryostore/Ryovm and other app packaging; palette bridge integrations for Vesktop/Zen/Spotify; optional app and key-sound assets | **Inventory payload closure.** Ryogami picker and its livewall helper replace the removed old `wall-ui` path in the desktop RPM. Refresh manifests/notices for shipped files. Defer standalone apps and their package/config writers to #47 or the owning M3 task; no new home-file mutation without scoped ownership/recovery rules. |
 | Fedora edition | 141 paths across `fedora/packages` and `fedora/system`, plus workflow/translation entries | Experimental Fedora 44/45 RPM edition, specs, source staging, package translations, host adapter and release publisher | **Reference only.** Use the specs to discover package splits and runtime dependencies. Do not import Fedora scriptlets, DNF/system mutation, GRUB/Plymouth hooks, or shell staging as project code. Map only verified Tumbleweed equivalents in this project's declarative RPMs. #173. |
 | Void edition and host providers | 151 paths across `void/packages`, `void/init`, and `void/iso` | Experimental XBPS/runit/Turnstile edition, package templates, services and ISO installer | **Out of scope.** Do not port XBPS/runit/installer code. Use only to identify shared UI assets or protocol behavior where useful. |
 | Nix packaging | 35 paths across `nix/`, the flake and assets | Initial shared application packaging extraction; explicitly not a NixOS module or validated release | **Out of scope for RPM implementation.** Use as a cross-check for app boundaries only. |
@@ -42,11 +42,17 @@ path set and each excluded set, not just directory totals.
   dependencies are `qt6-quick3d-devel` and `qt6-quick3d-imports`; native
   `ryoku/shell/plugin/CMakeLists.txt` also adds Qt `Concurrent` and builds the
   `Ryoku.Spatial3D` module linked to Concurrent, Quick and Quick3D. The v1.0
-  `build.sh` copies both `Ryoku/Blobs` and `Ryoku/Spatial3D`; the current RPM
-  installs only four Blobs files. #173 must update the Source2 CMake tree and
-  spec install closure together, include generated Blobs shaders, and resolve
+  `build.sh` copies both `Ryoku/Blobs` and `Ryoku/Spatial3D`; the refreshed RPM
+  spec now copies both module trees and generated shaders. #173 must resolve
   exact build/runtime packages from the signed snapshot. Confirm generated
   QML scanner and ELF dependencies, including Concurrent's runtime split.
+- The old `ryoku/shell/ryogami/wall-ui` tree is deleted. The desktop spec now
+  builds and installs the v1.0 `ryoku/shell/ryogami/picker` QML/C++ module,
+  `ryogami-live`, picker desktop entry and license files. Its build adds
+  private Qt GUI, Vulkan headers and FFmpeg/Wayland development requirements;
+  resolve their exact Tumbleweed providers. The installed daemon also invokes
+  `magick`, `ffmpeg` and `ffprobe`, so runtime dependencies and unavailable
+  codec/provider behavior need package evidence.
 - The reviewed changed QML imports also include `Qt.labs.platform`,
   `QtQuick.Controls.Material`, `QtQuick.Window`, and
   `Quickshell.Services.SystemTray`. Existing declarative-import and Quickshell
@@ -56,19 +62,20 @@ path set and each excluded set, not just directory totals.
   Fedora's `Version:` fields and package names do not determine the openSUSE
   product or RPM version. Compare each actual runtime dependency and map it to
   a Tumbleweed package before adding it.
-- The current `Source2`, `Source3`, Quickshell source and writer patch are still
-  pinned to 0.75.5. The new source pin in `upstream/ryoku.source.toml` records
-  reviewed release provenance; `upstream/ryoku-runtime.toml` remains the
-  current artifact manifest until #173 refreshes the payload and evidence.
+- Source2/Source3 candidate archives, font checksums, writer path selection and
+  launch patch have been regenerated against the v1.0.0 tree; their exact
+  hashes are in `upstream/ryoku-runtime.toml` and
+  `packaging/rpm/desktop-build.md`. Native build, full write-site audit,
+  Tumbleweed dependency resolution and package/VM acceptance remain open.
 - `ryoku-desktop` RPM `Version: 0.1.0` is this port's package version, not the
   upstream desktop version. Do not change it to `1.0.0` solely because the
   upstream release is 1.0.0.
 
 ## Completion state
 
-The source-tree comparison is complete at directory and path level. Payload
-closure, per-file retention/exclusion review, exact RPM dependency resolution,
-patch regeneration, security review, and VM acceptance are still open in
+The source-tree path comparison and initial candidate exports are complete.
+Per-file semantic/write-site review, exact RPM dependency resolution, native
+build/load validation, security boundary review, and VM acceptance are still open in
 [#173](https://github.com/GenieRobot/ryoku-opensuse/issues/173). Until those
 gates pass, #23 remains historical evidence for its original artifact and
 #25/#26 remain open.

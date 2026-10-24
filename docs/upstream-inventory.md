@@ -5,9 +5,10 @@ source revision currently represented by packaged runtime artifacts. The
 immutable source review pin, repository identity, observed ref, and inspection date are recorded in
 [`upstream/ryoku.source.toml`](../upstream/ryoku.source.toml). The inventory
 links below point at that exact commit; links to upstream's moving `main`
-branch are not source pins. The detailed component table below preserves the
-previous 0.75.5 package inventory and immutable links; issue #173 records the
-component-by-component 1.0 delta before those mappings are treated as current.
+branch are not source pins. The detailed component table below is the
+historical 0.75.5 inventory. Its immutable links and package observations
+describe that baseline; use the release delta and current manifests below for
+v1.0.0 packaging decisions.
 
 ## Ryoku Amaterasu 1.0 review (24 October 2026)
 
@@ -34,12 +35,14 @@ and compatibility review against this project's Rust service, authenticated
 recovery, and KDE fallback requirements. The store/backend and updater changes
 remain future adapter work; no upstream package actuator is imported.
 
-**Important:** the v1.0 source review pin does not mean the shipped runtime
-payload has been refreshed. `upstream/ryoku-runtime.toml`, the generated
-`Source2` and `Source3` archives, and issue 18 writer patch still describe
-0.75.5 at `98a0368253d9628be72b853985878a5db90e1547`. Issue #173 owns the full
-payload, patch, session, and fresh Tumbleweed acceptance refresh. Preserve the
-old #23 package result as historical evidence for its exact inputs.
+The runtime manifest and generated Source2/Source3 candidate archives now
+target this v1.0.0 pin. Source3 is checked against the complete upstream tree
+manifest; Source2 includes the expanded shared QML/native sources and pinned
+font assets. The issue 18 launch patch has been rebased to the v1 helper paths.
+Those are source refreshes, not completed package acceptance: issue #173 tracks
+semantic/write-site review, exact Tumbleweed dependency resolution, native
+build/load checks, and fresh VM acceptance. Preserve the old #23 package
+result as historical evidence for its exact inputs.
 
 ## Previous package baseline and provenance
 
