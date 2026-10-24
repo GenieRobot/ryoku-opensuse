@@ -1,5 +1,7 @@
 LICENSE
 NOTICE
+ryoku/cli
+ryoku/rashin
 ryoku/shell/ipc
 ryoku/shell/ryogami/daemon
 ryoku/shell/ryogami/picker

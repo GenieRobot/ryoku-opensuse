@@ -42,8 +42,12 @@ and #173 retains source/archive/package closure responsibility.
 `rashin-source-links.json` pins the two Rashin icon link objects and resolves
 their literal relative targets against the immutable Git tree. Both targets
 are regular brand assets already selected in Source3. It records no host-link
-dereference and does not relax the source exporter's current link refusal or
-certify an installed link. Full retained Rashin archive coverage remains open.
+dereference and does not certify an installed link. The next source-only retention recipe validates
+selected internal regular targets and preserves literal Git link metadata;
+runtime mappings still reject links. `source-retention-plan.json` separates
+the new declared CLI/Rashin roots from unchanged current archive/ledger facts
+and records the bounded regeneration budget. Full retained archive coverage
+remains open until regenerated and verified.
 
 `hyprland-plugin-boundary.json` pins seven selected upstream blobs and exact
 line anchors plus the project policy/recipe inputs for the partial compositor

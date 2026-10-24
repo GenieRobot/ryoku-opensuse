@@ -224,9 +224,11 @@ Two retained source paths are Git link objects:
 [`rashin-source-links.json`](../upstream/evidence/ryoku-v1.0/rashin-source-links.json)
 records the exact link blobs/text/digests and resolved target blobs/modes/digests.
 Both resolve inside the pinned tree to regular brand assets already selected
-in Source3. No host link was dereferenced. The current source exporter rejects
-selected links, so closing full Rashin archive coverage needs an explicitly
-validated source-link policy; simply adding its root would fail. Preserving
+in Source3. No host link was dereferenced. The next
+[source-retention recipe](ryoku-v1.0-source-retention.md) adds complete CLI/Rashin
+roots with a bounded raw-source-only link policy and tests; runtime-mapped links
+remain refused. Actual archives/selection manifests are not regenerated in that
+tranche, so full Rashin archive coverage remains open. Preserving
 the source objects does not authorize arbitrary installed links or runtime
 file access, and archive/runtime acceptance remains open.
 

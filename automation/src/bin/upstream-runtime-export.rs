@@ -1,13 +1,16 @@
 //! Reproduce runtime inputs from immutable Git objects and pinned font bytes.
 use sha2::{Digest, Sha256};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs::{self, File, OpenOptions},
     io::{BufRead, BufReader, Read, Write},
     os::unix::fs::PermissionsExt,
     path::{Component, Path, PathBuf},
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
 };
+
+#[path = "../source_link_policy.rs"]
+mod source_link_policy;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -59,7 +62,8 @@ fn entries(root: &Path, revision: &str) -> Result<Vec<Entry>> {
         let mode = match (fields[0], fields[1]) {
             ("100644", "blob") => 0o644,
             ("100755", "blob") => 0o755,
-            // Keep the entry so any selected link/submodule fails explicitly.
+            ("120000", "blob") => 0o120000,
+            // Keep unsupported entries so selected submodules fail explicitly.
             _ => 0,
         };
         result.push(Entry { path: path.into(), mode, oid: fields[2].into() });
@@ -134,9 +138,9 @@ fn selected(path: &str, prefix: &str) -> Option<String> {
     }
 }
 
-fn put(root: &Path, relative: &str, bytes: &[u8], mode: u32) -> Result<()> {
-    if !safe_path(relative) || !matches!(mode, 0o644 | 0o755) {
-        return Err("unsafe export destination or source mode".into());
+fn export_path(root: &Path, relative: &str) -> Result<PathBuf> {
+    if !safe_path(relative) {
+        return Err("unsafe export destination".into());
     }
     let path = root.join(relative);
     fs::create_dir_all(path.parent().ok_or("missing export parent")?)?;
@@ -148,6 +152,14 @@ fn put(root: &Path, relative: &str, bytes: &[u8], mode: u32) -> Result<()> {
         }
         parent = directory.parent();
     }
+    Ok(path)
+}
+
+fn put(root: &Path, relative: &str, bytes: &[u8], mode: u32) -> Result<()> {
+    if !matches!(mode, 0o644 | 0o755) {
+        return Err("unsafe source mode".into());
+    }
+    let path = export_path(root, relative)?;
     let mut file = OpenOptions::new().write(true).create_new(true).open(path)?;
     file.write_all(bytes)?;
     file.set_permissions(fs::Permissions::from_mode(mode))?;
@@ -345,6 +357,11 @@ fn run(
         mappings.push((origin.to_owned(), payload.to_owned()));
     }
     let entries = entries(source, revision)?;
+    let selected_modes: BTreeMap<_, _> = entries
+        .iter()
+        .filter(|entry| scopes.iter().any(|scope| selected(&entry.path, scope).is_some()))
+        .map(|entry| (entry.path.clone(), entry.mode))
+        .collect();
     if scopes
         .iter()
         .any(|scope| !entries.iter().any(|entry| selected(&entry.path, scope).is_some()))
@@ -366,6 +383,7 @@ fn run(
     let mut writer_provenance = String::from("source\tgit_blob\tmode\n");
     let mut source_count = 0;
     let mut review_records = Vec::new();
+    let mut source_links = Vec::new();
     for entry in &entries {
         let write = scopes.iter().any(|scope| selected(&entry.path, scope).is_some());
         let targets: Vec<_> = mappings
@@ -383,6 +401,30 @@ fn run(
             return Err(format!("selected source is a symlink/submodule: {}", entry.path).into());
         }
         let bytes = blobs.read(&entry.oid)?;
+        if entry.mode == 0o120000 {
+            if !targets.is_empty() {
+                return Err(format!(
+                    "selected runtime source is a symlink/submodule: {}",
+                    entry.path
+                )
+                .into());
+            }
+            let resolved =
+                source_link_policy::resolve_source_link(&entry.path, &bytes, &selected_modes)?;
+            let target =
+                entries.iter().find(|entry| entry.path == resolved).ok_or("missing link target")?;
+            let literal = std::str::from_utf8(&bytes)?;
+            std::os::unix::fs::symlink(literal, export_path(&writers, &entry.path)?)?;
+            writer_provenance.push_str(&format!("{}\t{}\t120000\n", entry.path, entry.oid));
+            source_links.push(serde_json::json!({
+                "source": entry.path, "git_blob": entry.oid, "git_mode": "120000",
+                "link_text": literal, "link_object_sha256": format!("{:x}", Sha256::digest(&bytes)),
+                "resolved_source": resolved, "resolved_git_blob": target.oid,
+                "resolved_mode": format!("{:o}", target.mode),
+            }));
+            source_count += 1;
+            continue;
+        }
         if let Some(record) = review(entry, &bytes, &targets, write)? {
             review_records.push(record);
         }
@@ -461,6 +503,10 @@ fn run(
     fs::write(target.join("runtime-source-manifest.tsv"), provenance)?;
     fs::write(target.join("writer-source-manifest.tsv"), writer_provenance)?;
     fs::write(
+        target.join("writer-source-links.json"),
+        serde_json::to_string_pretty(&source_links)? + "\n",
+    )?;
+    fs::write(
         target.join("source-review.json"),
         serde_json::to_string_pretty(&review_records)? + "\n",
     )?;
@@ -475,6 +521,7 @@ fn run(
         "writer_sha256": sha256(&writers_archive)?,
         "writer_bytes": fs::metadata(&writers_archive)?.len(),
         "writer_source_files": source_count,
+        "writer_source_links": source_links.len(),
         "runtime_tar_epoch": 0,
         "writer_tar_epoch": epoch,
         "gzip": "-n -9",
@@ -615,5 +662,119 @@ mod tests {
         fixture.commit();
         fs::write(fixture.0.join("fonts/fonts/license.txt"), b"different font bytes").unwrap();
         assert!(fixture.export("font").unwrap_err().to_string().contains("font identity mismatch"));
+    }
+
+    #[test]
+    fn source_only_icon_links_preserve_literal_tar_metadata_and_repeat_hashes() {
+        let fixture = Fixture::new();
+        let source = fixture.0.join("source");
+        let links = [
+            ("ryoku/rashin/app/logo.svg", "../../assets/brand/rashin-mark.svg"),
+            ("ryoku/rashin/web/public/favicon.svg", "../../../assets/brand/rashin-mark-small.svg"),
+        ];
+        fs::create_dir_all(source.join("ryoku/assets/brand")).unwrap();
+        for name in ["rashin-mark.svg", "rashin-mark-small.svg"] {
+            fs::write(source.join("ryoku/assets/brand").join(name), b"<svg/>\n").unwrap();
+        }
+        for (path, target) in links {
+            fs::create_dir_all(source.join(path).parent().unwrap()).unwrap();
+            std::os::unix::fs::symlink(target, source.join(path)).unwrap();
+        }
+        fs::write(fixture.0.join("scope"), "src\nryoku/rashin\nryoku/assets/brand\n").unwrap();
+        fixture.commit();
+        // The committed link object, never a dirty host link, supplies the bytes.
+        for (path, _) in links {
+            fs::remove_file(source.join(path)).unwrap();
+            std::os::unix::fs::symlink("/host-path-must-not-be-read", source.join(path)).unwrap();
+        }
+        fixture.export("first").unwrap();
+        fixture.export("second").unwrap();
+        for archive in ["runtime.tar.gz", "writers.tar.xz"] {
+            assert_eq!(
+                sha256(&fixture.0.join("first").join(archive)).unwrap(),
+                sha256(&fixture.0.join("second").join(archive)).unwrap()
+            );
+        }
+        let listing = String::from_utf8(
+            output(Command::new("tar").args(["-tvf"]).arg(fixture.0.join("first/writers.tar.xz")))
+                .unwrap(),
+        )
+        .unwrap();
+        let manifest =
+            fs::read_to_string(fixture.0.join("first/writer-source-manifest.tsv")).unwrap();
+        let evidence: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(fixture.0.join("first/writer-source-links.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(evidence.as_array().unwrap().len(), 2);
+        for (path, target) in links {
+            let exported = fixture.0.join("first/writers").join(path);
+            assert!(fs::symlink_metadata(&exported).unwrap().file_type().is_symlink());
+            assert_eq!(fs::read_link(exported).unwrap(), Path::new(target));
+            assert!(
+                manifest.lines().any(
+                    |line| line.starts_with(&format!("{path}\t")) && line.ends_with("\t120000")
+                )
+            );
+            assert!(listing.lines().any(
+                |line| line.starts_with('l') && line.contains(&format!("./{path} -> {target}"))
+            ));
+        }
+        assert!(!fixture.0.join("first/runtime/ryoku/rashin").exists());
+    }
+
+    #[test]
+    fn refuses_source_only_links_to_unselected_escaping_and_link_targets() {
+        for target in ["../unselected", "../../outside", "/etc/passwd", "other"] {
+            let fixture = Fixture::new();
+            let retained = fixture.0.join("source/retained");
+            fs::create_dir(&retained).unwrap();
+            std::os::unix::fs::symlink(target, retained.join("icon")).unwrap();
+            std::os::unix::fs::symlink("../src/main.qml", retained.join("other")).unwrap();
+            fs::write(fixture.0.join("scope"), "src\nretained\n").unwrap();
+            fixture.commit();
+            assert!(fixture.export("rejected").is_err(), "{target}");
+            assert!(!fixture.0.join("rejected/writers.tar.xz").exists());
+        }
+    }
+
+    #[test]
+    fn pinned_rashin_link_objects_resolve_to_current_selected_brand_blobs() {
+        let evidence: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/rashin-source-links.json"
+        ))
+        .unwrap();
+        let rows: BTreeMap<_, _> =
+            include_str!("../../../upstream/evidence/ryoku-v1.0/writer-source-manifest.tsv")
+                .lines()
+                .skip(1)
+                .map(|line| {
+                    let fields: Vec<_> = line.split('\t').collect();
+                    (fields[0].to_owned(), (fields[1], u32::from_str_radix(fields[2], 8).unwrap()))
+                })
+                .collect();
+        let mut selected_modes: BTreeMap<_, _> =
+            rows.iter().map(|(path, (_, mode))| (path.clone(), *mode)).collect();
+        let links = evidence["links"].as_array().unwrap();
+        assert_eq!(links.len(), 2);
+        for link in links {
+            let source = link["source"].as_str().unwrap();
+            selected_modes.insert(source.into(), 0o120000);
+        }
+        for link in links {
+            let source = link["source"].as_str().unwrap();
+            let resolved = source_link_policy::resolve_source_link(
+                source,
+                link["link_text"].as_str().unwrap().as_bytes(),
+                &selected_modes,
+            )
+            .unwrap();
+            assert_eq!(resolved, link["resolved_source"].as_str().unwrap());
+            assert_eq!(rows[&resolved].0, link["resolved_git_blob"].as_str().unwrap());
+        }
+        let scopes = include_str!("../../../packaging/rpm/upstream-writer-paths.txt");
+        for root in ["ryoku/cli", "ryoku/rashin"] {
+            assert!(scopes.lines().any(|line| line == root));
+        }
     }
 }

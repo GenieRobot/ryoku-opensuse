@@ -278,6 +278,10 @@ texts. Native delivery and complete asset-license acceptance remain open.
 
 The full verified Git tree preserves CLI source/provenance, but existing
 Source2/Source3 are selected exports and contain no `ryoku/cli` root.
+The next [source retention recipe](ryoku-v1.0-source-retention.md) adds the
+complete CLI/Rashin roots and a bounded raw-source-only Git link policy.
+Current archive/ledger selection facts are unchanged until exact regeneration;
+source retention does not replace protected feature implementation.
 Complete CLI source-only archive coverage, per-reconciler/host-verb semantic
 proof, and the owned Rust equivalents remain open. Additional #173 gates are
 the remaining delta rows, native WaveCapture payload/solver/runtime closure, native picker
