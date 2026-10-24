@@ -1,8 +1,10 @@
 # Experimental native session (#25)
 
 The optional `ryoku-session` RPM adds an SDDM entry named **Ryoku (openSUSE
-experimental)**. It depends on the accepted issue #23 release-5 package set;
-native desktop acceptance remains open. Select KDE
+experimental)**. The current session release 3 requires at least the issue #173
+`ryoku-desktop-0.1.0-8` candidate for upstream Ryoku Amaterasu 1.0.0, pinned at
+`a59d051f0e8080052216f6c7b9eb7e5928935ce8`. The openSUSE RPM version is independent
+of upstream's version. Native desktop acceptance remains open. Select KDE
 normally while those gates are incomplete. Installation changes no SDDM
 default, enables no units, writes no home files and replaces no KDE entry.
 
@@ -17,7 +19,7 @@ untouched. Hyprland's `exec-once` calls the Rust `activate` command through
 Activation requires `WAYLAND_DISPLAY` and `HYPRLAND_INSTANCE_SIGNATURE`, clears
 previous graphical keys, and imports only the declared graphical environment
 into D-Bus and the user manager. It starts `ryoku-desktop-session.target`,
-which requires the shell unit and wants the existing Rust service. The latter
+which requires the shell unit and the existing Rust service. The latter
 continues to use the authenticated typed service contract and fixed socket;
 no new privileged service or authorization policy is introduced. A drop-in
 associates it with session shutdown. No user unit is globally enabled.
@@ -31,8 +33,10 @@ The shell unit invokes `ryoku-session shell`, which runs
 packaged paths. The Rust writer coordinator from issue #18 owns the unchanged
 pinned daemon and its surface descendants. The private Quickshell runtime,
 `/usr/share/ryoku` payload, native `/usr/lib64/qt6/qml` modules and original Hub
-are used. The daemon selects the packaged Hyprland provider through its existing
-Rust wrapper alias. No fake capability or success frame is added. The separate
+are used. Startup checks the required Ryoku Ui, FrameBars, PluginKit, Blobs,
+Spatial3D and Hyprland QML module metadata before launching a surface. The
+daemon selects the packaged Hyprland provider through a private Rust session
+alias; ordinary provider argv still enter the existing writer coordinator. The separate
 clipboard daemon from the earlier #25 prototype is not started: the packaged
 upstream daemon already owns that socket and clipboard topic.
 
@@ -51,7 +55,14 @@ service and clears the declared graphical keys from the user manager. D-Bus
 activation keys are emptied because that API cannot remove keys. KDE's target,
 units and session entry are not modified. Shell restart is rate limited, and
 shutdown has a 15-second bound. `Super+Shift+Escape` exits to SDDM so KDE can be
-selected. The supported experimental fixture has one graphical login per user;
+selected. The same ordered logout handles the original shell's
+`session.logout` → Hyprland `act session.exit` path. A fixed
+`ryoku-session-logout.service` runs outside the desktop target and shell cgroup;
+it stops the desktop and graphical targets while Wayland is available, then
+exits the compositor. Both the requester and worker require the inherited
+Wayland display and Hyprland instance signature so `hyprctl` cannot select
+another login after environment cleanup. Native UI/keyboard logout regression
+remains pending. The supported experimental fixture has one graphical login per user;
 concurrent logins share a user manager and are not accepted.
 
 ## Recovery and authentication limits
@@ -191,3 +202,31 @@ in [clipboard-build.md](../packaging/rpm/clipboard-build.md). The session bounds
 regular selections to 10 MiB, disables timestamp manipulation, and limits logs
 to warnings. Original daemon history remains the only history owner. These
 new lock and clipboard paths are host candidates until actual native acceptance.
+
+## Ryoku Amaterasu 1.0 session review
+
+The pinned source's `ryoku/shell/quickshell/shell/services/SessionActions.qml`
+sends logout through `call session.logout`. Its
+`ryoku/shell/ipc/session.go` handler asks the selected WM provider for
+`session.exit`; `ryoku/wm/hyprland/act.go` directly dispatches compositor exit.
+That route would bypass the port's portal shutdown ordering. The session's
+private `ryoku-wm-hyprland` alias now intercepts exactly `act session.exit` and
+queues the independent logout unit. Extra arguments are refused; every other
+literal provider argument, including non-UTF-8 values, stays on the existing
+Rust writer path. This session-only adapter leaves the pinned source and the
+#173 export/patch unchanged.
+
+The upstream greeter, greeter guard, `sddm/setup`, Wayland wrapper, qylock and
+Bluetooth agent/link are not session dependencies. No optional Voxtype ensure
+command is added to the port's shell unit. Distro SDDM/PAM/password/autologin
+policy, the independent KDE entry and native hyprlock remain the acceptance
+targets. The [functional checklist](native-desktop-workflows.md) requires fresh
+1.0 password login/reboot, UI and keyboard logout, controlled startup failure,
+KDE fallback and current lock/unlock evidence. Existing 0.75.5 receipts remain
+historical. Suspend/resume continuity, empty/stalled PAM and locked-crash claims
+remain unproven.
+
+The [offline 1.0 receipt](../infra/tumbleweed-lab/evidence/issue25-v1-session-offline-20261024.toml)
+records the reviewed source blobs, session dependency, 14 passing focused Rust
+tests, strict Clippy, formatting and RPM spec parsing. No VM was used and no
+native session build/install or desktop result is claimed by that receipt.

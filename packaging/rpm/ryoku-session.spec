@@ -1,6 +1,6 @@
 Name:           ryoku-session
 Version:        0.1.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Experimental Ryoku display-manager session
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse
@@ -10,7 +10,7 @@ ExclusiveArch:  x86_64
 BuildRequires:  cargo >= 1.99
 BuildRequires:  rust >= 1.99
 BuildRequires:  systemd-rpm-macros
-Requires:       ryoku-desktop >= %{version}-5
+Requires:       ryoku-desktop >= %{version}-8
 Requires:       hyprland >= 0.56.2
 Requires:       hyprland-guiutils >= 0.2.1
 Requires:       plasma6-session >= 6.7.5
@@ -62,9 +62,13 @@ install -D -m 0644 packaging/rpm/session/hyprlock.conf \
     %{buildroot}%{_datadir}/ryoku-opensuse/session/hyprlock.conf
 install -D -m 0644 packaging/rpm/systemd/user/ryoku-session-lock.service \
     %{buildroot}%{_userunitdir}/ryoku-session-lock.service
+install -D -m 0644 packaging/rpm/systemd/user/ryoku-session-logout.service \
+    %{buildroot}%{_userunitdir}/ryoku-session-logout.service
 install -d %{buildroot}%{_libexecdir}/ryoku/session/bin
 ln -s %{_bindir}/ryoku-session %{buildroot}%{_libexecdir}/ryoku/session/bin/ryoku-shell
 ln -s %{_bindir}/ryoku-session %{buildroot}%{_libexecdir}/ryoku/session/bin/wl-clip-persist
+ln -s %{_bindir}/ryoku-session %{buildroot}%{_libexecdir}/ryoku/session/bin/ryoku-wm-hyprland
+ln -s %{_bindir}/ryoku-session %{buildroot}%{_libexecdir}/ryoku/session/bin/ryoku-session-logout
 install -D -m 0644 packaging/rpm/systemd/user/ryoku-desktop-session.target \
     %{buildroot}%{_userunitdir}/ryoku-desktop-session.target
 install -D -m 0644 packaging/rpm/systemd/user/ryoku-desktop-shell.service \
@@ -82,6 +86,7 @@ install -D -m 0644 packaging/rpm/systemd/user/ryoku-service.service.d/25-session
 %{_userunitdir}/ryoku-desktop-session.target
 %{_userunitdir}/ryoku-desktop-shell.service
 %{_userunitdir}/ryoku-session-lock.service
+%{_userunitdir}/ryoku-session-logout.service
 %dir %{_libexecdir}/ryoku
 %dir %{_libexecdir}/ryoku/session
 %{_libexecdir}/ryoku/session/bin/
