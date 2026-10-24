@@ -1,49 +1,70 @@
-# Issue #24 integration candidate
+# Issue #24 integration evidence
 
-The canonical branch is `codex/issue24-installer-integration`, resumed on main
-`6117339febe0dce613cecbf304607a3ba075bcca`. The first executable candidate is
-`0f2ff6f43871b5abbb5c44b9e843e79d0c0ecce9`; its exact normalized source archive
-and immutable upstream/vendor inputs are staged for the dedicated native VM.
-PR [#157](https://github.com/GenieRobot/ryoku-opensuse/pull/157) remains draft
-and issue [#24](https://github.com/GenieRobot/ryoku-opensuse/issues/24) remains
-open until native lifecycle acceptance is linked.
+Run10 completed native issue #24 acceptance from committed source
+`ca2e736e0dee72cfdc2c1a0dac917c3dcdd9cb0d`, on base main
+`6117339febe0dce613cecbf304607a3ba075bcca`. Its
+[exact-source CI](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40119300801)
+passed before launch. The subsequent integration update changes documentation
+and sanitized evidence only; it does not replace the tested executable source.
+The coordinator owns PR [#157](https://github.com/GenieRobot/ryoku-opensuse/pull/157)
+integration, issue closure, branch cleanup and worktree completion.
 
-Local validation used Rust/Cargo 1.99.0. Formatting, strict workspace Clippy
-with all targets/features, the complete workspace all-targets/all-features test
-suite, offline cargo-deny and native RPM spec parsing passed. Existing ACL and
-ptrace tests required execution outside the filesystem/process sandbox; the
-sandbox refusals were not treated as implementation acceptance. Focused
-installer tests additionally cover unsafe package payload ownership, stable
-local staging, migration conflicts/symlinks/repetition and bound recovery
-journal receipts. The dedicated VM runner and guest probe tests passed, and
-the release runner, guest probe and initializer build successfully.
+The [Run10 receipt](../infra/tumbleweed-lab/evidence/issue24-native-20261022/run10.txt)
+and [native runner output](../infra/tumbleweed-lab/evidence/issue24-native-20261022/run10-native.txt)
+record clean/repeat installation, canonical versioned migration and repetition,
+removal/repetition/reinstall, verified linked checkpoints, real pre/post-Applying
+SIGKILL cases, exact linked recovery/reconciliation and recovered reinstall.
+The completed report survived another reboot. The common offline corruption
+and Snapper recovery checks also passed, followed by fresh signed-source reset
+with no Ryoku package, marker, configuration or retained sentinel.
 
-The installer source, operational commands and compatibility constraints are
-in [installer-preflight.md](installer-preflight.md). Standard #21/#22 capture
-and restore fixtures remain unchanged. Installer-only absent defaults require
-the exact lifecycle marker plus a closed inventory with explicit absence;
-ordinary checkpoints still require their existing installed package set.
+| Acceptance requirement | Direct evidence |
+| --- | --- |
+| Clean/repeat installation, migration and removal | All ten issue24 scenario results passed in the exact-source native report. |
+| Verified checkpoint before package/configuration apply | The native probe verifies linked pre-change evidence, retained manual partners and distinct post-change partners for completed operations. Unsafe-catalog cases refuse before apply. |
+| Preserve user overrides and unrelated files | Conflict checks preserve the complete package inventory, 72 managed paths, unrelated sentinel metadata/bytes and journal. Removal and reinstall retain the migrated user state. |
+| Recover interrupted installation | Both actual SIGKILL phases activate emergency; new work and wrong receipts refuse; the exact source is rolled back, booted, confirmed and restored before reconciliation and a new install. |
+| Compare managed state before/after | [18 comparison records](../infra/tumbleweed-lab/evidence/issue24-native-20261022/run10-managed.tsv), each with 72 entries; the declared migration changes state and subsequent repeat/removal/reinstall/recovery preserves it. |
+| Identify the tested package closure | [Eight signed native RPM hashes](../infra/tumbleweed-lab/evidence/issue24-native-20261022/run10-rpms.sha256), exact source/probe/runner hashes and signature/pin receipts. |
+| Reboot, reset and disposal | Completed evidence after reboot, fresh XFS-source package/marker/config/sentinel absence, unchanged signed image, removed disks/keys and an independent zero-QEMU scan. |
 
-The native run uses a fresh signed Snapshot20261016 derivation with KDE,
-distro dependencies and the explicit recovery bootstrap. The guest builds the
-coordinated release7 RPM closure with native BuildRequires checks enabled;
-Quickshell remains the unchanged accepted 0.3.2-2 input. Disposable signing is
-fixture trust and is not a release signature. Hyprland login/provider actions
-and the combined first-sprint gate are separate acceptance work.
+The signed Snapshot20261016 Minimal-VM source begins with an unnumbered direct
+`@` root. The installer explicitly refuses that unsupported recovery layout
+without journal/checkpoint/package changes. The disposable fixture separately
+prepares the established numbered writable Snapper default, mounted snapshot
+tree and GRUB snapshot booting before installer scenarios. This administrator
+fixture provisioning is distinct from product installation; the installer does
+not rewrite boot layout. A real bounded system-bus roundtrip handles socket
+activation before native Snapper inventory after reboot. Broker dependency-only
+start policy and product recovery gates remain intact.
 
-The isolated `issue24-lab` build now selects `issue24-fixture.toml`. It retains
-the accepted recovery fixture's image, firmware, distribution archives,
-signature policy and all other scalar inputs. Only the exact live update
-repository metadata digest differs: native Run05 refused its changed digest
-before derivation or installation. The new metadata and detached signature are
-retained in the evidence directory, and the signature verifies against the
-existing openSUSE release-key fingerprint. A regression compares every other
-fixture line and hashes the retained metadata. The original #21/#22 fixture
-pins remain unchanged. Run04's host interruption and Run05's input refusal
-provide no installer lifecycle acceptance.
+Local Rust/Cargo 1.99 checks passed: complete workspace all-targets/all-features
+tests, strict Clippy, formatting, offline cargo-deny and diff validation.
+Focused coverage includes package staging/ownership, canonical migration,
+exact persisted recovery receipts, pre-gate rejection classification, supported
+numbered-root admission with 11 refusal variants, and fixture activation with
+missing owners, invalid acknowledgement and timeout refusal. ACL/ptrace/QMP
+checks ran outside the restricted process/filesystem sandbox where required.
 
-A first launch invocation was rejected before creating the run directory,
-disks or QEMU because its cwd was the issue worktree while its requested run
-path was under the parent workspace. The unchanged candidate was invoked
-from the approved parent workspace. That path-policy refusal is preflight
-non-acceptance and contributes no VM lifecycle evidence.
+The [chronological evidence index](../infra/tumbleweed-lab/evidence/issue24-native-20261022.toml)
+retains Run01–09 failures, host interruption, authenticated metadata drift and
+separate diagnostic limits. The isolated issue24 fixture changes only its
+independently authenticated update metadata digest; shared #21/#22 pins remain
+unchanged. No diagnostic disk, binary or service override was reused as normal
+Run10 acceptance. Native runner cleanup left only local logs and receipts;
+all guest disks, firmware, seeds, SSH credentials, staged inputs and sockets
+were removed, and the signed source hash remained exact.
+
+This proves the pinned historical upstream
+`98a0368253d9628be72b853985878a5db90e1547` / 0.75.5-beta.20 candidate and openSUSE
+port RPMs 0.1.0-7, with accepted Quickshell 0.3.2-2. Disposable local signing is
+fixture trust, not a release signature. Upstream Amaterasu 1.0 is a separate
+major product transition owned by #173; the port RPM release counter and
+migration schema are independent. Refreshed #173/#25/#26 acceptance must test
+the approved 1.0 source and closed inventory. The generic console-only runner
+labels `lifecycle_result=partial` and `lab_result=partial` exclude graphical
+login/UI; every #24-specific field and reset invariant passed. Hyprland login,
+provider actions and the combined first-sprint gate remain separate work.
+
+Operator commands and supported limits are in
+[installer-preflight.md](installer-preflight.md).

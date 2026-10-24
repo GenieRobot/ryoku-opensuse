@@ -1,6 +1,6 @@
 schema = 1
 issue = 24
-status = "incomplete-native-acceptance"
+status = "complete-native-issue24-historical-scope"
 
 [run01]
 candidate = "0f2ff6f43871b5abbb5c44b9e843e79d0c0ecce9"
@@ -133,3 +133,25 @@ validation = "four probe tests and full workspace/all-targets/all-features tests
 disposal = "original disk/source final hashes unchanged; zero QEMU/vm-lab; failed/diagnostic disks, firmware, seeds, credentials and staged inputs removed; private logs retained"
 version_scope = "pinned historical0.75.5-beta.20/openSUSE0.1.0-7 only; upstream1.0 transition belongs to173"
 acceptance = "incomplete; separate diagnostic does not replace normal Run09 source acceptance; fresh full normal run required"
+
+[run10]
+candidate = "ca2e736e0dee72cfdc2c1a0dac917c3dcdd9cb0d"
+ci = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40119300801"
+ci_result = "success"
+report = "issue24-native-20261022/run10.txt"
+report_sha256 = "28c40f8be6d6a2c11dde1d83734c5bf4df08e1199bf2e52be8883d6af7e14ed7"
+native_evidence = "issue24-native-20261022/run10-native.txt"
+native_evidence_sha256 = "c26d3ed8efd2e7bdfe54e9bfc8f0b2818e89c99684a683141f92bf8cb693409c"
+managed_comparisons = "issue24-native-20261022/run10-managed.tsv"
+managed_comparisons_sha256 = "c3df84aad8dcf9e9b62792d450014a7cf860b098c2426acec8bc0e868c1b4704"
+rpm_hashes = "issue24-native-20261022/run10-rpms.sha256"
+rpm_hashes_sha256 = "1a972a2c99fced156300a5464cc683098517400f28d3887d205eacf7aa65bbb2"
+result = "complete-native-issue24-acceptance"
+observed = "exact source native builds and signed closure; supported layout and catalog refusals; clean/repeat/migration/repeat/removal/repeat/reinstall; both real SIGKILL/emergency paths; exact linked rollback/boot/restore/reconcile/recovered reinstall"
+comparisons = "18 pre/post records, each72 entries; declared migration delta; repeat/removal/reinstall/recovered configuration preserved"
+reboot = "completed ten-scenario report persisted after another boot; common offline corruption/Snapper restore also passed"
+reset = "fresh original signed XFS boot has no Ryoku package/marker/Snapper config/sentinel; base hash unchanged"
+disposal = "runner exit0; all disks/firmware/seeds/credentials/staged VM inputs/sockets removed; independent zero QEMU/vm-lab at slot release; local logs/receipts only"
+console_only = "generic lifecycle/lab partial labels exclude graphical login and UI; every issue24-specific field and reset invariant passed"
+version_scope = "pinned historical0.75.5-beta.20/openSUSE0.1.0-7/Quickshell0.3.2-2 only; upstream1.0 and refreshed combined173/25/26 acceptance owned separately"
+acceptance = "complete for issue24 supported historical candidate; coordinator integration and issue closure remain"

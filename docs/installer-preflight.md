@@ -191,7 +191,12 @@ installation requires a new preview, operation ID and checkpoint.
 
 ## Evidence
 
-Historical October 18 preview receipts cover read-only behavior only. Current
-native lifecycle acceptance remains pending until the dedicated #24 VM report
-is linked on its issue and PR. Package installation does not claim Hyprland
-login, provider mutations or the combined first-sprint gate.
+The [Run10 acceptance evidence](https://github.com/GenieRobot/ryoku-opensuse/issues/24)
+records complete native #24 lifecycle acceptance from committed source
+`ca2e736e0dee72cfdc2c1a0dac917c3dcdd9cb0d`, including actual interruption,
+linked restore/reconciliation, another reboot and fresh-baseline reset. Its
+managed comparisons and RPM hashes bind the tested state and locally built
+signed closure. The shared runner's
+`partial` label reflects console-only graphical/UI exclusions. This is the
+pinned historical 0.75.5-beta.20/port 0.1.0-7 scope; Hyprland login, provider
+mutations, upstream 1.0 and the combined first-sprint gate have separate owners.
