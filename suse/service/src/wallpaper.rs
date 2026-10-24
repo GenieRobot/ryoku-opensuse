@@ -20,7 +20,9 @@ use ryoku_recovery::{
     installed_capture::{InstalledInventory, InventoryError},
     installed_profiles::{ProfileBundleStore, VerifiedProfileBundle},
     native_checkpoint::verify_historical_root_checkpoint,
-    wallpaper_protocol::{self as wire, ActorCall, WallpaperApply, WallpaperKind},
+    wallpaper_protocol::{
+        self as wire, ActorCall, WallpaperApply, WallpaperAudio, WallpaperChange, WallpaperKind,
+    },
 };
 use serde::Serialize;
 use std::{
@@ -50,19 +52,37 @@ pub fn apply(
     action: WallpaperApply,
     rpc_id: i64,
 ) -> Result<CompletedWallpaper, ServiceError> {
+    change(peer, operator_gid, WallpaperChange::Apply(action), rpc_id)
+}
+pub fn set_audio(
+    peer: &PeerIdentity,
+    operator_gid: u32,
+    action: WallpaperAudio,
+    rpc_id: i64,
+) -> Result<CompletedWallpaper, ServiceError> {
+    change(peer, operator_gid, WallpaperChange::Audio(action.normalized()), rpc_id)
+}
+fn change(
+    peer: &PeerIdentity,
+    operator_gid: u32,
+    action: WallpaperChange,
+    rpc_id: i64,
+) -> Result<CompletedWallpaper, ServiceError> {
     authorize_helper_operator(peer, operator_gid)?;
     if rustix::process::geteuid().as_raw() != 0 || rpc_id < 0 || action.validate().is_err() {
         return Err(ServiceError::Unauthorized);
     }
     let account = prepare_operator_account(peer, operator_gid)?;
     let home = account.capture_home().map_err(|_| ServiceError::RecoveryUnavailable)?;
-    open_source(&home, account.uid(), &action.path, action.kind).map_err(|error| {
-        if error.kind() == std::io::ErrorKind::InvalidInput {
-            ServiceError::Malformed("wallpaper_source_capacity".into())
-        } else {
-            ServiceError::Malformed("wallpaper_source_unavailable".into())
-        }
-    })?;
+    if let WallpaperChange::Apply(action) = &action {
+        open_source(&home, account.uid(), &action.path, action.kind).map_err(|error| {
+            if error.kind() == std::io::ErrorKind::InvalidInput {
+                ServiceError::Malformed("wallpaper_source_capacity".into())
+            } else {
+                ServiceError::Malformed("wallpaper_source_unavailable".into())
+            }
+        })?;
+    }
     if let Err(error) = InstalledInventory::for_home(&home) {
         return Err(match error {
             ryoku_recovery::generation_capture::GenerationCaptureError::Inventory(
@@ -92,6 +112,10 @@ pub fn apply(
         NEXT_OPERATION.fetch_add(1, Ordering::Relaxed)
     ))
     .map_err(|_| ServiceError::Failed)?;
+    let action_kind = match &action {
+        WallpaperChange::Apply(_) => ManagedActionKind::ApplyWallpaper,
+        WallpaperChange::Audio(_) => ManagedActionKind::SetWallpaperAudio,
+    };
     let mut provider = WallpaperProvider {
         account,
         peer,
@@ -108,7 +132,7 @@ pub fn apply(
         operator_gid,
         NativeMutationRequest {
             operation_id: operation_id.clone(),
-            action: ManagedActionKind::ApplyWallpaper,
+            action: action_kind,
             reason: OperationReason::ProviderChange,
             planned,
             created_utc,
@@ -148,7 +172,11 @@ enum ActorReplyError {
     LayoutChanged,
     Failed,
 }
-fn validate_actor_reply(reply: &[u8], expected_id: i64) -> Result<(), ActorReplyError> {
+fn validate_actor_reply(
+    reply: &[u8],
+    expected_id: i64,
+    action: &WallpaperChange,
+) -> Result<(), ActorReplyError> {
     let value: serde_json::Value =
         serde_json::from_slice(reply).map_err(|_| ActorReplyError::Failed)?;
     if value.get("id").and_then(serde_json::Value::as_i64) != Some(expected_id)
@@ -163,17 +191,46 @@ fn validate_actor_reply(reply: &[u8], expected_id: i64) -> Result<(), ActorReply
             ActorReplyError::Failed
         });
     }
-    if value["result"]["applied"].as_str().is_none() {
-        return Err(ActorReplyError::Failed);
+    match action {
+        WallpaperChange::Apply(_) if value["result"]["applied"].as_str().is_some() => (),
+        WallpaperChange::Audio(_) => {
+            audio_receipt(&value["result"]).map_err(|_| ActorReplyError::Failed)?;
+        }
+        _ => return Err(ActorReplyError::Failed),
     }
     Ok(())
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AudioTarget {
+    state: String,
+    key: String,
+}
+fn audio_receipt(result: &serde_json::Value) -> Result<Vec<AudioTarget>, GateError> {
+    let targets: Vec<AudioTarget> = serde_json::from_value(result["audio_written"].clone())
+        .map_err(|_| GateError::PostChangeFailed)?;
+    let mut unique = std::collections::BTreeSet::new();
+    if targets.is_empty()
+        || targets.len() > 32
+        || targets.iter().any(|target| {
+            !matches!(target.state.as_str(), "outputs" | "workspaces")
+                || target.key.is_empty()
+                || target.key.len() > 128
+                || target.key.chars().any(char::is_control)
+                || !unique.insert((&target.state, &target.key))
+        })
+    {
+        return Err(GateError::PostChangeFailed);
+    }
+    Ok(targets)
 }
 
 struct WallpaperProvider<'a> {
     account: AccountStateRoot,
     peer: &'a PeerIdentity,
     operator_gid: u32,
-    action: WallpaperApply,
+    action: WallpaperChange,
     rpc_id: i64,
     bundle: &'a VerifiedProfileBundle,
     packages: Vec<PackageRevision>,
@@ -190,13 +247,17 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
             return Err(GateError::PlanChanged);
         }
         let home = self.account.capture_home().map_err(|_| GateError::PlanChanged)?;
-        let source =
-            source_identity(&home, self.account.uid(), &self.action.path, self.action.kind)
-                .map_err(|_| GateError::PlanChanged)?;
+        let source = match &self.action {
+            WallpaperChange::Apply(action) => Some(
+                source_identity(&home, self.account.uid(), &action.path, action.kind)
+                    .map_err(|_| GateError::PlanChanged)?,
+            ),
+            WallpaperChange::Audio(_) => None,
+        };
         let actor = session.wallpaper_actor().map_err(|_| GateError::PlanChanged)?;
         let bytes = serde_json::to_vec(&serde_json::json!({"action":self.action,"rpc_id":self.rpc_id,"source":source,"actor":actor,"bundle":self.bundle.id(),"packages":self.packages})).map_err(|_| GateError::InvalidPlan)?;
         Ok(PlannedChange {
-            operation_key: "wallpaper-apply-v1".into(),
+            operation_key: self.action.operation_key().into(),
             plan_fingerprint: wire::digest(&bytes),
             affected_state_fingerprint: "00".repeat(32),
         })
@@ -204,7 +265,7 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
     fn authorize(&mut self, plan: &PlannedChange) -> Result<(), GateError> {
         authorize_helper_operator(self.peer, self.operator_gid)
             .map_err(|_| GateError::PreflightFailed)?;
-        if plan.operation_key != "wallpaper-apply-v1" {
+        if plan.operation_key != self.action.operation_key() {
             return Err(GateError::InvalidPlan);
         }
         self.account.revalidate().map_err(|_| GateError::PlanChanged)
@@ -235,7 +296,7 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
             frame,
         };
         let reply = session.apply_wallpaper_actor(&call).map_err(|_| GateError::ApplyFailed)?;
-        match validate_actor_reply(&reply, self.rpc_id) {
+        match validate_actor_reply(&reply, self.rpc_id, &self.action) {
             Ok(()) => (),
             Err(ActorReplyError::LayoutChanged) => {
                 self.actor_layout_changed = true;
@@ -245,36 +306,61 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
         }
         Ok(reply)
     }
-    fn health_check(&mut self, _: &Vec<u8>) -> Result<(), GateError> {
+    fn health_check(&mut self, reply: &Vec<u8>) -> Result<(), GateError> {
         self.account.revalidate().map_err(|_| GateError::PostChangeFailed)?;
         let home = self.account.capture_home().map_err(|_| GateError::PostChangeFailed)?;
+        if let WallpaperChange::Audio(action) = &self.action {
+            let reply: serde_json::Value =
+                serde_json::from_slice(reply).map_err(|_| GateError::PostChangeFailed)?;
+            for target in audio_receipt(&reply["result"])? {
+                let relative = match target.state.as_str() {
+                    "outputs" => ".cache/ryogami/outputs.json",
+                    "workspaces" => ".cache/ryogami/workspaces.json",
+                    _ => return Err(GateError::PostChangeFailed),
+                };
+                let bytes = read_home(&home, relative, 16 * 1024 * 1024)
+                    .map_err(|_| GateError::PostChangeFailed)?;
+                let state: serde_json::Value =
+                    serde_json::from_slice(&bytes).map_err(|_| GateError::PostChangeFailed)?;
+                let entry = if target.state == "outputs" {
+                    &state[&target.key]
+                } else {
+                    &state["assignments"][&target.key]
+                };
+                if action.mute.is_some_and(|mute| entry["mute"].as_bool() != Some(mute))
+                    || action
+                        .volume
+                        .is_some_and(|volume| entry["volume"].as_u64() != Some(u64::from(volume)))
+                {
+                    return Err(GateError::PostChangeFailed);
+                }
+            }
+            return Ok(());
+        }
+        let WallpaperChange::Apply(action) = &self.action else { unreachable!() };
         let outputs = read_home(&home, ".cache/ryogami/outputs.json", 4 * 1024 * 1024)
             .map_err(|_| GateError::PostChangeFailed)?;
         let outputs: serde_json::Value =
             serde_json::from_slice(&outputs).map_err(|_| GateError::PostChangeFailed)?;
         let home_path = std::fs::read_link(format!("/proc/self/fd/{}", home.as_raw_fd()))
             .map_err(|_| GateError::PostChangeFailed)?;
-        let portable = self
-            .action
+        let portable = action
             .path
             .strip_prefix(home_path.to_str().ok_or(GateError::PostChangeFailed)?)
             .map(|tail| format!("~{tail}"));
-        let targets = if self.action.outputs.is_empty() {
-            vec!["*".to_owned()]
-        } else {
-            self.action.outputs.clone()
-        };
+        let targets =
+            if action.outputs.is_empty() { vec!["*".to_owned()] } else { action.outputs.clone() };
         for target in targets {
             let state = outputs.get(&target).ok_or(GateError::PostChangeFailed)?;
             let path = state
                 .get("path")
                 .and_then(serde_json::Value::as_str)
                 .ok_or(GateError::PostChangeFailed)?;
-            let expected_type = match self.action.kind {
+            let expected_type = match action.kind {
                 WallpaperKind::Static => "static",
                 WallpaperKind::Video => "video",
             };
-            if (path != self.action.path && portable.as_deref() != Some(path))
+            if (path != action.path && portable.as_deref() != Some(path))
                 || state.get("type").and_then(serde_json::Value::as_str) != Some(expected_type)
             {
                 return Err(GateError::PostChangeFailed);
@@ -584,6 +670,33 @@ fn gate_error(error: GateError) -> ServiceError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn audio_receipts_are_bounded_unique_and_not_apply_success() {
+        let action = WallpaperChange::Audio(WallpaperAudio {
+            outputs: vec![],
+            mute: Some(true),
+            volume: None,
+        });
+        let reply =
+            |result| serde_json::to_vec(&serde_json::json!({"id":4,"result":result})).unwrap();
+        assert_eq!(
+            validate_actor_reply(
+                &reply(serde_json::json!({"audio_written":[{"state":"outputs","key":"*"}]})),
+                4,
+                &action
+            ),
+            Ok(())
+        );
+        for result in [
+            serde_json::json!({"applied":"a.png"}),
+            serde_json::json!({"audio_written":[]}),
+            serde_json::json!({"audio_written":[{"state":"arbitrary","key":"*"}]}),
+            serde_json::json!({"audio_written":[{"state":"outputs","key":"*"},{"state":"outputs","key":"*"}]}),
+        ] {
+            assert!(validate_actor_reply(&reply(result), 4, &action).is_err());
+        }
+    }
+
     fn principal(name: &str) -> AccountPrincipal {
         AccountPrincipal::from_account(1000, 1000, name, "/home/fixture").unwrap()
     }
@@ -606,24 +719,46 @@ mod tests {
     }
     #[test]
     fn actor_layout_refusal_is_specific_but_never_accepted_as_success_or_wrong_reply() {
+        let action = WallpaperChange::Audio(WallpaperAudio {
+            outputs: vec![],
+            mute: Some(true),
+            volume: None,
+        });
         let frame = |value: serde_json::Value| serde_json::to_vec(&value).unwrap();
         let error = serde_json::json!({"id":9,"error":{"code":-32012,"message":"loaded state roots differ"}});
         assert_eq!(
-            validate_actor_reply(&frame(error.clone()), 9),
+            validate_actor_reply(&frame(error.clone()), 9, &action),
             Err(ActorReplyError::LayoutChanged)
         );
-        assert_eq!(validate_actor_reply(&frame(error.clone()), 10), Err(ActorReplyError::Failed));
+        assert_eq!(
+            validate_actor_reply(&frame(error.clone()), 10, &action),
+            Err(ActorReplyError::Failed)
+        );
         let mut ambiguous = error;
         ambiguous["result"] = serde_json::json!({"applied":"a.png"});
-        assert_eq!(validate_actor_reply(&frame(ambiguous), 9), Err(ActorReplyError::Failed));
         assert_eq!(
-            validate_actor_reply(&frame(serde_json::json!({"id":9,"error":{"code":-32001}})), 9),
+            validate_actor_reply(&frame(ambiguous), 9, &action),
+            Err(ActorReplyError::Failed)
+        );
+        assert_eq!(
+            validate_actor_reply(
+                &frame(serde_json::json!({"id":9,"error":{"code":-32001}})),
+                9,
+                &action
+            ),
             Err(ActorReplyError::Failed)
         );
         assert_eq!(
             validate_actor_reply(
                 &frame(serde_json::json!({"id":9,"result":{"applied":"a.png"}})),
-                9
+                9,
+                &WallpaperChange::Apply(WallpaperApply {
+                    kind: WallpaperKind::Static,
+                    path: "/home/fixture/a.png".into(),
+                    outputs: vec![],
+                    mute: Default::default(),
+                    volume: Default::default()
+                })
             ),
             Ok(())
         );

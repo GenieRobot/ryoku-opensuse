@@ -12,6 +12,7 @@ pub const MAX_QUERY_REPLY_BYTES: usize = 32 * 1024 * 1024;
 pub enum PublicRequest {
     Query { id: Option<i64>, frame: Vec<u8> },
     Apply { id: i64, action: WallpaperApply, plain: bool },
+    Audio { id: i64, action: WallpaperAudio },
     Handoff { id: i64, action: AutomaticHandoff },
 }
 
@@ -160,6 +161,12 @@ pub fn parse_public(bytes: &[u8]) -> Result<PublicRequest, WallpaperProtocolErro
             .map_err(|_| WallpaperProtocolError::InvalidAction)?;
         action.validate()?;
         return Ok(PublicRequest::Apply { id: request.id, action, plain: false });
+    }
+    if request.method == "wall.set_audio" {
+        let action: WallpaperAudio = serde_json::from_value(request.params)
+            .map_err(|_| WallpaperProtocolError::InvalidAction)?;
+        action.validate()?;
+        return Ok(PublicRequest::Audio { id: request.id, action: action.normalized() });
     }
     if request.method == "broker.automatic" {
         let action: AutomaticHandoff = serde_json::from_value(request.params)
@@ -321,6 +328,103 @@ pub fn parse_apply(bytes: &[u8]) -> Result<(i64, WallpaperApply), WallpaperProto
     Ok((request.id, request.params))
 }
 
+/// Exact retained wallpaper audio controls. No path, command, provider or
+/// automatic trigger can be supplied through this action.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WallpaperAudio {
+    #[serde(default)]
+    pub outputs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mute: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub volume: Option<u8>,
+}
+impl WallpaperAudio {
+    pub fn validate(&self) -> Result<(), WallpaperProtocolError> {
+        if (self.mute.is_none() && self.volume.is_none())
+            || self.volume.is_some_and(|v| v > 100)
+            || self.outputs.len() > 16
+            || self.outputs.iter().collect::<std::collections::BTreeSet<_>>().len()
+                != self.outputs.len()
+            || self.outputs.iter().any(|name| !valid_output(name) && name != "*")
+            || (self.outputs.iter().any(|name| name == "*") && self.outputs.len() != 1)
+        {
+            return Err(WallpaperProtocolError::InvalidAction);
+        }
+        Ok(())
+    }
+    pub fn normalized(&self) -> Self {
+        let mut action = self.clone();
+        if action.outputs == ["*"] {
+            action.outputs.clear();
+        }
+        action
+    }
+    pub fn frame(&self, id: i64) -> Result<Vec<u8>, WallpaperProtocolError> {
+        self.validate()?;
+        if id < 0 {
+            return Err(WallpaperProtocolError::InvalidFrame);
+        }
+        let mut frame = serde_json::to_vec(&RpcAudio {
+            method: "wall.set_audio".into(),
+            params: self.normalized(),
+            id,
+        })
+        .map_err(|_| WallpaperProtocolError::InvalidFrame)?;
+        frame.push(b'\n');
+        bounded_line(&frame, MAX_REQUEST_BYTES)?;
+        Ok(frame)
+    }
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RpcAudio {
+    method: String,
+    params: WallpaperAudio,
+    id: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(tag = "change", content = "params", rename_all = "snake_case")]
+pub enum WallpaperChange {
+    Apply(WallpaperApply),
+    Audio(WallpaperAudio),
+}
+impl WallpaperChange {
+    pub fn validate(&self) -> Result<(), WallpaperProtocolError> {
+        match self {
+            Self::Apply(a) => a.validate(),
+            Self::Audio(a) => a.validate(),
+        }
+    }
+    pub fn frame(&self, id: i64) -> Result<Vec<u8>, WallpaperProtocolError> {
+        match self {
+            Self::Apply(a) => a.frame(id),
+            Self::Audio(a) => a.frame(id),
+        }
+    }
+    pub fn operation_key(&self) -> &'static str {
+        match self {
+            Self::Apply(_) => "wallpaper-apply-v1",
+            Self::Audio(_) => "wallpaper-audio-v1",
+        }
+    }
+}
+pub fn parse_change(bytes: &[u8]) -> Result<(i64, WallpaperChange), WallpaperProtocolError> {
+    bounded_line(bytes, MAX_REQUEST_BYTES)?;
+    if let Ok((id, action)) = parse_apply(bytes) {
+        return Ok((id, WallpaperChange::Apply(action)));
+    }
+    let request: RpcAudio =
+        serde_json::from_slice(bytes).map_err(|_| WallpaperProtocolError::InvalidFrame)?;
+    if request.method != "wall.set_audio" || request.id < 0 {
+        return Err(WallpaperProtocolError::InvalidFrame);
+    }
+    request.params.validate()?;
+    Ok((request.id, WallpaperChange::Audio(request.params.normalized())))
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ActorIdentity {
@@ -364,7 +468,7 @@ impl ActorCall {
         {
             return Err(WallpaperProtocolError::InvalidPermit);
         }
-        let (id, action) = parse_apply(&self.frame)?;
+        let (id, action) = parse_change(&self.frame)?;
         if action.frame(id)? != self.frame {
             return Err(WallpaperProtocolError::InvalidPermit);
         }
@@ -400,6 +504,46 @@ impl std::error::Error for WallpaperProtocolError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn audio_is_a_distinct_canonical_bounded_action() {
+        let control =
+            WallpaperAudio { outputs: vec!["*".into()], mute: Some(false), volume: Some(100) };
+        let frame = control.frame(4).unwrap();
+        assert!(parse_apply(&frame).is_err());
+        assert_eq!(
+            parse_change(&frame).unwrap(),
+            (4, WallpaperChange::Audio(control.normalized()))
+        );
+        assert!(matches!(parse_public(&frame), Ok(PublicRequest::Audio { .. })));
+        let actor = ActorIdentity { pid: 17, start_time: 42 };
+        let call = ActorCall {
+            actor: actor.clone(),
+            account_home_sha256: digest(b"/home/fixture"),
+            plan_sha256: "ab".repeat(32),
+            frame_sha256: digest(&frame),
+            frame,
+        };
+        call.validate_for_home(&actor, "/home/fixture").unwrap();
+        let mut changed = call.clone();
+        changed.frame = action().frame(4).unwrap();
+        assert!(changed.validate(&actor).is_err());
+        for params in [
+            serde_json::json!({}),
+            serde_json::json!({"volume":101}),
+            serde_json::json!({"mute":true,"outputs":["*","DP-1"]}),
+            serde_json::json!({"mute":true,"outputs":["DP-1","DP-1"]}),
+            serde_json::json!({"mute":true,"path":"/tmp/a"}),
+            serde_json::json!({"mute":true,"hook":"sh"}),
+        ] {
+            let mut bytes = serde_json::to_vec(
+                &serde_json::json!({"id":4,"method":"wall.set_audio","params":params}),
+            )
+            .unwrap();
+            bytes.push(b'\n');
+            assert!(parse_public(&bytes).is_err());
+        }
+    }
 
     fn action() -> WallpaperApply {
         WallpaperApply {

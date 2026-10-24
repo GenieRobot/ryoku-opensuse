@@ -1,7 +1,7 @@
 //! Per-frame public Ryogami proxy. Native descriptors stay inside Rust.
 use crate::{
     wallpaper_channel::NativeActor,
-    wallpaper_protocol::{self as wire, PublicRequest, WallpaperApply},
+    wallpaper_protocol::{self as wire, PublicRequest, WallpaperChange},
 };
 use rustix::net::sockopt::socket_peercred;
 use std::{
@@ -163,7 +163,7 @@ impl Drop for ProxyServer {
     }
 }
 
-fn apply_via_helper(id: i64, action: &WallpaperApply) -> io::Result<Vec<u8>> {
+fn apply_via_helper(id: i64, action: &WallpaperChange) -> io::Result<Vec<u8>> {
     action.validate().map_err(io::Error::other)?;
     let mut stream = UnixStream::connect("/run/ryoku/helper.sock")?;
     if socket_peercred(&stream)?.uid.as_raw() != 0 {
@@ -177,7 +177,16 @@ fn apply_via_helper(id: i64, action: &WallpaperApply) -> io::Result<Vec<u8>> {
         std::process::id(),
         NEXT_REQUEST.fetch_add(1, Ordering::Relaxed)
     );
-    let request = serde_json::json!({"version":1,"request_id":request_id,"request":{"operation":"apply_wallpaper","action":action,"rpc_id":id}});
+    let (operation, expected_outcome, params) = match action {
+        WallpaperChange::Apply(action) => {
+            ("apply_wallpaper", "wallpaper_applied", serde_json::to_value(action))
+        }
+        WallpaperChange::Audio(action) => {
+            ("set_wallpaper_audio", "wallpaper_audio_set", serde_json::to_value(action))
+        }
+    };
+    let params = params.map_err(io::Error::other)?;
+    let request = serde_json::json!({"version":1,"request_id":request_id,"request":{"operation":operation,"action":params,"rpc_id":id}});
     let mut bytes = serde_json::to_vec(&request).map_err(io::Error::other)?;
     bytes.push(b'\n');
     if bytes.len() > wire::MAX_REQUEST_BYTES {
@@ -222,7 +231,7 @@ fn apply_via_helper(id: i64, action: &WallpaperApply) -> io::Result<Vec<u8>> {
     let outcome = response
         .get("outcome")
         .ok_or_else(|| io::Error::other("missing wallpaper helper outcome"))?;
-    if outcome.get("result").and_then(serde_json::Value::as_str) != Some("wallpaper_applied") {
+    if outcome.get("result").and_then(serde_json::Value::as_str) != Some(expected_outcome) {
         let kind = match outcome
             .get("error")
             .and_then(|error| error.get("detail"))
@@ -261,7 +270,7 @@ pub(crate) fn relay_connection(
     client: UnixStream,
     uid: u32,
     native: &NativeActor,
-    mut apply: impl FnMut(i64, &WallpaperApply) -> io::Result<Vec<u8>>,
+    mut apply: impl FnMut(i64, &WallpaperChange) -> io::Result<Vec<u8>>,
 ) -> io::Result<()> {
     let peer = socket_peercred(&client)?;
     if uid == 0 || peer.uid.as_raw() != uid {
@@ -277,7 +286,7 @@ pub(crate) fn relay_connection(
 fn relay_authenticated(
     client: UnixStream,
     mut native: UnixStream,
-    apply: &mut impl FnMut(i64, &WallpaperApply) -> io::Result<Vec<u8>>,
+    apply: &mut impl FnMut(i64, &WallpaperChange) -> io::Result<Vec<u8>>,
 ) -> io::Result<()> {
     let output = Mutex::new(client.try_clone()?);
     let closed = AtomicBool::new(false);
@@ -303,40 +312,7 @@ fn relay_authenticated(
                         native.write_all(&frame)?;
                     }
                     Ok(PublicRequest::Apply { id, action, plain }) => {
-                        let reply = match apply(id, &action) {
-                            Ok(reply) => {
-                                validate_reply(&reply, id)?;
-                                reply
-                            }
-                            Err(error) if error.kind() == io::ErrorKind::StorageFull => {
-                                error_reply(
-                                    id,
-                                    "wallpaper recovery state exceeds the verified 16 MiB per-file capacity; increase verified recovery capacity before applying changes",
-                                )
-                            }
-                            Err(error) if error.kind() == io::ErrorKind::FileTooLarge => {
-                                error_reply(
-                                    id,
-                                    "wallpaper input exceeds the verified bound; choose a static file at most 64 MiB or a video at most 8 GiB",
-                                )
-                            }
-                            Err(error) if error.kind() == io::ErrorKind::InvalidInput => {
-                                error_reply(
-                                    id,
-                                    "choose a readable regular wallpaper owned by your account or a trusted installed file under /usr/share; links and shared writable files cannot be applied",
-                                )
-                            }
-                            Err(error) if error.kind() == io::ErrorKind::Unsupported => {
-                                error_reply(
-                                    id,
-                                    "wallpaper cache settings differ from restore-point coverage; restore an enrolled cache setting and restart the wallpaper service before retrying. Custom locations need their declared-state recovery provider",
-                                )
-                            }
-                            Err(_) => error_reply(
-                                id,
-                                "wallpaper authorization or linked checkpoint is unavailable; review operator membership and protected history, and reinstall the reviewed profile if its bundle or snapshot is missing",
-                            ),
-                        };
+                        let reply = mutation_reply(id, apply(id, &WallpaperChange::Apply(action)))?;
                         let reply = if plain {
                             let value: serde_json::Value =
                                 serde_json::from_slice(&reply).map_err(io::Error::other)?;
@@ -348,6 +324,10 @@ fn relay_authenticated(
                         } else {
                             reply
                         };
+                        write_public(&output, &reply)?;
+                    }
+                    Ok(PublicRequest::Audio { id, action }) => {
+                        let reply = mutation_reply(id, apply(id, &WallpaperChange::Audio(action)))?;
                         write_public(&output, &reply)?;
                     }
                     Ok(PublicRequest::Handoff { id, .. }) => {
@@ -468,6 +448,35 @@ fn read_frame(
     }
 }
 
+fn mutation_reply(id: i64, result: io::Result<Vec<u8>>) -> io::Result<Vec<u8>> {
+    Ok(match result {
+        Ok(reply) => {
+            validate_reply(&reply, id)?;
+            reply
+        }
+        Err(error) if error.kind() == io::ErrorKind::StorageFull => error_reply(
+            id,
+            "wallpaper recovery state exceeds the verified 16 MiB per-file capacity; increase verified recovery capacity before applying changes",
+        ),
+        Err(error) if error.kind() == io::ErrorKind::FileTooLarge => error_reply(
+            id,
+            "wallpaper input exceeds the verified bound; choose a static file at most 64 MiB or a video at most 8 GiB",
+        ),
+        Err(error) if error.kind() == io::ErrorKind::InvalidInput => error_reply(
+            id,
+            "choose a readable regular wallpaper owned by your account or a trusted installed file under /usr/share; links and shared writable files cannot be applied",
+        ),
+        Err(error) if error.kind() == io::ErrorKind::Unsupported => error_reply(
+            id,
+            "wallpaper cache settings differ from restore-point coverage; restore an enrolled cache setting and restart the wallpaper service before retrying. Custom locations need their declared-state recovery provider",
+        ),
+        Err(_) => error_reply(
+            id,
+            "wallpaper authorization or linked checkpoint is unavailable; review operator membership and protected history, and reinstall the reviewed profile if its bundle or snapshot is missing",
+        ),
+    })
+}
+
 fn validate_reply(reply: &[u8], id: i64) -> io::Result<()> {
     wire::bounded_line(reply, wire::MAX_ACTOR_REPLY_BYTES).map_err(io::Error::other)?;
     let value: serde_json::Value = serde_json::from_slice(reply).map_err(io::Error::other)?;
@@ -490,7 +499,41 @@ fn error_reply(id: i64, message: &str) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::wallpaper_protocol::WallpaperApply;
     use std::{collections::BTreeMap, io::Read, sync::atomic::AtomicUsize};
+
+    #[test]
+    fn direct_audio_frames_require_the_typed_helper_and_never_reach_query_actor() {
+        let (mut client, proxy) = UnixStream::pair().unwrap();
+        let (native, mut backend) = UnixStream::pair().unwrap();
+        std::thread::scope(|scope| {
+            let worker=scope.spawn(|| relay_authenticated(proxy,native,&mut |id, change| {
+                let WallpaperChange::Audio(action)=change else { panic!("wrong action") };
+                assert!(action.outputs.is_empty()); assert_eq!(action.volume,Some(25));
+                if id==2 { return Err(io::Error::new(io::ErrorKind::PermissionDenied,"denied")); }
+                Ok(format!("{{\"id\":{id},\"result\":{{\"audio_written\":[{{\"state\":\"outputs\",\"key\":\"*\"}}]}}}}\n").into_bytes())
+            }));
+            let mut reader = BufReader::new(client.try_clone().unwrap());
+            for id in [1, 2] {
+                let action = wire::WallpaperAudio {
+                    outputs: vec!["*".into()],
+                    mute: None,
+                    volume: Some(25),
+                };
+                client.write_all(&action.frame(id).unwrap()).unwrap();
+                let mut reply = String::new();
+                reader.read_line(&mut reply).unwrap();
+                let value: serde_json::Value = serde_json::from_str(&reply).unwrap();
+                assert_eq!(value["id"], id);
+                assert_eq!(value.get("result").is_some(), id == 1);
+            }
+            backend.set_read_timeout(Some(Duration::from_millis(100))).unwrap();
+            assert!(backend.read(&mut [0]).is_err());
+            client.shutdown(std::net::Shutdown::Both).unwrap();
+            backend.shutdown(std::net::Shutdown::Both).unwrap();
+            worker.join().unwrap().unwrap();
+        });
+    }
 
     #[test]
     fn direct_socket_layout_refusal_is_actionable_and_never_reaches_native_query_channel() {
@@ -533,7 +576,10 @@ mod tests {
         let calls = AtomicUsize::new(0);
         std::thread::scope(|scope| {
             let worker = scope.spawn(|| {
-                relay_authenticated(proxy, native, &mut |id, action| {
+                relay_authenticated(proxy, native, &mut |id, change| {
+                    let WallpaperChange::Apply(action) = change else {
+                        panic!("unexpected audio fixture call")
+                    };
                     assert!(matches!(
                         action.kind,
                         wire::WallpaperKind::Static | wire::WallpaperKind::Video

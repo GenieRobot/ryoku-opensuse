@@ -44,10 +44,21 @@ index 316de02..9ace19c 100644
  	}
  }
 diff --git a/ryoku/shell/ryogami/daemon/apply.go b/ryoku/shell/ryogami/daemon/apply.go
-index 3d23bef..bf387c1 100644
+index 3d23bef..40f5a7f 100644
 --- a/ryoku/shell/ryogami/daemon/apply.go
 +++ b/ryoku/shell/ryogami/daemon/apply.go
-@@ -18,12 +18,20 @@ import (
+@@ -5,8 +5,10 @@ import (
+ 	"fmt"
+ 	"os"
+ 	"path/filepath"
++	"reflect"
+ 	"sort"
+ 	"strings"
++	"syscall"
+ 	"time"
+ )
+ 
+@@ -18,12 +20,20 @@ import (
  // video_engine knob: "ryogami" (the C player + READY handshake, default) or
  // "in_shell" (the clip publishes as videoPath and the shell decodes it).
  func (d *daemon) applyWallpaperReasonRecord(reason, wpType, path, mode string, outputs []string, mute map[string]bool, volume map[string]int, record bool) error {
@@ -68,7 +79,7 @@ index 3d23bef..bf387c1 100644
  	// An empty caller set means every output; a named set a guard emptied leaves nothing to paint.
  	req := &applyRequest{Type: wpType, Path: path, Outputs: outputs, Reason: reason}
  	pickOnly := false
-@@ -59,7 +67,7 @@ func (d *daemon) applyWallpaperReasonRecord(reason, wpType, path, mode string, o
+@@ -59,7 +69,7 @@ func (d *daemon) applyWallpaperReasonRecord(reason, wpType, path, mode string, o
  	paint := path
  	prefs := wallPrefs()
  	// Stop any Wallpaper Engine scene on these outputs so the two renderers do not overdraw.
@@ -77,6 +88,178 @@ index 3d23bef..bf387c1 100644
  		_ = d.paper.stop(stopTargets(outputs))
  	}
  	// A switch away from a live clip must drop any transcode still in flight
+@@ -313,7 +323,7 @@ func defaultWallpaperFrom(state map[string]map[string]interface{}) string {
+ func syncWallState(state map[string]map[string]interface{}) {
+ 	dir := stateHome()
+ 	_ = os.MkdirAll(dir, 0o755)
+-	_ = os.WriteFile(filepath.Join(dir, "ryoku-wallpaper"), []byte(defaultWallpaperFrom(state)+"\n"), 0o644)
++	_ = atomicStateWrite(filepath.Join(dir, "ryoku-wallpaper"), []byte(defaultWallpaperFrom(state)+"\n"))
+ }
+ 
+ // legacyWallStatePath: the shell's own choice from before Ryogami owned the
+@@ -912,3 +922,162 @@ func (d *daemon) wallpaperStillExpected(path string, targetOutputs []string, wor
+ 	}
+ 	return true
+ }
++
++// The audio permit is separate from apply and is consumed exactly once before
++// state inspection. Active assignments and shared output fallback follow the
++// upstream setAudio selection rules; external players retain their own owner.
++func (a brokerAudio) valid() bool {
++	if (a.Mute == nil && a.Volume == nil) || (a.Volume != nil && (*a.Volume < 0 || *a.Volume > 100)) || len(a.Outputs) > 16 {
++		return false
++	}
++	seen := map[string]bool{}
++	for _, output := range a.Outputs {
++		if output == "" || output == "*" || len(output) > 128 || seen[output] {
++			return false
++		}
++		for _, c := range output {
++			if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || strings.ContainsRune("-_.:", c)) {
++				return false
++			}
++		}
++		seen[output] = true
++	}
++	return true
++}
++
++type brokerAudioTarget struct {
++	State string `json:"state"`
++	Key   string `json:"key"`
++}
++
++func (d *daemon) brokerSetAudio(a brokerAudio) ([]brokerAudioTarget, error) {
++	brokerApply.Lock()
++	approved := a.valid() && brokerApply.audio != nil && reflect.DeepEqual(*brokerApply.audio, a)
++	brokerApply.audio = nil
++	brokerApply.Unlock()
++	if !approved {
++		return nil, fmt.Errorf("audio requires its exact single-use Rust authorization")
++	}
++	state := map[string]map[string]interface{}{}
++	path := filepath.Join(d.config().cacheDir(), "outputs.json")
++	if data, err := os.ReadFile(path); err == nil {
++		if err = json.Unmarshal(resolvedJSON(data), &state); err != nil {
++			return nil, err
++		}
++	} else if !os.IsNotExist(err) {
++		return nil, err
++	}
++	claimed := map[string]bool{}
++	targets := []brokerAudioTarget{}
++	var ws workspaceWallState
++	if d.workspaces != nil {
++		d.workspaces.mu.Lock()
++		defer d.workspaces.mu.Unlock()
++		ws = workspaceWallState{Version: d.workspaces.state.Version, Assignments: map[string]workspaceWall{}}
++		for key, value := range d.workspaces.state.Assignments {
++			ws.Assignments[key] = value
++		}
++		keys := map[string]bool{}
++		for output, active := range d.workspaces.active {
++			if len(a.Outputs) > 0 && !contains(a.Outputs, output) {
++				continue
++			}
++			key := workspaceKey(active.Provider, active.ID)
++			wall, exists := ws.Assignments[key]
++			if !exists {
++				continue
++			}
++			if wall.Type != "static" && wall.Type != "video" {
++				return nil, fmt.Errorf("external wallpaper audio requires the provider route (#175)")
++			}
++			claimed[output] = true
++			if a.Mute != nil {
++				wall.Mute = *a.Mute
++			}
++			if a.Volume != nil {
++				wall.Volume = *a.Volume
++			}
++			ws.Assignments[key] = wall
++			if !keys[key] {
++				targets = append(targets, brokerAudioTarget{"workspaces", key})
++				keys[key] = true
++			}
++		}
++	}
++	allClaimed := len(a.Outputs) > 0
++	for _, output := range a.Outputs {
++		if !claimed[output] {
++			allClaimed = false
++		}
++	}
++	outputs := append([]string(nil), a.Outputs...)
++	if _, shared := state["*"]; shared && len(outputs) > 0 && !allClaimed {
++		outputs = append(outputs, "*")
++	}
++	for key, entry := range state {
++		if claimed[key] || (key == "*" && allClaimed) || (len(outputs) > 0 && !contains(outputs, key)) {
++			continue
++		}
++		if entry["type"] != "static" && entry["type"] != "video" {
++			return nil, fmt.Errorf("external wallpaper audio requires the provider route (#175)")
++		}
++		if a.Mute != nil {
++			entry["mute"] = *a.Mute
++		}
++		if a.Volume != nil {
++			entry["volume"] = *a.Volume
++		}
++		targets = append(targets, brokerAudioTarget{"outputs", key})
++	}
++	if len(targets) == 0 || len(targets) > 32 {
++		return nil, fmt.Errorf("choose 1 to 32 active wallpaper state targets before changing audio")
++	}
++	for _, target := range targets {
++		if len(target.Key) > 128 {
++			return nil, fmt.Errorf("wallpaper audio target exceeds recovery receipt capacity")
++		}
++	}
++	// Preflight every destination before the first write. A later I/O failure
++	// remains a failed linked operation; Rust refreezes and records recovery.
++	for _, target := range targets {
++		destination := path
++		if target.State == "workspaces" {
++			destination = d.workspaces.path()
++		}
++		if info, err := os.Lstat(destination); err == nil {
++			st, ok := info.Sys().(*syscall.Stat_t)
++			if !info.Mode().IsRegular() || !ok || st.Nlink != 1 {
++				return nil, fmt.Errorf("audio state destination must be a regular file with one link")
++			}
++		} else if !os.IsNotExist(err) {
++			return nil, err
++		}
++	}
++	writesOutputs, writesWorkspaces := false, false
++	for _, target := range targets {
++		if target.State == "outputs" {
++			writesOutputs = true
++		} else {
++			writesWorkspaces = true
++		}
++	}
++	if writesWorkspaces {
++		if err := saveJSONChecked(d.workspaces.path(), ws); err != nil {
++			return nil, err
++		}
++		d.workspaces.state = ws
++	}
++	if writesOutputs {
++		if err := saveJSONChecked(path, state); err != nil {
++			return nil, err
++		}
++	}
++	d.surface.setAudio(a.Mute, a.Volume, a.Outputs)
++	sort.Slice(targets, func(i, j int) bool {
++		if targets[i].State == targets[j].State {
++			return targets[i].Key < targets[j].Key
++		}
++		return targets[i].State < targets[j].State
++	})
++	return targets, nil
++}
 diff --git a/ryoku/shell/ryogami/daemon/apply_test.go b/ryoku/shell/ryogami/daemon/apply_test.go
 index a38ea4c..7ac1c20 100644
 --- a/ryoku/shell/ryogami/daemon/apply_test.go
@@ -93,7 +276,7 @@ index a38ea4c..7ac1c20 100644
  	// Seed the poisoned state: both webps recorded as video with a transcode.
  	d.store.entries["still.webp"] = Entry{Key: "still.webp", Name: "still.webp", Type: "video", VideoFile: "anim/still.mp4"}
 diff --git a/ryoku/shell/ryogami/daemon/daemon.go b/ryoku/shell/ryogami/daemon/daemon.go
-index 9b7e35f..13e9551 100644
+index 9b7e35f..11f6e2d 100644
 --- a/ryoku/shell/ryogami/daemon/daemon.go
 +++ b/ryoku/shell/ryogami/daemon/daemon.go
 @@ -2,16 +2,21 @@ package main
@@ -118,7 +301,7 @@ index 9b7e35f..13e9551 100644
  )
  
  const (
-@@ -22,6 +27,244 @@ const (
+@@ -22,6 +27,261 @@ const (
  
  var connectionSequence atomic.Uint64
  
@@ -165,6 +348,11 @@ index 9b7e35f..13e9551 100644
 +	Mute    map[string]bool `json:"outputs_audio"`
 +	Volume  map[string]int  `json:"outputs_volume"`
 +}
++type brokerAudio struct {
++	Outputs []string `json:"outputs"`
++	Mute    *bool    `json:"mute,omitempty"`
++	Volume  *int     `json:"volume,omitempty"`
++}
 +type brokerPermit struct {
 +	Actor struct {
 +		PID   int    `json:"pid"`
@@ -179,6 +367,7 @@ index 9b7e35f..13e9551 100644
 +var brokerApply struct {
 +	sync.Mutex
 +	action *brokerAction
++	audio  *brokerAudio
 +}
 +
 +func brokerConsumeApply(reason, typ, path string, outputs []string, mute map[string]bool, volume map[string]int, record bool) bool {
@@ -333,14 +522,21 @@ index 9b7e35f..13e9551 100644
 +		return
 +	}
 +	var req request
-+	if json.Unmarshal(permit.Frame, &req) != nil || req.Method != "wall.apply" {
++	if json.Unmarshal(permit.Frame, &req) != nil || (req.Method != "wall.apply" && req.Method != "wall.set_audio") {
 +		return
 +	}
 +	var action brokerAction
++	var audio brokerAudio
 +	decoder = json.NewDecoder(strings.NewReader(string(req.Params)))
 +	decoder.DisallowUnknownFields()
-+	if decoder.Decode(&action) != nil || (action.Type != "static" && action.Type != "video") {
-+		return
++	if req.Method == "wall.apply" {
++		if decoder.Decode(&action) != nil || (action.Type != "static" && action.Type != "video") {
++			return
++		}
++	} else {
++		if decoder.Decode(&audio) != nil || !audio.valid() {
++			return
++		}
 +	}
 +	if !d.brokerLayoutMatches(permit.HomeSHA) {
 +		reply, _ := json.Marshal(errResp(req.ID, -32012, "loaded wallpaper state roots differ from enrolled restore-point locations; restart the service with an enrolled configuration"))
@@ -348,13 +544,17 @@ index 9b7e35f..13e9551 100644
 +		return
 +	}
 +	brokerApply.Lock()
-+	if brokerApply.action != nil {
++	if brokerApply.action != nil || brokerApply.audio != nil {
 +		brokerApply.Unlock()
 +		return
 +	}
-+	brokerApply.action = &action
++	if req.Method == "wall.apply" {
++		brokerApply.action = &action
++	} else {
++		brokerApply.audio = &audio
++	}
 +	brokerApply.Unlock()
-+	defer func() { brokerApply.Lock(); brokerApply.action = nil; brokerApply.Unlock() }()
++	defer func() { brokerApply.Lock(); brokerApply.action = nil; brokerApply.audio = nil; brokerApply.Unlock() }()
 +	req.BrokerApproved = true
 +	reply, _ := json.Marshal(d.dispatchRequest(&req))
 +	fmt.Fprintf(conn, "%s\n", reply)
@@ -363,7 +563,7 @@ index 9b7e35f..13e9551 100644
  // daemon wires the pieces: the wallpaper surface (rendered by the shell QML),
  // the catalog store (served to the picker), the event hub, and the managed
  // picker process. One unix socket serves everything.
-@@ -107,35 +350,13 @@ func (d *daemon) broadcast(name string, data interface{}) {
+@@ -107,35 +367,13 @@ func (d *daemon) broadcast(name string, data interface{}) {
  	d.events.publish(string(b))
  }
  
@@ -402,7 +602,7 @@ index 9b7e35f..13e9551 100644
  	d := &daemon{
  		cfg:            cfg,
  		surface:        newWallSurface(),
-@@ -152,7 +373,9 @@ func runDaemon() error {
+@@ -152,7 +390,9 @@ func runDaemon() error {
  	d.sources = newSources(d)
  	d.paper = newPaperClient(d)
  	d.workshop = newWorkshopLib(d)
@@ -413,7 +613,7 @@ index 9b7e35f..13e9551 100644
  	cfg = d.config()
  	// A finished pipeline replaced sources on disk, so the catalog rescans;
  	// every pipeline event also reaches subscribed clients untouched.
-@@ -178,7 +401,7 @@ func runDaemon() error {
+@@ -178,7 +418,7 @@ func runDaemon() error {
  
  	// livewall children must not outlive the daemon, and a previous daemon's
  	// orphans must not play under a fresh restore.
@@ -422,7 +622,7 @@ index 9b7e35f..13e9551 100644
  	go func() {
  		sig := make(chan os.Signal, 1)
  		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-@@ -197,44 +420,83 @@ func runDaemon() error {
+@@ -197,44 +437,83 @@ func runDaemon() error {
  	// Publish the empty snapshot so a subscriber before the first set sees a
  	// defined frame, then restore the last wallpaper and rescan the catalog.
  	d.surface.publishCurrent()
@@ -538,7 +738,7 @@ index 9b7e35f..13e9551 100644
  	}
  }
  
-@@ -585,6 +847,9 @@ func (d *daemon) resetCache() {
+@@ -585,6 +864,9 @@ func (d *daemon) resetCache() {
  // nothing extra today (thumbs are mtime-gated), it only bypasses the
  // one-at-a-time gate's early return so an explicit rebuild always runs.
  func (d *daemon) rescan(force bool) {
@@ -571,10 +771,10 @@ index 0d34a34..d3a9a3d 100644
  // live on the socket, never steal it: the interloper restores the saved
  // wallpaper over the running one and dies with the terminal, leaving the
 diff --git a/ryoku/shell/ryogami/daemon/e2e_test.go b/ryoku/shell/ryogami/daemon/e2e_test.go
-index d7a968a..ddbaa70 100644
+index d7a968a..fe83279 100644
 --- a/ryoku/shell/ryogami/daemon/e2e_test.go
 +++ b/ryoku/shell/ryogami/daemon/e2e_test.go
-@@ -1,86 +1,148 @@
+@@ -1,86 +1,150 @@
  package main
  
 -// Wiring proof against the real binary, ported from the Rust daemon's e2e
@@ -736,9 +936,11 @@ index d7a968a..ddbaa70 100644
 +}
 +
 +func (d *testDaemon) applyAction(id int, action brokerAction) string {
++	return d.approvedAction(id, "wall.apply", action)
++}
++func (d *testDaemon) approvedAction(id int, method string, params interface{}) string {
 +	d.t.Helper()
-+	frame, err := json.Marshal(map[string]interface{}{"id": id, "method": "wall.apply",
-+		"params": action})
++	frame, err := json.Marshal(map[string]interface{}{"id": id, "method": method, "params": params})
 +	if err != nil {
 +		d.t.Fatal(err)
 +	}
@@ -748,7 +950,7 @@ index d7a968a..ddbaa70 100644
 +	stat, err := os.ReadFile("/proc/self/stat")
 +	if err != nil {
 +		d.t.Fatal(err)
-+	}
+ 	}
 +	fields := strings.Fields(string(stat)[strings.LastIndex(string(stat), ") ")+2:])
 +	permit.Actor.Start, err = strconv.ParseUint(fields[19], 10, 64)
 +	if err != nil {
@@ -769,12 +971,12 @@ index d7a968a..ddbaa70 100644
 +	reply, err := io.ReadAll(conn)
 +	if err != nil {
 +		d.t.Fatal(err)
- 	}
++	}
 +	return strings.TrimSpace(string(reply))
  }
  
  func (d *testDaemon) send(line string) string {
-@@ -135,7 +197,7 @@ func TestE2EWallpaperTopicPublishesFrameOnSet(t *testing.T) {
+@@ -135,7 +199,7 @@ func TestE2EWallpaperTopicPublishesFrameOnSet(t *testing.T) {
  
  	img := filepath.Join(d.root, "wall.png")
  	writeE2EPNG(t, img)
@@ -783,7 +985,7 @@ index d7a968a..ddbaa70 100644
  		t.Fatalf("set reply: %s", got)
  	}
  	frame := readJSONLine(t, r)
-@@ -247,8 +309,7 @@ func TestE2EWallApplyPublishesTopicFrame(t *testing.T) {
+@@ -247,8 +311,7 @@ func TestE2EWallApplyPublishesTopicFrame(t *testing.T) {
  	r := bufio.NewReader(sub)
  	readJSONLine(t, r) // retained empty frame
  
@@ -793,7 +995,7 @@ index d7a968a..ddbaa70 100644
  	if !strings.Contains(reply, `"applied"`) {
  		t.Fatalf("apply replied: %s", reply)
  	}
-@@ -455,11 +516,91 @@ func TestE2EWallDeleteRequiresSubfolderCatalogKey(t *testing.T) {
+@@ -455,11 +518,91 @@ func TestE2EWallDeleteRequiresSubfolderCatalogKey(t *testing.T) {
  // A `wall.apply` must write that legacy state file with the applied path, or
  // those readers see a stale wallpaper (a saved rice grabs the wrong wall).
  func TestE2EWallApplyWritesLegacyState(t *testing.T) {
@@ -886,7 +1088,7 @@ index d7a968a..ddbaa70 100644
  	if !strings.Contains(reply, `"applied"`) {
  		t.Fatalf("apply replied: %s", reply)
  	}
-@@ -480,4 +621,13 @@ func TestE2EWallApplyWritesLegacyState(t *testing.T) {
+@@ -480,4 +623,189 @@ func TestE2EWallApplyWritesLegacyState(t *testing.T) {
  	if got != img {
  		t.Fatalf("state file = %q, want %q", got, img)
  	}
@@ -898,6 +1100,182 @@ index d7a968a..ddbaa70 100644
 +	loadJSON(filepath.Join(d.native.cfg.Paths.Cache, "outputs.json"), &outputs)
 +	if outputs["DP-1"]["mute"] != true || outputs["DP-1"]["volume"] != float64(40) {
 +		t.Fatalf("canonical outputs_audio/outputs_volume were not applied: %+v", outputs)
++	}
++}
++
++func TestE2EBrokerAudioPersistsOutputsAndActiveWorkspaceWithoutQueryBypass(t *testing.T) {
++	d := startDaemon(t)
++	img := filepath.Join(d.root, "wall.png")
++	writeE2EPNG(t, img)
++	if got := d.apply(50, img); !strings.Contains(got, `"applied"`) {
++		t.Fatal(got)
++	}
++	target := workspaceTarget{Provider: "hyprland", ID: "1", Output: "DP-1"}
++	key := workspaceKey(target.Provider, target.ID)
++	d.native.workspaces.state.Assignments[key] = workspaceWall{Provider: target.Provider, ID: target.ID, Output: target.Output, Type: "video", Path: img, Volume: 80}
++	d.native.workspaces.active[target.Output] = target
++	d.native.workspaces.saveLocked()
++	audio := brokerAudio{Outputs: []string{}, Mute: boolPtrForAudio(true), Volume: intPtrForAudio(25)}
++	before, err := os.ReadFile(d.native.workspaces.path())
++	if err != nil {
++		t.Fatal(err)
++	}
++	denied := d.send(`{"id":51,"method":"wall.set_audio","params":{"mute":true,"volume":25,"outputs":[]}}`)
++	if !strings.Contains(denied, `"error"`) {
++		t.Fatal(denied)
++	}
++	unchanged, _ := os.ReadFile(d.native.workspaces.path())
++	if string(before) != string(unchanged) {
++		t.Fatal("query audio wrote workspace")
++	}
++	got := d.approvedAction(52, "wall.set_audio", audio)
++	var result map[string]interface{}
++	if err := json.Unmarshal([]byte(got), &result); err != nil {
++		t.Fatal(err)
++	}
++	if result["result"].(map[string]interface{})["ok"] != true {
++		t.Fatal("upstream audio success shape changed")
++	}
++	if !strings.Contains(got, `"audio_written"`) || !strings.Contains(got, `"workspaces"`) || !strings.Contains(got, `"outputs"`) {
++		t.Fatal(got)
++	}
++	outputs := map[string]map[string]interface{}{}
++	loadJSON(filepath.Join(d.native.cfg.cacheDir(), "outputs.json"), &outputs)
++	ws := workspaceWallState{}
++	loadJSON(d.native.workspaces.path(), &ws)
++	if outputs["*"]["mute"] != true || outputs["*"]["volume"] != float64(25) || !ws.Assignments[key].Mute || ws.Assignments[key].Volume != 25 {
++		t.Fatalf("audio not persisted: %+v %+v", outputs, ws)
++	}
++	if _, err := d.native.brokerSetAudio(audio); err == nil {
++		t.Fatal("permit reused without private channel")
++	}
++	// Named outputs claimed by workspaces do not alter the shared fallback.
++	got = d.approvedAction(53, "wall.set_audio", brokerAudio{Outputs: []string{"DP-1"}, Volume: intPtrForAudio(40)})
++	if !strings.Contains(got, `"audio_written"`) || strings.Contains(got, `"outputs"`) {
++		t.Fatal(got)
++	}
++	loadJSON(filepath.Join(d.native.cfg.cacheDir(), "outputs.json"), &outputs)
++	if outputs["*"]["volume"] != float64(25) {
++		t.Fatal("claimed output changed fallback")
++	}
++	if d.native.surface.snapshot().Default.Volume != 40 {
++		t.Fatal("live audio frame was not republished")
++	}
++}
++func boolPtrForAudio(v bool) *bool { return &v }
++func intPtrForAudio(v int) *int    { return &v }
++
++func TestE2EBrokerAudioRefusesExternalTargetsAndLinkedStateWithoutWrites(t *testing.T) {
++	for _, refusal := range []string{"external", "symlink", "hardlink", "symlink-workspaces", "hardlink-workspaces"} {
++		t.Run(refusal, func(t *testing.T) {
++			d := startDaemon(t)
++			img := filepath.Join(d.root, "wall.png")
++			writeE2EPNG(t, img)
++			if got := d.apply(60, img); !strings.Contains(got, `"applied"`) {
++				t.Fatal(got)
++			}
++			path := filepath.Join(d.native.cfg.cacheDir(), "outputs.json")
++			target := workspaceTarget{Provider: "hyprland", ID: "1", Output: "DP-1"}
++			key := workspaceKey(target.Provider, target.ID)
++			typ := "static"
++			if refusal == "external" {
++				typ = "we"
++			}
++			d.native.workspaces.state.Assignments[key] = workspaceWall{Provider: target.Provider, ID: target.ID, Type: typ, Path: img, Volume: 80}
++			d.native.workspaces.active[target.Output] = target
++			d.native.workspaces.saveLocked()
++			if strings.HasSuffix(refusal, "-workspaces") {
++				path = d.native.workspaces.path()
++			}
++			outputsPath := filepath.Join(d.native.cfg.cacheDir(), "outputs.json")
++			outputsBefore, _ := os.ReadFile(outputsPath)
++			sentinel := filepath.Join(d.root, "sentinel.json")
++			if refusal != "external" {
++				data, _ := os.ReadFile(path)
++				if err := os.WriteFile(sentinel, data, 0o600); err != nil {
++					t.Fatal(err)
++				}
++				os.Remove(path)
++				var err error
++				if strings.HasPrefix(refusal, "symlink") {
++					err = os.Symlink(sentinel, path)
++				} else {
++					err = os.Link(sentinel, path)
++				}
++				if err != nil {
++					t.Fatal(err)
++				}
++			}
++			before, _ := os.ReadFile(path)
++			wsBefore, _ := os.ReadFile(d.native.workspaces.path())
++			got := d.approvedAction(61, "wall.set_audio", brokerAudio{Outputs: []string{}, Mute: boolPtrForAudio(true)})
++			if !strings.Contains(got, `"error"`) {
++				t.Fatal(got)
++			}
++			after, _ := os.ReadFile(path)
++			wsAfter, _ := os.ReadFile(d.native.workspaces.path())
++			outputsAfter, _ := os.ReadFile(outputsPath)
++			if string(before) != string(after) || string(wsBefore) != string(wsAfter) || string(outputsBefore) != string(outputsAfter) {
++				t.Fatal("refused audio wrote persistent state")
++			}
++			if refusal != "external" {
++				sentinelAfter, _ := os.ReadFile(sentinel)
++				if string(before) != string(sentinelAfter) {
++					t.Fatal("linked sentinel overwritten")
++				}
++				os.Remove(path)
++				if err := os.WriteFile(path, before, 0o600); err != nil {
++					t.Fatal(err)
++				}
++			} else {
++				wall := d.native.workspaces.state.Assignments[key]
++				wall.Type = "static"
++				d.native.workspaces.state.Assignments[key] = wall
++				d.native.workspaces.saveLocked()
++			}
++			got = d.approvedAction(62, "wall.set_audio", brokerAudio{Outputs: []string{}, Mute: boolPtrForAudio(true)})
++			if !strings.Contains(got, `"audio_written"`) {
++				t.Fatal(got)
++			}
++		})
++	}
++}
++func TestAtomicStateWritePreservesModeAndPredictableTempSentinel(t *testing.T) {
++	dir := t.TempDir()
++	path := filepath.Join(dir, "outputs.json")
++	sentinel := filepath.Join(dir, "sentinel")
++	if err := os.WriteFile(sentinel, []byte("sentinel"), 0o600); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.Symlink(sentinel, path+".tmp"); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(path, []byte("old"), 0o600); err != nil {
++		t.Fatal(err)
++	}
++	if err := atomicStateWrite(path, []byte("new")); err != nil {
++		t.Fatal(err)
++	}
++	info, _ := os.Stat(path)
++	if info.Mode().Perm() != 0o600 {
++		t.Fatal("private mode changed")
++	}
++	got, _ := os.ReadFile(sentinel)
++	if string(got) != "sentinel" {
++		t.Fatal("predictable temp link followed")
++	}
++	os.Remove(path)
++	os.Symlink(sentinel, path)
++	if err := atomicStateWrite(path, []byte("bad")); err == nil {
++		t.Fatal("leaf symlink accepted")
++	}
++	got, _ = os.ReadFile(sentinel)
++	if string(got) != "sentinel" {
++		t.Fatal("leaf link followed")
++	}
++	files, _ := filepath.Glob(filepath.Join(dir, ".ryogami-state-*"))
++	if len(files) != 0 {
++		t.Fatal("temporary files leaked")
 +	}
  }
 diff --git a/ryoku/shell/ryogami/daemon/hooks.go b/ryoku/shell/ryogami/daemon/hooks.go
@@ -1001,19 +1379,54 @@ index 5ef870f..1c7ee1f 100644
  		t.Fatalf("after default apply: restore want/applied = %d/%d, expected 1/1", want, applied)
  	}
 diff --git a/ryoku/shell/ryogami/daemon/rpc.go b/ryoku/shell/ryogami/daemon/rpc.go
-index da9f379..4b10b1f 100644
+index da9f379..04cc570 100644
 --- a/ryoku/shell/ryogami/daemon/rpc.go
 +++ b/ryoku/shell/ryogami/daemon/rpc.go
-@@ -7,6 +7,9 @@ const daemonVersion = "0.3.0"
+@@ -1,12 +1,18 @@
+ package main
+ 
+-import "fmt"
++import (
++	"encoding/json"
++	"fmt"
++)
+ 
+ const daemonVersion = "0.3.0"
+ 
  // dispatchRequest routes one JSON-RPC request. The method set and response
  // shapes are the wire contract the picker parses.
  func (d *daemon) dispatchRequest(req *request) response {
-+	if !brokerQuery(req.Method) && !(req.BrokerApproved && req.Method == "wall.apply") {
++	if !brokerQuery(req.Method) && !(req.BrokerApproved && (req.Method == "wall.apply" || req.Method == "wall.set_audio")) {
 +		return errResp(req.ID, -32001, "this action requires its typed Rust authorization and complete recovery envelope")
 +	}
  	p := req.params()
  	switch req.Method {
  	case "status":
+@@ -173,17 +179,15 @@ func (d *daemon) dispatchRequest(req *request) response {
+ 		return ok(req.ID, map[string]interface{}{"paused": paused})
+ 
+ 	case "wall.set_audio":
+-		var mute *bool
+-		if v, has := p["mute"].(bool); has {
+-			mute = &v
++		var audio brokerAudio
++		if json.Unmarshal(req.Params, &audio) != nil {
++			return errResp(req.ID, -32602, "invalid audio control")
+ 		}
+-		var volume *int
+-		if v, has := p["volume"].(float64); has {
+-			vol := clampVolume(int(v))
+-			volume = &vol
++		targets, err := d.brokerSetAudio(audio)
++		if err != nil {
++			return errResp(req.ID, -32001, err.Error())
+ 		}
+-		d.setAudio(mute, volume, strsParam(p, "outputs"))
+-		return ok(req.ID, map[string]interface{}{"ok": true})
++		return ok(req.ID, map[string]interface{}{"ok": true, "audio_written": targets})
+ 
+ 	case "picker.state":
+ 		visible := boolParam(p, "visible", false)
 diff --git a/ryoku/shell/ryogami/daemon/scan_test.go b/ryoku/shell/ryogami/daemon/scan_test.go
 index 6525017..dbf02c4 100644
 --- a/ryoku/shell/ryogami/daemon/scan_test.go
@@ -1029,10 +1442,23 @@ index 6525017..dbf02c4 100644
  	wall := filepath.Join(root, "wall")
  	cache := filepath.Join(root, "cache")
 diff --git a/ryoku/shell/ryogami/daemon/store.go b/ryoku/shell/ryogami/daemon/store.go
-index b917e99..6d4e80c 100644
+index b917e99..e8996a6 100644
 --- a/ryoku/shell/ryogami/daemon/store.go
 +++ b/ryoku/shell/ryogami/daemon/store.go
-@@ -53,7 +53,9 @@ func openStore(cacheDir string) *store {
+@@ -3,10 +3,12 @@ package main
+ import (
+ 	"bytes"
+ 	"encoding/json"
++	"fmt"
+ 	"os"
+ 	"path/filepath"
+ 	"sort"
+ 	"sync"
++	"syscall"
+ )
+ 
+ // Entry is one catalog row, serialized verbatim into wall.list responses. The
+@@ -53,7 +55,9 @@ func openStore(cacheDir string) *store {
  		state:   map[string]string{},
  		dir:     filepath.Join(cacheDir, "wallpaper"),
  	}
@@ -1043,6 +1469,61 @@ index b917e99..6d4e80c 100644
  	loadJSON(filepath.Join(s.dir, "index.json"), &s.entries)
  	loadJSON(filepath.Join(s.dir, "state.json"), &s.state)
  	return s
+@@ -85,17 +89,47 @@ func loadJSON(path string, into interface{}) {
+ 	_ = json.Unmarshal(resolvedJSON(b), into)
+ }
+ 
+-func saveJSON(path string, v interface{}) {
+-	b, err := json.Marshal(v)
++// Atomic replacement never opens the old destination or a predictable .tmp
++// alias. The caller's captured state contains only the final named file.
++func atomicStateWrite(path string, data []byte) error {
++	mode := os.FileMode(0o644)
++	if info, err := os.Lstat(path); err == nil {
++		st, ok := info.Sys().(*syscall.Stat_t)
++		if !info.Mode().IsRegular() || !ok || st.Nlink != 1 {
++			return fmt.Errorf("state destination is not an single-link regular file: %s", path)
++		}
++		mode = info.Mode().Perm()
++	} else if !os.IsNotExist(err) {
++		return err
++	}
++	f, err := os.CreateTemp(filepath.Dir(path), ".ryogami-state-*")
+ 	if err != nil {
+-		return
++		return err
+ 	}
+-	tmp := path + ".tmp"
+-	if err := os.WriteFile(tmp, portableJSON(b), 0o644); err != nil {
+-		return
++	tmp := f.Name()
++	defer os.Remove(tmp)
++	if err = f.Chmod(mode); err == nil {
++		_, err = f.Write(data)
++	}
++	if err == nil {
++		err = f.Sync()
++	}
++	if closeErr := f.Close(); err == nil {
++		err = closeErr
++	}
++	if err != nil {
++		return err
++	}
++	return os.Rename(tmp, path)
++}
++func saveJSONChecked(path string, v interface{}) error {
++	b, err := json.Marshal(v)
++	if err != nil {
++		return err
+ 	}
+-	_ = os.Rename(tmp, path)
++	return atomicStateWrite(path, portableJSON(b))
+ }
++func saveJSON(path string, v interface{}) { _ = saveJSONChecked(path, v) }
+ 
+ func (s *store) saveLocked() {
+ 	saveJSON(filepath.Join(s.dir, "index.json"), s.entries)
 diff --git a/ryoku/shell/ryogami/daemon/verbs.go b/ryoku/shell/ryogami/daemon/verbs.go
 index 4a7747e..64711b5 100644
 --- a/ryoku/shell/ryogami/daemon/verbs.go

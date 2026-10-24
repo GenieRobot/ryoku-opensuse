@@ -9,6 +9,9 @@ pub const PERSONAL_PROFILE: &str = ".config/ryoku/opensuse-profile.json";
 /// These are regular account-owned files; a link cannot enroll another asset.
 pub const WALLPAPER_STORE: &[&str] =
     &[".cache/ryogami/wallpaper/index.json", ".cache/ryogami/wallpaper/state.json"];
+pub const WALLPAPER_WORKSPACES: &str = ".cache/ryogami/workspaces.json";
+pub const WALLPAPER_PERSISTENT_STATE: &[&str] =
+    &[WALLPAPER_STORE[0], WALLPAPER_STORE[1], WALLPAPER_WORKSPACES];
 pub const WALLPAPER_STORE_MAX_BYTES: u64 = 16 * 1024 * 1024;
 
 pub const PREFERENCES: &[&str] = &[
@@ -86,4 +89,5 @@ pub const PREFERENCES: &[&str] = &[
     ".cache/ryogami/state.json",
     WALLPAPER_STORE[0],
     WALLPAPER_STORE[1],
+    WALLPAPER_WORKSPACES,
 ];

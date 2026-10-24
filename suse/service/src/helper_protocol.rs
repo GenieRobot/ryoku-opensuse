@@ -81,6 +81,7 @@ pub struct HelperResponse {
 pub enum HelperOutcome {
     Rejected(ServiceError),
     WallpaperApplied { operation_id: crate::OperationId, reply: Vec<u8> },
+    WallpaperAudioSet { operation_id: crate::OperationId, reply: Vec<u8> },
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -88,11 +89,15 @@ pub enum HelperOutcome {
 enum HelperOutcomeWire {
     Rejected { error: ServiceError },
     WallpaperApplied { operation_id: crate::OperationId, reply: Vec<u8> },
+    WallpaperAudioSet { operation_id: crate::OperationId, reply: Vec<u8> },
 }
 impl From<HelperOutcome> for HelperOutcomeWire {
     fn from(value: HelperOutcome) -> Self {
         match value {
             HelperOutcome::Rejected(error) => Self::Rejected { error },
+            HelperOutcome::WallpaperAudioSet { operation_id, reply } => {
+                Self::WallpaperAudioSet { operation_id, reply }
+            }
             HelperOutcome::WallpaperApplied { operation_id, reply } => {
                 Self::WallpaperApplied { operation_id, reply }
             }
@@ -103,6 +108,9 @@ impl From<HelperOutcomeWire> for HelperOutcome {
     fn from(value: HelperOutcomeWire) -> Self {
         match value {
             HelperOutcomeWire::Rejected { error } => Self::Rejected(error),
+            HelperOutcomeWire::WallpaperAudioSet { operation_id, reply } => {
+                Self::WallpaperAudioSet { operation_id, reply }
+            }
             HelperOutcomeWire::WallpaperApplied { operation_id, reply } => {
                 Self::WallpaperApplied { operation_id, reply }
             }
@@ -166,6 +174,15 @@ pub fn dispatch_operator_request(
             HelperRequest::ApplyWallpaper { action, rpc_id } => {
                 match crate::wallpaper::apply(&peer, operator_gid, action, rpc_id) {
                     Ok(completed) => HelperOutcome::WallpaperApplied {
+                        operation_id: completed.operation_id,
+                        reply: completed.reply,
+                    },
+                    Err(error) => HelperOutcome::Rejected(error),
+                }
+            }
+            HelperRequest::SetWallpaperAudio { action, rpc_id } => {
+                match crate::wallpaper::set_audio(&peer, operator_gid, action, rpc_id) {
+                    Ok(completed) => HelperOutcome::WallpaperAudioSet {
                         operation_id: completed.operation_id,
                         reply: completed.reply,
                     },
@@ -377,7 +394,7 @@ pub(crate) fn check_action_availability_until(
         }
         match response.outcome {
             HelperOutcome::Rejected(error) => Ok(error),
-            HelperOutcome::WallpaperApplied { .. } => {
+            HelperOutcome::WallpaperApplied { .. } | HelperOutcome::WallpaperAudioSet { .. } => {
                 Err(ProtocolError::Malformed("unexpected mutation response to availability probe"))
             }
         }
@@ -572,6 +589,39 @@ mod tests {
     use crate::{CheckpointId, ManagedActionKind, PackageId, authorize_helper_operator};
     use std::io::{BufRead, BufReader};
     use std::os::unix::net::UnixStream;
+
+    #[test]
+    fn audio_wire_and_dispatch_keep_action_authority_separate() {
+        let action = ryoku_recovery::wallpaper_protocol::WallpaperAudio {
+            outputs: vec![],
+            mute: Some(true),
+            volume: Some(35),
+        };
+        let envelope =
+            valid_envelope(HelperRequest::SetWallpaperAudio { action: action.clone(), rpc_id: 7 });
+        envelope.validate().unwrap();
+        let response = dispatch_operator_request(
+            PeerIdentity { uid: 1000, gid: 1000, supplementary_gids: vec![], pid: None },
+            4242,
+            envelope,
+        )
+        .unwrap();
+        assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
+        assert!(
+            valid_envelope(HelperRequest::SetWallpaperAudio { action, rpc_id: -1 })
+                .validate()
+                .is_err()
+        );
+        let success = HelperOutcome::WallpaperAudioSet {
+            operation_id: crate::OperationId::new("audio-wire-1").unwrap(),
+            reply: b"audio-reply".to_vec(),
+        };
+        let wire = serde_json::to_value(&success).unwrap();
+        assert_eq!(wire["result"], "wallpaper_audio_set");
+        assert!(wire.get("reply").is_some());
+        assert!(wire.get("error").is_none());
+        assert_eq!(serde_json::from_value::<HelperOutcome>(wire).unwrap(), success);
+    }
 
     #[test]
     fn wallpaper_success_wire_matches_proxy_and_preserves_rejection_shape() {

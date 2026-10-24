@@ -15,10 +15,10 @@ query allowlist and bounds replies; a UI never receives a native descriptor.
 The native daemon starts only with the Rust parent's inherited control fd and
 has no named listener/fallback. SCM_RIGHTS transfers one R or A connection at a
 time. R also checks the native query allowlist; A accepts exactly one canonical
-`wall.apply` frame/permit and EOF, returns one reply and closes. Labels alone
+`wall.apply` or `wall.set_audio` frame/permit and EOF, returns one reply and closes. Labels alone
 confer no public authority.
 
-Public static/video apply goes to the fixed root helper with a typed action and
+Public static/video apply and wallpaper audio control go to the fixed root helper with a typed action and
 RPC id. Kernel identity plus the existing operator-group policy authorize the
 account. The root provider resolves the unambiguous latest successful Complete
 post-checkpoint for that account, verifies its generation and live historical
@@ -46,12 +46,50 @@ The approved user apply persists the existing outputs/legacy wallpaper state and
 catalogue count. Exact persistent inventory includes
 `.cache/ryogami/outputs.json`, `.local/state/ryoku-wallpaper`, and the newly enrolled
 `.cache/ryogami/wallpaper/index.json` and `state.json`, alongside the existing
-installed Ryoku inventory. The two new files use no-follow regular-file policy
+installed Ryoku inventory. These persistent files use no-follow regular-file policy
 and the existing 16 MiB per-file capture cap. Referenced media and derived
 thumbnail/animation/transcode caches remain outside this persistent inventory;
 no recursive cache-directory enrollment is introduced. Static input is capped
 at 64 MiB and video at 8 GiB before hashing, with a ten-second hash deadline.
 Oversize state/input fails before mutation with an actionable error.
+
+## Protected wallpaper audio controls
+
+`wall.set_audio` has its own typed action, operation key, helper outcome and
+single-use permit. It accepts mute and/or integer volume 0–100 for at most sixteen
+unique output names. A lone `*` becomes the upstream all-output request. No apply,
+automatic, shell, file-path or provider action can share this permit.
+
+The actor preserves upstream active-workspace precedence and shared-output
+fallback, persists only selected outputs and active assignment audio, then
+republishes the live wallpaper frame. `.cache/ryogami/workspaces.json` is enrolled
+as an exact regular, single-link persistent file with the existing 16 MiB cap;
+absence, bytes and modes are captured and restored. No playlist/media directory
+is recursively enrolled. The root verifies the bounded, unique output/workspace
+receipt against captured post-state before a `wallpaper_audio_set` success.
+Native replies retain `result.ok=true` alongside that receipt.
+
+Every target and destination is checked before the first write. External/WE
+player effects require #175's provider route; the UI and original implementation
+remain present. Empty, oversized or unsupported target sets return a specific
+failure. Audio does not inherit #176 automatic restore/watch/theme permission.
+
+The existing state-save primitive now uses an exclusive random temporary file
+in the destination directory, syncs it and renames it atomically. It preserves
+an existing regular file's mode and refuses symlink/hardlink destinations;
+legacy wallpaper state uses the same primitive. Predictable `.tmp` aliases are
+never opened. Owned temporary files are removed on errors. The protected audio
+path propagates persistence errors through actor refreeze and failed journal
+handling, so a partial I/O failure cannot report success.
+
+Direct socket tests cover typed audio routing/denial without a query-channel
+write. Real native receiver tests exercise output plus active-workspace
+persistence, named-output precedence, live frame publication, query-channel
+refusal and single-use consumption. Both outputs and workspaces have symlink
+and hardlink no-write/sentinel checks followed by successful valid operations;
+an exclusive-temp sentinel/mode check covers the atomic primitive. These are
+local protocol/state proofs, not installed audio-device or full VM acceptance.
+See the [audio receipt](../infra/tumbleweed-lab/evidence/issue25-wallpaper-audio-20261025.toml).
 
 ## Loaded wallpaper roots and custom-path parity
 
@@ -113,7 +151,8 @@ claim the real theme worker or its template/reload effects protected or accepted
 | `state.set`, picker/library view state and retained provider settings | Retained; needs exact bounded state/credential contract | #175 |
 | Restore/workspace playback/reload, rotation, playlist playback, startup/watchers | Typed handoff or explicit unavailable; stored selection/assignment must be authoritative | #176 (library/playlist metadata also #175) |
 | Settings actions, post-process, theme/palette/stage/depth and shell hooks | Retained, own typed write/executable envelope; no automatic arbitrary shell | #176 |
-| User pause/audio/workspace assignment controls | Retained, unavailable pending exact core appearance plan/state contract | #25 with #176 for automatic effects |
+| User wallpaper mute/volume (`wall.set_audio`) | Root-authenticated single-use audio action with outputs/workspace capture and post-state receipt | #25; WE audio needs #175 |
+| User pause/workspace assignment controls | Retained, unavailable pending exact core appearance plan/state contract | #25 with #176 for automatic effects |
 | Lighting hardware state/control | Retained, unavailable pending the typed preference/provider contract | #180 after #25/#173/#175/#176; preserve the full lighting affordance |
 
 The method-by-method ledger below inventories the pinned dispatchers. An
@@ -140,7 +179,7 @@ exec-stop and signal-delivery semantics.
 Helper tests preserve Rejected wire shape and verify success fields/caller denial.
 Bundle tests reject missing/ambiguous/stale/account-mismatched provenance.
 
-The native daemon suite is **328 passing test/subtest cases, 7 declared missing
+The native daemon suite is **336 passing test/subtest cases, 7 declared missing
 ImageMagick skips, 9 exact cross-issue exclusions**, with no blanket E2E filter.
 Four initially excluded #25 fixtures were rewritten to anonymous native query/A
 channels and now pass:

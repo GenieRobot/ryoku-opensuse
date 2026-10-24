@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::wallpaper_protocol::{
-    ActorCall, ActorIdentity, MAX_ACTOR_REPLY_BYTES, bounded_line, parse_apply,
+    ActorCall, ActorIdentity, MAX_ACTOR_REPLY_BYTES, bounded_line, parse_change,
 };
 
 pub(crate) struct NativeActor {
@@ -83,7 +83,7 @@ impl NativeActor {
     pub(crate) fn apply(&self, call: &ActorCall) -> io::Result<Vec<u8>> {
         let deadline = Instant::now() + Duration::from_secs(30);
         call.validate(&self.identity()?).map_err(io::Error::other)?;
-        let (id, _) = parse_apply(&call.frame).map_err(io::Error::other)?;
+        let (id, _) = parse_change(&call.frame).map_err(io::Error::other)?;
         let mut connection = self.connection(ChannelKind::Approved)?;
         connection.set_write_timeout(Some(Duration::from_secs(5)))?;
         let mut permit = serde_json::to_vec(call).map_err(io::Error::other)?;

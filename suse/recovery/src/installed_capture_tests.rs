@@ -1074,12 +1074,12 @@ fn v1_wallpaper_store_is_bound_by_bytes_metadata_and_absence_without_media_enrol
     let absent = inventory.fingerprint(&fixture.source, &fixture.account).unwrap();
     let paths = inventory.paths_for_root(StateRoot::UserHome).unwrap();
     assert!(
-        crate::installed_inventory::WALLPAPER_STORE
+        crate::installed_inventory::WALLPAPER_PERSISTENT_STATE
             .iter()
             .all(|path| { paths.iter().any(|enrolled| enrolled.as_str() == *path) })
     );
     assert!(!paths.iter().any(|path| path.as_str().starts_with("Pictures/")));
-    for path in crate::installed_inventory::WALLPAPER_STORE {
+    for path in crate::installed_inventory::WALLPAPER_PERSISTENT_STATE {
         fixture.write(path, br#"{"selected":"synthetic"}"#, 0o600);
         let present = inventory.fingerprint(&fixture.source, &fixture.account).unwrap();
         assert_ne!(present, absent);
@@ -1145,7 +1145,7 @@ fn v1_wallpaper_store_accepts_large_catalogues_and_exact_capture_bound() {
     inventory.fingerprint(&fixture.source, &fixture.account).unwrap();
     drop(bytes);
     drop(catalogue);
-    for path in crate::installed_inventory::WALLPAPER_STORE {
+    for path in crate::installed_inventory::WALLPAPER_PERSISTENT_STATE {
         let file = File::create(root.join(path)).unwrap();
         fs::set_permissions(root.join(path), fs::Permissions::from_mode(0o600)).unwrap();
         file.set_len(crate::installed_inventory::WALLPAPER_STORE_MAX_BYTES).unwrap();

@@ -4,7 +4,7 @@
 //! paths. The installed catalogue enumerates bounded preferences from the
 //! pinned upstream runtime and the port-owned typed personal profile. Referenced
 //! wallpaper/media paths, credentials, derived caches and unrelated home data
-//! are never followed. The exact Ryogami catalogue/selection files under its
+//! are never followed. The exact Ryogami catalogue/selection/workspace files under its
 //! cache directory are persistent enrolled state. Immutable local bundles
 //! retain all profile layer inputs offline.
 //!
@@ -213,20 +213,20 @@ impl InstalledInventory {
                 writer: "pinned-session-preferences",
                 owner: Owner::Account,
                 kind: if *path == crate::installed_inventory::PERSONAL_PROFILE
-                    || crate::installed_inventory::WALLPAPER_STORE.contains(path)
+                    || crate::installed_inventory::WALLPAPER_PERSISTENT_STATE.contains(path)
                 {
                     Kind::Regular
                 } else {
                     Kind::Preference
                 },
-                modes: if crate::installed_inventory::WALLPAPER_STORE.contains(path) {
+                modes: if crate::installed_inventory::WALLPAPER_PERSISTENT_STATE.contains(path) {
                     &[0o600, 0o640, 0o644]
                 } else {
                     &[0o600, 0o640, 0o644, 0o777]
                 },
                 max_bytes: if *path == crate::installed_inventory::PERSONAL_PROFILE {
                     ryoku_profiles::MAX_PROFILE_DOCUMENT_BYTES as u64
-                } else if crate::installed_inventory::WALLPAPER_STORE.contains(path) {
+                } else if crate::installed_inventory::WALLPAPER_PERSISTENT_STATE.contains(path) {
                     crate::installed_inventory::WALLPAPER_STORE_MAX_BYTES
                 } else {
                     4 * 1024 * 1024
@@ -768,7 +768,7 @@ fn validate_wallpaper_state_location(home: &File) -> Result<(), GenerationCaptur
 }
 
 fn validate_wallpaper_store_capacity(home: &File) -> Result<(), GenerationCaptureError> {
-    for path in crate::installed_inventory::WALLPAPER_STORE {
+    for path in crate::installed_inventory::WALLPAPER_PERSISTENT_STATE {
         let file = match rustix::fs::openat2(
             home,
             *path,

@@ -1,0 +1,47 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+branch_parent = "ad4fbac87f1ce9eb896bbec9a9a0bb3ff735a583"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+scope = "Typed wallpaper audio controls with captured outputs and active workspace state"
+native_acceptance = false
+vm_access = false
+downloads = false
+
+[contract]
+public_method = "wall.set_audio"
+operation_key = "wallpaper-audio-v1"
+helper_request = "set_wallpaper_audio"
+helper_success = "wallpaper_audio_set; only after refreeze, verified post-state and durable Succeeded/Complete"
+parameters = "mute boolean and/or integer volume 0..100, at most 16 unique canonical output names; lone wildcard normalized to all outputs"
+write_set = [".cache/ryogami/outputs.json", ".cache/ryogami/workspaces.json"]
+workspace_capture = "Exact optional account-owned regular single-link path, bytes/mode bound; 16 MiB exact/+1 and alias/absence tests reuse persistent inventory regressions"
+receipt = "1..32 unique outputs/workspaces keys, at most 128 bytes each; root verifies requested audio fields in persisted post-state"
+atomic_persistence = "Exclusive random temporary file, preserved regular-file mode, sync/close/rename, cleanup on errors, no predictable .tmp follow; direct legacy wallpaper state uses same primitive"
+no_write_tests = "Native query refusal, permit reuse, external target, outputs symlink/hardlink and workspaces symlink/hardlink; all sentinels remain unchanged and subsequent enrolled audio succeeds"
+retained_behavior = "result.ok=true, active workspace precedence, shared-output fallback, live frame republish; all source/UI/aliases retained"
+
+[checks]
+format = "cargo fmt -p ryoku-recovery -p ryoku-service --check"
+clippy = "CARGO_INCREMENTAL=0 cargo clippy --offline --locked -p ryoku-recovery -p ryoku-service --all-targets -- -D warnings"
+rust = "CARGO_INCREMENTAL=0 cargo test --offline --locked -p ryoku-recovery -p ryoku-service"
+recovery_passed = 234
+recovery_existing_ignored = 6
+service_passed = 126
+service_existing_ignored = 1
+cli_passed = 26
+state_init_passed = 2
+writer_policy_passed = 1
+helper_policy_passed = 3
+rust_failed = 0
+native_passed_cases = 336
+native_missing_tool_skips = 7
+native_cross_issue_prerequisites = 9
+native_categories_disjoint = true
+native_missing_tool_tests = ["TestAutoOptimizeTouchesOnlyNewImages", "TestGradePreviewAndCommit", "TestOptimizeCancelStopsEarly", "TestOptimizeRunConvertsPNGs", "TestScanGeneratesThumb", "TestScanMergeMtimeChangeReprocesses", "TestScanSkipsFreshThumb"]
+native_excluded_prerequisite_tests = ["TestE2EDepthSetAndClearFoldIntoFrame", "TestE2EJSONRequestsAndEventsShareOneConnection", "TestE2EWallpaperNextAdvances", "TestE2EFavouriteSurvivesRescan", "TestE2ESetFavouriteBroadcastsCached", "TestE2EWallDeleteRequiresSubfolderCatalogKey", "TestEventsFlowWhileRequestRuns", "TestSlowSourceSearchDoesNotBlockStatusOnSameConnection", "TestClosingConnectionClearsSearchRegistry"]
+native_command = "GOFLAGS=-buildvcs=false GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -mod=vendor -skip '^(TestE2EDepthSetAndClearFoldIntoFrame|TestE2EJSONRequestsAndEventsShareOneConnection|TestE2EWallpaperNextAdvances|TestE2EFavouriteSurvivesRescan|TestE2ESetFavouriteBroadcastsCached|TestE2EWallDeleteRequiresSubfolderCatalogKey|TestEventsFlowWhileRequestRuns|TestSlowSourceSearchDoesNotBlockStatusOnSameConnection|TestClosingConnectionClearsSearchRegistry)$' -count=1 -json ./..."
+patch_replay = "16-file tracked appearance patch reproduces byte-for-byte; cached Source2/3 hashes and runtime SHA256SUMS pass; launch plus appearance RPM prep apply with fuzz=0"
+
+[remaining]
+required = ["Native 1.0 package/login/reboot/logout/KDE/audio-device/core workflow acceptance", "#175 external/WE audio and complete configured-root provider capture/restore", "#176 real theme/automatic/hook accounting; separate permits never inherited from user audio", "#25 retained pause/workspace-assignment contracts", "Separate Hyprland six-file overlay report completeness and #177 greeter handoff gate"]
