@@ -16,6 +16,9 @@ The current source review pin is v1.0.0 commit
 tree `06b2962f82f43118c3a98372c2a4b435b689b725`. The 2026-10-24 Arch and
 CachyOS ISO filenames both carry this source prefix. Those distribution images
 are provenance clues only; this project continues to target openSUSE Tumbleweed.
+The complete base-to-release path diff, directory scope, and openSUSE
+disposition are recorded in [the Ryoku 1.0 delta inventory](ryoku-v1.0-delta.md)
+and its [machine-readable path ledger](../upstream/ryoku-v1.0-path-delta.tsv).
 
 The release adds Fedora 44/45 RPM packaging and a `QtQuick3D` import in
 `ryoku/shell/quickshell/shell/modules/stage/StageSpatialScene.qml`. Fedora's

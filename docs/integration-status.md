@@ -1,5 +1,16 @@
 # Integration status (21 October 2026)
 
+## Ryoku 1.0 source refresh (24 October 2026)
+
+Upstream Ryoku 1.0.0 is pinned at `a59d051f0e8080052216f6c7b9eb7e5928935ce8`.
+The complete 0.75.5-to-1.0 path delta and openSUSE dispositions are recorded
+in [the release delta inventory](ryoku-v1.0-delta.md), with every changed path
+in [the TSV ledger](../upstream/ryoku-v1.0-path-delta.tsv). Follow-up
+[issue #173](https://github.com/GenieRobot/ryoku-opensuse/issues/173) now tracks
+payload closure, RPM dependency resolution, writer/session review and new VM
+acceptance. Current RPM runtime archives and issue #23 evidence remain on the
+previous pin; #25/#26 stay open pending refreshed acceptance.
+
 This status refresh supersedes the cleanup snapshot below. The older dated
 repository counts and next steps are retained as history, not current facts.
 The [roadmap and Luna handoff](https://github.com/GenieRobot/ryoku-opensuse/issues/1)
