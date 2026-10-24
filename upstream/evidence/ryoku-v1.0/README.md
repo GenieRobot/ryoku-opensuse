@@ -58,6 +58,14 @@ fetch/build and direct provider routes from the Hub query/refusal policy.
 It certifies source facts only; #180/#182 and their prerequisites retain the
 capabilities and own protected implementation/acceptance.
 
+`compositor-disposition.tsv` records all 221 current/prior WM/config paths
+(218 current, 155 prior). `compositor-api-boundary.json` pins 14 client/provider/
+helper sources and all 44 identical shared-WM vendor mirrors used by the
+selected Go modules. It records live preview, complete apply writes versus
+partial report, greeter handoff, helper launches and distribution planner
+boundaries with owners. This closes an inventory/API review unit, not the full
+per-operation compositor or native acceptance checklist.
+
 `shell-font-rights.json` records eleven selected shell font binary identities,
 decoded sfnt rights metadata and all active loader references. It establishes
 an unresolved redistribution evidence gate, not a legal conclusion or removal

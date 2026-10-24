@@ -7,6 +7,71 @@ Hyprland remains the initial session under #25; Niri #46 and Wayfire #185 are
 distinct retained targets. No component, plugin capability or source root is
 removed by this review.
 
+## Exact component and compiled-client boundary
+
+[`compositor-disposition.tsv`](../upstream/evidence/ryoku-v1.0/compositor-disposition.tsv)
+records 221 current/prior path identities: 218 current, 155 prior, with 66
+added, 69 modified, three old paths absent and 83 unchanged. Two old paths
+moved to `ryoku/keysounds` (R100 profiles and R085 import helper); one cursor
+tracking script was deleted. The ledger pins both relocated destinations with
+current blobs/modes and #25/#180/#182 ownership. These four roots have
+138 unique changed paths. The earlier 32 Niri / 42 Wayfire figures describe
+adapter changes nested inside the 117 `ryoku/wm` changes; they are not extra
+root-config counts. Hyprland config contributes 18, standalone Niri config one
+and standalone Wayfire config two. Source path moves/deletion are upstream facts,
+not removal of the corresponding full Tumbleweed feature target.
+
+| Current area | Files | Current Source3 / runtime recipe fact and owner |
+|---|---:|---|
+| `wm` shared root | 21 | Raw source selected. Eleven production Go files are shared client/model code; tests/module metadata remain source inputs. #25/#177/#180 and #27–29 own operation contracts. |
+| `wm/hyprland` | 34 | Raw source selected; current spec builds the private Hyprland adapter and installs its four QML bridge files. #25/#180/#182. |
+| `wm/niri` | 44 | Complete raw adapter source selected; its binary is not a current spec build/install target. Retain full Niri under #46. |
+| `wm/wayfire` | 42 | Complete raw adapter/decor source selected; its binary/plugin is not a current build/install target. Retain phased Wayfire under #185. |
+| `wm/vendor` | 15 | Exact vendored TOML dependency and notices; preserve its MIT COPYING under the existing license-copy recipe. |
+| `hyprland` config/helpers | 51 | Three modules selected as raw/patch inputs; other current source selection gaps are mapped to #25/#177/#180. No imported source script is treated as an authorized actuator. |
+| `niri` / `wayfire` config | 9 / 2 | Current export gaps, retained under #46/#185 for their native implementations. |
+
+[`compositor-api-boundary.json`](../upstream/evidence/ryoku-v1.0/compositor-api-boundary.json)
+pins 14 API/helper files with exact blobs/modes/digests and source anchors.
+It also checks all 44 shared-WM vendor mirrors: eleven production files each
+in IPC, Hub, Ryogami and CLI `vendor/ryoku-wm`. Every blob/mode equals the
+root WM source. Thus the audited shared client is present in the current
+`-mod=vendor` IPC/Hub/Ryogami builds; CLI remains raw-source-only. Hyprland's
+provider uses the root WM module. This avoids assuming that a root source
+file necessarily controls a separately vendored binary.
+
+## Shared client, apply and output semantics
+
+The three provider `main.go` dispatch tables are preserved in the evidence.
+Hyprland exposes caps/act/watch/apply/outputs/state/defaults/session/schema/
+binds/environment/plugins. Niri has import in place of plugins; Wayfire has
+pages. These are source API inventories, not accepted arbitrary argv routes.
+
+| Exact entry/call chain | Concrete effect and required owner contract |
+|---|---|
+| `wm.Client.Open/OpenNamed` → `providerCommandContext` | Builds `ryoku-wm-<name>` and invokes it with argv; detection accepts `RYOKU_WM` before session hints. PATH resolution and process-group cancellation are lifecycle behavior, not per-operation authorization. #25/#46/#185 require known provider identities and typed operation contracts. |
+| `DryRun` / `Preview` → `apply <store> --preview` → Hyprland `pushEval(liveLua(o))` | The path attempts a live `hyprctl eval` before returning its report. File-free preview is not pure discovery. Preserve preview and pure compatibility discovery as distinct #25/#180 capabilities. Source review executes neither. |
+| Hyprland `runApply` → `writeOverlayLua` | Generates settings.lua, settings_window.lua and rebinds.lua in both `hypr/` and `ryoku/user_edits/hypr/` under the configured config home: six persistent files. `ApplyReport.Written` lists only the three live paths, so #25/#18/#20 capture must derive the complete inventory rather than trust that report. |
+| `runApply` → `wm.PublishGreeterNumlock` | Also writes the numlock handoff, default `/var/lib/ryoku/greeter-numlock`, with mode 0666 requested at creation. Source environment overrides can select another path. #177 owns cross-account greeter policy and #25 must bind the exact accepted write scope; this report is not proof of permissions or root execution. |
+| `runOutputs` / mirror action → `runMonitor` | Starts PATH-resolved `ryoku-monitor`; output reports monitors.lua after the helper returns. Its exact upstream script is outside current Source3 selection and no current port spec installs that command. Preserve display/layout/mirror behavior through #25/#180; actual host availability and native result remain unverified. |
+| Scratchpad `runWorkspaceHelper` | Runs `scripts/ryoku-workspace` inside the user's Hyprland config. That source helper is also outside current Source3 selection. User-config script execution has user-account data access; preserve scratchpad behavior with the owned typed boundary, including #176 hook policy where applicable. |
+| `runCtl` / session | Runs hyprctl and resolves live sockets under XDG_RUNTIME_DIR/hypr or /tmp/hypr. Socket/detection/provider success and session-entry text do not certify authentication, managed configuration or KDE fallback; #25/#177 native gates remain open. |
+| Shared `Reclaim/VerifyRemoval` | Plans/rechecks outgoing package sets using DNF/XBPS/Pacman-specific queries and no Zypper adapter. These functions are planners, not successful removals. Preserve WM switching/reclaim via #27 plans, #28 transactions, #29 presentation and #46/#185 provider semantics. |
+
+All these effects are conditional source paths. This unit reads pinned Git
+objects and package recipes, not live sockets/config/credentials. Upstream
+root LICENSE/NOTICE and the vendored TOML COPYING remain source provenance;
+complete provider/plugin/asset licensing and native dependency closure remain
+open. The full feature target includes live preview, display controls,
+scratchpad, session switching and every compositor; current package gaps are
+implementation work, not feature exclusions.
+
+The ledger/anchor/vendor checks validate exact immutable identities, current
+manifest selection, source-line context and owner classification. Per-action
+arity/data bounds, all compositor live/persistent effects, complete capture/
+restore accounting and actual runtime acceptance remain open. This inventory
+does not check the entire compositor checklist item complete.
+
 ## Hyprland plugin discovery and code execution
 
 [`hyprland-plugin-boundary.json`](../upstream/evidence/ryoku-v1.0/hyprland-plugin-boundary.json)
