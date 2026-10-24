@@ -21,6 +21,11 @@ the RPM also installs the notices in this directory with `%license`.
   retains its AGPL-3.0 license text and attribution. Upstream root NOTICE
   identifies Serpantinum revision `cfdd810` as AGPL-3.0-or-later. It is not
   relicensed as the root project's GPL-only code.
+- Stage and iNiR each retain
+  `modules/common/widgets/shapes/LICENSE`, exact Git blob
+  `261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64`. Both files contain the
+  Apache License version 2.0; the runtime RPM's license expression now
+  includes `Apache-2.0`. The files remain beside their geometry/JS assets.
 
 `sound-theme-freedesktop-CREDITS` is copied verbatim from the official
 `sound-theme-freedesktop-0.8.tar.bz2` source archive at

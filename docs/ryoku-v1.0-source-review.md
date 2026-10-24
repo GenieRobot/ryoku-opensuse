@@ -203,3 +203,53 @@ KDE fallback and recovery checks pass with exact new artifacts.
 License provenance and the CC-BY-SA version limitation are recorded in
 `packaging/licenses/ryoku-v1.0/README.md`. PR #174 stays draft/open until every
 #173 acceptance item, including native/license closure, is verified.
+
+## Bounded native staging and source-only follow-up
+
+The source candidate was rebased onto merged #24 main
+`51e5911635f31b71a05a2bd640306f0f482bc88b`, preserving its installer behavior.
+Release `0.1.0-8` distinguishes the refreshed desktop/helper/defaults/tools
+content and exact dependencies from #24's historical `0.1.0-7` payload.
+Quickshell remains upstream `0.3.2`, packaging Release 3. Rebased candidate
+`925fb7129cfc4f86d162583fa62a7c71a24434e3` passed exact-head hosted CI and
+the offline workspace/Clippy/source/spec checks before native staging.
+
+The old SDK disk is only read-only backing for a private builder overlay;
+its measured identity is in `builder-cache.toml`. Its SDK had the required
+Rust/Cargo 1.99 and base Qt 6.11.2, but no cached RPM payloads. A no-refresh
+solve against its exact signed 20261016 OSS metadata selected 68 missing
+packages, 33,470,129 bytes. Rust `rpm-md-index solver-selection` matches the
+full name/architecture/edition against the verified primary index and rejects
+other operations/repositories, missing identities, duplicates and count
+changes. Its three tests and the real 68-package selection passed before
+the host cache cleanup. All 68 downloaded SHA-512s match the signed index;
+all 136 RPM header/payload RSA/SHA-512 signatures verify with key ID
+`29b700a4`. No repository metadata refresh or unrelated input download was
+performed. The existing five Qt/KDE import RPMs remain available for reuse.
+
+Native build/install did not begin: host Windows C: fell below the required
+10 GiB free-space guard, despite sufficient guest space. The sole builder
+was paused at a 176,619,520-byte overlay; its original backing/firmware and
+all source inputs remain preserved. No native build, package install or
+runtime result is credited. The deleted host debug cache is not rebuilt
+while that guard is unsatisfied. Source-only validation uses formatting,
+whitespace and native `rpmspec` metadata checks; full Cargo reruns and native
+acceptance wait for storage recovery.
+
+The new native `WaveCapture` reads sink identity using `pactl get-default-sink`
+and `pactl list short`, then reads PCM from `pw-record` stdout. These process
+dependencies cannot be inferred from ELF scanning. Exact signed-index package
+records for `pulseaudio-utils` 17.0-7.6 and `pipewire-tools` 1.6.9-2.1 are
+retained in `wavecapture-provider-candidates.json`. That index establishes
+package/version/digest/location, but does not retain their complete file
+lists. The payloads are not locally cached and the VM is paused, so actual
+ownership of `/usr/bin/pactl` and `/usr/bin/pw-record`, solver compatibility
+and resulting hard runtime requirements remain unverified. No dependency or
+virtual Provide is invented from a package name. `SystemMonitor` only opens
+proc/sys/hardware data read-only; Spatial3D accepts absolute local image
+paths and generates geometry without persistent writes or process launches.
+
+The retained Stage/iNiR shape license files were also checked directly at
+the pinned Git blob `261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64`: both are
+Apache-2.0. The runtime license metadata now includes that verified license;
+the broader native/license acceptance gate remains open.
