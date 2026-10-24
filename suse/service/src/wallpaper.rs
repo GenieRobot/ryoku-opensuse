@@ -1,0 +1,602 @@
+//! Root-side wallpaper operation. A client supplies an action, never a plan,
+//! checkpoint, bundle choice, command, actor permit or success attestation.
+use crate::{
+    ManagedActionKind, OperationId, OperationPhase, PeerIdentity, ServiceError,
+    account_state::AccountStateRoot,
+    authorize_helper_operator,
+    helper_protocol::prepare_operator_account,
+    mutation_gate::{
+        GateError, LinkedGeneration, MutationStage, PlannedChange, VerifiedLinkedGeneration,
+    },
+    native_mutation::{
+        NativeMutationProvider, NativeMutationRequest, ProtectedMutationHistory,
+        review_operator_plan, run_operator_mutation,
+    },
+};
+use ryoku_recovery::{
+    AccountPrincipal, OperationReason, PackageName, PackageRevision, Revision,
+    capture_session::NativeCaptureSession,
+    generation::GenerationReader,
+    installed_capture::{InstalledInventory, InventoryError},
+    installed_profiles::{ProfileBundleStore, VerifiedProfileBundle},
+    native_checkpoint::verify_historical_root_checkpoint,
+    wallpaper_protocol::{self as wire, ActorCall, WallpaperApply, WallpaperKind},
+};
+use serde::Serialize;
+use std::{
+    fs::File,
+    io::Read,
+    os::{fd::AsRawFd, unix::fs::MetadataExt},
+    path::{Component, Path},
+    process::{Command, Stdio},
+    sync::atomic::{AtomicU64, Ordering},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+};
+
+static NEXT_OPERATION: AtomicU64 = AtomicU64::new(0);
+const REQUIRED_PACKAGES: &[&str] =
+    &["ryoku-desktop", "ryoku-desktop-runtime", "ryoku-profile-defaults"];
+const MAX_STATIC_SOURCE_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_VIDEO_SOURCE_BYTES: u64 = 8 * 1024 * 1024 * 1024;
+
+pub struct CompletedWallpaper {
+    pub operation_id: OperationId,
+    pub reply: Vec<u8>,
+}
+
+pub fn apply(
+    peer: &PeerIdentity,
+    operator_gid: u32,
+    action: WallpaperApply,
+    rpc_id: i64,
+) -> Result<CompletedWallpaper, ServiceError> {
+    authorize_helper_operator(peer, operator_gid)?;
+    if rustix::process::geteuid().as_raw() != 0 || rpc_id < 0 || action.validate().is_err() {
+        return Err(ServiceError::Unauthorized);
+    }
+    let account = prepare_operator_account(peer, operator_gid)?;
+    let home = account.capture_home().map_err(|_| ServiceError::RecoveryUnavailable)?;
+    open_source(&home, account.uid(), &action.path, action.kind).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::InvalidInput {
+            ServiceError::Malformed("wallpaper_source_capacity".into())
+        } else {
+            ServiceError::Malformed("wallpaper_source_unavailable".into())
+        }
+    })?;
+    if let Err(error) = InstalledInventory::for_home(&home) {
+        return Err(match error {
+            ryoku_recovery::generation_capture::GenerationCaptureError::Inventory(
+                InventoryError::WallpaperStoreCapacity { .. },
+            ) => ServiceError::Malformed("wallpaper_state_capacity".into()),
+            _ => ServiceError::RecoveryUnavailable,
+        });
+    }
+    let principal =
+        account.capture_account().map_err(|_| ServiceError::RecoveryUnavailable)?.principal;
+    let packages = installed_packages().map_err(|_| ServiceError::RecoveryUnavailable)?;
+    let (bundle, selected_timestamp) = current_bundle(&principal, &packages)?;
+    let created_utc = utc_now().map_err(|_| ServiceError::RecoveryUnavailable)?;
+    if created_utc <= selected_timestamp {
+        return Err(ServiceError::Busy);
+    }
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| ServiceError::RecoveryUnavailable)?;
+    let operation_id = OperationId::new(format!(
+        "wallpaper-{}-{}-{}",
+        now.as_secs(),
+        now.subsec_nanos(),
+        NEXT_OPERATION.fetch_add(1, Ordering::Relaxed)
+    ))
+    .map_err(|_| ServiceError::Failed)?;
+    let mut provider = WallpaperProvider {
+        account,
+        peer,
+        operator_gid,
+        action,
+        rpc_id,
+        bundle: &bundle,
+        packages: packages.clone(),
+    };
+    let planned = review_operator_plan(peer, operator_gid, &mut provider).map_err(gate_error)?;
+    let reply = run_operator_mutation(
+        peer,
+        operator_gid,
+        NativeMutationRequest {
+            operation_id: operation_id.clone(),
+            action: ManagedActionKind::ApplyWallpaper,
+            reason: OperationReason::ProviderChange,
+            planned,
+            created_utc,
+            packages,
+            bundle: &bundle,
+        },
+        &mut provider,
+    )
+    .map_err(gate_error)?;
+    // run_operator_mutation returns only after durable Complete and independently
+    // verified post capture. Reopen the protected record before replying.
+    let history = ProtectedMutationHistory::open().map_err(gate_error)?;
+    let status = history.journal().get(&operation_id).ok_or(ServiceError::RecoveryUnavailable)?;
+    let context = history
+        .journal()
+        .mutation_context(&operation_id)
+        .ok_or(ServiceError::RecoveryUnavailable)?;
+    if status.phase != OperationPhase::Succeeded
+        || status.error.is_some()
+        || context.stage != MutationStage::Complete
+        || context.outcome.is_some()
+        || context.post_checkpoint.is_none()
+    {
+        return Err(ServiceError::RecoveryUnavailable);
+    }
+    Ok(CompletedWallpaper { operation_id, reply })
+}
+
+struct WallpaperProvider<'a> {
+    account: AccountStateRoot,
+    peer: &'a PeerIdentity,
+    operator_gid: u32,
+    action: WallpaperApply,
+    rpc_id: i64,
+    bundle: &'a VerifiedProfileBundle,
+    packages: Vec<PackageRevision>,
+}
+impl NativeMutationProvider for WallpaperProvider<'_> {
+    type Output = Vec<u8>;
+    fn plan(&mut self, session: &NativeCaptureSession) -> Result<PlannedChange, GateError> {
+        self.account.revalidate().map_err(|_| GateError::PlanChanged)?;
+        self.bundle.revalidate().map_err(|_| GateError::CheckpointUnverified)?;
+        if installed_packages().map_err(|_| GateError::PlanChanged)? != self.packages
+            || !self.bundle.bundle().matches_packages(&self.packages)
+        {
+            return Err(GateError::PlanChanged);
+        }
+        let home = self.account.capture_home().map_err(|_| GateError::PlanChanged)?;
+        let source =
+            source_identity(&home, self.account.uid(), &self.action.path, self.action.kind)
+                .map_err(|_| GateError::PlanChanged)?;
+        let actor = session.wallpaper_actor().map_err(|_| GateError::PlanChanged)?;
+        let bytes = serde_json::to_vec(&serde_json::json!({"action":self.action,"rpc_id":self.rpc_id,"source":source,"actor":actor,"bundle":self.bundle.id(),"packages":self.packages})).map_err(|_| GateError::InvalidPlan)?;
+        Ok(PlannedChange {
+            operation_key: "wallpaper-apply-v1".into(),
+            plan_fingerprint: wire::digest(&bytes),
+            affected_state_fingerprint: "00".repeat(32),
+        })
+    }
+    fn authorize(&mut self, plan: &PlannedChange) -> Result<(), GateError> {
+        authorize_helper_operator(self.peer, self.operator_gid)
+            .map_err(|_| GateError::PreflightFailed)?;
+        if plan.operation_key != "wallpaper-apply-v1" {
+            return Err(GateError::InvalidPlan);
+        }
+        self.account.revalidate().map_err(|_| GateError::PlanChanged)
+    }
+    fn apply(
+        &mut self,
+        proof: &VerifiedLinkedGeneration,
+        session: &NativeCaptureSession,
+    ) -> Result<Vec<u8>, GateError> {
+        let plan = self.plan(session)?;
+        self.authorize(&plan)?;
+        let frame = self.action.frame(self.rpc_id).map_err(|_| GateError::InvalidPlan)?;
+        // The digest is built here from the helper's current exact plan and
+        // linked proof, not accepted from the public peer.
+        let plan_sha256 = wire::digest(
+            &serde_json::to_vec(&(plan, proof.linked())).map_err(|_| GateError::InvalidPlan)?,
+        );
+        let call = ActorCall {
+            actor: session.wallpaper_actor().map_err(|_| GateError::PlanChanged)?,
+            plan_sha256,
+            frame_sha256: wire::digest(&frame),
+            frame,
+        };
+        let reply = session.apply_wallpaper_actor(&call).map_err(|_| GateError::ApplyFailed)?;
+        let value: serde_json::Value =
+            serde_json::from_slice(&reply).map_err(|_| GateError::ApplyFailed)?;
+        if value.get("id").and_then(serde_json::Value::as_i64) != Some(self.rpc_id)
+            || value.get("error").is_some()
+            || value
+                .get("result")
+                .and_then(|result| result.get("applied"))
+                .and_then(serde_json::Value::as_str)
+                .is_none()
+        {
+            return Err(GateError::ApplyFailed);
+        }
+        Ok(reply)
+    }
+    fn health_check(&mut self, _: &Vec<u8>) -> Result<(), GateError> {
+        self.account.revalidate().map_err(|_| GateError::PostChangeFailed)?;
+        let home = self.account.capture_home().map_err(|_| GateError::PostChangeFailed)?;
+        let outputs = read_home(&home, ".cache/ryogami/outputs.json", 4 * 1024 * 1024)
+            .map_err(|_| GateError::PostChangeFailed)?;
+        let outputs: serde_json::Value =
+            serde_json::from_slice(&outputs).map_err(|_| GateError::PostChangeFailed)?;
+        let home_path = std::fs::read_link(format!("/proc/self/fd/{}", home.as_raw_fd()))
+            .map_err(|_| GateError::PostChangeFailed)?;
+        let portable = self
+            .action
+            .path
+            .strip_prefix(home_path.to_str().ok_or(GateError::PostChangeFailed)?)
+            .map(|tail| format!("~{tail}"));
+        let targets = if self.action.outputs.is_empty() {
+            vec!["*".to_owned()]
+        } else {
+            self.action.outputs.clone()
+        };
+        for target in targets {
+            let state = outputs.get(&target).ok_or(GateError::PostChangeFailed)?;
+            let path = state
+                .get("path")
+                .and_then(serde_json::Value::as_str)
+                .ok_or(GateError::PostChangeFailed)?;
+            let expected_type = match self.action.kind {
+                WallpaperKind::Static => "static",
+                WallpaperKind::Video => "video",
+            };
+            if (path != self.action.path && portable.as_deref() != Some(path))
+                || state.get("type").and_then(serde_json::Value::as_str) != Some(expected_type)
+            {
+                return Err(GateError::PostChangeFailed);
+            }
+        }
+        Ok(())
+    }
+    fn cancellation_requested(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Clone)]
+struct BundleCandidate {
+    transaction: ryoku_recovery::Identifier,
+    timestamp: String,
+    principal: AccountPrincipal,
+    revision: Revision,
+    packages: Vec<PackageRevision>,
+}
+fn choose_bundle<'a>(
+    candidates: &'a [BundleCandidate],
+    principal: &AccountPrincipal,
+    packages: &[PackageRevision],
+) -> Result<&'a BundleCandidate, ServiceError> {
+    let mut matching =
+        candidates.iter().filter(|candidate| &candidate.principal == principal).collect::<Vec<_>>();
+    if matching.iter().any(|candidate| !ryoku_recovery::is_utc_timestamp(&candidate.timestamp)) {
+        return Err(ServiceError::RecoveryUnavailable);
+    }
+    matching.sort_by(|left, right| left.timestamp.cmp(&right.timestamp));
+    let newest = matching.pop().ok_or(ServiceError::RecoveryUnavailable)?;
+    if matching.last().is_some_and(|other| other.timestamp == newest.timestamp)
+        || !package_association_matches(&newest.packages, packages)
+    {
+        return Err(ServiceError::RecoveryUnavailable);
+    }
+    Ok(newest)
+}
+fn current_bundle(
+    principal: &AccountPrincipal,
+    packages: &[PackageRevision],
+) -> Result<(VerifiedProfileBundle, String), ServiceError> {
+    let history = ProtectedMutationHistory::open().map_err(gate_error)?;
+    let root = File::open("/").map_err(|_| ServiceError::RecoveryUnavailable)?;
+    let reader =
+        GenerationReader::open_state_mount().map_err(|_| ServiceError::RecoveryUnavailable)?;
+    let mut candidates = Vec::new();
+    for status in history.journal().statuses() {
+        if status.phase != OperationPhase::Succeeded || status.error.is_some() {
+            continue;
+        }
+        let context = history
+            .journal()
+            .mutation_context(&status.operation_id)
+            .ok_or(ServiceError::RecoveryUnavailable)?;
+        if context.stage != MutationStage::Complete || context.outcome.is_some() {
+            return Err(ServiceError::RecoveryUnavailable);
+        }
+        let post = context.post_checkpoint.as_ref().ok_or(ServiceError::RecoveryUnavailable)?;
+        let linked = reader
+            .open_historical_transaction(&root, &post.transaction_id)
+            .map_err(|_| ServiceError::RecoveryUnavailable)?;
+        if LinkedGeneration::from_verified_generation(linked.generation()).map_err(gate_error)?
+            != *post
+        {
+            return Err(ServiceError::RecoveryUnavailable);
+        }
+        let manifest = linked.generation().manifest();
+        let Some(account) = manifest.account_principal() else {
+            return Err(ServiceError::RecoveryUnavailable);
+        };
+        let revision = manifest
+            .profile_revision
+            .as_ref()
+            .ok_or(ServiceError::RecoveryUnavailable)?
+            .profile_revision
+            .clone();
+        candidates.push(BundleCandidate {
+            transaction: manifest.transaction_id.clone(),
+            timestamp: manifest.created_utc.clone(),
+            principal: account.clone(),
+            revision,
+            packages: manifest.package_revisions().to_vec(),
+        });
+    }
+    let selected = choose_bundle(&candidates, principal, packages)?;
+    let selected_linked = reader
+        .open_historical_transaction(&root, &selected.transaction)
+        .map_err(|_| ServiceError::RecoveryUnavailable)?;
+    verify_historical_root_checkpoint(&root, selected_linked.snapshot().receipt())
+        .map_err(|_| ServiceError::RecoveryUnavailable)?;
+    let bundle = ProfileBundleStore::open_state_mount()
+        .and_then(|store| store.load_revision(&selected.revision))
+        .map_err(|_| ServiceError::RecoveryUnavailable)?;
+    if !bundle.bundle().matches_packages(packages) {
+        return Err(ServiceError::RecoveryUnavailable);
+    }
+    bundle.revalidate().map_err(|_| ServiceError::RecoveryUnavailable)?;
+    Ok((bundle, selected.timestamp.clone()))
+}
+fn package_association_matches(saved: &[PackageRevision], installed: &[PackageRevision]) -> bool {
+    installed.iter().all(|current| {
+        saved.iter().find(|old| old.package_name == current.package_name).is_some_and(|old| {
+            old.before_nevra == current.before_nevra
+                && old.after_nevra.is_none()
+                && old.upstream_revision == current.upstream_revision
+        })
+    })
+}
+
+#[derive(Serialize)]
+struct SourceIdentity {
+    dev: u64,
+    ino: u64,
+    size: u64,
+    changed: (i64, i64),
+    sha256: String,
+}
+fn validate_source_size(kind: WallpaperKind, size: u64) -> std::io::Result<()> {
+    let maximum = match kind {
+        WallpaperKind::Static => MAX_STATIC_SOURCE_BYTES,
+        WallpaperKind::Video => MAX_VIDEO_SOURCE_BYTES,
+    };
+    if size == 0 || size > maximum {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "wallpaper source exceeds the verified static/video input capacity",
+        ));
+    }
+    Ok(())
+}
+fn open_source(home: &File, uid: u32, source: &str, kind: WallpaperKind) -> std::io::Result<File> {
+    let home_path = std::fs::read_link(format!("/proc/self/fd/{}", home.as_raw_fd()))?;
+    let share = File::open("/usr/share")?;
+    let (root, relative, owner) = if let Ok(relative) = Path::new(source).strip_prefix(&home_path) {
+        (home, relative, uid)
+    } else {
+        (&share, Path::new(source).strip_prefix("/usr/share").map_err(std::io::Error::other)?, 0)
+    };
+    if relative.components().any(|part| !matches!(part, Component::Normal(_))) {
+        return Err(std::io::Error::other("wallpaper source is not a canonical account path"));
+    }
+    let file = File::from(rustix::fs::openat2(
+        root,
+        relative,
+        rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC | rustix::fs::OFlags::NONBLOCK,
+        rustix::fs::Mode::empty(),
+        rustix::fs::ResolveFlags::BENEATH
+            | rustix::fs::ResolveFlags::NO_SYMLINKS
+            | rustix::fs::ResolveFlags::NO_MAGICLINKS
+            | rustix::fs::ResolveFlags::NO_XDEV,
+    )?);
+    let metadata = file.metadata()?;
+    if !metadata.is_file()
+        || metadata.uid() != owner
+        || metadata.mode() & 0o022 != 0
+        || metadata.mode() & 0o400 == 0
+        || (owner == 0 && metadata.mode() & 0o004 == 0)
+    {
+        return Err(std::io::Error::other("wallpaper source is not a stable readable file"));
+    }
+    validate_source_size(kind, metadata.len())?;
+    Ok(file)
+}
+fn source_identity(
+    home: &File,
+    uid: u32,
+    source: &str,
+    kind: WallpaperKind,
+) -> std::io::Result<SourceIdentity> {
+    let mut file = open_source(home, uid, source, kind)?;
+    let metadata = file.metadata()?;
+    use sha2::{Digest, Sha256};
+    let mut hash = Sha256::new();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut bytes = [0; 64 * 1024];
+    loop {
+        let count = file.read(&mut bytes)?;
+        if Instant::now() >= deadline {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "wallpaper source hashing deadline exceeded",
+            ));
+        }
+        if count == 0 {
+            break;
+        }
+        hash.update(&bytes[..count]);
+    }
+    let current = file.metadata()?;
+    if (current.dev(), current.ino(), current.size(), current.ctime(), current.ctime_nsec())
+        != (
+            metadata.dev(),
+            metadata.ino(),
+            metadata.size(),
+            metadata.ctime(),
+            metadata.ctime_nsec(),
+        )
+    {
+        return Err(std::io::Error::other("wallpaper source changed"));
+    }
+    Ok(SourceIdentity {
+        dev: metadata.dev(),
+        ino: metadata.ino(),
+        size: metadata.size(),
+        changed: (metadata.ctime(), metadata.ctime_nsec()),
+        sha256: format!("{:x}", hash.finalize()),
+    })
+}
+fn read_home(home: &File, path: &str, maximum: u64) -> std::io::Result<Vec<u8>> {
+    let file = File::from(rustix::fs::openat2(
+        home,
+        path,
+        rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC | rustix::fs::OFlags::NONBLOCK,
+        rustix::fs::Mode::empty(),
+        rustix::fs::ResolveFlags::BENEATH
+            | rustix::fs::ResolveFlags::NO_SYMLINKS
+            | rustix::fs::ResolveFlags::NO_MAGICLINKS
+            | rustix::fs::ResolveFlags::NO_XDEV,
+    )?);
+    if !file.metadata()?.is_file() || file.metadata()?.len() > maximum {
+        return Err(std::io::Error::other("wallpaper state exceeds bound"));
+    }
+    let mut bytes = Vec::new();
+    file.take(maximum + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > maximum {
+        return Err(std::io::Error::other("wallpaper state exceeds bound"));
+    }
+    Ok(bytes)
+}
+fn installed_packages() -> Result<Vec<PackageRevision>, String> {
+    REQUIRED_PACKAGES
+        .iter()
+        .map(|name| {
+            let output = Command::new("/usr/bin/timeout")
+                .env_clear()
+                .env("LC_ALL", "C")
+                .args([
+                    "--signal=TERM",
+                    "--kill-after=1s",
+                    "5s",
+                    "/usr/bin/rpm",
+                    "-q",
+                    "--qf",
+                    "%{NAME}-%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n",
+                    name,
+                ])
+                .stdin(Stdio::null())
+                .output()
+                .map_err(|error| error.to_string())?;
+            if !output.status.success() || output.stdout.len() > 1024 {
+                return Err("required wallpaper package unavailable".into());
+            }
+            let text = std::str::from_utf8(&output.stdout).map_err(|error| error.to_string())?;
+            if text.lines().count() != 1 || !text.starts_with(&format!("{name}-")) {
+                return Err("ambiguous wallpaper package inventory".into());
+            }
+            Ok(PackageRevision {
+                package_name: PackageName::new(*name).map_err(|error| format!("{error:?}"))?,
+                before_nevra: Some(
+                    Revision::new(text.trim_end()).map_err(|error| format!("{error:?}"))?,
+                ),
+                after_nevra: None,
+                upstream_revision: None,
+            })
+        })
+        .collect()
+}
+fn utc_now() -> Result<String, String> {
+    let output = Command::new("/usr/bin/timeout")
+        .env_clear()
+        .args([
+            "--signal=TERM",
+            "--kill-after=1s",
+            "3s",
+            "/usr/bin/date",
+            "-u",
+            "+%Y-%m-%dT%H:%M:%SZ",
+        ])
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|error| error.to_string())?;
+    if !output.status.success() || output.stdout.len() > 64 {
+        return Err("UTC timestamp unavailable".into());
+    }
+    let value = std::str::from_utf8(&output.stdout)
+        .map_err(|error| error.to_string())?
+        .trim_end()
+        .to_owned();
+    if !ryoku_recovery::is_utc_timestamp(&value) {
+        return Err("UTC timestamp is not canonical".into());
+    }
+    Ok(value)
+}
+fn gate_error(error: GateError) -> ServiceError {
+    match error {
+        GateError::RecoveryRequired
+        | GateError::CheckpointUnverified
+        | GateError::PostChangeFailed => ServiceError::RecoveryUnavailable,
+        GateError::InsufficientSpace => ServiceError::Malformed("wallpaper_state_capacity".into()),
+        GateError::PlanChanged => ServiceError::StaleRequest,
+        _ => ServiceError::Failed,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn principal(name: &str) -> AccountPrincipal {
+        AccountPrincipal::from_account(1000, 1000, name, "/home/fixture").unwrap()
+    }
+    fn package(version: &str) -> PackageRevision {
+        PackageRevision {
+            package_name: PackageName::new("ryoku-profile-defaults").unwrap(),
+            before_nevra: Some(Revision::new(version).unwrap()),
+            after_nevra: None,
+            upstream_revision: None,
+        }
+    }
+    fn candidate(time: &str, who: &str, version: &str) -> BundleCandidate {
+        BundleCandidate {
+            transaction: ryoku_recovery::Identifier::new("fixture-post").unwrap(),
+            timestamp: time.into(),
+            principal: principal(who),
+            revision: Revision::new("bundle-sha256-fixture").unwrap(),
+            packages: vec![package(version)],
+        }
+    }
+    #[test]
+    fn bundle_selection_is_account_bound_orders_timestamps_and_rejects_ties_or_stale_packages() {
+        let current = vec![package("v2")];
+        let candidates = vec![
+            candidate("2026-10-24T10:00:00Z", "fixture", "v1"),
+            candidate("2026-10-24T10:01:00Z", "other", "v2"),
+            candidate("2026-10-24T10:00:01Z", "fixture", "v2"),
+        ];
+        assert_eq!(
+            choose_bundle(&candidates, &principal("fixture"), &current).unwrap().timestamp,
+            "2026-10-24T10:00:01Z"
+        );
+        let mut tied = candidates.clone();
+        tied.push(candidate("2026-10-24T10:00:01Z", "fixture", "v2"));
+        assert!(choose_bundle(&tied, &principal("fixture"), &current).is_err());
+        assert!(choose_bundle(&candidates, &principal("unknown"), &current).is_err());
+        assert!(choose_bundle(&candidates, &principal("fixture"), &[package("v3")]).is_err());
+        let invalid = vec![candidate("2026-10-24T25:00:00Z", "fixture", "v2")];
+        assert!(choose_bundle(&invalid, &principal("fixture"), &current).is_err());
+        assert!(choose_bundle(&[], &principal("fixture"), &current).is_err());
+    }
+    #[test]
+    fn static_and_video_input_capacity_is_checked_before_reading() {
+        for (kind, maximum) in [
+            (WallpaperKind::Static, MAX_STATIC_SOURCE_BYTES),
+            (WallpaperKind::Video, MAX_VIDEO_SOURCE_BYTES),
+        ] {
+            assert!(validate_source_size(kind, maximum).is_ok());
+            assert!(validate_source_size(kind, maximum + 1).is_err());
+            assert!(validate_source_size(kind, 0).is_err());
+        }
+        assert!(validate_source_size(WallpaperKind::Video, MAX_STATIC_SOURCE_BYTES + 1).is_ok());
+        assert!(validate_source_size(WallpaperKind::Static, MAX_STATIC_SOURCE_BYTES + 1).is_err());
+    }
+}

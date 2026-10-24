@@ -119,6 +119,7 @@ printf '7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be  %%s\n'
 mkdir upstream-writers
 tar -xJf %{SOURCE3} -C upstream-writers
 patch --batch --forward --fuzz=0 -p1 -d upstream-writers < upstream/patches/issue18-writer-launch.patch
+patch --batch --forward --fuzz=0 -p1 -d upstream-writers < upstream/patches/issue25-ryogami-broker.patch
 
 %build
 CARGO_NET_OFFLINE=true cargo \

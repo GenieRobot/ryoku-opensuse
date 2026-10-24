@@ -3,8 +3,10 @@
 //! `InstalledInventory` cannot be deserialized or constructed from a client's
 //! paths. The installed catalogue enumerates bounded preferences from the
 //! pinned upstream runtime and the port-owned typed personal profile. Referenced
-//! wallpaper/media paths, credentials, caches and unrelated home data are never
-//! followed. Immutable local bundles retain all profile layer inputs offline.
+//! wallpaper/media paths, credentials, derived caches and unrelated home data
+//! are never followed. The exact Ryogami catalogue/selection files under its
+//! cache directory are persistent enrolled state. Immutable local bundles
+//! retain all profile layer inputs offline.
 //!
 //! The service must resolve these descriptors (the user descriptor comes from
 //! its authenticated account resolver), validate the protected store, and hold

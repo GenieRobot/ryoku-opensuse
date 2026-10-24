@@ -33,9 +33,13 @@ const NO_LINKS: ResolveFlags =
 /// plan. Only audited providers may call this API; no RPC accepts callbacks.
 pub trait NativeMutationProvider {
     type Output;
-    fn plan(&mut self) -> Result<PlannedChange>;
+    fn plan(&mut self, session: &NativeCaptureSession) -> Result<PlannedChange>;
     fn authorize(&mut self, plan: &PlannedChange) -> Result<()>;
-    fn apply(&mut self, checkpoint: &VerifiedLinkedGeneration) -> Result<Self::Output>;
+    fn apply(
+        &mut self,
+        checkpoint: &VerifiedLinkedGeneration,
+        session: &NativeCaptureSession,
+    ) -> Result<Self::Output>;
     fn health_check(&mut self, output: &Self::Output) -> Result<()>;
     fn cancellation_requested(&self) -> bool;
 }
@@ -80,7 +84,7 @@ pub fn review_operator_plan<P: NativeMutationProvider>(
         account.capture_home().map_err(|_| GateError::PreflightFailed)?,
     )
     .map_err(|_| GateError::CheckpointUnverified)?;
-    let mut plan = provider.plan()?;
+    let mut plan = provider.plan(&session)?;
     plan.affected_state_fingerprint =
         session.inventory_fingerprint().map_err(|_| GateError::PlanChanged)?.as_str().into();
     account.revalidate().map_err(|_| GateError::PlanChanged)?;
@@ -197,7 +201,7 @@ struct NativeIntegration<'a, P> {
 }
 impl<P: NativeMutationProvider> NativeIntegration<'_, P> {
     fn current_plan(&mut self) -> Result<PlannedChange> {
-        let mut plan = self.provider.plan()?;
+        let mut plan = self.provider.plan(self.session)?;
         plan.affected_state_fingerprint = self
             .session
             .inventory_fingerprint()
@@ -355,7 +359,7 @@ impl<P: NativeMutationProvider> MutationIntegration for NativeIntegration<'_, P>
         if !self.recheck(&self.request.planned.clone(), proof)? {
             return Err(GateError::PlanChanged);
         }
-        self.provider.apply(proof)
+        self.provider.apply(proof, self.session)
     }
     fn health_check(&mut self, output: &Self::Output, _: &VerifiedLinkedGeneration) -> Result<()> {
         self.boundary()?;

@@ -1,9 +1,10 @@
 //! Versioned user-service protocol, durable operation journal, and narrow
 //! Linux helper authorization primitives.
 //!
-//! This crate deliberately contains no command runner and accepts no caller
-//! supplied executable, path, shell text, or provider arguments. Mutations are
-//! rejected until an integration can supply verified linked-capture evidence.
+//! Callers cannot supply executables, shell text, plans or checkpoint proofs.
+//! The typed wallpaper runner accepts a bounded source path, independently
+//! authorizes and plans it, and requires verified linked pre/post captures.
+//! Other mutation families remain unsupported at the helper boundary.
 
 pub mod account_state;
 pub mod helper_protocol;
@@ -14,6 +15,7 @@ pub mod native_mutation;
 pub mod protected_state;
 pub mod runtime;
 mod runtime_paths;
+pub mod wallpaper;
 
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -202,6 +204,7 @@ pub enum ManagedActionKind {
     ApplyProfile,
     CreateCheckpoint,
     RestoreCheckpoint,
+    ApplyWallpaper,
 }
 
 impl From<&ManagedAction> for ManagedActionKind {
@@ -337,6 +340,10 @@ pub fn read_envelope(reader: &mut impl BufRead) -> Result<Envelope, ProtocolErro
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HelperRequest {
+    ApplyWallpaper {
+        action: ryoku_recovery::wallpaper_protocol::WallpaperApply,
+        rpc_id: i64,
+    },
     /// Non-mutating availability probe used to connect the user daemon to the
     /// installed helper boundary while provider operations remain unavailable.
     CheckAvailability {
@@ -361,6 +368,12 @@ pub enum HelperRequest {
 impl HelperRequest {
     pub fn validate(&self) -> Result<(), ProtocolError> {
         let (transaction, manifest) = match self {
+            Self::ApplyWallpaper { action, rpc_id } => {
+                if *rpc_id < 0 || action.validate().is_err() {
+                    return Err(ProtocolError::Malformed("invalid wallpaper action"));
+                }
+                return Ok(());
+            }
             Self::CheckAvailability { .. } => return Ok(()),
             Self::VerifyLinkedCheckpoint { transaction_id, manifest_id }
             | Self::ApplyPackageTransaction { transaction_id, manifest_id, .. }

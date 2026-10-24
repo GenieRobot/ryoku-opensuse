@@ -51,6 +51,9 @@ pub mod state_creation;
 #[cfg(target_os = "linux")]
 pub mod state_mount;
 pub mod state_provision;
+mod wallpaper_channel;
+pub mod wallpaper_protocol;
+mod wallpaper_proxy;
 #[cfg(target_os = "linux")]
 mod writer_command_policy;
 mod writer_freeze;
@@ -885,7 +888,8 @@ fn is_uuid(value: &str) -> bool {
         })
 }
 
-fn is_utc_timestamp(value: &str) -> bool {
+/// Validate the exact UTC second format used in sealed generation manifests.
+pub fn is_utc_timestamp(value: &str) -> bool {
     let bytes = value.as_bytes();
     if bytes.len() != 20
         || bytes[4] != b'-'

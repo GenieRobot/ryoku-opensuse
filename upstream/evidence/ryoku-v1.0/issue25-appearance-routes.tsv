@@ -1,0 +1,100 @@
+method	source	transport	owner_or_gate
+effects.commit	rpc.go	retained-guarded-unavailable	#175
+effects.discard	rpc.go	retained-guarded-unavailable	#175
+effects.list	daemon.go,rpc.go	bounded-query	#25
+effects.preview	daemon.go,rpc.go	retained-guarded-unavailable	#175
+grade.commit	rpc.go	retained-guarded-unavailable	#175
+grade.preview	daemon.go,rpc.go	retained-guarded-unavailable	#175
+library.pollingIntervalSeconds	library_watch_status.go	retained-guarded-unavailable	#175
+library.status	rpc_extended.go	retained-guarded-unavailable	#175
+lighting.	rpc_extended.go	retained-guarded-unavailable	coordinator: hardware-provider owner required
+lighting.apply	lighting.go	retained-guarded-unavailable	coordinator: hardware-provider owner required
+lighting.enable	lighting.go	retained-guarded-unavailable	coordinator: hardware-provider owner required
+lighting.follow	lighting.go	retained-guarded-unavailable	coordinator: hardware-provider owner required
+lighting.release	lighting.go	retained-guarded-unavailable	coordinator: hardware-provider owner required
+lighting.save	lighting.go	retained-guarded-unavailable	coordinator: hardware-provider owner required
+lighting.scan	lighting.go	retained-guarded-unavailable	coordinator: hardware-provider owner required
+lighting.set	lighting.go	retained-guarded-unavailable	coordinator: hardware-provider owner required
+lighting.state	lighting.go	retained-guarded-unavailable	coordinator: hardware-provider owner required
+optimize.cancel	rpc.go	retained-guarded-unavailable	#175
+optimize.start	rpc.go	retained-guarded-unavailable	#175
+optimize.status	daemon.go,rpc.go	bounded-query	#25
+palette.	rpc_extended.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+palette.hover	theme_dispatch.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+palette.preview	daemon.go,theme_dispatch.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+picker.state	rpc.go	retained-guarded-unavailable	#175
+playlist.add	rpc.go	retained-guarded-unavailable	#175 metadata; #176 automatic playback
+playlist.assign	rpc.go	retained-guarded-unavailable	#175 metadata; #176 automatic playback
+playlist.create	rpc.go	retained-guarded-unavailable	#175 metadata; #176 automatic playback
+playlist.delete	rpc.go	retained-guarded-unavailable	#175 metadata; #176 automatic playback
+playlist.list	daemon.go,rpc.go	bounded-query	#25
+playlist.members	daemon.go,rpc.go	bounded-query	#25
+playlist.memberships	daemon.go,rpc.go	bounded-query	#25
+playlist.move	rpc.go	retained-guarded-unavailable	#175 metadata; #176 automatic playback
+playlist.play_now	rpc.go	retained-guarded-unavailable	#175 metadata; #176 automatic playback
+playlist.remove	rpc.go	retained-guarded-unavailable	#175 metadata; #176 automatic playback
+playlist.stop	rpc.go	retained-guarded-unavailable	#175 metadata; #176 automatic playback
+playlist.toggle	rpc.go	retained-guarded-unavailable	#175 metadata; #176 automatic playback
+playlist.update	rpc.go	retained-guarded-unavailable	#175 metadata; #176 automatic playback
+power.status	rpc_extended.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+schedule.	rpc_extended.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+schedule.applyOnStart	schedule.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+schedule.get	schedule_rpc.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+schedule.set	schedule_rpc.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+semantic.	rpc_extended.go	retained-guarded-unavailable	#175
+semantic.enabled	lens_index.go	retained-guarded-unavailable	#175
+semantic.indexProfile	lens_index.go	retained-guarded-unavailable	#175
+semantic.manifest	lens_index.go	retained-guarded-unavailable	#175
+semantic.query	daemon.go,lens_rpc.go	retained-guarded-unavailable	#175
+semantic.status	lens_rpc.go	retained-guarded-unavailable	#175
+settings.	rpc_extended.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+settings.action	settings_rpc.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+settings.get	settings_rpc.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+settings.reset	settings_rpc.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+settings.schema	settings_rpc.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+settings.set	settings_rpc.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+source.	rpc_extended.go	retained-guarded-unavailable	#175
+source.cancel	rpc_sources.go	retained-guarded-unavailable	#175
+source.download	rpc_sources.go	retained-guarded-unavailable	#175
+source.preview	rpc_sources.go	retained-guarded-unavailable	#175
+source.providers	rpc_sources.go	retained-guarded-unavailable	#175
+source.search	rpc_sources.go	retained-guarded-unavailable	#175
+state.get	daemon.go,rpc.go	bounded-query	#25
+state.set	rpc.go	retained-guarded-unavailable	#175
+status	daemon.go,main.go,rpc.go	bounded-query	#25
+subscribe	daemon.go	bounded-query	#25
+task.	rpc_extended.go	retained-guarded-unavailable	#175
+task.control	tasks_rpc.go	retained-guarded-unavailable	#175
+task.list	tasks_rpc.go	retained-guarded-unavailable	#175
+theme.	rpc_extended.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+theme.apps	theme_dispatch.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+theme.designer.delete	theme_dispatch.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+theme.designer.load	theme_dispatch.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+theme.designer.save	theme_dispatch.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+theme.previews	daemon.go,theme_dispatch.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+upscale.cancel	rpc.go	retained-guarded-unavailable	#175
+upscale.start	rpc.go	retained-guarded-unavailable	#175
+upscale.status	daemon.go,rpc.go	bounded-query	#25
+wall.apply	rpc.go	protected-static-video-only	#25; WE #175; theme #176
+wall.assign	rpc.go	retained-guarded-unavailable	#25 core state contract; #176 automatic effects
+wall.cache_rebuild	rpc.go	retained-guarded-unavailable	#175
+wall.delete	rpc.go	retained-guarded-unavailable	#175
+wall.list	daemon.go,rpc.go	bounded-query	#25
+wall.outputs	daemon.go,rpc.go	bounded-query	#25
+wall.pause	rpc.go	retained-guarded-unavailable	#25 core state contract; #176 automatic effects
+wall.random_start	rpc.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+wall.rotation_status	daemon.go,rpc.go	bounded-query	#25
+wall.rotation_stop	rpc.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
+wall.set_audio	rpc.go	retained-guarded-unavailable	#25 core state contract; #176 automatic effects
+wall.set_favourite	rpc.go	retained-guarded-unavailable	#175
+wall.unassign	rpc.go	retained-guarded-unavailable	#25 core state contract; #176 automatic effects
+wall.workspaces	daemon.go,rpc.go	bounded-query	#25
+wallhaven.	rpc_extended.go	retained-guarded-unavailable	#175
+wallhaven.collections	rpc_sources.go	retained-guarded-unavailable	#175
+wm.focusedOutput	daemon.go,rpc.go	bounded-query	#25
+workshop.	rpc_extended.go	retained-guarded-unavailable	#175
+workshop.download	rpc_workshop.go	retained-guarded-unavailable	#175
+workshop.list	rpc_workshop.go	retained-guarded-unavailable	#175
+workshop.properties	rpc_workshop.go	retained-guarded-unavailable	#175
+workshop.search	rpc_workshop.go	retained-guarded-unavailable	#175
+workshop.setProperty	rpc_workshop.go	retained-guarded-unavailable	#175

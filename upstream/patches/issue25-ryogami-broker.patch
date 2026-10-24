@@ -1,0 +1,1032 @@
+diff --git a/ryoku/shell/ipc/ryogami.go b/ryoku/shell/ipc/ryogami.go
+index 316de02..9ace19c 100644
+--- a/ryoku/shell/ipc/ryogami.go
++++ b/ryoku/shell/ipc/ryogami.go
+@@ -153,6 +153,27 @@ func missingDepth(f ryogamiFrame) bool {
+ 	return false
+ }
+ 
++// Preserve the wallpaper-driven stage/theme feature through its Rust-owned
++// automatic-action handoff. Issue176 owns execution, the complete declared
++// write envelope and linked checkpoint; a wallpaper frame is not permission.
++func wallpaperHandoff(action string, frame ryogamiFrame) {
++	request, err := json.Marshal(map[string]interface{}{
++		"method": "broker.automatic", "params": map[string]interface{}{"action": action, "frame": frame}, "id": 0,
++	})
++	if err != nil {
++		return
++	}
++	reply, err := ryogamiCmd(string(request))
++	if err != nil {
++		fmt.Fprintln(os.Stderr, "wallpaper automatic handoff unavailable")
++		return
++	}
++	var result map[string]json.RawMessage
++	if json.Unmarshal([]byte(reply), &result) != nil || result["error"] != nil {
++		fmt.Fprintln(os.Stderr, "wallpaper automatic action awaits its constrained Rust owner (#176)")
++	}
++}
++
+ // consumeRyogamiFrames mirrors ryogami's wallpaper topic into d.ryoWall and
+ // wakes the workers: a changed picture reschedules the stage cutout AND the
+ // palette pass (the dynamic matugen pipeline follows the wallpaper), while a
+@@ -173,10 +194,10 @@ func (d *daemon) consumeRyogamiFrames(r io.Reader) {
+ 		d.ryoWall = f
+ 		d.ryoWallMu.Unlock()
+ 		if wakeDepth {
+-			d.scheduleStage()
++			wallpaperHandoff("shell.wallpaper.stage", f)
+ 		}
+ 		if srcChanged {
+-			d.scheduleTheme()
++			wallpaperHandoff("shell.wallpaper.theme", f)
+ 		}
+ 	}
+ }
+diff --git a/ryoku/shell/ryogami/daemon/apply.go b/ryoku/shell/ryogami/daemon/apply.go
+index 3d23bef..bf387c1 100644
+--- a/ryoku/shell/ryogami/daemon/apply.go
++++ b/ryoku/shell/ryogami/daemon/apply.go
+@@ -18,12 +18,20 @@ import (
+ // video_engine knob: "ryogami" (the C player + READY handshake, default) or
+ // "in_shell" (the clip publishes as videoPath and the shell decodes it).
+ func (d *daemon) applyWallpaperReasonRecord(reason, wpType, path, mode string, outputs []string, mute map[string]bool, volume map[string]int, record bool) error {
++	if !brokerConsumeApply(reason, wpType, path, outputs, mute, volume, record) {
++		brokerReplayPending(reason, wpType, path, outputs, mute, volume, record)
++		return fmt.Errorf("wallpaper apply requires its exact single-use Rust permit")
++	}
+ 	if path == "" {
+ 		return fmt.Errorf("missing 'path' parameter")
+ 	}
+ 	if _, err := os.Stat(path); err != nil {
+ 		return fmt.Errorf("wallpaper not readable: %v", err)
+ 	}
++	// Creation belongs to this exact authorized write window, never read-only startup.
++	if err := os.MkdirAll(d.store.dir, 0o755); err != nil {
++		return fmt.Errorf("wallpaper catalogue directory: %w", err)
++	}
+ 	// An empty caller set means every output; a named set a guard emptied leaves nothing to paint.
+ 	req := &applyRequest{Type: wpType, Path: path, Outputs: outputs, Reason: reason}
+ 	pickOnly := false
+@@ -59,7 +67,7 @@ func (d *daemon) applyWallpaperReasonRecord(reason, wpType, path, mode string, o
+ 	paint := path
+ 	prefs := wallPrefs()
+ 	// Stop any Wallpaper Engine scene on these outputs so the two renderers do not overdraw.
+-	if d.paper != nil {
++	if d.paper != nil && brokerAutomaticAllowed("wallpaper-engine.stop") {
+ 		_ = d.paper.stop(stopTargets(outputs))
+ 	}
+ 	// A switch away from a live clip must drop any transcode still in flight
+diff --git a/ryoku/shell/ryogami/daemon/apply_test.go b/ryoku/shell/ryogami/daemon/apply_test.go
+index a38ea4c..7ac1c20 100644
+--- a/ryoku/shell/ryogami/daemon/apply_test.go
++++ b/ryoku/shell/ryogami/daemon/apply_test.go
+@@ -32,6 +32,10 @@ func TestHealAnimatedWebp(t *testing.T) {
+ 	var cfg config
+ 	cfg.Paths.Wallpaper = wall
+ 	cfg.Paths.Cache = cache
++	// openStore is read-only before broker approval; seed the fixture directory explicitly.
++	if err := os.MkdirAll(filepath.Join(cache, "wallpaper"), 0o755); err != nil {
++		t.Fatal(err)
++	}
+ 	d := &daemon{cfg: cfg, store: openStore(cache)}
+ 	// Seed the poisoned state: both webps recorded as video with a transcode.
+ 	d.store.entries["still.webp"] = Entry{Key: "still.webp", Name: "still.webp", Type: "video", VideoFile: "anim/still.mp4"}
+diff --git a/ryoku/shell/ryogami/daemon/daemon.go b/ryoku/shell/ryogami/daemon/daemon.go
+index 9b7e35f..2c72f31 100644
+--- a/ryoku/shell/ryogami/daemon/daemon.go
++++ b/ryoku/shell/ryogami/daemon/daemon.go
+@@ -2,16 +2,21 @@ package main
+ 
+ import (
+ 	"bufio"
++	"crypto/sha256"
+ 	"encoding/json"
+ 	"fmt"
++	"io"
+ 	"net"
+ 	"os"
+ 	"os/signal"
+ 	"path/filepath"
++	"reflect"
++	"strconv"
+ 	"strings"
+ 	"sync"
+ 	"sync/atomic"
+ 	"syscall"
++	"time"
+ )
+ 
+ const (
+@@ -22,6 +27,224 @@ const (
+ 
+ var connectionSequence atomic.Uint64
+ 
++// The port's Rust writer owns every public connection and all authorization.
++// This inherited control channel has no filesystem socket fallback.
++func brokerControl() (*net.UnixConn, error) {
++	if os.Getenv("RYOKU_WALLPAPER_BROKER_FD") != "0" {
++		return nil, fmt.Errorf("Ryogami requires the Rust appearance broker")
++	}
++	parent := os.Getppid()
++	exe, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", parent))
++	if err != nil || exe != "/usr/libexec/ryoku/ryoku-writer" {
++		return nil, fmt.Errorf("invalid appearance broker executable")
++	}
++	conn, err := net.FileConn(os.Stdin)
++	if err != nil {
++		return nil, err
++	}
++	control, ok := conn.(*net.UnixConn)
++	if !ok {
++		conn.Close()
++		return nil, fmt.Errorf("appearance broker fd is not Unix")
++	}
++	raw, err := control.SyscallConn()
++	if err != nil {
++		control.Close()
++		return nil, err
++	}
++	var peer *syscall.Ucred
++	var peerErr error
++	if err = raw.Control(func(fd uintptr) {
++		peer, peerErr = syscall.GetsockoptUcred(int(fd), syscall.SOL_SOCKET, syscall.SO_PEERCRED)
++	}); err != nil || peerErr != nil || peer == nil || int(peer.Pid) != parent || int(peer.Uid) != os.Geteuid() {
++		control.Close()
++		return nil, fmt.Errorf("appearance control peer mismatch")
++	}
++	return control, nil
++}
++
++type brokerAction struct {
++	Type    string          `json:"type"`
++	Path    string          `json:"path"`
++	Outputs []string        `json:"outputs"`
++	Mute    map[string]bool `json:"outputs_audio"`
++	Volume  map[string]int  `json:"outputs_volume"`
++}
++type brokerPermit struct {
++	Actor struct {
++		PID   int    `json:"pid"`
++		Start uint64 `json:"start_time"`
++	} `json:"actor"`
++	Plan  string `json:"plan_sha256"`
++	Frame []byte `json:"frame"`
++	Hash  string `json:"frame_sha256"`
++}
++
++var brokerApply struct {
++	sync.Mutex
++	action *brokerAction
++}
++
++func brokerConsumeApply(reason, typ, path string, outputs []string, mute map[string]bool, volume map[string]int, record bool) bool {
++	brokerApply.Lock()
++	defer brokerApply.Unlock()
++	if outputs == nil {
++		outputs = []string{}
++	}
++	if mute == nil {
++		mute = map[string]bool{}
++	}
++	if volume == nil {
++		volume = map[string]int{}
++	}
++	actual := brokerAction{typ, path, outputs, mute, volume}
++	if reason != "user" || !record || brokerApply.action == nil || !reflect.DeepEqual(*brokerApply.action, actual) {
++		return false
++	}
++	brokerApply.action = nil
++	return true
++}
++
++// Optional automatic operations ask the Rust owner for their own typed route;
++// they never inherit a wall.apply approval or execute a shell hook implicitly.
++func brokerAutomaticAllowed(action string) bool {
++	return brokerAutomaticRequest(map[string]interface{}{"action": action})
++}
++
++func brokerAutomaticRequest(params map[string]interface{}) bool {
++	conn, err := net.DialTimeout("unix", socketPath(), time.Second)
++	if err != nil {
++		return false
++	}
++	defer conn.Close()
++	u, ok := conn.(*net.UnixConn)
++	if !ok {
++		return false
++	}
++	raw, err := u.SyscallConn()
++	if err != nil {
++		return false
++	}
++	var peer *syscall.Ucred
++	var peerErr error
++	if raw.Control(func(fd uintptr) {
++		peer, peerErr = syscall.GetsockoptUcred(int(fd), syscall.SOL_SOCKET, syscall.SO_PEERCRED)
++	}) != nil || peerErr != nil || peer == nil || int(peer.Pid) != os.Getppid() {
++		return false
++	}
++	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
++	request, _ := json.Marshal(map[string]interface{}{"method": "broker.automatic", "params": params, "id": 0})
++	if _, err = fmt.Fprintf(conn, "%s\n", request); err != nil {
++		return false
++	}
++	line, err := bufio.NewReader(conn).ReadBytes('\n')
++	if err != nil || len(line) > 65536 {
++		return false
++	}
++	var reply struct {
++		Result struct {
++			Approved bool `json:"approved"`
++		} `json:"result"`
++	}
++	return json.Unmarshal(line, &reply) == nil && reply.Result.Approved
++}
++
++// Replay never inherits the user apply permit. Issue176 must bind this exact
++// typed request to independently read stored output/workspace state.
++func brokerReplayPending(reason, typ, path string, outputs []string, mute map[string]bool, volume map[string]int, record bool) {
++	action, state := "", "outputs"
++	switch reason {
++	case "restore":
++		action = "wallpaper.restore"
++	case "workspace":
++		action, state = "workspace.playback", "workspace_assignments"
++	case "reload":
++		action = "wallpaper.reload"
++	default:
++		return
++	}
++	if outputs == nil {
++		outputs = []string{}
++	}
++	if mute == nil {
++		mute = map[string]bool{}
++	}
++	if volume == nil {
++		volume = map[string]int{}
++	}
++	// A handoff reply is never consumed as an execution permit here.
++	_ = brokerAutomaticRequest(map[string]interface{}{
++		"action": action,
++		"replay": map[string]interface{}{
++			"reason": reason, "stored_state": state, "record": record,
++			"action": brokerAction{typ, path, outputs, mute, volume},
++		},
++	})
++}
++
++func brokerQuery(method string) bool {
++	switch method {
++	case "subscribe", "status", "wm.focusedOutput", "state.get", "wall.list", "wall.outputs", "wall.workspaces", "effects.list", "optimize.status", "wall.rotation_status", "playlist.list", "playlist.members", "playlist.memberships", "upscale.status":
++		return true
++	}
++	return false
++}
++
++func (d *daemon) brokerApproved(conn net.Conn) {
++	defer conn.Close()
++	_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
++	r := bufio.NewReader(io.LimitReader(conn, 4*65536+4097))
++	line, err := r.ReadBytes('\n')
++	if err != nil || len(line) > 4*65536+4096 {
++		return
++	}
++	if _, err = r.ReadByte(); err != io.EOF {
++		return
++	}
++	var permit brokerPermit
++	decoder := json.NewDecoder(strings.NewReader(string(line)))
++	decoder.DisallowUnknownFields()
++	if decoder.Decode(&permit) != nil || permit.Actor.PID != os.Getpid() || len(permit.Plan) != 64 || fmt.Sprintf("%x", sha256.Sum256(permit.Frame)) != permit.Hash {
++		return
++	}
++	stat, err := os.ReadFile("/proc/self/stat")
++	if err != nil {
++		return
++	}
++	fields := strings.Fields(string(stat)[strings.LastIndex(string(stat), ") ")+2:])
++	if len(fields) < 20 {
++		return
++	}
++	start, err := strconv.ParseUint(fields[19], 10, 64)
++	if err != nil || start != permit.Actor.Start {
++		return
++	}
++	if len(permit.Frame) > 65536 || len(permit.Frame) == 0 || permit.Frame[len(permit.Frame)-1] != '\n' || strings.Contains(string(permit.Frame[:len(permit.Frame)-1]), "\n") {
++		return
++	}
++	var req request
++	if json.Unmarshal(permit.Frame, &req) != nil || req.Method != "wall.apply" {
++		return
++	}
++	var action brokerAction
++	decoder = json.NewDecoder(strings.NewReader(string(req.Params)))
++	decoder.DisallowUnknownFields()
++	if decoder.Decode(&action) != nil || (action.Type != "static" && action.Type != "video") {
++		return
++	}
++	brokerApply.Lock()
++	if brokerApply.action != nil {
++		brokerApply.Unlock()
++		return
++	}
++	brokerApply.action = &action
++	brokerApply.Unlock()
++	defer func() { brokerApply.Lock(); brokerApply.action = nil; brokerApply.Unlock() }()
++	req.BrokerApproved = true
++	reply, _ := json.Marshal(d.dispatchRequest(&req))
++	fmt.Fprintf(conn, "%s\n", reply)
++}
++
+ // daemon wires the pieces: the wallpaper surface (rendered by the shell QML),
+ // the catalog store (served to the picker), the event hub, and the managed
+ // picker process. One unix socket serves everything.
+@@ -107,35 +330,13 @@ func (d *daemon) broadcast(name string, data interface{}) {
+ 	d.events.publish(string(b))
+ }
+ 
+-// daemonLive reports whether a daemon is answering on the socket.
+-func daemonLive(sock string) bool {
+-	c, err := net.Dial("unix", sock)
+-	if err != nil {
+-		return false
+-	}
+-	c.Close()
+-	return true
+-}
+-
+ func runDaemon() error {
+-	cfg := loadConfig()
+-	sock := socketPath()
+-	_ = os.MkdirAll(filepath.Dir(sock), 0o755)
+-	// A bare `ryogami` in a terminal must not steal the session daemon's
+-	// socket: the interloper restores the saved wallpaper over the live one
+-	// and dies with the terminal, leaving the picker with no daemon at all.
+-	// When a daemon answers the socket, bow out; a stale socket left by a
+-	// dead daemon falls through to the rebind.
+-	if daemonLive(sock) {
+-		return fmt.Errorf("a daemon is already running on %s", sock)
+-	}
+-	_ = os.Remove(sock)
+-	ln, err := net.Listen("unix", sock)
++	control, err := brokerControl()
+ 	if err != nil {
+ 		return err
+ 	}
+-	fmt.Fprintf(os.Stderr, "ryogami: listening on %s\n", sock)
+-
++	defer control.Close()
++	cfg := loadConfig()
+ 	d := &daemon{
+ 		cfg:            cfg,
+ 		surface:        newWallSurface(),
+@@ -152,7 +353,9 @@ func runDaemon() error {
+ 	d.sources = newSources(d)
+ 	d.paper = newPaperClient(d)
+ 	d.workshop = newWorkshopLib(d)
+-	d.migrateLegacyConfig()
++	if brokerAutomaticAllowed("startup.migrate") {
++		d.migrateLegacyConfig()
++	}
+ 	cfg = d.config()
+ 	// A finished pipeline replaced sources on disk, so the catalog rescans;
+ 	// every pipeline event also reaches subscribed clients untouched.
+@@ -178,7 +381,7 @@ func runDaemon() error {
+ 
+ 	// livewall children must not outlive the daemon, and a previous daemon's
+ 	// orphans must not play under a fresh restore.
+-	d.video.Stop()
++	defer func() { d.video.Stop(); d.ui.kill() }()
+ 	go func() {
+ 		sig := make(chan os.Signal, 1)
+ 		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+@@ -197,44 +400,83 @@ func runDaemon() error {
+ 	// Publish the empty snapshot so a subscriber before the first set sees a
+ 	// defined frame, then restore the last wallpaper and rescan the catalog.
+ 	d.surface.publishCurrent()
+-	go func() {
+-		d.healAnimatedWebp()
+-		if d.restoreOnStartup() {
+-			d.migrateLegacyOutputs()
+-			switch want, applied := d.restoreOutputs(); {
+-			case want == 0:
+-				// Nothing was ever recorded (a fresh install, or a box cut over
+-				// from awww without setting one through Ryogami). Paint a shipped
+-				// default so the desktop lands on a wallpaper instead of the empty
+-				// grey frame; "init" persists it, so the next login restores it.
+-				d.applyDefaultWallpaper()
+-			case applied == 0:
+-				// A login race can leave the file the choice names, or the
+-				// outputs a live wall spans, not yet present; keep trying rather
+-				// than leave the desktop on the empty grey frame until a manual set.
+-				go d.retryRestore()
++	if brokerAutomaticAllowed("startup.restore-and-scan") {
++		go func() {
++			d.healAnimatedWebp()
++			if d.restoreOnStartup() {
++				d.migrateLegacyOutputs()
++				switch want, applied := d.restoreOutputs(); {
++				case want == 0:
++					// Nothing was ever recorded (a fresh install, or a box cut over
++					// from awww without setting one through Ryogami). Paint a shipped
++					// default so the desktop lands on a wallpaper instead of the empty
++					// grey frame; "init" persists it, so the next login restores it.
++					d.applyDefaultWallpaper()
++				case applied == 0:
++					// A login race can leave the file the choice names, or the
++					// outputs a live wall spans, not yet present; keep trying rather
++					// than leave the desktop on the empty grey frame until a manual set.
++					go d.retryRestore()
++				}
++				d.restoreActiveWorkspaces()
+ 			}
+-			d.restoreActiveWorkspaces()
+-		}
+-		d.rescan(false)
+-		d.playlists.resumeAll()
+-		d.broadcast("ryogami.wall.scan_done", map[string]interface{}{})
+-		d.runStartHooks()
+-	}()
+-	go d.watchSettingsFile()
+-	go d.startLibraryWatch()
+-	go d.watchWindowManager()
+-	go d.workshop.watch()
++			d.rescan(false)
++			d.playlists.resumeAll()
++			d.broadcast("ryogami.wall.scan_done", map[string]interface{}{})
++			d.runStartHooks()
++		}()
++	}
++	if brokerAutomaticAllowed("watch.settings") {
++		go d.watchSettingsFile()
++	}
++	if brokerAutomaticAllowed("watch.library") {
++		go d.startLibraryWatch()
++	}
++	if brokerAutomaticAllowed("watch.window-manager") {
++		go d.watchWindowManager()
++	}
++	if brokerAutomaticAllowed("watch.workshop") {
++		go d.workshop.watch()
++	}
+ 
+ 	for {
+-		conn, err := ln.Accept()
++		var kind [1]byte
++		ancillary := make([]byte, syscall.CmsgSpace(4))
++		n, oobn, flags, _, err := control.ReadMsgUnix(kind[:], ancillary)
++		if err != nil || n == 0 {
++			d.video.Stop()
++			d.ui.kill()
++			return err
++		}
++		if n != 1 || flags&syscall.MSG_CTRUNC != 0 {
++			return fmt.Errorf("invalid appearance channel transfer")
++		}
++		messages, err := syscall.ParseSocketControlMessage(ancillary[:oobn])
++		if err != nil || len(messages) != 1 {
++			return fmt.Errorf("invalid appearance descriptors")
++		}
++		fds, err := syscall.ParseUnixRights(&messages[0])
++		if err != nil || len(fds) != 1 {
++			for _, fd := range fds {
++				syscall.Close(fd)
++			}
++			return fmt.Errorf("invalid appearance descriptor count")
++		}
++		file := os.NewFile(uintptr(fds[0]), "appearance-client")
++		conn, err := net.FileConn(file)
++		file.Close()
+ 		if err != nil {
+ 			return err
+ 		}
+-		go func() {
+-			defer conn.Close()
+-			d.handle(conn)
+-		}()
++		switch kind[0] {
++		case 'R':
++			go func() { defer conn.Close(); d.handle(conn) }()
++		case 'A':
++			go d.brokerApproved(conn)
++		default:
++			conn.Close()
++			return fmt.Errorf("invalid appearance channel kind")
++		}
+ 	}
+ }
+ 
+@@ -585,6 +827,9 @@ func (d *daemon) resetCache() {
+ // nothing extra today (thumbs are mtime-gated), it only bypasses the
+ // one-at-a-time gate's early return so an explicit rebuild always runs.
+ func (d *daemon) rescan(force bool) {
++	if !brokerAutomaticAllowed("catalog.rescan") {
++		return
++	}
+ 	d.scanMu.Lock()
+ 	if d.scanning && !force {
+ 		d.scanMu.Unlock()
+diff --git a/ryoku/shell/ryogami/daemon/daemon_guard_test.go b/ryoku/shell/ryogami/daemon/daemon_guard_test.go
+index 0d34a34..d3a9a3d 100644
+--- a/ryoku/shell/ryogami/daemon/daemon_guard_test.go
++++ b/ryoku/shell/ryogami/daemon/daemon_guard_test.go
+@@ -7,6 +7,17 @@ import (
+ 	"testing"
+ )
+ 
++// Retain the upstream read-only fixture helper without a production socket
++// rebind path: the installed daemon now requires its inherited Rust channel.
++func daemonLive(sock string) bool {
++	c, err := net.Dial("unix", sock)
++	if err != nil {
++		return false
++	}
++	c.Close()
++	return true
++}
++
+ // A second `ryogami` in a terminal must refuse to start while a daemon is
+ // live on the socket, never steal it: the interloper restores the saved
+ // wallpaper over the running one and dies with the terminal, leaving the
+diff --git a/ryoku/shell/ryogami/daemon/e2e_test.go b/ryoku/shell/ryogami/daemon/e2e_test.go
+index d7a968a..1c69a97 100644
+--- a/ryoku/shell/ryogami/daemon/e2e_test.go
++++ b/ryoku/shell/ryogami/daemon/e2e_test.go
+@@ -1,86 +1,147 @@
+ package main
+ 
+-// Wiring proof against the real binary, ported from the Rust daemon's e2e
+-// suite: the socket serves the wallpaper topic, verb lines, JSON requests with
+-// full payloads, and pushed events after a JSON subscribe. Headless
+-// (RYOGAMI_HEADLESS=1) so no quickshell is spawned.
++// Native receiver integration fixtures use anonymous query/action channels.
++// The Rust suite separately verifies public peer authentication, framed proxy,
++// root authorization, linked checkpoints and journal completion; these native
++// algorithm fixtures never certify that privileged evidence.
+ 
+ import (
+ 	"bufio"
++	"crypto/sha256"
+ 	"encoding/json"
+ 	"fmt"
+ 	"image"
+ 	"image/png"
++	"io"
+ 	"net"
+ 	"os"
+-	"os/exec"
+ 	"path/filepath"
++	"strconv"
+ 	"strings"
++	"syscall"
+ 	"testing"
+ 	"time"
+ )
+ 
+ type testDaemon struct {
+-	t    *testing.T
+-	cmd  *exec.Cmd
+-	sock string
+-	root string
++	t      *testing.T
++	native *daemon
++	sock   string
++	root   string
+ }
+ 
+ func startDaemon(t *testing.T) *testDaemon {
+ 	t.Helper()
+ 	root := t.TempDir()
+ 	runtime := filepath.Join(root, "run")
+-	if err := os.MkdirAll(runtime, 0o755); err != nil {
+-		t.Fatal(err)
+-	}
+-	bin := filepath.Join(root, "ryogami-test-bin")
+-	build := exec.Command("go", "build", "-o", bin, ".")
+-	if out, err := build.CombinedOutput(); err != nil {
+-		t.Fatalf("build: %v: %s", err, out)
+-	}
+-	cmd := exec.Command(bin, "daemon")
+-	cmd.Env = append(os.Environ(),
+-		"RYOGAMI_HEADLESS=1",
+-		"HOME="+root,
+-		"XDG_RUNTIME_DIR="+runtime,
+-		"XDG_CONFIG_HOME="+filepath.Join(root, "config"),
+-		"XDG_CACHE_HOME="+filepath.Join(root, "cache"),
+-		"XDG_STATE_HOME="+filepath.Join(root, ".local", "state"),
+-		"XDG_DATA_HOME="+filepath.Join(root, ".local", "share"),
+-		"XDG_PICTURES_DIR="+filepath.Join(root, "Pictures"),
+-	)
+-	if err := cmd.Start(); err != nil {
+-		t.Fatal(err)
+-	}
+-	d := &testDaemon{t: t, cmd: cmd, sock: filepath.Join(runtime, "ryogami.sock"), root: root}
+-	t.Cleanup(func() { _ = cmd.Process.Kill(); _, _ = cmd.Process.Wait() })
+-	deadline := time.Now().Add(15 * time.Second)
+-	for {
+-		if _, err := os.Stat(d.sock); err == nil {
+-			return d
++	cache := filepath.Join(root, "cache", "ryogami")
++	for _, path := range []string{runtime, filepath.Join(cache, "wallpaper")} {
++		if err := os.MkdirAll(path, 0o755); err != nil {
++			t.Fatal(err)
+ 		}
+-		if time.Now().After(deadline) {
+-			t.Fatal("daemon socket never appeared")
+-		}
+-		time.Sleep(25 * time.Millisecond)
+ 	}
++	for key, value := range map[string]string{
++		"RYOGAMI_HEADLESS": "1", "HOME": root, "XDG_RUNTIME_DIR": runtime,
++		"XDG_CONFIG_HOME":  filepath.Join(root, "config"),
++		"XDG_CACHE_HOME":   filepath.Join(root, "cache"),
++		"XDG_STATE_HOME":   filepath.Join(root, ".local", "state"),
++		"XDG_DATA_HOME":    filepath.Join(root, ".local", "share"),
++		"XDG_PICTURES_DIR": filepath.Join(root, "Pictures"),
++	} {
++		t.Setenv(key, value)
++	}
++	// Starting the installed native entry point without its Rust owner must
++	// fail before it creates a named listener or performs startup writes.
++	t.Setenv("RYOKU_WALLPAPER_BROKER_FD", "")
++	if err := runDaemon(); err == nil {
++		t.Fatal("standalone daemon bypassed the Rust owner")
++	}
++	sock := filepath.Join(runtime, "ryogami.sock")
++	if _, err := os.Lstat(sock); !os.IsNotExist(err) {
++		t.Fatalf("native listener exists: %v", err)
++	}
++	var cfg config
++	cfg.Paths.Cache = cache
++	cfg.Paths.Wallpaper = filepath.Join(root, "Pictures", "Wallpapers")
++	native := &daemon{cfg: cfg, surface: newWallSurface(), store: openStore(cache),
++		events: newEventHub(), random: newRandomRotation(), video: newVideoPlayer(), lastTransition: -1}
++	native.workspaces = newWorkspaceManager(native)
++	native.playlists = newPlaylistManager(cache, native)
++	native.surface.publishCurrent()
++	t.Cleanup(func() { native.video.Stop() })
++	return &testDaemon{t: t, native: native, sock: sock, root: root}
+ }
+ 
+-func (d *testDaemon) connect() net.Conn {
++func (d *testDaemon) channel(approved bool) *net.UnixConn {
+ 	d.t.Helper()
+-	deadline := time.Now().Add(5 * time.Second)
+-	for {
+-		conn, err := net.Dial("unix", d.sock)
+-		if err == nil {
+-			_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+-			return conn
++	fds, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM|syscall.SOCK_CLOEXEC, 0)
++	if err != nil {
++		d.t.Fatal(err)
++	}
++	connections := make([]*net.UnixConn, 2)
++	for i, fd := range fds {
++		file := os.NewFile(uintptr(fd), "native-fixture")
++		conn, err := net.FileConn(file)
++		file.Close()
++		if err != nil {
++			d.t.Fatal(err)
+ 		}
+-		if time.Now().After(deadline) {
+-			d.t.Fatalf("connect: %v", err)
++		connections[i] = conn.(*net.UnixConn)
++		_ = connections[i].SetDeadline(time.Now().Add(5 * time.Second))
++	}
++	go func() {
++		defer connections[0].Close()
++		if approved {
++			d.native.brokerApproved(connections[0])
++		} else {
++			d.native.handle(connections[0])
+ 		}
+-		time.Sleep(25 * time.Millisecond)
++	}()
++	return connections[1]
++}
++func (d *testDaemon) connect() net.Conn { return d.channel(false) }
++
++// Only this explicit action fixture constructs the private one-call frame.
++// Query connections still traverse the native read allowlist without approval.
++func (d *testDaemon) apply(id int, path string) string {
++	return d.applyAction(id, brokerAction{"static", path, []string{}, map[string]bool{}, map[string]int{}})
++}
++
++func (d *testDaemon) applyAction(id int, action brokerAction) string {
++	d.t.Helper()
++	frame, err := json.Marshal(map[string]interface{}{"id": id, "method": "wall.apply",
++		"params": action})
++	if err != nil {
++		d.t.Fatal(err)
++	}
++	frame = append(frame, '\n')
++	var permit brokerPermit
++	permit.Actor.PID = os.Getpid()
++	stat, err := os.ReadFile("/proc/self/stat")
++	if err != nil {
++		d.t.Fatal(err)
++	}
++	fields := strings.Fields(string(stat)[strings.LastIndex(string(stat), ") ")+2:])
++	permit.Actor.Start, err = strconv.ParseUint(fields[19], 10, 64)
++	if err != nil {
++		d.t.Fatal(err)
++	}
++	permit.Plan = strings.Repeat("a", 64)
++	permit.Frame = frame
++	permit.Hash = fmt.Sprintf("%x", sha256.Sum256(frame))
++	conn := d.channel(true)
++	defer conn.Close()
++	if err := json.NewEncoder(conn).Encode(permit); err != nil {
++		d.t.Fatal(err)
++	}
++	if err := conn.CloseWrite(); err != nil {
++		d.t.Fatal(err)
+ 	}
++	reply, err := io.ReadAll(conn)
++	if err != nil {
++		d.t.Fatal(err)
++	}
++	return strings.TrimSpace(string(reply))
+ }
+ 
+ func (d *testDaemon) send(line string) string {
+@@ -135,7 +196,7 @@ func TestE2EWallpaperTopicPublishesFrameOnSet(t *testing.T) {
+ 
+ 	img := filepath.Join(d.root, "wall.png")
+ 	writeE2EPNG(t, img)
+-	if got := d.send("wallpaper set " + img); got != "ok" {
++	if got := d.apply(10, img); !strings.Contains(got, `"applied"`) {
+ 		t.Fatalf("set reply: %s", got)
+ 	}
+ 	frame := readJSONLine(t, r)
+@@ -247,8 +308,7 @@ func TestE2EWallApplyPublishesTopicFrame(t *testing.T) {
+ 	r := bufio.NewReader(sub)
+ 	readJSONLine(t, r) // retained empty frame
+ 
+-	req := fmt.Sprintf(`{"method":"wall.apply","params":{"path":%q,"type":"static"},"id":11}`, img)
+-	reply := d.send(req)
++	reply := d.apply(11, img)
+ 	if !strings.Contains(reply, `"applied"`) {
+ 		t.Fatalf("apply replied: %s", reply)
+ 	}
+@@ -459,7 +519,14 @@ func TestE2EWallApplyWritesLegacyState(t *testing.T) {
+ 	img := filepath.Join(d.root, "Pictures", "Wallpapers", "b.png")
+ 	writeE2EPNG(t, img)
+ 
+-	reply := d.send(fmt.Sprintf(`{"method":"wall.apply","params":{"path":%q,"type":"static"},"id":21}`, img))
++	rejected := d.send(fmt.Sprintf(`{"id":20,"method":"wall.apply","params":{"type":"static","path":%q}}`, img))
++	if !strings.Contains(rejected, "error") {
++		t.Fatalf("read channel granted a write: %s", rejected)
++	}
++	if _, err := os.Stat(filepath.Join(d.root, ".local", "state", "ryoku-wallpaper")); !os.IsNotExist(err) {
++		t.Fatalf("denied query-channel apply persisted: %v", err)
++	}
++	reply := d.apply(21, img)
+ 	if !strings.Contains(reply, `"applied"`) {
+ 		t.Fatalf("apply replied: %s", reply)
+ 	}
+@@ -480,4 +547,13 @@ func TestE2EWallApplyWritesLegacyState(t *testing.T) {
+ 	if got != img {
+ 		t.Fatalf("state file = %q, want %q", got, img)
+ 	}
++	reply = d.applyAction(22, brokerAction{"static", img, []string{"DP-1"}, map[string]bool{"DP-1": true}, map[string]int{"DP-1": 40}})
++	if !strings.Contains(reply, `"applied"`) {
++		t.Fatalf("per-output audio apply: %s", reply)
++	}
++	outputs := map[string]map[string]interface{}{}
++	loadJSON(filepath.Join(d.native.cfg.Paths.Cache, "outputs.json"), &outputs)
++	if outputs["DP-1"]["mute"] != true || outputs["DP-1"]["volume"] != float64(40) {
++		t.Fatalf("canonical outputs_audio/outputs_volume were not applied: %+v", outputs)
++	}
+ }
+diff --git a/ryoku/shell/ryogami/daemon/hooks.go b/ryoku/shell/ryogami/daemon/hooks.go
+index 909b91c..eb5e808 100644
+--- a/ryoku/shell/ryogami/daemon/hooks.go
++++ b/ryoku/shell/ryogami/daemon/hooks.go
+@@ -49,6 +49,9 @@ func watchSetting(prefix string, fn func(d *daemon, key string, value interface{
+ }
+ 
+ func (d *daemon) runStartHooks() {
++	if !brokerAutomaticAllowed("hooks.start") {
++		return
++	}
+ 	for _, fn := range startHooks {
+ 		fn(d)
+ 	}
+@@ -66,6 +69,9 @@ func (d *daemon) runApplyGuards(req *applyRequest) error {
+ 
+ // Hooks run on their own goroutine so a slow one never delays the reply.
+ func (d *daemon) runAfterApply(ev applyEvent) {
++	if !brokerAutomaticAllowed("hooks.after-apply") {
++		return
++	}
+ 	if len(afterApplyHooks) == 0 {
+ 		return
+ 	}
+diff --git a/ryoku/shell/ryogami/daemon/optimize_repoint_test.go b/ryoku/shell/ryogami/daemon/optimize_repoint_test.go
+index 4026dc7..354ccc7 100644
+--- a/ryoku/shell/ryogami/daemon/optimize_repoint_test.go
++++ b/ryoku/shell/ryogami/daemon/optimize_repoint_test.go
+@@ -13,7 +13,7 @@ func TestRepointOptimizedWallpaperReferences(t *testing.T) {
+ 	t.Setenv("XDG_STATE_HOME", state)
+ 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(root, "config"))
+ 	t.Setenv("HOME", root)
+-	if err := os.MkdirAll(cache, 0o755); err != nil {
++	if err := os.MkdirAll(filepath.Join(cache, "wallpaper"), 0o755); err != nil {
+ 		t.Fatal(err)
+ 	}
+ 
+diff --git a/ryoku/shell/ryogami/daemon/proto.go b/ryoku/shell/ryogami/daemon/proto.go
+index db15149..3688be6 100644
+--- a/ryoku/shell/ryogami/daemon/proto.go
++++ b/ryoku/shell/ryogami/daemon/proto.go
+@@ -12,10 +12,11 @@ import (
+ // `subscribe` request.
+ 
+ type request struct {
+-	Method       string          `json:"method"`
+-	Params       json.RawMessage `json:"params"`
+-	ID           int64           `json:"id"`
+-	ConnectionID uint64          `json:"-"`
++	Method         string          `json:"method"`
++	Params         json.RawMessage `json:"params"`
++	ID             int64           `json:"id"`
++	ConnectionID   uint64          `json:"-"`
++	BrokerApproved bool            `json:"-"`
+ }
+ 
+ type response struct {
+diff --git a/ryoku/shell/ryogami/daemon/restore_watch_test.go b/ryoku/shell/ryogami/daemon/restore_watch_test.go
+index 5ef870f..1c7ee1f 100644
+--- a/ryoku/shell/ryogami/daemon/restore_watch_test.go
++++ b/ryoku/shell/ryogami/daemon/restore_watch_test.go
+@@ -217,7 +217,7 @@ func TestDefaultWallpaperPicksFirstStatic(t *testing.T) {
+ // outputs.json, so the next login's restore reproduces it. This is the #149
+ // regression: the desktop went black because ryogami painted nothing when no
+ // choice was stored.
+-func TestApplyDefaultWallpaperPaintsAndPersists(t *testing.T) {
++func TestApplyDefaultWallpaperRequiresItsOwnPermit(t *testing.T) {
+ 	root := t.TempDir()
+ 	cache := filepath.Join(root, "cache")
+ 	if err := os.MkdirAll(cache, 0o755); err != nil {
+@@ -234,11 +234,28 @@ func TestApplyDefaultWallpaperPaintsAndPersists(t *testing.T) {
+ 	d.cfg.Paths.Wallpaper = wallDir
+ 
+ 	d.applyDefaultWallpaper()
++	if got := d.surface.snapshot().Default.Path; got != "" {
++		t.Fatalf("startup painted without its separate stored-state-bound permit: %q", got)
++	}
++	if _, err := os.Stat(filepath.Join(cache, "outputs.json")); !os.IsNotExist(err) {
++		t.Fatalf("startup persisted without its own permit: %v", err)
++	}
++	// User apply is independently authorized, never borrowed by startup.
++	brokerApply.Lock()
++	brokerApply.action = &brokerAction{"static", pic, []string{}, map[string]bool{}, map[string]int{}}
++	brokerApply.Unlock()
++	if err := d.applyWallpaper("static", pic, "set", nil, nil, nil); err != nil {
++		t.Fatal(err)
++	}
++	if err := d.applyWallpaper("static", pic, "set", nil, nil, nil); err == nil {
++		t.Fatal("single-use user permit was reusable")
++	}
+ 
+ 	if got := d.surface.snapshot().Default.Path; got != pic {
+ 		t.Fatalf("default wallpaper frame path = %q, want %q", got, pic)
+ 	}
+-	// Persisted, so a plain restore (no fallback) reproduces the choice next login.
++	// Retain the stored-selection rendering algorithm check. Production startup
++	// is separately gated; this direct fixture call grants no runtime permit.
+ 	if want, applied := d.restoreOutputs(); want != 1 || applied != 1 {
+ 		t.Fatalf("after default apply: restore want/applied = %d/%d, expected 1/1", want, applied)
+ 	}
+diff --git a/ryoku/shell/ryogami/daemon/rpc.go b/ryoku/shell/ryogami/daemon/rpc.go
+index da9f379..4b10b1f 100644
+--- a/ryoku/shell/ryogami/daemon/rpc.go
++++ b/ryoku/shell/ryogami/daemon/rpc.go
+@@ -7,6 +7,9 @@ const daemonVersion = "0.3.0"
+ // dispatchRequest routes one JSON-RPC request. The method set and response
+ // shapes are the wire contract the picker parses.
+ func (d *daemon) dispatchRequest(req *request) response {
++	if !brokerQuery(req.Method) && !(req.BrokerApproved && req.Method == "wall.apply") {
++		return errResp(req.ID, -32001, "this action requires its typed Rust authorization and complete recovery envelope")
++	}
+ 	p := req.params()
+ 	switch req.Method {
+ 	case "status":
+diff --git a/ryoku/shell/ryogami/daemon/scan_test.go b/ryoku/shell/ryogami/daemon/scan_test.go
+index 6525017..dbf02c4 100644
+--- a/ryoku/shell/ryogami/daemon/scan_test.go
++++ b/ryoku/shell/ryogami/daemon/scan_test.go
+@@ -181,6 +181,9 @@ func TestScanMergeVanishedDropped(t *testing.T) {
+ // TestScanMergeMtimeChangeReprocesses: a changed mtime keeps favourites and
+ // counts but rebuilds derived analysis fields (Width/Height) from the new file.
+ func TestScanMergeMtimeChangeReprocesses(t *testing.T) {
++	if !haveMagick() {
++		t.Skip("magick not on PATH; real image processing requires native tools")
++	}
+ 	root := t.TempDir()
+ 	wall := filepath.Join(root, "wall")
+ 	cache := filepath.Join(root, "cache")
+diff --git a/ryoku/shell/ryogami/daemon/store.go b/ryoku/shell/ryogami/daemon/store.go
+index b917e99..6d4e80c 100644
+--- a/ryoku/shell/ryogami/daemon/store.go
++++ b/ryoku/shell/ryogami/daemon/store.go
+@@ -53,7 +53,9 @@ func openStore(cacheDir string) *store {
+ 		state:   map[string]string{},
+ 		dir:     filepath.Join(cacheDir, "wallpaper"),
+ 	}
+-	_ = os.MkdirAll(s.dir, 0o755)
++	if brokerAutomaticAllowed("catalog.initialize") {
++		_ = os.MkdirAll(s.dir, 0o755)
++	}
+ 	loadJSON(filepath.Join(s.dir, "index.json"), &s.entries)
+ 	loadJSON(filepath.Join(s.dir, "state.json"), &s.state)
+ 	return s
+diff --git a/ryoku/shell/ryogami/daemon/verbs.go b/ryoku/shell/ryogami/daemon/verbs.go
+index 4a7747e..64711b5 100644
+--- a/ryoku/shell/ryogami/daemon/verbs.go
++++ b/ryoku/shell/ryogami/daemon/verbs.go
+@@ -12,6 +12,9 @@ import (
+ // daemon, the keybinds, and the CLI already speak: `wallpaper <mode> [--screen
+ // <name>] [arg]` and `depth <set|clear> ...`.
+ func (d *daemon) dispatchVerb(line string) string {
++	if line != "wallpaper ui" {
++		return "err this action requires its typed Rust authorization and complete recovery envelope"
++	}
+ 	switch strings.Fields(line)[0] {
+ 	case "wallpaper":
+ 		return d.wallpaperVerb(line)
+diff --git a/ryoku/shell/ryogami/daemon/video.go b/ryoku/shell/ryogami/daemon/video.go
+index 0f4bc44..f150dc7 100644
+--- a/ryoku/shell/ryogami/daemon/video.go
++++ b/ryoku/shell/ryogami/daemon/video.go
+@@ -117,7 +117,7 @@ func (p *videoPlayer) Play(outputs []string, path, fit, tier string, onLive func
+ 
+ 	reapLivePlayers(killed, log, all)
+ 
+-	go func() {
++	func() {
+ 		capW := liveCapWidth(tier)
+ 		src := liveProbe(path)
+ 		fps := liveFps(tier, src)
+@@ -171,10 +171,12 @@ func reapLivePlayers(procs []*liveProc, log *os.File, reapOrphans bool) {
+ 	if !reapOrphans {
+ 		return
+ 	}
+-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+-	defer cancel()
+-	_ = exec.CommandContext(ctx, "pkill", "-x", liveDaemon).Run()
+-	_ = exec.CommandContext(ctx, "pkill", "-f", "mpvpaper").Run()
++	if brokerAutomaticAllowed("renderer.orphans") {
++		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
++		defer cancel()
++		_ = exec.CommandContext(ctx, "pkill", "-x", liveDaemon).Run()
++		_ = exec.CommandContext(ctx, "pkill", "-f", "mpvpaper").Run()
++	}
+ }
+ 
+ // StopOutputs tears down the players on the named outputs (empty or "*" means
+diff --git a/ryoku/shell/ryogami/daemon/workspaces_test.go b/ryoku/shell/ryogami/daemon/workspaces_test.go
+index b25d2a3..e68b61a 100644
+--- a/ryoku/shell/ryogami/daemon/workspaces_test.go
++++ b/ryoku/shell/ryogami/daemon/workspaces_test.go
+@@ -209,7 +209,16 @@ func TestWorkspaceSwitchToSameWallpaperDoesNotRepaint(t *testing.T) {
+ 	}
+ 	revision := func() int64 { return d.surface.snapshot().Outputs["eDP-1"].Revision }
+ 
+-	if err := d.applyWorkspaceTarget(one, "set"); err != nil {
++	if err := d.applyWorkspaceTarget(one, "set"); err == nil {
++		t.Fatal("workspace painted without a separate assignment-bound permit")
++	}
++	if revision() != 0 {
++		t.Fatal("denied workspace changed the frame")
++	}
++	brokerApply.Lock()
++	brokerApply.action = &brokerAction{"static", shared, []string{"eDP-1"}, map[string]bool{}, map[string]int{}}
++	brokerApply.Unlock()
++	if err := d.applyWallpaper("static", shared, "set", []string{"eDP-1"}, nil, nil); err != nil {
+ 		t.Fatal(err)
+ 	}
+ 	painted := revision()
+@@ -225,13 +234,10 @@ func TestWorkspaceSwitchToSameWallpaperDoesNotRepaint(t *testing.T) {
+ 	if err := d.applyWorkspaceTarget(three, "set"); err != nil {
+ 		t.Fatal(err)
+ 	}
+-	if frame := d.surface.snapshot().Outputs["eDP-1"]; frame.Path != own || frame.Revision == painted {
+-		t.Fatalf("assigned workspace did not repaint: %+v", frame)
+-	}
+-	if err := d.applyWorkspaceTarget(one, "set"); err != nil {
+-		t.Fatal(err)
+-	}
+-	if got := d.surface.snapshot().Outputs["eDP-1"].Path; got != shared {
+-		t.Fatalf("returning to an unassigned workspace kept %q, want %q", got, shared)
++	// A denied assignment retains its already-painted display fallback; it
++	// must never borrow the consumed user permit to paint the assignment.
++	if frame := d.surface.snapshot().Outputs["eDP-1"]; frame.Path != shared || frame.Revision != painted {
++		t.Fatalf("denied assigned workspace changed frame: %+v", frame)
+ 	}
++
+ }
