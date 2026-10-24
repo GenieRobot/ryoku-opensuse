@@ -1,4 +1,12 @@
-# Ryogami and Rashin: source disposition and unresolved execution boundary
+# Ryogami and Rashin: source disposition and protected integration gates
+
+The product target is the full Ryoku experience on Tumbleweed. Ryogami,
+its editor, livewall, wallpaper actions and related modules remain selected
+and packaged. The temporarily proposed exclusion was cancelled; none of its
+build/install/route removals was committed. The source findings below identify
+required protected integration, not permission to reduce the product target
+or to activate an unprotected writer. This review does not certify the current
+reachable write paths as safe.
 
 Review pin: `a59d051f0e8080052216f6c7b9eb7e5928935ce8`.
 Ryogami tree `3e57f5c00ddb10be66ef13ebf3c26a69bf493f1d` has 424 current files:
@@ -42,9 +50,9 @@ At this checkpoint `suse/recovery/src/writer_protocol.rs` checks the exact
 query policy only for `HubBackend`; `Ryogami` is coordinated but has no
 equivalent action allowlist. Namespace/recovery coordination does not prove
 that all new v1 methods are authorized. The following reachable writes and
-automatic startup hooks require a focused fail-closed patch and negative
-socket/CLI tests before this candidate can pass #173. This documentation
-commit does not resolve that blocker or approve the optional capabilities.
+automatic startup hooks require protected Rust integration and negative
+socket/CLI tests before this candidate can be accepted. This documentation
+does not resolve that blocker or approve the existing reachable writes.
 
 | Selected entrypoints | Write/runtime consequences |
 |---|---|
@@ -57,10 +65,11 @@ commit does not resolve that blocker or approve the optional capabilities.
 | `postapply.go` | `afterApply` and `onStart` can call `runPostProcessing`; `postProcessOnRestore` permits hooks during restore/start. `runDetachedShell` launches `sh -c` wrapping `nohup setsid sh -c`. A CLI-only refusal would leave this automatic path executable. |
 | `palette_bridge.go`, `matugen_outputs.go`, `upscale*.go` | Delegated Hub mutations are refused, but generated matugen config/output writes, transform tools and self-spawned `upscale-worker` need their own boundary. Absence of optional packages is not a refusal policy. |
 
-The retained core wallpaper apply/restore/UI contract must be traced through
-the existing protected writer/checkpoint path before allowing writes. Methods
-or automatic actions without that proof remain unavailable; this review
-does not infer approval from #25's need for a functioning shell.
+The retained core wallpaper apply/restore/UI contract must be integrated with
+the existing protected writer/checkpoint path before writes are supported.
+The current routes remain reachable, which is a blocker rather than an
+implemented refusal. This review does not infer approval from #25's need for
+a functioning shell.
 
 ### Core dependency and the limit of a launch-only fix
 
@@ -95,9 +104,85 @@ the source patch. A future focused patch must test each of those seams and
 refuse unreviewed actions before their write/launch body. Native direct
 socket tests must exercise the patched daemon, not merely a Rust alias.
 No new policy proxy, automatic model/provider capability or expanded recovery
-manifest has been introduced. A complete startup/core-write disposition is
-required before choosing which wallpaper behavior can remain; until then
-the candidate is **not ready for installation/appearance acceptance**.
+manifest has been introduced. A complete startup/core-write disposition and
+protected adapter are required while retaining the complete wallpaper
+experience. Until then the candidate is **not ready for installation/appearance
+acceptance**. Removing the wallpaper bridge would also require changes to
+`shell/shell.qml` reload readiness and visualizer gating; that exclusion is
+not being pursued, and those bindings remain intact.
+
+### Ownership and retained full-feature integration plan
+
+The issue scopes below were read on 24 October 2026. They are ownership
+boundaries, not a claim that a provider has been implemented or certified.
+
+| Work | Existing owner / contract | Required next implementation and evidence |
+|---|---|---|
+| Core wallpaper display/apply/restore, editor integration, transitions, dynamic palette, video and depth | [#25: core desktop and appearance boundaries](https://github.com/GenieRobot/ryoku-opensuse/issues/25), using the existing #18 writer/capture and #20 durable mutation contracts | Retain all source/UI/package nodes. Route every persistent apply, assignment, favorite, playlist, settings and effect change through a typed Rust plan with explicit affected paths, authorization, linked pre-checkpoint verification, revalidation, health and post-change accounting. Include daemon startup, timers and direct IPC; wrapping only the public CLI is insufficient. Native appearance/session acceptance remains #25, combined recovery #26. |
+| Newly nested Ryogami index/state and configuration ownership | #25 appearance integration consuming #18 capture and #20 coordination; neither completed foundation issue certifies new v1 paths | Reconcile `.cache/ryogami/wallpaper/{index,state}.json`, configured library/cache roots, absent files, ownership and bounds with the complete capture/restore model. Classify persistent preferences/receipts versus regenerable thumbnails/model indexes. No broad home-directory capture or inventory expansion is made by this source review. |
+| RPM dependency installation/removal needed by the retained features | [#27: package discovery/plans](https://github.com/GenieRobot/ryoku-opensuse/issues/27), [#28: protected package/repository/full-system transactions](https://github.com/GenieRobot/ryoku-opensuse/issues/28), [#29: native clients/progress](https://github.com/GenieRobot/ryoku-opensuse/issues/29) | Reuse the shared package plan and protected execution when a feature needs a distro package. Preserve full Tumbleweed transaction policy. These issues do not automatically authorize image/video/model downloads or file deletion. #30 is optional Myrlyn integration, not a Ryogami provider owner. |
+| Image/video source downloads, Steam workshop, model pack install/remove and source-media deletion | #25 owns the retained Ryogami integration; **no existing task inspected explicitly defines these file/network/model operation contracts** | Coordinator must scope the missing subwork under the appearance owner before implementation. Define bounded source/manifest/trust identities, destination ownership, quotas, interruption/resume and deletion/restore receipts. Network credentials/account/remote effects need a separate policy; a local snapshot cannot undo a remote action. Do not misassign these operations to RPM install/remove or silently omit them from the target. |
+| Automatic postapply shell hooks and arbitrary configured commands | #25 integration depends on #20's trusted typed provider seam; **no inspected issue grants a generic shell-command capability** | Establish exact authorized hook identities, permitted arguments, execution environment, complete write scope and external side-effect policy before execution. An arbitrary shell string cannot supply its own trusted plan or checkpoint proof. Route startup/restore hooks through the same operation boundary as explicit actions; do not execute hooks merely because the daemon starts or a file is restored. Coordinator must resolve the missing hook contract; no proxy or generic exec API is introduced here. |
+| User-service changes | [#31: narrowly typed service controls](https://github.com/GenieRobot/ryoku-opensuse/issues/31), with #25 responsible for ordinary session lifecycle | Separate runtime start/stop from persistent enablement/config changes and document restore limits. This does not authorize arbitrary systemctl commands or require putting service control in #173. |
+| Separate Rashin/other app adoption | [#47: remaining application inventory and scoped application issues](https://github.com/GenieRobot/ryoku-opensuse/issues/47) | Current export exclusion is an inventory fact, not a decision to delete those applications from the eventual full product. Each future activation needs its explicit app/state/provider acceptance. This is distinct from already retained core Ryogami. |
+
+Reuse `NativeMutationProvider::plan/apply/health_check` and
+`run_operator_mutation` in `suse/service/src/native_mutation.rs`, the verified
+generation and revalidation types in `mutation_gate.rs`, the authenticated
+operator/account binding, writer leases, durable operation history and linked
+pre/post accounting described in [mutation coordination](mutation-coordination.md).
+The current service `ManagedAction` enum has package/profile/checkpoint actions,
+but no wallpaper, source-download, model-pack, source-delete or hook action.
+Those typed contracts and an installed provider dispatcher remain missing;
+the documented zero-certified-provider-write result must not be relabelled
+as support for them. Existing daemon JSON-RPC IDs and settings-action names
+are source entrypoints, not authorization or a replacement for durable
+service operation IDs. New project-owned implementation and tests remain Rust.
+
+#173 owns the immutable semantic/path/API audit, preserved source/package
+selection, dependency/native build and license closure, launch integration
+patch provenance, and exact refreshed acceptance evidence. Its current scope
+does not authorize a new generic writer, a new recovery design, or the missing
+network/model/hook providers. Preserve Source3 daemon (175), picker (248),
+livewall (3) and selected unit (1); preserve the private Go daemon/public Rust
+alias, generated `Ryoku.Ryogami` module/Provide, editor shell/desktop entry,
+`ryogami-live`, QML actions and shell readiness bindings. The selected unit is
+still not installed by the current spec; #25 must integrate its ordinary
+session lifecycle rather than confuse source selection with activation.
+Preserve Blobs/Spatial3D and shared shell/Hub payload as well.
+
+Tests for the implementing owner must exercise CLI, direct socket requests,
+startup/restore hooks and automatic watchers; stale/denied/missing-checkpoint
+requests must not write or spawn the actuator. Prove the nested-state pre/post
+receipts and recovery after interrupted operations, then verify the full
+editor/display/palette/video/depth experience in the recorded Tumbleweed guest.
+Hosted Rust CI can validate code while local storage is constrained; it cannot
+replace native socket/tool/plugin/appearance acceptance. #173, #25 and #26
+remain open, and no native acceptance follows from this plan.
+
+The concrete source/dependency sequence for #173 is:
+
+1. Keep the current immutable exports and all Ryogami build/install/alias/UI
+   paths intact; preserve the original 0.75.5 acceptance labels. Complete
+   path-level semantic review of the remaining delta areas without importing
+   another distribution's package managers or privileged host scripts.
+2. Complete installed picker font-license delivery and other notice/provider
+   ownership evidence. Keep the two selected TTF license texts with the shipped
+   module notices; no dependency or license is guessed from a capability name.
+3. Reuse the verified signed Snapshot20261016 SDK/import inputs and 68-package
+   closure when storage is restored. Retain native Qt 6.11.2 GUI-private,
+   Multimedia/ShaderTools, Vulkan headers, Wayland/protocols and FFmpeg library
+   inputs; retain ImageMagick/FFmpeg runtime tools and Quickshell 0.3.2-3.
+   Resolve WaveCapture's still-unverified `pactl`/`pw-record` file owners from
+   exact RPM payload evidence before adding those dependencies.
+4. Build/test the exact candidate and inspect generated picker/Blobs/Spatial3D
+   module metadata, shaders, imports and ELF closure. Keep source compilation
+   and tool-suite evidence separate from guest graphics/codec results.
+5. Coordinate #25's protected full appearance adapter and native session
+   acceptance with the refreshed package, then #26's combined recovery gate.
+   If missing typed operation work must be split, the coordinator must resolve
+   ownership and the #173/#25 prerequisite ordering explicitly; do not resolve
+   that scheduling dependency by dropping features or bypassing protection.
 
 ## Excluded Rashin runtime
 
@@ -115,8 +200,8 @@ Excluded units are `ryoku-rashin.service` (serve --if-enabled),
 `ryoku-prowl.service` (gateway down/serve, default port 8788),
 `ryoku-ai-usage.service` and its persistent five-minute timer. No agent/model,
 terminal, gateway, usage collection or credential provider is activated.
-Future app/provider work belongs to its owning issues (#27–30/#47), not this
-source sync. The retained Hub on/off routes and collector start are refused
+Future standalone app work belongs to #47 and its scoped application issues;
+package planning/execution remains #27–29. The retained Hub on/off routes and collector start are refused
 as described above; status remains an availability probe only.
 
 ## Build and licensing evidence still required
@@ -142,6 +227,6 @@ Go notices are separately retained. No license identity is inferred for
 excluded Rashin dependencies or optional downloaded models.
 
 The guest remains paused under the storage gate. This review adds immutable
-source evidence only; full delta coverage, refusal implementation/tests,
+source evidence only; full delta coverage, protected integration/tests,
 native builds, tool/runtime checks, license closure and fresh #25/#26
 acceptance are still pending. PR #174 remains draft/open.
