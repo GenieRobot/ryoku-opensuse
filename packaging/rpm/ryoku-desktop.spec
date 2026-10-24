@@ -30,6 +30,9 @@ BuildRequires:  qt6-multimedia-devel = 6.11.2
 # Ryoku 1.0's StageSpatialScene.qml imports QtQuick3D. Keep the source-pinned
 # payload below on its historical pin until the #173 archive refresh lands.
 BuildRequires:  qt6-quick3d-devel = 6.11.2
+# The v1.0 native source also builds Ryoku.Spatial3D and expands Blobs shader
+# output. Source2 and the install closure are still on the old pin; refresh
+# both together under issue #173 before treating this as a 1.0 package.
 BuildRequires:  qml-autoreqprov
 BuildRequires:  qmlpluginexports-qt6
 Requires:       ryoku-desktop-runtime = %{version}-%{release}
@@ -167,6 +170,8 @@ install -D -m 0644 blobs-build/qml/Ryoku/Blobs/qmldir \
     %{buildroot}%{qml_root}/Blobs/qmldir
 install -D -m 0644 blobs-build/qml/Ryoku/Blobs/ryoku-blobs.qmltypes \
     %{buildroot}%{qml_root}/Blobs/ryoku-blobs.qmltypes
+# The v1.0 candidate must install the complete generated Blobs module (including
+# shader assets) and the full Spatial3D module here after Source2 is refreshed.
 install -d %{buildroot}%{font_root}
 cp -a runtime/fonts/. %{buildroot}%{font_root}/
 
