@@ -8,8 +8,12 @@ new operation requires a fresh preview and fresh verified pre-change capture.
 
 The supported target is Tumbleweed x86_64, a verified single-root Snapper layout
 with root-covered `/boot` files, an independently initialized state mount, and
-an existing KDE fallback session. External ESP restoration and extra Snapper
-roots remain unsupported. Stop graphical login and use an independent root
+an existing KDE fallback session. The running root must be the sole writable
+numbered Snapper default, `/.snapshots` must be mounted from the same filesystem,
+and GRUB snapshot booting must already be enabled. An unnumbered direct `@`
+root refuses before capture or mutation; the installer does not convert boot
+layouts. External ESP restoration and extra Snapper roots remain unsupported.
+Stop graphical login and use an independent root
 console. Establish an exclusive administrator maintenance window; external
 root package commands do not participate in Ryoku's writer lock.
 

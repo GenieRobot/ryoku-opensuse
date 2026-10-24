@@ -719,6 +719,7 @@ impl MutationIntegration for Installer<'_> {
         plan: &PlannedChange,
         proof: &VerifiedLinkedGeneration,
     ) -> Result<bool, GateError> {
+        layout::validate().map_err(|_| GateError::PreflightFailed)?;
         let root = File::open("/").map_err(|_| GateError::PreflightFailed)?;
         let reader =
             GenerationReader::open_state_mount().map_err(|_| GateError::CheckpointUnverified)?;

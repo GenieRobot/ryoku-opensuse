@@ -10,6 +10,7 @@ use ryoku_recovery::{
     installed_profiles::{InstalledProfileBundle, ProfileBundleStore},
 };
 use ryoku_service::{OperationId, native_mutation::ProtectedMutationHistory};
+use sha2::{Digest, Sha256};
 use std::{
     fs::{self, File, OpenOptions},
     io::Write,
@@ -124,7 +125,7 @@ fn command_for(program: &str, args: &[&str], timeout: &str) -> Result<String> {
     let output = Command::new("/usr/bin/timeout")
         .env_clear()
         .env("LC_ALL", "C")
-        .env("PATH", "/usr/bin:/bin")
+        .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
         .env("CARGO_BUILD_JOBS", "2")
         .env("CARGO_TARGET_DIR", "/var/tmp/ryoku-native24-cargo-target")
         .env("GOCACHE", "/var/tmp/ryoku-native24-go-cache")
@@ -417,7 +418,193 @@ fn setup() -> Result<()> {
     own(&format!("{HOME}/.config/ryoku/profile.json"), uid, gid)?;
     write(&format!("/etc/systemd/system/{UNIT}"),format!("[Unit]\nDescription=Disposable issue24 protected installer acceptance\nDefaultDependencies=no\nAfter=local-fs.target var-lib-ryoku\\x2dstate.mount\nBefore=shutdown.target umount.target\nConflicts=shutdown.target\nIgnoreOnIsolate=yes\n[Service]\nType=oneshot\nExecStart={PROBE} --exercise\nExecStopPost={PROBE} --stopped\nTimeoutStartSec=30min\nStandardOutput=append:{STATE}/native24-private.log\nStandardError=append:{STATE}/native24-private.log\n[Install]\nWantedBy=multi-user.target\n").as_bytes(),0o644)?;
     command("/usr/bin/systemctl", &["daemon-reload"])?;
+    unnumbered_refusal()?;
+    bootstrap_numbered_root()?;
     println!("native_issue24_bootstrap_and_dependencies=passed");
+    Ok(())
+}
+fn unnumbered_refusal() -> Result<()> {
+    require(
+        command("/usr/bin/findmnt", &["-n", "-o", "FSROOT", "/"])?.trim() == "/@",
+        "unsupported-layout test requires original unnumbered root",
+    )?;
+    let history = fs::read(format!("{STATE}/mutations.log")).ok();
+    let snapshots = command("/usr/bin/snapper", &["--jsonout", "--config", "root", "list"])?;
+    let packages = command("/usr/bin/rpm", &["-qa"])?;
+    let result = Command::new(INSTALLER).arg("remove-preview").output()?;
+    require(
+        result.status.code() == Some(2)
+            && String::from_utf8_lossy(&result.stderr).contains("unsupported recovery layout"),
+        "unnumbered root was not rejected by actual installer preflight",
+    )?;
+    require(
+        fs::read(format!("{STATE}/mutations.log")).ok() == history
+            && command("/usr/bin/snapper", &["--jsonout", "--config", "root", "list"])?
+                == snapshots
+            && command("/usr/bin/rpm", &["-qa"])? == packages,
+        "unsupported root refusal changed journal, checkpoints or packages",
+    )?;
+    let proof = format!(
+        "unnumbered=refused\nsnapshots_sha256={:x}\npackages_sha256={:x}\njournal_sha256={:x}\n",
+        Sha256::digest(snapshots.as_bytes()),
+        Sha256::digest(packages.as_bytes()),
+        Sha256::digest(history.as_deref().unwrap_or_default()),
+    );
+    layout_proof("unnumbered-refused", proof.as_bytes())?;
+    Ok(())
+}
+fn layout_proof(name: &str, measured: &[u8]) -> Result<()> {
+    // Reboot revalidates the layout; retain the original successful proof.
+    match fs::read(state(name)) {
+        Ok(bytes) => require(bytes == measured, "existing layout proof differs"),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            write(&state(name), measured, 0o600)
+        }
+        Err(error) => Err(error.into()),
+    }
+}
+// The signed Minimal-VM derivation is initially an unnumbered direct root.
+// Provision the same supported classic Snapper boot layout as the #21 fixture;
+// this administrative fixture setup is separate from installer acceptance.
+fn bootstrap_numbered_root() -> Result<()> {
+    require(
+        command("/usr/bin/findmnt", &["-n", "-o", "FSROOT", "/"])?.trim() == "/@",
+        "bootstrap requires the fresh directly mounted root",
+    )?;
+    let fstab = fs::read_to_string("/etc/fstab")?;
+    require(
+        !fstab.lines().any(|line| line.split_whitespace().nth(1) == Some("/.snapshots")),
+        "bootstrap refuses an existing snapshot mount",
+    )?;
+    let root = fstab
+        .lines()
+        .find(|line| line.split_whitespace().nth(1) == Some("/"))
+        .ok_or("root mount missing")?;
+    let device = root.split_whitespace().next().ok_or("root source missing")?;
+    require(device.starts_with("UUID="), "unbound fixture root device")?;
+    fs::write(
+        "/etc/fstab",
+        format!("{fstab}{device} /.snapshots btrfs defaults,subvol=@/.snapshots 0 0\n"),
+    )?;
+    command("/usr/bin/mount", &["/.snapshots"])?;
+    let grub = fs::read_to_string("/etc/default/grub")?;
+    let mut grub = grub
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("SUSE_BTRFS_SNAPSHOT_BOOTING="))
+        .collect::<Vec<_>>()
+        .join("\n");
+    grub.push_str("\nSUSE_BTRFS_SNAPSHOT_BOOTING=\"true\"\n");
+    fs::write("/etc/default/grub", grub)?;
+    command("/usr/sbin/grub2-mkconfig", &["-o", "/boot/grub2/grub.cfg"])?;
+    command(
+        "/usr/sbin/grub2-install",
+        &[
+            "--target=x86_64-efi",
+            "--efi-directory=/boot/efi",
+            "--boot-directory=/boot",
+            "--removable",
+            "--no-nvram",
+        ],
+    )?;
+    let source = command(
+        "/usr/bin/snapper",
+        &["--config", "root", "create", "--type", "single", "--read-only", "--print-number"],
+    )?;
+    let source = source.trim();
+    require(
+        source.parse::<u64>().is_ok_and(|n| n > 0 && n.to_string() == source),
+        "invalid bootstrap source",
+    )?;
+    let target = command(
+        "/usr/bin/snapper",
+        &[
+            "--quiet",
+            "--ambit",
+            "classic",
+            "--config",
+            "root",
+            "rollback",
+            "--print-number",
+            source,
+        ],
+    )?;
+    require(
+        target.trim().parse::<u64>().is_ok_and(|n| n > 0 && n.to_string() == target.trim()),
+        "invalid bootstrap rollback target",
+    )?;
+    write(&state("bootstrap-target"), target.as_bytes(), 0o600)?;
+    command("/usr/bin/sync", &[])?;
+    Ok(())
+}
+fn verify_numbered_root() -> Result<()> {
+    let root = command("/usr/bin/findmnt", &["-n", "-o", "FSROOT", "/"])?;
+    let number = root
+        .trim()
+        .strip_prefix("/@/.snapshots/")
+        .and_then(|path| path.strip_suffix("/snapshot"))
+        .ok_or("root did not boot numbered snapshot")?;
+    require(
+        number.parse::<u64>().is_ok_and(|n| n > 0 && n.to_string() == number),
+        "noncanonical numbered root",
+    )?;
+    let inventory = command(
+        "/usr/bin/snapper",
+        &[
+            "--jsonout",
+            "--config",
+            "root",
+            "list",
+            "--columns",
+            "number,type,default,active,read-only",
+        ],
+    )?;
+    let inventory: serde_json::Value = serde_json::from_str(&inventory)?;
+    let rows = inventory["root"].as_array().ok_or("root inventory missing")?;
+    let defaults = rows.iter().filter(|row| row["default"] == true).collect::<Vec<_>>();
+    let active = rows.iter().filter(|row| row["active"] == true).collect::<Vec<_>>();
+    require(
+        defaults.len() == 1
+            && active.len() == 1
+            && defaults[0]["number"].as_u64().map(|n| n.to_string()).as_deref() == Some(number)
+            && defaults[0] == active[0]
+            && defaults[0]["read-only"] == false,
+        "running root is not sole writable numbered Snapper default",
+    )?;
+    require(
+        command("/usr/bin/findmnt", &["-n", "-o", "FSROOT", "--mountpoint", "/.snapshots"])?.trim()
+            == "/@/.snapshots",
+        "snapshot tree not mounted",
+    )?;
+    if fs::read_to_string(state("phase")).is_err() {
+        require(
+            fs::read_to_string(state("bootstrap-target"))?.trim() == number,
+            "booted root differs from bootstrap target",
+        )?;
+    }
+    let uuid = command("/usr/bin/findmnt", &["-n", "-o", "UUID", "/"])?;
+    require(
+        !uuid.trim().is_empty()
+            && command("/usr/bin/findmnt", &["-n", "-o", "UUID", "--mountpoint", "/.snapshots"])?
+                .trim()
+                == uuid.trim(),
+        "snapshot tree filesystem differs",
+    )?;
+    let grub = fs::read_to_string("/etc/default/grub")?;
+    require(
+        grub.lines()
+            .map(str::trim)
+            .filter(|line| line.starts_with("SUSE_BTRFS_SNAPSHOT_BOOTING="))
+            .collect::<Vec<_>>()
+            == ["SUSE_BTRFS_SNAPSHOT_BOOTING=\"true\""],
+        "snapshot boot GRUB configuration differs",
+    )?;
+    let proof = format!(
+        "running_root={}\nfilesystem_uuid={}\ndefault=sole-active-writable\nsnapshot_tree=/@/.snapshots\ngrub_sha256={:x}\n",
+        root.trim(),
+        uuid.trim(),
+        Sha256::digest(grub.as_bytes())
+    );
+    layout_proof(&format!("numbered-layout-{number}"), proof.as_bytes())?;
     Ok(())
 }
 fn layer_id() -> Result<String> {
@@ -875,6 +1062,7 @@ fn exercise() -> Result<()> {
     // Fresh bootstrap has no desktop writer process to initialize its private
     // namespace. Keep the shared capture lease contract and explicitly enroll
     // the target account through its fixed own-account installer command.
+    verify_numbered_root()?;
     enter_maintenance()?;
     match fs::read_to_string(state("phase")) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -970,7 +1158,16 @@ fn run() -> Result<()> {
         Some("--exercise") => exercise(),
         Some("--catalog-refusals") => catalog_refusals(),
         Some("--failure-policy") => failure_policy(),
+        Some("--unsupported-layout") => unnumbered_refusal(),
+        Some("--bootstrap-numbered") => bootstrap_numbered_root(),
+        Some("--verify-numbered") => verify_numbered_root(),
         Some("--report") => {
+            verify_numbered_root()?;
+            require(
+                fs::read(state("unnumbered-refused"))?
+                    .starts_with(b"unnumbered=refused\nsnapshots_sha256="),
+                "supported-layout and refusal proof missing",
+            )?;
             require(
                 fs::read(state("catalog-refusals"))? == b"passed\n",
                 "catalog bootstrap refusal proof missing",
@@ -1030,6 +1227,9 @@ mod tests {
         assert_eq!(values.get("GOCACHE"), Some(&"/var/tmp/ryoku-native24-go-cache"));
         assert_eq!(values.get("GOPATH"), Some(&"/var/tmp/ryoku-native24-go-workspace"));
         assert_eq!(values.get("CARGO_TARGET_DIR"), Some(&"/var/tmp/ryoku-native24-cargo-target"));
+        // Native GRUB snapshot scripts look up btrfs by name. Only fixed
+        // distribution administrator/binary directories may participate.
+        assert_eq!(values.get("PATH"), Some(&"/usr/sbin:/usr/bin:/sbin:/bin"));
         assert!(!values.contains_key("HOME"));
     }
     #[test]

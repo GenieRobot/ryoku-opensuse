@@ -1,6 +1,7 @@
 //! Root console installer for the fixed Ryoku RPM set.
 //! Mutation execution uses the shared durable coordinator and native linked checkpoints.
 
+mod layout;
 mod lifecycle;
 
 use std::{
@@ -1265,6 +1266,7 @@ fn validate_host() -> Result<(), String> {
             layout.assessment.reason
         ));
     }
+    layout::validate()?;
 
     let root = File::open("/").map_err(|_| "root filesystem is unavailable")?;
     let machine = read_machine_state_record(&root)

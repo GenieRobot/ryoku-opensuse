@@ -105,3 +105,17 @@ native_regression = "public conflict status78/public error2 preserves rescue and
 disposal = "source and failed disk unchanged; all QEMU stopped; failed/diagnostic disks, firmware, seeds, credentials and staged inputs removed"
 version_scope = "pinned historical0.75.5-beta.20/openSUSE0.1.0-7 only; upstream1.0 transition belongs to173"
 acceptance = "incomplete; fresh full native run required"
+
+[run08]
+candidate = "f94406327b5453a1065a0af8943460c84b862239"
+report = "issue24-native-20261022/run08.txt"
+report_sha256 = "df5e30993adc33456d6b554bf14145da3e03f9fa13189cade3691f8d5e89bdfc"
+result = "failed-before-linked-rollback-mutation"
+observed = "eight completed lifecycle operations with sixteen72-entry comparisons; both actual SIGKILL/emergency paths; before-apply reconciliation; after-apply pending state; linked prepare passed"
+failure = "strict linked rollback refused unnumbered direct-@ default; no rollback receipt; source root24 retained verified read-only Single"
+correction = "installer refuses unsupported root layout before capture and rechecks before apply; only disposable native24 fixture bootstraps established numbered Snapper default before lifecycle"
+native_regression = "actual @ preflight refusal twice preserves snapshots/packages/journal; measured proof mismatch refuses without overwrite; sole writable numbered root28 boot/admission and repeated exact proof before/after another reboot passed"
+validation = "29 installer tests,3 probe tests, full workspace/all-targets/all-features tests, strict Clippy, format, offline dependency policy and diff check passed"
+disposal = "zero QEMU/vm-lab; original disk/source hashes unchanged; all failed/diagnostic disks, firmware, seeds, credentials and staged VM inputs removed"
+version_scope = "pinned historical0.75.5-beta.20/openSUSE0.1.0-7 only; upstream1.0 transition belongs to173"
+acceptance = "incomplete; fresh full native run with supported layout required; no linked rollback or reset acceptance"
