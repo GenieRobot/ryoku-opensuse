@@ -31,6 +31,17 @@ Quickshell remains the unchanged accepted 0.3.2-2 input. Disposable signing is
 fixture trust and is not a release signature. Hyprland login/provider actions
 and the combined first-sprint gate are separate acceptance work.
 
+The isolated `issue24-lab` build now selects `issue24-fixture.toml`. It retains
+the accepted recovery fixture's image, firmware, distribution archives,
+signature policy and all other scalar inputs. Only the exact live update
+repository metadata digest differs: native Run05 refused its changed digest
+before derivation or installation. The new metadata and detached signature are
+retained in the evidence directory, and the signature verifies against the
+existing openSUSE release-key fingerprint. A regression compares every other
+fixture line and hashes the retained metadata. The original #21/#22 fixture
+pins remain unchanged. Run04's host interruption and Run05's input refusal
+provide no installer lifecycle acceptance.
+
 A first launch invocation was rejected before creating the run directory,
 disks or QEMU because its cwd was the issue worktree while its requested run
 path was under the parent workspace. The unchanged candidate was invoked

@@ -70,3 +70,13 @@ failure = "host systemd-shutdown sent SIGTERM to QEMU before guest boot/bootstra
 resumption = "2026-10-24 authoritative host scan confirms no QEMU/vm-lab; source image hash unchanged"
 disposal = "owned disks, firmware, seed, SSH credentials and staged VM inputs removed; private diagnostics retained locally"
 acceptance = "none; interrupted run does not prove installer lifecycle or reset"
+
+[run05]
+candidate = "5d38a7aff1b61853343c6c50e1d6779baee4e7f1"
+report = "issue24-native-20261022/run05.txt"
+result = "failed-closed-on-external-signed-metadata-drift"
+observed = "fresh source guest boot and clock check passed; native Zypper verified all four repository signatures"
+failure = "live repo-update metadata changed from 3667c679...be589 to 6d506462...f0de5; refused before derivation/build/install"
+correction = "dedicated issue24 fixture selects only the independently authenticated exact current update digest; accepted recovery fixtures unchanged"
+disposal = "independent zero-process scan, source hash unchanged; owned disposable inputs removed"
+acceptance = "none; no installer lifecycle or reset credited"
