@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "scope": "Source/recipe and focused cached audit/native-spec checks only; native RPM executable/payload, actual Zypper transaction, audio/service/session acceptance remain open",
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "inputs_sha256": {
+    "automation/src/bin/rpm-package-audit.rs": "ed029d088862bdc25af6963c8b91537c2fe31c1a605cb47d614d234863423cd1",
+    "packaging/rpm/ryoku-desktop.spec": "ce77e8293bbf947a935b9461d93a3b05feaabbe1f0293d1f603aef5b1ac235ce",
+    "upstream/evidence/ryoku-v1.0/wavecapture-providers.json": "f620582e0e40dc86d0d8a6a44c46e07cd45133b9e63d79c1776cff620f1147af",
+    "upstream/evidence/ryoku-v1.0/repomd.xml": "1d891e33c8abd582b71e579118e6b4c94e5e57ecdc1b77a2a7fc1abf7cc930a0",
+    "upstream/evidence/ryoku-v1.0/repomd.xml.asc": "ec4ea2579b347505d4f85dbd596b55033d229eba1e810597f6ec2d5cc3fb598a",
+    "upstream/evidence/ryoku-v1.0/wavecapture-pipewire-tools.xml.fragment": "0a5da0d7b741286ee5d503320b607cbda588ed71209ed461de1c679955c2656d",
+    "upstream/evidence/ryoku-v1.0/wavecapture-pulseaudio-utils.xml.fragment": "95d5167ac324ebe3b4a280e1de590ef8d6baf118097f8feb4608115f22d895ed",
+    "upstream/evidence/ryoku-v1.0/wavecapture-pipewire-pulseaudio.xml.fragment": "b2b4f7a89e286fa35a36d150ca83ac8954e2a6d246c531377f99c23d7bf4558d"
+  },
+  "repository_validation": {
+    "detached_signature": "gpgv Good signature; pinned openSUSE signer",
+    "primary_compressed_and_open_sha512": "both matched signed repomd",
+    "primary_packages_parsed": 52976,
+    "literal_package_fragments_checked": 3,
+    "all_raw_provides_requires_conflicts_obsoletes_preserved": true
+  },
+  "focused_audit_tests": {
+    "passed": 10,
+    "failed": 0,
+    "ignored": 0,
+    "includes_native_rpmspec": true,
+    "binary_bytes": 9789896,
+    "binary_sha256": "824881b969718be1d6c62be0ae22a0882916dc181c6303a94aa1c2d792134e23",
+    "dependencies": "compatible cached serde_json1.0.154/sha2 0.10.9; rustc1.99.0 b940084d7; no dependency rebuild"
+  },
+  "parsed_spec_required_commands": [
+    "pulseaudio-utils",
+    "pipewire-tools"
+  ],
+  "other_checks": [
+    "cargo fmt --all --check",
+    "git diff --check",
+    "pinned source anchors and all literal XML fragment fields",
+    "relative Markdown links"
+  ],
+  "downloads_packages_installs_and_vm_access": false
+}

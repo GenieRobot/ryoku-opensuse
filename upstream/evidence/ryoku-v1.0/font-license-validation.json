@@ -35,5 +35,6 @@
     "cargo fmt --all --check",
     "git diff --check"
   ],
-  "native_rpm_payload_or_runtime_acceptance": false
+  "native_rpm_payload_or_runtime_acceptance": false,
+  "project_commit": "260059a6e079fe035c7abad7886221fb364c628f"
 }

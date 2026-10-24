@@ -62,6 +62,16 @@ the other eleven fonts. `font-license-validation.json` records the focused
 nine-test audit/native-spec result, exact input hashes and cached-toolchain
 limits separately from pending native package and redistribution acceptance.
 
+`wavecapture-providers.json` and three literal `.xml.fragment` files preserve
+the verified primary package-file evidence for `pactl` / `pw-record` plus the
+PipeWire PulseAudio capability provider. They retain primary conflicts and
+obsoletes omitted by the initial candidate index. Exact RPM Requires/source
+contracts are tested; native payload, installed-system solver and audio runtime
+acceptance remain open. No package or metadata download was needed.
+`wavecapture-validation.json` records exact input hashes, signed-primary field
+checks and ten focused audit/native-spec tests separately from those native
+acceptance gates.
+
 `picker-license-provenance.json` records the exact selected CMake source,
 two embedded TTF resources and their license texts plus picker LICENSE/NOTICE.
 Four byte-identical copies have unique package basenames under

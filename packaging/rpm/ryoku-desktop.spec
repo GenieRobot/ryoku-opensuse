@@ -63,6 +63,9 @@ Requires:       qt6-qt5compat-imports = 6.11.2
 Requires:       qt6-imageformats
 Requires:       ImageMagick
 Requires:       ffmpeg
+# WaveCapture starts these commands with QProcess; ELF scanning cannot find them.
+Requires:       pulseaudio-utils
+Requires:       pipewire-tools
 Requires:       kf6-syntax-highlighting-imports = 6.31.0
 Requires:       google-noto-sans-cjk-fonts
 Requires:       systemd

@@ -29,6 +29,8 @@ const PICKER_LICENSES: &[&str] = &[
 ];
 const INIR_FONT_LICENSES: &[&str] =
     &["inir-inter-OFL-1.1.txt", "inir-montserrat-OFL-1.1.txt", "inir-rubik-OFL-1.1.txt"];
+const WAVECAPTURE_COMMANDS: &[(&str, &str)] =
+    &[("pactl", "pulseaudio-utils"), ("pw-record", "pipewire-tools")];
 
 fn require(condition: bool, message: &str) -> Result<()> {
     if condition { Ok(()) } else { Err(message.into()) }
@@ -153,6 +155,16 @@ fn runtime_license(license: &str) -> Result<()> {
     Ok(())
 }
 
+fn wavecapture_requires(requires: &str) -> Result<()> {
+    for (_, package) in WAVECAPTURE_COMMANDS {
+        require(
+            requires.lines().any(|line| line.split_whitespace().next() == Some(*package)),
+            &format!("runtime omits WaveCapture command provider: {package}"),
+        )?;
+    }
+    Ok(())
+}
+
 fn run() -> Result<()> {
     let arguments: Vec<_> = std::env::args_os().skip(1).collect();
     require(
@@ -203,6 +215,7 @@ fn run() -> Result<()> {
         .flat_map(|(_, value)| value.lines().map(str::to_owned))
         .collect();
     qml_imports(&evidence["ryoku-desktop-runtime-requires.txt"], &provides)?;
+    wavecapture_requires(&evidence["ryoku-desktop-runtime-requires.txt"])?;
     fs::create_dir(&output)?;
     for (name, bytes) in evidence {
         fs::write(output.join(name), bytes)?;
@@ -394,6 +407,98 @@ mod tests {
     }
 
     #[test]
+    fn wavecapture_process_commands_match_signed_primary_files_and_rpm_requirements() {
+        use sha2::{Digest, Sha256};
+
+        assert!(wavecapture_requires("pulseaudio-utils\npipewire-tools\n").is_ok());
+        for missing in
+            ["pulseaudio-utils\n", "pipewire-tools\n", "pulseaudio-utils-devel\npipewire-tools\n"]
+        {
+            assert!(wavecapture_requires(missing).is_err());
+        }
+        let evidence: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/wavecapture-providers.json"
+        ))
+        .unwrap();
+        let source = &evidence["source"];
+        assert_eq!(source["path"], "ryoku/shell/plugin/wavecapture.cpp");
+        let source_row = format!(
+            "{}\t{}\t{}\t644",
+            source["source2_payload"].as_str().unwrap(),
+            source["path"].as_str().unwrap(),
+            source["git_blob"].as_str().unwrap()
+        );
+        assert!(
+            include_str!("../../../upstream/evidence/ryoku-v1.0/runtime-source-manifest.tsv")
+                .lines()
+                .any(|line| line == source_row)
+        );
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let packages = evidence["packages"].as_array().unwrap();
+        let fragments: BTreeMap<_, _> = packages
+            .iter()
+            .map(|package| {
+                let fragment = fs::read(root.join(package["fragment"].as_str().unwrap())).unwrap();
+                assert_eq!(
+                    u64::try_from(fragment.len()).unwrap(),
+                    package["fragment_bytes"].as_u64().unwrap()
+                );
+                assert_eq!(format!("{:x}", Sha256::digest(&fragment)), package["fragment_sha256"]);
+                let fragment = String::from_utf8(fragment).unwrap();
+                let name = package["name"].as_str().unwrap();
+                assert!(fragment.contains(&format!("<name>{name}</name>")));
+                assert!(fragment.contains(package["rpm_checksum"].as_str().unwrap()));
+                (name, fragment)
+            })
+            .collect();
+        assert_eq!(fragments.len(), 3);
+        assert_eq!(
+            format!(
+                "{:x}",
+                Sha256::digest(include_bytes!("../../../upstream/evidence/ryoku-v1.0/repomd.xml"))
+            ),
+            evidence["repository"]["repomd_sha256"]
+        );
+        let spec = include_str!("../../../packaging/rpm/ryoku-desktop.spec");
+        let requires: String = spec
+            .lines()
+            .filter_map(|line| line.strip_prefix("Requires:"))
+            .map(|line| format!("{}\n", line.trim()))
+            .collect();
+        assert!(wavecapture_requires(&requires).is_ok());
+        for (command, package) in WAVECAPTURE_COMMANDS {
+            let package = packages.iter().find(|entry| entry["name"] == *package).unwrap();
+            let binary = format!("/usr/bin/{command}");
+            assert_eq!(package["binary"], binary);
+            assert!(
+                package["primary_files"].as_array().unwrap().iter().any(|file| file == &binary)
+            );
+            let fragment = &fragments[package["name"].as_str().unwrap()];
+            assert!(fragment.contains(&format!("<file>{binary}</file>")));
+            assert!(
+                fragment.contains(&format!("<name>{}</name>", package["name"].as_str().unwrap()))
+            );
+            assert!(source["command_anchors"].as_array().unwrap().iter().any(|anchor| {
+                anchor["source_text"]
+                    .as_str()
+                    .unwrap()
+                    .contains(&format!("QStringLiteral(\"{command}\")"))
+            }));
+        }
+        let pulse = packages.iter().find(|entry| entry["name"] == "pipewire-pulseaudio").unwrap();
+        for (field, name) in [("provides", "pulseaudio-daemon"), ("requires", "pulseaudio-utils")] {
+            assert!(pulse[field].as_array().unwrap().iter().any(|entry| entry["name"] == name));
+        }
+        assert!(
+            pulse["conflicts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["name"] == "pulseaudio")
+        );
+    }
+
+    #[test]
     fn qml_metadata_rejects_silent_scanner_failure_and_missing_internal_providers() {
         let required = "qt6qmlimport(QtQuick)\nqt6qmlimport(QtMultimedia)\nqt6qmlimport(Quickshell)\nqt6qmlimport(Ryoku.Ui.Singletons)\n";
         let mut provided = BTreeSet::from(["qt6qmlimport(Quickshell)".into()]);
@@ -438,7 +543,7 @@ mod tests {
 
     #[test]
     #[ignore = "requires native rpmspec; verifies parsed spec metadata, not a built RPM"]
-    fn native_spec_parser_preserves_systemtray_provider_and_matching_release() {
+    fn native_spec_parser_preserves_runtime_contracts() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../packaging/rpm");
         for (file, query, expected) in [
             ("ryoku-quickshell.spec", "--provides", "qt6qmlimport(Quickshell.Services.SystemTray)"),
@@ -467,6 +572,13 @@ mod tests {
             metadata.lines().filter_map(|line| line.strip_prefix("ryoku-desktop-runtime\t"));
         assert!(runtime_license(licenses.next().unwrap()).is_ok());
         assert!(licenses.next().is_none());
+        let output = Command::new("rpmspec")
+            .args(["-q", "--rpms", "--requires"])
+            .arg(root.join("ryoku-desktop.spec"))
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        assert!(wavecapture_requires(&String::from_utf8(output.stdout).unwrap()).is_ok());
     }
 
     #[test]

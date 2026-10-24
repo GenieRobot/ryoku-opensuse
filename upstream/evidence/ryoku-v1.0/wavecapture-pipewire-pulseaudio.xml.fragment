@@ -1,0 +1,54 @@
+<package type="rpm">
+  <name>pipewire-pulseaudio</name>
+  <arch>x86_64</arch>
+  <version epoch="0" ver="1.6.9" rel="2.1"/>
+  <checksum type="sha512" pkgid="YES">9eacb6ed8740623732abf9aa0c95c24fff21e1e4e005f7528b0d3a870c4e27c8ff828194d9ede41679cd1833302054802ec42e3ea3ba9fdd2b4ce1fa91501eb4</checksum>
+  <summary>PipeWire PulseAudio implementation</summary>
+  <description>This package provides a PulseAudio implementation based on PipeWire</description>
+  <packager>https://bugs.opensuse.org</packager>
+  <url>https://pipewire.org/</url>
+  <time file="1791641841" build="1790940966"/>
+  <size package="402987" installed="501796" archive="509764"/>
+  <location href="x86_64/pipewire-pulseaudio-1.6.9-2.1.x86_64.rpm"/>
+  <format>
+    <rpm:license>MIT</rpm:license>
+    <rpm:vendor>openSUSE</rpm:vendor>
+    <rpm:group>Development/Libraries/C and C++</rpm:group>
+    <rpm:buildhost>reproducible</rpm:buildhost>
+    <rpm:sourcerpm>pipewire-1.6.9-2.1.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="205025"/>
+    <rpm:provides>
+      <rpm:entry name="libpipewire-module-protocol-pulse.so()(64bit)"/>
+      <rpm:entry name="pipewire-pulseaudio" flags="EQ" epoch="0" ver="1.6.9" rel="2.1"/>
+      <rpm:entry name="pipewire-pulseaudio(x86-64)" flags="EQ" epoch="0" ver="1.6.9" rel="2.1"/>
+      <rpm:entry name="pulseaudio-daemon"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="/bin/sh" pre="1"/>
+      <rpm:entry name="/bin/sh"/>
+      <rpm:entry name="libavahi-client.so.3()(64bit)"/>
+      <rpm:entry name="libavahi-common.so.3()(64bit)"/>
+      <rpm:entry name="libdbus-1.so.3()(64bit)"/>
+      <rpm:entry name="libdbus-1.so.3(LIBDBUS_1_3)(64bit)"/>
+      <rpm:entry name="libgio-2.0.so.0()(64bit)"/>
+      <rpm:entry name="libglib-2.0.so.0()(64bit)"/>
+      <rpm:entry name="libgobject-2.0.so.0()(64bit)"/>
+      <rpm:entry name="libm.so.6()(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.2.5)(64bit)"/>
+      <rpm:entry name="libpipewire-0.3.so.0()(64bit)"/>
+      <rpm:entry name="libpipewire-0_3-0" flags="GE" epoch="0" ver="1.6.9" rel="2.1"/>
+      <rpm:entry name="pipewire" flags="GE" epoch="0" ver="1.6.9" rel="2.1"/>
+      <rpm:entry name="pulseaudio-utils"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.38)(64bit)"/>
+    </rpm:requires>
+    <rpm:conflicts>
+      <rpm:entry name="pipewire-modules" flags="LT" epoch="0" ver="1.0.0"/>
+      <rpm:entry name="pulseaudio"/>
+      <rpm:entry name="pulseaudio-daemon"/>
+    </rpm:conflicts>
+    <rpm:recommends>
+      <rpm:entry name="pipewire-alsa"/>
+    </rpm:recommends>
+    <file>/usr/bin/pipewire-pulse</file>
+  </format>
+</package>

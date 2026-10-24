@@ -280,7 +280,7 @@ The full verified Git tree preserves CLI source/provenance, but existing
 Source2/Source3 are selected exports and contain no `ryoku/cli` root.
 Complete CLI source-only archive coverage, per-reconciler/host-verb semantic
 proof, and the owned Rust equivalents remain open. Additional #173 gates are
-the remaining delta rows, actual WaveCapture binary ownership, native picker
+the remaining delta rows, native WaveCapture payload/solver/runtime closure, native picker
 license-payload verification and complete notices, native RPM/plugin/QML/ELF/tool checks,
 and fresh #25/#26 behavior/recovery acceptance. The builder remains paused;
 a green hosted Rust run proves none of those native gates.
@@ -354,14 +354,17 @@ acceptance wait for storage recovery.
 
 The new native `WaveCapture` reads sink identity using `pactl get-default-sink`
 and `pactl list short`, then reads PCM from `pw-record` stdout. These process
-dependencies cannot be inferred from ELF scanning. Exact signed-index package
-records for `pulseaudio-utils` 17.0-7.6 and `pipewire-tools` 1.6.9-2.1 are
-retained in `wavecapture-provider-candidates.json`. That index establishes
-package/version/digest/location, but does not retain their complete file
-lists. The payloads are not locally cached and the VM is paused, so actual
-ownership of `/usr/bin/pactl` and `/usr/bin/pw-record`, solver compatibility
-and resulting hard runtime requirements remain unverified. No dependency or
-virtual Provide is invented from a package name. `SystemMonitor` only opens
+dependencies cannot be inferred from ELF scanning. The
+[command-provider review](ryoku-v1.0-wavecapture-review.md) resolves exact
+executable file entries from the original signed primary XML, rather than
+guessing from the earlier JSON-index package names: `pulseaudio-utils`
+17.0-7.6 lists `/usr/bin/pactl`, and `pipewire-tools` 1.6.9-2.1 lists
+`/usr/bin/pw-record`. The runtime spec now requires both actual packages.
+Literal package fragments and all primary conflicts/obsoletes are retained;
+`pipewire-pulseaudio` provides the required `pulseaudio-daemon` capability.
+Native RPM binary checks, installed-system solver compatibility and runtime
+capture behavior remain open. No virtual Provide or installer/service action
+is introduced. `SystemMonitor` only opens
 proc/sys/hardware data read-only; Spatial3D accepts absolute local image
 paths and generates geometry without persistent writes or process launches.
 
