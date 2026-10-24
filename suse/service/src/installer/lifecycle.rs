@@ -187,10 +187,33 @@ pub(super) fn execute(args: &[OsString], output: &mut impl Write) -> Result<(), 
     if args.len() < 5 {
         return Err("usage: ACTION UID OPERATION LAYERS REVIEWED_SHA256 [RPM ...]".into());
     }
+    let action = Action::parse(&args[0])?;
     let operation = OperationId::new(args[2].to_str().ok_or("invalid operation ID")?.to_owned())
         .map_err(|_| "invalid operation ID")?;
     let unit = format!("ryoku-installer-{}.service", operation.as_str());
-    let status = Command::new("/usr/bin/systemd-run")
+    {
+        let history = crate::native_mutation::ProtectedMutationHistory::open()
+            .map_err(|error| format!("protected mutation history unavailable: {error:?}"))?;
+        require_unused_operation(history.journal(), &operation)?;
+    }
+    let status = owned_command(&unit, args).status().map_err(|error| error.to_string())?;
+    if !status.success() {
+        return Err(format!(
+            "installer unit {unit} failed; inspect journalctl -u {unit} and protected mutation history"
+        ));
+    }
+    let history = crate::native_mutation::ProtectedMutationHistory::open()
+        .map_err(|error| format!("protected mutation history unavailable: {error:?}"))?;
+    require_completed_operation(history.journal(), &operation, action).map_err(|error| {
+        format!("installer unit {unit} did not complete: {error}; inspect journalctl -u {unit}")
+    })?;
+    writeln!(output, "installer_unit={unit} result=success").map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn owned_command(unit: &str, args: &[OsString]) -> Command {
+    let mut command = Command::new("/usr/bin/systemd-run");
+    command
         .env_clear()
         .env("LC_ALL", "C")
         .args([
@@ -200,27 +223,59 @@ pub(super) fn execute(args: &[OsString], output: &mut impl Write) -> Result<(), 
             "--property=KillMode=control-group",
             "--property=TimeoutStartSec=1800",
             "--property=OnFailure=emergency.target",
+            "--property=SuccessExitStatus=78",
             "--unit",
-            &unit,
+            unit,
             "/usr/sbin/ryoku-install",
             "internal-lifecycle",
         ])
-        .args(args)
-        .status()
-        .map_err(|e| e.to_string())?;
-    if !status.success() {
-        return Err(format!(
-            "installer unit {unit} failed; inspect journalctl -u {unit} and protected mutation history"
-        ));
+        .args(args);
+    command
+}
+
+fn require_unused_operation(
+    journal: &crate::OperationJournal,
+    operation: &OperationId,
+) -> Result<(), String> {
+    if journal.get(operation).is_some() {
+        Err("operation ID was already used; a fresh operation ID is required".into())
+    } else {
+        Ok(())
     }
-    writeln!(output, "installer_unit={unit} result=success").map_err(|e| e.to_string())?;
+}
+
+fn require_completed_operation(
+    journal: &crate::OperationJournal,
+    operation: &OperationId,
+    action: Action,
+) -> Result<(), String> {
+    let status = journal.get(operation).ok_or("preflight rejected before protected execution")?;
+    let context =
+        journal.mutation_context(operation).ok_or("protected completion receipt missing")?;
+    if status.phase != crate::OperationPhase::Succeeded
+        || status.action != action.managed()
+        || context.stage != crate::mutation_gate::MutationStage::Complete
+        || context.plan.operation_key != format!("installer-{}-v1", action.name())
+        || !context.valid_for(status)
+    {
+        return Err("exact operation has no valid completed installer receipt".into());
+    }
     Ok(())
 }
 fn execute_owned(args: &[OsString], output: &mut impl Write) -> Result<(), String> {
+    execute_internal(args, output, &mut false)
+}
+
+pub(super) fn execute_internal(
+    args: &[OsString],
+    output: &mut impl Write,
+    gate_entered: &mut bool,
+) -> Result<(), String> {
     if args.is_empty() {
         return Err("installer lifecycle action is required".into());
     }
     if args.first().is_some_and(|arg| arg == "recover") {
+        *gate_entered = true;
         return recover(args, output);
     }
     let preview = args[0] == "lifecycle-preview";
@@ -338,6 +393,9 @@ fn execute_owned(args: &[OsString], output: &mut impl Write) -> Result<(), Strin
         return Err("reviewed plan changed; run lifecycle-preview again".into());
     }
     provider.reviewed = Some(planned.clone());
+    // Once journal opening/repair begins, every error remains an execution
+    // failure. This flag is never reset, including after successful apply.
+    *gate_entered = true;
     let mut journal = crate::native_mutation::open_journal(
         session.coordinator_directory().map_err(|e| e.to_string())?,
     )
@@ -1051,6 +1109,143 @@ fn recover(args: &[OsString], output: &mut impl Write) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn owned_rejection_status_is_impossible_after_the_gate_enters() {
+        let mut output = Vec::new();
+        let mut entered = false;
+        assert!(execute_internal(&[], &mut output, &mut entered).is_err());
+        assert!(!entered);
+        assert_eq!(failure_status(true, entered), PREFLIGHT_REJECTION);
+        entered = true;
+        assert!(execute_internal(&[], &mut output, &mut entered).is_err());
+        assert!(entered);
+        assert_eq!(failure_status(true, entered), 2);
+        assert_eq!(failure_status(false, false), 2);
+        assert_eq!(failure_status(false, true), 2);
+    }
+
+    #[test]
+    fn owned_service_only_accepts_the_reserved_rejection_and_keeps_emergency_failure() {
+        let command = owned_command("ryoku-installer-fixture.service", &[]);
+        let args =
+            command.get_args().map(|argument| argument.to_str().unwrap()).collect::<Vec<_>>();
+        assert_eq!(command.get_program(), "/usr/bin/systemd-run");
+        assert!(args.contains(&"--property=OnFailure=emergency.target"));
+        assert_eq!(
+            args.iter()
+                .filter(|argument| argument.starts_with("--property=SuccessExitStatus="))
+                .copied()
+                .collect::<Vec<_>>(),
+            vec!["--property=SuccessExitStatus=78"]
+        );
+        assert!(args.contains(&"--property=KillMode=control-group"));
+        assert!(args.ends_with(&["/usr/sbin/ryoku-install", "internal-lifecycle"]));
+    }
+
+    #[test]
+    fn service_success_requires_fresh_exact_persisted_completion() {
+        use crate::mutation_gate::{LinkedGeneration, MutationContext, MutationStage};
+        use crate::{OperationJournal, OperationPhase, OperationStatus};
+        let fixture = Fixture::new();
+        let path = fixture.path.join("owned-completion.log");
+        let file = OpenOptions::new()
+            .create_new(true)
+            .read(true)
+            .append(true)
+            .mode(0o600)
+            .open(&path)
+            .unwrap();
+        let mut journal = OperationJournal::open(file).unwrap();
+        let operation = OperationId::new("installer-receipt").unwrap();
+        assert!(require_unused_operation(&journal, &operation).is_ok());
+        assert!(require_completed_operation(&journal, &operation, Action::Install).is_err());
+        let linked = |suffix: &str, number: &str, digest: &str| LinkedGeneration {
+            transaction_id: Identifier::new(format!("installer-receipt-{suffix}")).unwrap(),
+            generation_id: Identifier::new(format!("installer-receipt-{suffix}-generation"))
+                .unwrap(),
+            manifest_sha256: ryoku_recovery::Sha256::new(digest.repeat(32)).unwrap(),
+            snapshot: SnapshotLink::new(
+                Identifier::new("root").unwrap(),
+                number,
+                "11111111-1111-1111-1111-111111111111",
+            )
+            .unwrap(),
+        };
+        let mut context = MutationContext {
+            plan: PlannedChange {
+                operation_key: "installer-install-v1".into(),
+                plan_fingerprint: "11".repeat(32),
+                affected_state_fingerprint: "22".repeat(32),
+            },
+            checkpoint: None,
+            post_checkpoint: None,
+            stage: MutationStage::Preflight,
+            outcome: None,
+            installer_restore: None,
+        };
+        for stage in [
+            MutationStage::Preflight,
+            MutationStage::StateChecking,
+            MutationStage::Capturing,
+            MutationStage::Revalidating,
+            MutationStage::Applying,
+            MutationStage::HealthChecking,
+            MutationStage::PostChangeCapture,
+            MutationStage::Complete,
+        ] {
+            context.stage = stage;
+            let phase = match stage {
+                MutationStage::Preflight => OperationPhase::Accepted,
+                MutationStage::StateChecking
+                | MutationStage::Capturing
+                | MutationStage::Revalidating => OperationPhase::Capturing,
+                MutationStage::Applying => OperationPhase::Applying,
+                MutationStage::HealthChecking | MutationStage::PostChangeCapture => {
+                    OperationPhase::Verifying
+                }
+                MutationStage::Complete => OperationPhase::Succeeded,
+            };
+            if stage == MutationStage::Revalidating {
+                context.checkpoint = Some(linked("pre", "42", "aa"));
+            }
+            if stage == MutationStage::Complete {
+                context.post_checkpoint = Some(linked("post", "43", "bb"));
+            }
+            journal
+                .record_mutation(
+                    OperationStatus {
+                        operation_id: operation.clone(),
+                        action: ManagedActionKind::InstallPackage,
+                        phase,
+                        progress: None,
+                        error: None,
+                    },
+                    context.clone(),
+                )
+                .unwrap();
+            assert!(require_unused_operation(&journal, &operation).is_err());
+            assert_eq!(
+                require_completed_operation(&journal, &operation, Action::Install).is_ok(),
+                stage == MutationStage::Complete
+            );
+        }
+        drop(journal);
+        let journal =
+            OperationJournal::open(OpenOptions::new().read(true).append(true).open(&path).unwrap())
+                .unwrap();
+        assert!(require_completed_operation(&journal, &operation, Action::Install).is_ok());
+        assert!(require_completed_operation(&journal, &operation, Action::Remove).is_err());
+        assert!(
+            require_completed_operation(
+                &journal,
+                &OperationId::new("different-operation").unwrap(),
+                Action::Install
+            )
+            .is_err()
+        );
+        assert!(require_unused_operation(&journal, &operation).is_err());
+    }
 
     #[test]
     fn checkpoint_diagnostics_are_bounded_single_line_ascii() {

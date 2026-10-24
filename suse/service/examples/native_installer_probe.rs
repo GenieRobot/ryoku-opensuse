@@ -702,6 +702,124 @@ fn interrupted(operation: &str, stage: &str) -> Result<()> {
         history.journal().recovery_required().iter().any(|status| status.operation_id == op),
         "interrupted operation was incorrectly clear",
     )?;
+    drop(history);
+    require_emergency()?;
+    record_target(&format!("{operation} stage={stage} emergency=active recovery_required=true"))?;
+    enter_maintenance()
+}
+fn record_target(line: &str) -> Result<()> {
+    let mut file =
+        OpenOptions::new().append(true).create(true).mode(0o600).open(state("failure-targets"))?;
+    writeln!(file, "{line}")?;
+    file.sync_all()?;
+    Ok(())
+}
+fn public_conflict(operation: &str) -> Result<()> {
+    let (uid, _) = account()?;
+    let uid = uid.to_string();
+    let digest = preview("install")?;
+    let packages_before = command("/usr/bin/rpm", &["-qa"])?;
+    let journal_before = fs::read(format!("{STATE}/mutations.log"))?;
+    let paths = ryoku_recovery::installed_inventory::PREFERENCES
+        .iter()
+        .map(|path| ryoku_recovery::RelativePath::new(*path))
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(|_| "invalid compiled preference path")?;
+    let unrelated_path = format!("{HOME}/Documents/native24-unrelated");
+    let unrelated = fs::read(&unrelated_path)?;
+    let unrelated_before = fs::symlink_metadata(&unrelated_path)?;
+    let before = capture_declared(
+        &File::open(HOME)?,
+        StateRoot::UserHome,
+        &paths,
+        CaptureLimits::default(),
+    )?;
+    refuses(&["migrate", &uid, operation, &layer_id()?, &digest])?;
+    require(
+        unit_active("rescue.target")? && !unit_active("emergency.target")?,
+        "preflight conflict disrupted maintenance targets",
+    )?;
+    require(
+        command("/usr/bin/rpm", &["-qa"])? == packages_before,
+        "preflight conflict changed package inventory",
+    )?;
+    require(
+        fs::read(format!("{STATE}/mutations.log"))? == journal_before,
+        "preflight conflict changed protected mutation history",
+    )?;
+    require(
+        capture_declared(
+            &File::open(HOME)?,
+            StateRoot::UserHome,
+            &paths,
+            CaptureLimits::default(),
+        )? == before,
+        "preflight conflict changed user bytes metadata or absence",
+    )?;
+    let unrelated_after = fs::symlink_metadata(&unrelated_path)?;
+    let metadata = |value: &fs::Metadata| {
+        (
+            value.dev(),
+            value.ino(),
+            value.uid(),
+            value.gid(),
+            value.mode(),
+            value.len(),
+            value.nlink(),
+            value.mtime(),
+            value.mtime_nsec(),
+            value.ctime(),
+            value.ctime_nsec(),
+        )
+    };
+    require(
+        unrelated_before.is_file()
+            && fs::read(&unrelated_path)? == unrelated
+            && metadata(&unrelated_before) == metadata(&unrelated_after),
+        "preflight conflict changed unrelated file bytes or metadata",
+    )?;
+    record_target(&format!(
+        "{operation} preflight=refused rescue=active emergency=inactive packages=unchanged user_inventory=unchanged"
+    ))
+}
+fn failure_policy() -> Result<()> {
+    guard()?;
+    enter_maintenance()?;
+    let personal = format!("{HOME}/.config/ryoku/opensuse-profile.json");
+    if !Path::new(&personal).try_exists()? {
+        write(&personal, PERSONAL, 0o600)?;
+        let (uid, gid) = account()?;
+        own(&personal, uid, gid)?;
+    }
+    verify_user(PERSONAL)?;
+    public_conflict("native24-policy-conflict")?;
+    interrupted("native24-policy-after", "health_checking")?;
+    write(&state("failure-policy"), b"preflight-preserved post-gate-emergency\n", 0o600)?;
+    Ok(())
+}
+fn unit_active(unit: &str) -> Result<bool> {
+    Ok(Command::new("/usr/bin/timeout")
+        .args(["2s", "/usr/bin/systemctl", "is-active", unit])
+        .output()?
+        .status
+        .success())
+}
+fn require_emergency() -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while Instant::now() < deadline {
+        if unit_active("emergency.target")? {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    Err("post-gate installer failure did not activate emergency target".into())
+}
+fn enter_maintenance() -> Result<()> {
+    command("/usr/bin/systemctl", &["isolate", "rescue.target"])?;
+    command("/usr/bin/systemctl", &["start", "systemd-logind.service"])?;
+    if !Path::new(&format!("/run/user/{}/ryoku-writers", account()?.0)).exists() {
+        bootstrap_account_namespace()?;
+    }
     Ok(())
 }
 fn bootstrap_account_namespace() -> Result<()> {
@@ -754,14 +872,10 @@ fn bootstrap_account_namespace() -> Result<()> {
 }
 fn exercise() -> Result<()> {
     guard()?;
-    command("/usr/bin/systemctl", &["isolate", "rescue.target"])?;
-    command("/usr/bin/systemctl", &["start", "systemd-logind.service"])?;
     // Fresh bootstrap has no desktop writer process to initialize its private
     // namespace. Keep the shared capture lease contract and explicitly enroll
     // the target account through its fixed own-account installer command.
-    if !Path::new(&format!("/run/user/{}/ryoku-writers", account()?.0)).exists() {
-        bootstrap_account_namespace()?;
-    }
+    enter_maintenance()?;
     match fs::read_to_string(state("phase")) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             retain_layers()?;
@@ -774,8 +888,7 @@ fn exercise() -> Result<()> {
             compare_to_checkpoint("native24-repeat-pre")?;
             let (uid, _) = account()?;
             let uid = uid.to_string();
-            let digest = preview("install")?;
-            refuses(&["migrate", &uid, "native24-conflict", &layer_id()?, &digest])?;
+            public_conflict("native24-conflict")?;
             verify_user(PERSONAL)?;
             fs::remove_file(format!("{HOME}/.config/ryoku/opensuse-profile.json"))?;
             apply("migrate", "native24-migrate")?;
@@ -791,14 +904,13 @@ fn exercise() -> Result<()> {
             verify_user(&legacy)?;
             apply("remove", "native24-before-interrupt")?;
             interrupted("native24-before", "revalidating")?;
-            refuses(&[
-                "internal-lifecycle",
-                "install",
-                &uid,
-                "native24-blocked",
-                &layer_id()?,
-                &preview("install")?,
-            ])?;
+            let layers = layer_id()?;
+            let digest = preview("install")?;
+            let paths = selected_paths();
+            let mut blocked =
+                vec!["internal-lifecycle", "install", &uid, "native24-blocked", &layers, &digest];
+            blocked.extend(paths.iter().map(String::as_str));
+            refuses(&blocked)?;
             command(INSTALLER, &["recover", &uid, "native24-before", "none"])?;
             interrupted("native24-after", "health_checking")?;
             require(
@@ -857,6 +969,7 @@ fn run() -> Result<()> {
         }
         Some("--exercise") => exercise(),
         Some("--catalog-refusals") => catalog_refusals(),
+        Some("--failure-policy") => failure_policy(),
         Some("--report") => {
             require(
                 fs::read(state("catalog-refusals"))? == b"passed\n",
@@ -866,6 +979,17 @@ fn run() -> Result<()> {
                 fs::read_to_string(state("result"))? == RESULTS,
                 "installer acceptance incomplete",
             )?;
+            let targets = fs::read_to_string(state("failure-targets"))?;
+            for required in [
+                "native24-conflict preflight=refused rescue=active emergency=inactive packages=unchanged user_inventory=unchanged",
+                "native24-before stage=revalidating emergency=active recovery_required=true",
+                "native24-after stage=health_checking emergency=active recovery_required=true",
+            ] {
+                require(
+                    targets.lines().filter(|line| *line == required).count() == 1,
+                    "native failure-target proof incomplete",
+                )?;
+            }
             print!("{RESULTS}");
             Ok(())
         }

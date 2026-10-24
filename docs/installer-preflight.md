@@ -95,6 +95,14 @@ generation and catalog identities before apply, checks the full managed user
 inventory and distro policy afterward, then captures a distinct verified
 post-change partner. A failed checkpoint prevents package/configuration apply.
 
+A rejection before the protected journal gate opens preserves the working
+maintenance target and still returns a CLI error. A systemd unit's successful
+preflight exit is never an installer success: the waiting CLI rejects reused
+operation IDs and requires that exact fresh operation's completed protected
+receipt. Once the gate opens, errors and signals retain the emergency-target
+failure policy and durable recovery gate. Reenter rescue maintenance and
+reestablish the account runtime before explicit recovery.
+
 The older `preview RPM...`, `remove-preview` and `migration-preview UID`
 commands remain read-only diagnostics. Their Zypper previews can show
 transitive proposals; they do not authorize or execute those proposals.
@@ -132,6 +140,15 @@ The console uses that inventory only for a marked installer source; ordinary
 console checkpoints keep their original three required installed packages.
 Unknown/missing markers, unknown package names/versions, omitted absence
 entries, schema mixing and inconsistent default presence refuse.
+
+This closure is the historical openSUSE port candidate for upstream
+`98a0368253d9628be72b853985878a5db90e1547` (0.75.5-beta.20). The port package
+version and RPM release counter are distinct from upstream's product version.
+Ryoku Amaterasu 1.0.0 at `a59d051f0e8080052216f6c7b9eb7e5928935ce8` is a
+major upstream transition owned by [#173](https://github.com/GenieRobot/ryoku-opensuse/issues/173).
+This installer baseline proves no 1.0 compatibility. Its closed inventory and
+package acceptance must be refreshed for the separately approved 1.0 closure;
+the schema-1 migration rule is a data schema, not a product-version claim.
 
 ## Interrupted execution and recovery
 

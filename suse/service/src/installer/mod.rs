@@ -49,15 +49,29 @@ const MAX_PACKAGE_BYTES: u64 = 256 * 1024 * 1024;
 const MAX_TOTAL_PACKAGE_BYTES: u64 = 1024 * 1024 * 1024;
 const MAX_QUERY_BYTES: usize = 4 * 1024 * 1024;
 const MAX_SOLVER_BYTES: usize = 2 * 1024 * 1024;
+const PREFLIGHT_REJECTION: u8 = 78;
 
 pub fn main() -> ExitCode {
-    match execute(env::args_os().skip(1).collect(), &mut io::stdout()) {
+    let arguments: Vec<_> = env::args_os().skip(1).collect();
+    let owned = arguments.first().is_some_and(|argument| argument == "internal-lifecycle")
+        && rustix::process::geteuid().is_root();
+    let mut gate_entered = false;
+    let result = if owned {
+        lifecycle::execute_internal(&arguments[1..], &mut io::stdout(), &mut gate_entered)
+    } else {
+        execute(arguments, &mut io::stdout())
+    };
+    match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             let _ = writeln!(io::stderr(), "ryoku-install: {error}");
-            ExitCode::from(2)
+            ExitCode::from(failure_status(owned, gate_entered))
         }
     }
+}
+
+fn failure_status(owned: bool, gate_entered: bool) -> u8 {
+    if owned && !gate_entered { PREFLIGHT_REJECTION } else { 2 }
 }
 
 fn execute(arguments: Vec<std::ffi::OsString>, output: &mut impl Write) -> Result<(), String> {

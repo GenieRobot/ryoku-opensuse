@@ -93,3 +93,15 @@ diagnostic_result = "five actual native unsafe-catalog refusal/preservation case
 disposal = "original failed-disk hash and signed-source hash unchanged; all QEMU stopped; failed/diagnostic disks, firmware, seeds, credentials and staged inputs removed"
 status = "corrected candidate requires fresh full native acceptance"
 acceptance = "none; no installer lifecycle or reset credited"
+
+[run07]
+candidate = "644930fc71be3259ca668f4a20d741fd2d6e5fad"
+report = "issue24-native-20261022/run07.txt"
+result = "failed-at-migration-preview-after-clean-and-repeat-install"
+observed = "all native builds/bootstrap/catalog refusals; clean root7/8 and repeat root9/10 linked partners; four identical72-entry comparisons passed"
+failure = "expected preflight conflict triggered unconditional emergency policy; next migration preview lacked working root/boot query services"
+correction = "reserved pre-gate owned-service exit78 preserves rescue but public CLI still errors and requires exact fresh completion receipt; all post-gate errors/signals retain emergency policy"
+native_regression = "public conflict status78/public error2 preserves rescue and all package/user/journal state; actual HealthChecking SIGKILL still activates emergency and pending recovery"
+disposal = "source and failed disk unchanged; all QEMU stopped; failed/diagnostic disks, firmware, seeds, credentials and staged inputs removed"
+version_scope = "pinned historical0.75.5-beta.20/openSUSE0.1.0-7 only; upstream1.0 transition belongs to173"
+acceptance = "incomplete; fresh full native run required"
