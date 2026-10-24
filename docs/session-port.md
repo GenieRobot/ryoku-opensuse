@@ -35,6 +35,8 @@ pinned daemon and its surface descendants. The private Quickshell runtime,
 `/usr/share/ryoku` payload, native `/usr/lib64/qt6/qml` modules and original Hub
 are used. Startup checks the required Ryoku Ui, FrameBars, PluginKit, Blobs,
 Spatial3D and Hyprland QML module metadata before launching a surface. The
+activation command performs the same check before starting the target, so a
+missing module enters its failure cleanup and greeter exit immediately. The
 daemon selects the packaged Hyprland provider through a private Rust session
 alias; ordinary provider argv still enter the existing writer coordinator. The separate
 clipboard daemon from the earlier #25 prototype is not started: the packaged

@@ -212,6 +212,10 @@ fn exit_compositor_command() -> Command {
 }
 
 fn start_session_target() -> Result<()> {
+    // Type=exec only observes the shell executable starting. Admit the fixed
+    // payload here so a missing module follows activation's greeter cleanup
+    // before the target starts, instead of racing the shell child's failure.
+    validate_surface_payload(Path::new(PAYLOAD), Path::new(QML_MODULES))?;
     // A fresh manager has not loaded this unit. ResetFailedUnit deliberately
     // does not load units and would reject that normal cold-start state.
     // Starting the target loads its required shell; preserve its burst limits.
@@ -250,7 +254,7 @@ fn stop_session() -> Result<()> {
     stopped.and(cleared)
 }
 
-fn surface_environment(command: &mut Command, root: &Path, modules: &Path) -> Result<()> {
+fn validate_surface_payload(root: &Path, modules: &Path) -> Result<()> {
     for relative in ["shell/quickshell/shell/shell.qml", "hub/quickshell/shell.qml"] {
         if !root.join(relative).is_file() {
             return Err(format!("preserved upstream entrypoint missing: {relative}").into());
@@ -261,6 +265,11 @@ fn surface_environment(command: &mut Command, root: &Path, modules: &Path) -> Re
             return Err(format!("upstream Ryoku.{module} module missing from payload").into());
         }
     }
+    Ok(())
+}
+
+fn surface_environment(command: &mut Command, root: &Path, modules: &Path) -> Result<()> {
+    validate_surface_payload(root, modules)?;
     let imports = env::join_paths([modules.to_path_buf(), root.join("shell/quickshell")])?;
     // Pin child lookup only; never import PATH into the shared user manager.
     command
