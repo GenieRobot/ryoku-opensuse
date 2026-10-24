@@ -27,6 +27,8 @@ const PICKER_LICENSES: &[&str] = &[
     "ryogami-picker-RobotoCondensed-LICENSE-Apache-2.0.txt",
     "ryogami-picker-SymbolsNerdFont-LICENSE-MIT.txt",
 ];
+const INIR_FONT_LICENSES: &[&str] =
+    &["inir-inter-OFL-1.1.txt", "inir-montserrat-OFL-1.1.txt", "inir-rubik-OFL-1.1.txt"];
 
 fn require(condition: bool, message: &str) -> Result<()> {
     if condition { Ok(()) } else { Err(message.into()) }
@@ -125,8 +127,8 @@ fn qml_imports(requires: &str, provides: &BTreeSet<String>) -> Result<()> {
     Ok(())
 }
 
-fn picker_licenses(records: &[FileRecord]) -> Result<()> {
-    for name in PICKER_LICENSES {
+fn component_licenses(records: &[FileRecord]) -> Result<()> {
+    for name in PICKER_LICENSES.iter().chain(INIR_FONT_LICENSES) {
         let mut matching = records.iter().filter(|record| {
             let path = Path::new(&record.path);
             path.starts_with("/usr/share/licenses/ryoku-desktop-runtime")
@@ -135,7 +137,17 @@ fn picker_licenses(records: &[FileRecord]) -> Result<()> {
         require(
             matching.next().is_some_and(|record| record.mode & 0o170000 == 0o100000)
                 && matching.next().is_none(),
-            &format!("missing or ambiguous installed picker license: {name}"),
+            &format!("missing or ambiguous installed component license: {name}"),
+        )?;
+    }
+    Ok(())
+}
+
+fn runtime_license(license: &str) -> Result<()> {
+    for required in ["GPL-3.0-or-later", "OFL-1.1"] {
+        require(
+            license.split_whitespace().any(|term| term == required),
+            &format!("runtime license omits the pinned component identity: {required}"),
         )?;
     }
     Ok(())
@@ -171,12 +183,9 @@ fn run() -> Result<()> {
         let inventory = query(path, &["--qf", FILE_QUERY])?;
         let records = files(&inventory)?;
         if name == "ryoku-desktop-runtime" {
-            picker_licenses(&records)?;
+            component_licenses(&records)?;
             let license = query(path, &["--qf", "%{LICENSE}\n"])?;
-            require(
-                license.split_whitespace().any(|term| term == "GPL-3.0-or-later"),
-                "runtime license omits the pinned picker license identity",
-            )?;
+            runtime_license(&license)?;
             evidence.insert("ryoku-desktop-runtime-license.txt".into(), license);
         }
         insert_paths(name, &records, &mut owners)?;
@@ -215,9 +224,10 @@ mod tests {
     }
 
     #[test]
-    fn picker_license_inventory_rejects_missing_links_wrong_locations_and_duplicates() {
+    fn component_license_inventory_rejects_missing_links_wrong_locations_and_duplicates() {
         let inventory: String = PICKER_LICENSES
             .iter()
+            .chain(INIR_FONT_LICENSES)
             .map(|name| {
                 row(
                     &format!("/usr/share/licenses/ryoku-desktop-runtime/ryoku-v1.0/{name}"),
@@ -226,26 +236,26 @@ mod tests {
             })
             .collect();
         let records = files(&inventory).unwrap();
-        assert!(picker_licenses(&records).is_ok());
-        for index in 0..PICKER_LICENSES.len() {
+        assert!(component_licenses(&records).is_ok());
+        for index in 0..(PICKER_LICENSES.len() + INIR_FONT_LICENSES.len()) {
             let mut records = files(&inventory).unwrap();
             records.remove(index);
-            assert!(picker_licenses(&records).is_err());
+            assert!(component_licenses(&records).is_err());
         }
         let mut records = files(&inventory).unwrap();
         records[0].mode = 0o120777;
-        assert!(picker_licenses(&records).is_err());
+        assert!(component_licenses(&records).is_err());
         records[0].mode = 0o100644;
         records[0].path = "/usr/share/doc/ryogami-picker-LICENSE".into();
-        assert!(picker_licenses(&records).is_err());
+        assert!(component_licenses(&records).is_err());
         let mut records = files(&inventory).unwrap();
         records.push(FileRecord {
             path: "/usr/share/licenses/ryoku-desktop-runtime/other/ryogami-picker-LICENSE".into(),
             mode: 0o100644,
         });
-        assert!(picker_licenses(&records).is_err());
+        assert!(component_licenses(&records).is_err());
         records.last_mut().unwrap().mode = 0o120777;
-        assert!(picker_licenses(&records).is_err());
+        assert!(component_licenses(&records).is_err());
     }
 
     #[test]
@@ -304,6 +314,83 @@ mod tests {
         let spec = include_str!("../../../packaging/rpm/ryoku-desktop.spec");
         assert!(spec.contains("%license packaging/licenses/ryoku-v1.0/\n"));
         assert!(!spec.contains("%license upstream-writers/ryoku/shell/ryogami/picker/"));
+    }
+
+    #[test]
+    fn inir_font_license_copies_cover_every_selected_family_and_font() {
+        use sha2::{Digest, Sha256};
+
+        let evidence: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/inir-font-license-provenance.json"
+        ))
+        .unwrap();
+        let selected: BTreeMap<_, _> =
+            include_str!("../../../upstream/evidence/ryoku-v1.0/writer-source-manifest.tsv")
+                .lines()
+                .skip(1)
+                .map(|line| {
+                    let fields: Vec<_> = line.split('\t').collect();
+                    (fields[0], (fields[1], fields[2]))
+                })
+                .collect();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let families = evidence["families"].as_array().unwrap();
+        assert_eq!(families.len(), INIR_FONT_LICENSES.len());
+        let mut copies = BTreeSet::new();
+        let mut fonts = BTreeSet::new();
+        for family in families {
+            assert_eq!(family["license_identity"], "OFL-1.1");
+            assert_eq!(family["git_mode"], "100644");
+            assert_eq!(
+                selected.get(family["source"].as_str().unwrap()),
+                Some(&(family["git_blob"].as_str().unwrap(), "644"))
+            );
+            let copy = root.join(family["package_copy"].as_str().unwrap());
+            assert!(fs::symlink_metadata(&copy).unwrap().is_file());
+            let bytes = fs::read(&copy).unwrap();
+            assert_eq!(u64::try_from(bytes.len()).unwrap(), family["bytes"].as_u64().unwrap());
+            assert_eq!(format!("{:x}", Sha256::digest(&bytes)), family["sha256"]);
+            assert!(
+                String::from_utf8(bytes).unwrap().contains("SIL OPEN FONT LICENSE Version 1.1")
+            );
+            copies.insert(copy.file_name().unwrap().to_string_lossy().into_owned());
+            let directory = Path::new(family["source"].as_str().unwrap()).parent().unwrap();
+            for font in family["fonts"].as_array().unwrap() {
+                let source = font["source"].as_str().unwrap();
+                assert_eq!(Path::new(source).parent(), Some(directory));
+                assert_eq!(font["git_mode"], "100644");
+                assert_eq!(
+                    selected.get(source),
+                    Some(&(font["git_blob"].as_str().unwrap(), "644"))
+                );
+                assert!(fonts.insert(source));
+            }
+        }
+        assert_eq!(copies, INIR_FONT_LICENSES.iter().map(|name| (*name).to_owned()).collect());
+        assert_eq!(fonts.len(), 22);
+        assert_eq!(
+            fonts,
+            selected
+                .keys()
+                .copied()
+                .filter(|source| {
+                    source.starts_with("ryoku/shell/quickshell/inir/assets/fonts/")
+                        && source.ends_with(".ttf")
+                })
+                .collect()
+        );
+    }
+
+    #[test]
+    fn runtime_license_requires_picker_and_inir_font_identities() {
+        assert!(runtime_license("GPL-3.0-only AND GPL-3.0-or-later AND OFL-1.1").is_ok());
+        for missing in ["GPL-3.0-or-later", "OFL-1.1", "GPL-3.0-or-later AND OFL-1.10"] {
+            assert!(runtime_license(missing).is_err());
+        }
+        let spec = include_str!("../../../packaging/rpm/ryoku-desktop.spec");
+        let runtime = spec.split("%package runtime\n").nth(1).unwrap();
+        let license = runtime.lines().find_map(|line| line.strip_prefix("License:")).unwrap();
+        assert!(runtime_license(license).is_ok());
     }
 
     #[test]
@@ -369,6 +456,17 @@ mod tests {
                 "{file}: {expected}"
             );
         }
+        let output = Command::new("rpmspec")
+            .args(["-q", "--rpms", "--qf", "%{NAME}\t%{LICENSE}\n"])
+            .arg(root.join("ryoku-desktop.spec"))
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        let metadata = String::from_utf8(output.stdout).unwrap();
+        let mut licenses =
+            metadata.lines().filter_map(|line| line.strip_prefix("ryoku-desktop-runtime\t"));
+        assert!(runtime_license(licenses.next().unwrap()).is_ok());
+        assert!(licenses.next().is_none());
     }
 
     #[test]

@@ -52,6 +52,16 @@ fetch/build and direct provider routes from the Hub query/refusal policy.
 It certifies source facts only; #180/#182 and their prerequisites retain the
 capabilities and own protected implementation/acceptance.
 
+`shell-font-rights.json` records eleven selected shell font binary identities,
+decoded sfnt rights metadata and all active loader references. It establishes
+an unresolved redistribution evidence gate, not a legal conclusion or removal
+of font choices. `inir-font-license-provenance.json` separately pins all 22
+selected iNiR fonts and three adjacent OFL1.1 texts with uniquely named package
+copies; focused source/audit checks do not certify native delivery or resolve
+the other eleven fonts. `font-license-validation.json` records the focused
+nine-test audit/native-spec result, exact input hashes and cached-toolchain
+limits separately from pending native package and redistribution acceptance.
+
 `picker-license-provenance.json` records the exact selected CMake source,
 two embedded TTF resources and their license texts plus picker LICENSE/NOTICE.
 Four byte-identical copies have unique package basenames under

@@ -43,6 +43,16 @@ the RPM also installs the notices in this directory with `%license`.
   Source/recipe validation is separate from the pending native RPM payload
   comparison and complete asset-license acceptance.
 
+- `inir-inter-OFL-1.1.txt`, `inir-montserrat-OFL-1.1.txt` and
+  `inir-rubik-OFL-1.1.txt` are exact pinned texts beside all 22 selected iNiR
+  TTFs. The runtime package owns those fonts, so its License expression includes
+  `OFL-1.1` independently of the separate external-font subpackage. The
+  provenance ledger records each selected font/blob and copy hash; the RPM
+  audit requires all three texts as regular files in its license directory.
+  This does not resolve the eleven other desktop fonts with incomplete rights
+  evidence; see `docs/ryoku-v1.0-font-rights-review.md`. Typography and font
+  choices remain retained targets, with redistribution/native acceptance open.
+
 `sound-theme-freedesktop-CREDITS` is copied verbatim from the official
 `sound-theme-freedesktop-0.8.tar.bz2` source archive at
 <https://people.freedesktop.org/~mccann/dist/sound-theme-freedesktop-0.8.tar.bz2>

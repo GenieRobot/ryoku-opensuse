@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "scope": "22 selected iNiR fonts and three exact adjacent OFL1.1 texts; does not close other shell-font rights or native RPM delivery",
+  "families": [
+    {
+      "family": "inter",
+      "license_identity": "OFL-1.1",
+      "source": "ryoku/shell/quickshell/inir/assets/fonts/inter/OFL.txt",
+      "git_blob": "9b2ca37b3ffc77391d8b2ebef4a974ef32bf46ea",
+      "git_mode": "100644",
+      "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a",
+      "bytes": 4380,
+      "package_copy": "packaging/licenses/ryoku-v1.0/inir-inter-OFL-1.1.txt",
+      "fonts": [
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/inter/Inter-Bold.ttf",
+          "git_blob": "9fb9b751e5b2441054f6eef670da7b3f53a3505a",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/inter/Inter-Light.ttf",
+          "git_blob": "2e07393146202e853d6e3a7943c43ed8bdd968bc",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/inter/Inter-Medium.ttf",
+          "git_blob": "458cd0601d28013d3817481aa2839c9bbb5ded70",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/inter/Inter-Regular.ttf",
+          "git_blob": "b7aaca8de1fe458399e17311d35d543a1fa2f984",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/inter/Inter-SemiBold.ttf",
+          "git_blob": "47f8ab1d68144fc004b310d65d95180d502b449b",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/inter/InterDisplay-Bold.ttf",
+          "git_blob": "b8f0d823a657f195ef3ef46578ead7a10ae2350e",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/inter/InterDisplay-Light.ttf",
+          "git_blob": "8533d04a2bfe29dc4f001d8c7cfce2450b918ac4",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/inter/InterDisplay-Medium.ttf",
+          "git_blob": "394f88d265d41cfab22dc19b0b7f6764510dbca8",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/inter/InterDisplay-Regular.ttf",
+          "git_blob": "956be38fd5faaad06400ed1dd6ea27906b2941b8",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/inter/InterDisplay-SemiBold.ttf",
+          "git_blob": "cf3123989d81006e86b0c7c0dfaf39efe8cb6463",
+          "git_mode": "100644"
+        }
+      ]
+    },
+    {
+      "family": "montserrat",
+      "license_identity": "OFL-1.1",
+      "source": "ryoku/shell/quickshell/inir/assets/fonts/montserrat/OFL.txt",
+      "git_blob": "fe576a2ee1f96353b05d030c0b7620d525cc53a8",
+      "git_mode": "100644",
+      "sha256": "8b7141c03fa4f8d44e6345d5d4931709290f0f67875e452e95ac1fd3a027802e",
+      "bytes": 4400,
+      "package_copy": "packaging/licenses/ryoku-v1.0/inir-montserrat-OFL-1.1.txt",
+      "fonts": [
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/montserrat/Montserrat-Bold.ttf",
+          "git_blob": "a3dbde5aafb65e89eb351a2e6acd198d4e6b2f41",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/montserrat/Montserrat-Light.ttf",
+          "git_blob": "b3c3fcee92e6f63aa86150cda571787d7407a4ae",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/montserrat/Montserrat-Medium.ttf",
+          "git_blob": "62ebd66a36cd3534bd67228cd82e6917e0b05533",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/montserrat/Montserrat-Regular.ttf",
+          "git_blob": "3ef210ab1107142c0aa19cb916ae38a5f99e86ba",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/montserrat/Montserrat-SemiBold.ttf",
+          "git_blob": "e36320fb70339b14a9077f637637d6a459301e20",
+          "git_mode": "100644"
+        }
+      ]
+    },
+    {
+      "family": "rubik",
+      "license_identity": "OFL-1.1",
+      "source": "ryoku/shell/quickshell/inir/assets/fonts/rubik/OFL.txt",
+      "git_blob": "03af63b533942ef3bb9919f81138fde8824d4554",
+      "git_mode": "100644",
+      "sha256": "472cbe7c25441df63e9c7864b43eb3c0f4b3df950c66a76224e6cfe1eae843fb",
+      "bytes": 4384,
+      "package_copy": "packaging/licenses/ryoku-v1.0/inir-rubik-OFL-1.1.txt",
+      "fonts": [
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/rubik/Rubik-Black.ttf",
+          "git_blob": "ec9c96232f0782c149f8f608318611c2ad434002",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/rubik/Rubik-Bold.ttf",
+          "git_blob": "8977e2d072d5047831b4690fd0b7deee30d17d42",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/rubik/Rubik-ExtraBold.ttf",
+          "git_blob": "a9a9d3e10dd2c15d4600d9b4996e80acd2f3c03a",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/rubik/Rubik-Light.ttf",
+          "git_blob": "a4f09ec8f33acf7dfa2b998cbb6024cebeee0203",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/rubik/Rubik-Medium.ttf",
+          "git_blob": "88223b8fd42f6d0e54f813960e97d8f807689a38",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/rubik/Rubik-Regular.ttf",
+          "git_blob": "cb1c9ea60980e7e4dae8bb429dab510316b1fbc7",
+          "git_mode": "100644"
+        },
+        {
+          "source": "ryoku/shell/quickshell/inir/assets/fonts/rubik/Rubik-SemiBold.ttf",
+          "git_blob": "36b2457ae73b41b4d0eed57c3382978744fbd92b",
+          "git_mode": "100644"
+        }
+      ]
+    }
+  ]
+}

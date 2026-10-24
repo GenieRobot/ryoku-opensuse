@@ -268,6 +268,14 @@ user-account code-execution boundaries. #180/#182 retain these capabilities
 with #25/#20/#27/#28 protected contracts; implementation and acceptance remain
 open, and this review removes no feature.
 
+The [shell-font rights review](ryoku-v1.0-font-rights-review.md) records all
+eleven shipped desktop font blobs and their active loader references. Embedded
+restrictive/unspecified rights metadata leaves their redistribution evidence
+open; no legal conclusion, payload removal or loss of font-selection capability
+is inferred. Separately, the runtime expression includes verified `OFL-1.1`
+for all 22 selected iNiR fonts and delivers three uniquely named pinned OFL
+texts. Native delivery and complete asset-license acceptance remain open.
+
 The full verified Git tree preserves CLI source/provenance, but existing
 Source2/Source3 are selected exports and contain no `ryoku/cli` root.
 Complete CLI source-only archive coverage, per-reconciler/host-verb semantic

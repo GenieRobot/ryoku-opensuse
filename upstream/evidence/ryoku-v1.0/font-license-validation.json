@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "scope": "Focused source/recipe/audit unit and parsed spec checks only; eleven shell-font redistribution blocker plus native RPM license acceptance remain open",
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "inputs_sha256": {
+    "automation/src/bin/rpm-package-audit.rs": "777f1842a922fb31edabe492e75e628e2a0df021abdb84eedd30dec42af9b3fa",
+    "packaging/rpm/ryoku-desktop.spec": "544651a63b5f737a7e93fb9b4be34346f1eabfcf4d4273a8e21b3c85ae92147e",
+    "Cargo.lock": "917612525417da0ba5f8543c4b82209d93b142f27d089904f6fcac7d239fd220",
+    "upstream/evidence/ryoku-v1.0/inir-font-license-provenance.json": "0d4b9558eb60966fe05ee79bedeffd6de38ed5710f3e51f117c2ee629f34c860",
+    "upstream/evidence/ryoku-v1.0/shell-font-rights.json": "b1fd41452e40068a8001323e3ff38c722725d5439d720b895d1bfbd8472e4c0b"
+  },
+  "source_checks": {
+    "ofl_families": 3,
+    "selected_ofl_fonts": 22,
+    "unresolved_selected_shell_fonts": 11,
+    "selected_shell_font_bytes": 366768,
+    "source_links_and_local_markdown_links": "passed"
+  },
+  "rustc": "1.99.0 b940084d7eb6a299eb4bfeb8e34901bc051e7ac4 x86_64-unknown-linux-gnu LLVM23.1.1",
+  "cached_dependencies": {
+    "serde_json": "1.0.154",
+    "sha2": "0.10.9",
+    "verification": "versions in cached .d source paths match Cargo.lock; compiler accepted rlib metadata; not a clean dependency rebuild"
+  },
+  "audit_test_result": {
+    "passed": 9,
+    "failed": 0,
+    "ignored": 0,
+    "includes_native_rpmspec": true,
+    "binary_bytes": 8825512,
+    "binary_sha256": "f67b58ac0af19b1ab83978d1c05e6c5fdca3a3b884fc5c0f269542fba24cb11a"
+  },
+  "other_checks": [
+    "rustfmt --edition2024",
+    "cargo fmt --all --check",
+    "git diff --check"
+  ],
+  "native_rpm_payload_or_runtime_acceptance": false
+}
