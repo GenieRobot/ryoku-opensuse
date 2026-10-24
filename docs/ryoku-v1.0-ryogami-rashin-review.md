@@ -62,6 +62,43 @@ the existing protected writer/checkpoint path before allowing writes. Methods
 or automatic actions without that proof remain unavailable; this review
 does not infer approval from #25's need for a functioning shell.
 
+### Core dependency and the limit of a launch-only fix
+
+The selected `ryoku/shell/ipc/ryogami.go` subscribes to the wallpaper topic;
+`ipc/theming.go` explicitly leaves apply, topic publication, transitions and
+depth to Ryogami. Removing the whole daemon therefore removes core wallpaper
+behavior, rather than merely an optional editor. Removing the picker alone
+does not stop automatic daemon effects.
+
+The source exposes a concrete checkpoint mismatch: `daemon/store.go`
+`openStore` now uses `<cache>/wallpaper/{index,state}.json` and creates that
+directory. `applyWallpaperReasonRecord` in `apply.go` calls `store.mutate`
+(persisting the new index) in addition to the known `outputs.json` and
+`$XDG_STATE_HOME/ryoku-wallpaper`. The port's current
+`suse/recovery/src/installed_inventory.rs` still pins upstream 0.75.5 and
+lists `.cache/ryogami/{outputs,state}.json`, not these new nested files.
+Coordination of the daemon's process tree is not proof that the new files
+are part of the checkpoint. This review does not expand recovery ownership.
+
+`daemon.go` also starts `healAnimatedWebp`, legacy migration, rescan, playlist
+resume and workshop/library/settings/WM watchers. Its `runStartHooks` includes
+registrations in `postapply.go`, `schedule.go`, `overview_backdrop.go`,
+`library_thumbjobs.go`, `lens.go`, `pause_rules.go`, `library_videocache.go`,
+`rotation_settings.go`, `power.go`, `display_fill.go`, `library_trash.go` and
+`audio_duck.go`. Some write cache, delete retained media or spawn helpers
+without an incoming socket action. Denying only download/model RPC verbs
+would leave those automatic paths live.
+
+The existing seams are Rust `run_writer` argument validation, native
+`dispatchRequest` / `dispatchVerb`, and exact startup/child launch sites in
+the source patch. A future focused patch must test each of those seams and
+refuse unreviewed actions before their write/launch body. Native direct
+socket tests must exercise the patched daemon, not merely a Rust alias.
+No new policy proxy, automatic model/provider capability or expanded recovery
+manifest has been introduced. A complete startup/core-write disposition is
+required before choosing which wallpaper behavior can remain; until then
+the candidate is **not ready for installation/appearance acceptance**.
+
 ## Excluded Rashin runtime
 
 Rashin is an agent/terminal service, not a wallpaper dependency. Its
