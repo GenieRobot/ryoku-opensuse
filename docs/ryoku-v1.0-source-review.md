@@ -251,6 +251,14 @@ owned by [#185](https://github.com/GenieRobot/ryoku-opensuse/issues/185).
 Their ownership does not certify existing
 refused or unmediated paths; their tests and refreshed native gates remain open.
 
+The Ryogami/Rashin ledger now records required target ownership separately
+from existing package state: all 338 `ryoku/rashin/**` paths and three
+Hub/shell bridges are explicitly `retain-entire-component` / `#183`.
+Their original blob/mode/export-selection facts remain unchanged. The concrete
+app/backend/web/skills/wiki/collector/unit and six-ACP source boundaries are
+recorded in the component review; current nonselection does not permit an
+assistant entrypoint or capability to be dropped.
+
 The full verified Git tree preserves CLI source/provenance, but existing
 Source2/Source3 are selected exports and contain no `ryoku/cli` root.
 Complete CLI source-only archive coverage, per-reconciler/host-verb semantic

@@ -31,6 +31,20 @@ Niri #46 and phased Tumbleweed Wayfire #185 are separate retained future targets
 Only edition-specific platform mechanisms are replaced, with full behavior
 and protected-operation acceptance still required under those owners.
 
+The Ryogami/Rashin ledger has explicit `target_disposition` and `owner_issue`
+columns separate from its current source/export/install facts. All 338 Rashin
+source rows and three selected bridges say `retain-entire-component` / `#183`.
+The original source/blob/mode/export fields are unchanged. Current nonselection
+must not be interpreted as permission to omit a retained assistant capability;
+#183 owns the complete capability/entrypoint/provider matrix after prerequisites,
+and #173 retains source/archive/package closure responsibility.
+
+`rashin-source-links.json` pins the two Rashin icon link objects and resolves
+their literal relative targets against the immutable Git tree. Both targets
+are regular brand assets already selected in Source3. It records no host-link
+dereference and does not relax the source exporter's current link refusal or
+certify an installed link. Full retained Rashin archive coverage remains open.
+
 `picker-license-provenance.json` records the exact selected CMake source,
 two embedded TTF resources and their license texts plus picker LICENSE/NOTICE.
 Four byte-identical copies have unique package basenames under

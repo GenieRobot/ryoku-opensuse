@@ -25,6 +25,16 @@ unit and three bridges outside Rashin. Every selected row was checked against
 `runtime-source-manifest.tsv` / `writer-source-manifest.tsv`; install claims
 come from `packaging/rpm/ryoku-desktop.spec`.
 
+The ledger now separates two axes. `source2_payload`, `source3_selected` and
+`disposition` describe current export/install facts only. `target_disposition`
+and `owner_issue` describe the required retained product target and its owner.
+**Every one of the 338 `ryoku/rashin/**` rows is
+`retain-entire-component` / `#183`**, as are the three already selected
+Hub/shell bridges. Current package nonselection cannot be used to omit an
+entrypoint or capability from #183. All original path/blob/mode/export fields
+remain unchanged; this source review does not activate the runtime or claim
+that its packaging gap is closed.
+
 | Source group | Disposition |
 |---|---|
 | `ryoku/shell/ryogami/daemon/**` (175) | Source3 private Go binary build inputs, including vendor/tests. Install the compiled daemon under `/usr/libexec/ryoku/upstream/ryogami`; public `ryogami` aliases Rust writer. |
@@ -192,6 +202,53 @@ The concrete source/dependency sequence for #173 is:
    bypass substitutes for those implementation and acceptance results.
 
 ## Rashin runtime: current package gap and retained target
+
+The #173/#183 classification contract preserves every source path and the
+following complete component boundaries. #183 owns the capability/entrypoint
+matrix and protected implementation after its prerequisites; #173 owns the
+immutable source facts and current package closure, with #47 the application
+inventory parent.
+
+The agreed owner matrix is committed by #183 at
+[`a50efed8150e28098141cab6f12924844bbc6582`](https://github.com/GenieRobot/ryoku-opensuse/blob/a50efed8150e28098141cab6f12924844bbc6582/docs/rashin-capabilities.md),
+with immutable [component/entrypoint/capability evidence](https://github.com/GenieRobot/ryoku-opensuse/tree/a50efed8150e28098141cab6f12924844bbc6582/upstream/evidence/rashin-v1.0).
+It preserves all 338 core paths across 16 capability groups and separately
+records external reference candidates, HTTP/WebSocket and Prowl interfaces.
+External candidate discovery is not execution/guardrail certification. The
+matrix and this source ledger agree on `retain-entire-component` / `#183`;
+neither completes runtime, dependency, package or prerequisite acceptance.
+
+Two retained source paths are Git link objects:
+`app/logo.svg` → `../../assets/brand/rashin-mark.svg` and
+`web/public/favicon.svg` → `../../../assets/brand/rashin-mark-small.svg`.
+[`rashin-source-links.json`](../upstream/evidence/ryoku-v1.0/rashin-source-links.json)
+records the exact link blobs/text/digests and resolved target blobs/modes/digests.
+Both resolve inside the pinned tree to regular brand assets already selected
+in Source3. No host link was dereferenced. The current source exporter rejects
+selected links, so closing full Rashin archive coverage needs an explicitly
+validated source-link policy; simply adding its root would fail. Preserving
+the source objects does not authorize arbitrary installed links or runtime
+file access, and archive/runtime acceptance remains open.
+
+| Exact subtree | Retained boundary and source evidence |
+|---|---|
+| `app/**` (5) | Native wrapper, desktop entry, icon, CMake and README. The exact CMake requires C++17 plus pkg-config `gtk+-3.0` and `webkit2gtk-4.1`; it is a GTK/WebKitGTK application, not a Qt module. Exact Tumbleweed package/provider and installed-browser acceptance remain unverified. |
+| `backend/**` (156) | Go 1.26 backend with websocket dependency and shared WM replacement. Retain the complete CLI, HTTP/WebSocket dashboard, Prowl management, ACP sessions, separate Ask/model routing and Agent/Chat lanes, terminal/fix, setup/wiring/indexing and state APIs. Source names or a loopback listener do not grant authorization. |
+| `skills/**` (8), `wiki/**` (8) | Retain supplied knowledge/skill material and its indexing/wiring interfaces. Vault, agent configuration and harness-side writes need explicit object/path ownership and privacy boundaries; these are not generic arbitrary-file operations. |
+| `web/**` (153) | Retain the Svelte/Vite application, declared components, assets and tests. The exact package metadata includes Svelte, TypeScript, Vite/Vitest and additional UI dependencies; lock/dependency/license and browser API closure must be reviewed before packaging. No node/network installation is performed by this source review. |
+| `usage/**` (4) | Retain `claude-usage`, `codex-usage`, `opencode-usage` and `ryoku-ai-usage`, including cadence and privacy semantics. Source collectors inspect account-specific credential/session data and write usage/activity caches; public evidence must never read or contain actual values, sessions or prompts. |
+| `systemd/**` (4) | Retain agent, Prowl, usage oneshot and usage timer lifecycle. Source timer starts after 45 seconds and repeats every five minutes; runtime/provider privacy and automatic-action recovery must be proven under #183. |
+| External bridges (3 recorded here) | Retain Hub `backend/rashin.go`, Hub `pages/RashinPage.qml` and shell `services/AiUsage.qml`. Their current selected/refused state is distinct from #183's required working protected routes. The #183 matrix also covers CLI, package and shell entrypoints outside this 338-file tree. |
+
+`backend/chatbackend.go` provides six concrete ACP choices: Hermes
+(`hermes acp`, or its discovered exact executable), Codex (`codex-acp`), Claude
+Code (`claude-code-acp`, falling back to `claude-agent-acp`), Oh My Pi
+(`omp acp`), opencode (`opencode acp`) and Gemini CLI
+(`gemini --experimental-acp`). Preserve each entrypoint/capability; executable
+availability alone does not authorize its tools, files, credentials or child
+processes. The #183 worker's matrix must bind each capability to exact source
+entrypoints and guardrails rather than collapsing the entire assistant into
+one chat action or an unavailable placeholder.
 
 Rashin is an agent/terminal service, not a wallpaper dependency. Its
 `backend/server.go` binds HTTP to `127.0.0.1:<configured port>` and exposes,
