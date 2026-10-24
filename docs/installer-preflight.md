@@ -22,6 +22,12 @@ before the first desktop checkpoint. Bootstrap does not create personal
 configuration or activate a desktop. Distro dependencies and KDE must already
 be installed through the distribution's normal signed package policy.
 
+The first installer checkpoint explicitly creates the fixed protected Snapper
+catalog if it is absent, using the recovery console's existing provisioning
+path. An existing catalog is opened and validated. A corrupt, symlinked,
+wrongly owned, unsafe-mode or non-directory name refuses capture and is never
+repaired or replaced by the installer.
+
 After entering the maintenance console, establish the target account's native
 runtime and writer coordination namespace before a preview or capture:
 

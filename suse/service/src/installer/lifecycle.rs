@@ -618,7 +618,11 @@ impl Installer<'_> {
         let linked =
             reader.open_historical_transaction(&root, &transaction).map_err(|e| e.to_string())?;
         self.session.verify_inventory(linked.generation().manifest()).map_err(|e| e.to_string())?;
-        let catalog = ProtectedSnapperCatalog::open(&root).map_err(|e| e.to_string())?;
+        let catalog = ProtectedSnapperCatalog::open(&root)
+            .or_else(|_| ProtectedSnapperCatalog::initialize(&root))
+            .map_err(|error| {
+                format!("protected catalog unavailable; no existing object was adopted: {error}")
+            })?;
         catalog.publish(&transaction, &[]).map_err(|e| e.to_string())?;
         catalog.mark_manual(&transaction).map_err(|e| e.to_string())?;
         if !catalog.status(&transaction).map_err(|e| e.to_string())?.complete {

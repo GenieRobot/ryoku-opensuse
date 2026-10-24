@@ -13,7 +13,7 @@ use ryoku_service::{OperationId, native_mutation::ProtectedMutationHistory};
 use std::{
     fs::{self, File, OpenOptions},
     io::Write,
-    os::unix::fs::{OpenOptionsExt, PermissionsExt},
+    os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     thread,
@@ -480,6 +480,12 @@ fn verify_checkpoints(operation: &str) -> Result<()> {
     for suffix in ["pre", "post"] {
         let linked =
             reader.open_historical_transaction(&root, &id(&format!("{operation}-{suffix}"))?)?;
+        let catalog = ryoku_recovery::snapper_catalog::ProtectedSnapperCatalog::open(&root)?;
+        let cataloged = catalog.status(&id(&format!("{operation}-{suffix}"))?)?;
+        require(
+            cataloged.complete && cataloged.cleanup_owned && cataloged.entry.manual_checkpoint,
+            "installer checkpoint lacks complete retained catalog partner",
+        )?;
         let manifest = linked.generation().manifest();
         require(
             ryoku_recovery::installer_state::is_installer(&manifest.reason),
@@ -527,6 +533,111 @@ fn verify_user(expected_personal: &[u8]) -> Result<()> {
         fs::read(format!("{HOME}/Documents/native24-unrelated"))? == SENTINEL,
         "unrelated user data changed",
     )
+}
+fn catalog_refusals() -> Result<()> {
+    guard()?;
+    let path = Path::new(STATE).join("snapper-catalog");
+    require(
+        matches!(fs::symlink_metadata(&path), Err(error) if error.kind() == std::io::ErrorKind::NotFound),
+        "catalog refusal fixture requires fresh bootstrap",
+    )?;
+    require(!Path::new(&state("catalog-refusals")).exists(), "catalog fixture already completed")?;
+    let sentinel = Path::new(STATE).join("native24-catalog-sentinel");
+    write(sentinel.to_str().ok_or("invalid sentinel path")?, SENTINEL, 0o600)?;
+    let baseline = ryoku_recovery::installer_state::query(None)?;
+    let (uid, gid) = account()?;
+    let uid_arg = uid.to_string();
+    for case in ["corrupt", "symlink", "foreign-owner", "unsafe-mode", "regular-file"] {
+        marker(&format!("catalog-refusal-{case}"))?;
+        match case {
+            "symlink" => std::os::unix::fs::symlink(&sentinel, &path)?,
+            "regular-file" => write(path.to_str().ok_or("invalid catalog path")?, SENTINEL, 0o600)?,
+            _ => {
+                fs::create_dir(&path)?;
+                fs::set_permissions(&path, fs::Permissions::from_mode(0o700))?;
+                write(
+                    path.join("catalog.json").to_str().ok_or("invalid catalog path")?,
+                    b"corrupt\n",
+                    0o600,
+                )?;
+                write(
+                    path.join(".catalog.lock").to_str().ok_or("invalid catalog lock")?,
+                    b"",
+                    0o600,
+                )?;
+                if case == "foreign-owner" {
+                    own(path.to_str().ok_or("invalid catalog path")?, uid, gid)?;
+                } else if case == "unsafe-mode" {
+                    fs::set_permissions(&path, fs::Permissions::from_mode(0o755))?;
+                }
+            }
+        }
+        let before = fs::symlink_metadata(&path)?;
+        let operation = format!("native24-catalog-{case}");
+        let digest = preview("install")?;
+        let layers = layer_id()?;
+        let paths = selected_paths();
+        let mut args =
+            vec!["internal-lifecycle", "install", &uid_arg, &operation, &layers, &digest];
+        args.extend(paths.iter().map(String::as_str));
+        refuses(&args)?;
+        let after = fs::symlink_metadata(&path)?;
+        require(
+            (before.dev(), before.ino(), before.uid(), before.gid(), before.mode())
+                == (after.dev(), after.ino(), after.uid(), after.gid(), after.mode()),
+            "catalog refusal changed the existing entry",
+        )?;
+        if case == "symlink" {
+            require(fs::read_link(&path)? == sentinel, "catalog symlink changed")?;
+        } else if case == "regular-file" {
+            require(fs::read(&path)? == SENTINEL, "catalog file changed")?;
+        } else {
+            require(fs::read(path.join("catalog.json"))? == b"corrupt\n", "catalog bytes changed")?;
+        }
+        require(fs::read(&sentinel)? == SENTINEL, "catalog target changed")?;
+        require(
+            ryoku_recovery::installer_state::query(None)? == baseline,
+            "catalog refusal changed packages",
+        )?;
+        verify_user(PERSONAL)?;
+        {
+            use ryoku_service::{
+                OperationPhase,
+                mutation_gate::{MutationOutcome, MutationStage},
+            };
+            let history = ProtectedMutationHistory::open().map_err(|e| format!("{e:?}"))?;
+            let operation = OperationId::new(&operation)?;
+            let status =
+                history.journal().get(&operation).ok_or("missing catalog refusal status")?;
+            let context = history
+                .journal()
+                .mutation_context(&operation)
+                .ok_or("missing catalog refusal history")?;
+            require(
+                status.phase == OperationPhase::Failed
+                    && context.stage == MutationStage::Capturing
+                    && context.checkpoint.is_none()
+                    && context.outcome == Some(MutationOutcome::FailedBeforeChange),
+                "catalog refusal passed the pre-change gate",
+            )?;
+        }
+        let journal_before = fs::read(format!("{STATE}/mutations.log"))?;
+        for _ in 0..2 {
+            command(INSTALLER, &["recover", &uid_arg, &operation, "none"])?;
+        }
+        require(
+            fs::read(format!("{STATE}/mutations.log"))? == journal_before,
+            "idempotent native recovery rewrote history",
+        )?;
+        if after.is_dir() {
+            fs::remove_dir_all(&path)?;
+        } else {
+            fs::remove_file(&path)?;
+        }
+    }
+    fs::remove_file(sentinel)?;
+    write(&state("catalog-refusals"), b"passed\n", 0o600)?;
+    Ok(())
 }
 fn compare_to_checkpoint(transaction: &str) -> Result<()> {
     let reader = GenerationReader::open_state_mount()?;
@@ -654,6 +765,7 @@ fn exercise() -> Result<()> {
     match fs::read_to_string(state("phase")) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             retain_layers()?;
+            catalog_refusals()?;
             apply("install", "native24-clean")?;
             verify_user(PERSONAL)?;
             compare_to_checkpoint("native24-clean-pre")?;
@@ -744,7 +856,12 @@ fn run() -> Result<()> {
             Ok(())
         }
         Some("--exercise") => exercise(),
+        Some("--catalog-refusals") => catalog_refusals(),
         Some("--report") => {
+            require(
+                fs::read(state("catalog-refusals"))? == b"passed\n",
+                "catalog bootstrap refusal proof missing",
+            )?;
             require(
                 fs::read_to_string(state("result"))? == RESULTS,
                 "installer acceptance incomplete",
