@@ -54,6 +54,12 @@ records exact file dispositions and the incompatible store API/write contract.
 It covers those areas only; it does not complete the full delta matrix or native
 acceptance gates.
 
+The separate [CLI/system lifecycle review](ryoku-v1.0-cli-lifecycle-review.md)
+records 774 current/prior paths, process/write candidates and exact Rust owner
+boundaries. Current CLI nonselection is a package fact, not permanent feature
+exclusion; complete CLI source-only archival and protected equivalents remain
+pending. This source-only review changes no #25 shell/session files.
+
 | Area | Exact selected source surface / behavior | Candidate disposition |
 |---|---|---|
 | Shell/core | `ryoku/shell/ipc`, selected QML, scripts and user units | Retain native shell, approved Rust writer roles and existing namespace/recovery ownership. Refresh actual v1 unit fixture; use private coordinated Quickshell launcher. Shell state/cache writes remain under the existing managed-writer boundary. |
