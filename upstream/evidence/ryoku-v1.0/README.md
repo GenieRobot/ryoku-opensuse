@@ -86,6 +86,13 @@ acceptance remain open. No package or metadata download was needed.
 checks and ten focused audit/native-spec tests separately from those native
 acceptance gates.
 
+`fedora-rpm-reference.tsv` / `.json` pin all 54 reference specs and 37 supporting
+source identities, raw conditional/dependency fields and five direct scriptlet
+boundaries. Source preparation's placeholder-version replacement is recorded;
+no Fedora mechanism is imported. `rashin-native-provider-records.json` separately
+pins exact signed-snapshot GTK3/WebKitGTK CMake provider metadata for the full
+core Rashin owner #183, with download/solver/native/functionality gates open.
+
 `picker-license-provenance.json` records the exact selected CMake source,
 two embedded TTF resources and their license texts plus picker LICENSE/NOTICE.
 Four byte-identical copies have unique package basenames under

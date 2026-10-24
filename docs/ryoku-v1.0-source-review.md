@@ -133,8 +133,12 @@ validation claim. Import/type resolution is still the separate native gate.
 Reviewed immutable Fedora references are `fedora/packages/rpm/ryoku-blobs.spec`,
 `ryogami.spec`, `ryoku-hub.spec`, `ryoku-shell.spec`,
 `ryoku-desktop-hyprland.spec` and their shared staging recipe. Fedora splits
-Blobs/Spatial3D, shell, Hub and Ryogami and also uses package Version 0.1
-independently of upstream. It confirms new Quick3D/Multimedia, picker private
+Blobs/Spatial3D, shell, Hub and Ryogami. Its checked-in Version 0.1 is a
+preparation placeholder replaced from RYOKU_PKGVER/release metadata, not proof
+of the published package version. The complete
+[54-spec reference comparison](ryoku-v1.0-fedora-reference.md) pins raw headers,
+staging/payload references and direct scriptlet boundaries without executing
+or importing them. It confirms new Quick3D/Multimedia, picker private
 Qt GUI/Vulkan/Wayland/FFmpeg and ImageMagick boundaries. Its `ffmpeg-free`,
 openh264 workaround, `skwd-paper-bin`, COPRs, shell staging and DNF/system
 scriptlets are not openSUSE package evidence and are not imported.

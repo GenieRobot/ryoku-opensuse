@@ -1,0 +1,440 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "source": {
+    "path": "ryoku/rashin/app/CMakeLists.txt",
+    "git_blob": "e7bc735dd29c158b4aa882a88c3618c2dfcafbb9",
+    "git_mode": "100644",
+    "sha256": "38e2aca7142ca3ad897919a05060338f8925af64c936330658449cb33dd34b43",
+    "capability_lines": [
+      {
+        "line": 10,
+        "source_text": "pkg_check_modules(GTK3 REQUIRED IMPORTED_TARGET gtk+-3.0)"
+      },
+      {
+        "line": 11,
+        "source_text": "pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.1)"
+      }
+    ]
+  },
+  "repository": {
+    "snapshot": "openSUSE Tumbleweed OSS20261016",
+    "repomd_sha256": "1d891e33c8abd582b71e579118e6b4c94e5e57ecdc1b77a2a7fc1abf7cc930a0",
+    "signer_fingerprint": "AD485664E901B867051AB15F35A2F86E29B700A4",
+    "signature_validation": "gpgv reverified locally; Good signature from openSUSE Project Signing Key",
+    "primary_location": "repodata/00c8e15be77a2a6e1f49e58f3c1c66142e2987fda576cceec54c9db0e9a7f789e43233f12f463d0d5313f941f665928aa45e79cba73de6699b847d560cc454ad-primary.xml.zst",
+    "primary_bytes": 17340729,
+    "primary_sha512": "00c8e15be77a2a6e1f49e58f3c1c66142e2987fda576cceec54c9db0e9a7f789e43233f12f463d0d5313f941f665928aa45e79cba73de6699b847d560cc454ad",
+    "primary_open_bytes": 173040206,
+    "primary_open_sha512": "b78e3942f0585d06a9c1d10115e78d23f357b31cc23a95d550b4de46be090a670782c0d23fa10e21bbcfe7f485b1f85250700f6a77b203021c728e22913605df",
+    "repomd_signature_sha256": "ec4ea2579b347505d4f85dbd596b55033d229eba1e810597f6ec2d5cc3fb598a"
+  },
+  "providers": [
+    {
+      "cmake_provider_caps": [
+        "pkgconfig(gtk+-3.0)"
+      ],
+      "package": {
+        "arch": "x86_64",
+        "checksum": "7415322313c1def4a86204f951fa202eac7efb121e43046a83d632ec31bcc7cb709fcee26ccdf2590aeaf466c79b2a05344cf93fd81cdaea9b3babfd255f7687",
+        "checksum_type": "sha512",
+        "location": {
+          "href": "x86_64/gtk3-devel-3.24.52+git59.b30343717d-1.1.x86_64.rpm"
+        },
+        "name": "gtk3-devel",
+        "provides": [
+          {
+            "name": "application()"
+          },
+          {
+            "name": "application(gtk3-demo.desktop)"
+          },
+          {
+            "name": "application(gtk3-widget-factory.desktop)"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "gtk3-devel",
+            "rel": "1.1",
+            "ver": "3.24.52+git59.b30343717d"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "gtk3-devel(x86-64)",
+            "rel": "1.1",
+            "ver": "3.24.52+git59.b30343717d"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "pkgconfig(gail-3.0)",
+            "ver": "3.24.53"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "pkgconfig(gdk-3.0)",
+            "ver": "3.24.53"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "pkgconfig(gdk-broadway-3.0)",
+            "ver": "3.24.53"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "pkgconfig(gdk-wayland-3.0)",
+            "ver": "3.24.53"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "pkgconfig(gdk-x11-3.0)",
+            "ver": "3.24.53"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "pkgconfig(gtk+-3.0)",
+            "ver": "3.24.53"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "pkgconfig(gtk+-broadway-3.0)",
+            "ver": "3.24.53"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "pkgconfig(gtk+-unix-print-3.0)",
+            "ver": "3.24.53"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "pkgconfig(gtk+-wayland-3.0)",
+            "ver": "3.24.53"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "pkgconfig(gtk+-x11-3.0)",
+            "ver": "3.24.53"
+          },
+          {
+            "name": "rpm_macro(gtk3_immodule_post)"
+          },
+          {
+            "name": "rpm_macro(gtk3_immodule_postun)"
+          },
+          {
+            "name": "rpm_macro(gtk3_immodule_requires)"
+          }
+        ],
+        "requires": [
+          {
+            "name": "/usr/bin/pkg-config"
+          },
+          {
+            "epoch": "0",
+            "flags": "GE",
+            "name": "gettext-its-gtk3",
+            "ver": "3.24.52+git59.b30343717d"
+          },
+          {
+            "name": "libatk-1.0.so.0()(64bit)"
+          },
+          {
+            "name": "libcairo.so.2()(64bit)"
+          },
+          {
+            "name": "libepoxy.so.0()(64bit)"
+          },
+          {
+            "name": "libgdk-3.so.0()(64bit)"
+          },
+          {
+            "name": "libgdk_pixbuf-2.0.so.0()(64bit)"
+          },
+          {
+            "name": "libgio-2.0.so.0()(64bit)"
+          },
+          {
+            "name": "libglib-2.0.so.0()(64bit)"
+          },
+          {
+            "name": "libgobject-2.0.so.0()(64bit)"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "libgtk-3-0",
+            "ver": "3.24.52+git59.b30343717d"
+          },
+          {
+            "name": "libgtk-3.so.0()(64bit)"
+          },
+          {
+            "name": "libharfbuzz.so.0()(64bit)"
+          },
+          {
+            "name": "libm.so.6()(64bit)"
+          },
+          {
+            "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+          },
+          {
+            "name": "libpango-1.0.so.0()(64bit)"
+          },
+          {
+            "name": "libpangocairo-1.0.so.0()(64bit)"
+          },
+          {
+            "epoch": "0",
+            "flags": "GE",
+            "name": "pkgconfig(atk)",
+            "ver": "2.35.1"
+          },
+          {
+            "name": "pkgconfig(atk-bridge-2.0)"
+          },
+          {
+            "epoch": "0",
+            "flags": "GE",
+            "name": "pkgconfig(cairo)",
+            "ver": "1.14.0"
+          },
+          {
+            "epoch": "0",
+            "flags": "GE",
+            "name": "pkgconfig(cairo-gobject)",
+            "ver": "1.14.0"
+          },
+          {
+            "name": "pkgconfig(cairo-xlib)"
+          },
+          {
+            "epoch": "0",
+            "flags": "GE",
+            "name": "pkgconfig(epoxy)",
+            "ver": "1.4"
+          },
+          {
+            "name": "pkgconfig(fontconfig)"
+          },
+          {
+            "epoch": "0",
+            "flags": "GE",
+            "name": "pkgconfig(fribidi)",
+            "ver": "0.19.7"
+          },
+          {
+            "name": "pkgconfig(gdk-3.0)"
+          },
+          {
+            "epoch": "0",
+            "flags": "GE",
+            "name": "pkgconfig(gdk-pixbuf-2.0)",
+            "ver": "2.30.0"
+          },
+          {
+            "epoch": "0",
+            "flags": "GE",
+            "name": "pkgconfig(gio-2.0)",
+            "ver": "2.57.2"
+          },
+          {
+            "epoch": "0",
+            "flags": "GE",
+            "name": "pkgconfig(gio-unix-2.0)",
+            "ver": "2.57.2"
+          },
+          {
+            "name": "pkgconfig(gtk+-3.0)"
+          },
+          {
+            "epoch": "0",
+            "flags": "GE",
+            "name": "pkgconfig(pango)",
+            "ver": "1.41.0"
+          },
+          {
+            "epoch": "0",
+            "flags": "GE",
+            "name": "pkgconfig(pangocairo)",
+            "ver": "1.41.0"
+          },
+          {
+            "name": "pkgconfig(pangoft2)"
+          },
+          {
+            "epoch": "0",
+            "flags": "GE",
+            "name": "pkgconfig(wayland-client)",
+            "ver": "1.14.91"
+          },
+          {
+            "epoch": "0",
+            "flags": "GE",
+            "name": "pkgconfig(wayland-cursor)",
+            "ver": "1.14.91"
+          },
+          {
+            "name": "pkgconfig(wayland-egl)"
+          },
+          {
+            "name": "pkgconfig(x11)"
+          },
+          {
+            "name": "pkgconfig(xcomposite)"
+          },
+          {
+            "name": "pkgconfig(xcursor)"
+          },
+          {
+            "name": "pkgconfig(xdamage)"
+          },
+          {
+            "name": "pkgconfig(xext)"
+          },
+          {
+            "name": "pkgconfig(xfixes)"
+          },
+          {
+            "name": "pkgconfig(xi)"
+          },
+          {
+            "name": "pkgconfig(xinerama)"
+          },
+          {
+            "epoch": "0",
+            "flags": "GE",
+            "name": "pkgconfig(xkbcommon)",
+            "ver": "0.2.0"
+          },
+          {
+            "name": "pkgconfig(xrandr)"
+          },
+          {
+            "name": "pkgconfig(zlib)"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "typelib-1_0-Gtk-3_0",
+            "ver": "3.24.52+git59.b30343717d"
+          },
+          {
+            "name": "libc.so.6(GLIBC_2.38)(64bit)"
+          }
+        ],
+        "version": {
+          "epoch": "0",
+          "rel": "1.1",
+          "ver": "3.24.52+git59.b30343717d"
+        }
+      }
+    },
+    {
+      "cmake_provider_caps": [
+        "pkgconfig(webkit2gtk-4.1)"
+      ],
+      "package": {
+        "arch": "x86_64",
+        "checksum": "675bab28ec45df8bf598cbe150580068ee90e24be2252dda6aa447fe8a9b543bb1ebbb9604db8c9ab85b337bc06e3d1f8a29b53159c54c09fcc4ff9739bd8140",
+        "checksum_type": "sha512",
+        "location": {
+          "href": "x86_64/webkitgtk3-devel-2.54.1-3.1.x86_64.rpm"
+        },
+        "name": "webkitgtk3-devel",
+        "provides": [
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "pkgconfig(javascriptcoregtk-4.1)",
+            "ver": "2.54.1"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "pkgconfig(webkit2gtk-4.1)",
+            "ver": "2.54.1"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "pkgconfig(webkit2gtk-web-extension-4.1)",
+            "ver": "2.54.1"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "webkitgtk3-devel",
+            "rel": "3.1",
+            "ver": "2.54.1"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "webkitgtk3-devel(x86-64)",
+            "rel": "3.1",
+            "ver": "2.54.1"
+          }
+        ],
+        "requires": [
+          {
+            "name": "/usr/bin/pkg-config"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "libjavascriptcoregtk-4_1-0",
+            "ver": "2.54.1"
+          },
+          {
+            "epoch": "0",
+            "flags": "EQ",
+            "name": "libwebkit2gtk-4_1-0",
+            "ver": "2.54.1"
+          },
+          {
+            "name": "pkgconfig(glib-2.0)"
+          },
+          {
+            "name": "pkgconfig(gobject-2.0)"
+          },
+          {
+            "name": "pkgconfig(gtk+-3.0)"
+          },
+          {
+            "name": "pkgconfig(javascriptcoregtk-4.1)"
+          },
+          {
+            "name": "pkgconfig(libsoup-3.0)"
+          },
+          {
+            "name": "typelib-1_0-JavaScriptCore-4_1"
+          },
+          {
+            "name": "typelib-1_0-WebKit2-4_1"
+          },
+          {
+            "name": "typelib-1_0-WebKit2WebExtension-4_1"
+          }
+        ],
+        "version": {
+          "epoch": "0",
+          "rel": "3.1",
+          "ver": "2.54.1"
+        }
+      }
+    }
+  ],
+  "owner_issue": "#183",
+  "scope": "Exact signed-snapshot provider metadata only; no package download/install, solver transaction, native app/link/ELF/browser/collector or functional Rashin acceptance. Current Source3 preserves all338 paths; full core functionality remains required."
+}
