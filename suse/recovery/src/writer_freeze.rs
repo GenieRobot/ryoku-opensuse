@@ -300,6 +300,35 @@ struct TraceOwner {
     tracer: i32,
     tasks: BTreeMap<i32, Held>,
 }
+// false means a same-tracer kernel-stopped task is awaiting its parent event
+// or its event-enrolled non-actor initial stop. Retries never grant ownership.
+fn actor_scan_ready(tracer: i32, held: &BTreeMap<i32, Held>, scanned: &[Task]) -> Result<bool> {
+    let mut ready = true;
+    for task in scanned {
+        if task.tracer != tracer {
+            return Err(Error::WriterUnavailable);
+        }
+        match held.get(&task.tid) {
+            Some(record)
+                if record.start == task.start
+                    && record.tgid == task.tgid
+                    && (record.actor_owned || record.stopped && task.state == 't') => {}
+            Some(record)
+                if record.start == task.start
+                    && record.tgid == task.tgid
+                    && !record.actor_owned
+                    && !record.stopped
+                    && task.state == 't' =>
+            {
+                ready = false
+            }
+            None if task.state == 't' => ready = false,
+            _ => return Err(Error::WriterUnavailable),
+        }
+    }
+    Ok(ready)
+}
+
 impl TraceOwner {
     fn freeze(target: Target) -> Result<Self> {
         let status = std::fs::read_to_string("/proc/thread-self/status")?;
@@ -436,18 +465,22 @@ impl TraceOwner {
         self.run_tick(execution)
     }
     fn run_tick(&mut self, execution: &ActorExecution) -> Result<()> {
-        self.poll()?;
-        self.validate_actor(execution)?;
-        for task in self.target.scan()? {
-            if task.tracer != self.tracer
-                || self.tasks.get(&task.tid).is_none_or(|held| {
-                    held.start != task.start
-                        || held.tgid != task.tgid
-                        || (!held.actor_owned && (!held.stopped || task.state != 't'))
-                })
-            {
+        let deadline = Instant::now() + TIMEOUT;
+        loop {
+            self.poll()?;
+            self.validate_actor(execution)?;
+            let scanned = self.target.scan()?;
+            if actor_scan_ready(self.tracer, &self.tasks, &scanned)? {
+                break;
+            }
+            // /proc may expose a kernel-stopped newborn before this tracer
+            // consumes its parent's queued FORK/CLONE event. Never infer
+            // ownership from /proc or resume it: only poll() can enroll it
+            // from that event and inherit the parent's actor-owned marker.
+            if Instant::now() >= deadline {
                 return Err(Error::WriterUnavailable);
             }
+            thread::sleep(Duration::from_millis(2));
         }
         for (&tid, held) in &mut self.tasks {
             if !held.actor_owned {
@@ -827,6 +860,42 @@ mod tests {
         sync::atomic::{AtomicU64, Ordering},
     };
     #[test]
+    fn unobserved_children_never_gain_actor_ownership_from_scan_or_retries() {
+        let task = |tid, state, tracer| Task {
+            tid,
+            tgid: tid,
+            tracer,
+            state,
+            start: 42,
+            uids: vec![1000; 4],
+        };
+        let mut held = BTreeMap::new();
+        let stopped = task(17, 't', 7);
+        // Repeated scans cannot stand in for a missing parent event.
+        for _ in 0..3 {
+            assert!(!actor_scan_ready(7, &held, std::slice::from_ref(&stopped)).unwrap());
+        }
+        assert!(held.is_empty());
+        assert!(actor_scan_ready(7, &held, &[task(17, 'R', 7)]).is_err());
+        assert!(actor_scan_ready(7, &held, &[task(17, 't', 8)]).is_err());
+        held.insert(
+            17,
+            Held { start: 42, tgid: 17, stopped: true, signal: 0, exec: false, actor_owned: false },
+        );
+        held.get_mut(&17).unwrap().stopped = false;
+        // A real parent event can enroll a non-actor child before its own
+        // initial stop is consumed. Poll for that stop; never resume it.
+        assert!(!actor_scan_ready(7, &held, std::slice::from_ref(&stopped)).unwrap());
+        assert!(!held[&17].actor_owned);
+        held.get_mut(&17).unwrap().stopped = true;
+        assert!(actor_scan_ready(7, &held, &[stopped]).unwrap());
+        // Even an enrolled same-UID sibling must stay kernel-stopped.
+        assert!(actor_scan_ready(7, &held, &[task(17, 'R', 7)]).is_err());
+        held.get_mut(&17).unwrap().start = 41;
+        assert!(actor_scan_ready(7, &held, &[task(17, 't', 7)]).is_err());
+    }
+
+    #[test]
     fn executable_pin_refuses_symlinks_and_non_root_owned_images() {
         use std::os::unix::fs::{MetadataExt, symlink};
         let directory =
@@ -884,6 +953,18 @@ mod tests {
             while !self.path.join(name).exists() {
                 assert!(Instant::now() < deadline, "missing {name}");
                 thread::sleep(Duration::from_millis(5));
+            }
+        }
+        fn reap_last(&mut self) {
+            let child = self.children.last_mut().unwrap();
+            let deadline = Instant::now() + TIMEOUT;
+            loop {
+                if let Some(status) = child.try_wait().unwrap() {
+                    assert!(status.success());
+                    return;
+                }
+                assert!(Instant::now() < deadline, "owned fixture child did not exit");
+                thread::sleep(Duration::from_millis(2));
             }
         }
         fn counters(&self) -> Vec<Vec<u8>> {
@@ -1036,6 +1117,63 @@ mod tests {
             sibling.resumed(&sibling_before);
             std::fs::write(forking.path.join("stop"), "1").unwrap();
             forking.wait("writer-ended");
+            // That marker belongs to a worker thread. The process can still
+            // be waiting for its approved child; reap it before a new lease
+            // captures this subtree and correctly refuses an exiting writer.
+            forking.reap_last();
+
+            // Simulate a non-actor FORK already queued at the lease boundary.
+            // Only this pre-lease fixture step continues that parent. Its
+            // actual kernel event enrolls a child whose initial stop is still
+            // pending when the approved actor starts its next tick.
+            let mut pending = Fixture::new();
+            // A fixed single-threaded fixture makes the actual forking TID
+            // unambiguous; Rust's test harness main TID only waits for tests.
+            let child = Command::new("/bin/sh")
+                .args(["-c", r#": > "$1/ready"; while [ ! -e "$1/fork-now" ]; do :; done; /usr/bin/sleep 2 & child=$!; printf '%s' "$child" > "$1/fork-child"; wait "$child"; : > "$1/writer-ended""#, "issue25-kernel-fork"])
+                .arg(&pending.path).spawn().unwrap();
+            let pending_pid = i32::try_from(child.id()).unwrap();
+            pending.children.push(child);
+            pending.wait("ready");
+            let mut owner = TraceOwner::freeze(target()).unwrap();
+            let known: std::collections::BTreeSet<_> = owner.tasks.keys().copied().collect();
+            let sibling_before = sibling.counters();
+            std::fs::write(pending.path.join("fork-now"), "1").unwrap();
+            control(libc::PTRACE_CONT, pending_pid, 0).unwrap();
+            owner.tasks.get_mut(&pending_pid).unwrap().stopped = false;
+            let deadline = Instant::now() + TIMEOUT;
+            let child = loop {
+                owner.poll().unwrap();
+                if let Some((&tid, _)) = owner.tasks.iter().find(|(tid, _)| !known.contains(tid)) {
+                    break tid;
+                }
+                assert!(Instant::now() < deadline, "missing real non-actor fork event");
+                thread::sleep(Duration::from_millis(2));
+            };
+            assert!(!owner.tasks[&child].stopped);
+            assert!(!owner.tasks[&child].actor_owned);
+            assert_eq!(read_task(child).unwrap().unwrap().tracer, owner.tracer);
+            assert_eq!(read_task(child).unwrap().unwrap().state, 't');
+            for held in owner.tasks.values_mut() {
+                held.actor_owned = held.tgid == actor_pid;
+            }
+            let execution = ActorExecution { actor_pid, executables: vec![] };
+            let before = actor.counters();
+            owner.run_tick(&execution).unwrap();
+            actor.resumed(&before);
+            assert_eq!(sibling.counters(), sibling_before);
+            assert!(owner.tasks[&child].stopped);
+            assert!(!owner.tasks[&child].actor_owned);
+            assert_eq!(read_task(child).unwrap().unwrap().state, 't');
+            assert!(!pending.path.join("fork-child").exists());
+            owner.refreeze_actor(&execution).unwrap();
+            owner.check().unwrap();
+            assert_eq!(read_task(child).unwrap().unwrap().state, 't');
+            assert_eq!(read_task(pending_pid).unwrap().unwrap().state, 't');
+            owner.detach().unwrap();
+            std::fs::write(pending.path.join("stop"), "1").unwrap();
+            pending.wait("writer-ended");
+            pending.reap_last();
 
             let mut replacement = Fixture::new();
             let replacement_pid = replacement.spawn("exec-writer");

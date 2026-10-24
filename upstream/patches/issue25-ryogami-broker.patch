@@ -44,10 +44,10 @@ index 316de02..9ace19c 100644
  	}
  }
 diff --git a/ryoku/shell/ryogami/daemon/apply.go b/ryoku/shell/ryogami/daemon/apply.go
-index 3d23bef..40f5a7f 100644
+index 3d23bef..2609f6e 100644
 --- a/ryoku/shell/ryogami/daemon/apply.go
 +++ b/ryoku/shell/ryogami/daemon/apply.go
-@@ -5,8 +5,10 @@ import (
+@@ -5,9 +5,12 @@ import (
  	"fmt"
  	"os"
  	"path/filepath"
@@ -56,9 +56,11 @@ index 3d23bef..40f5a7f 100644
  	"strings"
 +	"syscall"
  	"time"
++	"unicode"
  )
  
-@@ -18,12 +20,20 @@ import (
+ // The apply path: publish the frame the shell QML renders, persist the
+@@ -18,12 +21,20 @@ import (
  // video_engine knob: "ryogami" (the C player + READY handshake, default) or
  // "in_shell" (the clip publishes as videoPath and the shell decodes it).
  func (d *daemon) applyWallpaperReasonRecord(reason, wpType, path, mode string, outputs []string, mute map[string]bool, volume map[string]int, record bool) error {
@@ -79,7 +81,7 @@ index 3d23bef..40f5a7f 100644
  	// An empty caller set means every output; a named set a guard emptied leaves nothing to paint.
  	req := &applyRequest{Type: wpType, Path: path, Outputs: outputs, Reason: reason}
  	pickOnly := false
-@@ -59,7 +69,7 @@ func (d *daemon) applyWallpaperReasonRecord(reason, wpType, path, mode string, o
+@@ -59,7 +70,7 @@ func (d *daemon) applyWallpaperReasonRecord(reason, wpType, path, mode string, o
  	paint := path
  	prefs := wallPrefs()
  	// Stop any Wallpaper Engine scene on these outputs so the two renderers do not overdraw.
@@ -88,7 +90,7 @@ index 3d23bef..40f5a7f 100644
  		_ = d.paper.stop(stopTargets(outputs))
  	}
  	// A switch away from a live clip must drop any transcode still in flight
-@@ -313,7 +323,7 @@ func defaultWallpaperFrom(state map[string]map[string]interface{}) string {
+@@ -313,7 +324,7 @@ func defaultWallpaperFrom(state map[string]map[string]interface{}) string {
  func syncWallState(state map[string]map[string]interface{}) {
  	dir := stateHome()
  	_ = os.MkdirAll(dir, 0o755)
@@ -97,7 +99,7 @@ index 3d23bef..40f5a7f 100644
  }
  
  // legacyWallStatePath: the shell's own choice from before Ryogami owned the
-@@ -912,3 +922,162 @@ func (d *daemon) wallpaperStillExpected(path string, targetOutputs []string, wor
+@@ -912,3 +923,212 @@ func (d *daemon) wallpaperStillExpected(path string, targetOutputs []string, wor
  	}
  	return true
  }
@@ -212,7 +214,7 @@ index 3d23bef..40f5a7f 100644
 +		return nil, fmt.Errorf("choose 1 to 32 active wallpaper state targets before changing audio")
 +	}
 +	for _, target := range targets {
-+		if len(target.Key) > 128 {
++		if target.Key == "" || len(target.Key) > 128 || strings.IndexFunc(target.Key, unicode.IsControl) >= 0 {
 +			return nil, fmt.Errorf("wallpaper audio target exceeds recovery receipt capacity")
 +		}
 +	}
@@ -240,16 +242,18 @@ index 3d23bef..40f5a7f 100644
 +			writesWorkspaces = true
 +		}
 +	}
++	replacements := []audioReplacement{}
 +	if writesWorkspaces {
-+		if err := saveJSONChecked(d.workspaces.path(), ws); err != nil {
-+			return nil, err
-+		}
-+		d.workspaces.state = ws
++		replacements = append(replacements, audioReplacement{path: d.workspaces.path(), value: ws})
 +	}
 +	if writesOutputs {
-+		if err := saveJSONChecked(path, state); err != nil {
-+			return nil, err
-+		}
++		replacements = append(replacements, audioReplacement{path: path, value: state})
++	}
++	if err := replaceAudioState(replacements, saveJSONChecked, restoreAudioState); err != nil {
++		return nil, err
++	}
++	if writesWorkspaces {
++		d.workspaces.state = ws
 +	}
 +	d.surface.setAudio(a.Mute, a.Volume, a.Outputs)
 +	sort.Slice(targets, func(i, j int) bool {
@@ -259,6 +263,54 @@ index 3d23bef..40f5a7f 100644
 +		return targets[i].State < targets[j].State
 +	})
 +	return targets, nil
++}
++
++// Replacements remain inside the already captured exact write set. Compensation
++// restores prior bytes/absence if a later replacement fails. Even successful
++// compensation returns failure; Rust retains Applying/MayHaveMutated history.
++type audioReplacement struct {
++	path    string
++	value   interface{}
++	before  []byte
++	existed bool
++}
++
++func restoreAudioState(replacement audioReplacement) error {
++	if replacement.existed {
++		return atomicStateWrite(replacement.path, replacement.before)
++	}
++	err := os.Remove(replacement.path)
++	if os.IsNotExist(err) {
++		return nil
++	}
++	return err
++}
++func replaceAudioState(replacements []audioReplacement, write func(string, interface{}) error, restore func(audioReplacement) error) error {
++	for i := range replacements {
++		before, err := os.ReadFile(replacements[i].path)
++		if err != nil && !os.IsNotExist(err) {
++			return err
++		}
++		replacements[i].before = before
++		replacements[i].existed = err == nil
++	}
++	for i, replacement := range replacements {
++		if err := write(replacement.path, replacement.value); err != nil {
++			var compensation error
++			// Include the failing destination: a provider I/O error must not
++			// be interpreted as proof that its destination stayed unchanged.
++			for j := i; j >= 0; j-- {
++				if restoreErr := restore(replacements[j]); restoreErr != nil {
++					compensation = restoreErr
++				}
++			}
++			if compensation != nil {
++				return fmt.Errorf("audio persistence failed (%v); compensation failed (%v); linked recovery is required", err, compensation)
++			}
++			return fmt.Errorf("audio persistence failed (%v); prior state compensated; operation remains failed", err)
++		}
++	}
++	return nil
 +}
 diff --git a/ryoku/shell/ryogami/daemon/apply_test.go b/ryoku/shell/ryogami/daemon/apply_test.go
 index a38ea4c..7ac1c20 100644
@@ -771,7 +823,7 @@ index 0d34a34..d3a9a3d 100644
  // live on the socket, never steal it: the interloper restores the saved
  // wallpaper over the running one and dies with the terminal, leaving the
 diff --git a/ryoku/shell/ryogami/daemon/e2e_test.go b/ryoku/shell/ryogami/daemon/e2e_test.go
-index d7a968a..fe83279 100644
+index d7a968a..f4314d1 100644
 --- a/ryoku/shell/ryogami/daemon/e2e_test.go
 +++ b/ryoku/shell/ryogami/daemon/e2e_test.go
 @@ -1,86 +1,150 @@
@@ -1088,7 +1140,7 @@ index d7a968a..fe83279 100644
  	if !strings.Contains(reply, `"applied"`) {
  		t.Fatalf("apply replied: %s", reply)
  	}
-@@ -480,4 +623,189 @@ func TestE2EWallApplyWritesLegacyState(t *testing.T) {
+@@ -480,4 +623,272 @@ func TestE2EWallApplyWritesLegacyState(t *testing.T) {
  	if got != img {
  		t.Fatalf("state file = %q, want %q", got, img)
  	}
@@ -1276,6 +1328,89 @@ index d7a968a..fe83279 100644
 +	files, _ := filepath.Glob(filepath.Join(dir, ".ryogami-state-*"))
 +	if len(files) != 0 {
 +		t.Fatal("temporary files leaked")
++	}
++}
++
++func TestAudioSecondReplacementFailureCompensatesOrReportsRecovery(t *testing.T) {
++	for _, failure := range []string{"compensated", "compensation-failed", "prior-absence"} {
++		t.Run(failure, func(t *testing.T) {
++			dir := t.TempDir()
++			workspace := filepath.Join(dir, "workspaces.json")
++			outputs := filepath.Join(dir, "outputs.json")
++			oldWorkspace := []byte("{\"assignments\":{}}\n")
++			oldOutputs := []byte("{\"*\":{\"type\":\"video\",\"volume\":80}}\n")
++			if failure != "prior-absence" {
++				if err := os.WriteFile(workspace, oldWorkspace, 0o600); err != nil {
++					t.Fatal(err)
++				}
++			}
++			if err := os.WriteFile(outputs, oldOutputs, 0o600); err != nil {
++				t.Fatal(err)
++			}
++			replacements := []audioReplacement{{path: workspace, value: map[string]interface{}{"changed": true}}, {path: outputs, value: map[string]interface{}{"changed": true}}}
++			calls := 0
++			err := replaceAudioState(replacements, func(path string, value interface{}) error {
++				calls++
++				if calls == 2 {
++					got, _ := os.ReadFile(workspace)
++					if string(got) == string(oldWorkspace) {
++						t.Fatal("fault did not follow first replacement")
++					}
++					return os.ErrPermission
++				}
++				return saveJSONChecked(path, value)
++			}, func(before audioReplacement) error {
++				if failure == "compensation-failed" && before.path == workspace {
++					return os.ErrPermission
++				}
++				return restoreAudioState(before)
++			})
++			if err == nil || calls != 2 {
++				t.Fatalf("partial write was accepted: %v %d", err, calls)
++			}
++			gotOutputs, _ := os.ReadFile(outputs)
++			if string(gotOutputs) != string(oldOutputs) {
++				t.Fatal("outputs preimage lost")
++			}
++			gotWorkspace, readErr := os.ReadFile(workspace)
++			if failure == "compensation-failed" {
++				if !strings.Contains(err.Error(), "linked recovery is required") || string(gotWorkspace) == string(oldWorkspace) {
++					t.Fatal("failed compensation hidden")
++				}
++			} else if failure == "prior-absence" {
++				if !os.IsNotExist(readErr) {
++					t.Fatal("prior absence not restored")
++				}
++			} else if string(gotWorkspace) != string(oldWorkspace) {
++				t.Fatal("workspace preimage not restored")
++			}
++			info, _ := os.Stat(outputs)
++			if info.Mode().Perm() != 0o600 {
++				t.Fatal("mode changed")
++			}
++		})
++	}
++}
++
++func TestE2EAudioReceiptKeysRefuseBeforeWriting(t *testing.T) {
++	for _, key := range []string{"", "DP-\n", strings.Repeat("X", 129), strings.Repeat("X", 128)} {
++		t.Run(fmt.Sprintf("bytes-%d-%q", len(key), key), func(t *testing.T) {
++			d := startDaemon(t)
++			path := filepath.Join(d.native.cfg.cacheDir(), "outputs.json")
++			if err := saveJSONChecked(path, map[string]interface{}{key: map[string]interface{}{"type": "video", "volume": 80}}); err != nil {
++				t.Fatal(err)
++			}
++			before, _ := os.ReadFile(path)
++			reply := d.approvedAction(90, "wall.set_audio", brokerAudio{Outputs: []string{}, Volume: intPtrForAudio(35)})
++			after, _ := os.ReadFile(path)
++			if len(key) == 128 {
++				if !strings.Contains(reply, `"audio_written"`) || string(before) == string(after) {
++					t.Fatal(reply)
++				}
++			} else if !strings.Contains(reply, `"error"`) || string(before) != string(after) {
++				t.Fatalf("invalid receipt key wrote state: %s", reply)
++			}
++		})
 +	}
  }
 diff --git a/ryoku/shell/ryogami/daemon/hooks.go b/ryoku/shell/ryogami/daemon/hooks.go

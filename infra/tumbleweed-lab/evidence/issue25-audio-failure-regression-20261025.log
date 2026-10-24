@@ -1,0 +1,1730 @@
+Redaction rule: actual worktree/account-home/temporary absolute paths become <worktree>/, <account-home>/ and <tmp>/. Fixed system interface paths and synthetic test identifiers remain. Raw originals are retained outside the public repository.
+
+===== Preserved default-parallel failure: issue25-audio-rust-concurrent-failed.log; command exit 101 =====
+CARGO_INCREMENTAL=0 cargo test --offline --locked -p ryoku-recovery -p ryoku-service
+
+   Compiling ryoku-service v0.1.0 (<worktree>/suse/service)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.65s
+     Running unittests src/lib.rs (target/debug/deps/ryoku_recovery-8ebea4e3c3155356)
+
+running 240 tests
+test capture::tests::acl_digest_distinguishes_absence_from_empty_and_counts_metadata_bytes ... ok
+test account_principal::tests::binds_every_account_field_and_redacts_diagnostics ... ok
+test capture::tests::captures_or_refuses_when_host_metadata_support_varies ... ok
+test capture::tests::captures_only_declared_files_and_absences_without_recursion ... ok
+test account_principal::tests::legacy_absence_stays_unproven_and_original_principal_is_sealed ... ok
+test capture_session::tests::alternate_writer_layout_is_refused ... ok
+test capture::tests::rejects_special_files_limits_duplicates_and_unlisted_hard_links ... ok
+test capture::tests::refuses_symlink_parent_and_leaf_without_touching_target ... ok
+test capture::tests::captures_safe_symlink_target_as_text_without_following_it ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::native_cross_owner_acl_and_selinux_metadata_are_preserved ... ignored, requires privileged native ACL/SELinux fixture
+test configuration_stage::disk_stage_tests::configuration_apply_tests::native_destination_local_stage_crosses_the_persistent_store_filesystem ... ignored, requires TMPDIR on a different filesystem from /tmp
+test configuration_stage::disk_stage_tests::configuration_apply_tests::absent_ancestor_and_descendant_restore_without_traversing_a_current_file ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::completed_phase_rechecks_bytes_instead_of_silently_overwriting_new_changes ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::nonempty_directory_removal_preserves_undeclared_children_in_recovery ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::foreign_private_stage_is_not_adopted_or_deleted ... ok
+test configuration_stage::disk_stage_tests::changed_content_and_unexpected_objects_invalidate_completed_stage ... ok
+test configuration_stage::disk_stage_tests::changed_source_receipt_and_injected_absent_slot_are_rejected ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::enrolled_directory_replaces_a_symlink_without_following_its_old_target ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::undeclared_symlink_parent_blocks_before_any_configuration_write ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::applies_all_inode_kinds_and_absence_without_mutating_unrelated_peers ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::hard_links_share_an_inode_across_distinct_destination_parents ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::unrepresentable_linux_component_is_rejected_before_any_live_write ... ok
+test configuration_stage::disk_stage_tests::matching_bytes_and_metadata_do_not_substitute_for_hard_links ... ok
+test configuration_stage::disk_stage_tests::disk_stage_reopens_from_durable_generation_with_links_metadata_and_absence ... ok
+test configuration_stage::disk_stage_tests::missing_completion_is_never_adopted_or_overwritten ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::checkpoint_payload_corruption_blocks_preparation_resume ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::phase_and_source_stage_failures_precede_live_writes ... ok
+test configuration_stage::disk_stage_tests::expanded_payload_budget_is_checked_before_creating_a_stage_directory ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::incompatible_source_retains_the_verified_current_generation_without_staging ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::missing_affected_path_fails_before_checkpoint_or_journal_creation ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::preparation_captures_actual_current_bytes_and_resumes_without_recapture ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::complete_linked_preparation_checks_source_partner_without_claiming_rollback ... ok
+test configuration_stage::disk_stage_tests::interrupted_stage_publication_retains_source_and_requires_explicit_repair ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::changed_live_state_requires_a_new_checkpoint_instead_of_silently_recapturing ... ok
+test configuration_stage::disk_stage_tests::receipt_substitution_and_symlinked_stage_directory_fail_without_following ... ok
+test configuration_stage::inode_metadata_tests::absence_and_symlink_records_cannot_change_a_regular_inode ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::missing_native_checkpoint_partner_and_missing_completed_stage_do_not_advance ... ok
+test configuration_stage::inode_metadata_tests::directory_access_and_default_acls_restore_and_clear_exactly ... ok
+test configuration_stage::inode_metadata_tests::incompatible_acl_mode_is_rejected_by_exact_readback ... ok
+test configuration_stage::inode_metadata_tests::mismatched_content_or_external_hardlink_fails_before_permissions_change ... ok
+test configuration_stage::inode_metadata_tests::pinned_inode_roundtrip_preserves_content_offset_and_replacement_path ... ok
+test configuration_stage::inode_metadata_tests::unrepresentable_timestamp_and_invalid_owner_fail_before_mutation ... ok
+test configuration_stage::inode_metadata_tests::regular_file_acl_is_restored_then_absence_clears_it_without_touching_user_xattrs ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::reused_source_snapshot_and_unsupported_scope_fail_before_new_checkpoint ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::repeated_restores_of_one_source_have_distinct_attempts_and_checkpoints ... ok
+test configuration_stage::disk_stage_tests::staging_store_requires_private_directory ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::preparation_does_not_rewind_a_later_recovery_phase ... ok
+test configuration_stage::disk_stage_tests::same_source_configuration_and_linked_restores_use_distinct_bound_stages ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::incomplete_stage_retains_checkpoint_and_resumes_only_after_explicit_discard ... ok
+test generation::tests::extra_or_wrong_payloads_are_rejected_before_publication ... ok
+test configuration_stage::tests::refuses_every_mismatched_plan_link_and_system_only_scope ... ok
+test generation::tests::external_symlink_targets_are_rejected_without_following_them ... ok
+test generation::tests::corrupted_payload_makes_generation_unverifiable ... ok
+test configuration_stage::disk_stage_tests::unsafe_symlink_target_is_not_followed_or_credited_as_complete ... ok
+test generation::tests::production_store_open_fails_closed_without_the_expected_state_mount ... ok
+test generation::tests::pending_or_interrupted_generations_never_verify ... ok
+test generation::tests::extra_stage_and_payload_entries_are_rejected ... ok
+test generation::tests::read_only_reader_does_not_create_a_missing_store ... ok
+test generation::tests::protected_reader_rejects_a_caller_supplied_directory_as_identity_root ... ok
+test configuration_stage::tests::corrupted_source_never_returns_a_partial_stage_and_prepared_bytes_stay_immutable ... ok
+test configuration_stage::tests::retained_profile_data_does_not_become_a_writable_configuration_scope ... ok
+test generation::tests::startup_store_open_never_creates_or_repairs_missing_directories ... ok
+test generation::tests::store_requires_expected_owner_and_private_subdirectory_modes ... ok
+test generation::tests::store_subdirectories_cannot_be_symlinked_outside_root ... ok
+test generation::tests::valid_hash_does_not_make_an_invalid_acl_encoding_publishable ... ok
+test configuration_stage::tests::resumed_plan_rejects_a_different_verified_manifest_with_identical_linkage ... ok
+test configuration_stage::tests::stages_complete_configuration_with_shared_content_and_raw_metadata ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::every_durable_boundary_can_reopen_and_replay_without_losing_checkpoint ... ok
+test generation::tests::verified_payload_handle_does_not_follow_replaced_blob_symlinks ... ok
+test generation::tests::rejected_idempotent_retry_preserves_the_prior_verified_generation ... ok
+test generation::tests::safe_symlink_directory_and_absence_records_round_trip ... ok
+test generation::tests::publication_is_deterministic_complete_and_idempotent ... ok
+test generation_capture::tests::low_space_preflight_stops_before_payload_reopen_or_publication ... ok
+test generation_capture::tests::generic_home_capture_rejects_undeclared_paths_before_reading ... ok
+test generation_capture::tests::duplicate_roots_are_rejected_before_capture ... ok
+test generation::tests::verified_payload_handle_is_bound_to_its_pinned_directory ... ok
+test generation_capture::tests::symlink_failure_does_not_publish_a_generation ... ok
+test generation_capture::tests::capture_publishes_only_complete_verified_inventory ... ok
+test generation::tests::verified_payload_handle_refuses_unlisted_digests_and_rechecks_content ... ok
+test generation_capture::tests::protected_generation_root_is_rejected_before_capture ... ok
+test generation_capture::tests::unsupported_metadata_aborts_without_catalog_publication ... ok
+test generation::tests::metadata_blobs_are_mandatory_private_and_verified_on_readback ... ok
+test installed_capture::tests::changed_second_capture_cannot_publish ... ok
+test generation_capture::tests::metadata_bytes_count_across_roots_before_payload_reopen ... ok
+test generation_capture::tests::native_capture_receipt_is_sealed_and_read_back_with_generation ... ok
+test generation_capture::tests::safe_symlink_is_captured_and_verified_without_reading_its_target ... ok
+test installed_capture::tests::absent_personal_profile_still_seals_the_original_account_principal ... ok
+test installed_capture::tests::installed_candidates_remain_unavailable_and_enrollment_is_exact ... ok
+test generation_capture::tests::capture_retains_acl_and_label_bytes_for_files_directories_and_symlinks ... ok
+test generation_capture::tests::verified_multiroot_capture_stages_only_the_shared_configuration_scope ... ok
+test installed_capture::tests::inventory_rejects_omissions_substitutions_duplicates_and_wrong_owners_before_sealing ... ok
+test installed_capture::tests::compiled_inventory_rejects_external_links_unsafe_parents_and_typed_upstream_confusion ... ok
+test installed_capture::tests::hardlinks_and_unproven_system_roots_fail_closed ... ok
+test installed_capture::tests::lost_writer_lease_before_publication_cannot_create_a_mutation_ready_generation ... ok
+test installed_capture::tests::missing_bundle_namespace_or_mismatched_package_cannot_publish_capture ... ok
+test installed_capture::tests::managed_namespace_and_wallpaper_state_locations_cannot_be_silently_omitted ... ok
+test installed_capture::tests::missing_defaults_and_invalid_or_mismatched_profiles_never_publish ... ok
+test installed_capture::tests::directory_and_symlink_require_explicit_enrollment_and_preserve_link_text ... ok
+test installed_capture::tests::rejected_modes_symlink_and_unsupported_metadata_leave_no_publication ... ok
+test installed_capture::tests::capture_binds_exact_protected_bundle_without_restoring_packaged_defaults ... ok
+test installed_profiles::tests::absent_defaults_cannot_be_smuggled_into_schema_one_or_changed_to_real_defaults ... ok
+test installed_profiles::tests::bounded_schema_digest_and_identity_failures_do_not_expose_document_text ... ok
+test installed_profiles::tests::immutable_local_bundle_roundtrip_retains_sources_and_all_layers_without_remote_inputs ... ok
+test installed_capture::tests::multilayer_capture_preserves_exact_bytes_metadata_absence_and_effective_revisions ... ok
+test installed_profiles::tests::installer_absence_has_versioned_provenance_and_preserves_all_override_layers ... ok
+test installed_capture::tests::plan_fingerprint_binds_complete_home_inventory_content_metadata_and_absence ... ok
+test installed_profiles::tests::package_loader_has_one_fixed_path_and_preserves_original_default_bytes ... ok
+test installed_capture::tests::compiled_inventory_preserves_preferences_links_absence_metadata_and_offline_layers ... ok
+test installed_profiles::tests::standard_capture_and_restore_reject_absent_defaults_without_exact_installer_marker ... ok
+test installed_profiles::tests::pinned_bundle_must_remain_discoverable_at_its_exact_published_name ... ok
+test installed_profiles::tests::source_byte_digest_differs_from_semantic_layer_revision ... ok
+test installed_capture::tests::v1_wallpaper_store_is_bound_by_bytes_metadata_and_absence_without_media_enrollment ... ok
+test installer_state::tests::absence_is_explicit_and_inventory_is_closed ... ok
+test installer_state::tests::only_exact_marker_enters_installer_contract ... ok
+test installer_state::tests::unrecognized_and_duplicate_database_rows_refuse ... ok
+test installed_profiles::tests::interrupted_or_corrupt_objects_are_not_adopted_repaired_or_replaced ... ok
+test installed_profiles::tests::symlinks_extra_entries_and_foreign_identity_are_refused ... ok
+test linked_checkpoint::tests::receipt_is_sealed_and_cross_bound_to_config_number_and_filesystem ... ok
+test linked_checkpoint::tests::corrupt_catalog_or_generation_stops_before_snapshot_observation ... ok
+test machine_state::tests::interrupted_publication_resumes_only_a_complete_matching_pending_record ... ok
+test linked_checkpoint::tests::legacy_generation_cannot_acquire_provenance_from_current_observation ... ok
+test machine_state::tests::fifo_record_is_refused_without_waiting_for_a_writer ... ok
+test machine_state::tests::provisioning_facts_must_identify_direct_child_of_top_level ... ok
+test machine_state::tests::provision_is_exclusive_idempotent_and_never_overwrites_identity ... ok
+test machine_state::tests::reader_rejects_hard_linked_identity_records ... ok
+test machine_state::tests::reader_rejects_unsafe_mode ... ok
+test machine_state::tests::version_one_record_round_trips_canonically ... ok
+test metadata::tests::encoding_preserves_the_existing_v1_acl_digest_preimage ... ok
+test machine_state::tests::record_reader_does_not_follow_a_symlink ... ok
+test metadata::tests::rejects_truncation_unknown_names_presence_flags_and_trailing_data ... ok
+test machine_state::tests::rejects_unknown_duplicate_noncanonical_and_unsupported_records ... ok
+test metadata::tests::presence_and_both_acl_values_round_trip_without_public_manifest_data ... ok
+test native_checkpoint::tests::booted_root_rollback_requires_exact_writable_target_and_readonly_backup ... ok
+test native_checkpoint::tests::current_checkpoint_cannot_be_reused_after_the_running_root_changes ... ok
+test native_checkpoint::tests::historical_identity_survives_changed_root_but_never_substitution ... ok
+test native_checkpoint::tests::only_distinct_readonly_snapshot_of_current_root_matches ... ok
+test native_checkpoint::tests::directory_fixture_cannot_impersonate_the_running_root ... ok
+test preparation::rollback_confirmation_tests::root_rollback_confirmation_distinguishes_first_write_from_safe_retries ... ok
+test native_checkpoint::tests::receipt_schema_and_fixed_root_link_are_validated_before_use ... ok
+test native_checkpoint::tests::running_rollback_verification_remains_available_through_completion_phases ... ok
+test restore::tests::aliased_journal_is_not_accepted_as_restart_evidence ... ok
+test linked_checkpoint::tests::original_receipt_survives_publication_and_fresh_reader_reopen ... ok
+test restore::tests::create_requires_valid_schema_plan_attempt_and_initial_phase ... ok
+test restore::tests::existing_journal_open_never_creates_a_missing_lock_or_repairs_one ... ok
+test installed_capture::tests::missing_optional_layers_have_absent_records_and_null_revisions ... ok
+test restore::tests::journal_store_requires_private_directory ... ok
+test linked_checkpoint::tests::substituted_or_writable_snapshot_is_never_available ... ok
+test restore::tests::every_phase_reopens_under_attempt_identity_and_rejects_wrong_filename ... ok
+test restore::tests::journal_survives_restart_and_rejects_skipped_phases ... ok
+test restore::tests::journal_load_rejects_invalid_snapshot_reference ... ok
+test restore::tests::journal_pins_source_digest_and_rejects_unbound_legacy_plans ... ok
+test restore::tests::preflight_rejects_incompatible_versions_for_the_requested_scope ... ok
+test restore::tests::preflight_rejects_bad_archives_and_unavailable_linked_partner ... ok
+test restore::tests::preflight_rejects_mismatched_filesystem_before_journaling ... ok
+test restore::tests::journal_transitions_follow_the_selected_restore_scope ... ok
+test restore::tests::preflight_requires_a_sealed_valid_manifest ... ok
+
+running 1 test
+test restore::tests::restart_discovery_refuses_corruption_unknown_entries_and_external_links ... ok
+test restore::tests::restore_phase_process_exit_child ... ignored, spawned by process_exit_after_every_scope_phase_is_discoverable_and_resumable
+test restore::tests::rollback_receipt_process_exit_child ... ignored, spawned by process_exit_after_root_rollback_receipt_preserves_the_single_reboot_handoff
+test restore::tests::root_rollback_uses_a_distinct_snapper_tag_from_its_checkpoint ... ok
+test restore::tests::source_plan_cannot_replace_a_verified_current_state_checkpoint ... ok
+
+running 1 test
+test restore::tests::system_only_does_not_require_configuration_generation_or_archive ... ok
+test rpm_defaults::tests::bounded_child_fixture ... ok
+test rpm_defaults::tests::exact_file_array_row_is_selected_and_ambiguous_owners_are_rejected ... ok
+test rpm_defaults::tests::generic_default_fixture_resolves_without_companion ... ok
+test restore::tests::restart_discovery_retains_every_unfinished_phase_and_omits_only_complete ... ok
+test rpm_defaults::tests::modified_bytes_failed_query_and_package_changes_block_loader ... ok
+
+running 1 test
+test rpm_defaults::tests::native_command_has_only_fixed_readonly_arguments_and_clean_environment ... ok
+test snapper_layout::tests::boot_mount_inventory_refuses_ambiguity_and_escaped_paths ... ok
+test state_boot_unit::tests::boot_check_requires_exact_unit_and_owned_enablement_without_repair ... ok
+
+running 1 test
+test state_boot_unit::tests::publication_preserves_conflicts_and_resumes_only_complete_owned_pending_files ... ok
+test state_creation::tests::preflight_detects_even_partial_and_dangling_attempt_records ... ok
+
+running 1 test
+test state_creation::tests::prior_partial_or_complete_intent_is_preserved_for_reconciliation ... ok
+test restore::tests::process_exit_after_root_rollback_receipt_preserves_the_single_reboot_handoff ... ok
+test state_creation::tests::receipt_rejects_cross_transaction_wrong_filesystem_and_noncanonical_encoding ... ok
+test state_mount::tests::accepts_exact_writable_dedicated_subvolume ... ok
+test state_mount::tests::formats_btrfs_filesystem_uuid ... ok
+test state_mount::tests::missing_parent_fails_closed ... ok
+test state_mount::tests::accepts_btrfs_subvolume_root_path_and_rejects_bind_root_subpath ... ok
+test state_mount::tests::parses_mountinfo_for_the_descriptor_mount_id ... ok
+test restore::tests::preflight_rejects_configuration_counts_the_journal_cannot_persist ... ok
+test state_mount::tests::parses_mountinfo_read_only_and_escaped_mountpoints ... ok
+test state_mount::tests::rejects_absent_mount ... ok
+test state_mount::tests::rejects_read_only_and_identity_mismatch ... ok
+test state_mount::tests::rejects_non_fixed_mountpoint_and_non_btrfs ... ok
+test state_provision::tests::initialized_rollback_root_does_not_relax_fresh_creation_identity ... ok
+test state_provision::tests::public_creation_rejects_unprivileged_or_non_root_descriptor_before_ioctl ... ok
+test state_provision::tests::top_level_requires_matching_filesystem_and_exact_kernel_root_identity ... ok
+test state_provision::tests::unit_pins_created_volume_id_and_fixed_mountpoint_without_adopting_names ... ok
+test tests::canonical_encoding_is_independent_of_file_insertion_order ... ok
+test tests::capture_policy_is_bounded_and_metadata_keys_are_allowlisted ... ok
+test tests::configuration_restore_root_classification_excludes_generation_storage ... ok
+test tests::file_inventory_rejects_duplicate_paths_and_keeps_absence_explicit ... ok
+test tests::file_records_reject_invalid_mode_bits_before_serialization ... ok
+test state_mount::tests::root_anchor_must_be_the_process_root_mount ... ok
+test state_mount::tests::rejects_ambiguous_or_malformed_mount_options ... ok
+test tests::hard_link_groups_require_identical_inode_records_within_one_root ... ok
+test tests::identifiers_and_digests_are_canonical ... ok
+test tests::manifest_serialization_revalidates_mutable_schema_fields ... ok
+test tests::persisted_manifest_parser_rejects_oversize_and_tampered_digest ... ok
+test tests::home_records_and_validly_hashed_manifests_reject_unrelated_paths ... ok
+test tests::persisted_manifest_parser_validates_wrapper_values ... ok
+
+running 1 test
+test tests::persisted_manifest_round_trips_exact_i128_mtime ... ok
+test tests::provenance_serializes_package_and_provider_identity_with_revisions ... ok
+test tests::manifest_requires_verified_capture_link_and_digest_before_ready ... ok
+test tests::persisted_manifest_round_trips_and_rejects_unknown_fields ... ok
+test tests::relative_paths_reject_traversal_and_ambiguous_components ... ok
+test tests::snapshot_link_and_filesystem_uuid_are_required ... ok
+test tests::symlink_targets_are_recorded_without_path_interpretation ... ok
+test wallpaper_channel::tests::native_connections_are_anonymous_independent_and_keep_request_ids_separate ... ok
+test wallpaper_protocol::tests::invalid_outputs_volume_and_ambiguous_paths_fail_before_dispatch ... ok
+test wallpaper_protocol::tests::exact_action_roundtrips_without_executable_or_shell_interpretation ... ok
+test wallpaper_protocol::tests::audio_is_a_distinct_canonical_bounded_action ... ok
+
+running 1 test
+test wallpaper_protocol::tests::permit_binds_exact_frame_and_process_start_identity ... ok
+test wallpaper_protocol::tests::restore_and_workspace_handoffs_require_exact_purpose_and_stored_state_binding ... ok
+test wallpaper_protocol::tests::query_connections_do_not_grant_mutations_or_accept_client_permits ... ok
+
+running 1 test
+
+running 1 test
+test installed_capture::tests::lost_writer_lease_during_publication_retracts_generation_and_allows_retry ... ok
+
+running 1 test
+
+running 1 test
+test wallpaper_proxy::tests::direct_audio_frames_require_the_typed_helper_and_never_reach_query_actor ... ok
+test writer_command_policy::tests::every_hub_mutation_family_refuses_before_upstream_dispatch ... ok
+test writer_command_policy::tests::queries_have_exact_arity_and_no_mutation_suffix_or_encoding_bypass ... ok
+test wallpaper_proxy::tests::direct_socket_layout_refusal_is_actionable_and_never_reaches_native_query_channel ... ok
+test wallpaper_proxy::tests::direct_socket_query_then_write_reuse_never_reaches_native_without_helper ... ok
+test writer_freeze::tests::executable_pin_refuses_symlinks_and_non_root_owned_images ... ok
+test writer_protocol::tests::all_pinned_upstream_writer_routes_apply_without_fuzz ... ignored, requires offline exact pinned source audit tree
+test writer_protocol::tests::coordination_lock_rejects_symlinks_hardlinks_and_replacement ... ok
+test writer_protocol::tests::every_declared_writer_has_a_fixed_launch_route ... ok
+
+running 1 test
+
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... test wallpaper_proxy::tests::query_apply_and_theme_handoff_use_distinct_typed_boundaries ... ok
+test writer_protocol::tests::native_runtime_exception_is_only_the_exact_private_tmpfs_mount_root ... ok
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test rpm_defaults::tests::subprocess_output_lifetime_and_failures_are_bounded_without_shells ... ok
+test writer_protocol::tests::pinned_upstream_daemon_writes_are_quiesced ... ignored, requires exact pinned upstream Go daemon binary; never downloads at test time
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::pinned_daemon_launch_patch_covers_the_supervised_native_surface_tree ... ok
+
+running 1 test
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+
+running 1 test
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.26s
+
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test restore::tests::restart_discovery_is_bounded_and_returns_stable_attempt_order ... ok
+
+running 1 test
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.26s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.28s
+
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.14s
+
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... ok
+test restore::tests::process_exit_after_every_scope_phase_is_discoverable_and_resumable ... ok
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... test installed_capture::tests::managed_namespace_changes_after_capture_or_during_publication_are_rejected ... ok
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.39s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.41s
+
+test writer_protocol::tests::wrapper_death_at_publication_boundary_retracts_the_generation ... ok
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.99s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.59s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.61s
+
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... FAILED
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 1.01s
+
+exec event tid=408113 previous=Ok(408113) actual=Ok(Some(Task { tid: 408113, tgid: 408113, tracer: 408066, state: 't', start: 6610005, uids: [1000, 1000, 1000, 1000] }))
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... test generation::tests::full_inventory_can_have_more_metadata_blobs_than_declared_paths ... ok
+
+thread 'writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement' (407975) panicked at suse/recovery/src/writer_freeze.rs:1050:18:
+called `Result::unwrap()` on an `Err` value: WriterUnavailable
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 6.64s
+
+test installed_capture::tests::v1_wallpaper_store_accepts_large_catalogues_and_exact_capture_bound ... ok
+FAILED
+
+failures:
+
+failures:
+    writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 239 filtered out; finished in 22.32s
+
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... FAILED
+
+failures:
+
+---- writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death stdout ----
+
+thread 'writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death' (407974) panicked at suse/recovery/src/writer_protocol_tests.rs:67:84:
+called `Result::unwrap()` on an `Err` value: Io(Error { kind: UnexpectedEof, message: "failed to fill whole buffer" })
+
+---- writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement stdout ----
+
+thread 'writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement' (407967) panicked at suse/recovery/src/writer_freeze.rs:1080:9:
+assertion failed: status.success()
+
+
+failures:
+    writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement
+    writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death
+
+test result: FAILED. 232 passed; 2 failed; 6 ignored; 0 measured; 0 filtered out; finished in 24.29s
+
+error: test failed, to rerun pass `-p ryoku-recovery --lib`
+
+===== Preserved default-parallel failure: issue25-audio-rust-fork-event-failed.log; command exit 101 =====
+CARGO_INCREMENTAL=0 cargo test --offline --locked -p ryoku-recovery -p ryoku-service
+
+   Compiling ryoku-recovery v0.1.0 (<worktree>/suse/recovery)
+   Compiling ryoku-service v0.1.0 (<worktree>/suse/service)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 00s
+     Running unittests src/lib.rs (target/debug/deps/ryoku_recovery-8ebea4e3c3155356)
+
+running 240 tests
+test account_principal::tests::binds_every_account_field_and_redacts_diagnostics ... ok
+test capture::tests::captures_only_declared_files_and_absences_without_recursion ... ok
+test capture::tests::acl_digest_distinguishes_absence_from_empty_and_counts_metadata_bytes ... ok
+test capture::tests::captures_or_refuses_when_host_metadata_support_varies ... ok
+test capture_session::tests::alternate_writer_layout_is_refused ... ok
+test capture::tests::refuses_symlink_parent_and_leaf_without_touching_target ... ok
+test account_principal::tests::legacy_absence_stays_unproven_and_original_principal_is_sealed ... ok
+test capture::tests::rejects_special_files_limits_duplicates_and_unlisted_hard_links ... ok
+test capture::tests::captures_safe_symlink_target_as_text_without_following_it ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::native_cross_owner_acl_and_selinux_metadata_are_preserved ... ignored, requires privileged native ACL/SELinux fixture
+test configuration_stage::disk_stage_tests::configuration_apply_tests::native_destination_local_stage_crosses_the_persistent_store_filesystem ... ignored, requires TMPDIR on a different filesystem from /tmp
+test configuration_stage::disk_stage_tests::changed_content_and_unexpected_objects_invalidate_completed_stage ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::applies_all_inode_kinds_and_absence_without_mutating_unrelated_peers ... ok
+test configuration_stage::disk_stage_tests::changed_source_receipt_and_injected_absent_slot_are_rejected ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::nonempty_directory_removal_preserves_undeclared_children_in_recovery ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::foreign_private_stage_is_not_adopted_or_deleted ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::enrolled_directory_replaces_a_symlink_without_following_its_old_target ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::absent_ancestor_and_descendant_restore_without_traversing_a_current_file ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::hard_links_share_an_inode_across_distinct_destination_parents ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::completed_phase_rechecks_bytes_instead_of_silently_overwriting_new_changes ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::undeclared_symlink_parent_blocks_before_any_configuration_write ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::unrepresentable_linux_component_is_rejected_before_any_live_write ... ok
+test configuration_stage::disk_stage_tests::matching_bytes_and_metadata_do_not_substitute_for_hard_links ... ok
+test configuration_stage::disk_stage_tests::missing_completion_is_never_adopted_or_overwritten ... ok
+test configuration_stage::disk_stage_tests::disk_stage_reopens_from_durable_generation_with_links_metadata_and_absence ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::phase_and_source_stage_failures_precede_live_writes ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::missing_affected_path_fails_before_checkpoint_or_journal_creation ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::incompatible_source_retains_the_verified_current_generation_without_staging ... ok
+test configuration_stage::disk_stage_tests::expanded_payload_budget_is_checked_before_creating_a_stage_directory ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::incomplete_stage_retains_checkpoint_and_resumes_only_after_explicit_discard ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::complete_linked_preparation_checks_source_partner_without_claiming_rollback ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::missing_native_checkpoint_partner_and_missing_completed_stage_do_not_advance ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::changed_live_state_requires_a_new_checkpoint_instead_of_silently_recapturing ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::checkpoint_payload_corruption_blocks_preparation_resume ... ok
+test configuration_stage::disk_stage_tests::interrupted_stage_publication_retains_source_and_requires_explicit_repair ... ok
+test configuration_stage::inode_metadata_tests::absence_and_symlink_records_cannot_change_a_regular_inode ... ok
+test configuration_stage::inode_metadata_tests::directory_access_and_default_acls_restore_and_clear_exactly ... ok
+test configuration_stage::inode_metadata_tests::incompatible_acl_mode_is_rejected_by_exact_readback ... ok
+test configuration_stage::inode_metadata_tests::mismatched_content_or_external_hardlink_fails_before_permissions_change ... ok
+test configuration_stage::inode_metadata_tests::pinned_inode_roundtrip_preserves_content_offset_and_replacement_path ... ok
+test configuration_stage::inode_metadata_tests::regular_file_acl_is_restored_then_absence_clears_it_without_touching_user_xattrs ... ok
+test configuration_stage::inode_metadata_tests::unrepresentable_timestamp_and_invalid_owner_fail_before_mutation ... ok
+test configuration_stage::disk_stage_tests::staging_store_requires_private_directory ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::preparation_does_not_rewind_a_later_recovery_phase ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::preparation_captures_actual_current_bytes_and_resumes_without_recapture ... ok
+test configuration_stage::disk_stage_tests::receipt_substitution_and_symlinked_stage_directory_fail_without_following ... ok
+test configuration_stage::disk_stage_tests::unsafe_symlink_target_is_not_followed_or_credited_as_complete ... ok
+test configuration_stage::tests::corrupted_source_never_returns_a_partial_stage_and_prepared_bytes_stay_immutable ... ok
+test generation::tests::external_symlink_targets_are_rejected_without_following_them ... ok
+test generation::tests::extra_or_wrong_payloads_are_rejected_before_publication ... ok
+test configuration_stage::tests::refuses_every_mismatched_plan_link_and_system_only_scope ... ok
+test generation::tests::corrupted_payload_makes_generation_unverifiable ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::reused_source_snapshot_and_unsupported_scope_fail_before_new_checkpoint ... ok
+test generation::tests::pending_or_interrupted_generations_never_verify ... ok
+test generation::tests::production_store_open_fails_closed_without_the_expected_state_mount ... ok
+test generation::tests::protected_reader_rejects_a_caller_supplied_directory_as_identity_root ... ok
+test configuration_stage::disk_stage_tests::same_source_configuration_and_linked_restores_use_distinct_bound_stages ... ok
+test generation::tests::extra_stage_and_payload_entries_are_rejected ... ok
+test configuration_stage::tests::retained_profile_data_does_not_become_a_writable_configuration_scope ... ok
+test generation::tests::read_only_reader_does_not_create_a_missing_store ... ok
+test configuration_stage::tests::stages_complete_configuration_with_shared_content_and_raw_metadata ... ok
+test generation::tests::startup_store_open_never_creates_or_repairs_missing_directories ... ok
+test generation::tests::store_requires_expected_owner_and_private_subdirectory_modes ... ok
+test generation::tests::store_subdirectories_cannot_be_symlinked_outside_root ... ok
+test generation::tests::valid_hash_does_not_make_an_invalid_acl_encoding_publishable ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::every_durable_boundary_can_reopen_and_replay_without_losing_checkpoint ... ok
+test configuration_stage::tests::resumed_plan_rejects_a_different_verified_manifest_with_identical_linkage ... ok
+test generation::tests::publication_is_deterministic_complete_and_idempotent ... ok
+test generation::tests::metadata_blobs_are_mandatory_private_and_verified_on_readback ... ok
+test generation_capture::tests::duplicate_roots_are_rejected_before_capture ... ok
+test generation_capture::tests::generic_home_capture_rejects_undeclared_paths_before_reading ... ok
+test generation_capture::tests::low_space_preflight_stops_before_payload_reopen_or_publication ... ok
+test generation::tests::verified_payload_handle_does_not_follow_replaced_blob_symlinks ... ok
+test generation::tests::safe_symlink_directory_and_absence_records_round_trip ... ok
+test generation::tests::rejected_idempotent_retry_preserves_the_prior_verified_generation ... ok
+test generation_capture::tests::protected_generation_root_is_rejected_before_capture ... ok
+test generation_capture::tests::symlink_failure_does_not_publish_a_generation ... ok
+test generation_capture::tests::unsupported_metadata_aborts_without_catalog_publication ... ok
+test generation::tests::verified_payload_handle_is_bound_to_its_pinned_directory ... ok
+test generation_capture::tests::capture_publishes_only_complete_verified_inventory ... ok
+test generation::tests::verified_payload_handle_refuses_unlisted_digests_and_rechecks_content ... ok
+test generation_capture::tests::metadata_bytes_count_across_roots_before_payload_reopen ... ok
+test generation_capture::tests::capture_retains_acl_and_label_bytes_for_files_directories_and_symlinks ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::repeated_restores_of_one_source_have_distinct_attempts_and_checkpoints ... ok
+test generation_capture::tests::safe_symlink_is_captured_and_verified_without_reading_its_target ... ok
+test generation_capture::tests::native_capture_receipt_is_sealed_and_read_back_with_generation ... ok
+test installed_capture::tests::compiled_inventory_rejects_external_links_unsafe_parents_and_typed_upstream_confusion ... ok
+test installed_capture::tests::installed_candidates_remain_unavailable_and_enrollment_is_exact ... ok
+test installed_capture::tests::changed_second_capture_cannot_publish ... ok
+test installed_capture::tests::hardlinks_and_unproven_system_roots_fail_closed ... ok
+test installed_capture::tests::lost_writer_lease_before_publication_cannot_create_a_mutation_ready_generation ... ok
+test installed_capture::tests::inventory_rejects_omissions_substitutions_duplicates_and_wrong_owners_before_sealing ... ok
+test installed_capture::tests::managed_namespace_and_wallpaper_state_locations_cannot_be_silently_omitted ... ok
+test installed_capture::tests::missing_bundle_namespace_or_mismatched_package_cannot_publish_capture ... ok
+test installed_capture::tests::missing_defaults_and_invalid_or_mismatched_profiles_never_publish ... ok
+test generation_capture::tests::verified_multiroot_capture_stages_only_the_shared_configuration_scope ... ok
+test installed_capture::tests::absent_personal_profile_still_seals_the_original_account_principal ... ok
+test installed_capture::tests::rejected_modes_symlink_and_unsupported_metadata_leave_no_publication ... ok
+test installed_capture::tests::directory_and_symlink_require_explicit_enrollment_and_preserve_link_text ... ok
+test installed_capture::tests::capture_binds_exact_protected_bundle_without_restoring_packaged_defaults ... ok
+test installed_profiles::tests::absent_defaults_cannot_be_smuggled_into_schema_one_or_changed_to_real_defaults ... ok
+test installed_profiles::tests::bounded_schema_digest_and_identity_failures_do_not_expose_document_text ... ok
+test installed_profiles::tests::immutable_local_bundle_roundtrip_retains_sources_and_all_layers_without_remote_inputs ... ok
+test installed_capture::tests::plan_fingerprint_binds_complete_home_inventory_content_metadata_and_absence ... ok
+test installed_profiles::tests::installer_absence_has_versioned_provenance_and_preserves_all_override_layers ... ok
+test installed_profiles::tests::package_loader_has_one_fixed_path_and_preserves_original_default_bytes ... ok
+test installed_profiles::tests::interrupted_or_corrupt_objects_are_not_adopted_repaired_or_replaced ... ok
+test installed_profiles::tests::source_byte_digest_differs_from_semantic_layer_revision ... ok
+test installed_profiles::tests::standard_capture_and_restore_reject_absent_defaults_without_exact_installer_marker ... ok
+test installed_capture::tests::multilayer_capture_preserves_exact_bytes_metadata_absence_and_effective_revisions ... ok
+test installer_state::tests::absence_is_explicit_and_inventory_is_closed ... ok
+test installer_state::tests::only_exact_marker_enters_installer_contract ... ok
+test installed_profiles::tests::pinned_bundle_must_remain_discoverable_at_its_exact_published_name ... ok
+test installer_state::tests::unrecognized_and_duplicate_database_rows_refuse ... ok
+test installed_profiles::tests::symlinks_extra_entries_and_foreign_identity_are_refused ... ok
+test linked_checkpoint::tests::original_receipt_survives_publication_and_fresh_reader_reopen ... ok
+test linked_checkpoint::tests::corrupt_catalog_or_generation_stops_before_snapshot_observation ... ok
+test linked_checkpoint::tests::receipt_is_sealed_and_cross_bound_to_config_number_and_filesystem ... ok
+test installed_capture::tests::missing_optional_layers_have_absent_records_and_null_revisions ... ok
+test linked_checkpoint::tests::legacy_generation_cannot_acquire_provenance_from_current_observation ... ok
+test machine_state::tests::interrupted_publication_resumes_only_a_complete_matching_pending_record ... ok
+test machine_state::tests::fifo_record_is_refused_without_waiting_for_a_writer ... ok
+test machine_state::tests::provision_is_exclusive_idempotent_and_never_overwrites_identity ... ok
+test machine_state::tests::provisioning_facts_must_identify_direct_child_of_top_level ... ok
+test machine_state::tests::reader_rejects_hard_linked_identity_records ... ok
+test machine_state::tests::reader_rejects_unsafe_mode ... ok
+test machine_state::tests::rejects_unknown_duplicate_noncanonical_and_unsupported_records ... ok
+test machine_state::tests::record_reader_does_not_follow_a_symlink ... ok
+test machine_state::tests::version_one_record_round_trips_canonically ... ok
+test metadata::tests::encoding_preserves_the_existing_v1_acl_digest_preimage ... ok
+test metadata::tests::presence_and_both_acl_values_round_trip_without_public_manifest_data ... ok
+test metadata::tests::rejects_truncation_unknown_names_presence_flags_and_trailing_data ... ok
+test native_checkpoint::tests::current_checkpoint_cannot_be_reused_after_the_running_root_changes ... ok
+test native_checkpoint::tests::booted_root_rollback_requires_exact_writable_target_and_readonly_backup ... ok
+test native_checkpoint::tests::directory_fixture_cannot_impersonate_the_running_root ... ok
+test native_checkpoint::tests::only_distinct_readonly_snapshot_of_current_root_matches ... ok
+test native_checkpoint::tests::historical_identity_survives_changed_root_but_never_substitution ... ok
+test native_checkpoint::tests::running_rollback_verification_remains_available_through_completion_phases ... ok
+test preparation::rollback_confirmation_tests::root_rollback_confirmation_distinguishes_first_write_from_safe_retries ... ok
+test native_checkpoint::tests::receipt_schema_and_fixed_root_link_are_validated_before_use ... ok
+test restore::tests::aliased_journal_is_not_accepted_as_restart_evidence ... ok
+test restore::tests::create_requires_valid_schema_plan_attempt_and_initial_phase ... ok
+test restore::tests::existing_journal_open_never_creates_a_missing_lock_or_repairs_one ... ok
+test restore::tests::journal_load_rejects_invalid_snapshot_reference ... ok
+test restore::tests::every_phase_reopens_under_attempt_identity_and_rejects_wrong_filename ... ok
+test restore::tests::journal_pins_source_digest_and_rejects_unbound_legacy_plans ... ok
+test restore::tests::journal_store_requires_private_directory ... ok
+test restore::tests::journal_survives_restart_and_rejects_skipped_phases ... ok
+test restore::tests::preflight_rejects_bad_archives_and_unavailable_linked_partner ... ok
+test restore::tests::preflight_rejects_incompatible_versions_for_the_requested_scope ... ok
+test linked_checkpoint::tests::substituted_or_writable_snapshot_is_never_available ... ok
+test restore::tests::preflight_requires_a_sealed_valid_manifest ... ok
+test restore::tests::preflight_rejects_mismatched_filesystem_before_journaling ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test restore::tests::journal_transitions_follow_the_selected_restore_scope ... ok
+
+running 1 test
+test restore::tests::process_exit_after_root_rollback_receipt_preserves_the_single_reboot_handoff ... ok
+test restore::tests::restart_discovery_refuses_corruption_unknown_entries_and_external_links ... ok
+
+running 1 test
+test installed_capture::tests::v1_wallpaper_store_is_bound_by_bytes_metadata_and_absence_without_media_enrollment ... ok
+test restore::tests::restore_phase_process_exit_child ... ignored, spawned by process_exit_after_every_scope_phase_is_discoverable_and_resumable
+test restore::tests::rollback_receipt_process_exit_child ... ignored, spawned by process_exit_after_root_rollback_receipt_preserves_the_single_reboot_handoff
+test restore::tests::root_rollback_uses_a_distinct_snapper_tag_from_its_checkpoint ... ok
+test restore::tests::source_plan_cannot_replace_a_verified_current_state_checkpoint ... ok
+test restore::tests::preflight_rejects_configuration_counts_the_journal_cannot_persist ... ok
+test rpm_defaults::tests::bounded_child_fixture ... ok
+test restore::tests::system_only_does_not_require_configuration_generation_or_archive ... ok
+test installed_capture::tests::compiled_inventory_preserves_preferences_links_absence_metadata_and_offline_layers ... ok
+test rpm_defaults::tests::exact_file_array_row_is_selected_and_ambiguous_owners_are_rejected ... ok
+test rpm_defaults::tests::generic_default_fixture_resolves_without_companion ... ok
+test rpm_defaults::tests::native_command_has_only_fixed_readonly_arguments_and_clean_environment ... ok
+test rpm_defaults::tests::modified_bytes_failed_query_and_package_changes_block_loader ... ok
+test restore::tests::restart_discovery_retains_every_unfinished_phase_and_omits_only_complete ... ok
+test snapper_layout::tests::boot_mount_inventory_refuses_ambiguity_and_escaped_paths ... ok
+test state_boot_unit::tests::publication_preserves_conflicts_and_resumes_only_complete_owned_pending_files ... ok
+test state_creation::tests::preflight_detects_even_partial_and_dangling_attempt_records ... ok
+test state_boot_unit::tests::boot_check_requires_exact_unit_and_owned_enablement_without_repair ... ok
+test state_creation::tests::prior_partial_or_complete_intent_is_preserved_for_reconciliation ... ok
+test state_mount::tests::accepts_btrfs_subvolume_root_path_and_rejects_bind_root_subpath ... ok
+test state_creation::tests::receipt_rejects_cross_transaction_wrong_filesystem_and_noncanonical_encoding ... ok
+test state_mount::tests::accepts_exact_writable_dedicated_subvolume ... ok
+test state_mount::tests::formats_btrfs_filesystem_uuid ... ok
+test state_mount::tests::missing_parent_fails_closed ... ok
+test state_mount::tests::parses_mountinfo_read_only_and_escaped_mountpoints ... ok
+test state_mount::tests::rejects_absent_mount ... ok
+test state_mount::tests::parses_mountinfo_for_the_descriptor_mount_id ... ok
+test state_mount::tests::rejects_ambiguous_or_malformed_mount_options ... ok
+test state_mount::tests::rejects_read_only_and_identity_mismatch ... ok
+test state_mount::tests::rejects_non_fixed_mountpoint_and_non_btrfs ... ok
+test state_provision::tests::initialized_rollback_root_does_not_relax_fresh_creation_identity ... ok
+test state_provision::tests::public_creation_rejects_unprivileged_or_non_root_descriptor_before_ioctl ... ok
+test state_provision::tests::top_level_requires_matching_filesystem_and_exact_kernel_root_identity ... ok
+test state_provision::tests::unit_pins_created_volume_id_and_fixed_mountpoint_without_adopting_names ... ok
+test state_mount::tests::root_anchor_must_be_the_process_root_mount ... ok
+test tests::canonical_encoding_is_independent_of_file_insertion_order ... ok
+test tests::capture_policy_is_bounded_and_metadata_keys_are_allowlisted ... ok
+test tests::configuration_restore_root_classification_excludes_generation_storage ... ok
+test tests::file_inventory_rejects_duplicate_paths_and_keeps_absence_explicit ... ok
+test tests::file_records_reject_invalid_mode_bits_before_serialization ... ok
+test tests::identifiers_and_digests_are_canonical ... ok
+test tests::manifest_requires_verified_capture_link_and_digest_before_ready ... ok
+test tests::hard_link_groups_require_identical_inode_records_within_one_root ... ok
+test tests::manifest_serialization_revalidates_mutable_schema_fields ... ok
+test tests::home_records_and_validly_hashed_manifests_reject_unrelated_paths ... ok
+test tests::persisted_manifest_round_trips_and_rejects_unknown_fields ... ok
+test tests::persisted_manifest_parser_rejects_oversize_and_tampered_digest ... ok
+
+running 1 test
+test tests::persisted_manifest_parser_validates_wrapper_values ... ok
+test tests::persisted_manifest_round_trips_exact_i128_mtime ... ok
+test tests::provenance_serializes_package_and_provider_identity_with_revisions ... ok
+test tests::relative_paths_reject_traversal_and_ambiguous_components ... ok
+test tests::snapshot_link_and_filesystem_uuid_are_required ... ok
+test tests::symlink_targets_are_recorded_without_path_interpretation ... ok
+test wallpaper_channel::tests::native_connections_are_anonymous_independent_and_keep_request_ids_separate ... ok
+test wallpaper_protocol::tests::audio_is_a_distinct_canonical_bounded_action ... ok
+test wallpaper_protocol::tests::invalid_outputs_volume_and_ambiguous_paths_fail_before_dispatch ... ok
+test wallpaper_protocol::tests::exact_action_roundtrips_without_executable_or_shell_interpretation ... ok
+test wallpaper_protocol::tests::permit_binds_exact_frame_and_process_start_identity ... ok
+test wallpaper_protocol::tests::query_connections_do_not_grant_mutations_or_accept_client_permits ... ok
+test wallpaper_protocol::tests::restore_and_workspace_handoffs_require_exact_purpose_and_stored_state_binding ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test installed_capture::tests::lost_writer_lease_during_publication_retracts_generation_and_allows_retry ... ok
+test wallpaper_proxy::tests::direct_socket_layout_refusal_is_actionable_and_never_reaches_native_query_channel ... ok
+test wallpaper_proxy::tests::direct_socket_query_then_write_reuse_never_reaches_native_without_helper ... ok
+test writer_command_policy::tests::every_hub_mutation_family_refuses_before_upstream_dispatch ... ok
+test writer_command_policy::tests::queries_have_exact_arity_and_no_mutation_suffix_or_encoding_bypass ... ok
+test wallpaper_proxy::tests::direct_audio_frames_require_the_typed_helper_and_never_reach_query_actor ... ok
+test writer_freeze::tests::executable_pin_refuses_symlinks_and_non_root_owned_images ... ok
+test writer_protocol::tests::all_pinned_upstream_writer_routes_apply_without_fuzz ... ignored, requires offline exact pinned source audit tree
+test writer_protocol::tests::coordination_lock_rejects_symlinks_hardlinks_and_replacement ... ok
+test writer_protocol::tests::every_declared_writer_has_a_fixed_launch_route ... ok
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... test rpm_defaults::tests::subprocess_output_lifetime_and_failures_are_bounded_without_shells ... ok
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... test writer_protocol::tests::native_runtime_exception_is_only_the_exact_private_tmpfs_mount_root ... ok
+
+running 1 test
+test writer_protocol::tests::pinned_daemon_launch_patch_covers_the_supervised_native_surface_tree ... ok
+test writer_protocol::tests::pinned_upstream_daemon_writes_are_quiesced ... ignored, requires exact pinned upstream Go daemon binary; never downloads at test time
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test wallpaper_proxy::tests::query_apply_and_theme_handoff_use_distinct_typed_boundaries ... ok
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... test restore::tests::process_exit_after_every_scope_phase_is_discoverable_and_resumable ... ok
+test installed_capture::tests::managed_namespace_changes_after_capture_or_during_publication_are_rejected ... ok
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.18s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.20s
+
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.10s
+
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... ok
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... test restore::tests::restart_discovery_is_bounded_and_returns_stable_attempt_order ... ok
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.18s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.20s
+
+test writer_protocol::tests::wrapper_death_at_publication_boundary_retracts_the_generation ... ok
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.73s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.74s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.46s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.47s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.58s
+
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... actor tick failure WriterUnavailable; actor=415764 task=Ok(Some(Task { tid: 415764, tgid: 415764, tracer: 415770, state: 'S', start: 6633541, uids: [1000, 1000, 1000, 1000] })); held=[(415691, 415691, 6633494, true, false, false), (415693, 415693, 6633494, true, false, false), (415696, 415693, 6633495, true, false, false), (415697, 415691, 6633496, true, false, false), (415698, 415693, 6633496, true, false, false), (415699, 415693, 6633496, true, false, false), (415701, 415693, 6633496, true, false, false), (415702, 415691, 6633496, true, false, false), (415703, 415691, 6633496, true, false, false), (415704, 415691, 6633496, true, false, false), (415764, 415764, 6633541, false, false, true), (415765, 415764, 6633542, false, false, true), (415766, 415764, 6633542, false, false, true), (415767, 415764, 6633542, false, false, true), (415768, 415764, 6633542, false, false, true), (415769, 415764, 6633542, false, false, true)]
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.19s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.21s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.24s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.26s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.31s
+
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.05s
+
+test generation::tests::full_inventory_can_have_more_metadata_blobs_than_declared_paths ... ok
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... ok
+test installed_capture::tests::v1_wallpaper_store_accepts_large_catalogues_and_exact_capture_bound ... ok
+
+thread 'writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement' (415688) panicked at suse/recovery/src/writer_freeze.rs:885:17:
+missing fork-child
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 239 filtered out; finished in 25.81s
+
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... FAILED
+
+failures:
+
+---- writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement stdout ----
+
+thread 'writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement' (415674) panicked at suse/recovery/src/writer_freeze.rs:1084:9:
+assertion failed: status.success()
+
+
+failures:
+    writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement
+
+test result: FAILED. 233 passed; 1 failed; 6 ignored; 0 measured; 0 filtered out; finished in 26.47s
+
+error: test failed, to rerun pass `-p ryoku-recovery --lib`
+
+===== Corrected exact-tree default-parallel full suite; command exit 0 =====
+CARGO_INCREMENTAL=0 cargo test --offline --locked -p ryoku-recovery -p ryoku-service
+
+   Compiling ryoku-recovery v0.1.0 (<worktree>/suse/recovery)
+   Compiling ryoku-service v0.1.0 (<worktree>/suse/service)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 20.55s
+     Running unittests src/lib.rs (target/debug/deps/ryoku_recovery-8ebea4e3c3155356)
+
+running 241 tests
+test account_principal::tests::binds_every_account_field_and_redacts_diagnostics ... ok
+test capture::tests::captures_safe_symlink_target_as_text_without_following_it ... ok
+test capture::tests::captures_or_refuses_when_host_metadata_support_varies ... ok
+test capture::tests::acl_digest_distinguishes_absence_from_empty_and_counts_metadata_bytes ... ok
+test capture::tests::captures_only_declared_files_and_absences_without_recursion ... ok
+test capture::tests::refuses_symlink_parent_and_leaf_without_touching_target ... ok
+test capture_session::tests::alternate_writer_layout_is_refused ... ok
+test account_principal::tests::legacy_absence_stays_unproven_and_original_principal_is_sealed ... ok
+test capture::tests::rejects_special_files_limits_duplicates_and_unlisted_hard_links ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::native_cross_owner_acl_and_selinux_metadata_are_preserved ... ignored, requires privileged native ACL/SELinux fixture
+test configuration_stage::disk_stage_tests::configuration_apply_tests::native_destination_local_stage_crosses_the_persistent_store_filesystem ... ignored, requires TMPDIR on a different filesystem from /tmp
+test configuration_stage::disk_stage_tests::configuration_apply_tests::nonempty_directory_removal_preserves_undeclared_children_in_recovery ... ok
+test configuration_stage::disk_stage_tests::changed_source_receipt_and_injected_absent_slot_are_rejected ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::completed_phase_rechecks_bytes_instead_of_silently_overwriting_new_changes ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::foreign_private_stage_is_not_adopted_or_deleted ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::applies_all_inode_kinds_and_absence_without_mutating_unrelated_peers ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::absent_ancestor_and_descendant_restore_without_traversing_a_current_file ... ok
+test configuration_stage::disk_stage_tests::changed_content_and_unexpected_objects_invalidate_completed_stage ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::hard_links_share_an_inode_across_distinct_destination_parents ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::enrolled_directory_replaces_a_symlink_without_following_its_old_target ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::unrepresentable_linux_component_is_rejected_before_any_live_write ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::undeclared_symlink_parent_blocks_before_any_configuration_write ... ok
+test configuration_stage::disk_stage_tests::matching_bytes_and_metadata_do_not_substitute_for_hard_links ... ok
+test configuration_stage::disk_stage_tests::missing_completion_is_never_adopted_or_overwritten ... ok
+test configuration_stage::disk_stage_tests::disk_stage_reopens_from_durable_generation_with_links_metadata_and_absence ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::phase_and_source_stage_failures_precede_live_writes ... ok
+test configuration_stage::disk_stage_tests::expanded_payload_budget_is_checked_before_creating_a_stage_directory ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::missing_affected_path_fails_before_checkpoint_or_journal_creation ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::incompatible_source_retains_the_verified_current_generation_without_staging ... ok
+test configuration_stage::disk_stage_tests::interrupted_stage_publication_retains_source_and_requires_explicit_repair ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::complete_linked_preparation_checks_source_partner_without_claiming_rollback ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::incomplete_stage_retains_checkpoint_and_resumes_only_after_explicit_discard ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::changed_live_state_requires_a_new_checkpoint_instead_of_silently_recapturing ... ok
+test configuration_stage::disk_stage_tests::receipt_substitution_and_symlinked_stage_directory_fail_without_following ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::missing_native_checkpoint_partner_and_missing_completed_stage_do_not_advance ... ok
+test configuration_stage::inode_metadata_tests::absence_and_symlink_records_cannot_change_a_regular_inode ... ok
+test configuration_stage::inode_metadata_tests::directory_access_and_default_acls_restore_and_clear_exactly ... ok
+test configuration_stage::inode_metadata_tests::incompatible_acl_mode_is_rejected_by_exact_readback ... ok
+test configuration_stage::inode_metadata_tests::mismatched_content_or_external_hardlink_fails_before_permissions_change ... ok
+test configuration_stage::inode_metadata_tests::pinned_inode_roundtrip_preserves_content_offset_and_replacement_path ... ok
+test configuration_stage::inode_metadata_tests::regular_file_acl_is_restored_then_absence_clears_it_without_touching_user_xattrs ... ok
+test configuration_stage::inode_metadata_tests::unrepresentable_timestamp_and_invalid_owner_fail_before_mutation ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::preparation_captures_actual_current_bytes_and_resumes_without_recapture ... ok
+test configuration_stage::disk_stage_tests::staging_store_requires_private_directory ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::reused_source_snapshot_and_unsupported_scope_fail_before_new_checkpoint ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::preparation_does_not_rewind_a_later_recovery_phase ... ok
+test configuration_stage::disk_stage_tests::unsafe_symlink_target_is_not_followed_or_credited_as_complete ... ok
+test configuration_stage::disk_stage_tests::same_source_configuration_and_linked_restores_use_distinct_bound_stages ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::checkpoint_payload_corruption_blocks_preparation_resume ... ok
+test generation::tests::external_symlink_targets_are_rejected_without_following_them ... ok
+test generation::tests::extra_or_wrong_payloads_are_rejected_before_publication ... ok
+test configuration_stage::tests::corrupted_source_never_returns_a_partial_stage_and_prepared_bytes_stay_immutable ... ok
+test generation::tests::extra_stage_and_payload_entries_are_rejected ... ok
+test generation::tests::corrupted_payload_makes_generation_unverifiable ... ok
+test generation::tests::production_store_open_fails_closed_without_the_expected_state_mount ... ok
+test generation::tests::protected_reader_rejects_a_caller_supplied_directory_as_identity_root ... ok
+test generation::tests::pending_or_interrupted_generations_never_verify ... ok
+test generation::tests::read_only_reader_does_not_create_a_missing_store ... ok
+test configuration_stage::disk_stage_tests::configuration_apply_tests::every_durable_boundary_can_reopen_and_replay_without_losing_checkpoint ... ok
+test configuration_stage::tests::retained_profile_data_does_not_become_a_writable_configuration_scope ... ok
+test generation::tests::startup_store_open_never_creates_or_repairs_missing_directories ... ok
+test generation::tests::store_requires_expected_owner_and_private_subdirectory_modes ... ok
+test generation::tests::store_subdirectories_cannot_be_symlinked_outside_root ... ok
+test generation::tests::valid_hash_does_not_make_an_invalid_acl_encoding_publishable ... ok
+test configuration_stage::tests::refuses_every_mismatched_plan_link_and_system_only_scope ... ok
+test generation::tests::metadata_blobs_are_mandatory_private_and_verified_on_readback ... ok
+test generation::tests::publication_is_deterministic_complete_and_idempotent ... ok
+test generation::tests::safe_symlink_directory_and_absence_records_round_trip ... ok
+test generation::tests::rejected_idempotent_retry_preserves_the_prior_verified_generation ... ok
+test generation_capture::tests::duplicate_roots_are_rejected_before_capture ... ok
+test generation_capture::tests::generic_home_capture_rejects_undeclared_paths_before_reading ... ok
+test configuration_stage::tests::stages_complete_configuration_with_shared_content_and_raw_metadata ... ok
+test configuration_stage::tests::resumed_plan_rejects_a_different_verified_manifest_with_identical_linkage ... ok
+test generation_capture::tests::low_space_preflight_stops_before_payload_reopen_or_publication ... ok
+test generation_capture::tests::protected_generation_root_is_rejected_before_capture ... ok
+test generation::tests::verified_payload_handle_refuses_unlisted_digests_and_rechecks_content ... ok
+test generation_capture::tests::symlink_failure_does_not_publish_a_generation ... ok
+test generation_capture::tests::unsupported_metadata_aborts_without_catalog_publication ... ok
+test generation::tests::verified_payload_handle_does_not_follow_replaced_blob_symlinks ... ok
+test generation::tests::verified_payload_handle_is_bound_to_its_pinned_directory ... ok
+test generation_capture::tests::native_capture_receipt_is_sealed_and_read_back_with_generation ... ok
+test installed_capture::tests::changed_second_capture_cannot_publish ... ok
+test generation_capture::tests::capture_publishes_only_complete_verified_inventory ... ok
+test generation_capture::tests::safe_symlink_is_captured_and_verified_without_reading_its_target ... ok
+test generation_capture::tests::metadata_bytes_count_across_roots_before_payload_reopen ... ok
+test generation_capture::tests::capture_retains_acl_and_label_bytes_for_files_directories_and_symlinks ... ok
+test installed_capture::tests::compiled_inventory_rejects_external_links_unsafe_parents_and_typed_upstream_confusion ... ok
+test installed_capture::tests::hardlinks_and_unproven_system_roots_fail_closed ... ok
+test installed_capture::tests::installed_candidates_remain_unavailable_and_enrollment_is_exact ... ok
+test installed_capture::tests::absent_personal_profile_still_seals_the_original_account_principal ... ok
+test installed_capture::tests::inventory_rejects_omissions_substitutions_duplicates_and_wrong_owners_before_sealing ... ok
+test installed_capture::tests::lost_writer_lease_before_publication_cannot_create_a_mutation_ready_generation ... ok
+test generation_capture::tests::verified_multiroot_capture_stages_only_the_shared_configuration_scope ... ok
+test installed_capture::tests::missing_bundle_namespace_or_mismatched_package_cannot_publish_capture ... ok
+test installed_capture::tests::managed_namespace_and_wallpaper_state_locations_cannot_be_silently_omitted ... ok
+test installed_capture::tests::missing_defaults_and_invalid_or_mismatched_profiles_never_publish ... ok
+test installed_capture::tests::capture_binds_exact_protected_bundle_without_restoring_packaged_defaults ... ok
+test configuration_stage::disk_stage_tests::preparation_tests::repeated_restores_of_one_source_have_distinct_attempts_and_checkpoints ... ok
+test installed_capture::tests::rejected_modes_symlink_and_unsupported_metadata_leave_no_publication ... ok
+test installed_capture::tests::directory_and_symlink_require_explicit_enrollment_and_preserve_link_text ... ok
+test installed_profiles::tests::absent_defaults_cannot_be_smuggled_into_schema_one_or_changed_to_real_defaults ... ok
+test installed_profiles::tests::bounded_schema_digest_and_identity_failures_do_not_expose_document_text ... ok
+test installed_profiles::tests::immutable_local_bundle_roundtrip_retains_sources_and_all_layers_without_remote_inputs ... ok
+test installed_profiles::tests::installer_absence_has_versioned_provenance_and_preserves_all_override_layers ... ok
+test installed_profiles::tests::interrupted_or_corrupt_objects_are_not_adopted_repaired_or_replaced ... ok
+test installed_profiles::tests::package_loader_has_one_fixed_path_and_preserves_original_default_bytes ... ok
+test installed_profiles::tests::pinned_bundle_must_remain_discoverable_at_its_exact_published_name ... ok
+test installed_profiles::tests::source_byte_digest_differs_from_semantic_layer_revision ... ok
+test installed_capture::tests::plan_fingerprint_binds_complete_home_inventory_content_metadata_and_absence ... ok
+test installed_profiles::tests::standard_capture_and_restore_reject_absent_defaults_without_exact_installer_marker ... ok
+test installer_state::tests::absence_is_explicit_and_inventory_is_closed ... ok
+test installer_state::tests::only_exact_marker_enters_installer_contract ... ok
+test installer_state::tests::unrecognized_and_duplicate_database_rows_refuse ... ok
+test installed_capture::tests::multilayer_capture_preserves_exact_bytes_metadata_absence_and_effective_revisions ... ok
+test installed_profiles::tests::symlinks_extra_entries_and_foreign_identity_are_refused ... ok
+test linked_checkpoint::tests::corrupt_catalog_or_generation_stops_before_snapshot_observation ... ok
+test linked_checkpoint::tests::receipt_is_sealed_and_cross_bound_to_config_number_and_filesystem ... ok
+test linked_checkpoint::tests::legacy_generation_cannot_acquire_provenance_from_current_observation ... ok
+test machine_state::tests::fifo_record_is_refused_without_waiting_for_a_writer ... ok
+test machine_state::tests::interrupted_publication_resumes_only_a_complete_matching_pending_record ... ok
+test linked_checkpoint::tests::original_receipt_survives_publication_and_fresh_reader_reopen ... ok
+test machine_state::tests::provisioning_facts_must_identify_direct_child_of_top_level ... ok
+test machine_state::tests::provision_is_exclusive_idempotent_and_never_overwrites_identity ... ok
+test machine_state::tests::reader_rejects_hard_linked_identity_records ... ok
+test machine_state::tests::record_reader_does_not_follow_a_symlink ... ok
+test machine_state::tests::reader_rejects_unsafe_mode ... ok
+test machine_state::tests::rejects_unknown_duplicate_noncanonical_and_unsupported_records ... ok
+test metadata::tests::encoding_preserves_the_existing_v1_acl_digest_preimage ... ok
+test machine_state::tests::version_one_record_round_trips_canonically ... ok
+test metadata::tests::presence_and_both_acl_values_round_trip_without_public_manifest_data ... ok
+test metadata::tests::rejects_truncation_unknown_names_presence_flags_and_trailing_data ... ok
+test native_checkpoint::tests::booted_root_rollback_requires_exact_writable_target_and_readonly_backup ... ok
+test native_checkpoint::tests::current_checkpoint_cannot_be_reused_after_the_running_root_changes ... ok
+test native_checkpoint::tests::directory_fixture_cannot_impersonate_the_running_root ... ok
+test installed_capture::tests::missing_optional_layers_have_absent_records_and_null_revisions ... ok
+test installed_capture::tests::v1_wallpaper_store_is_bound_by_bytes_metadata_and_absence_without_media_enrollment ... ok
+test native_checkpoint::tests::running_rollback_verification_remains_available_through_completion_phases ... ok
+test native_checkpoint::tests::only_distinct_readonly_snapshot_of_current_root_matches ... ok
+test native_checkpoint::tests::receipt_schema_and_fixed_root_link_are_validated_before_use ... ok
+test preparation::rollback_confirmation_tests::root_rollback_confirmation_distinguishes_first_write_from_safe_retries ... ok
+test native_checkpoint::tests::historical_identity_survives_changed_root_but_never_substitution ... ok
+test restore::tests::aliased_journal_is_not_accepted_as_restart_evidence ... ok
+test restore::tests::existing_journal_open_never_creates_a_missing_lock_or_repairs_one ... ok
+test restore::tests::create_requires_valid_schema_plan_attempt_and_initial_phase ... ok
+test restore::tests::journal_store_requires_private_directory ... ok
+test restore::tests::journal_load_rejects_invalid_snapshot_reference ... ok
+test restore::tests::every_phase_reopens_under_attempt_identity_and_rejects_wrong_filename ... ok
+test linked_checkpoint::tests::substituted_or_writable_snapshot_is_never_available ... ok
+test restore::tests::journal_pins_source_digest_and_rejects_unbound_legacy_plans ... ok
+test restore::tests::preflight_rejects_bad_archives_and_unavailable_linked_partner ... ok
+test restore::tests::journal_survives_restart_and_rejects_skipped_phases ... ok
+test restore::tests::preflight_rejects_incompatible_versions_for_the_requested_scope ... ok
+test restore::tests::preflight_rejects_mismatched_filesystem_before_journaling ... ok
+test restore::tests::preflight_requires_a_sealed_valid_manifest ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test restore::tests::journal_transitions_follow_the_selected_restore_scope ... ok
+test installed_capture::tests::compiled_inventory_preserves_preferences_links_absence_metadata_and_offline_layers ... ok
+
+running 1 test
+test restore::tests::restart_discovery_refuses_corruption_unknown_entries_and_external_links ... ok
+test restore::tests::restore_phase_process_exit_child ... ignored, spawned by process_exit_after_every_scope_phase_is_discoverable_and_resumable
+test restore::tests::rollback_receipt_process_exit_child ... ignored, spawned by process_exit_after_root_rollback_receipt_preserves_the_single_reboot_handoff
+test restore::tests::root_rollback_uses_a_distinct_snapper_tag_from_its_checkpoint ... ok
+test restore::tests::source_plan_cannot_replace_a_verified_current_state_checkpoint ... ok
+test restore::tests::system_only_does_not_require_configuration_generation_or_archive ... ok
+test rpm_defaults::tests::bounded_child_fixture ... ok
+test rpm_defaults::tests::exact_file_array_row_is_selected_and_ambiguous_owners_are_rejected ... ok
+test rpm_defaults::tests::generic_default_fixture_resolves_without_companion ... ok
+test restore::tests::process_exit_after_root_rollback_receipt_preserves_the_single_reboot_handoff ... ok
+test rpm_defaults::tests::native_command_has_only_fixed_readonly_arguments_and_clean_environment ... ok
+test rpm_defaults::tests::modified_bytes_failed_query_and_package_changes_block_loader ... ok
+test snapper_layout::tests::boot_mount_inventory_refuses_ambiguity_and_escaped_paths ... ok
+
+running 1 test
+test restore::tests::restart_discovery_retains_every_unfinished_phase_and_omits_only_complete ... ok
+test state_boot_unit::tests::boot_check_requires_exact_unit_and_owned_enablement_without_repair ... ok
+test state_boot_unit::tests::publication_preserves_conflicts_and_resumes_only_complete_owned_pending_files ... ok
+test state_creation::tests::preflight_detects_even_partial_and_dangling_attempt_records ... ok
+test state_creation::tests::prior_partial_or_complete_intent_is_preserved_for_reconciliation ... ok
+test state_mount::tests::accepts_btrfs_subvolume_root_path_and_rejects_bind_root_subpath ... ok
+test state_creation::tests::receipt_rejects_cross_transaction_wrong_filesystem_and_noncanonical_encoding ... ok
+test state_mount::tests::accepts_exact_writable_dedicated_subvolume ... ok
+test state_mount::tests::formats_btrfs_filesystem_uuid ... ok
+test state_mount::tests::missing_parent_fails_closed ... ok
+test state_mount::tests::parses_mountinfo_for_the_descriptor_mount_id ... ok
+test state_mount::tests::rejects_absent_mount ... ok
+test state_mount::tests::parses_mountinfo_read_only_and_escaped_mountpoints ... ok
+test state_mount::tests::rejects_ambiguous_or_malformed_mount_options ... ok
+test state_mount::tests::rejects_non_fixed_mountpoint_and_non_btrfs ... ok
+test state_mount::tests::rejects_read_only_and_identity_mismatch ... ok
+test state_mount::tests::root_anchor_must_be_the_process_root_mount ... ok
+test state_provision::tests::initialized_rollback_root_does_not_relax_fresh_creation_identity ... ok
+test state_provision::tests::public_creation_rejects_unprivileged_or_non_root_descriptor_before_ioctl ... ok
+test state_provision::tests::top_level_requires_matching_filesystem_and_exact_kernel_root_identity ... ok
+test state_provision::tests::unit_pins_created_volume_id_and_fixed_mountpoint_without_adopting_names ... ok
+test tests::capture_policy_is_bounded_and_metadata_keys_are_allowlisted ... ok
+test tests::configuration_restore_root_classification_excludes_generation_storage ... ok
+test tests::file_inventory_rejects_duplicate_paths_and_keeps_absence_explicit ... ok
+test tests::file_records_reject_invalid_mode_bits_before_serialization ... ok
+test tests::canonical_encoding_is_independent_of_file_insertion_order ... ok
+
+running 1 test
+test restore::tests::preflight_rejects_configuration_counts_the_journal_cannot_persist ... ok
+test tests::identifiers_and_digests_are_canonical ... ok
+test tests::hard_link_groups_require_identical_inode_records_within_one_root ... ok
+test tests::manifest_serialization_revalidates_mutable_schema_fields ... ok
+test tests::home_records_and_validly_hashed_manifests_reject_unrelated_paths ... ok
+test tests::manifest_requires_verified_capture_link_and_digest_before_ready ... ok
+test tests::persisted_manifest_parser_rejects_oversize_and_tampered_digest ... ok
+test tests::persisted_manifest_parser_validates_wrapper_values ... ok
+test tests::persisted_manifest_round_trips_and_rejects_unknown_fields ... ok
+test tests::provenance_serializes_package_and_provider_identity_with_revisions ... ok
+test tests::relative_paths_reject_traversal_and_ambiguous_components ... ok
+test tests::snapshot_link_and_filesystem_uuid_are_required ... ok
+test tests::symlink_targets_are_recorded_without_path_interpretation ... ok
+test wallpaper_channel::tests::native_connections_are_anonymous_independent_and_keep_request_ids_separate ... ok
+test tests::persisted_manifest_round_trips_exact_i128_mtime ... ok
+test wallpaper_protocol::tests::invalid_outputs_volume_and_ambiguous_paths_fail_before_dispatch ... ok
+test wallpaper_protocol::tests::audio_is_a_distinct_canonical_bounded_action ... ok
+test wallpaper_protocol::tests::exact_action_roundtrips_without_executable_or_shell_interpretation ... ok
+
+running 1 test
+test wallpaper_protocol::tests::permit_binds_exact_frame_and_process_start_identity ... ok
+test wallpaper_protocol::tests::query_connections_do_not_grant_mutations_or_accept_client_permits ... ok
+test wallpaper_protocol::tests::restore_and_workspace_handoffs_require_exact_purpose_and_stored_state_binding ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test installed_capture::tests::lost_writer_lease_during_publication_retracts_generation_and_allows_retry ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test restore::tests::restart_discovery_is_bounded_and_returns_stable_attempt_order ... ok
+test writer_command_policy::tests::every_hub_mutation_family_refuses_before_upstream_dispatch ... ok
+test writer_command_policy::tests::queries_have_exact_arity_and_no_mutation_suffix_or_encoding_bypass ... ok
+test restore::tests::process_exit_after_every_scope_phase_is_discoverable_and_resumable ... ok
+test writer_freeze::tests::executable_pin_refuses_symlinks_and_non_root_owned_images ... ok
+
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... test installed_capture::tests::managed_namespace_changes_after_capture_or_during_publication_are_rejected ... ok
+test writer_freeze::tests::unobserved_children_never_gain_actor_ownership_from_scan_or_retries ... ok
+test writer_protocol::tests::all_pinned_upstream_writer_routes_apply_without_fuzz ... ignored, requires offline exact pinned source audit tree
+test writer_protocol::tests::coordination_lock_rejects_symlinks_hardlinks_and_replacement ... ok
+test writer_protocol::tests::every_declared_writer_has_a_fixed_launch_route ... ok
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... test wallpaper_proxy::tests::direct_socket_query_then_write_reuse_never_reaches_native_without_helper ... ok
+test wallpaper_proxy::tests::direct_audio_frames_require_the_typed_helper_and_never_reach_query_actor ... ok
+test wallpaper_proxy::tests::direct_socket_layout_refusal_is_actionable_and_never_reaches_native_query_channel ... ok
+test writer_protocol::tests::native_runtime_exception_is_only_the_exact_private_tmpfs_mount_root ... ok
+test writer_protocol::tests::pinned_upstream_daemon_writes_are_quiesced ... ignored, requires exact pinned upstream Go daemon binary; never downloads at test time
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... test writer_protocol::tests::pinned_daemon_launch_patch_covers_the_supervised_native_surface_tree ... ok
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... test rpm_defaults::tests::subprocess_output_lifetime_and_failures_are_bounded_without_shells ... ok
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.03s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.03s
+
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... test wallpaper_proxy::tests::query_apply_and_theme_handoff_use_distinct_typed_boundaries ... ok
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.03s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.04s
+
+test writer_protocol::tests::wrapper_death_at_publication_boundary_retracts_the_generation ... ok
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.15s
+
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... exec event tid=437028 previous=Ok(437028) actual=Ok(Some(Task { tid: 437028, tgid: 437028, tracer: 437027, state: 't', start: 6709703, uids: [1000, 1000, 1000, 1000] }))
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.07s
+
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... ok
+fixture writer lease failed: Io(Os { code: 32, kind: BrokenPipe, message: "Broken pipe" })
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.14s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.14s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.27s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.27s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.20s
+
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... test generation::tests::full_inventory_can_have_more_metadata_blobs_than_declared_paths ... ok
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.08s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.08s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.09s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.09s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.10s
+
+
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... 
+running 1 test
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.02s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 2.07s
+
+test writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death ... ok
+test installed_capture::tests::v1_wallpaper_store_accepts_large_catalogues_and_exact_capture_bound ... ok
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... actor tick failure WriterUnavailable; actor=437084 task=Ok(Some(Task { tid: 437084, tgid: 437084, tracer: 437090, state: 'R', start: 6710112, uids: [1000, 1000, 1000, 1000] })); held=[(436967, 436967, 6709689, true, false, false), (436969, 436969, 6709689, true, false, false), (436973, 436967, 6709689, true, false, false), (436974, 436967, 6709689, true, false, false), (436975, 436967, 6709689, true, false, false), (436976, 436967, 6709689, true, false, false), (436977, 436969, 6709689, true, false, false), (436978, 436969, 6709689, true, false, false), (436979, 436969, 6709689, true, false, false), (436980, 436969, 6709689, true, false, false), (437084, 437084, 6710112, false, false, true), (437085, 437084, 6710112, false, false, true)]
+exec event tid=437084 previous=Ok(437085) actual=Ok(Some(Task { tid: 437084, tgid: 437084, tracer: 437090, state: 't', start: 6710112, uids: [1000, 1000, 1000, 1000] }))
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 19.29s
+
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... ok
+
+test result: ok. 235 passed; 0 failed; 6 ignored; 0 measured; 0 filtered out; finished in 19.57s
+
+     Running unittests src/bin/ryoku-recovery.rs (target/debug/deps/ryoku_recovery-0af94185cb6eee8f)
+
+running 26 tests
+test tests::account_writer_shutdown_fails_if_sessions_or_manager_remain ... ok
+test tests::admission_dependency_requires_an_exact_loaded_unit_token ... ok
+test tests::admission_shared_lock_fails_fast_during_an_exclusive_mutation ... ok
+test tests::account_writers_are_stopped_and_verified_in_order ... ok
+test tests::checkpoint_session_validates_arguments_before_opening_protected_state ... ok
+test tests::cli_does_not_accept_an_arbitrary_store_path ... ok
+test tests::complete_system_rejects_malformed_ids_before_opening_protected_state ... ok
+test tests::configuration_preview_filters_generation_and_never_prints_saved_targets ... ok
+test tests::checkpoint_generation_id_stays_canonical_for_long_transaction_ids ... ok
+test tests::confirm_rollback_validates_id_and_reports_the_verified_transition ... ok
+test tests::installed_rpm_query_uses_a_real_newline_and_rejects_ambiguous_revisions ... ok
+test tests::configuration_restore_completion_requires_systemd_and_recovery_gate_health ... ok
+test tests::linked_verification_rejects_malformed_ids_and_path_overrides ... ok
+test tests::mutation_lock_fails_fast_while_a_shared_read_lease_is_held ... ok
+test tests::manual_checkpoint_alias_validates_arguments_before_opening_protected_state ... ok
+test tests::parses_logind_session_uids_and_fails_closed_on_unknown_rows ... ok
+test tests::discard_incomplete_stage_rejects_malformed_ids_before_opening_protected_state ... ok
+test tests::prepare_configuration_rejects_malformed_ids_before_opening_protected_state ... ok
+test tests::recovery_command_output_retains_only_limit_plus_one_bytes ... ok
+test tests::preview_maps_entries_to_non_content_action_labels ... ok
+test tests::rejects_unknown_commands_without_partial_output ... ok
+test tests::recovery_mutations_require_rescue_or_emergency_without_graphical_target ... ok
+test tests::restore_configuration_rejects_malformed_ids_before_opening_protected_state ... ok
+test tests::system_restore_commands_reject_malformed_ids_before_opening_protected_state ... ok
+test tests::restored_json_health_check_reopens_declared_files_and_validates_profile_schema ... ok
+test tests::restore_inventory_matches_current_capture_scope_and_rejects_other_home_files ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/ryoku-state-init.rs (target/debug/deps/ryoku_state_init-e1b61d49b1090fad)
+
+running 2 tests
+test tests::snapper_mapping_refuses_duplicate_spaced_or_foreign_targets ... ok
+test tests::resume_arguments_are_bounded_typed_identifiers_without_paths_or_options ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/ryoku-writer.rs (target/debug/deps/ryoku_writer-7b9cac1b0776b441)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/writer_command_policy.rs (target/debug/deps/writer_command_policy-fe867b16b68883a6)
+
+running 1 test
+test hub_alias_and_role_refuse_actuators_before_native_launch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/lib.rs (target/debug/deps/ryoku_service-f0c0df0763437511)
+
+running 128 tests
+test account_state::tests::account_strings_are_bounded_and_home_paths_are_canonical ... ok
+test account_state::tests::root_identity_is_refused_before_the_shared_worker ... ok
+test helper_protocol::tests::account_resolution_occurs_only_after_operator_authorization ... ok
+test account_state::tests::roots_reject_symlinks_foreign_owners_and_writable_directories ... ok
+test account_state::tests::private_account_directories_remain_private_after_binding_and_revalidation ... ok
+test helper_protocol::tests::audio_wire_and_dispatch_keep_action_authority_separate ... ok
+test helper_protocol::tests::availability_request_has_no_arbitrary_command_or_path_fields ... ok
+test helper_protocol::tests::authenticated_and_unauthorized_peers_receive_only_fail_closed_outcomes ... ok
+test helper_protocol::tests::expired_helper_deadline_fails_before_socket_io ... ok
+test account_state::tests::worker_releases_permit_on_error_and_panic ... ok
+test account_state::tests::expired_worker_invocations_cannot_return_an_account_binding ... ok
+test helper_protocol::tests::operator_group_database_requires_one_valid_local_entry ... ok
+test helper_protocol::tests::connected_peer_groups_match_kernel_process_group_snapshot ... ok
+test helper_protocol::tests::helper_response_frame_has_a_bounded_size_and_requires_newline ... ok
+test account_state::tests::native_nss_lookup_copies_the_running_ordinary_account ... ok
+test helper_protocol::tests::malformed_versions_references_and_package_lists_fail_before_dispatch ... ok
+test helper_protocol::tests::frame_limit_is_enforced ... ok
+test helper_protocol::tests::operator_socket_returns_malformed_rejection_without_dispatching ... ok
+test helper_protocol::tests::operator_socket_rejects_before_parsing_untrusted_request ... ok
+test helper_protocol::tests::obsolete_protocol_version_gets_structured_unsupported_rejection ... ok
+test helper_protocol::tests::operator_socket_requires_opt_in_group_and_keeps_valid_requests_denied ... ok
+test helper_protocol::tests::socket_handler_authenticates_then_writes_only_typed_rejections ... ok
+test helper_protocol::tests::wallpaper_dispatch_rejects_unauthorized_before_provider_lookup ... ok
+test helper_protocol::tests::versioned_typed_request_round_trips_and_rejects_unknown_command_fields ... ok
+test helper_protocol::tests::wallpaper_success_wire_matches_proxy_and_preserves_rejection_shape ... ok
+test helper_protocol::tests::socket_handler_returns_typed_framing_error_and_handles_peer_close ... ok
+test installer::lifecycle::tests::account_bootstrap_accepts_only_the_ordinary_caller_and_exact_arguments ... ok
+test installer::lifecycle::tests::checkpoint_diagnostics_are_bounded_single_line_ascii ... ok
+test installer::lifecycle::tests::owned_rejection_status_is_impossible_after_the_gate_enters ... ok
+test installer::layout::tests::installer_requires_recoverable_numbered_default_before_capture ... ok
+test installer::lifecycle::tests::owned_service_only_accepts_the_reserved_rejection_and_keeps_emergency_failure ... ok
+test installer::lifecycle::tests::missing_lifecycle_action_returns_usage_without_host_work ... ok
+test installer::lifecycle::tests::current_tumbleweed_kde_fallback_is_required_and_fingerprinted ... ok
+test installer::lifecycle::tests::migration_conflicts_and_symlinks_preserve_both_files ... ok
+test installer::tests::directory_payload_preflight_rejects_type_collisions_and_binds_metadata ... ok
+test installer::tests::install_plan_digest_binds_installed_state_sources_payloads_ownership_and_solver ... ok
+test installer::tests::install_preview_refuses_unowned_or_foreign_existing_payload_files ... ok
+test installer::lifecycle::tests::repeated_migration_recognizes_only_identical_safe_target ... ok
+test installer::tests::installed_file_owner_inventory_cannot_be_forged_by_filename_control_bytes ... ok
+test installer::tests::installed_rpm_file_owner_inventory_parses_multiple_packages ... ok
+test installer::tests::managed_payload_paths_must_have_one_canonical_spelling ... ok
+test installer::tests::migration_inspection_recognizes_exact_legacy_document_without_mutating_source ... ok
+test installer::tests::migration_inspection_treats_fresh_and_upstream_accounts_as_non_candidates ... ok
+test installer::tests::optional_profile_directories_allow_absence_and_open_owned_directory ... ok
+test installer::tests::migration_inspection_refuses_symlinks_and_existing_destination ... ok
+test installer::tests::optional_profile_directories_reject_symlinks ... ok
+test installer::lifecycle::tests::persisted_pre_apply_recovery_is_idempotent_and_refuses_other_boundaries ... ok
+test installer::lifecycle::tests::service_success_requires_fresh_exact_persisted_completion ... ok
+test installer::tests::platform_gate_requires_one_unambiguous_exact_tumbleweed_id_and_architecture ... ok
+test installer::tests::package_input_symlinks_are_rejected_and_staging_is_cleaned ... ok
+test installer::tests::payload_path_probe_handles_absence_and_does_not_follow_symlinks ... ok
+test installer::tests::removal_preview_distinguishes_shared_payloads_and_rejects_owner_drift ... ok
+test installer::tests::rpm_payload_mode_inventory_separates_directories_and_rejects_unsafe_entries ... ok
+test installer::tests::package_inputs_are_copied_to_a_private_stable_directory ... ok
+test mutation_gate::coordination_tests::exact_plan_and_link_are_durable_before_first_mutation ... ok
+test mutation_gate::coordination_tests::installer_recovery_journal_requires_matching_source_receipt_after_applying ... ok
+test helper_protocol::tests::unavailable_operator_socket_permission_is_a_structured_unauthorized_error ... ok
+test mutation_gate::coordination_tests::legacy_interruption_has_no_invented_checkpoint_and_blocks_new_work ... ok
+
+running 1 test
+test mutation_gate::coordination_tests::failures_retain_distinct_prechange_unknown_and_postcapture_outcomes ... ok
+test mutation_gate::coordination_tests::cancellation_is_honored_only_before_first_mutation ... ok
+test mutation_gate::tests::apply_occurs_only_after_verified_checkpoint_and_plan_revalidation ... ok
+test mutation_gate::tests::changed_plan_blocks_apply_after_checkpoint ... ok
+test mutation_gate::coordination_tests::invalid_plans_and_reused_operation_ids_never_enter_integration_hooks ... ok
+test mutation_gate::tests::checkpoint_failure_blocks_revalidation_and_apply ... ok
+test mutation_gate::tests::coordinator_lock_rejects_aliased_lock_inode ... ok
+test mutation_gate::tests::coordinator_lock_rejects_nonprivate_state_directories ... ok
+test mutation_gate::tests::audio_partial_write_failure_reopens_as_recovery_required_without_success ... ok
+test mutation_gate::tests::journaled_apply_failure_is_a_terminal_failed_record ... ok
+
+running 1 test
+
+running 1 test
+test mutation_gate::tests::journaled_failed_checkpoint_and_revalidation_never_apply ... ok
+
+running 1 test
+test mutation_gate::tests::journaled_mutation_persists_each_phase_before_callbacks ... ok
+test mutation_gate::coordination_tests::journal_replay_rejects_changed_bindings_actions_missing_proof_and_bad_shapes ... ok
+test mutation_gate::tests::lock_holder_process_contention_child ... ok
+test mutation_gate::tests::journaled_post_change_failure_is_durable_and_distinct ... ok
+test mutation_gate::tests::missing_checkpoint_component_blocks_apply ... ok
+test protected_state::tests::missing_or_invalid_identity_stops_before_store_open ... ok
+test protected_state::tests::validated_identity_is_forwarded_unchanged_to_store_open ... ok
+
+running 1 test
+
+running 1 test
+test runtime::tests::client_disconnect_does_not_cancel_durable_progress_or_restart_work ... ok
+test mutation_gate::tests::lock_holder_process_exit_releases_the_coordinator_lock ... ok
+test runtime::tests::expired_socket_deadlines_fail_before_reading_or_writing ... ok
+test runtime::tests::discovery_and_start_are_live_but_provider_actions_stay_unavailable ... ok
+test runtime::tests::peer_denial_precedes_path_work_and_stale_paths_precede_parsing_or_lookup ... ok
+test runtime::tests::reconnect_lookup_returns_state_after_journal_reopen ... ok
+test runtime::tests::reconnect_replays_uncertain_journal_before_lookup_or_fails_closed ... ok
+
+running 1 test
+test mutation_gate::coordination_tests::post_capture_requires_fresh_verified_reference_bound_to_this_preimage ... ok
+
+running 1 test
+test runtime::tests::response_reserve_exhausted_skips_helper_and_still_returns_typed_error ... ok
+test runtime::tests::wrong_peer_uid_and_malformed_frames_get_structured_errors ... ok
+test runtime_paths::tests::conflicting_journals_fail_closed_without_selecting_even_an_empty_journal ... ok
+test runtime_paths::tests::corrupt_migrated_history_remains_in_place_and_never_falls_back_to_fresh_journal ... ok
+test runtime_paths::tests::daemon_lifetime_lock_excludes_independent_opens_and_releases_on_close ... ok
+test runtime_paths::tests::journal_rejects_symlink_hardlink_fifo_directory_foreign_uid_and_unsafe_mode_before_io ... ok
+test runtime_paths::tests::journal_revalidation_rejects_metadata_links_replacement_and_new_legacy_entries ... ok
+test runtime::tests::user_service_probes_helper_and_rejection_does_not_write_journal ... ok
+test runtime_paths::tests::native_runtime_mount_boundaries_preserve_strict_ownership_and_fixed_namespace ... ignored, requires a native ordinary-user /run/user/UID with trusted root-owned parents
+
+running 1 test
+test runtime_paths::tests::reopening_state_namespace_rejects_each_replaced_parent_even_with_original_app_inode ... ok
+test runtime_paths::tests::legacy_migration_and_restarts_preserve_inode_history_and_durable_lookup ... ok
+test runtime_paths::tests::replacement_journal_or_lock_does_not_reuse_the_pinned_inode ... ok
+test runtime_paths::tests::shared_state_ancestor_accepts_safe_modes_without_chmodding_existing_directories ... ok
+test mutation_gate::coordination_tests::process_death_preserves_each_phase_and_restart_refuses_reapply ... ok
+test runtime_paths::tests::unsafe_directory_modes_owners_and_symlinks_are_not_repaired_or_traversed ... ok
+test runtime_paths::tests::unsafe_legacy_entries_never_migrate_or_create_a_fresh_journal ... ok
+test runtime_paths::tests::socket_bind_is_private_and_live_socket_is_never_removed_but_closed_stale_socket_is ... ok
+test runtime_paths::tests::unsafe_shared_ancestor_and_nonprivate_service_modes_fail_open_and_revalidation ... ok
+test tests::complete_record_after_failed_sync_requires_successful_sync_before_replay ... ok
+test tests::failed_append_poison_is_set_by_actual_io_error ... ok
+test runtime_paths::tests::upstream_shared_app_directory_and_data_are_preserved_with_private_native_journal ... ok
+test runtime_paths::tests::socket_leaf_substitution_cannot_chmod_or_remove_an_unrelated_file ... ok
+test tests::helper_language_has_no_arbitrary_command_fields_and_validates_ids ... ok
+test tests::journal_discards_only_a_torn_final_record ... ok
+test tests::journal_reconnect_returns_last_durable_operation_state ... ok
+test tests::journal_rejects_impossible_progress_and_phase_error_combinations ... ok
+test tests::journal_refuses_appends_until_replay_after_uncertain_write ... ok
+test tests::journal_rejects_regressing_progress_without_changing_disk ... ok
+test tests::journal_rejects_skipped_or_terminal_transitions ... ok
+test tests::journal_rejects_success_when_the_last_verification_total_is_incomplete ... ok
+test tests::peer_auth_uses_kernel_credentials_and_rejects_root_identity_config ... ok
+test tests::versioned_request_round_trips_and_rejects_unknown_fields ... ok
+test tests::rejects_unknown_protocol_version_and_oversized_message ... ok
+test wallpaper::tests::actor_layout_refusal_is_specific_but_never_accepted_as_success_or_wrong_reply ... ok
+test wallpaper::tests::static_and_video_input_capacity_is_checked_before_reading ... ok
+test wallpaper::tests::audio_receipts_are_bounded_unique_and_not_apply_success ... ok
+test wallpaper::tests::bundle_selection_is_account_bound_orders_timestamps_and_rejects_ties_or_stale_packages ... ok
+test helper_protocol::tests::trickling_input_cannot_extend_the_absolute_helper_deadline ... ok
+test account_state::tests::completed_lookup_allows_immediate_revalidation_without_waiting ... ok
+test mutation_gate::coordination_tests::common_lock_serializes_whole_operations_using_independent_stale_journals ... ok
+test mutation_gate::tests::independently_opened_coordinator_locks_serialize_writers ... ok
+test mutation_gate::tests::independent_processes_contend_on_the_coordinator_lock ... ok
+test account_state::tests::stalled_lookup_times_out_without_growing_workers_or_reusing_late_results ... ok
+test runtime::tests::stalled_helper_returns_typed_error_within_the_original_service_deadline ... ok
+
+test result: ok. 127 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.77s
+
+     Running unittests src/bin/ryoku-helper.rs (target/debug/deps/ryoku_helper-6b907d97d37a8454)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/ryoku-install.rs (target/debug/deps/ryoku_install-c766dfe16b41d4c7)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/ryoku-mutation-history.rs (target/debug/deps/ryoku_mutation_history-14c66fc8cdf54c82)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/ryoku-service.rs (target/debug/deps/ryoku_service-c848de0695412d8f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/packaged_helper_policy.rs (target/debug/deps/packaged_helper_policy-d177c7944e0868c6)
+
+running 3 tests
+test helper_is_an_explicit_root_scoped_deny_only_service ... ok
+test helper_socket_is_fixed_root_owned_and_opt_in_group_only ... ok
+test package_installs_units_without_enabling_the_privileged_socket ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ryoku_recovery
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ryoku_service
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+===== Complete corrected outer actor repetition 1; command exit 0 =====
+
+   Compiling ryoku-recovery v0.1.0 (<worktree>/suse/recovery)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.42s
+     Running unittests src/lib.rs (target/debug/deps/ryoku_recovery-4d31bfcca6e19ac3)
+
+running 1 test
+
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=433006 previous=Ok(433006) actual=Ok(Some(Task { tid: 433006, tgid: 433006, tracer: 433000, state: 't', start: 6694269, uids: [1000, 1000, 1000, 1000] }))
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 2.07s
+
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=433075 previous=Ok(433076) actual=Ok(Some(Task { tid: 433075, tgid: 433075, tracer: 433081, state: 't', start: 6694677, uids: [1000, 1000, 1000, 1000] }))
+actor tick failure WriterUnavailable; actor=433075 task=Ok(None); held=[(432982, 432982, 6694254, true, false, false), (432983, 432983, 6694254, true, false, false), (432984, 432982, 6694254, true, false, false), (432985, 432982, 6694254, true, false, false), (432986, 432982, 6694254, true, false, false), (432987, 432982, 6694254, true, false, false), (432988, 432983, 6694255, true, false, false), (432989, 432983, 6694255, true, false, false), (432990, 432983, 6694255, true, false, false), (432991, 432983, 6694255, true, false, false), (433076, 433075, 6694677, false, false, true)]
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 19.30s
+
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 19.30s
+
+
+===== Complete corrected outer actor repetition 2; command exit 0 =====
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running unittests src/lib.rs (target/debug/deps/ryoku_recovery-4d31bfcca6e19ac3)
+
+running 1 test
+
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=433403 previous=Ok(433403) actual=Ok(Some(Task { tid: 433403, tgid: 433403, tracer: 433402, state: 't', start: 6696200, uids: [1000, 1000, 1000, 1000] }))
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 2.05s
+
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... actor tick failure WriterUnavailable; actor=433490 task=Ok(Some(Task { tid: 433490, tgid: 433490, tracer: 433496, state: 'R', start: 6696607, uids: [1000, 1000, 1000, 1000] })); held=[(433385, 433385, 6696189, true, false, false), (433386, 433386, 6696189, true, false, false), (433387, 433385, 6696189, true, false, false), (433388, 433385, 6696189, true, false, false), (433389, 433385, 6696189, true, false, false), (433390, 433385, 6696189, true, false, false), (433391, 433386, 6696189, true, false, false), (433392, 433386, 6696189, true, false, false), (433393, 433386, 6696189, true, false, false), (433394, 433386, 6696189, true, false, false), (433490, 433490, 6696607, false, false, true), (433491, 433490, 6696607, false, false, true)]
+exec event tid=433490 previous=Ok(433491) actual=Ok(Some(Task { tid: 433490, tgid: 433490, tracer: 433496, state: 't', start: 6696607, uids: [1000, 1000, 1000, 1000] }))
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 19.23s
+
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 19.23s
+
+
+===== Complete corrected outer actor repetition 3; command exit 0 =====
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running unittests src/lib.rs (target/debug/deps/ryoku_recovery-4d31bfcca6e19ac3)
+
+running 1 test
+
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=433792 previous=Ok(433792) actual=Ok(Some(Task { tid: 433792, tgid: 433792, tracer: 433791, state: 't', start: 6698125, uids: [1000, 1000, 1000, 1000] }))
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 2.03s
+
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=433869 previous=Ok(433870) actual=Ok(Some(Task { tid: 433869, tgid: 433869, tracer: 433875, state: 't', start: 6698530, uids: [1000, 1000, 1000, 1000] }))
+actor tick failure WriterUnavailable; actor=433869 task=Ok(None); held=[(433774, 433774, 6698117, true, false, false), (433775, 433775, 6698117, true, false, false), (433776, 433774, 6698117, true, false, false), (433777, 433774, 6698117, true, false, false), (433778, 433774, 6698117, true, false, false), (433779, 433775, 6698117, true, false, false), (433780, 433774, 6698117, true, false, false), (433781, 433775, 6698117, true, false, false), (433782, 433775, 6698117, true, false, false), (433783, 433775, 6698117, true, false, false), (433870, 433869, 6698530, false, false, true)]
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 19.21s
+
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 19.21s
+
+
+===== Complete corrected outer actor repetition 4; command exit 0 =====
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running unittests src/lib.rs (target/debug/deps/ryoku_recovery-4d31bfcca6e19ac3)
+
+running 1 test
+
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=434322 previous=Ok(434322) actual=Ok(Some(Task { tid: 434322, tgid: 434322, tracer: 434321, state: 't', start: 6700102, uids: [1000, 1000, 1000, 1000] }))
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 2.19s
+
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=434497 previous=Ok(434498) actual=Ok(Some(Task { tid: 434497, tgid: 434497, tracer: 434503, state: 't', start: 6700514, uids: [1000, 1000, 1000, 1000] }))
+actor tick failure WriterUnavailable; actor=434497 task=Ok(None); held=[(434304, 434304, 6700062, true, false, false), (434305, 434304, 6700062, true, false, false), (434306, 434304, 6700062, true, false, false), (434307, 434304, 6700062, true, false, false), (434308, 434304, 6700062, true, false, false), (434309, 434309, 6700062, true, false, false), (434310, 434309, 6700064, true, false, false), (434311, 434309, 6700064, true, false, false), (434312, 434309, 6700064, true, false, false), (434313, 434309, 6700064, true, false, false), (434498, 434497, 6700514, false, false, true)]
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 19.65s
+
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 19.66s
+
+
+===== Complete corrected outer actor repetition 5; command exit 0 =====
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
+     Running unittests src/lib.rs (target/debug/deps/ryoku_recovery-4d31bfcca6e19ac3)
+
+running 1 test
+
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=434829 previous=Ok(434829) actual=Ok(Some(Task { tid: 434829, tgid: 434829, tracer: 434828, state: 't', start: 6702040, uids: [1000, 1000, 1000, 1000] }))
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 2.03s
+
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... actor tick failure WriterUnavailable; actor=435041 task=Ok(Some(Task { tid: 435041, tgid: 435041, tracer: 435047, state: 'Z', start: 6702446, uids: [1000, 1000, 1000, 1000] })); held=[(434811, 434811, 6702031, true, false, false), (434812, 434812, 6702031, true, false, false), (434813, 434811, 6702031, true, false, false), (434814, 434811, 6702031, true, false, false), (434815, 434811, 6702031, true, false, false), (434816, 434811, 6702031, true, false, false), (434817, 434812, 6702031, true, false, false), (434818, 434812, 6702031, true, false, false), (434819, 434812, 6702031, true, false, false), (434820, 434812, 6702031, true, false, false), (435041, 435041, 6702446, false, false, true), (435042, 435041, 6702446, false, false, true)]
+exec event tid=435041 previous=Ok(435042) actual=Ok(Some(Task { tid: 435041, tgid: 435041, tracer: 435047, state: 't', start: 6702446, uids: [1000, 1000, 1000, 1000] }))
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 19.19s
+
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 19.19s
+
+
+===== Exact patched RPM native suite; command exit 0 =====
+345 pass cases; 7 declared missing-tool skips; 9 exact cross-issue exclusions (distinct sets in receipt)
+
+PASS TestE2EBrokerAudioPersistsOutputsAndActiveWorkspaceWithoutQueryBypass (0.01s)
+
+PASS TestE2EBrokerAudioRefusesExternalTargetsAndLinkedStateWithoutWrites/external (0s)
+
+PASS TestE2EBrokerAudioRefusesExternalTargetsAndLinkedStateWithoutWrites/symlink (0s)
+
+PASS TestE2EBrokerAudioRefusesExternalTargetsAndLinkedStateWithoutWrites/hardlink (0s)
+
+PASS TestE2EBrokerAudioRefusesExternalTargetsAndLinkedStateWithoutWrites/symlink-workspaces (0s)
+
+PASS TestE2EBrokerAudioRefusesExternalTargetsAndLinkedStateWithoutWrites/hardlink-workspaces (0s)
+
+PASS TestE2EBrokerAudioRefusesExternalTargetsAndLinkedStateWithoutWrites (0.02s)
+
+PASS TestAtomicStateWritePreservesModeAndPredictableTempSentinel (0s)
+
+PASS TestAudioSecondReplacementFailureCompensatesOrReportsRecovery/compensated (0s)
+
+PASS TestAudioSecondReplacementFailureCompensatesOrReportsRecovery/compensation-failed (0s)
+
+PASS TestAudioSecondReplacementFailureCompensatesOrReportsRecovery/prior-absence (0s)
+
+PASS TestAudioSecondReplacementFailureCompensatesOrReportsRecovery (0s)
+
+PASS TestE2EAudioReceiptKeysRefuseBeforeWriting/bytes-0-"" (0s)
+
+PASS TestE2EAudioReceiptKeysRefuseBeforeWriting/bytes-4-"DP-\n" (0s)
+
+PASS TestE2EAudioReceiptKeysRefuseBeforeWriting/bytes-129-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" (0s)
+
+PASS TestE2EAudioReceiptKeysRefuseBeforeWriting/bytes-128-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" (0s)
+
+PASS TestE2EAudioReceiptKeysRefuseBeforeWriting (0.01s)

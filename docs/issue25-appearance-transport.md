@@ -82,6 +82,29 @@ never opened. Owned temporary files are removed on errors. The protected audio
 path propagates persistence errors through actor refreeze and failed journal
 handling, so a partial I/O failure cannot report success.
 
+A two-file audio update snapshots exact prior bytes/absence before replacing
+either destination. Failure compensates every attempted destination in reverse
+order, including the failing one. The actor updates in-memory workspace state
+and publishes the live frame only after both replacements succeed. Compensated
+failure still returns an error. If compensation fails, its error explicitly
+requires linked recovery. Fault injection covers failure after the first real
+replacement, successful compensation, prior absence and failed compensation.
+A reopened root-journal test proves audio failure remains
+`Applying/MayHaveMutated` with its verified pre-checkpoint, no success
+post-checkpoint and no Succeeded status; further operations require explicit
+reconciliation. No successful post-state is invented for a failed action.
+
+Default-parallel testing also exposed a kernel event ordering boundary: `/proc`
+can reveal a stopped newborn before the tracer consumes its parent's queued
+FORK/CLONE event. Reconciliation waits only for a same-tracer kernel-stopped
+task, with a fixed deadline; scanning/retrying cannot assign actor ownership.
+Only the actual parent event can enroll the child and inherit the parent's actor
+marker. Wrong tracers, running unknown children, stale identities or running
+unrelated siblings still refuse. Missing events time out without granting actor resume.
+The test also reaps its prior owned fork-writer before starting the next phase.
+The [retained full red/corrected logs and five outer repetitions](../infra/tumbleweed-lab/evidence/issue25-audio-failure-regression-20261025.log)
+record the original failures and the exact final default-parallel success.
+
 Direct socket tests cover typed audio routing/denial without a query-channel
 write. Real native receiver tests exercise output plus active-workspace
 persistence, named-output precedence, live frame publication, query-channel
@@ -179,7 +202,7 @@ exec-stop and signal-delivery semantics.
 Helper tests preserve Rejected wire shape and verify success fields/caller denial.
 Bundle tests reject missing/ambiguous/stale/account-mismatched provenance.
 
-The native daemon suite is **336 passing test/subtest cases, 7 declared missing
+The native daemon suite is **345 passing test/subtest cases, 7 declared missing
 ImageMagick skips, 9 exact cross-issue exclusions**, with no blanket E2E filter.
 Four initially excluded #25 fixtures were rewritten to anonymous native query/A
 channels and now pass:

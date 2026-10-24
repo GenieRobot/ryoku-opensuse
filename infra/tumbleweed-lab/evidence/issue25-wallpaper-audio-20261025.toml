@@ -21,20 +21,37 @@ atomic_persistence = "Exclusive random temporary file, preserved regular-file mo
 no_write_tests = "Native query refusal, permit reuse, external target, outputs symlink/hardlink and workspaces symlink/hardlink; all sentinels remain unchanged and subsequent enrolled audio succeeds"
 retained_behavior = "result.ok=true, active workspace precedence, shared-output fallback, live frame republish; all source/UI/aliases retained"
 
+[partial_failure]
+replacement_fault = "Injected after first real workspace replacement, before output replacement; exact prior bytes or absence restored in reverse order, including failed destination"
+compensation_failure = "Injected restore failure remains explicit error requiring linked recovery; never live frame/in-memory publication or success"
+journal = "Reopened SetWallpaperAudio failure persists Applying/MayHaveMutated with linked pre-checkpoint, no success post-checkpoint or Succeeded status; recovery_required blocks continuation"
+fixture = "Focused and full native reruns execute exact tracked patch reproduced through cached RPM source prep; stale scratch result is excluded from branch evidence"
+
+[event_reconciliation]
+observed_failure = "Default-parallel regression exposed /proc newborn visibility before queued parent FORK/CLONE consumption; safe refusal prevented the approved child from reaching its marker"
+correction = "Only same-tracer kernel-stopped unknown tasks can await a bounded real parent event; scan/retry cannot mark actor ownership, and only event-derived records are eligible for actor-only resume"
+fixture_cleanup = "Reap previous owned fork-writer before freezing the next phase's subtree; worker-thread end marker alone is insufficient"
+invariants = "Missing event remains pending/refused; wrong tracer, running unobserved child, stale identity and resumed same-UID sibling refuse; real event-enrolled non-actor child remains stopped while the actor progresses and through refreeze/check; existing sibling/late-fork/clone/exec/reap tests retained"
+
+[redaction]
+rule = "Actual worktree/account-home/temporary absolute paths replaced with <worktree>/, <account-home>/ and <tmp>/; fixed system interfaces and synthetic test identifiers retained"
+scan = "No actual account/host paths, username, credential-token formats, authorization headers or credential-bearing URLs in new public log/receipt/contract"
+raw_logs = "Retained outside the public repository only"
+
 [checks]
 format = "cargo fmt -p ryoku-recovery -p ryoku-service --check"
 clippy = "CARGO_INCREMENTAL=0 cargo clippy --offline --locked -p ryoku-recovery -p ryoku-service --all-targets -- -D warnings"
 rust = "CARGO_INCREMENTAL=0 cargo test --offline --locked -p ryoku-recovery -p ryoku-service"
-recovery_passed = 234
+recovery_passed = 235
 recovery_existing_ignored = 6
-service_passed = 126
+service_passed = 127
 service_existing_ignored = 1
 cli_passed = 26
 state_init_passed = 2
 writer_policy_passed = 1
 helper_policy_passed = 3
 rust_failed = 0
-native_passed_cases = 336
+native_passed_cases = 345
 native_missing_tool_skips = 7
 native_cross_issue_prerequisites = 9
 native_categories_disjoint = true
@@ -42,6 +59,10 @@ native_missing_tool_tests = ["TestAutoOptimizeTouchesOnlyNewImages", "TestGradeP
 native_excluded_prerequisite_tests = ["TestE2EDepthSetAndClearFoldIntoFrame", "TestE2EJSONRequestsAndEventsShareOneConnection", "TestE2EWallpaperNextAdvances", "TestE2EFavouriteSurvivesRescan", "TestE2ESetFavouriteBroadcastsCached", "TestE2EWallDeleteRequiresSubfolderCatalogKey", "TestEventsFlowWhileRequestRuns", "TestSlowSourceSearchDoesNotBlockStatusOnSameConnection", "TestClosingConnectionClearsSearchRegistry"]
 native_command = "GOFLAGS=-buildvcs=false GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -mod=vendor -skip '^(TestE2EDepthSetAndClearFoldIntoFrame|TestE2EJSONRequestsAndEventsShareOneConnection|TestE2EWallpaperNextAdvances|TestE2EFavouriteSurvivesRescan|TestE2ESetFavouriteBroadcastsCached|TestE2EWallDeleteRequiresSubfolderCatalogKey|TestEventsFlowWhileRequestRuns|TestSlowSourceSearchDoesNotBlockStatusOnSameConnection|TestClosingConnectionClearsSearchRegistry)$' -count=1 -json ./..."
 patch_replay = "16-file tracked appearance patch reproduces byte-for-byte; cached Source2/3 hashes and runtime SHA256SUMS pass; launch plus appearance RPM prep apply with fuzz=0"
+
+actor_outer_repetitions = 5
+failure_and_corrected_log = "issue25-audio-failure-regression-20261025.log"
+native_patch_sha256 = "a3cf63356f1bed3e2d03d6ffcbd2a41642f795ad8c019690d8b130fc2545d6be"
 
 [remaining]
 required = ["Native 1.0 package/login/reboot/logout/KDE/audio-device/core workflow acceptance", "#175 external/WE audio and complete configured-root provider capture/restore", "#176 real theme/automatic/hook accounting; separate permits never inherited from user audio", "#25 retained pause/workspace-assignment contracts", "Separate Hyprland six-file overlay report completeness and #177 greeter handoff gate"]
