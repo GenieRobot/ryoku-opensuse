@@ -49,6 +49,11 @@ manifests, rather than a directory count, define the selected payload.
 
 ## Retained and excluded behavior
 
+The component-level [Hub/store review](ryoku-v1.0-hub-store-review.md)
+records exact file dispositions and the incompatible store API/write contract.
+It covers those areas only; it does not complete the full delta matrix or native
+acceptance gates.
+
 | Area | Exact selected source surface / behavior | Candidate disposition |
 |---|---|---|
 | Shell/core | `ryoku/shell/ipc`, selected QML, scripts and user units | Retain native shell, approved Rust writer roles and existing namespace/recovery ownership. Refresh actual v1 unit fixture; use private coordinated Quickshell launcher. Shell state/cache writes remain under the existing managed-writer boundary. |
