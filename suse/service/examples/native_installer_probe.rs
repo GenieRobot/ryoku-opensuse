@@ -1003,10 +1003,71 @@ fn require_emergency() -> Result<()> {
 }
 fn enter_maintenance() -> Result<()> {
     command("/usr/bin/systemctl", &["isolate", "rescue.target"])?;
-    command("/usr/bin/systemctl", &["start", "systemd-logind.service"])?;
+    activate_maintenance_with(|program, args| command_for(program, args, "30s"))?;
+    eprintln!("maintenance_services=dbus-active logind-active snapper-name-owned");
     if !Path::new(&format!("/run/user/{}/ryoku-writers", account()?.0)).exists() {
         bootstrap_account_namespace()?;
     }
+    Ok(())
+}
+fn activate_maintenance_with(mut run: impl FnMut(&str, &[&str]) -> Result<String>) -> Result<()> {
+    // The broker refuses manual start. Its socket may still be activating
+    // after logind reports ready; a real bounded bus roundtrip waits for it.
+    run("/usr/bin/systemctl", &["start", "systemd-logind.service"])?;
+    let broker = run(
+        "/usr/bin/busctl",
+        &[
+            "--system",
+            "--timeout=10s",
+            "call",
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "NameHasOwner",
+            "s",
+            "org.freedesktop.DBus",
+        ],
+    )?;
+    require(broker.trim() == "b true", "system bus has no verified broker owner")?;
+    require(
+        run("/usr/bin/systemctl", &["is-active", "systemd-logind.service"])? == "active\n",
+        "maintenance logind is not active",
+    )?;
+    // Follow the installed native D-Bus activation contract for Snapper.
+    let activation = run(
+        "/usr/bin/busctl",
+        &[
+            "--system",
+            "--timeout=10s",
+            "call",
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "StartServiceByName",
+            "su",
+            "org.opensuse.Snapper",
+            "0",
+        ],
+    )?;
+    require(matches!(activation.trim(), "u 1" | "u 2"), "Snapper activation was not acknowledged")?;
+    let owner = run(
+        "/usr/bin/busctl",
+        &[
+            "--system",
+            "--timeout=10s",
+            "call",
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "NameHasOwner",
+            "s",
+            "org.opensuse.Snapper",
+        ],
+    )?;
+    require(owner.trim() == "b true", "Snapper service has no active D-Bus owner")?;
+    eprintln!(
+        "maintenance_bus broker={broker:?} snapper_activation={activation:?} snapper_owner={owner:?}"
+    );
     Ok(())
 }
 fn bootstrap_account_namespace() -> Result<()> {
@@ -1062,8 +1123,10 @@ fn exercise() -> Result<()> {
     // Fresh bootstrap has no desktop writer process to initialize its private
     // namespace. Keep the shared capture lease contract and explicitly enroll
     // the target account through its fixed own-account installer command.
-    verify_numbered_root()?;
+    // The reboot-owned unit starts before normal multi-user services. Bring
+    // up maintenance services before the read-only D-Bus Snapper inventory.
     enter_maintenance()?;
+    verify_numbered_root()?;
     match fs::read_to_string(state("phase")) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             retain_layers()?;
@@ -1217,6 +1280,83 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn maintenance_activation_respects_dependency_only_broker_and_checks_snapper_owner() {
+        for (broker_reply, activation_reply, owner_reply, success) in [
+            ("b true\n", "u 1\n", "b true\n", true),
+            ("b true\n", "u 2\n", "b true\n", true),
+            ("b false\n", "u 1\n", "b true\n", false),
+            ("", "u 1\n", "b true\n", false),
+            ("b true\n", "u 3\n", "b true\n", false),
+            ("b true\n", "u 1\n", "b false\n", false),
+            ("b true\n", "u 1\n", "", false),
+        ] {
+            let mut logind_started = false;
+            let mut broker_ready = false;
+            let mut snapper_activated = false;
+            let result = activate_maintenance_with(|program, args| {
+                match program {
+                    "/usr/bin/systemctl" if args.first() == Some(&"start") => {
+                        assert_eq!(args, ["start", "systemd-logind.service"]);
+                        logind_started = true;
+                        Ok(String::new())
+                    }
+                    "/usr/bin/systemctl" => {
+                        assert!(broker_ready);
+                        assert_eq!(args, ["is-active", "systemd-logind.service"]);
+                        Ok("active\n".into())
+                    }
+                    "/usr/bin/busctl" if args.last() == Some(&"org.freedesktop.DBus") => {
+                        assert!(logind_started);
+                        assert!(args.contains(&"--timeout=10s"));
+                        assert!(args.contains(&"NameHasOwner"));
+                        // Simulate a broker becoming ready after logind; only
+                        // the completed roundtrip permits later admission.
+                        broker_ready = broker_reply == "b true\n";
+                        Ok(broker_reply.into())
+                    }
+                    "/usr/bin/busctl" if args.contains(&"StartServiceByName") => {
+                        assert!(broker_ready);
+                        assert!(args.contains(&"--timeout=10s"));
+                        assert_eq!(&args[7..], ["su", "org.opensuse.Snapper", "0"]);
+                        snapper_activated = true;
+                        Ok(activation_reply.into())
+                    }
+                    "/usr/bin/busctl" => {
+                        assert!(snapper_activated);
+                        assert!(args.contains(&"--timeout=10s"));
+                        assert_eq!(&args[6..], ["NameHasOwner", "s", "org.opensuse.Snapper"]);
+                        Ok(owner_reply.into())
+                    }
+                    _ => panic!("unexpected maintenance program"),
+                }
+            });
+            assert_eq!(result.is_ok(), success);
+        }
+        assert!(
+            activate_maintenance_with(|program, _| {
+                if program == "/usr/bin/busctl" {
+                    Err(std::io::Error::from(std::io::ErrorKind::TimedOut).into())
+                } else {
+                    Ok(String::new())
+                }
+            })
+            .is_err()
+        );
+        assert!(
+            activate_maintenance_with(|program, args| {
+                Ok(if program == "/usr/bin/busctl" {
+                    "b true\n"
+                } else if args.first() == Some(&"is-active") {
+                    "inactive\n"
+                } else {
+                    ""
+                }
+                .into())
+            })
+            .is_err()
+        );
+    }
     #[test]
     fn native_tool_cache_environment_survives_cleared_parent_environment() {
         let environment = command("/usr/bin/env", &[]).unwrap();

@@ -119,3 +119,17 @@ validation = "29 installer tests,3 probe tests, full workspace/all-targets/all-f
 disposal = "zero QEMU/vm-lab; original disk/source hashes unchanged; all failed/diagnostic disks, firmware, seeds, credentials and staged VM inputs removed"
 version_scope = "pinned historical0.75.5-beta.20/openSUSE0.1.0-7 only; upstream1.0 transition belongs to173"
 acceptance = "incomplete; fresh full native run with supported layout required; no linked rollback or reset acceptance"
+
+[run09]
+candidate = "aaba03b7d3f6ea33f01f3244bc749435c56f5ae7"
+report = "issue24-native-20261022/run09.txt"
+report_sha256 = "bd8ff70f4701611af6bbee78e61b8cd0563f3739b8dcc2cca7fadb643af5ee27"
+result = "failed-on-restored-root-early-fixture-service-ordering"
+observed = "supported numbered root4; eight completed lifecycle operations; both actual interruption/emergency paths; exact source27/backup29/target30 rollback receipt and reboot"
+failure = "reboot-owned fixture queried Snapper before maintenance D-Bus was ready; original candidate stopped before confirmation"
+correction = "fixture enters maintenance first; bounded actual broker NameHasOwner roundtrip; logind active assertion; native Snapper service activation and owner verification; product rollback unchanged"
+native_regression = "disposable target30 confirmed/restored/reconciled exact receipt; recovered reinstall verified31/32 partners; Complete journal and ten-line report survived extra boot; missing owners and timeout refuse"
+validation = "four probe tests and full workspace/all-targets/all-features tests, strict Clippy, format, offline dependency policy and diff checks passed"
+disposal = "original disk/source final hashes unchanged; zero QEMU/vm-lab; failed/diagnostic disks, firmware, seeds, credentials and staged inputs removed; private logs retained"
+version_scope = "pinned historical0.75.5-beta.20/openSUSE0.1.0-7 only; upstream1.0 transition belongs to173"
+acceptance = "incomplete; separate diagnostic does not replace normal Run09 source acceptance; fresh full normal run required"
