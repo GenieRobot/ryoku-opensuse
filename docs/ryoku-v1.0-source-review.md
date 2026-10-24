@@ -158,6 +158,19 @@ the config root. Their exact retained `shell/Commons/qmldir` and
 `1c9101c12847259e3b96d5986e5cd529f9d6364c` and
 `9061ad6ab71ffcf73570ec7c6dcca08b633a2598`.
 
+The original Quickshell RPM metadata declared twelve static module Provides
+and omitted the selected `Quickshell.Services.SystemTray` import. Exact pinned
+module/default/static-link evidence is retained in
+`quickshell-systemtray-source.json`; the original archive hash was rechecked
+before inspecting those files. Quickshell packaging Release 3 adds only that
+real module Provide, and desktop-runtime requires `ryoku-quickshell = 0.3.2-3`.
+Its source revision and default feature selection are unchanged. #24's older
+`0.3.2-2` binary/package evidence retains its historical label. A Rust test
+compares all thirteen parsed Quickshell imports with the spec's static
+Provides, and the native `rpmspec` test confirms both the generated SystemTray
+Provide and matching release dependency. The built-RPM inventory check also
+rejects a missing SystemTray provider; native package loading remains pending.
+
 Generated Quickshell/Blobs/Spatial3D/Ryogami module files, runtime alias
 loading, final generator requirements/provides and ELF resolution still
 require the native package build. Do not add invented internal Provides to

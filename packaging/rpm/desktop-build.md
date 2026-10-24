@@ -117,7 +117,7 @@ Qt6 scanner output and unresolved internal module imports.
 Its provides generator recognizes `qmldir` files only below `/qt6/qml/`, so
 the runtime explicitly provides its two private `shell.services` and
 `shell.barkit` modules under `/usr/share`. Quickshell's twelve public modules
-used by this payload are statically embedded in its private `qs` executable;
+used by the older payload were statically embedded in its private `qs` executable;
 the Quickshell spec declares their unversioned QML provides. Shared `Ryoku.*`
 modules retain automatic provides from their standard Qt paths, except the two
 shipped `Ryoku.Ui.Singletons` and `Ryoku.PluginKit.Singletons` directory imports:
@@ -126,6 +126,15 @@ The desktop
 build requires the native QML generators so missing tooling cannot silently
 remove the import requirements. These declarations do not make Quickshell's
 private modules available to an unrelated Qt executable.
+
+The selected 1.0 shell plus writer QML now use thirteen Quickshell modules.
+Release `0.3.2-3` adds the verified static
+`qt6qmlimport(Quickshell.Services.SystemTray)` Provide; desktop-runtime requires
+that exact release. Quickshell source, defaults and binary feature selection
+remain unchanged. The pinned status-notifier CMake target declares the exact
+URI and links its plugin into `qs`. See the retained module-source evidence
+and source-review dependency section. #24's `0.3.2-2` artifacts retain their
+original 0.75.5 acceptance label; they are not relabelled as v1 acceptance.
 
 Quickshell requires Qt private APIs. Its SDK and runtime imports are pinned to
 Qt 6.11.2 and RPM generates the native ELF dependency requirements. A rolling

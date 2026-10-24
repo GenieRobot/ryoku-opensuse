@@ -48,3 +48,13 @@ is empty. Qt/KDE module paths resolve to actual extracted RPM files. Missing
 generated native modules and Quickshell runtime `qs.*` aliases remain explicit;
 the source scanner does not execute the engine's URL interceptor or validate
 loaded native plugins/ELF dependencies.
+
+`quickshell-systemtray-source.json` records exact file blobs/digests from the
+independently hash-checked pinned Quickshell archive: the default-on feature,
+module URI/version, static library/plugin link and singleton API. This is the
+source basis for Release 3's one additional real QML Provide. The generated
+spec metadata was checked using the ignored native `rpm-package-audit` test
+`native_spec_parser_preserves_systemtray_provider_and_matching_release`;
+the ordinary test compares the complete parsed Quickshell module inventory
+against static Provides. Neither test substitutes for building/loading the
+refreshed native Quickshell RPM.
