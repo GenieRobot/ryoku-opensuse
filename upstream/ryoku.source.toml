@@ -1,18 +1,24 @@
-# Reviewed source pin for docs/upstream-inventory.md.
+# Reviewed upstream release pin for docs/upstream-inventory.md. The packaged
+# runtime and its acceptance evidence remain on the prior pin in
+# upstream/ryoku-runtime.toml until issue #173 completes the payload audit.
 # The complete object id and tree id make this independent of a moving ref.
 schema_version = 1
 source_name = "Ryoku"
 repository = "https://github.com/Ryoku-dev/ryoku"
 repository_identity = "Ryoku-dev/ryoku"
-revision = "98a0368253d9628be72b853985878a5db90e1547"
-tree = "49cf710dea4a8bc2c5aa2c4b524be46c5c9a2cff"
-observed_ref = "refs/heads/main"
-observed_ref_type = "HEAD"
-inspected_on = 2026-10-12
-commit_date = 2026-09-26T19:59:39Z
-commit_subject = "release: bump unstable to 0.75.5-beta.20"
-parent_revision = "f863d5ba52a08aef0f0af164f4cd45140f7f47ab"
-commit_url = "https://github.com/Ryoku-dev/ryoku/commit/98a0368253d9628be72b853985878a5db90e1547"
+revision = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+tree = "06b2962f82f43118c3a98372c2a4b435b689b725"
+observed_ref = "refs/tags/v1.0.0"
+observed_ref_type = "lightweight tag resolving directly to commit"
+inspected_on = 2026-10-24
+commit_date = 2026-10-24T10:47:17Z
+commit_subject = "Merge pull request #491 from Ryoku-dev/release/iso-quick3d"
+parent_revision = "d3038ae2ea80708bae12575d62a15db08b163e3f"
+parent_revisions = ["d3038ae2ea80708bae12575d62a15db08b163e3f", "22068d2434dab6ed07baf2aec8e6058a3244b405"]
+commit_url = "https://github.com/Ryoku-dev/ryoku/commit/a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+previous_reviewed_revision = "98a0368253d9628be72b853985878a5db90e1547"
+release = "v1.0.0 Amaterasu"
+release_tag_signature = "lightweight tag; target commit signature verified by GitHub"
 license = "GPL-3.0"
 license_file = "LICENSE"
 notice_file = "NOTICE"

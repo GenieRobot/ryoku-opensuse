@@ -1,5 +1,16 @@
 # Pinned desktop RPM inputs
 
+## 1.0 source refresh status
+
+The current source review pin is Ryoku v1.0.0 at
+`a59d051f0e8080052216f6c7b9eb7e5928935ce8`. The checked-in runtime archives,
+writer source archive, and issue 18 patch below still target 0.75.5 at
+`98a0368253d9628be72b853985878a5db90e1547`; they are retained as historical
+build inputs, not relabeled as 1.0. Issue [#173](https://github.com/GenieRobot/ryoku-opensuse/issues/173)
+tracks re-export, hash verification, patch/session review, and fresh package/VM
+acceptance. The RPM spec declares Qt Quick 3D dependencies for the 1.0
+candidate; resolving those against the exact Tumbleweed snapshot remains open.
+
 Issue #23 packages the pinned upstream desktop and existing Rust components.
 The `ryoku-desktop` metapackage selects the runtime, immutable profile defaults,
 service/helper and recovery inspector. Its runtime subpackage preserves the

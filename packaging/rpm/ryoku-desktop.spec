@@ -27,6 +27,9 @@ BuildRequires:  qt6-base-devel = 6.11.2
 BuildRequires:  qt6-declarative-devel = 6.11.2
 BuildRequires:  qt6-shadertools-devel = 6.11.2
 BuildRequires:  qt6-multimedia-devel = 6.11.2
+# Ryoku 1.0's StageSpatialScene.qml imports QtQuick3D. Keep the source-pinned
+# payload below on its historical pin until the #173 archive refresh lands.
+BuildRequires:  qt6-quick3d-devel = 6.11.2
 BuildRequires:  qml-autoreqprov
 BuildRequires:  qmlpluginexports-qt6
 Requires:       ryoku-desktop-runtime = %{version}-%{release}
@@ -47,6 +50,7 @@ Requires:       ryoku-quickshell = 0.3.2-2
 Requires:       ryoku-desktop-fonts = %{version}-%{release}
 Requires:       qt6-declarative-imports = 6.11.2
 Requires:       qt6-multimedia-imports = 6.11.2
+Requires:       qt6-quick3d-imports = 6.11.2
 Requires:       qt6-qt5compat-imports = 6.11.2
 Requires:       kf6-syntax-highlighting
 Requires:       google-noto-sans-cjk-fonts
