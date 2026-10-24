@@ -259,6 +259,15 @@ app/backend/web/skills/wiki/collector/unit and six-ACP source boundaries are
 recorded in the component review; current nonselection does not permit an
 assistant entrypoint or capability to be dropped.
 
+The partial [compositor semantic review](ryoku-v1.0-compositor-review.md)
+traces the selected Hyprland plugin UI/provider routes. In particular,
+`desktop plugins list` can create keysounds state, update receipts and load
+enabled plugin code; the exact-arity Hub query table does not make it a pure
+read. Direct provider dispatch and repository `sh -c` build steps are separate
+user-account code-execution boundaries. #180/#182 retain these capabilities
+with #25/#20/#27/#28 protected contracts; implementation and acceptance remain
+open, and this review removes no feature.
+
 The full verified Git tree preserves CLI source/provenance, but existing
 Source2/Source3 are selected exports and contain no `ryoku/cli` root.
 Complete CLI source-only archive coverage, per-reconciler/host-verb semantic

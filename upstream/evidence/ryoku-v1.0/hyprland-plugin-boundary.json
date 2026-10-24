@@ -1,0 +1,225 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "scope": "Source semantic boundary only; no runtime execution or package/authorization acceptance",
+  "target": "retain plugin discovery, install/build, activation, update and removal under #180/#182; #25 transport and #20/#27/#28 prerequisite contracts",
+  "upstream_sources": [
+    {
+      "source": "ryoku/hub/quickshell/pages/PluginsPage.qml",
+      "git_blob": "4ccca8f831f8cc55fb61763a5f87cb92a4d795bb",
+      "git_mode": "100644",
+      "sha256": "2f4dbd2aec4df4fa08c4f33d6214731afe561d5a285f814d0ed1b3cabd561a09",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 146,
+          "source_text": "function rebuild(id) {"
+        },
+        {
+          "line": 156,
+          "source_text": "function inspect() {"
+        },
+        {
+          "line": 167,
+          "source_text": "function addPicked() {"
+        },
+        {
+          "line": 177,
+          "source_text": "function remove(id) {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/hub/backend/desktop.go",
+      "git_blob": "4a6b873e4ae9c6cc1ae1fc4810580aab51966233",
+      "git_mode": "100644",
+      "sha256": "0996a83c183639540d0aeca6fa9cb3bf829babb1dfcf8483e26cfc4da011e2b2",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 120,
+          "source_text": "return pluginsDesktop(args[1:])"
+        },
+        {
+          "line": 370,
+          "source_text": "func pluginsDesktop(args []string) error {"
+        },
+        {
+          "line": 420,
+          "source_text": "func applyLive() error {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/wm/client.go",
+      "git_blob": "5b8f126725f281c92c1daaf2abbaec5d141549c9",
+      "git_mode": "100644",
+      "sha256": "8d93c08be106e7a0ffcdd22a953bc94f4b855e831933e49ecf66d5798f51204a",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 336,
+          "source_text": "func (c *Client) Plugins(args ...string) ([]byte, error) {"
+        },
+        {
+          "line": 404,
+          "source_text": "func providerCommandContext(ctx context.Context, bin string, args ...string) *exec.Cmd {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/wm/hyprland/main.go",
+      "git_blob": "9e68c267688e90d21faf11d0e50e8caebdd2f467",
+      "git_mode": "100644",
+      "sha256": "efccb92b47060091474093ce0b7141ee63bbee07d9e1ce4314a916e443fbf973",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 61,
+          "source_text": "case \"plugins\":"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/wm/hyprland/config_plugins.go",
+      "git_blob": "30d57757f3d59c6cb0d400523635594161a569df",
+      "git_mode": "100644",
+      "sha256": "badbed4348e7bcd606e4ad2e4736e429619e712e50fa1e59dabe4bd09fc02fd4",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 19,
+          "source_text": "func runPlugins(args []string) error {"
+        },
+        {
+          "line": 24,
+          "source_text": "case \"list\":"
+        },
+        {
+          "line": 43,
+          "source_text": "func runPluginSync() error {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/wm/hyprland/config_plugins_build.go",
+      "git_blob": "f7e3aa4ee1545b5a8b51c9f66462af7903cb1ae4",
+      "git_mode": "100644",
+      "sha256": "8aaf4166da2f9184b653c50390a34c4d8354f4f675e533f04046a8ab15efbc74",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 150,
+          "source_text": "func fetchRepo(url string, log io.Writer) (string, error) {"
+        },
+        {
+          "line": 176,
+          "source_text": "func checkoutFor(dir string, m hyprpmManifest, hyprlandCommit string, log io.Writer) (string, error) {"
+        },
+        {
+          "line": 250,
+          "source_text": "func runBuildSteps(dir string, steps []string, log io.Writer) error {"
+        },
+        {
+          "line": 256,
+          "source_text": "cmd := exec.Command(\"sh\", \"-c\", s)"
+        },
+        {
+          "line": 269,
+          "source_text": "func installSo(built, id string, abi hyprABI) (string, error) {"
+        },
+        {
+          "line": 464,
+          "source_text": "func runPluginRebuild(args []string) error {"
+        },
+        {
+          "line": 573,
+          "source_text": "func runPluginAdd(args []string) error {"
+        },
+        {
+          "line": 642,
+          "source_text": "func runPluginRemove(args []string) error {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+      "git_blob": "8bda9a91d12191d9121e3b254502650e36b4637d",
+      "git_mode": "100644",
+      "sha256": "cb90d4ea56c32ce0bbd87e07d009ef381fdfff1586fa271090976aa9fe060024",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 107,
+          "source_text": "func keysoundsUserDir() string {"
+        },
+        {
+          "line": 165,
+          "source_text": "func userPluginDir() string {"
+        },
+        {
+          "line": 419,
+          "source_text": "func hyprctlPluginLoad(path string) error {"
+        },
+        {
+          "line": 451,
+          "source_text": "func loadEnabledPlugins(o Overrides) bool {"
+        },
+        {
+          "line": 592,
+          "source_text": "func receiptPath(id string) string {"
+        },
+        {
+          "line": 608,
+          "source_text": "func writeReceipt(r pluginReceipt) error {"
+        },
+        {
+          "line": 721,
+          "source_text": "func pluginRosterNow() pluginRoster {"
+        },
+        {
+          "line": 773,
+          "source_text": "func describePlugin(d pluginDef, o Overrides, target hyprABI, loaded map[string]loadedPlugin) pluginInfo {"
+        },
+        {
+          "line": 841,
+          "source_text": "case info.Enabled && target.ok():"
+        }
+      ]
+    }
+  ],
+  "project_sources": [
+    {
+      "source": "suse/recovery/src/writer_protocol.rs",
+      "project_commit": "80fae51be3e4e568c9d9b19d8a18919387fdd223",
+      "git_blob": "e2c2a9033fd0b8b0c8c8ed5d05305beea382daf6",
+      "sha256": "36e6d8381efc7c5cdc67230dbbd04d5bc7183fad28b99bb7e843e8249b193fab"
+    },
+    {
+      "source": "suse/recovery/src/writer_command_policy.rs",
+      "project_commit": "80fae51be3e4e568c9d9b19d8a18919387fdd223",
+      "git_blob": "2faf4e3c340aec0bf43c47cc1e62b8270aceb844",
+      "sha256": "f11230652497a8a119e3efd2325dffd9b1c561102840328625c8a896f349ecf4"
+    },
+    {
+      "source": "suse/recovery/src/bin/ryoku-writer.rs",
+      "project_commit": "80fae51be3e4e568c9d9b19d8a18919387fdd223",
+      "git_blob": "0b6a2780826b5b036087948e186f64a7c43a2638",
+      "sha256": "a7ad65da88774538cbc90282c9d285f38a37dc6cec5c6df0a96f84353173571c"
+    },
+    {
+      "source": "packaging/rpm/ryoku-desktop.spec",
+      "project_commit": "80fae51be3e4e568c9d9b19d8a18919387fdd223",
+      "git_blob": "c85629af8708f43c442358caa65fa7d10643d013",
+      "sha256": "18a5c9cf2b92faf2108f80df64c91fc0824b47b2c7f705da67a0a48805d5da00"
+    }
+  ],
+  "selected_launch_patch_changes_these_sources": false,
+  "findings": [
+    "desktop plugins list calls pluginRosterNow -> describePlugin -> keysoundsUserDir/writeReceipt/hyprctlPluginLoad/pushEval; not a pure read",
+    "plugins add --inspect fetches repositories before returning metadata",
+    "plugins add/rebuild read repository hyprpm.toml Build steps and execute sh -c with account environment/data access",
+    "Provider forwards argv to fixed private binary without Hub query filter; direct private binary also remains installed",
+    "user-account code execution/state writes, not evidence of root execution; writer coordination is not per-operation authorization or bounded write scope"
+  ]
+}

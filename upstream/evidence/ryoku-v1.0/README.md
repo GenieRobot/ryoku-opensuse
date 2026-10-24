@@ -45,6 +45,13 @@ are regular brand assets already selected in Source3. It records no host-link
 dereference and does not relax the source exporter's current link refusal or
 certify an installed link. Full retained Rashin archive coverage remains open.
 
+`hyprland-plugin-boundary.json` pins seven selected upstream blobs and exact
+line anchors plus the project policy/recipe inputs for the partial compositor
+semantic review. It distinguishes roster writes/code loading, repository
+fetch/build and direct provider routes from the Hub query/refusal policy.
+It certifies source facts only; #180/#182 and their prerequisites retain the
+capabilities and own protected implementation/acceptance.
+
 `picker-license-provenance.json` records the exact selected CMake source,
 two embedded TTF resources and their license texts plus picker LICENSE/NOTICE.
 Four byte-identical copies have unique package basenames under
