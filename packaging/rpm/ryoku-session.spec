@@ -1,6 +1,6 @@
 Name:           ryoku-session
 Version:        0.1.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Experimental Ryoku display-manager session
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse
@@ -10,7 +10,7 @@ ExclusiveArch:  x86_64
 BuildRequires:  cargo >= 1.99
 BuildRequires:  rust >= 1.99
 BuildRequires:  systemd-rpm-macros
-Requires:       ryoku-desktop = %{version}-5
+Requires:       ryoku-desktop >= %{version}-5
 Requires:       hyprland >= 0.56.2
 Requires:       hyprland-guiutils >= 0.2.1
 Requires:       plasma6-session >= 6.7.5
