@@ -21,6 +21,12 @@ const PACKAGES: &[&str] = &[
 ];
 const FILE_QUERY: &str =
     "[%{FILENAMES:json}\t%{FILEMODES}\t%{FILEUSERNAME:json}\t%{FILEGROUPNAME:json}\t%{FILECAPS}\n]";
+const PICKER_LICENSES: &[&str] = &[
+    "ryogami-picker-LICENSE",
+    "ryogami-picker-NOTICE",
+    "ryogami-picker-RobotoCondensed-LICENSE-Apache-2.0.txt",
+    "ryogami-picker-SymbolsNerdFont-LICENSE-MIT.txt",
+];
 
 fn require(condition: bool, message: &str) -> Result<()> {
     if condition { Ok(()) } else { Err(message.into()) }
@@ -119,6 +125,22 @@ fn qml_imports(requires: &str, provides: &BTreeSet<String>) -> Result<()> {
     Ok(())
 }
 
+fn picker_licenses(records: &[FileRecord]) -> Result<()> {
+    for name in PICKER_LICENSES {
+        let mut matching = records.iter().filter(|record| {
+            let path = Path::new(&record.path);
+            path.starts_with("/usr/share/licenses/ryoku-desktop-runtime")
+                && path.file_name().is_some_and(|value| value == *name)
+        });
+        require(
+            matching.next().is_some_and(|record| record.mode & 0o170000 == 0o100000)
+                && matching.next().is_none(),
+            &format!("missing or ambiguous installed picker license: {name}"),
+        )?;
+    }
+    Ok(())
+}
+
 fn run() -> Result<()> {
     let arguments: Vec<_> = std::env::args_os().skip(1).collect();
     require(
@@ -147,7 +169,17 @@ fn run() -> Result<()> {
     for (name, path) in &packages {
         let identity = query(path, &["--qf", "%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n"])?;
         let inventory = query(path, &["--qf", FILE_QUERY])?;
-        insert_paths(name, &files(&inventory)?, &mut owners)?;
+        let records = files(&inventory)?;
+        if name == "ryoku-desktop-runtime" {
+            picker_licenses(&records)?;
+            let license = query(path, &["--qf", "%{LICENSE}\n"])?;
+            require(
+                license.split_whitespace().any(|term| term == "GPL-3.0-or-later"),
+                "runtime license omits the pinned picker license identity",
+            )?;
+            evidence.insert("ryoku-desktop-runtime-license.txt".into(), license);
+        }
+        insert_paths(name, &records, &mut owners)?;
         let scripts = query(path, &["--scripts", "--triggers", "--filetriggers"])?;
         require(scripts.trim().is_empty(), "project RPM contains a scriptlet or trigger")?;
         evidence.insert(format!("{name}-identity.txt"), identity);
@@ -180,6 +212,98 @@ mod tests {
 
     fn row(path: &str, mode: u32) -> String {
         format!("{}\t{mode}\t\"root\"\t\"root\"\t(none)\n", serde_json::to_string(path).unwrap())
+    }
+
+    #[test]
+    fn picker_license_inventory_rejects_missing_links_wrong_locations_and_duplicates() {
+        let inventory: String = PICKER_LICENSES
+            .iter()
+            .map(|name| {
+                row(
+                    &format!("/usr/share/licenses/ryoku-desktop-runtime/ryoku-v1.0/{name}"),
+                    0o100644,
+                )
+            })
+            .collect();
+        let records = files(&inventory).unwrap();
+        assert!(picker_licenses(&records).is_ok());
+        for index in 0..PICKER_LICENSES.len() {
+            let mut records = files(&inventory).unwrap();
+            records.remove(index);
+            assert!(picker_licenses(&records).is_err());
+        }
+        let mut records = files(&inventory).unwrap();
+        records[0].mode = 0o120777;
+        assert!(picker_licenses(&records).is_err());
+        records[0].mode = 0o100644;
+        records[0].path = "/usr/share/doc/ryogami-picker-LICENSE".into();
+        assert!(picker_licenses(&records).is_err());
+        let mut records = files(&inventory).unwrap();
+        records.push(FileRecord {
+            path: "/usr/share/licenses/ryoku-desktop-runtime/other/ryogami-picker-LICENSE".into(),
+            mode: 0o100644,
+        });
+        assert!(picker_licenses(&records).is_err());
+        records.last_mut().unwrap().mode = 0o120777;
+        assert!(picker_licenses(&records).is_err());
+    }
+
+    #[test]
+    fn picker_license_copies_match_pinned_source_and_selected_writer_inputs() {
+        use sha2::{Digest, Sha256};
+
+        let evidence: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/picker-license-provenance.json"
+        ))
+        .unwrap();
+        let selected: BTreeMap<_, _> =
+            include_str!("../../../upstream/evidence/ryoku-v1.0/writer-source-manifest.tsv")
+                .lines()
+                .skip(1)
+                .map(|line| {
+                    let fields: Vec<_> = line.split('\t').collect();
+                    (fields[0], (fields[1], fields[2]))
+                })
+                .collect();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let copies = evidence["license_copies"].as_array().unwrap();
+        assert_eq!(copies.len(), PICKER_LICENSES.len());
+        let mut basenames = BTreeSet::new();
+        for entry in copies {
+            let source = entry["source"].as_str().unwrap();
+            let blob = entry["git_blob"].as_str().unwrap();
+            assert_eq!(selected.get(source), Some(&(blob, "644")));
+            assert_eq!(entry["git_mode"], "100644");
+            let copy = root.join(entry["package_copy"].as_str().unwrap());
+            assert!(fs::symlink_metadata(&copy).unwrap().is_file());
+            let bytes = fs::read(copy).unwrap();
+            assert_eq!(u64::try_from(bytes.len()).unwrap(), entry["bytes"].as_u64().unwrap());
+            assert_eq!(format!("{:x}", Sha256::digest(bytes)), entry["sha256"]);
+            basenames.insert(entry["installed_basename"].as_str().unwrap());
+        }
+        assert_eq!(basenames, PICKER_LICENSES.iter().copied().collect());
+        let fonts = evidence["embedded_fonts"].as_array().unwrap();
+        let embedded: BTreeSet<_> =
+            fonts.iter().map(|font| font["source"].as_str().unwrap()).collect();
+        let selected_fonts = selected
+            .keys()
+            .copied()
+            .filter(|source| {
+                source.starts_with("ryoku/shell/ryogami/picker/qml/theme/fonts/")
+                    && source.ends_with(".ttf")
+            })
+            .collect();
+        assert_eq!(embedded, selected_fonts);
+        for font in fonts {
+            assert_eq!(
+                selected.get(font["source"].as_str().unwrap()),
+                Some(&(font["git_blob"].as_str().unwrap(), "644"))
+            );
+            assert!(copies.iter().any(|copy| copy["source"] == font["license_source"]));
+        }
+        let spec = include_str!("../../../packaging/rpm/ryoku-desktop.spec");
+        assert!(spec.contains("%license packaging/licenses/ryoku-v1.0/\n"));
+        assert!(!spec.contains("%license upstream-writers/ryoku/shell/ryogami/picker/"));
     }
 
     #[test]

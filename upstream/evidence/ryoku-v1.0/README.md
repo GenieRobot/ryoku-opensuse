@@ -31,6 +31,26 @@ Niri #46 and phased Tumbleweed Wayfire #185 are separate retained future targets
 Only edition-specific platform mechanisms are replaced, with full behavior
 and protected-operation acceptance still required under those owners.
 
+`picker-license-provenance.json` records the exact selected CMake source,
+two embedded TTF resources and their license texts plus picker LICENSE/NOTICE.
+Four byte-identical copies have unique package basenames under
+`packaging/licenses/ryoku-v1.0/`; this avoids root/picker notice-name collisions
+and delivers the two font texts omitted by CMake's TTF-only resource glob.
+Rust source checks verify copy hashes and Source3 blob/mode selection; the RPM
+audit checks regular license files and the generated runtime license identity.
+Native RPM extraction/text comparison and broader asset-license closure remain
+required; no native build or redistribution acceptance is implied by the JSON.
+
+`picker-license-validation.json` records the exact audit/spec/lock/provenance
+source hashes and focused Rust 1.99 test result: seven passed, including the
+native spec-parser case and the new license absence/type/location/duplicate
+and byte-provenance checks. The harness reused existing dependency artifacts;
+their versions/dep-info matched Cargo.lock and their metadata was accepted by
+rustc. It does not claim fresh cache-source verification or replace hosted
+workspace/Clippy/dependency checks. The fixture inventories are not a built
+RPM; actual installed license bytes and generated module resources remain a
+native acceptance gate.
+
 `qml-import-names.txt` is the scanner's complete unique named-module graph,
 including transitive modules and writer-only Hyprland/picker QML. The native
 scanner parses QML and is authoritative for that named-module inventory.

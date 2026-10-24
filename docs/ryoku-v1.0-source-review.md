@@ -255,8 +255,8 @@ The full verified Git tree preserves CLI source/provenance, but existing
 Source2/Source3 are selected exports and contain no `ryoku/cli` root.
 Complete CLI source-only archive coverage, per-reconciler/host-verb semantic
 proof, and the owned Rust equivalents remain open. Additional #173 gates are
-the remaining delta rows, actual WaveCapture binary ownership, picker font
-license delivery and complete notices, native RPM/plugin/QML/ELF/tool checks,
+the remaining delta rows, actual WaveCapture binary ownership, native picker
+license-payload verification and complete notices, native RPM/plugin/QML/ELF/tool checks,
 and fresh #25/#26 behavior/recovery acceptance. The builder remains paused;
 a green hosted Rust run proves none of those native gates.
 

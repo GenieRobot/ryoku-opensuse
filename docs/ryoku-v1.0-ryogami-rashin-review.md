@@ -230,9 +230,15 @@ port and separate skwd-paper playback, and describes Duel's Serpantinum
 design reference. It also identifies Roboto Condensed Bold UI as Apache-2.0
 and Symbols Nerd Font as MIT. The exact font texts are selected in
 `picker/qml/theme/fonts/*.LICENSE-*.txt`, but CMake embeds only `*.ttf` and the
-spec explicitly installs only picker LICENSE/NOTICE. **The font license texts
-need explicit installed license closure**; selection in Source3 does not
-prove they ship beside the generated module. Root LICENSE/NOTICE and vendored
+original spec installed only picker LICENSE/NOTICE. The recipe now installs
+exact copies of all four texts using distinct `ryogami-picker-*` names in the
+existing RPM license directory, preserving root LICENSE/NOTICE separately.
+`picker-license-provenance.json` pins the source blobs/modes/SHA-256s and both
+TTF identities. The runtime license expression includes the picker's explicit
+GPL-3.0-or-later identity. Rust checks pin the copies to selected Source3
+inputs; the built-RPM audit refuses missing, linked, ambiguous or misplaced
+license files. **Native payload/text comparison remains open**; source/recipe
+checks do not prove the generated RPM or module. Root LICENSE/NOTICE and vendored
 Go notices are separately retained. No license identity is inferred for
 currently unselected Rashin dependencies or downloaded models.
 

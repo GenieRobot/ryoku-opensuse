@@ -26,6 +26,22 @@ the RPM also installs the notices in this directory with `%license`.
   `261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64`. Both files contain the
   Apache License version 2.0; the runtime RPM's license expression now
   includes `Apache-2.0`. The files remain beside their geometry/JS assets.
+- `ryogami-picker-LICENSE` and `ryogami-picker-NOTICE` are exact pinned
+  picker copies. NOTICE explicitly declares GPL-3.0-or-later for its skwd-wall
+  derivation; the runtime license expression records that component alongside
+  the root GPL-3.0-only identity. The distinct filenames preserve both picker
+  and root LICENSE/NOTICE rather than relying on duplicate basenames in RPM's
+  license-copy staging.
+- `ryogami-picker-RobotoCondensed-LICENSE-Apache-2.0.txt` and
+  `ryogami-picker-SymbolsNerdFont-LICENSE-MIT.txt` are exact texts beside the
+  two TTF resources embedded by the picker's CMake module. They are installed
+  through this directory's existing `%license` declaration. Original blobs,
+  SHA-256s, byte counts and selected font identities are recorded in
+  `upstream/evidence/ryoku-v1.0/picker-license-provenance.json`. The RPM audit
+  requires all four uniquely named texts as regular files in the runtime
+  license directory and the picker license identity in its generated header.
+  Source/recipe validation is separate from the pending native RPM payload
+  comparison and complete asset-license acceptance.
 
 `sound-theme-freedesktop-CREDITS` is copied verbatim from the official
 `sound-theme-freedesktop-0.8.tar.bz2` source archive at

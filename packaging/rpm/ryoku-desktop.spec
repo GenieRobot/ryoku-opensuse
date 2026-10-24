@@ -53,7 +53,7 @@ are implemented separately by issue 25, which depends on this package set.
 
 %package runtime
 Summary:        Pinned Ryoku surfaces and coordinated native writers
-License:        GPL-3.0-only AND GPL-2.0-or-later AND AGPL-3.0-or-later AND Apache-2.0 AND MIT AND BSD-3-Clause AND CC-BY-3.0 AND LicenseRef-sound-theme-freedesktop-0.8-CC-BY-SA
+License:        GPL-3.0-only AND GPL-3.0-or-later AND GPL-2.0-or-later AND AGPL-3.0-or-later AND Apache-2.0 AND MIT AND BSD-3-Clause AND CC-BY-3.0 AND LicenseRef-sound-theme-freedesktop-0.8-CC-BY-SA
 Requires:       ryoku-quickshell = 0.3.2-3
 Requires:       ryoku-desktop-fonts = %{version}-%{release}
 Requires:       qt6-declarative-imports = 6.11.2
@@ -219,7 +219,6 @@ cp -a runtime/fonts/. %{buildroot}%{font_root}/
 %{_bindir}/ryoku-session-intro
 %license runtime/LICENSE runtime/NOTICE upstream-writers/licenses/
 %license packaging/licenses/ryoku-v1.0/
-%license upstream-writers/ryoku/shell/ryogami/picker/LICENSE upstream-writers/ryoku/shell/ryogami/picker/NOTICE
 %doc packaging/rpm/desktop-build.md upstream/ryoku-runtime.toml runtime/SHA256SUMS
 
 %files fonts

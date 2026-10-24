@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "base_commit": "461f11b737b3aa744a28660ff2810b8717bef73b",
+  "mode": "focused rustc test harness with existing cached dependencies; no Cargo dependency rebuild",
+  "rustc": [
+    "rustc 1.99.0 (b940084d7 2026-09-28)",
+    "binary: rustc",
+    "commit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4",
+    "commit-date: 2026-09-28",
+    "host: x86_64-unknown-linux-gnu",
+    "release: 1.99.0",
+    "LLVM version: 23.1.1"
+  ],
+  "sources": {
+    "automation/src/bin/rpm-package-audit.rs": "374a71d22e70dc0dd4f4e8682ecbdd60d5644717f815fa288443e6310cbc859e",
+    "packaging/rpm/ryoku-desktop.spec": "18a5c9cf2b92faf2108f80df64c91fc0824b47b2c7f705da67a0a48805d5da00",
+    "upstream/evidence/ryoku-v1.0/picker-license-provenance.json": "b0fb1f1fa47a66cd87068ea9e50d60ca60fe0fd1947e90eef32da240a269c056",
+    "Cargo.lock": "917612525417da0ba5f8543c4b82209d93b142f27d089904f6fcac7d239fd220"
+  },
+  "cached_dependencies": [
+    {
+      "crate": "sha2",
+      "version": "0.10.9",
+      "lock_source_checksum": "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283",
+      "artifact_basename": "libsha2-a6cbaebd853e6a45.rlib",
+      "artifact_sha256": "109b2cd631849cadd93cadfabfab42fa6db945fe59a3c557c2c77df2474b33c9",
+      "dep_info_sha256": "2339f3a9250a70b81a1f865f6e3ad5e8b2bc0bf23a6436ac2bba62f20de1e775"
+    },
+    {
+      "crate": "serde_json",
+      "version": "1.0.154",
+      "lock_source_checksum": "e7e9cc8b1b85264074fbcc02a88680c4096b1e47df8f739dceb03bf482f04bd6",
+      "artifact_basename": "libserde_json-ebe4f23d4be2fd46.rlib",
+      "artifact_sha256": "9bdc157c57bc66f3512761c0d21cb5a29c4f93f89bb6ae0bc498d86fb7a55d68",
+      "dep_info_sha256": "21b49daa388473b1eb57113f5fefd8685ac98d47a53c6f021972ae6ec3a73915"
+    }
+  ],
+  "dependency_scope": "Artifact dep-info versions match Cargo.lock and rustc accepts their metadata. Cache source-checksum sidecars were unavailable; this is not fresh source/dependency verification. Clean hosted locked checks remain required.",
+  "test_binary_sha256": "b47fe31ac07126e9dd1ebd5368d0a92a29b413b4a17e321ddb93d06e68574a0d",
+  "tests": {
+    "passed": 7,
+    "failed": 0,
+    "ignored": 0,
+    "names": [
+      "inventories_reject_mutable_noncanonical_privileged_and_writable_payloads",
+      "native_spec_parser_preserves_systemtray_provider_and_matching_release",
+      "parsed_selected_quickshell_modules_have_real_static_rpm_providers",
+      "picker_license_copies_match_pinned_source_and_selected_writer_inputs",
+      "picker_license_inventory_rejects_missing_links_wrong_locations_and_duplicates",
+      "qml_metadata_rejects_silent_scanner_failure_and_missing_internal_providers",
+      "shared_directories_require_identical_modes_and_files_have_single_owners"
+    ]
+  },
+  "other_checks": [
+    "cargo fmt --all -- --check passed",
+    "rpmspec runtime License parsed with GPL-3.0-or-later",
+    "seven upstream blob/mode/SHA256/size records and four exact copy bytes matched",
+    "git diff --check passed"
+  ],
+  "remaining": "Native RPM license file/digest comparison, generated module resources, full asset/license metadata and native runtime acceptance are not established by this focused harness."
+}
