@@ -64,7 +64,21 @@ it stops the desktop and graphical targets while Wayland is available, then
 exits the compositor. Both the requester and worker require the inherited
 Wayland display and Hyprland instance signature so `hyprctl` cannot select
 another login after environment cleanup. Native UI/keyboard logout regression
-remains pending. The supported experimental fixture has one graphical login per user;
+remains pending. Short lifecycle clients now have fixed deadlines: target stop
+20 seconds, target start 20 seconds, and D-Bus/environment/health/exit clients
+3 seconds each. Timeout kills the newly owned client process group and allows
+one second for reaping before continuing cleanup. The logout path reserves a
+33-second worst-case client/reap budget within its 45-second unit limit, so a
+stalled stop still reaches both environment cleanups and the compositor-exit
+attempt. The compositor and lock retain their full running lifetimes.
+
+The [offline deadline receipt](../infra/tumbleweed-lab/evidence/issue25-session-deadlines-20261025.toml)
+records Rust subprocess tests for each failure/timeout, missing payload,
+owned-descendant termination and unrelated-process isolation. These are host
+control-flow tests. Native acceptance must inspect the user manager's target
+jobs, portal shutdown, actual return to SDDM and subsequent KDE login after a
+client deadline; killing the client group is not evidence those services stopped.
+The supported experimental fixture has one graphical login per user;
 concurrent logins share a user manager and are not accepted.
 
 ## Recovery and authentication limits

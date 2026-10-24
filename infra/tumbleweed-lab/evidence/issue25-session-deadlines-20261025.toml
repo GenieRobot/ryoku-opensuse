@@ -1,0 +1,49 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+scope = "Bounded session lifecycle clients and failure cleanup; host subprocess evidence only"
+branch_parent = "5956330ed652326ad2d673abfad0d74766b9547e"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+native_acceptance = false
+vm_access = false
+downloads = false
+
+[deadlines]
+stop_seconds = 20
+start_seconds = 20
+other_control_seconds = 3
+reap_seconds = 1
+logout_client_reap_budget_seconds = 33
+logout_unit_timeout_seconds = 45
+compositor_lifetime = "Wait for the real compositor to exit; no client deadline applied"
+lock_lifetime = "Wait for the real lock/unlock lifetime; no client deadline applied"
+
+[behavior]
+startup = "Clear both environments, import declared names, validate fixed payload, start required target, check required units"
+startup_failure = "Attempt target stop, both environment cleanups and compositor exit; retain the original startup error"
+logout = "Attempt stop then both environment cleanups then compositor exit even if a preceding control failed or timed out"
+timeout = "SIGKILL only the newly created client process group while its direct child remains unreaped; bound reaping and retain timeout as an error"
+slow_kernel_exit = "Detached child owner may finish reaping after the reserved cleanup budget; SIGKILL remains pending"
+manager_jobs = "Only the client group is terminated; actual target/portal job completion remains a native acceptance gate"
+
+[checks]
+format = "cargo fmt -p ryoku-session --check"
+format_passed = true
+clippy = "CARGO_INCREMENTAL=0 cargo clippy --offline --locked -p ryoku-session --all-targets -- -D warnings"
+clippy_passed = true
+tests = "CARGO_INCREMENTAL=0 cargo test --offline --locked -p ryoku-session"
+tests_passed = 20
+tests_failed = 0
+terminal_tests = 4
+session_tests = 16
+fixture_scope = "Actual Rust child processes with deterministic exit, signal, deadline and descendant behavior; no systemctl, D-Bus, compositor, PAM, portal or guest service is controlled by these tests"
+
+[remaining]
+required = [
+  "BuildRequires-enabled current 1.0 RPM build/install and exact source/RPM/installed hashes",
+  "Native UI/keyboard logout while portals are active, including controlled slow/failing manager clients",
+  "Inspect manager-owned jobs and prove target/descendant shutdown and cleared environment after deadlines",
+  "Actual SDDM return and subsequent KDE login/panel/launcher interaction after controlled failure",
+  "Cold 1.0 login/reboot and the remaining docs/native-desktop-workflows.md matrix",
+]
+unchanged_ownership = "#175 library/provider; #176 automatic/theme/restore playback; #180 Hub/lighting; #177 greeter/guard/qylock; other issue #25 checklist gates remain open"

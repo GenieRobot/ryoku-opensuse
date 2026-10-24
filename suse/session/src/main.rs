@@ -7,6 +7,8 @@ use std::{
     os::unix::process::CommandExt,
     path::Path,
     process::{Command, ExitCode, Stdio},
+    thread,
+    time::{Duration, Instant},
 };
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
@@ -15,6 +17,10 @@ const QML_MODULES: &str = "/usr/lib64/qt6/qml";
 const WRITER: &str = "/usr/libexec/ryoku/ryoku-writer";
 const QUICKSHELL: &str = "/usr/libexec/ryoku/quickshell/bin/qs";
 const QUICKSHELL_BIN: &str = "/usr/libexec/ryoku/quickshell/bin";
+const CONTROL_TIMEOUT: Duration = Duration::from_secs(3);
+const STOP_TIMEOUT: Duration = Duration::from_secs(20);
+const START_TIMEOUT: Duration = Duration::from_secs(20);
+const CONTROL_REAP_TIMEOUT: Duration = Duration::from_secs(1);
 const SESSION_BIN: &str = "/usr/libexec/ryoku/session/bin";
 const CLIPBOARD_KEEPER: &str = "/usr/libexec/ryoku/session/upstream/wl-clip-persist";
 const LOCK_UNIT: &str = "ryoku-session-lock.service";
@@ -156,6 +162,64 @@ fn checked(mut command: Command) -> Result<()> {
     Ok(())
 }
 
+// Bound only short lifecycle clients, never the compositor or lock lifetime.
+// A fresh process group keeps a timed-out client's descendants in the same
+// cleanup boundary; the direct child remains unreaped until its group is killed.
+fn checked_control(mut command: Command, timeout: Duration) -> Result<()> {
+    let program = command.get_program().to_owned();
+    let mut child = command.process_group(0).spawn()?;
+    let deadline = Instant::now() + timeout;
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return if status.success() {
+                Ok(())
+            } else {
+                Err(format!("{} failed: {status}", program.to_string_lossy()).into())
+            };
+        }
+        if Instant::now() >= deadline {
+            let group = rustix::process::Pid::from_raw(child.id() as i32)
+                .ok_or("invalid lifecycle control process identity")?;
+            // A zombie still reserves its PID until this owner reaps it, so
+            // this freshly created group cannot become an unrelated group.
+            let killed = rustix::process::kill_process_group(group, rustix::process::Signal::KILL);
+            let reaped_by = Instant::now() + CONTROL_REAP_TIMEOUT;
+            loop {
+                if child.try_wait()?.is_some() {
+                    break;
+                }
+                if Instant::now() >= reaped_by {
+                    // An uninterruptible kernel task must not consume the
+                    // reserved compositor-exit budget. SIGKILL remains pending;
+                    // a detached owner reaps it when the kernel permits exit.
+                    thread::Builder::new().name("ryoku-session-control-reaper".into()).spawn(
+                        move || {
+                            let _ = child.wait();
+                        },
+                    )?;
+                    break;
+                }
+                thread::sleep(Duration::from_millis(5));
+            }
+            if let Err(error) = killed
+                && error != rustix::io::Errno::SRCH
+            {
+                return Err(format!(
+                    "{} timed out; control group termination failed: {error}",
+                    program.to_string_lossy()
+                )
+                .into());
+            }
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                format!("{} exceeded its lifecycle deadline", program.to_string_lossy()),
+            )
+            .into());
+        }
+        thread::sleep(Duration::from_millis(5));
+    }
+}
+
 fn systemctl(args: &[&str]) -> Command {
     let mut command = Command::new("/usr/bin/systemctl");
     command.args(["--user", "--no-ask-password"]).args(args).stdin(Stdio::null());
@@ -164,24 +228,26 @@ fn systemctl(args: &[&str]) -> Command {
 
 fn activate() -> Result<()> {
     require_current_compositor()?;
-    // Explicit names avoid importing unrelated process environment (including
-    // credentials). Drop old session values before importing the current ones.
+    activate_using(&mut checked_control, || {
+        validate_surface_payload(Path::new(PAYLOAD), Path::new(QML_MODULES))
+    })
+}
+
+fn activate_using(
+    execute: &mut impl FnMut(Command, Duration) -> Result<()>,
+    validate_payload: impl FnOnce() -> Result<()>,
+) -> Result<()> {
     let present: Vec<_> = SESSION_ENV.iter().filter(|name| env::var_os(name).is_some()).collect();
     let mut import = Command::new("/usr/bin/dbus-update-activation-environment");
     import.arg("--systemd").args(&present);
-    let outcome = clear_activation_environment()
-        .and_then(|()| checked(import))
-        .and_then(|()| start_session_target());
-    if outcome.is_err() {
-        if let Err(error) = stop_session() {
-            eprintln!("ryoku-session: activation cleanup failed: {error}");
-        }
-        // exec-once errors do not terminate Hyprland. Return to the native
-        // greeter when required shell startup fails, so KDE stays reachable
-        // without an empty compositor trapping the user at a black screen.
-        if let Err(error) = checked(exit_compositor_command()) {
-            eprintln!("ryoku-session: failed compositor exit: {error}");
-        }
+    let outcome = clear_activation_environment_using(execute)
+        .and_then(|()| execute(import, CONTROL_TIMEOUT))
+        .and_then(|()| validate_payload())
+        .and_then(|()| start_session_target_using(execute));
+    if outcome.is_err()
+        && let Err(error) = finish_logout_using(execute)
+    {
+        eprintln!("ryoku-session: activation cleanup failed: {error}");
     }
     outcome
 }
@@ -211,21 +277,20 @@ fn exit_compositor_command() -> Command {
     command
 }
 
-fn start_session_target() -> Result<()> {
-    // Type=exec only observes the shell executable starting. Admit the fixed
-    // payload here so a missing module follows activation's greeter cleanup
-    // before the target starts, instead of racing the shell child's failure.
-    validate_surface_payload(Path::new(PAYLOAD), Path::new(QML_MODULES))?;
-    // A fresh manager has not loaded this unit. ResetFailedUnit deliberately
-    // does not load units and would reject that normal cold-start state.
-    // Starting the target loads its required shell; preserve its burst limits.
-    checked(systemctl(&["start", TARGET]))?;
-    checked(systemctl(&[
-        "is-active",
-        "--quiet",
-        "ryoku-desktop-shell.service",
-        "ryoku-service.service",
-    ]))
+fn start_session_target_using(
+    execute: &mut impl FnMut(Command, Duration) -> Result<()>,
+) -> Result<()> {
+    // A fresh manager need not have loaded this unit: retain its burst limits.
+    execute(systemctl(&["start", TARGET]), START_TIMEOUT)?;
+    execute(
+        systemctl(&[
+            "is-active",
+            "--quiet",
+            "ryoku-desktop-shell.service",
+            "ryoku-service.service",
+        ]),
+        CONTROL_TIMEOUT,
+    )
 }
 
 fn clear_bus_environment_command() -> Command {
@@ -236,22 +301,33 @@ fn clear_bus_environment_command() -> Command {
     command
 }
 
-fn clear_activation_environment() -> Result<()> {
-    let bus = checked(clear_bus_environment_command());
+fn clear_activation_environment_using(
+    execute: &mut impl FnMut(Command, Duration) -> Result<()>,
+) -> Result<()> {
+    let bus = execute(clear_bus_environment_command(), CONTROL_TIMEOUT);
     let mut clear = systemctl(&["unset-environment"]);
     clear.args(SESSION_ENV);
-    // Attempt both cleanups even if the bus has already gone away at logout.
-    let manager = checked(clear);
+    // Both cleanups run even if the first client failed or timed out.
+    let manager = execute(clear, CONTROL_TIMEOUT);
     bus.and(manager)
 }
 
-fn stop_session() -> Result<()> {
-    // This supported session has one graphical login per user. Stop portals
-    // while their compositor is still available during our ordinary logout.
-    // Otherwise the native Hyprland portal can crash on Wayland disconnect.
-    let stopped = checked(systemctl(&["stop", TARGET, GRAPHICAL]));
-    let cleared = clear_activation_environment();
+fn stop_session_using(execute: &mut impl FnMut(Command, Duration) -> Result<()>) -> Result<()> {
+    // Stop portals while Wayland still exists. Keep enough of the logout unit's
+    // 45s budget for both environment cleanups and compositor exit on failure.
+    let stopped = execute(systemctl(&["stop", TARGET, GRAPHICAL]), STOP_TIMEOUT);
+    let cleared = clear_activation_environment_using(execute);
     stopped.and(cleared)
+}
+
+fn stop_session() -> Result<()> {
+    stop_session_using(&mut checked_control)
+}
+
+fn finish_logout_using(execute: &mut impl FnMut(Command, Duration) -> Result<()>) -> Result<()> {
+    let stopped = stop_session_using(execute);
+    let exited = execute(exit_compositor_command(), CONTROL_TIMEOUT);
+    stopped.and(exited)
 }
 
 fn validate_surface_payload(root: &Path, modules: &Path) -> Result<()> {
@@ -350,15 +426,13 @@ fn run(action: Action) -> Result<()> {
             require_current_compositor()?;
             // Surface requests arrive from the shell's cgroup. A separate
             // fixed unit must outlive stopping that cgroup and its portals.
-            checked(systemctl(&["start", "--no-block", LOGOUT_UNIT]))
+            checked_control(systemctl(&["start", "--no-block", LOGOUT_UNIT]), CONTROL_TIMEOUT)
         }
         Action::FinishLogout => {
             // Never let hyprctl choose a different graphical login when our
             // session environment has already disappeared from the manager.
             require_current_compositor()?;
-            let stopped = stop_session();
-            let exited = checked(exit_compositor_command());
-            stopped.and(exited)
+            finish_logout_using(&mut checked_control)
         }
         // Waiting covers the complete native lock/unlock lifetime. This does
         // not return a fabricated secure-lock acknowledgement for suspend.
@@ -381,7 +455,7 @@ fn run(action: Action) -> Result<()> {
             }
             // Stop only Ryoku's target: KDE and the shared graphical-session
             // target remain owned by their native session managers.
-            checked(systemctl(&["stop", TARGET]))?;
+            checked_control(systemctl(&["stop", TARGET]), STOP_TIMEOUT)?;
             let outcome = checked(compositor_command(software));
             let cleanup = stop_session();
             outcome.and(cleanup)
@@ -446,6 +520,204 @@ mod tests {
 
     fn args(input: &[&str]) -> Vec<String> {
         input.iter().map(|s| s.to_string()).collect()
+    }
+
+    const CONTROL_FIXTURE: &str = "tests::lifecycle_control_process_fixture";
+    fn fixture_command(role: &str) -> Command {
+        let mut command = Command::new(env::current_exe().unwrap());
+        command
+            .args(["--exact", CONTROL_FIXTURE, "--test-threads=1"])
+            .env("RYOKU_SESSION_TEST_CONTROL", role)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        command
+    }
+
+    #[test]
+    fn lifecycle_control_process_fixture() {
+        let Ok(role) = env::var("RYOKU_SESSION_TEST_CONTROL") else { return };
+        match role.as_str() {
+            "success" => (),
+            "failure" => std::process::exit(23),
+            "signal" => {
+                rustix::process::kill_process(
+                    rustix::process::getpid(),
+                    rustix::process::Signal::TERM,
+                )
+                .unwrap();
+                panic!("fixture signal was ignored");
+            }
+            "blocked" => thread::sleep(Duration::from_secs(10)),
+            "blocked-tree" => {
+                let path = env::var_os("RYOKU_SESSION_TEST_CONTROL_DIR").unwrap();
+                let mut child = fixture_command("blocked").spawn().unwrap();
+                std::fs::write(
+                    Path::new(&path).join("children"),
+                    format!("{} {}", std::process::id(), child.id()),
+                )
+                .unwrap();
+                child.wait().unwrap();
+            }
+            _ => panic!("unknown fixture role"),
+        }
+    }
+
+    fn control_step(command: &Command) -> &'static str {
+        let arguments: Vec<_> = command.get_args().map(|arg| arg.to_str().unwrap()).collect();
+        match command.get_program().to_str().unwrap() {
+            "/usr/bin/dbus-update-activation-environment" => {
+                if arguments.iter().any(|arg| arg.ends_with('=')) { "clear-bus" } else { "import" }
+            }
+            "/usr/bin/hyprctl" => {
+                assert_eq!(arguments, ["dispatch", "exit"]);
+                "exit"
+            }
+            "/usr/bin/systemctl" => {
+                assert_eq!(&arguments[..2], ["--user", "--no-ask-password"]);
+                match arguments[2] {
+                    "stop" => "stop",
+                    "unset-environment" => "clear-manager",
+                    "start" => "start",
+                    "is-active" => "check",
+                    _ => panic!("unknown control command"),
+                }
+            }
+            _ => panic!("unreviewed lifecycle executable"),
+        }
+    }
+
+    #[test]
+    fn logout_attempts_both_cleanups_and_exit_after_every_control_failure_or_timeout() {
+        let expected = ["stop", "clear-bus", "clear-manager", "exit"];
+        for failure in expected {
+            for timeout in [false, true] {
+                let mut observed = Vec::new();
+                let error = finish_logout_using(&mut |command, limit| {
+                    let step = control_step(&command);
+                    observed.push(step);
+                    assert_eq!(limit, if step == "stop" { STOP_TIMEOUT } else { CONTROL_TIMEOUT });
+                    let role = if step == failure {
+                        if timeout { "blocked" } else { "failure" }
+                    } else {
+                        "success"
+                    };
+                    checked_control(fixture_command(role), Duration::from_millis(40))
+                })
+                .unwrap_err();
+                assert_eq!(observed, expected, "failed step={failure}, timeout={timeout}");
+                if timeout {
+                    assert!(error.to_string().contains("deadline"));
+                } else {
+                    assert!(error.to_string().contains("23"));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn activation_failure_never_skips_shutdown_or_exit_and_missing_payload_never_starts() {
+        let startup = ["clear-bus", "clear-manager", "import", "start", "check"];
+        for failed in startup {
+            let mut observed = Vec::new();
+            let mut failed_once = false;
+            let result = activate_using(
+                &mut |command, _| {
+                    let step = control_step(&command);
+                    observed.push(step);
+                    let role = if step == failed && !failed_once {
+                        failed_once = true;
+                        "failure"
+                    } else {
+                        "success"
+                    };
+                    checked_control(fixture_command(role), Duration::from_secs(2))
+                },
+                || Ok(()),
+            );
+            assert!(result.is_err());
+            assert_eq!(
+                &observed[observed.len() - 4..],
+                ["stop", "clear-bus", "clear-manager", "exit"]
+            );
+            if failed != "check" {
+                assert!(!observed.contains(&"check"));
+            }
+        }
+        let mut observed = Vec::new();
+        let error = activate_using(
+            &mut |command, _| {
+                observed.push(control_step(&command));
+                checked_control(fixture_command("success"), Duration::from_secs(2))
+            },
+            || Err("missing fixed payload".into()),
+        )
+        .unwrap_err();
+        assert_eq!(error.to_string(), "missing fixed payload");
+        assert!(!observed.contains(&"start"));
+        assert_eq!(&observed[observed.len() - 4..], ["stop", "clear-bus", "clear-manager", "exit"]);
+    }
+
+    #[test]
+    fn successful_activation_does_not_exit_and_control_signal_failure_is_reported() {
+        let mut observed = Vec::new();
+        activate_using(
+            &mut |command, _| {
+                observed.push(control_step(&command));
+                checked_control(fixture_command("success"), Duration::from_secs(2))
+            },
+            || Ok(()),
+        )
+        .unwrap();
+        assert_eq!(observed, ["clear-bus", "clear-manager", "import", "start", "check"]);
+        assert!(checked_control(fixture_command("signal"), Duration::from_secs(2)).is_err());
+    }
+
+    #[test]
+    fn timeout_kills_only_the_owned_control_tree_and_reaps_its_client() {
+        let root = env::temp_dir().join(format!("ryoku25-control-{}", std::process::id()));
+        std::fs::create_dir(&root).unwrap();
+        let mut unrelated = fixture_command("blocked").spawn().unwrap();
+        let mut command = fixture_command("blocked-tree");
+        command.env("RYOKU_SESSION_TEST_CONTROL_DIR", &root);
+        let started = Instant::now();
+        assert!(checked_control(command, Duration::from_secs(1)).is_err());
+        assert!(started.elapsed() < Duration::from_secs(3));
+        let pids = std::fs::read_to_string(root.join("children")).unwrap();
+        let mut processes = pids.split_whitespace();
+        let client = processes.next().unwrap();
+        assert!(
+            std::fs::metadata(format!("/proc/{client}")).is_err(),
+            "timed-out client was not reaped"
+        );
+        for pid in processes {
+            let state = std::fs::read_to_string(format!("/proc/{pid}/stat"));
+            assert!(
+                state.is_err() || state.unwrap().rsplit_once(") ").unwrap().1.starts_with('Z'),
+                "control descendant survived its deadline"
+            );
+        }
+        assert!(unrelated.try_wait().unwrap().is_none(), "timeout signaled an unrelated helper");
+        unrelated.kill().unwrap();
+        unrelated.wait().unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn packaged_logout_unit_reserves_time_for_exit_after_all_control_deadlines() {
+        let unit = include_str!("../../../packaging/rpm/systemd/user/ryoku-session-logout.service");
+        let seconds = unit
+            .lines()
+            .find_map(|line| line.strip_prefix("TimeoutStartSec="))
+            .unwrap()
+            .strip_suffix('s')
+            .unwrap()
+            .parse::<u64>()
+            .unwrap();
+        let worst = STOP_TIMEOUT + CONTROL_TIMEOUT * 3 + CONTROL_REAP_TIMEOUT * 4;
+        assert!(worst + Duration::from_secs(5) < Duration::from_secs(seconds));
+        assert!(!unit.contains("PartOf="));
+        assert!(!unit.contains("BindsTo="));
     }
 
     #[test]
