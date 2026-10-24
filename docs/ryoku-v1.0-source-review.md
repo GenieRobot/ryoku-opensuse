@@ -6,6 +6,18 @@ This records issue #173's candidate at upstream commit
 change. The openSUSE RPM version remains the independently versioned `0.1.0`.
 No old VM result is relabelled as acceptance of this source.
 
+The release target retains the full Ryoku 1.0 system on Tumbleweed, including
+login/guard/lock, Bluetooth link/agent, dictation, Hub controls, Store/apps and
+installation workflows. Current manifest nonselection or runtime refusal is
+an implementation/security gap, not permanent feature removal. New M2 owners
+are #177 greeter/session guard/lock, #178 Bluetooth, #179 Voxtype/Redux,
+#180 Hub user/appearance actions, #181 Hub host/network/security and #182
+Store/themes/plugins/rices/apps, #183 Rashin/usage and #184 phone integration,
+in addition to #25/#175/#176. #47 remains the application inventory parent. #173 owns
+source/spec/provenance review only; those tasks retain the feature behavior
+and implement Tumbleweed-specific guardrails. Only edition-specific platform
+mechanisms are replaced. No code or package root is changed by this update.
+
 ## Reproducible source evidence
 
 The Rust `upstream-runtime-export` tool reads exact Git objects and modes,
@@ -47,7 +59,7 @@ not automatically a configuration writer: stdout, sockets, caches, fixture
 code and application state need distinct dispositions. The complete export
 manifests, rather than a directory count, define the selected payload.
 
-## Retained and excluded behavior
+## Retained targets and current integration boundaries
 
 The component-level [Hub/store review](ryoku-v1.0-hub-store-review.md)
 records exact file dispositions and the incompatible store API/write contract.
@@ -65,19 +77,23 @@ pending. This source-only review changes no #25 shell/session files.
 | Shell/core | `ryoku/shell/ipc`, selected QML, scripts and user units | Retain native shell, approved Rust writer roles and existing namespace/recovery ownership. Refresh actual v1 unit fixture; use private coordinated Quickshell launcher. Shell state/cache writes remain under the existing managed-writer boundary. |
 | Native modules | `ryoku/shell/plugin` | Build both Blobs and new Spatial3D with complete QML metadata, plugins and shaders. No prebuilt upstream binaries. Native loading/ELF closure remains an acceptance gate. |
 | Hub queries | `ryoku/hub/backend` dispatch | Rust exact-arity allowlist retains reviewed display/query routes. Unrecognized routes and every unapproved mutation family return `Unsupported` before UID lookup, namespace creation, coordinator setup or native child dispatch. Non-UTF-8 arguments and additional verbs do not bypass the table. |
-| Hub writes | config/shell/desktop/WM/output/lock/GPU/CPU/lighting/Voxtype/Rashin/phone/rice/fastfetch/starship/profile/matugen/reload-cover/palette/share/clipboard/import | No mutation provider imported or enabled. Rust default refusal covers aliases and explicit `hub-backend`; table-driven tests cover every dispatch family. Read-only list/status/get variants are individually allowed only where reviewed; the entire phone family is refused. |
-| Phone | Hub `phone.go`; shell `PhoneBridge.qml`, `PhoneState.qml`, `KdeConnectService.qml`; Hub `PhoneConnectionTab.qml` | Status/devices are refused, preserving default `installed=false`, `runtimeReady=false` and inactive UI sections even on hosts with KDE Connect installed. Pair/ADB IPC handlers refuse while unavailable. Direct accept/reject/device-call/ADB pair/connect launchers enter Rust refusal; premature accepted/declined feedback is removed. No phone provider implementation. |
-| Import | `import.go`, provider import metadata and parser files | `providers` and local detection are display queries. Remote scan, git clone, decisions apply, undo and provider configuration writes are refused. No import/recovery capability is implied by shipping the immutable backend source. |
-| Rice/profile | `rice.go`, `profile.go` | List/preflight are queries. Writes to `$XDG_CONFIG_HOME/ryoku/{shell,launcher,widgets,visualizer,decor,brand,ryogami,plugins}.json`, rice directories, wallpaper/config targets and profile export/import are refused. |
-| Voxtype/Redux | `voxtype.go`, embedded `assets/redux/{adapter.py,setup.py}` | Get is a query; config/model writes, download/build/setup, service registration/removal and package changes are refused. Direct DictationPage shell deletion/package commands and dock setup/restart launches are replaced by Rust refusal. Embedded Python remains upstream provenance, never a new project provider. |
-| Host/package/auth | Hub SettingsSheet, Dictation/Global/Input/Connections/Users/Lockscreen/Updates pages | Direct package install/remove/update, PAM/keyring/fingerprint/security-key writes, system keymap/timezone and service changes enter Rust refusal. Display probes are retained. No pacman/DNF/XBPS or privileged helper is installed. |
-| Network/Bluetooth | Selected shell bar/sidebar/Stage/iNiR services and Hub Connections | Direct nmcli profile/password/hotspot mutations, Tailscale changes/operator escalation, battery sysfs/pkexec writes and deferred package actions enter Rust refusal. Direct Quickshell Networking/BlueZ connect/disconnect/forget/trust/power/discovery assignments are replaced before API dispatch. Read-only properties and status/list queries remain. Original Bluetooth link/agent scripts are excluded. |
+| Hub writes | config/shell/desktop/WM/output/lock/GPU/CPU/lighting/Voxtype/Rashin/phone/rice/fastfetch/starship/profile/matugen/reload-cover/palette/share/clipboard/import | Retained target: #180 user/appearance actions, #181 host/network/security, #179 dictation, #182 Store/apps, #183 Rashin and #184 phone. Current exact-query policy and mutation refusals are temporary guardrails, not final support or feature removal. Each owner must implement typed authorized operations with linked recovery and preserve UI affordances. |
+| Phone | Hub `phone.go`; shell `PhoneBridge.qml`, `PhoneState.qml`, `KdeConnectService.qml`; Hub `PhoneConnectionTab.qml` | Retained phone/KDE Connect/ADB workflows are owned by #184, with shared host controls #181 and Bluetooth bond/agent operations #178. Current status/devices/pair/ADB refusals and false capability gates are safety facts, not final feature scope. No successful pairing or completed provider is claimed. |
+| Import | `import.go`, provider import metadata and parser files | Retained import/configuration workflow under #180, with installed content/provider scope #182. Current providers/local-detection queries remain; remote scan/clone/apply/undo refusals are temporary until typed ownership/recovery integration passes. |
+| Rice/profile | `rice.go`, `profile.go` | Retained #180 settings/profile and #182 content workflows. Current list/preflight queries and write refusals do not implement final functionality. Exact config/rice/wallpaper/profile destinations need authorized linked pre/post recovery before writes are supported. |
+| Voxtype/Redux | `voxtype.go`, embedded `assets/redux/{adapter.py,setup.py}` | Retained dictation/setup/model/service/removal target under #179. Existing query-only/refusal launch patches are temporary safety boundaries. Retain compatible upstream UI/assets/Python provenance and licenses; implement new project-owned integration in Rust with package/service/recovery owners. |
+| Host/package/auth | Hub SettingsSheet, Dictation/Global/Input/Connections/Users/Lockscreen/Updates pages | Retained host workflows under #181, using #27–29 packages, #31 services and #32 security. Current direct package/auth/keymap/time/service launch refusals do not define final feature scope. Replace edition-specific actuators with typed Tumbleweed operations, not blanket UI removal. |
+| Network/Bluetooth | Selected shell bar/sidebar/Stage/iNiR services, Hub Connections, upstream Bluetooth link/agent | Retained BlueZ list/connect/pair/remove/trust/power/discovery/link/agent target #178 and host/network/VPN/Tailscale/device controls #181. Current direct nmcli/pkexec/sysfs/BlueZ refusal patches and nonselection of link/agent scripts are safety/package facts only. New Rust providers need authorization, exact state ownership and linked accounting while preserving controls. |
 | Ryogami | `ryoku/shell/ryogami/{daemon,picker}` plus separate `ryoku/shell/livewall` | Preserve the complete daemon/editor/livewall experience and its package/UI nodes; no exclusion is pursued. No current Ryogami `hyprland`/`bin` subtrees exist. [Exact inventory and protected-integration ownership](ryoku-v1.0-ryogami-rashin-review.md) map core appearance to #25, retained source/workshop/model/library/delete providers to #175 and startup/restore/postapply policy to #176, using #18/#20 contracts. These owners retain full functionality; selection and task creation do not certify current writes. Native/tool/license acceptance remains pending. |
-| WM/session | `ryoku/wm`, selected Hyprland bridge | Hyprland remains the initial compositor. Niri and Wayfire provider activation is deferred to #46. The port's Rust session adapter remains authoritative. |
-| Greeter/lock/security | Upstream greeter, `sddm/setup`, guard, custom qylock, Bluetooth agent/link | Exact excluded path families are outside the source export/install recipes. Do not import root display-manager watchdog/restart, PAM/autologin rewriting, custom lock guarantees, or re-pairing behavior. Native hyprlock and distro SDDM/KDE fallback require fresh #25 acceptance. |
-| Other distributions/apps | Fedora/Void/Nix, installer/ISO/release publishers, standalone Rashin/store/apps/palette bridge | Reference/excluded source only. No alternate package manager, boot/init/GRUB/Plymouth mutation, installer, repository signing/publisher, model capability or standalone app scope is imported. |
+| WM/session | `ryoku/wm`, selected Hyprland bridge | Hyprland remains the initial supported compositor under #25. Niri #46 and phased Tumbleweed Wayfire #185 are distinct retained future feature targets, not exclusions. Their Rust session/provider and native acceptance work stays with those owners; #173 changes no session implementation. |
+| Greeter/lock/security | `ryoku/lockscreen/sddm/{ryoku-greeter,ryoku-greeter-guard,ryoku-wayland-session,setup}`, qylock | Retained greeter/session-supervision/lock target under #177 alongside #25 ordinary session integration. These paths are not currently exported/installed; this is an implementation gap. Adapt visuals and behavior to Tumbleweed SDDM/PAM/systemd, preserve passwords/autologin and KDE fallback, and prove timeout/resume/crash guarantees before claiming them. |
+| Distribution mechanisms | Fedora/Void/Nix, edition installers/release publishers and package managers | Preserve source/provenance and user-facing feature intent; replace Pacman/AUR/DNF/XBPS, edition boot/init/GRUB/Plymouth/signing and installer mechanisms with reviewed Tumbleweed equivalents. Reference packaging does not authorize its scripts. |
+| Apps and install experience | Rashin, Ryostore/Ryovm, Ryotunes/Ryomanager, themes/plugins/rices/palette integrations and installer workflows | Retained full-system target: #182 Store/content/standalone app workflows, #183 Rashin/usage, #47 app inventory, #24 protected native installation, #27–29 package plans/execution/client experience, #180 user configuration. Current export gaps remain explicit and are not permanent feature exclusions. |
 
-Nomarchy's separate `ryoku/shell/nomarchy` host payload is excluded. Its
+Nomarchy's separate `ryoku/shell/nomarchy` host payload is not currently selected.
+Retained Nomarchy UI/styling remains part of the full target; Omarchy host
+activation is a distribution-specific mechanism requiring a reviewed
+Tumbleweed content/configuration equivalent under #180/#182. Its
 `nomarchy-activate` blob `fa9c3eb58de928679c7108c6506283b09a143d2d` creates
 links/files in `$XDG_BIN_HOME`, `$XDG_CONFIG_HOME/omarchy` and
 `$XDG_STATE_HOME/omarchy`. The retained IPC `nomarchy.go` previously resolved
@@ -191,9 +207,12 @@ make an unresolved runtime alias or generated module disappear.
 
 ### Source-review checkpoint (24 October 2026)
 
-Hosted Rust checks [run 40130495735](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40130495735)
+Hosted Rust checks [run 40132250850](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40132250850)
 completed successfully for exact documentation head
-`ca033724bd91f51575aa13386cd9aadaa187678d`. The earlier documentation head
+`75eae133bfd22c6d24e9a3f761161b5175c5d66b`. The earlier storage-checkpoint head
+`ca033724bd91f51575aa13386cd9aadaa187678d` passed
+[run 40130495735](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40130495735).
+The earlier documentation head
 `b7a51b32bf98ae1a64181e09929edc227b2808ec` passed
 [run 40129795018](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40129795018).
 The CLI source-review head
@@ -217,6 +236,20 @@ automatic startup/restore/postapply hooks and timers/watchers by
 [#176](https://github.com/GenieRobot/ryoku-opensuse/issues/176). Both require
 typed authorization, bounded ownership and linked recovery, preserving full
 functionality; their implementation and acceptance remain open.
+
+Other retained feature owners are [#177](https://github.com/GenieRobot/ryoku-opensuse/issues/177)
+for greeter/session guard/lock, [#178](https://github.com/GenieRobot/ryoku-opensuse/issues/178)
+for Bluetooth link/agent, [#179](https://github.com/GenieRobot/ryoku-opensuse/issues/179)
+for Voxtype/Redux, [#180](https://github.com/GenieRobot/ryoku-opensuse/issues/180)
+for Hub user/appearance actions, [#181](https://github.com/GenieRobot/ryoku-opensuse/issues/181)
+for Hub host/network/security, and [#182](https://github.com/GenieRobot/ryoku-opensuse/issues/182)
+for Store/content/standalone apps, [#183](https://github.com/GenieRobot/ryoku-opensuse/issues/183)
+for Rashin/usage and [#184](https://github.com/GenieRobot/ryoku-opensuse/issues/184)
+for phone/KDE Connect/ADB; #47 remains the application inventory parent.
+Niri remains the retained future target #46; phased Wayfire is separately
+owned by [#185](https://github.com/GenieRobot/ryoku-opensuse/issues/185).
+Their ownership does not certify existing
+refused or unmediated paths; their tests and refreshed native gates remain open.
 
 The full verified Git tree preserves CLI source/provenance, but existing
 Source2/Source3 are selected exports and contain no `ryoku/cli` root.

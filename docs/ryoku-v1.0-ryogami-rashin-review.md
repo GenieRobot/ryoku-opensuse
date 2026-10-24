@@ -2,8 +2,7 @@
 
 The product target is the full Ryoku experience on Tumbleweed. Ryogami,
 its editor, livewall, wallpaper actions and related modules remain selected
-and packaged. The temporarily proposed exclusion was cancelled; none of its
-build/install/route removals was committed. The source findings below identify
+and packaged. The source findings below identify
 required protected integration, not permission to reduce the product target
 or to activate an unprotected writer. This review does not certify the current
 reachable write paths as safe.
@@ -32,8 +31,8 @@ come from `packaging/rpm/ryoku-desktop.spec`.
 | `ryoku/shell/ryogami/picker/**` (248) | Source3 CMake inputs. Install generated `Ryoku.Ryogami` QML/native module, `shell.qml`, `data/ryogami.desktop`, LICENSE and NOTICE. Do not copy all source files into `/usr/share/ryogami`. |
 | `ryoku/shell/livewall/**` (3) | Source3 C/Wayland protocol/build inputs; install compiled `ryogami-live`. This helper is outside the Ryogami tree. |
 | `ryoku/shell/systemd/user/ryogami.service` | Selected Source3 patch/fixture input, but no unit installation in this desktop spec. Selection is not activation. |
-| `ryoku/rashin/**` (338) | Entire tree excluded from both exports and install recipe: app 5, backend 156, skills 8, systemd 4, usage 4, web 153, wiki 8. No agent executable, web app, desktop entry, collector or unit installed. |
-| Hub `backend/rashin.go`, `quickshell/pages/RashinPage.qml`; shell `quickshell/shell/services/AiUsage.qml` | Retained bridges outside excluded Rashin tree. Hub mutation routes refused; AiUsage service-start launch patched to Rust refusal. Source exclusion alone would not prove these bridges harmless. |
+| `ryoku/rashin/**` (338) | Not currently selected in either export/install recipe: app 5, backend 156, skills 8, systemd 4, usage 4, web 153, wiki 8. No agent executable, web app, desktop entry, collector or unit is currently installed; retain the assistant/usage workflow target under #183 (application inventory #47). |
+| Hub `backend/rashin.go`, `quickshell/pages/RashinPage.qml`; shell `quickshell/shell/services/AiUsage.qml` | Retained bridges outside the currently unselected Rashin tree. Hub mutation routes refused; AiUsage service-start launch patched to Rust refusal. Current nonselection alone does not prove these bridges harmless. |
 
 ## Reachability: acceptance blocker, not a completed safety audit
 
@@ -107,9 +106,9 @@ No new policy proxy, automatic model/provider capability or expanded recovery
 manifest has been introduced. A complete startup/core-write disposition and
 protected adapter are required while retaining the complete wallpaper
 experience. Until then the candidate is **not ready for installation/appearance
-acceptance**. Removing the wallpaper bridge would also require changes to
-`shell/shell.qml` reload readiness and visualizer gating; that exclusion is
-not being pursued, and those bindings remain intact.
+acceptance**. The wallpaper bridge participates in `shell/shell.qml` reload
+readiness and visualizer gating; those bindings remain intact as part of the
+retained full experience.
 
 ### Ownership and retained full-feature integration plan
 
@@ -127,7 +126,7 @@ they retain the complete UI and behavior.
 | Image/video source downloads, Steam workshop, model pack install/remove, library management and source-media deletion | [#175: protect retained Ryogami library and provider actions](https://github.com/GenieRobot/ryoku-opensuse/issues/175), integrated with #25's protected core transport and #18/#20 contracts | Implement bounded Rust providers behind the authenticated helper: source/manifest/trust identities, exact account-owned destinations, size/time quotas, safe interruption/resume and trash/restore receipts. Revalidate reviewed plans and linked pre/post state before local writes/deletes/process launches. Keep credentials private and record remote requests separately because local rollback cannot undo external effects. Preserve every picker/CLI/daemon action; RPM acquisition remains #27–29. |
 | Startup/restore/postapply hooks, timers/watchers and configured commands | [#176: constrain retained Ryogami startup and post-apply hooks](https://github.com/GenieRobot/ryoku-opensuse/issues/176), integrated with #25 and #18/#20 | Implement Rust-owned typed execution policy bound to authenticated account, exact hook identity/content, permitted arguments/environment/directory, time and write/network scope. Enabling/changing policy requires explicit authorization; every automatic run revalidates an exact approved policy and complete linked capture/accounting before launch. Arbitrary shell strings cannot supply trusted plans. Preserve hook configuration and approved behavior; prove child containment/refreeze and no silent unapproved restore execution. No generic privileged exec API is granted. |
 | User-service changes | [#31: narrowly typed service controls](https://github.com/GenieRobot/ryoku-opensuse/issues/31), with #25 responsible for ordinary session lifecycle | Separate runtime start/stop from persistent enablement/config changes and document restore limits. This does not authorize arbitrary systemctl commands or require putting service control in #173. |
-| Separate Rashin/other app adoption | [#47: remaining application inventory and scoped application issues](https://github.com/GenieRobot/ryoku-opensuse/issues/47) | Current export exclusion is an inventory fact, not a decision to delete those applications from the eventual full product. Each future activation needs its explicit app/state/provider acceptance. This is distinct from already retained core Ryogami. |
+| Rashin assistant/usage and other app workflows | [#183: retained Rashin assistant/usage](https://github.com/GenieRobot/ryoku-opensuse/issues/183), #47 application inventory parent; #182 Store/content/apps | Current export nonselection is an inventory fact, not removal from the full target. #183 retains Rashin app/backend/skills/web/collectors/units/bridges with privacy, local/offline and typed protected operations. #182 owns Store/app install integration. This is distinct from #25/#175/#176 core Ryogami. |
 
 Reuse `NativeMutationProvider::plan/apply/health_check` and
 `run_operator_mutation` in `suse/service/src/native_mutation.rs`, the verified
@@ -192,7 +191,7 @@ The concrete source/dependency sequence for #173 is:
    keep prerequisite ordering explicit; no feature removal or protection
    bypass substitutes for those implementation and acceptance results.
 
-## Excluded Rashin runtime
+## Rashin runtime: current package gap and retained target
 
 Rashin is an agent/terminal service, not a wallpaper dependency. Its
 `backend/server.go` binds HTTP to `127.0.0.1:<configured port>` and exposes,
@@ -204,11 +203,14 @@ and host package advice. `paths.go` defines the knowledge vault at
 `$XDG_CONFIG_HOME/ryoku/rashin.json`, and pid/setup runtime state beneath
 `$XDG_RUNTIME_DIR/ryoku-rashin` (temporary-directory fallback).
 
-Excluded units are `ryoku-rashin.service` (serve --if-enabled),
+Currently unselected units are `ryoku-rashin.service` (serve --if-enabled),
 `ryoku-prowl.service` (gateway down/serve, default port 8788),
 `ryoku-ai-usage.service` and its persistent five-minute timer. No agent/model,
-terminal, gateway, usage collection or credential provider is activated.
-Future standalone app work belongs to #47 and its scoped application issues;
+terminal, gateway, usage collection or credential provider is currently activated.
+These are retained assistant/usage workflows needing #183 integration and
+evidence, with #47 remaining the application inventory parent.
+Retained Rashin assistant/usage is owned by #183, Store/content/apps by #182,
+with #47 the application inventory parent;
 package planning/execution remains #27–29. The retained Hub on/off routes and collector start are refused
 as described above; status remains an availability probe only.
 
@@ -232,7 +234,7 @@ spec explicitly installs only picker LICENSE/NOTICE. **The font license texts
 need explicit installed license closure**; selection in Source3 does not
 prove they ship beside the generated module. Root LICENSE/NOTICE and vendored
 Go notices are separately retained. No license identity is inferred for
-excluded Rashin dependencies or optional downloaded models.
+currently unselected Rashin dependencies or downloaded models.
 
 The guest remains paused under the storage gate. This review adds immutable
 source evidence only; full delta coverage, protected integration/tests,

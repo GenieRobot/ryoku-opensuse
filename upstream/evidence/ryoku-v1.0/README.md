@@ -20,6 +20,17 @@ Source2/Source3 exports currently do not include that root, so complete CLI
 source-only archive closure remains pending. These review records remove no
 source/package roots and do not reduce the full Ryogami target.
 
+`current-not-selected` describes only the existing export/RPM state. It is not
+a permanent feature exclusion. Earlier ledger revisions called these rows
+`excluded`; exact source identities and selection bits are unchanged. Retained
+target owners are #177 greeter/session guard/lock, #178 Bluetooth link/agent,
+#179 Voxtype/Redux, #180 Hub user/appearance, #181 Hub host/network/security,
+#182 Store/content/apps, #183 Rashin/usage and #184 phone; #47 remains the app
+inventory parent. #25/#175/#176 retain core appearance/provider/hook ownership.
+Niri #46 and phased Tumbleweed Wayfire #185 are separate retained future targets.
+Only edition-specific platform mechanisms are replaced, with full behavior
+and protected-operation acceptance still required under those owners.
+
 `qml-import-names.txt` is the scanner's complete unique named-module graph,
 including transitive modules and writer-only Hyprland/picker QML. The native
 scanner parses QML and is authoritative for that named-module inventory.

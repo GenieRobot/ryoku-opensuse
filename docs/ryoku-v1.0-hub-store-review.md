@@ -7,7 +7,7 @@ Issue #173 review against upstream commit
 These are current-tree inventories, not the changed-path counts in the
 [delta matrix](ryoku-v1.0-delta.md).
 
-## Exact selection and installation
+## Current selection and retained feature target
 
 [`hub-store-disposition.tsv`](../upstream/evidence/ryoku-v1.0/hub-store-disposition.tsv)
 records all 728 current files, original Git blob/mode, Source2 destinations,
@@ -19,8 +19,14 @@ evidence directory, then against `packaging/rpm/ryoku-desktop.spec`.
 |---|---:|---|
 | `ryoku/hub/quickshell/**` | 132 | Both exports select them; the RPM copies the patched Source3 tree to its Hub payload. Source2's duplicate Hub QML is not the installed copy. |
 | `ryoku/hub/backend/**` | 494 | Source3 build inputs, including tests, embedded assets and Go vendor sources. Build the private `ryoku-hub` binary; do not install the source tree. Dependency notices are collected separately. |
-| `ryoku/hub/{README.md,CHANGELOG.md,ryoku-hub.desktop}` | 3 | Excluded from both exports and install recipe. No new standalone Hub desktop entry is introduced. |
-| `ryoku/apps/ryostore/**` | 99 | Entire application excluded: no backend, QML, executable, desktop entry or service is exported/built/installed. No store action is enabled by this sync. |
+| `ryoku/hub/{README.md,CHANGELOG.md,ryoku-hub.desktop}` | 3 | Not currently selected in either export/install recipe; retain full source and Hub entrypoint intent under #180/#181. |
+| `ryoku/apps/ryostore/**` | 99 | Not currently exported/built/installed; retained full Store catalog/preview/install/update/remove target under #182, using #27/#28 package contracts where applicable. No provider is implemented by this source review. |
+
+Current nonselection is not permanent feature exclusion. #180 owns retained
+Hub user/appearance actions, #181 host/network/security, #179 dictation,
+#182 Store/content/apps, #183 Rashin and #184 phone. #47 remains the application
+inventory parent. Existing refusal policies are temporary guardrails while
+typed authorized providers and linked recovery are implemented.
 
 This file selection does not grant permission to execute every embedded Hub
 function. Public `ryoku-hub` resolves to Rust `ryoku-writer`, whose exact-arity
@@ -50,13 +56,13 @@ journaled operation status (`suse/service/src/lib.rs`, `runtime.rs`). These
 contracts cannot be substituted for each other; there is no reviewed store
 adapter or supported install/remove bridge in this candidate.
 
-| Excluded entrypoint | Concrete side effects / dependencies |
+| Current nonselected entrypoint, retained target #182 | Concrete side effects / dependencies |
 |---|---|
 | `backend/main.go` `catalog` / `warm` | Catalog can build live providers, write `catalog.json` and the seen revision; warm fetches previews/screenshots and rewrites cached asset URLs. Even catalog is not a pure read query. |
 | `backend/paths.go`, `cache.go`, `extras_assets.go` | Default source is `https://raw.githubusercontent.com/ryoku-dev/ryostore/main`; `RYOSTORE_BASE`, legacy `RYOKU_EXTRAS_BASE` and `$XDG_CONFIG_HOME/ryoku/ryostore-base` override it. Network registries/assets and local `file://` trees feed `$XDG_CACHE_HOME/ryoku/ryostore`, with hashed per-source subdirectories for overrides. This mutable remote catalog is not a pinned package input. |
 | `backend/product_transaction.go`, `receipt.go` | HTTP product fetches, staging/backup/removal directories beside product destinations, file writes/renames and transaction locks/journals. Receipts live at `$XDG_STATE_HOME/ryoku/store/<category>/<id>.json`, plus `revision.json`, `transactions/` and `transactions.lock`. Receipt hashes/file ownership do not constitute the port's recovery authorization. |
 | `backend/provider_plugins.go` / `host_package_manager.go` | Reads `$XDG_CONFIG_HOME/ryoku/plugins.json`, product manifests and `ryoku-host pkgmgr`; upstream product placement/package-manager compatibility needs a separately reviewed openSUSE provider. |
-| `backend/main.go` `internal` | Includes installer and guest install/remove entrypoints. Excluding the entire app avoids exposing these through a catalog-only assumption. |
+| `backend/main.go` `internal` | Includes installer and guest install/remove entrypoints. These retained install/guest workflows need explicit typed provider review; a catalog-only assumption does not authorize them. |
 
 Retained Hub `Singletons/Host.qml` probes `ryoku-host capabilities` and defaults
 capabilities to unsupported. This package does not install that upstream host
@@ -73,15 +79,16 @@ Root upstream GPL/NOTICE provenance, the exact iNiR attribution and retained
 asset exceptions are recorded in `packaging/licenses/ryoku-v1.0/README.md`.
 Hub's embedded Redux `assets/redux/{adapter.py,setup.py,LICENSE,UPSTREAM.md}`
 remains immutable MIT-attributed source; its setup/model mutation routes are
-refused. Backend vendor notices are collected by the desktop spec. Excluded
+refused. Backend vendor notices are collected by the desktop spec. Currently unselected
 Ryostore source and remotely described products do not add an installed RPM
 license claim; their per-product licenses must be checked if a future provider
 ever imports them.
 
 Retained Hub requires its compiled Go backend, coordinated Quickshell and
 the selected QML import closure, including UPower. The global import inventory
-and signed RPM evidence remain authoritative. Ryostore-only QtMultimedia and
-Controls imports do not justify installing the excluded application. Native
+and signed RPM evidence remain authoritative. Ryostore QtMultimedia and
+Controls imports remain dependency evidence for the retained #182 application;
+current source nonselection does not complete its future package closure. Native
 module/import/ELF checks, UI behavior and complete license closure are pending;
 the current storage gate permits neither builds nor guest access. The full
 #173 delta, #25 session checks and #26 recovery acceptance remain open. This
