@@ -130,10 +130,30 @@ impl WriterFreeze {
                         }
                     };
                     if let Some(execution) = &executing
-                        && owner.run_tick(execution).is_err()
+                        && let Err(error) = owner.run_tick(execution)
                     {
+                        #[cfg(test)]
+                        eprintln!(
+                            "actor tick failure {error:?}; actor={} task={:?}; held={:?}",
+                            execution.actor_pid,
+                            read_task(execution.actor_pid),
+                            owner
+                                .tasks
+                                .iter()
+                                .map(|(pid, h)| (
+                                    *pid,
+                                    h.tgid,
+                                    h.start,
+                                    h.stopped,
+                                    h.exec,
+                                    h.actor_owned
+                                ))
+                                .collect::<Vec<_>>()
+                        );
+                        #[cfg(not(test))]
+                        let _ = error;
                         poisoned = true;
-                        let _ = owner.refreeze();
+                        let _ = owner.refreeze_actor(execution);
                         executing = None;
                     }
                     let Some(request) = request else { continue };
@@ -155,12 +175,16 @@ impl WriterFreeze {
                                 executing = Some(execution);
                             } else {
                                 poisoned = true;
-                                let _ = owner.refreeze();
+                                let _ = owner.refreeze_actor(&execution);
                             }
                             let _ = reply.send(result);
                         }
                         Request::Refreeze(reply) => {
-                            let result = owner.refreeze();
+                            let result = if let Some(execution) = &executing {
+                                owner.refreeze_actor(execution)
+                            } else {
+                                owner.refreeze()
+                            };
                             executing = None;
                             if result.is_err() {
                                 poisoned = true;
@@ -172,8 +196,11 @@ impl WriterFreeze {
                             });
                         }
                         Request::Release(reply) => {
-                            let stopped =
-                                if executing.is_some() { owner.refreeze() } else { Ok(()) };
+                            let stopped = if let Some(execution) = &executing {
+                                owner.refreeze_actor(execution)
+                            } else {
+                                Ok(())
+                            };
                             let result = stopped.and_then(|()| owner.detach());
                             let _ = reply.send(result);
                             return;
@@ -251,7 +278,7 @@ impl Drop for WriterFreeze {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Task {
     tid: i32,
     tgid: i32,
@@ -357,6 +384,15 @@ impl TraceOwner {
                 return Err(Error::WriterUnavailable);
             }
             let event = status >> 16;
+            #[cfg(test)]
+            if event == libc::PTRACE_EVENT_EXEC {
+                eprintln!(
+                    "exec event tid={tid} previous={:?} actual={:?}",
+                    event_child(tid),
+                    read_task(tid)
+                );
+            }
+
             let held = self.tasks.get_mut(&tid).ok_or(Error::WriterUnavailable)?;
             held.stopped = true;
             held.exec = event == libc::PTRACE_EVENT_EXEC;
@@ -401,6 +437,7 @@ impl TraceOwner {
     }
     fn run_tick(&mut self, execution: &ActorExecution) -> Result<()> {
         self.poll()?;
+        self.validate_actor(execution)?;
         for task in self.target.scan()? {
             if task.tracer != self.tracer
                 || self.tasks.get(&task.tid).is_none_or(|held| {
@@ -419,17 +456,6 @@ impl TraceOwner {
             if !held.stopped {
                 continue;
             }
-            if held.exec {
-                // An exec stop is before the new image runs user code. The
-                // daemon may not replace itself, and descendants may execute
-                // only the immutable binaries selected by this action broker.
-                let allowed = held.tgid != execution.actor_pid
-                    && execution.executables.iter().any(|pin| pin.matches(tid).unwrap_or(false));
-                if !allowed {
-                    let _ = control(libc::PTRACE_CONT, tid, libc::SIGKILL as usize);
-                    return Err(Error::WriterUnavailable);
-                }
-            }
             control(libc::PTRACE_CONT, tid, held.signal as usize)?;
             held.stopped = false;
             held.signal = 0;
@@ -437,7 +463,80 @@ impl TraceOwner {
         }
         Ok(())
     }
+    // A final exec/exit can arrive inside the refreeze poll, after the last
+    // running tick. Validate again while all tasks are stopped, before any
+    // post-capture or successful response; preserve failure even after exit.
+    fn refreeze_actor(&mut self, execution: &ActorExecution) -> Result<()> {
+        let result = self.refreeze_using(Some(execution));
+        if result.is_err() {
+            let _ = self.refreeze();
+        }
+        result
+    }
+    fn validate_actor(&mut self, execution: &ActorExecution) -> Result<()> {
+        let rejected = self.tasks.iter().find_map(|(&tid, held)| {
+            (held.actor_owned
+                && held.exec
+                && (held.tgid == execution.actor_pid
+                    || !execution.executables.iter().any(|pin| pin.matches(tid).unwrap_or(false))))
+            .then_some(tid)
+        });
+        if let Some(tid) = rejected {
+            self.terminate_rejected_image(tid)?;
+            return Err(Error::WriterUnavailable);
+        }
+        let actor = read_task(execution.actor_pid)?.ok_or(Error::WriterUnavailable)?;
+        if matches!(actor.state, 'Z' | 'X')
+            || !self.tasks.get(&execution.actor_pid).is_some_and(|held| {
+                held.actor_owned
+                    && held.start == actor.start
+                    && held.tgid == actor.tgid
+                    && actor.tracer == self.tracer
+            })
+        {
+            return Err(Error::WriterUnavailable);
+        }
+        Ok(())
+    }
+
+    fn terminate_rejected_image(&mut self, tid: i32) -> Result<()> {
+        use rustix::process::{Pid, PidfdFlags, Signal, pidfd_open, pidfd_send_signal};
+        // EXEC is an event stop, not a signal-delivery stop. Pin the owned
+        // process and send real SIGKILL; PTRACE_CONT signal injection can be
+        // ignored here. A reused numeric PID can never receive this signal.
+        let pid = Pid::from_raw(tid).ok_or(Error::WriterUnavailable)?;
+        let process = pidfd_open(pid, PidfdFlags::empty()).map_err(std::io::Error::from)?;
+        let observed = read_task(tid)?.ok_or(Error::WriterUnavailable)?;
+        let held = self.tasks.get(&tid).ok_or(Error::WriterUnavailable)?;
+        if observed.tracer != self.tracer
+            || observed.tgid != held.tgid
+            || !held.actor_owned
+            || !held.exec
+        {
+            return Err(Error::WriterUnavailable);
+        }
+        pidfd_send_signal(&process, Signal::KILL).map_err(std::io::Error::from)?;
+        let deadline = Instant::now() + TIMEOUT;
+        loop {
+            let exited = wait_task(tid)?
+                .is_some_and(|status| libc::WIFEXITED(status) || libc::WIFSIGNALED(status));
+            let dead = read_task(tid)?
+                .is_none_or(|task| task.start != observed.start || matches!(task.state, 'Z' | 'X'));
+            if exited || dead {
+                self.tasks.remove(&tid);
+                return Ok(());
+            }
+            if Instant::now() >= deadline {
+                return Err(Error::WriterUnavailable);
+            }
+            thread::sleep(Duration::from_millis(2));
+        }
+    }
+
     fn refreeze(&mut self) -> Result<()> {
+        self.refreeze_using(None)
+    }
+    fn refreeze_using(&mut self, execution: Option<&ActorExecution>) -> Result<()> {
         let deadline = Instant::now() + TIMEOUT;
         loop {
             for (&tid, held) in &self.tasks {
@@ -450,6 +549,11 @@ impl TraceOwner {
                 }
             }
             self.poll()?;
+            // Keep rejecting exec stops during emergency refreeze as well:
+            // a transient de-thread race may have failed the preceding tick.
+            if let Some(execution) = execution {
+                self.validate_actor(execution)?;
+            }
             if self.check().is_ok() {
                 return Ok(());
             }
@@ -534,6 +638,16 @@ impl Target {
                     Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
                     Err(e) => return Err(e.into()),
                 };
+                // A confirmed zombie cannot write and its environment has
+                // already been torn down. Its parent may reap it after capture.
+                if status
+                    .lines()
+                    .find_map(|line| line.strip_prefix("State:"))
+                    .and_then(|value| value.trim().chars().next())
+                    .is_some_and(|state| matches!(state, 'Z' | 'X'))
+                {
+                    continue;
+                }
                 if let Some((uid, home)) = self.account() {
                     let ids = status
                         .lines()
@@ -846,7 +960,10 @@ mod tests {
         while !path.join("exec-now").exists() {
             thread::sleep(Duration::from_millis(2));
         }
-        panic!("exec fixture failed: {}", Command::new("/usr/bin/true").exec());
+        panic!(
+            "exec fixture failed: {}",
+            Command::new("/usr/bin/touch").arg(path.join("forbidden-exec-write")).exec()
+        );
     }
 
     #[test]
@@ -936,11 +1053,22 @@ mod tests {
                 assert!(Instant::now() < deadline, "actor exec did not fail closed");
                 thread::sleep(Duration::from_millis(2));
             }
+            assert!(
+                !replacement.path.join("forbidden-exec-write").exists(),
+                "rejected image ran user code"
+            );
             assert!(guard.refreeze().is_err());
             assert!(guard.check().is_err());
             assert_eq!(sibling.counters(), sibling_before);
             assert_eq!(read_task(sibling_pid).unwrap().unwrap().state, 't');
             guard.release().unwrap();
+            assert!(
+                read_task(replacement_pid)
+                    .unwrap()
+                    .is_none_or(|task| matches!(task.state, 'Z' | 'X')),
+                "rejected actor survived detach"
+            );
+            assert!(!replacement.path.join("forbidden-exec-write").exists());
             sibling.resumed(&sibling_before);
             return;
         }

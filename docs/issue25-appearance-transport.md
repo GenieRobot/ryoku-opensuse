@@ -91,6 +91,16 @@ Direct socket tests bypass UI/CLI: query followed by a malicious write, connecti
 reuse, separate static/video helper calls, and the independent theme handoff.
 Actor tests cover unrelated sibling isolation, a late fork/allowed descendant
 exec followed by refreeze, actor exec replacement and poisoned-refreeze refusal.
+An intermittent EXEC/refreeze regression found that signal injection at an EXEC
+stop did not reliably terminate a rejected image. The correction retains exec
+validation through emergency/final refreeze and uses pidfd-bound SIGKILL plus
+bounded observed death before cleanup. Five repeated outer test runs pass; each
+also proves no rejected-image write marker and no surviving actor after detach.
+The [retained failed and corrected run logs](../infra/tumbleweed-lab/evidence/issue25-actor-refreeze-20261025.log)
+show the failure and correction explicitly. Linux's [ptrace exec/event-stop
+contract](https://man7.org/linux/man-pages/man2/ptrace.2.html) explains the distinct
+exec-stop and signal-delivery semantics.
+
 Helper tests preserve Rejected wire shape and verify success fields/caller denial.
 Bundle tests reject missing/ambiguous/stale/account-mismatched provenance.
 
