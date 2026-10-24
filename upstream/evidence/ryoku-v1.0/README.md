@@ -6,6 +6,20 @@ exported source mapping/blob, byte digest and executable mode. `source-sites.jso
 records the selected non-vendor native source text scan, including candidate
 QML import lines. It is a text index, so imports inside embedded scripts and
 quoted paths are candidates rather than validated module identities.
+
+The area disposition ledgers distinguish current source selection from feature
+support: `hub-store-disposition.tsv` records 728 current files;
+`ryogami-rashin-disposition.tsv` records 769 current files and bridge inputs;
+`cli-lifecycle-disposition.tsv` records 774 current/prior paths (769 current
+CLI files plus five upstream deletions). Each records exact Git identities and
+selection/install dispositions. `cli-lifecycle-sites.tsv` records 835 original
+write/process/probe candidate lines in 138 non-vendor production Go files.
+It is a lexical candidate index, not complete behavioral or recovery proof.
+The verified upstream Git tree preserves the complete CLI; selected
+Source2/Source3 exports currently do not include that root, so complete CLI
+source-only archive closure remains pending. These review records remove no
+source/package roots and do not reduce the full Ryogami target.
+
 `qml-import-names.txt` is the scanner's complete unique named-module graph,
 including transitive modules and writer-only Hyprland/picker QML. The native
 scanner parses QML and is authoritative for that named-module inventory.

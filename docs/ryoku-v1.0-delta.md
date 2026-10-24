@@ -73,6 +73,13 @@ path set and each excluded set, not just directory totals.
 
 ## Completion state
 
+The CLI source-review head `0d70b432600284f8bc50cf9c174a1b92ce49c875`
+passed hosted Rust [run 40129176975](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40129176975).
+All Ryogami source/package/UI nodes remain intact; no new export root or
+feature was removed. CLI archival coverage and protected behavioral/native
+acceptance remain open, as detailed in the source review. This CI result
+does not complete an area checklist or the combined #173/#25/#26 gate.
+
 The reproducible candidate exports, immutable file/blob/site evidence,
 reviewed command refusals, signed snapshot dependency selections and licensing
 dispositions are detailed in [the source review](ryoku-v1.0-source-review.md).

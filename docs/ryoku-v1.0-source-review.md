@@ -189,6 +189,35 @@ make an unresolved runtime alias or generated module disappear.
 
 ## Acceptance and remaining evidence
 
+### Source-review checkpoint (24 October 2026)
+
+Hosted Rust checks [run 40129176975](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40129176975)
+completed successfully for exact source-review head
+`0d70b432600284f8bc50cf9c174a1b92ce49c875`. That result covers the CLI
+review and earlier full Ryogami preservation handoff. Subsequent
+documentation-only status updates do not relabel that run as testing another
+commit. The local checks for these review documents are immutable ledger/line
+integrity, local links and whitespace; the removed build cache stays removed.
+
+The full Ryogami daemon/editor/livewall/module/alias/UI/readiness payload is
+unchanged. No source/package root or feature was removed by the area reviews.
+Hub/store has 728 current-file dispositions, Ryogami/Rashin 769, and CLI
+lifecycle 774 current/prior paths with 835 original source-site records.
+These inventories do not certify the reachable mutation paths. #25 owns core
+appearance/settings integration through the existing Rust authorization,
+complete capture and linked pre/post mutation contracts; package operations
+remain #27–29, service/security scope #31/#32. Image/model/file deletion and
+arbitrary hooks still need explicit typed scope and bounded write ownership.
+
+The full verified Git tree preserves CLI source/provenance, but existing
+Source2/Source3 are selected exports and contain no `ryoku/cli` root.
+Complete CLI source-only archive coverage, per-reconciler/host-verb semantic
+proof, and the owned Rust equivalents remain open. Additional #173 gates are
+the remaining delta rows, actual WaveCapture binary ownership, picker font
+license delivery and complete notices, native RPM/plugin/QML/ELF/tool checks,
+and fresh #25/#26 behavior/recovery acceptance. The paused builder/storage
+gate is unchanged; a green hosted Rust run proves none of those native gates.
+
 The Rust source/export/index and command-policy checks are independent of
 the KVM slot. Sandbox Unix/TCP socket failures are environment limitations,
 separate from product results; socket tests must be rerun with ordinary local
