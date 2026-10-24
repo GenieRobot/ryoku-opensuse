@@ -647,7 +647,10 @@ impl MutationIntegration for Installer<'_> {
         self.session.ensure_checkpoint_space().map_err(|_| GateError::InsufficientSpace)
     }
     fn capture(&mut self, _: &PlannedChange) -> Result<CheckpointEvidence, GateError> {
-        Installer::capture(self, false).map_err(|_| GateError::CheckpointUnverified)
+        Installer::capture(self, false).map_err(|error| {
+            eprintln!("installer pre-change checkpoint failed: {}", checkpoint_diagnostic(&error));
+            GateError::CheckpointUnverified
+        })
     }
     fn revalidate(
         &mut self,
@@ -728,9 +731,60 @@ impl MutationIntegration for Installer<'_> {
         before: &VerifiedLinkedGeneration,
     ) -> Result<VerifiedPostChangeGeneration, GateError> {
         VerifiedPostChangeGeneration::validate(
-            Installer::capture(self, true).map_err(|_| GateError::PostChangeFailed)?,
+            Installer::capture(self, true).map_err(|error| {
+                eprintln!(
+                    "installer post-change checkpoint failed: {}",
+                    checkpoint_diagnostic(&error)
+                );
+                GateError::PostChangeFailed
+            })?,
             before,
         )
+    }
+}
+
+fn checkpoint_diagnostic(error: &str) -> String {
+    error
+        .bytes()
+        .take(2048)
+        .map(|byte| if (0x20..=0x7e).contains(&byte) { char::from(byte) } else { '?' })
+        .collect()
+}
+
+fn reconcile_pre_apply(
+    status: &crate::OperationStatus,
+    context: &mut crate::mutation_gate::MutationContext,
+    receipt: &OsStr,
+) -> Result<bool, String> {
+    use crate::mutation_gate::{MutationOutcome, MutationStage};
+    if receipt != "none"
+        || !matches!(
+            context.stage,
+            MutationStage::Preflight
+                | MutationStage::StateChecking
+                | MutationStage::Capturing
+                | MutationStage::Revalidating
+        )
+        || !matches!(
+            (context.plan.operation_key.as_str(), status.action),
+            ("installer-install-v1", ManagedActionKind::InstallPackage)
+                | ("installer-remove-v1", ManagedActionKind::RemovePackage)
+                | ("installer-migrate-v1", ManagedActionKind::ApplyProfile)
+        )
+        || !context.valid_for(status)
+    {
+        return Err("before-change reconciliation requires valid installer pre-apply history and none receipt".into());
+    }
+    match context.outcome {
+        None => {
+            context.outcome = Some(MutationOutcome::FailedBeforeChange);
+            Ok(true)
+        }
+        // A prior failure may already have durably classified its pre-apply
+        // record. Acknowledge that exact durable result without
+        // rewriting history or clearing any potentially mutating operation.
+        Some(MutationOutcome::FailedBeforeChange) => Ok(false),
+        _ => Err("before-change reconciliation requires unresolved or already-failed-before-change history".into()),
     }
 }
 fn verify_signature(path: &std::path::Path) -> Result<(), String> {
@@ -895,17 +949,14 @@ fn recover(args: &[OsString], output: &mut impl Write) -> Result<(), String> {
     {
         return Err("not an unfinished installer operation".into());
     }
-    if matches!(
+    let record = if matches!(
         context.stage,
         MutationStage::Preflight
             | MutationStage::StateChecking
             | MutationStage::Capturing
             | MutationStage::Revalidating
     ) {
-        if args[3] != "none" || context.outcome.is_some() {
-            return Err("before-change reconciliation requires unresolved pre-apply history and none receipt".into());
-        }
-        context.outcome = Some(MutationOutcome::FailedBeforeChange);
+        reconcile_pre_apply(&status, &mut context, &args[3])?
     } else {
         let restore_id = Identifier::new(args[3].to_str().ok_or("invalid restore ID")?.to_owned())
             .map_err(|_| "invalid restore ID")?;
@@ -981,10 +1032,13 @@ fn recover(args: &[OsString], output: &mut impl Write) -> Result<(), String> {
             restore_id,
             source_manifest_sha256: checkpoint.manifest_sha256.clone(),
         });
+        true
+    };
+    if record {
+        status.phase = crate::OperationPhase::Failed;
+        status.error = Some(crate::ServiceError::RecoveryUnavailable);
+        journal.record_mutation(status, context).map_err(|e| format!("{e:?}"))?;
     }
-    status.phase = crate::OperationPhase::Failed;
-    status.error = Some(crate::ServiceError::RecoveryUnavailable);
-    journal.record_mutation(status, context).map_err(|e| format!("{e:?}"))?;
     session.finish().map_err(|e| e.to_string())?;
     writeln!(output,"installer_reconciled operation={} original_failure=retained next_operation=requires_fresh_preview_and_checkpoint",operation.as_str()).map_err(|e| e.to_string())?;
     Ok(())
@@ -993,6 +1047,141 @@ fn recover(args: &[OsString], output: &mut impl Write) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn checkpoint_diagnostics_are_bounded_single_line_ascii() {
+        assert_eq!(
+            checkpoint_diagnostic("Filesystem(ENOENT)\n\u{1b}[31m"),
+            "Filesystem(ENOENT)??[31m"
+        );
+        assert_eq!(checkpoint_diagnostic(&"x".repeat(4096)).len(), 2048);
+        assert!(checkpoint_diagnostic("é").is_ascii());
+    }
+
+    #[test]
+    fn persisted_pre_apply_recovery_is_idempotent_and_refuses_other_boundaries() {
+        use crate::mutation_gate::{
+            LinkedGeneration, MutationContext, MutationOutcome, MutationStage,
+        };
+        use crate::{OperationJournal, OperationPhase, OperationStatus, ServiceError};
+        let fixture = Fixture::new();
+        let stages = [
+            MutationStage::Preflight,
+            MutationStage::StateChecking,
+            MutationStage::Capturing,
+            MutationStage::Revalidating,
+        ];
+        for (index, stage) in stages.iter().enumerate() {
+            let path = fixture.path.join(format!("mutation-{index}.log"));
+            let file = OpenOptions::new()
+                .create_new(true)
+                .read(true)
+                .append(true)
+                .mode(0o600)
+                .open(&path)
+                .unwrap();
+            let mut journal = OperationJournal::open(file).unwrap();
+            let operation = OperationId::new(format!("installer-pre-apply-{index}")).unwrap();
+            let mut context = MutationContext {
+                plan: PlannedChange {
+                    operation_key: "installer-install-v1".into(),
+                    plan_fingerprint: "11".repeat(32),
+                    affected_state_fingerprint: "22".repeat(32),
+                },
+                checkpoint: None,
+                post_checkpoint: None,
+                stage: MutationStage::Preflight,
+                outcome: None,
+                installer_restore: None,
+            };
+            for current in stages.iter().take(index + 1) {
+                context.stage = *current;
+                if *current == MutationStage::Revalidating {
+                    context.checkpoint = Some(LinkedGeneration {
+                        transaction_id: Identifier::new(format!("{}-pre", operation.as_str()))
+                            .unwrap(),
+                        generation_id: Identifier::new(format!(
+                            "{}-pre-generation",
+                            operation.as_str()
+                        ))
+                        .unwrap(),
+                        manifest_sha256: ryoku_recovery::Sha256::new("aa".repeat(32)).unwrap(),
+                        snapshot: SnapshotLink::new(
+                            Identifier::new("root").unwrap(),
+                            "42",
+                            "11111111-1111-1111-1111-111111111111",
+                        )
+                        .unwrap(),
+                    });
+                }
+                let status = OperationStatus {
+                    operation_id: operation.clone(),
+                    action: ManagedActionKind::InstallPackage,
+                    phase: if *current == MutationStage::Preflight {
+                        OperationPhase::Accepted
+                    } else {
+                        OperationPhase::Capturing
+                    },
+                    progress: None,
+                    error: None,
+                };
+                journal.record_mutation(status, context.clone()).unwrap();
+            }
+            drop(journal);
+            let reopen = || {
+                OperationJournal::open(
+                    OpenOptions::new().read(true).append(true).open(&path).unwrap(),
+                )
+                .unwrap()
+            };
+            let mut journal = reopen();
+            let mut status = journal.get(&operation).unwrap().clone();
+            let mut context = journal.mutation_context(&operation).unwrap().clone();
+            assert_eq!(context.stage, *stage);
+            assert!(reconcile_pre_apply(&status, &mut context, OsStr::new("none")).unwrap());
+            status.phase = OperationPhase::Failed;
+            status.error = Some(ServiceError::RecoveryUnavailable);
+            journal.record_mutation(status, context).unwrap();
+            drop(journal);
+            let before = fs::read(&path).unwrap();
+            let journal = reopen();
+            let status = journal.get(&operation).unwrap();
+            let context = journal.mutation_context(&operation).unwrap();
+            assert_eq!(context.outcome, Some(MutationOutcome::FailedBeforeChange));
+            assert!(
+                !reconcile_pre_apply(status, &mut context.clone(), OsStr::new("none")).unwrap()
+            );
+            assert_eq!(fs::read(&path).unwrap(), before);
+            assert!(journal.recovery_required().is_empty());
+            assert!(
+                reconcile_pre_apply(
+                    status,
+                    &mut context.clone(),
+                    OsStr::new("unrelated-linked-restore")
+                )
+                .is_err()
+            );
+            let mut wrong_status = status.clone();
+            wrong_status.phase = OperationPhase::Capturing;
+            wrong_status.error = None;
+            assert!(
+                reconcile_pre_apply(&wrong_status, &mut context.clone(), OsStr::new("none"))
+                    .is_err()
+            );
+            wrong_status = status.clone();
+            wrong_status.action = ManagedActionKind::RemovePackage;
+            assert!(
+                reconcile_pre_apply(&wrong_status, &mut context.clone(), OsStr::new("none"))
+                    .is_err()
+            );
+            let mut wrong_context = context.clone();
+            wrong_context.stage = MutationStage::Applying;
+            assert!(reconcile_pre_apply(status, &mut wrong_context, OsStr::new("none")).is_err());
+            let mut wrong_context = context.clone();
+            wrong_context.outcome = Some(MutationOutcome::MayHaveMutated);
+            assert!(reconcile_pre_apply(status, &mut wrong_context, OsStr::new("none")).is_err());
+        }
+    }
 
     #[test]
     fn account_bootstrap_accepts_only_the_ordinary_caller_and_exact_arguments() {

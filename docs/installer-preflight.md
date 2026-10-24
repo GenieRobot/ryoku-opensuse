@@ -136,6 +136,12 @@ root console, explicitly reconcile that record before planning fresh work:
 sudo ryoku-install recover UID OPERATION none
 ```
 
+If the durable journal already records that exact installer operation as
+`FailedBeforeChange`, the same `none` reconciliation is idempotent and does not
+rewrite history. Any other receipt, stage, action or invalid failure status
+refuses. Checkpoint failures retain a bounded single-line underlying cause in
+the installer unit's journal as well as the protected mutation result.
+
 After `Applying`, retain the original `OPERATION-pre` checkpoint and restore
 that exact source through the independent console:
 

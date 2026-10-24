@@ -80,3 +80,14 @@ failure = "live repo-update metadata changed from 3667c679...be589 to 6d506462..
 correction = "dedicated issue24 fixture selects only the independently authenticated exact current update digest; accepted recovery fixtures unchanged"
 disposal = "independent zero-process scan, source hash unchanged; owned disposable inputs removed"
 acceptance = "none; no installer lifecycle or reset credited"
+
+[run06]
+candidate = "224f123348d3ccf672d29bf14ef71f947d891950"
+report = "issue24-native-20261022/run06.txt"
+result = "failed-during-first-clean-install-pre-change-capture"
+observed = "signed inputs; fresh derivation/sole-disk boot; initializer; KDE; all four native BuildRequires builds; signed closure/bootstrap; account writer bootstrap and nonmutating preview passed"
+failure = "first native24-clean operation stopped during Capturing before a verified checkpoint or Applying record"
+diagnostic = "separate read-only inspection and disposable overlay reproduction; exact unit result exit-code/status2 and CheckpointUnverified; original failed disk hash unchanged"
+correction = "retain bounded checkpoint cause in unit journal; idempotently acknowledge exact durable FailedBeforeChange pre-apply recovery"
+status = "underlying capture cause still under isolated diagnostic investigation"
+acceptance = "none; no installer lifecycle or reset credited"
