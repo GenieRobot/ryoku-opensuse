@@ -103,3 +103,8 @@ build/load validation, security boundary review, and VM acceptance are still ope
 [#173](https://github.com/GenieRobot/ryoku-opensuse/issues/173). Until those
 gates pass, #23 remains historical evidence for its original artifact and
 #25/#26 remain open.
+
+The partial [login/lock/Bluetooth source unit](ryoku-v1.0-lock-bluetooth-review.md)
+pins 122 paths and 27 API/provenance inputs, with #177/#178/#25 ownership for
+PAM/session writes, explicit pairing consent and bond-repair recovery. It
+retains the full target and leaves complete semantic/native acceptance open.

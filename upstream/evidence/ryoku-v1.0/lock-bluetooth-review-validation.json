@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "project_base_commit": "a38ac529e39e06ad3ad2ce1430af941590544462",
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "prior_commit": "98a0368253d9628be72b853985878a5db90e1547",
+  "input_sha256": {
+    "docs/ryoku-v1.0-lock-bluetooth-review.md": "88c1134306a60f15d262e994bf802dfca005d9cec28c9b2f8d12902ff0d53bad",
+    "upstream/evidence/ryoku-v1.0/lock-bluetooth-disposition.tsv": "5a0adea40a0356b1880b1d364962cbb80965379913d350814ab232f82f71c98e",
+    "upstream/evidence/ryoku-v1.0/lock-bluetooth-api-boundary.json": "80654454dfe0b6492029fb8d08edf38d077299c7daff0e99908b849ea3661aa0",
+    "upstream/evidence/ryoku-v1.0/runtime-source-manifest.tsv": "0ad951557e17c3796d5a218bca2b4dfee7a349f44861d247ea3c500de334db21",
+    "upstream/evidence/ryoku-v1.0/writer-source-manifest.tsv": "92182b8e40385bdfb4fd9e699edaa6cea112466b135fc25d22a6b716e66d4136"
+  },
+  "checks": {
+    "exact_current_prior_path_identities": 122,
+    "current_prior_paths": [
+      122,
+      84
+    ],
+    "complete_lockscreen_entries": 66,
+    "complete_direct_bluetooth_qml_candidates": 45,
+    "source2_selected": 47,
+    "source3_selected": 48,
+    "delta_status": {
+      "added": 38,
+      "modified": 28,
+      "unchanged": 56
+    },
+    "api_sources_with_exact_anchors": 27,
+    "license_asset_provenance_identities": 6,
+    "absolute_link_literal_verified_without_dereference": true,
+    "selection_owner_and_local_links": "passed",
+    "project_boundary_hashes": "passed"
+  },
+  "scope": "Source-only deterministic checks; no source script/QML, authentication, BlueZ or native acceptance execution. Full features retained; complete #173 gates remain open."
+}

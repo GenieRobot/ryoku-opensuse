@@ -1,0 +1,893 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "prior_commit": "98a0368253d9628be72b853985878a5db90e1547",
+  "scope": "Pinned source/API review only, not native or complete per-operation acceptance. No source/export/spec/runtime change.",
+  "sources": [
+    {
+      "source": "ryoku/shell/scripts/ryoku-bluetooth-link",
+      "git_mode": "100755",
+      "git_blob": "8e15d6e3f0fd26307cc2dbb3437f06666bd1d6fa",
+      "sha256": "0caa79caf925bbde174d9bb77a71490167765b1c4a9aeb4144a8cd2054702406",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 28,
+          "text": "  yes | \"$btctl\" --agent KeyboardDisplay --timeout \"$timeout\" \"$@\" 2>&1"
+        },
+        {
+          "line": 48,
+          "text": "  \"$btctl\" scan off >/dev/null 2>&1 || true"
+        },
+        {
+          "line": 58,
+          "text": "        \"$btctl\" power on >/dev/null 2>&1 || true"
+        },
+        {
+          "line": 71,
+          "text": "  out=$(btc 25 pair \"$address\")"
+        },
+        {
+          "line": 81,
+          "text": "  out=$(btc 10 trust \"$address\")"
+        },
+        {
+          "line": 91,
+          "text": "  out=$(btc 20 connect \"$address\")"
+        },
+        {
+          "line": 96,
+          "text": "  out=$(btc 20 connect \"$address\")"
+        },
+        {
+          "line": 118,
+          "text": "  \"$btctl\" remove \"$address\" >/dev/null 2>&1 || exit 2"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/shell/systemd/user/ryoku-bt-agent.service",
+      "git_mode": "100644",
+      "git_blob": "3f56499b98c0d3333eb7958d407d24430c3fe089",
+      "sha256": "dc2906cae75befcfa9a1aa29f64bb4aed55150790af2d4615833078d711fa142",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 8,
+          "text": "PartOf=bluetooth.service"
+        },
+        {
+          "line": 18,
+          "text": "ExecStart=/bin/sh -c 'tail -f /dev/null | bluetoothctl --agent KeyboardDisplay'"
+        },
+        {
+          "line": 17,
+          "text": "# auto-confirms the comparison prompts bluetoothd sends it."
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/bluetooth/ryoku-bluetooth-power",
+      "git_mode": "100755",
+      "git_blob": "8ac3bf4816ff60c8ea7f597f18e24fe28ca3a888",
+      "sha256": "9ad882fb8b365b7f24fa13bd16cd4b29bf0fe336ac4b1b9bed2ac25561346a8f",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 6,
+          "text": "save_state() {"
+        },
+        {
+          "line": 59,
+          "text": "  save_state \"$state\" || return 1"
+        },
+        {
+          "line": 33,
+          "text": "      if command -v bluetoothctl >/dev/null 2>&1 && bluetoothctl power off >/dev/null 2>&1; then"
+        },
+        {
+          "line": 45,
+          "text": "        if bluetoothctl power on >/dev/null 2>&1; then"
+        },
+        {
+          "line": 49,
+          "text": "          bluetoothctl power on >/dev/null 2>&1 && changed=0"
+        },
+        {
+          "line": 36,
+          "text": "      if command -v rfkill >/dev/null 2>&1 && rfkill block bluetooth >/dev/null 2>&1; then"
+        },
+        {
+          "line": 41,
+          "text": "      if command -v rfkill >/dev/null 2>&1 && rfkill unblock bluetooth >/dev/null 2>&1; then"
+        },
+        {
+          "line": 14,
+          "text": "  mv -f \"$tmp\" \"$state_file\""
+        }
+      ]
+    },
+    {
+      "source": "ryoku/hub/quickshell/pages/ConnectionsPage.qml",
+      "git_mode": "100644",
+      "git_blob": "57feb56fba39ef095aff356bed7ad521f8fef624",
+      "sha256": "3861e34dcdd78e62953f352b593832441b71335382ef2ab6f02f409290875a24",
+      "source2_payload": [
+        "hub/quickshell/pages/ConnectionsPage.qml"
+      ],
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 1466,
+          "text": "            pairProc.command = [\"ryoku-bluetooth-link\", d.address];"
+        },
+        {
+          "line": 1452,
+          "text": "                    d.disconnect();"
+        },
+        {
+          "line": 1474,
+          "text": "            Quickshell.execDetached([\"ryoku-bluetooth-power\", v ? \"on\" : \"off\"]);"
+        },
+        {
+          "line": 1463,
+          "text": "                bt.adapter.discovering = false;"
+        },
+        {
+          "line": 1489,
+          "text": "                bt.adapter.discovering = false;"
+        },
+        {
+          "line": 1496,
+          "text": "            onTriggered: if (bt.adapter) bt.adapter.discovering = false"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/services/BtLink.qml",
+      "git_mode": "100644",
+      "git_blob": "fe0056ba3880b96870b5a25e505e7af09dac6667",
+      "sha256": "6837b9a13d22d201ad29f809a38a0c29c3fc18108dfdb55a32dc89c1e48e5ebe",
+      "source2_payload": [
+        "shell/quickshell/shell/services/BtLink.qml"
+      ],
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 135,
+          "text": "        BluetoothDiscovery.stopAll(Bluetooth.defaultAdapter);"
+        },
+        {
+          "line": 136,
+          "text": "        return [\"ryoku-bluetooth-link\", String(mac || \"\")];"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/services/BluetoothDiscovery.qml",
+      "git_mode": "100644",
+      "git_blob": "2f01351a04c1adceb369e9a8322166c465a1345d",
+      "sha256": "6a9f469b24aa3280982dc655f1d7a62608d97759021041f964685c62f8a6f824",
+      "source2_payload": [
+        "shell/quickshell/shell/services/BluetoothDiscovery.qml"
+      ],
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 12,
+          "text": "    function setDiscovering(owner, adapter, enabled) {"
+        },
+        {
+          "line": 15,
+          "text": "            adapter.discovering = owners.length > 0 && adapter.enabled;"
+        },
+        {
+          "line": 21,
+          "text": "            adapter.discovering = false;"
+        },
+        {
+          "line": 18,
+          "text": "    function stopAll(adapter) {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/sddm/setup",
+      "git_mode": "100755",
+      "git_blob": "f713a7345be5e33831b50d72fdbf5d0432d31839",
+      "sha256": "88cbc9a4931aa1b5469d3363b1d9b8e020dc19d0ce97cac5d6801a84a63424af",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 11,
+          "text": "#   3. wire /etc/pam.d/sddm for the shipped keyring mode: unlock-on-login by"
+        },
+        {
+          "line": 71,
+          "text": "PAM_FILE=\"/etc/pam.d/sddm\""
+        },
+        {
+          "line": 77,
+          "text": "  priv systemctl enable sddm.service"
+        },
+        {
+          "line": 84,
+          "text": "  priv systemctl set-default graphical.target"
+        },
+        {
+          "line": 125,
+          "text": "    priv sed -i '/^[[:space:]]*auth[[:space:]].*include[[:space:]].*system-login/a auth optional pam_gnome_keyring.so' \"$PAM_FILE\""
+        },
+        {
+          "line": 128,
+          "text": "    priv sed -i '/^[[:space:]]*session[[:space:]].*include[[:space:]].*system-login/a session optional pam_gnome_keyring.so auto_start' \"$PAM_FILE\""
+        },
+        {
+          "line": 136,
+          "text": "      priv sed -i '/pam_gnome_keyring\\.so/d' \"$PAM_FILE\""
+        },
+        {
+          "line": 72,
+          "text": "SESSION_DIR=\"/usr/share/wayland-sessions\""
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/install-qylock",
+      "git_mode": "100755",
+      "git_blob": "d7cab4eaecc7549a29bb837fe879e109acac2e3b",
+      "sha256": "1208ca0ac6db0dc2fc7feaea32eb662c68776c4a921a0e95731d32783ff0c35a",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 104,
+          "text": "  PRIV=(sudo -n)"
+        },
+        {
+          "line": 15,
+          "text": "#   2. writes /etc/sddm.conf.d/99-ryoku.conf with [Theme] Current=ryoku"
+        },
+        {
+          "line": 29,
+          "text": "# Privilege model: system paths (/usr/share/sddm, /etc/sddm.conf.d) need root;"
+        },
+        {
+          "line": 367,
+          "text": "  echo \"  greeter selection -> /etc/sddm.conf.d/99-ryoku.conf\""
+        },
+        {
+          "line": 126,
+          "text": "write_user() {"
+        },
+        {
+          "line": 321,
+          "text": "  write_user \"$product_tape/PROVENANCE.txt\" <<'EOF'"
+        },
+        {
+          "line": 341,
+          "text": "    write_user \"$preference\" <<'EOF'"
+        },
+        {
+          "line": 159,
+          "text": "STAGE_TMP=\"$STAGE_ROOT.staging.$$\""
+        },
+        {
+          "line": 305,
+          "text": "  LOCK_DIR=\"$STAGE_TMP/lockscreen\""
+        },
+        {
+          "line": 306,
+          "text": "  STAGED_THEME_DIR=\"$STAGE_TMP/themes\""
+        },
+        {
+          "line": 142,
+          "text": "  [[ $(sha256sum \"$dir/font/Outfit-Black.ttf\" | cut -d' ' -f1) == f240e6128c31a75aa3f456ea1ff3b0fda382176681788ae3d244d08e3fa7d6cd ]] || return 1"
+        },
+        {
+          "line": 150,
+          "text": "  for rel in Main.qml font/Outfit-Black.ttf metadata.desktop theme.conf preview.gif; do"
+        },
+        {
+          "line": 335,
+          "text": "    \"$product_tape/font/Outfit-Black.ttf\" \\"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/ryoku-qylock-activate",
+      "git_mode": "100755",
+      "git_blob": "853322f558a65c7b53afa7f32bde0e03c34eb112",
+      "sha256": "60517c96cc1bc20b77cfce0f42731e83a4e4f4bc3375aa29175f7e8d8ca49721",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 9,
+          "text": "exec 4>\"$runtime_dir/ryoku-qylock-mutation.lock\""
+        },
+        {
+          "line": 289,
+          "text": "restore_previous() {"
+        },
+        {
+          "line": 296,
+          "text": "  restore_previous"
+        },
+        {
+          "line": 301,
+          "text": "  restore_previous"
+        },
+        {
+          "line": 279,
+          "text": "if [[ -e $live_lock ]] && ! mv \"$live_lock\" \"$lock_backup\"; then"
+        },
+        {
+          "line": 283,
+          "text": "if [[ -e $live_core ]] && ! mv \"$live_core\" \"$core_backup\"; then"
+        },
+        {
+          "line": 284,
+          "text": "  [[ ! -e $lock_backup ]] || mv \"$lock_backup\" \"$live_lock\""
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/ryoku-qylock-lock",
+      "git_mode": "100755",
+      "git_blob": "db8701608f2f55adfd1d0ae4203ecedcc14e6d80",
+      "sha256": "ed7f0ae827b89629784575c851c79a9950766c7c86f3d1faf615ee34064caa4d",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 15,
+          "text": "exec 8>\"$runtime_dir/ryoku-qylock-launch.lock\""
+        },
+        {
+          "line": 38,
+          "text": "exec \"$lock_script\" \"$@\""
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/sddm/ryoku-greeter",
+      "git_mode": "100755",
+      "git_blob": "c6aebd3c58b9a066e725467bd728971af5fd273c",
+      "sha256": "82741dcf7bc927f226985055e0a0438074f377ba8033cd6eaba67b2cd4ab37c3",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 5,
+          "text": "# Runs `weston --shell=kiosk` at each connected output's top mode (native"
+        },
+        {
+          "line": 12,
+          "text": "# it runs before weston takes the card. Any uncertainty -- no modetest, nothing"
+        },
+        {
+          "line": 13,
+          "text": "# connected, an empty parse -- falls back to plain weston (preferred mode), so"
+        },
+        {
+          "line": 193,
+          "text": "greeter_primary_file=\"${RYOKU_GREETER_PRIMARY_FILE:-/var/lib/ryoku/greeter-primary}\""
+        },
+        {
+          "line": 195,
+          "text": "# apply. Same reason as greeter-primary: the greeter runs as sddm and cannot"
+        },
+        {
+          "line": 198,
+          "text": "greeter_numlock_file=\"${RYOKU_GREETER_NUMLOCK_FILE:-/var/lib/ryoku/greeter-numlock}\""
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/sddm/ryoku-greeter-guard",
+      "git_mode": "100755",
+      "git_blob": "19052fedc0820d377547700b16ba7c2db7f3e083",
+      "sha256": "9ac8ceacb358f9a17e93f09b2fac1fe2808bc4aa9dd15a9fb62cb99aee8b3869",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 31,
+          "text": "state=${RYOKU_GREETER_GUARD_STATE:-/run/ryoku/greeter-guard}"
+        },
+        {
+          "line": 91,
+          "text": "  \"$host\" svc --system restart sddm"
+        },
+        {
+          "line": 125,
+          "text": "  local match_removed=\"type='signal',sender='org.freedesktop.login1',interface='org.freedesktop.login1.Manager',member='SessionRemoved'\""
+        },
+        {
+          "line": 153,
+          "text": "          *'interface=org.freedesktop.login1.Manager; member=SessionRemoved'*)"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/sddm/ryoku-greeter-guard.service",
+      "git_mode": "100644",
+      "git_blob": "0754daa6959a2892166639a9ef35bf5387a477e0",
+      "sha256": "974da6e48fe5a3449d2832736e1561bc6e3f363f3570f442783709f5a7f277db",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 14,
+          "text": "ExecStart=/usr/share/ryoku/lockscreen/ryoku-greeter-guard"
+        },
+        {
+          "line": 19,
+          "text": "WantedBy=graphical.target"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/sddm/ryoku-wayland-session",
+      "git_mode": "100755",
+      "git_blob": "39aa30616a0e505176af6f021c53d33d7642444c",
+      "sha256": "f4ae72fc450567f40325b08a87664752a2f46d8c9b49f52557a747744fec09c3",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 36,
+          "text": "        eval \"export $assignment\""
+        },
+        {
+          "line": 119,
+          "text": "  timeout \"${RYOKU_SESSION_MATERIALIZE_TIMEOUT:-120}\" ryoku materialize >&2 || true"
+        },
+        {
+          "line": 149,
+          "text": "default=\"${RYOKU_WAYLAND_SESSION_DEFAULT:-/usr/share/sddm/scripts/wayland-session}\""
+        },
+        {
+          "line": 191,
+          "text": "exit 2"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/qylock/quickshell-lockscreen/lock_shell.qml",
+      "git_mode": "100644",
+      "git_blob": "b8647e018b8bf355c5b0cf849002eeaa1b2f1b3c",
+      "sha256": "669359f2fa2d9ebf9188253d084a18ea520123e2df022989b5d0645880ab8bf0",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 59,
+          "text": "            Quickshell.shellDir + \"/proof.sh\","
+        },
+        {
+          "line": 161,
+          "text": "        command: [Quickshell.shellDir + \"/unlock.sh\"]"
+        },
+        {
+          "line": 183,
+          "text": "        function onLoginSucceeded() {"
+        },
+        {
+          "line": 44,
+          "text": "    property bool proofPublished: false"
+        },
+        {
+          "line": 73,
+          "text": "        if (!lockSecure || !proofPublished || relockPending ||"
+        },
+        {
+          "line": 90,
+          "text": "        proofPublished = false"
+        },
+        {
+          "line": 312,
+          "text": "    // Uses Quickshell's WlSessionLock to cover all outputs with a secure"
+        },
+        {
+          "line": 319,
+          "text": "            WlSessionLock {"
+        },
+        {
+          "line": 344,
+          "text": "                    WlSessionLockSurface {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/qylock/quickshell-lockscreen/shim/SddmShim.qml",
+      "git_mode": "100644",
+      "git_blob": "426e440b8a51d85cbc08f7581740ccb2ded414e3",
+      "sha256": "096a381007c98df8b5df02d07b60521e796ee312bf08153a3b150a1b2ad62329",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 26,
+          "text": "import Quickshell.Services.Pam"
+        },
+        {
+          "line": 435,
+          "text": "    PamContext {"
+        },
+        {
+          "line": 471,
+          "text": "    PamContext {"
+        },
+        {
+          "line": 433,
+          "text": "    // configDirectory is the lock's own assets/pam/, so no root edit of"
+        },
+        {
+          "line": 438,
+          "text": "        configDirectory: Quickshell.shellDir + \"/assets/pam\""
+        },
+        {
+          "line": 475,
+          "text": "        configDirectory: Quickshell.shellDir + \"/assets/pam\""
+        },
+        {
+          "line": 448,
+          "text": "            if (result === PamResult.Success && shim.armWhenReady && shim.loginSessionActive) {"
+        },
+        {
+          "line": 457,
+          "text": "            } else if (result === PamResult.Success) {"
+        },
+        {
+          "line": 496,
+          "text": "            if (result === PamResult.Success && shim.armWhenReady && shim.loginSessionActive) {"
+        },
+        {
+          "line": 44,
+          "text": "    property bool loginSessionActive: false  // only the foreground VT may authenticate"
+        },
+        {
+          "line": 45,
+          "text": "    readonly property bool fingerprintReady: fpEnabled && fpHasFingers && loginSessionActive"
+        },
+        {
+          "line": 78,
+          "text": "        if (shim.loginSessionActive === active)"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/qylock/quickshell-lockscreen/proof.sh",
+      "git_mode": "100755",
+      "git_blob": "fd94b70a551b5ef3970145f3c7c5f2c3e0f8167a",
+      "sha256": "520d0434c71fb13b961c5df2fbbe9b3153c80d1b0ec944bb4479f3325b71cb9e",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 27,
+          "text": "write_value() {"
+        },
+        {
+          "line": 57,
+          "text": "        write_value \"$expected\" \"$token\""
+        },
+        {
+          "line": 61,
+          "text": "        write_value \"$marker\" \"$token\""
+        },
+        {
+          "line": 33,
+          "text": "process_holds_proof() {"
+        },
+        {
+          "line": 80,
+          "text": "        process_holds_proof \"$token\""
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/qylock/quickshell-lockscreen/ryoku-qylock-unlock-prepare",
+      "git_mode": "100755",
+      "git_blob": "5a71ebaac471b2e7fc8420cf0193613b5831a273",
+      "sha256": "e02154674c74da618688fccd94309ff681d3b6ac57ebdb7b886e26e04b707b49",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 13,
+          "text": "for command in ryoku-host jq loginctl busctl; do"
+        },
+        {
+          "line": 52,
+          "text": "  active=\"$(loginctl show-session \"$session_id\" --property=Active --value 2>/dev/null || true)\""
+        },
+        {
+          "line": 65,
+          "text": "   ryoku-shell unlock-prepare session \"$session_id\" >/dev/null 2>&1; then"
+        },
+        {
+          "line": 13,
+          "text": "for command in ryoku-host jq loginctl busctl; do"
+        },
+        {
+          "line": 20,
+          "text": "if ! ryoku-host transient is-active \"$unit\"; then"
+        },
+        {
+          "line": 21,
+          "text": "  ryoku-host svc --user reset-failed \"$unit\" >/dev/null 2>&1 || true"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/qylock/quickshell-lockscreen/unlock.sh",
+      "git_mode": "100755",
+      "git_blob": "affb43f4ab60d0b7da9aad44ccf65f21d688f40b",
+      "sha256": "1be39e18aa558a8934c081197f6e7f68c4d52e60d9b3fabf6ca7fd6656c46018",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 11,
+          "text": "prepare=\"$(dirname \"$0\")/ryoku-qylock-unlock-prepare\""
+        },
+        {
+          "line": 12,
+          "text": "[ -x \"$prepare\" ] || prepare=\"$(command -v ryoku-qylock-unlock-prepare)\""
+        },
+        {
+          "line": 14,
+          "text": "exec loginctl unlock-session \"$session_id\""
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/qylock/quickshell-lockscreen/assets/pam/ryoku-lock",
+      "git_mode": "100644",
+      "git_blob": "c2b7461479307782b097738124e60809cb9e5664",
+      "sha256": "96dee86ef6a4e26c7bf5995a428b88d8fcd27f150175079cf48d0f8952656a51",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 27,
+          "text": "auth        sufficient  pam_fprintd.so timeout=-1"
+        },
+        {
+          "line": 29,
+          "text": "account     required    pam_unix.so"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/qylock/quickshell-lockscreen/assets/pam/ryoku-lock-pw",
+      "git_mode": "100644",
+      "git_blob": "d033bb79add5fea012d68d67b3edd96bdfa5bcd2",
+      "sha256": "51c52d444c96c9423c7a18337a5f9e28bb5df5cf70b8f64e23d16b8d488eadcf",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 17,
+          "text": "auth        required    pam_unix.so nullok"
+        },
+        {
+          "line": 18,
+          "text": "account     required    pam_unix.so"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/qylock/README.ryoku.md",
+      "git_mode": "100644",
+      "git_blob": "f0006e5add90ef293207b4559d3ba006af71373a",
+      "sha256": "ab9278c339afdd46cff639a0bca3600ac951052e37526e3dac10a22b37954891",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 4,
+          "text": "Vendored at commit: cde4d11e9e3d385620becdc877a0521e40a55e47"
+        },
+        {
+          "line": 10,
+          "text": "LICENSE in this directory."
+        },
+        {
+          "line": 28,
+          "text": "2. **Parallel PAM conversations** \u2014 once the compositor-secure lock proof is"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/lockscreen/qylock/themes/clockwork/orbital/metadata.desktop",
+      "git_mode": "100644",
+      "git_blob": "13ed63d00702e8ec28330ba04c3bd802aa6a1647",
+      "sha256": "ba89b3691daaf33553c19183b0c098b8fe0685cc84cc28913b8ee5afb1b17dcf",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 1,
+          "text": "[SddmGreeterTheme]"
+        },
+        {
+          "line": 2,
+          "text": "Name=clockwork"
+        },
+        {
+          "line": 3,
+          "text": "Description=Orbital - Clockwork"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/hub/quickshell/pages/LockscreenPage.qml",
+      "git_mode": "100644",
+      "git_blob": "f45c157b269a6694e860f3264e889f402d96d7b1",
+      "sha256": "e3e1fbcfb7af1cc778b3993fc9690286554a1397396735c6d3ea3eae8c66e723",
+      "source2_payload": [
+        "hub/quickshell/pages/LockscreenPage.qml"
+      ],
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 41,
+          "text": "    readonly property string lockLauncher: \"ryoku-qylock-lock\""
+        }
+      ]
+    },
+    {
+      "source": "ryoku/shell/ipc/actions.go",
+      "git_mode": "100644",
+      "git_blob": "e053eae291ed48080cc100860657de83e6033da4",
+      "sha256": "746973c8ecd7a5d0f31ceab1008c11541606b547a6b9753842b017913d830140",
+      "source2_payload": [],
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 386,
+          "text": "\tlauncher, err := exec.LookPath(\"ryoku-qylock-lock\")"
+        }
+      ]
+    },
+    {
+      "source": "release/packages/ryoku-desktop/payload.sh",
+      "git_mode": "100755",
+      "git_blob": "40c2c8132974f0e392f59386b835faedba4d63a1",
+      "sha256": "9ec2410cd8def8ae8fb2b8f27c37e8644c7de36ce401e06c469014053c2a4678",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 303,
+          "text": "  install -Dm755 \"$_repo/ryoku/lockscreen/ryoku-qylock-activate\" \\"
+        },
+        {
+          "line": 304,
+          "text": "    \"$pkgdir/usr/bin/ryoku-qylock-activate\""
+        },
+        {
+          "line": 327,
+          "text": "    install -Dm644 \"$_repo/ryoku/lockscreen/sddm/ryoku-greeter-guard.service\" \\"
+        },
+        {
+          "line": 328,
+          "text": "      \"$pkgdir/usr/lib/systemd/system/ryoku-greeter-guard.service\""
+        },
+        {
+          "line": 505,
+          "text": "    install -Dm644 \"$_repo/ryoku/shell/systemd/user/ryoku-bt-agent.service\" \\"
+        },
+        {
+          "line": 506,
+          "text": "      \"$pkgdir/usr/lib/systemd/user/ryoku-bt-agent.service\""
+        }
+      ]
+    },
+    {
+      "source": "ryoku/shell/deploy.sh",
+      "git_mode": "100755",
+      "git_blob": "5aaf8dcc4e070199b32e1ab35f2b38a3b5c4602b",
+      "sha256": "7b6f4204f4c582d3ff3864f2aebc80cf988b0f5f070cad86f5f63edc8da60a6b",
+      "source2_payload": [],
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 1490,
+          "text": "  systemctl --user enable --now ryoku-bt-agent.service 2>/dev/null || true"
+        },
+        {
+          "line": 818,
+          "text": "    _priv_install \"$here/../lockscreen/sddm/ryoku-greeter-guard.service\" \\"
+        },
+        {
+          "line": 819,
+          "text": "      /usr/lib/systemd/system/ryoku-greeter-guard.service 644"
+        },
+        {
+          "line": 820,
+          "text": "    sudo systemctl enable --quiet ryoku-greeter-guard.service || true"
+        }
+      ]
+    }
+  ],
+  "raw_link": {
+    "source": "ryoku/lockscreen/qylock/quickshell-lockscreen/imports/QtGraphicalEffects/private",
+    "git_mode": "120000",
+    "git_blob": "7babf6a29f7b8e6d1f5cf10a6d1a8d118e5acd3c",
+    "literal_target": "/usr/lib/qt6/qml/Qt5Compat/GraphicalEffects/private",
+    "policy": "Absolute directory target is not accepted by Source3 regular-blob link policy. #177 must resolve native module packaging without changing the feature target."
+  },
+  "licensing_provenance": [
+    {
+      "source": "LICENSE",
+      "git_mode": "100644",
+      "git_blob": "f288702d2fa16d3cdf0035b15a9fcbc552cd88e7",
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "source": "NOTICE",
+      "git_mode": "100644",
+      "git_blob": "6e769a5f3828f5eee0a39a160e04d6c11e9b9295",
+      "bytes": 9105,
+      "sha256": "fa40700e93a3621ae793193a2f3ec16f21375afc85a319325ea4b95148878c24"
+    },
+    {
+      "source": "ryoku/lockscreen/qylock/LICENSE",
+      "git_mode": "100644",
+      "git_blob": "f288702d2fa16d3cdf0035b15a9fcbc552cd88e7",
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "source": "ryoku/lockscreen/qylock/README.ryoku.md",
+      "git_mode": "100644",
+      "git_blob": "f0006e5add90ef293207b4559d3ba006af71373a",
+      "bytes": 2398,
+      "sha256": "ab9278c339afdd46cff639a0bca3600ac951052e37526e3dac10a22b37954891"
+    },
+    {
+      "source": "ryoku/lockscreen/qylock/themes/clockwork/orbital/metadata.desktop",
+      "git_mode": "100644",
+      "git_blob": "13ed63d00702e8ec28330ba04c3bd802aa6a1647",
+      "bytes": 153,
+      "sha256": "ba89b3691daaf33553c19183b0c098b8fe0685cc84cc28913b8ee5afb1b17dcf"
+    },
+    {
+      "source": "ryoku/lockscreen/qylock/themes/clockwork/orbital/font/Outfit-Black.ttf",
+      "git_mode": "100644",
+      "git_blob": "c65a76aa8bf081169ef521ab05f8ecbfe497da7a",
+      "bytes": 55372,
+      "sha256": "f240e6128c31a75aa3f456ea1ff3b0fda382176681788ae3d244d08e3fa7d6cd"
+    }
+  ],
+  "unknowns": [
+    "Per-asset permission/notice closure for vendored font, preview and Qt compatibility shims is not proved by a GPL license file alone.",
+    "Native Tumbleweed SDDM/PAM/account policy, session-lock guarantees, module availability, BlueZ/polkit/device results and capture/restore are unverified.",
+    "Direct Quickshell BlueZ import candidates are inventory, not proof that every action path or loader is audited."
+  ],
+  "project_base_commit": "a38ac529e39e06ad3ad2ce1430af941590544462",
+  "project_boundary_inputs": [
+    {
+      "path": "packaging/rpm/ryoku-desktop.spec",
+      "sha256": "03c79ab1e6d6dc8234b95be49a5610b5b184d3c77d0335fdc678a96103470cb6"
+    },
+    {
+      "path": "packaging/rpm/upstream-writer-paths.txt",
+      "sha256": "7c23da52a5063c9e0e1cfa9c0a9fb81e9382bfd2987965349e8f6a70d5a7270a"
+    },
+    {
+      "path": "upstream/patches/issue18-writer-launch.patch",
+      "sha256": "1b614e25c7825788426e69556c5a7351e19b3c58ce37893373cea951074e15a1"
+    }
+  ]
+}

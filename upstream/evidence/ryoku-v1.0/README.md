@@ -176,3 +176,11 @@ spec metadata was checked using the ignored native `rpm-package-audit` test
 the ordinary test compares the complete parsed Quickshell module inventory
 against static Provides. Neither test substitutes for building/loading the
 refreshed native Quickshell RPM.
+
+`lock-bluetooth-disposition.tsv` and `lock-bluetooth-api-boundary.json` pin the
+complete 66-entry lockscreen tree, 45 direct Bluetooth QML candidates and
+11 integration inputs (122 current paths). The [source review](../../../docs/ryoku-v1.0-lock-bluetooth-review.md)
+separates #177/#178/#25 ownership from current selection, including parallel
+PAM/proof/session state, SDDM/user writes, agent auto-confirm, destructive bond
+repair and the absolute Qt compatibility link. Full capabilities remain target
+requirements; native policy, per-action coverage and asset rights stay open.
