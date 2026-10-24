@@ -1,6 +1,6 @@
 Name:           ryoku-tools
 Version:        0.1.0
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Native offline Ryoku recovery console
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse
@@ -27,13 +27,16 @@ Requires:       systemd
 Requires:       util-linux
 Requires:       coreutils
 Requires:       policycoreutils
+Requires:       zypper
+Requires:       rpm >= 4.19
 Requires:       ryoku-tools = %{version}-%{release}
 
 %description state-init
 Installs the existing Rust ryoku-state-init administrator command. When
 explicitly invoked as root it verifies the supported Btrfs/Snapper layout,
 creates and records dedicated state, and supports its typed resume protocol.
-Also installs the fail-closed graphical login admission service and display
+Also installs the explicit root console installer and the fail-closed graphical
+login admission service and display
 manager dependency. Graphical login requires independently provisioned state
 and a complete recovery journal. Installation does not invoke initialization,
 create a subvolume, write a machine identity or enable a mount. No set-ID mode
@@ -59,14 +62,16 @@ CARGO_NET_OFFLINE=true cargo \
     --config 'source.crates-io.replace-with="vendored-sources"' \
     --config 'source.vendored-sources.directory="vendor"' \
     build --offline --locked --release --no-default-features \
-    -p ryoku-recovery -p ryoku-ui \
-    --bin ryoku-recovery --bin ryoku-state-init --bin ryoku-launcher-status
+    -p ryoku-recovery -p ryoku-ui -p ryoku-service \
+    --bin ryoku-recovery --bin ryoku-state-init --bin ryoku-install --bin ryoku-launcher-status
 
 %install
 install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-recovery" \
     %{buildroot}%{_bindir}/ryoku-recovery
 install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-state-init" \
     %{buildroot}%{_sbindir}/ryoku-state-init
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-install" \
+    %{buildroot}%{_sbindir}/ryoku-install
 install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-launcher-status" \
     %{buildroot}%{_libexecdir}/ryoku/ryoku-launcher-status
 install -D -m 0644 packaging/rpm/systemd/ryoku-recovery-admission.service \
@@ -78,16 +83,17 @@ install -D -m 0644 packaging/rpm/systemd/display-manager.service.d/ryoku-recover
 %defattr(-,root,root)
 %attr(0755,root,root) %{_bindir}/ryoku-recovery
 %license LICENSE
-%doc docs/recovery-state.md packaging/rpm/tools-build.md
+%doc docs/recovery-state.md docs/installer-preflight.md packaging/rpm/tools-build.md
 
 %files state-init
 %defattr(-,root,root)
 %attr(0755,root,root) %{_sbindir}/ryoku-state-init
+%attr(0755,root,root) %{_sbindir}/ryoku-install
 %attr(0644,root,root) %{_unitdir}/ryoku-recovery-admission.service
 %dir %{_unitdir}/display-manager.service.d
 %attr(0644,root,root) %{_unitdir}/display-manager.service.d/ryoku-recovery.conf
 %license LICENSE
-%doc docs/recovery-state.md packaging/rpm/tools-build.md
+%doc docs/recovery-state.md docs/installer-preflight.md packaging/rpm/tools-build.md
 
 %files launcher-status
 %defattr(-,root,root)

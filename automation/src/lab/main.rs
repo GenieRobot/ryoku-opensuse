@@ -65,6 +65,7 @@ pub(crate) struct RunOptions<'a> {
     mutation_interrupt: bool,
     console_only: bool,
     console_restore: Option<(&'a str, &'a str, &'a str)>,
+    installer_probe: Option<(&'a str, &'a str, &'a str)>,
 }
 
 fn run_options(args: &[String]) -> Result<RunOptions<'_>, &'static str> {
@@ -84,10 +85,21 @@ fn run_options(args: &[String]) -> Result<RunOptions<'_>, &'static str> {
         mutation_interrupt: false,
         console_only: false,
         console_restore: None,
+        installer_probe: None,
     };
     let mut index = 4;
     while index < args.len() {
         match args[index].as_str() {
+            "--installer-lifecycle-probe"
+                if cfg!(feature = "issue24-lab")
+                    && options.installer_probe.is_none()
+                    && index + 3 < args.len()
+                    && args[index + 1..=index + 3].iter().all(|arg| !arg.is_empty()) =>
+            {
+                options.installer_probe =
+                    Some((&args[index + 1], &args[index + 2], &args[index + 3]));
+                index += 4;
+            }
             "--console-restore-probe"
                 if cfg!(feature = "issue21-lab")
                     && options.console_restore.is_none()

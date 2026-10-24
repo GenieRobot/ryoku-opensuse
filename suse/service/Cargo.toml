@@ -8,6 +8,8 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+sha2 = "0.10"
+ryoku-profiles = { version = "0.1.0", path = "../profiles" }
 libc = "0.2"
 ryoku-recovery = { version = "0.1.0", path = "../recovery" }
 ryoku-snapper = { version = "0.1.0", path = "../snapper" }

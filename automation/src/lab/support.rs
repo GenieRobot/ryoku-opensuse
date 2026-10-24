@@ -46,6 +46,9 @@ pub fn public_evidence(line: &str) -> bool {
             | "console_restore_probe_sha256"
             | "console_packages_sha256"
             | "console_signing_key_sha256"
+            | "ryoku-native24-probe_sha256"
+            | "ryoku-native24-packages.tar_sha256"
+            | "ryoku-native24-source.txt_sha256"
     ) {
         return value.len() == 64
             && value.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase());
@@ -66,6 +69,23 @@ pub fn public_evidence(line: &str) -> bool {
             | "native_issue21_unavailable_partner_refused"
             | "native_issue21_complete_graphical_admission"
             | "native_issue21_completed_journals_after_reboot"
+    ) {
+        return value == "passed";
+    }
+    if matches!(
+        key,
+        "native_issue24_clean_install"
+            | "native_issue24_repeat_install"
+            | "native_issue24_versioned_migration"
+            | "native_issue24_remove_and_reinstall"
+            | "native_issue24_verified_prechange_checkpoints"
+            | "native_issue24_interrupted_before_apply"
+            | "native_issue24_interrupted_apply_linked_restore"
+            | "native_issue24_wrong_recovery_receipt_refused"
+            | "native_issue24_user_overrides_and_unrelated"
+            | "native_issue24_distro_and_kde_preserved"
+            | "native_issue24_bootstrap_and_dependencies"
+            | "native_issue24_completed_evidence_after_reboot"
     ) {
         return value == "passed";
     }

@@ -1,0 +1,34 @@
+issue=24
+candidate=7047b5e6448647dc1afddb4dfbe17000c49d2694
+source_bundle_sha256=e574fb194784798b391c6df5f6d79b775c8750674aff43ccd14c5fffaf3dee8f
+probe_sha256=5288b2df454e3692204c50e610bc3a35f74b55bde3fbbc7d40ae7b5cb5628c3f
+result=failed-before-first-installer-preview-and-before-runtime-install
+signed_derivation=passed
+native_initializer_fresh_resume_repeat=passed
+native_kde_sdk_and_signing_provider=passed
+native_go_cache_preflight=passed
+native_buildrequires_builds_desktop_helper_defaults_tools=passed
+signed_exact_package_closure_and_distro_dependencies=passed
+bootstrap_tools_and_state_init_only=passed
+earliest_boundary=guard-and-rescue-entry-completed; first account capture session refused missing writer coordination namespace; no generation or mutation journal created
+error=Filesystem(Os { code: 2, kind: NotFound, message: "No such file or directory" })
+diagnostic=immutable source booted with snapshot writes; failed disk first attached read-only with Btrfs rescue=nologreplay; subsequent reproduction used only a disposable overlay over failed disk
+diagnostic_limits=exit101 with direct tty stderr was a diagnostic logging artifact; synced regular-file reproduction showed the actual ENOENT above and no panic/backtrace
+bootstrap_correction=exact own-account account-bootstrap command invokes existing writer namespace API; does not relax shared capture boundary
+bootstrap_diagnostic=root, extra arguments, missing native runtime and mismatched NSS primary group refused; successful initialization created only writers.lock and preserved mutation history
+second_preview_refusal=existing KDE fallback session is required
+kde_provider=plasma6-session-6.8.0-1.1.noarch
+kde_file=/usr/share/wayland-sessions/plasmawayland.desktop
+kde_file_sha256=307cc7e0074561b335e32bf149ce6ee6cde98de402bf6901276dc82e9bff06e9
+kde_correction=include exact signed current session filename in fixed fallback fingerprint policy
+corrected_diagnostic_cli_sha256=aef77735dadfc22095048b01eb97efc0d713f700d7f8e668cd41454649500f67
+corrected_diagnostic_preview=exit0; exact signed package closure verified; mutation=not_performed checkpoint=not_created
+corrected_diagnostic_limits=separately copied working-tree CLI/probe into disposable overlay; normal Run03 RPM source unchanged; not acceptance
+private_error_sha256=d599e52f4237d726be8d8012f4dce5e47d770751557e5af5293784515af2a3d5
+private_preview_sha256=db0ea15f4d5dba0290b92f1fe9743be3f94f26d7553ef875a7c54af07856c919
+runner_exit=1
+diagnostic_final_qemu_exit=0-after-guest-poweroff
+disposal=independent unsandboxed process scan found zero QEMU and vm-lab; failed and diagnostic disks, firmware, seed, credentials and staged private VM inputs removed
+source_image_sha256=ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231
+source_image=unchanged
+acceptance=none; no installer clean/repeat/migration/removal/interruption lifecycle credited

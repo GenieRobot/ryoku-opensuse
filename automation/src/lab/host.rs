@@ -17,6 +17,8 @@ use std::{
 
 #[path = "console_restore.rs"]
 mod console_restore;
+#[path = "installer.rs"]
+mod installer;
 #[path = "linked_checkpoint.rs"]
 mod linked_checkpoint;
 #[path = "mutation.rs"]
@@ -370,6 +372,7 @@ struct Lab {
     mutation_probe: Option<PathBuf>,
     mutation_console: Option<PathBuf>,
     console_restore: Option<[PathBuf; 3]>,
+    installer_probe: Option<[PathBuf; 3]>,
     zypp_package: Option<String>,
     port: Option<u16>,
     vm: Option<Child>,
@@ -1588,6 +1591,7 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         mutation_interrupt,
         console_only,
         console_restore,
+        installer_probe,
     } = options;
     require(
         !cfg!(feature = "issue19-lab")
@@ -1603,7 +1607,8 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         "issue20-lab requires its isolated mutation console fixture",
     )?;
     require(
-        !cfg!(feature = "issue21-lab") || (console_only && console_restore.is_some()),
+        !cfg!(feature = "issue21-lab")
+            || (console_only && (console_restore.is_some() || installer_probe.is_some())),
         "issue21-lab requires its isolated offline console fixture",
     )?;
     let image = scalar("image")?;
@@ -1668,6 +1673,24 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
             ])
         })
         .transpose()?;
+    require(
+        !cfg!(feature = "issue24-lab")
+            || (console_only
+                && installer_probe.is_some()
+                && console_restore.is_none()
+                && linked_probe.is_none()
+                && mutation_probe.is_none()),
+        "issue24-lab requires its isolated installer fixture",
+    )?;
+    let installer_probe = installer_probe
+        .map(|(probe, packages, key)| {
+            Ok::<_, Box<dyn std::error::Error>>([
+                fs::canonicalize(probe)?,
+                fs::canonicalize(packages)?,
+                fs::canonicalize(key)?,
+            ])
+        })
+        .transpose()?;
     let run_path = Path::new(run);
     if cfg!(feature = "issue21-lab") {
         crate::console_clock::host_epoch()?;
@@ -1722,6 +1745,16 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
             ])
         })
         .transpose()?;
+    let installer_probe = installer_probe
+        .map(|paths| {
+            let [probe, packages, key] = paths;
+            Ok::<_, Box<dyn std::error::Error>>([
+                stage_input_binary(&probe, &run_path.join("input-installer-probe"))?,
+                stage_input_binary(&packages, &run_path.join("input-installer-packages"))?,
+                stage_input_binary(&key, &run_path.join("input-installer-key"))?,
+            ])
+        })
+        .transpose()?;
     let checksum = output(Command::new("sha256sum").arg(assets.join(image)))?;
     require(checksum.split_whitespace().next() == Some(hash), "base checksum mismatch")?;
     let signed_sum = fs::read_to_string(assets.join("image.sha256"))?;
@@ -1767,6 +1800,7 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         mutation_probe,
         mutation_console,
         console_restore,
+        installer_probe,
         zypp_probe: zypp_probe.as_ref().map(|(binary, _)| binary.clone()),
         zypp_package: zypp_probe.as_ref().map(|(_, package)| package.clone()),
         port: None,
@@ -1886,6 +1920,12 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
             || cfg!(feature = "issue21-lab"))
     {
         lab.initialize_state()?;
+    }
+    if lab.installer_probe.is_some() {
+        let setup =
+            lab.kde_setup(&network).map_err(|_| "installer KDE baseline provisioning failed")?;
+        lab.evidence(&setup)?;
+        lab.installer_exercise()?;
     }
     if lab.console_restore.is_some() {
         lab.console_restore_exercise()?;
@@ -2171,6 +2211,11 @@ pub(crate) fn run(assets: &str, run: &str, options: crate::RunOptions<'_>) -> Re
         fs::remove_file(binary)?;
     }
     if let Some(inputs) = &lab.console_restore {
+        for path in inputs {
+            fs::remove_file(path)?;
+        }
+    }
+    if let Some(inputs) = &lab.installer_probe {
         for path in inputs {
             fs::remove_file(path)?;
         }

@@ -248,3 +248,98 @@ fn pinned_bundle_must_remain_discoverable_at_its_exact_published_name() {
     assert!(matches!(verified.revalidate(), Err(ProfileStoreError::ConcurrentModification)));
     assert!(fixture.store.load(verified.id()).is_ok());
 }
+
+#[test]
+fn installer_absence_has_versioned_provenance_and_preserves_all_override_layers() {
+    let absent =
+        InstalledProfileBundle::without_installed_defaults(Some(SYSTEM), Some(COMPANION)).unwrap();
+    assert!(absent.defaults_are_absent());
+    let bytes = absent.canonical_bytes().unwrap();
+    let parsed = InstalledProfileBundle::parse(&bytes).unwrap();
+    assert_eq!(parsed.system_source_bytes(), Some(SYSTEM));
+    assert_eq!(parsed.companion_source_bytes(), Some(COMPANION));
+    let resolved = parsed.resolve(Some(PERSONAL)).unwrap();
+    assert_eq!(resolved.settings.desktop, Some(Desktop::Kde));
+    assert_eq!(resolved.settings.theme, Some(Theme::System));
+    assert_eq!(resolved.settings.density, Some(Density::Compact));
+    let empty = crate::installer_state::from_installed(&Default::default()).unwrap();
+    assert!(parsed.matches_packages(&empty));
+    assert!(!parsed.matches_packages(&[]));
+    let installed = crate::installer_state::from_installed(&std::collections::BTreeMap::from([(
+        "ryoku-profile-defaults".into(),
+        "0:0.1.0-1.noarch".into(),
+    )]))
+    .unwrap();
+    assert!(!parsed.matches_packages(&installed));
+    let installed_bundle = InstalledProfileBundle::from_local_documents(
+        DefaultsPackage {
+            name: PackageName::new("ryoku-profile-defaults").unwrap(),
+            nevra: Revision::new("ryoku-profile-defaults-0:0.1.0-1.noarch").unwrap(),
+            upstream_revision: None,
+        },
+        DEFAULTS,
+        Some(SYSTEM),
+        Some(COMPANION),
+    )
+    .unwrap();
+    assert!(!installed_bundle.matches_packages(&empty));
+    assert!(installed_bundle.matches_packages(&installed));
+    assert_ne!(installed_bundle.id().unwrap(), parsed.id().unwrap());
+    assert_eq!(installed_bundle.system_source_bytes(), parsed.system_source_bytes());
+    assert_eq!(installed_bundle.companion_source_bytes(), parsed.companion_source_bytes());
+}
+#[test]
+fn absent_defaults_cannot_be_smuggled_into_schema_one_or_changed_to_real_defaults() {
+    let absent = InstalledProfileBundle::without_installed_defaults(None, None).unwrap();
+    for kind in 0..5 {
+        let mut altered = absent.clone();
+        match kind {
+            0 => altered.schema_version = 1,
+            1 => altered.defaults_absent = None,
+            2 => altered.defaults_absent = Some(false),
+            3 => altered.defaults = LocalLayer::new(DEFAULTS).unwrap(),
+            4 => altered.package.nevra = Revision::new("real-package").unwrap(),
+            _ => unreachable!(),
+        }
+        assert!(altered.canonical_bytes().is_err());
+    }
+    let normal = bundle();
+    let mut mixed = normal.clone();
+    mixed.defaults_absent = Some(true);
+    assert!(mixed.canonical_bytes().is_err());
+    assert!(
+        !String::from_utf8(normal.canonical_bytes().unwrap()).unwrap().contains("defaults_absent")
+    );
+}
+#[test]
+fn standard_capture_and_restore_reject_absent_defaults_without_exact_installer_marker() {
+    let absent = InstalledProfileBundle::without_installed_defaults(None, None).unwrap();
+    let packages = crate::installer_state::from_installed(&Default::default()).unwrap();
+    assert!(
+        absent.validate_checkpoint_inputs(&crate::installer_state::reason(), &packages).is_ok()
+    );
+    for reason in [
+        crate::OperationReason::PackageChange,
+        crate::OperationReason::ConfigurationRestore,
+        crate::OperationReason::ProfileApply,
+        crate::OperationReason::Other(Identifier::new("installer-lifecycle-v2").unwrap()),
+    ] {
+        assert!(matches!(
+            absent.validate_checkpoint_inputs(&reason, &packages),
+            Err(ProfileStoreError::UnsupportedSchema)
+        ));
+    }
+    let mut wrong = packages.clone();
+    wrong[0].package_name = PackageName::new("ryoku-unrecognized").unwrap();
+    assert!(absent.validate_checkpoint_inputs(&crate::installer_state::reason(), &wrong).is_err());
+    let mut missing = packages;
+    missing.pop();
+    assert!(
+        absent.validate_checkpoint_inputs(&crate::installer_state::reason(), &missing).is_err()
+    );
+    // A normal installed bundle cannot be paired with absence to imitate a
+    // removal/clean boundary, even under the correct marker.
+    assert!(
+        bundle().validate_checkpoint_inputs(&crate::installer_state::reason(), &missing).is_err()
+    );
+}
