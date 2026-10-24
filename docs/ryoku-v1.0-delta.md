@@ -75,10 +75,16 @@ path set and each excluded set, not just directory totals.
 
 The CLI source-review head `0d70b432600284f8bc50cf9c174a1b92ce49c875`
 passed hosted Rust [run 40129176975](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40129176975).
+Documentation head `b7a51b32bf98ae1a64181e09929edc227b2808ec` also passed
+[run 40129795018](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40129795018).
 All Ryogami source/package/UI nodes remain intact; no new export root or
 feature was removed. CLI archival coverage and protected behavioral/native
 acceptance remain open, as detailed in the source review. This CI result
 does not complete an area checklist or the combined #173/#25/#26 gate.
+
+The coordinator now reports 9.8 GiB free on host C: and repository `target/`
+still at 41 GiB. The VM remains paused pending coordinator storage
+reassessment; the prior 10 GiB guard has not been relaxed.
 
 The reproducible candidate exports, immutable file/blob/site evidence,
 reviewed command refusals, signed snapshot dependency selections and licensing

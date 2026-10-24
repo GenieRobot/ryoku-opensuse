@@ -191,10 +191,12 @@ make an unresolved runtime alias or generated module disappear.
 
 ### Source-review checkpoint (24 October 2026)
 
-Hosted Rust checks [run 40129176975](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40129176975)
-completed successfully for exact source-review head
-`0d70b432600284f8bc50cf9c174a1b92ce49c875`. That result covers the CLI
-review and earlier full Ryogami preservation handoff. Subsequent
+Hosted Rust checks [run 40129795018](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40129795018)
+completed successfully for exact documentation head
+`b7a51b32bf98ae1a64181e09929edc227b2808ec`. The earlier CLI source-review head
+`0d70b432600284f8bc50cf9c174a1b92ce49c875` also passed
+[run 40129176975](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40129176975).
+These results include the full Ryogami preservation handoff. Subsequent
 documentation-only status updates do not relabel that run as testing another
 commit. The local checks for these review documents are immutable ledger/line
 integrity, local links and whitespace; the removed build cache stays removed.
@@ -215,8 +217,15 @@ Complete CLI source-only archive coverage, per-reconciler/host-verb semantic
 proof, and the owned Rust equivalents remain open. Additional #173 gates are
 the remaining delta rows, actual WaveCapture binary ownership, picker font
 license delivery and complete notices, native RPM/plugin/QML/ELF/tool checks,
-and fresh #25/#26 behavior/recovery acceptance. The paused builder/storage
-gate is unchanged; a green hosted Rust run proves none of those native gates.
+and fresh #25/#26 behavior/recovery acceptance. The builder remains paused;
+a green hosted Rust run proves none of those native gates.
+
+The coordinator's latest host measurement reports **9.8 GiB free on Windows
+C:** and repository `target/` unchanged at **41 GiB**, improving from the prior
+4.0 GiB host reading. This is still below the existing 10 GiB guard. The VM
+stays paused until the coordinator reassesses the storage gate; this reading
+does not authorize a build, install, guest access or target-cache rebuild.
+No VM or package state was accessed for this documentation update.
 
 The Rust source/export/index and command-policy checks are independent of
 the KVM slot. Sandbox Unix/TCP socket failures are environment limitations,
