@@ -602,7 +602,14 @@ mod tests {
                     } else {
                         "success"
                     };
-                    checked_control(fixture_command(role), Duration::from_millis(40))
+                    // Only the intentionally blocked fixture needs a short
+                    // deadline; normal child startup must tolerate busy CI.
+                    let fixture_deadline = if step == failure && timeout {
+                        Duration::from_millis(40)
+                    } else {
+                        Duration::from_secs(2)
+                    };
+                    checked_control(fixture_command(role), fixture_deadline)
                 })
                 .unwrap_err();
                 assert_eq!(observed, expected, "failed step={failure}, timeout={timeout}");
