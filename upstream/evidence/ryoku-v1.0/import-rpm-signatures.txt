@@ -1,0 +1,35 @@
+kf6-syntax-highlighting-imports-6.31.0-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+qt6-declarative-imports-6.11.2-2.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+qt6-multimedia-imports-6.11.2-1.2.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+qt6-qt5compat-imports-6.11.2-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+qt6-quick3d-imports-6.11.2-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK

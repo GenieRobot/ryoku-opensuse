@@ -526,6 +526,19 @@ index 59d13a1..d714adc 100644
  		cmd.Env = qsEnv()
  		// Keep the surface's own output: a config that fails to load reports on
  		// stdout and a loader failure on stderr, and without both a black screen
+diff --git a/ryoku/shell/ipc/nomarchy.go b/ryoku/shell/ipc/nomarchy.go
+index 48b9597..8c21247 100644
+--- a/ryoku/shell/ipc/nomarchy.go
++++ b/ryoku/shell/ipc/nomarchy.go
+@@ -54,7 +54,7 @@ func setNomarchyActive(active bool) error {
+ 	if active {
+ 		name = "nomarchy-activate"
+ 	}
+-	cmd := exec.Command(filepath.Join(root, name))
++	cmd := exec.Command("/usr/libexec/ryoku/ryoku-writer", "hub-backend", "nomarchy", name, filepath.Join(root, name))
+ 	cmd.Env = nomarchyEnv()
+ 	if out, err := cmd.CombinedOutput(); err != nil {
+ 		if len(out) != 0 {
 diff --git a/ryoku/shell/quickshell/inir/modules/common/models/quickToggles/HotspotToggle.qml b/ryoku/shell/quickshell/inir/modules/common/models/quickToggles/HotspotToggle.qml
 index a5dc6ca..d1fde5f 100644
 --- a/ryoku/shell/quickshell/inir/modules/common/models/quickToggles/HotspotToggle.qml
@@ -1826,6 +1839,13 @@ index ec6fec0..ffc7fcd 100644
          action.running = true;
      }
  
+diff --git a/ryoku/shell/quickshell/stage/modules/common/widgets/shapes/qmldir b/ryoku/shell/quickshell/stage/modules/common/widgets/shapes/qmldir
+index 1c21111..b877bc1 100644
+--- a/ryoku/shell/quickshell/stage/modules/common/widgets/shapes/qmldir
++++ b/ryoku/shell/quickshell/stage/modules/common/widgets/shapes/qmldir
+@@ -1,2 +1 @@
+ module stage.modules.common.widgets.shapes
+-ShapeCanvas 1.0 ShapeCanvas.qml
 diff --git a/ryoku/shell/quickshell/stage/services/BluetoothStatus.qml b/ryoku/shell/quickshell/stage/services/BluetoothStatus.qml
 index f1e7473..fdac9f1 100644
 --- a/ryoku/shell/quickshell/stage/services/BluetoothStatus.qml

@@ -66,6 +66,26 @@ manifests, rather than a directory count, define the selected payload.
 | Greeter/lock/security | Upstream greeter, `sddm/setup`, guard, custom qylock, Bluetooth agent/link | Exact excluded path families are outside the source export/install recipes. Do not import root display-manager watchdog/restart, PAM/autologin rewriting, custom lock guarantees, or re-pairing behavior. Native hyprlock and distro SDDM/KDE fallback require fresh #25 acceptance. |
 | Other distributions/apps | Fedora/Void/Nix, installer/ISO/release publishers, standalone Rashin/store/apps/palette bridge | Reference/excluded source only. No alternate package manager, boot/init/GRUB/Plymouth mutation, installer, repository signing/publisher, model capability or standalone app scope is imported. |
 
+Nomarchy's separate `ryoku/shell/nomarchy` host payload is excluded. Its
+`nomarchy-activate` blob `fa9c3eb58de928679c7108c6506283b09a143d2d` creates
+links/files in `$XDG_BIN_HOME`, `$XDG_CONFIG_HOME/omarchy` and
+`$XDG_STATE_HOME/omarchy`. The retained IPC `nomarchy.go` previously resolved
+a user or system helper and executed that path. The patch keeps its read-only
+availability lookup but fixes the actual executable to the Rust refusal
+boundary; a resolved helper is only an opaque refused argument and cannot
+be the child executable. Activation/deactivation role and alias negatives
+cover both user and system candidate paths. Other core launch paths retain
+their existing routes.
+
+Stage's shapes `qmldir` blob `1c21111fbe51b9e8c30294da50030874223c92b9`
+declares `ShapeCanvas 1.0 ShapeCanvas.qml` on line 2, but that file is absent
+from the exact Git tree. Stage actually instantiates CachedShapeCanvas; its
+remaining mentions of ShapeCanvas are comments. The patch removes only the
+dangling declaration and retains the module plus every geometry/JS/license
+asset. The applied-blob test checks that exact resulting module declaration;
+affected MaterialShape/MaterialCookie pass Qt bytecode compilation and the
+patched scanner emits no missing-file diagnostics.
+
 The applied patch's exact original blobs are in
 `packaging/writer-coordination/pinned-route-sources.json`. The offline pinned
 source test hashes each original, applies the full patch with `git apply
@@ -111,15 +131,37 @@ exact NEVRA/architecture/checksum/location/provides/requires for selections.
 | Picker | Qt GUI private headers 6.11.2, Vulkan headers 1.4.363-1.1, Wayland 1.26.0-1.2/protocols 1.49-1.3, pkgconfig FFmpeg libraries |
 | Video/images | Snapshot default FFmpeg 9.0.2-4.1; FFmpeg 8 is also present and is not silently assumed to be the selected resolver result. ImageMagick 7.1.2.33-1.1. Codec behavior requires native tests. |
 
-`qml-import-names.txt` covers every selected `.qml` import, including
+`qml-import-names.txt` covers the selected named-module import graph, including
 QtQuick3D, QtMultimedia, QtQuick.Dialogs/Controls.Material, Qt.labs.platform,
 Quickshell UPower/SystemTray and the new internal Stage/iNiR module graph.
 Signed native qmlimportscanner and Go SDK RPMs were checksum/signature-checked
 and extracted into an isolated task SDK. No host RPM installation was used.
-Source scanning succeeds, but external Qt import payloads, generated native
-module files, final generator requirements/provides and ELF resolution still
+Five actual Qt/KDE QML import RPMs have now also been downloaded and each
+SHA-512 checked against the signed primary metadata. `rpmkeys --verbose`
+verified both header/payload digests and RSA/SHA-512 signatures with key ID
+`29b700a4`; exact identities/checksums/locations and signature results are in
+`real-import-packages.json` and `import-rpm-signatures.txt`. Their files were
+extracted only into the isolated SDK. The patched scanner output is retained
+as `qml-import-scanner.json`, with reproducible root placeholders instead of
+machine-local paths. All external Qt/KDE modules resolve to real SDK module
+directories; source-root Stage/iNiR modules resolve with the actual shell
+import roots. No missing-file diagnostic remains after the shapes metadata fix.
+
+The parsed selected Source2/Source3 module inventory includes 13 Quickshell
+modules, including the Hyprland bridge import omitted by a Source2-only scan.
+The pinned Quickshell source exposes the bridge's GlobalShortcut pressed and
+released signals/appid and HyprlandFocusGrab active/windows properties.
+`qs.Commons`/`qs.Ui` are runtime aliases, not RPM modules: Quickshell's pinned
+`src/core/generation.cpp` adds `qs:@/`, and `qsintercept.cpp` maps `@/qs/` to
+the config root. Their exact retained `shell/Commons/qmldir` and
+`shell/Ui/qmldir` blobs are respectively
+`1c9101c12847259e3b96d5986e5cd529f9d6364c` and
+`9061ad6ab71ffcf73570ec7c6dcca08b633a2598`.
+
+Generated Quickshell/Blobs/Spatial3D/Ryogami module files, runtime alias
+loading, final generator requirements/provides and ELF resolution still
 require the native package build. Do not add invented internal Provides to
-make an unresolved import disappear.
+make an unresolved runtime alias or generated module disappear.
 
 ## Acceptance and remaining evidence
 
@@ -130,6 +172,12 @@ process access. The pinned unmodified Go modules use Go 1.26.9, committed
 vendor dependencies and networking disabled. IPC, Hyprland and Hub tests pass;
 Ryogami requires the
 actual image/video tools before a full pass can be claimed.
+All four patched Go payload modules also build successfully with that exact
+SDK, vendor-only inputs and CGO disabled. This build result is separate from
+the unmodified upstream test results; upstream Nomarchy tests expect an
+activation capability that this port deliberately refuses. `rpmspec -P`
+parses the updated desktop spec successfully; it is not resolver or native
+RPM build acceptance.
 
 #24 exclusively owns the single KVM slot. #173 has not used it. Native
 RPM/Blobs/Spatial3D/picker builds, full imports/ELF loading, preserved surface

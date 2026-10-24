@@ -536,6 +536,13 @@ fn all_pinned_upstream_writer_routes_apply_without_fuzz() {
         let hash = Command::new("git").arg("hash-object").arg(&original).output().unwrap();
         assert!(hash.status.success());
         assert_eq!(String::from_utf8(hash.stdout).unwrap().trim(), expected, "{path}");
+        if path.ends_with("stage/modules/common/widgets/shapes/qmldir") {
+            assert_eq!(
+                std::fs::read_to_string(&original).unwrap(),
+                "module stage.modules.common.widgets.shapes\nShapeCanvas 1.0 ShapeCanvas.qml\n"
+            );
+            assert!(!original.parent().unwrap().join("ShapeCanvas.qml").exists());
+        }
         let target = fixture.path.join(path);
         std::fs::create_dir_all(target.parent().unwrap()).unwrap();
         std::fs::copy(original, target).unwrap();
@@ -559,7 +566,9 @@ fn all_pinned_upstream_writer_routes_apply_without_fuzz() {
                 || contents
                     .contains("Based on iNiR by snowarch (https://github.com/snowarch/inir)")
                 || (path.ends_with("nomarchy/plugins/panels/network/Model.js")
-                    && !contents.contains("enterpriseConnectScript")),
+                    && !contents.contains("enterpriseConnectScript"))
+                || (path.ends_with("stage/modules/common/widgets/shapes/qmldir")
+                    && contents == "module stage.modules.common.widgets.shapes\n"),
             "{path}"
         );
         assert!(!contents.contains("qs -c ryoshot"), "{path}");
@@ -655,6 +664,17 @@ fn all_pinned_upstream_writer_routes_apply_without_fuzz() {
         fixture.path.join("ryoku/shell/quickshell/shell/modules/phone/KdeConnectService.qml"),
     )
     .unwrap();
+    let nomarchy =
+        std::fs::read_to_string(fixture.path.join("ryoku/shell/ipc/nomarchy.go")).unwrap();
+    assert!(!nomarchy.contains("exec.Command(filepath.Join(root, name))"));
+    assert!(nomarchy.contains("exec.Command(\"/usr/libexec/ryoku/ryoku-writer\", \"hub-backend\", \"nomarchy\", name, filepath.Join(root, name))"));
+    assert_eq!(
+        std::fs::read_to_string(
+            fixture.path.join("ryoku/shell/quickshell/stage/modules/common/widgets/shapes/qmldir")
+        )
+        .unwrap(),
+        "module stage.modules.common.widgets.shapes\n"
+    );
     for forbidden in [
         "Pairing accepted",
         "Pairing declined",

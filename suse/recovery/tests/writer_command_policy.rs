@@ -34,6 +34,8 @@ fn hub_alias_and_role_refuse_actuators_before_native_launch() {
         vec!["battery", "charge-limit"],
         vec!["package", "install"],
         vec!["voxtype", "restart"],
+        vec!["nomarchy", "nomarchy-activate", "/tmp/unreviewed/nomarchy-activate"],
+        vec!["nomarchy", "nomarchy-deactivate", "/usr/share/ryoku/nomarchy/nomarchy-deactivate"],
         vec!["import", "apply", "decisions.json"],
         vec!["rice", "apply", "look"],
         vec!["shell", "loaders", "bash"],
