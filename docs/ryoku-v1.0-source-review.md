@@ -66,7 +66,7 @@ acceptance gates.
 | Voxtype/Redux | `voxtype.go`, embedded `assets/redux/{adapter.py,setup.py}` | Get is a query; config/model writes, download/build/setup, service registration/removal and package changes are refused. Direct DictationPage shell deletion/package commands and dock setup/restart launches are replaced by Rust refusal. Embedded Python remains upstream provenance, never a new project provider. |
 | Host/package/auth | Hub SettingsSheet, Dictation/Global/Input/Connections/Users/Lockscreen/Updates pages | Direct package install/remove/update, PAM/keyring/fingerprint/security-key writes, system keymap/timezone and service changes enter Rust refusal. Display probes are retained. No pacman/DNF/XBPS or privileged helper is installed. |
 | Network/Bluetooth | Selected shell bar/sidebar/Stage/iNiR services and Hub Connections | Direct nmcli profile/password/hotspot mutations, Tailscale changes/operator escalation, battery sysfs/pkexec writes and deferred package actions enter Rust refusal. Direct Quickshell Networking/BlueZ connect/disconnect/forget/trust/power/discovery assignments are replaced before API dispatch. Read-only properties and status/list queries remain. Original Bluetooth link/agent scripts are excluded. |
-| Ryogami | `ryoku/shell/ryogami/{daemon,picker,hyprland,bin}` | Retain daemon, picker and livewall helper for existing wallpaper contract. Deleted `wall-ui` is not packaged. Image/video transforms require actual ImageMagick/FFmpeg evidence; source compilation alone is insufficient. |
+| Ryogami | `ryoku/shell/ryogami/{daemon,picker}` plus separate `ryoku/shell/livewall` | Build daemon, picker and livewall helper; no current Ryogami `hyprland`/`bin` subtrees exist. [Exact inventory and reachable mutators](ryoku-v1.0-ryogami-rashin-review.md) identify a pending refusal/security gate, including automatic postapply hooks. Selection is not approval of all v1 actions. Image/video tools, native runtime and font notice closure remain pending. |
 | WM/session | `ryoku/wm`, selected Hyprland bridge | Hyprland remains the initial compositor. Niri and Wayfire provider activation is deferred to #46. The port's Rust session adapter remains authoritative. |
 | Greeter/lock/security | Upstream greeter, `sddm/setup`, guard, custom qylock, Bluetooth agent/link | Exact excluded path families are outside the source export/install recipes. Do not import root display-manager watchdog/restart, PAM/autologin rewriting, custom lock guarantees, or re-pairing behavior. Native hyprlock and distro SDDM/KDE fallback require fresh #25 acceptance. |
 | Other distributions/apps | Fedora/Void/Nix, installer/ISO/release publishers, standalone Rashin/store/apps/palette bridge | Reference/excluded source only. No alternate package manager, boot/init/GRUB/Plymouth mutation, installer, repository signing/publisher, model capability or standalone app scope is imported. |
@@ -197,7 +197,9 @@ activation capability that this port deliberately refuses. `rpmspec -P`
 parses the updated desktop spec successfully; it is not resolver or native
 RPM build acceptance.
 
-#24 exclusively owns the single KVM slot. #173 has not used it. Native
+At the initial source checkpoint, #24 exclusively owned the single KVM slot
+and #173 had not used it. The current paused-builder/storage status is recorded
+below. Native
 RPM/Blobs/Spatial3D/picker builds, full imports/ELF loading, preserved surface
 checks and fresh session/recovery acceptance are queued behind that work.
 #24's 0.75.5-specific package/VM evidence keeps its original label. #23 remains

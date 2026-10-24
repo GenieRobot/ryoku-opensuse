@@ -1,0 +1,110 @@
+# Ryogami and Rashin: source disposition and unresolved execution boundary
+
+Review pin: `a59d051f0e8080052216f6c7b9eb7e5928935ce8`.
+Ryogami tree `3e57f5c00ddb10be66ef13ebf3c26a69bf493f1d` has 424 current files:
+175 daemon, 248 picker and one `.gitignore`. Rashin tree
+`4decda201797e274e834342813e53bdba325d37b` has 338 current files. The delta
+matrix's 521 Ryogami / 315 Rashin entries count changes from 0.75.5, including
+deletions and renames; they are not current-tree sizes. Current Ryogami has
+neither a `hyprland/` nor a `bin/` subtree. The removed `wall-ui` is not replaced
+by copying an old source path.
+
+## Export and installed boundary
+
+[`ryogami-rashin-disposition.tsv`](../upstream/evidence/ryoku-v1.0/ryogami-rashin-disposition.tsv)
+records 769 exact blobs/modes, selection in both export manifests, and install
+disposition. It includes the two trees, three livewall sources, one selected
+unit and three bridges outside Rashin. Every selected row was checked against
+`runtime-source-manifest.tsv` / `writer-source-manifest.tsv`; install claims
+come from `packaging/rpm/ryoku-desktop.spec`.
+
+| Source group | Disposition |
+|---|---|
+| `ryoku/shell/ryogami/daemon/**` (175) | Source3 private Go binary build inputs, including vendor/tests. Install the compiled daemon under `/usr/libexec/ryoku/upstream/ryogami`; public `ryogami` aliases Rust writer. |
+| `ryoku/shell/ryogami/picker/**` (248) | Source3 CMake inputs. Install generated `Ryoku.Ryogami` QML/native module, `shell.qml`, `data/ryogami.desktop`, LICENSE and NOTICE. Do not copy all source files into `/usr/share/ryogami`. |
+| `ryoku/shell/livewall/**` (3) | Source3 C/Wayland protocol/build inputs; install compiled `ryogami-live`. This helper is outside the Ryogami tree. |
+| `ryoku/shell/systemd/user/ryogami.service` | Selected Source3 patch/fixture input, but no unit installation in this desktop spec. Selection is not activation. |
+| `ryoku/rashin/**` (338) | Entire tree excluded from both exports and install recipe: app 5, backend 156, skills 8, systemd 4, usage 4, web 153, wiki 8. No agent executable, web app, desktop entry, collector or unit installed. |
+| Hub `backend/rashin.go`, `quickshell/pages/RashinPage.qml`; shell `quickshell/shell/services/AiUsage.qml` | Retained bridges outside excluded Rashin tree. Hub mutation routes refused; AiUsage service-start launch patched to Rust refusal. Source exclusion alone would not prove these bridges harmless. |
+
+## Reachability: acceptance blocker, not a completed safety audit
+
+Picker `src/core/daemon.cpp` opens a `QLocalSocket`; its `send` writes JSON
+method/params requests to the same `$XDG_RUNTIME_DIR/ryogami.sock` used by the
+Go daemon (`proto.go`, `/tmp` fallback). `src/core/remoteresults.cpp` directly
+calls `source.search`, `source.download`, `workshop.search` and
+`workshop.download`. The daemon dispatches JSON-RPC and plain wallpaper/depth
+verbs (`daemon.go`, `rpc.go`, `verbs.go`) and registered extension actions.
+Thus the generated installed module reaches the private installed daemon;
+these are not merely unused source files.
+
+At this checkpoint `suse/recovery/src/writer_protocol.rs` checks the exact
+query policy only for `HubBackend`; `Ryogami` is coordinated but has no
+equivalent action allowlist. Namespace/recovery coordination does not prove
+that all new v1 methods are authorized. The following reachable writes and
+automatic startup hooks require a focused fail-closed patch and negative
+socket/CLI tests before this candidate can pass #173. This documentation
+commit does not resolve that blocker or approve the optional capabilities.
+
+| Selected entrypoints | Write/runtime consequences |
+|---|---|
+| `rpc.go`: `state.set`, `wall.delete`, `wall.cache_rebuild`, playlist mutation, effects/grade commit, upscale start | Cache/state, source wallpaper deletion, transforms and process creation. Query-looking preview methods can generate files; classify by implementation, not method spelling. |
+| `source_download.go`, `source_{wallhaven,pexels,unsplash,youtube}.go` | HTTP searches/downloads, temporary files/renames into configured wallpaper/video directories; Wallhaven API, Pexels API, Unsplash API, YouTube/watch and thumbnail endpoints. YouTube launches `yt-dlp`; its advice probe uses `ryoku-host`. No remote provider is accepted by this review. |
+| `lens_models.go`, `lens.go` | Registers Import/Add/Remove/DeleteSemanticModel and DeleteActiveSemanticModel. Locates `skwd-lens`, runtime/model manifests, writes model library under XDG data and launches install/remove helpers. Existing availability probing must not turn a locally installed helper into authorization. |
+| `workshop_steamcmd.go`, workshop sources | Finds/launches `steamcmd`, writes Steam workshop content and uses network/account integration. No Steam/Wallpaper Engine capability imported. |
+| `settings_store.go`, `config.go` | Writes `$XDG_CONFIG_HOME/ryoku/{ryogami,shell,matugen}.json`; legacy migration reads `$XDG_CONFIG_HOME/ryogami-wall`. Matugen setting delegation calls `ryoku-hub desktop matugen set`, already refused, but local writes also exist. |
+| `apply.go`, `store.go` | `$XDG_CACHE_HOME/ryogami` (or configured cache), `outputs.json`, state/library/playlist files, and `$XDG_STATE_HOME/ryoku-wallpaper` plus legacy JSON. Configured picture/video paths and deletes require exact ownership review beyond the old fixed inventory. |
+| `postapply.go` | `afterApply` and `onStart` can call `runPostProcessing`; `postProcessOnRestore` permits hooks during restore/start. `runDetachedShell` launches `sh -c` wrapping `nohup setsid sh -c`. A CLI-only refusal would leave this automatic path executable. |
+| `palette_bridge.go`, `matugen_outputs.go`, `upscale*.go` | Delegated Hub mutations are refused, but generated matugen config/output writes, transform tools and self-spawned `upscale-worker` need their own boundary. Absence of optional packages is not a refusal policy. |
+
+The retained core wallpaper apply/restore/UI contract must be traced through
+the existing protected writer/checkpoint path before allowing writes. Methods
+or automatic actions without that proof remain unavailable; this review
+does not infer approval from #25's need for a functioning shell.
+
+## Excluded Rashin runtime
+
+Rashin is an agent/terminal service, not a wallpaper dependency. Its
+`backend/server.go` binds HTTP to `127.0.0.1:<configured port>` and exposes,
+among others, POST `/api/fix`, `/api/index`, `/api/agents/wire`, `/api/ask`,
+`/api/term`, `/api/chat/terminal` and WebSocket `/ws/chat`. `acp.go` starts a
+configured backend command; `setup.go` references the Hermes remote installer
+and host package advice. `paths.go` defines the knowledge vault at
+`$XDG_DATA_HOME/ryoku/rashin` (or `RYOKU_RASHIN_VAULT`), config at
+`$XDG_CONFIG_HOME/ryoku/rashin.json`, and pid/setup runtime state beneath
+`$XDG_RUNTIME_DIR/ryoku-rashin` (temporary-directory fallback).
+
+Excluded units are `ryoku-rashin.service` (serve --if-enabled),
+`ryoku-prowl.service` (gateway down/serve, default port 8788),
+`ryoku-ai-usage.service` and its persistent five-minute timer. No agent/model,
+terminal, gateway, usage collection or credential provider is activated.
+Future app/provider work belongs to its owning issues (#27–30/#47), not this
+source sync. The retained Hub on/off routes and collector start are refused
+as described above; status remains an availability probe only.
+
+## Build and licensing evidence still required
+
+Picker `CMakeLists.txt` requires Qt Quick, ShaderTools, Multimedia and
+GuiPrivate (minimum 6.6), C++20 and Vulkan headers. It resolves Vulkan at
+runtime, builds the native module with `$ORIGIN` plugin rpath, embeds QML/JS,
+shader resources, brand art and two TTF fonts. `livewall/build.sh` uses
+wayland-scanner/protocol XML and links wayland-client, libavformat, libavcodec,
+libavutil and libswscale. These require native import/plugin/ELF validation;
+no source inspection substitutes for it. Go tests involving ImageMagick and
+FFmpeg remain pending the actual tool suite.
+
+Picker NOTICE attributes skwd-wall v2 (GPL-3.0-or-later), identifies its shader
+port and separate skwd-paper playback, and describes Duel's Serpantinum
+design reference. It also identifies Roboto Condensed Bold UI as Apache-2.0
+and Symbols Nerd Font as MIT. The exact font texts are selected in
+`picker/qml/theme/fonts/*.LICENSE-*.txt`, but CMake embeds only `*.ttf` and the
+spec explicitly installs only picker LICENSE/NOTICE. **The font license texts
+need explicit installed license closure**; selection in Source3 does not
+prove they ship beside the generated module. Root LICENSE/NOTICE and vendored
+Go notices are separately retained. No license identity is inferred for
+excluded Rashin dependencies or optional downloaded models.
+
+The guest remains paused under the storage gate. This review adds immutable
+source evidence only; full delta coverage, refusal implementation/tests,
+native builds, tool/runtime checks, license closure and fresh #25/#26
+acceptance are still pending. PR #174 remains draft/open.
