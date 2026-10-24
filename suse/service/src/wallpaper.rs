@@ -68,6 +68,9 @@ pub fn apply(
             ryoku_recovery::generation_capture::GenerationCaptureError::Inventory(
                 InventoryError::WallpaperStoreCapacity { .. },
             ) => ServiceError::Malformed("wallpaper_state_capacity".into()),
+            ryoku_recovery::generation_capture::GenerationCaptureError::Inventory(
+                InventoryError::WallpaperStateLocation,
+            ) => ServiceError::Malformed("wallpaper_state_location".into()),
             _ => ServiceError::RecoveryUnavailable,
         });
     }
@@ -97,9 +100,10 @@ pub fn apply(
         rpc_id,
         bundle: &bundle,
         packages: packages.clone(),
+        actor_layout_changed: false,
     };
     let planned = review_operator_plan(peer, operator_gid, &mut provider).map_err(gate_error)?;
-    let reply = run_operator_mutation(
+    let result = run_operator_mutation(
         peer,
         operator_gid,
         NativeMutationRequest {
@@ -112,8 +116,14 @@ pub fn apply(
             bundle: &bundle,
         },
         &mut provider,
-    )
-    .map_err(gate_error)?;
+    );
+    let reply = match result {
+        Ok(reply) => reply,
+        Err(_) if provider.actor_layout_changed => {
+            return Err(ServiceError::Malformed("wallpaper_actor_layout_changed".into()));
+        }
+        Err(error) => return Err(gate_error(error)),
+    };
     // run_operator_mutation returns only after durable Complete and independently
     // verified post capture. Reopen the protected record before replying.
     let history = ProtectedMutationHistory::open().map_err(gate_error)?;
@@ -133,6 +143,32 @@ pub fn apply(
     Ok(CompletedWallpaper { operation_id, reply })
 }
 
+#[derive(Debug, Eq, PartialEq)]
+enum ActorReplyError {
+    LayoutChanged,
+    Failed,
+}
+fn validate_actor_reply(reply: &[u8], expected_id: i64) -> Result<(), ActorReplyError> {
+    let value: serde_json::Value =
+        serde_json::from_slice(reply).map_err(|_| ActorReplyError::Failed)?;
+    if value.get("id").and_then(serde_json::Value::as_i64) != Some(expected_id)
+        || value.get("error").is_some() == value.get("result").is_some()
+    {
+        return Err(ActorReplyError::Failed);
+    }
+    if value.get("error").is_some() {
+        return Err(if value["error"]["code"].as_i64() == Some(-32012) {
+            ActorReplyError::LayoutChanged
+        } else {
+            ActorReplyError::Failed
+        });
+    }
+    if value["result"]["applied"].as_str().is_none() {
+        return Err(ActorReplyError::Failed);
+    }
+    Ok(())
+}
+
 struct WallpaperProvider<'a> {
     account: AccountStateRoot,
     peer: &'a PeerIdentity,
@@ -141,6 +177,7 @@ struct WallpaperProvider<'a> {
     rpc_id: i64,
     bundle: &'a VerifiedProfileBundle,
     packages: Vec<PackageRevision>,
+    actor_layout_changed: bool,
 }
 impl NativeMutationProvider for WallpaperProvider<'_> {
     type Output = Vec<u8>;
@@ -192,17 +229,13 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
             frame,
         };
         let reply = session.apply_wallpaper_actor(&call).map_err(|_| GateError::ApplyFailed)?;
-        let value: serde_json::Value =
-            serde_json::from_slice(&reply).map_err(|_| GateError::ApplyFailed)?;
-        if value.get("id").and_then(serde_json::Value::as_i64) != Some(self.rpc_id)
-            || value.get("error").is_some()
-            || value
-                .get("result")
-                .and_then(|result| result.get("applied"))
-                .and_then(serde_json::Value::as_str)
-                .is_none()
-        {
-            return Err(GateError::ApplyFailed);
+        match validate_actor_reply(&reply, self.rpc_id) {
+            Ok(()) => (),
+            Err(ActorReplyError::LayoutChanged) => {
+                self.actor_layout_changed = true;
+                return Err(GateError::ApplyFailed);
+            }
+            Err(ActorReplyError::Failed) => return Err(GateError::ApplyFailed),
         }
         Ok(reply)
     }
@@ -565,6 +598,31 @@ mod tests {
             packages: vec![package(version)],
         }
     }
+    #[test]
+    fn actor_layout_refusal_is_specific_but_never_accepted_as_success_or_wrong_reply() {
+        let frame = |value: serde_json::Value| serde_json::to_vec(&value).unwrap();
+        let error = serde_json::json!({"id":9,"error":{"code":-32012,"message":"loaded state roots differ"}});
+        assert_eq!(
+            validate_actor_reply(&frame(error.clone()), 9),
+            Err(ActorReplyError::LayoutChanged)
+        );
+        assert_eq!(validate_actor_reply(&frame(error.clone()), 10), Err(ActorReplyError::Failed));
+        let mut ambiguous = error;
+        ambiguous["result"] = serde_json::json!({"applied":"a.png"});
+        assert_eq!(validate_actor_reply(&frame(ambiguous), 9), Err(ActorReplyError::Failed));
+        assert_eq!(
+            validate_actor_reply(&frame(serde_json::json!({"id":9,"error":{"code":-32001}})), 9),
+            Err(ActorReplyError::Failed)
+        );
+        assert_eq!(
+            validate_actor_reply(
+                &frame(serde_json::json!({"id":9,"result":{"applied":"a.png"}})),
+                9
+            ),
+            Ok(())
+        );
+    }
+
     #[test]
     fn bundle_selection_is_account_bound_orders_timestamps_and_rejects_ties_or_stale_packages() {
         let current = vec![package("v2")];

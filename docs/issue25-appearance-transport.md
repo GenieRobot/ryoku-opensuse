@@ -53,6 +53,35 @@ no recursive cache-directory enrollment is introduced. Static input is capped
 at 64 MiB and video at 8 GiB before hashing, with a ten-second hash deadline.
 Oversize state/input fails before mutation with an actionable error.
 
+## Loaded wallpaper roots and custom-path parity
+
+The root inventory already validates the current on-disk `paths.cache` setting.
+The native A receiver now also checks its already-loaded cache directory, store
+root, state root and configuration root before creating an execution permit.
+This covers a daemon that still holds an earlier cache/store after the file on
+disk returned to the enrolled layout. A mismatch returns a specific, correlated
+refusal before any wallpaper output, catalogue, selection or legacy-state write.
+The helper retains its failed-operation history; the diagnostic is not success
+and does not bypass actor refreeze or the recovery journal.
+
+This is user-state integrity and restore-point accounting. It does not classify
+ordinary wallpaper changes as system-level exposure. Existing custom settings,
+UI and data remain intact. The current fixed inventory's alternate-location
+refusal is temporary support coverage: #175/#176 must finish actual configured
+root enrollment, immutable layout binding and restoration before full custom-path
+parity. `FileRecord` currently rejects unlisted UserHome paths, so silently
+accepting arbitrary cache roots would weaken the existing manifest/restore
+contract. This #25 slice adds no such broad enrollment.
+
+Four native receiver regressions cover loaded-cache, loaded-store, state-root
+and config-root mismatch. They preserve sentinel bytes in existing custom
+outputs/catalogue/selection files, create no enrolled wallpaper state on refusal,
+and apply successfully after the fixture's loaded roots are reset to the
+enrolled configuration. Root/proxy tests distinguish this refusal from success,
+wrong-id/ambiguous responses and ordinary authorization failure. The [scoped
+receipt](../infra/tumbleweed-lab/evidence/issue25-wallpaper-loaded-roots-20261025.toml)
+records current checks and remaining native/dependency gates.
+
 ## Retained dependency routes
 
 `broker.automatic` is a strict typed **handoff**, never a permit. Theme/stage frames
@@ -104,7 +133,7 @@ exec-stop and signal-delivery semantics.
 Helper tests preserve Rejected wire shape and verify success fields/caller denial.
 Bundle tests reject missing/ambiguous/stale/account-mismatched provenance.
 
-The native daemon suite is **323 passing test/subtest cases, 7 declared missing
+The native daemon suite is **327 passing test/subtest cases, 7 declared missing
 ImageMagick skips, 9 exact cross-issue exclusions**, with no blanket E2E filter.
 Four initially excluded #25 fixtures were rewritten to anonymous native query/A
 channels and now pass:

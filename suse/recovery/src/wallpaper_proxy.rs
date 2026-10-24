@@ -231,6 +231,9 @@ fn apply_via_helper(id: i64, action: &WallpaperApply) -> io::Result<Vec<u8>> {
             Some("wallpaper_state_capacity") => Some(io::ErrorKind::StorageFull),
             Some("wallpaper_source_capacity") => Some(io::ErrorKind::FileTooLarge),
             Some("wallpaper_source_unavailable") => Some(io::ErrorKind::InvalidInput),
+            Some("wallpaper_state_location" | "wallpaper_actor_layout_changed") => {
+                Some(io::ErrorKind::Unsupported)
+            }
             _ => None,
         };
         if let Some(kind) = kind {
@@ -321,6 +324,12 @@ fn relay_authenticated(
                                 error_reply(
                                     id,
                                     "choose a readable regular wallpaper owned by your account or a trusted installed file under /usr/share; links and shared writable files cannot be applied",
+                                )
+                            }
+                            Err(error) if error.kind() == io::ErrorKind::Unsupported => {
+                                error_reply(
+                                    id,
+                                    "wallpaper cache settings differ from restore-point coverage; restore an enrolled cache setting and restart the wallpaper service before retrying. Custom locations need their declared-state recovery provider",
                                 )
                             }
                             Err(_) => error_reply(
@@ -482,6 +491,40 @@ fn error_reply(id: i64, message: &str) -> Vec<u8> {
 mod tests {
     use super::*;
     use std::{collections::BTreeMap, io::Read, sync::atomic::AtomicUsize};
+
+    #[test]
+    fn direct_socket_layout_refusal_is_actionable_and_never_reaches_native_query_channel() {
+        let (mut client, proxy) = UnixStream::pair().unwrap();
+        let (native, mut backend) = UnixStream::pair().unwrap();
+        std::thread::scope(|scope| {
+            let worker = scope.spawn(|| {
+                relay_authenticated(proxy, native, &mut |_, _| {
+                    Err(io::Error::new(io::ErrorKind::Unsupported, "layout preflight refused"))
+                })
+            });
+            let action = WallpaperApply {
+                kind: wire::WallpaperKind::Static,
+                path: "/home/fixture/a.png".into(),
+                outputs: vec![],
+                mute: BTreeMap::new(),
+                volume: BTreeMap::new(),
+            };
+            client.write_all(&action.frame(9).unwrap()).unwrap();
+            let mut reply = String::new();
+            BufReader::new(client.try_clone().unwrap()).read_line(&mut reply).unwrap();
+            assert!(
+                reply.contains("restart")
+                    && reply.contains("cache")
+                    && reply.contains("recovery provider")
+            );
+            assert_eq!(serde_json::from_str::<serde_json::Value>(&reply).unwrap()["id"], 9);
+            backend.set_read_timeout(Some(Duration::from_millis(100))).unwrap();
+            assert!(backend.read(&mut [0]).is_err());
+            client.shutdown(std::net::Shutdown::Both).unwrap();
+            backend.shutdown(std::net::Shutdown::Both).unwrap();
+            worker.join().unwrap().unwrap();
+        });
+    }
 
     #[test]
     fn query_apply_and_theme_handoff_use_distinct_typed_boundaries() {

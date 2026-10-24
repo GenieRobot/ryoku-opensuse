@@ -47,6 +47,7 @@ pub enum InventoryError {
     InvalidProfile,
     ProfileIdentityMismatch,
     UnsupportedManagedState,
+    WallpaperStateLocation,
     WallpaperStoreCapacity { file: &'static str, maximum_bytes: u64 },
 }
 impl std::fmt::Display for InventoryError {
@@ -56,6 +57,11 @@ impl std::fmt::Display for InventoryError {
             write!(
                 f,
                 "wallpaper recovery file {file} exceeds the verified {maximum_bytes}-byte capacity; increase verified recovery capacity before applying changes"
+            )
+        } else if matches!(self, Self::WallpaperStateLocation) {
+            write!(
+                f,
+                "wallpaper cache setting is outside the current enrolled restore-point locations; use an enrolled cache setting or its declared-state recovery provider"
             )
         } else {
             write!(f, "{self:?}")
@@ -748,14 +754,14 @@ fn validate_wallpaper_state_location(home: &File) -> Result<(), GenerationCaptur
     let config: serde_json::Value =
         serde_json::from_slice(&bytes).map_err(|_| InventoryError::UnsupportedManagedState)?;
     if let Some(cache) = config.get("paths").and_then(|v| v.get("cache")) {
-        let value = cache.as_str().ok_or(InventoryError::UnsupportedManagedState)?;
+        let value = cache.as_str().ok_or(InventoryError::WallpaperStateLocation)?;
         let home_path = std::fs::read_link(format!("/proc/self/fd/{}", home.as_raw_fd()))?;
         let expected = home_path.join(".cache/ryogami");
         if !value.is_empty()
             && value != "~/.cache/ryogami"
             && std::path::Path::new(value) != expected
         {
-            return Err(InventoryError::UnsupportedManagedState.into());
+            return Err(InventoryError::WallpaperStateLocation.into());
         }
     }
     Ok(())

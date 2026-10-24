@@ -53,6 +53,20 @@ privileged package, service, PAM and systemwide operations unavailable until
 their reviewed Rust operation verifies the linked checkpoint and required
 capture failures are proven to prevent mutation.
 
+## Provider write reports remain an independent coverage gate
+
+The pinned Hyprland `ApplyReport.Written` lists only three live files:
+`~/.config/hypr/settings.lua`, `settings_window.lua` and `rebinds.lua`.
+`writeOverlayLua` also writes each file under
+`~/.config/ryoku/user_edits/hypr`, yielding six persistent user files. The same
+apply then calls `PublishGreeterNumlock`, whose handoff destination is selected
+by `RYOKU_GREETER_NUMLOCK_FILE`, `RYOKU_GREETER_STATE_DIR` or the global default.
+The three-path report is not a complete write envelope or #18/#20 capture proof.
+This remains separate from the wallpaper operation covered here. The typed
+Hyprland settings path must account for every actual user write; #177 owns the
+cross-account greeter handoff, with #180 owning its user-setting integration.
+Keep the full controls in the product target and this acceptance gate open.
+
 ## Consolidation of earlier #25 work
 
 The former canonical head was `3d90c3c2ff014ab718c6dfcecbd4cd5c9ef2d670`.

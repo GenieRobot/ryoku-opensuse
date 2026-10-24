@@ -1008,8 +1008,14 @@ fn managed_namespace_and_wallpaper_state_locations_cannot_be_silently_omitted() 
     fs::create_dir_all(root.join(".config/ryoku")).unwrap();
     fixture.write(".config/ryoku/ryogami.json", br#"{"paths":{"cache":""}}"#, 0o644);
     assert!(InstalledInventory::for_home(&fixture.source).is_ok());
-    fixture.write(".config/ryoku/ryogami.json", br#"{"paths":{"cache":"/outside"}}"#, 0o644);
-    assert!(InstalledInventory::for_home(&fixture.source).is_err());
+    let custom_setting = br#"{"paths":{"cache":"/outside"}}"#;
+    fixture.write(".config/ryoku/ryogami.json", custom_setting, 0o644);
+    assert!(matches!(
+        InstalledInventory::for_home(&fixture.source),
+        Err(GenerationCaptureError::Inventory(InventoryError::WallpaperStateLocation))
+    ));
+    assert_eq!(fs::read(root.join(".config/ryoku/ryogami.json")).unwrap(), custom_setting);
+    assert!(InventoryError::WallpaperStateLocation.to_string().contains("enrolled"));
     fixture.write(
         ".config/ryoku/ryogami.json",
         br#"{"paths":{"cache":"~/.cache/ryogami"}}"#,
