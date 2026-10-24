@@ -85,7 +85,7 @@ wall.pause	rpc.go	retained-guarded-unavailable	#25 core state contract; #176 aut
 wall.random_start	rpc.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
 wall.rotation_status	daemon.go,rpc.go	bounded-query	#25
 wall.rotation_stop	rpc.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
-wall.set_audio	rpc.go	retained-guarded-unavailable	#25 core state contract; #176 automatic effects
+wall.set_audio	daemon.go,rpc.go	root-authorized-linked-audio	#25 outputs/workspace audio; #175 external/WE; #176 automatic effects
 wall.set_favourite	rpc.go	retained-guarded-unavailable	#175
 wall.unassign	rpc.go	retained-guarded-unavailable	#25 core state contract; #176 automatic effects
 wall.workspaces	daemon.go,rpc.go	bounded-query	#25
