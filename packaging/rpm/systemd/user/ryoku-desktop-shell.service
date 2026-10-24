@@ -1,0 +1,16 @@
+[Unit]
+Description=Preserved upstream Ryoku shell surface
+PartOf=ryoku-desktop-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/ryoku-session shell
+NoNewPrivileges=yes
+Restart=on-failure
+TimeoutStopSec=15s
+KillMode=control-group
+RestartSec=2
+Slice=session.slice

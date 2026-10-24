@@ -1,0 +1,79 @@
+schema_version = 1
+issue = 25
+result = "partial_native_startup_reboot_and_workflow_evidence"
+tested_source = "7b0d2efc35a0dce3ac7b902c403cc2eaae9837cc"
+fixture = "Same owned issue25 COW overlay and native SDK as issue25-native-20261022.toml; preserved accepted issue23 base remains read-only; not a clean-install target."
+build = "Native helper and session rpmbuild with BuildRequires enabled, ordinary tester, offline locked vendor closure; exit 0. Fixture-signed native reinstall, rpm -V empty."
+units = "Actual SDDM password login: desktop target, shell, Rust service, graphical target, general portal and Hyprland portal all active; PipeWire backend initialized. This does not prove a shared stream."
+installed_session_sha256 = "ff448ff05954928f901a5570888d857e2737df82327230e5d2b7a5c5e0cb28f2"
+installed_service_sha256 = "ecd970551d0e7628d4a28ed6515e99de3957f22b2beed47c2c6a59acd1ce2950"
+installed_writer_sha256 = "647ca6180d0f0ab49cb413336ce0024304dbc713fdca928aa3fbfb8a8974473d"
+launcher = "Real launcher query and Return activated native Konsole; reviewed terminal prompt. Hub Displays detected Virtual-1 at 1280x800. No persistent appearance write acceptance."
+notifications = "Real notify-send synthetic application notification returned ID 1 and rendered popup; history, dismissal and service recovery remain pending."
+screenshot = "Original coordinated Ryoshot monitor overlay rendered; actual monitor click/Return produced 140556-byte PNG in ordinary user screenshot directory; journal Qt grab returned true. Saved file content, copy, region, cancel and error acceptance remain pending."
+reboot = "Orderly guest reboot changed boot identity; installed binary hashes unchanged. Fresh SDDM password Ryoku login rendered shell, all six units active, without development-shell activation."
+logout_failure = "Ordinary direct compositor exit stopped shell/service but native Hyprland portal crashed with SIGSEGV on Wayland disconnect; graphical target stopped later. Source logout ordering correction requires a new native regression; this receipt does not accept that correction."
+kde = "After ordinary Ryoku logout, actual SDDM password KDE login passed existing Rust native SDDM/PAM/seat0/Wayland/KWin connected-socket inspection; reviewed KDE panel and desktop. KDE application interaction and intentional Ryoku startup-failure fallback remain pending."
+sharing = "OBS launched but no chooser or shared stream achieved; pending. Portal startup and framebuffer captures are not sharing acceptance."
+clipboard_and_lock = "No keeper package in signed fixture repositories. New pinned Rust keeper and native hyprlock adapter are host candidates only; native text/image/history/error, lock/unlock/wrong-password/suspend/crash cases remain pending."
+devices = "Virtual Ethernet only; no Bluetooth adapter or physical audio device acceptance. No physical device tests."
+poweroff = "Orderly guest poweroff, QEMU exit 0, no remaining issue25 QEMU. Overlay retained powered off; shared KVM slot released."
+privacy = "Only allowlisted facts, private-log hashes and reviewed synthetic desktop frames published; raw logs, machine identifiers and credentials remain private."
+issue_must_remain_open = true
+limits = "No install/migration/reinstall/removal, full protected-write/restore or combined first-sprint acceptance claim."
+
+[[private_logs]]
+name = "native-resume-build-private.log"
+sha256 = "2300e8e1f970b8ab737e9581703d6f5fc1149062dcb2686579121506c15450ac"
+
+[[private_logs]]
+name = "native-resume-install-private.log"
+sha256 = "40e94f2da6f8822580fb5ccf4fcddd45f0baa44b50d1abfdb7ea8f51eb84afb6"
+
+[[private_logs]]
+name = "resumed-startup-private.log"
+sha256 = "3b814b793287371a03c812408adde32ec71443e06e0fefaad92357910f7fa9b5"
+
+[[private_logs]]
+name = "workflow-launch-notify-private.log"
+sha256 = "c9a0cbb2a1c7765b3711643a0d6731b328b2a3623bc05bdc246cfe18371e439f"
+
+[[private_logs]]
+name = "workflow-terminal-hub-private.log"
+sha256 = "8ef0ec0bdf1cdea849a0917e6f74ccf9d5616eec010af5dd0217be1ef15f1d29"
+
+[[private_logs]]
+name = "screenshot-result-private.log"
+sha256 = "a1981c493da74ec31d80fb3ecbfc67545cc4257875284b8fd4e8deec9983af03"
+
+[[private_logs]]
+name = "native-postreboot-private.log"
+sha256 = "d8016fb53e373df2301f7512236ead42dc197ca4103fed2f30115996384c6156"
+
+[[private_logs]]
+name = "postreboot-ryoku-private.log"
+sha256 = "480a03bbf297ed1a47324931211862ecc8f5fcba53ae161de7c2da0a79522124"
+
+[[private_logs]]
+name = "normal-logout-private.log"
+sha256 = "fe56df5d302f9f7a9f3d44000f2f2fbf32cd7c5f8cf8dfaf1295a45ec6c99f63"
+
+[[private_logs]]
+name = "native-kde-fallback-private.log"
+sha256 = "445e1d09ec3bc379fe7e4551402d246852b278f90b02a6d291e5fc0998e5f33a"
+
+[[private_logs]]
+name = "resume-poweroff-private.log"
+sha256 = "138644feac9a90519ea062e71704f2087a623470d9f991db9110943552fec422"
+
+[[reviewed_frames]]
+file = "issue25-native-resume-ryoku.png"
+sha256 = "af4aafb5303e00bed68b348db35fefb1f65f5124069a3ebd420233273a5a4e4f"
+
+[[reviewed_frames]]
+file = "issue25-native-resume-kde.png"
+sha256 = "8327af96f1e9e03d8e1ac9e63d0f96afbccfc3cfccca8dcca1a4d604a4046021"
+
+[[reviewed_frames]]
+file = "issue25-native-resume-capture-surface.png"
+sha256 = "91c6cab33c92eaa021f342d03be6297bdbdbdbe9aa5c3cb0ded2e1c4c3ec9b56"

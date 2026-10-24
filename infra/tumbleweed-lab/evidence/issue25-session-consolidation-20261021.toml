@@ -1,0 +1,81 @@
+schema_version = 1
+issue = 25
+result = "partial_host_checks_only"
+base_commit = "e025c7b8c96e55c6c0582462a1bec2f782fd1a20"
+previous_canonical_head = "3d90c3c2ff014ab718c6dfcecbd4cd5c9ef2d670"
+previous_history_bundle_sha256 = "ba785e45b69b0470acf37aa2df6b8f6ad52f0dcda1f8b1a086ce750ee456bc92"
+toolchain = "rustc 1.99.0 (b940084d7 2026-09-28); cargo 1.99.0 (5f94df478 2026-08-27)"
+
+[implementation]
+session = "Separate optional ryoku-session RPM; SDDM entry, Rust lifecycle, native units, immutable isolated compositor defaults"
+surface_route = "Existing packaged upstream daemon through Rust ryoku-writer; native /usr/share/ryoku and /usr/lib64/qt6/qml paths"
+service = "Existing authenticated Rust service wanted by session target; session-lifetime drop-in only"
+protected_writes = "No new supported protected operation; existing issue 1 authorization and linked-capture gates unchanged"
+old_pr_156 = "Retained draft: equalizer, standalone clipboard and lock/idle candidates remain unrepresented and unaccepted"
+
+[checks]
+format = "cargo fmt --all -- --check: exit 0"
+clippy = "cargo clippy --workspace --all-targets --all-features -- -D warnings: exit 0"
+workspace_tests = "cargo test --workspace --all-features --locked: exit 0; 491 recorded passes including isolated subprocess suites, 0 failures, 5 ignored"
+focused_tests = "cargo test --locked -p ryoku-session: 9 passed, 0 failed"
+build = "cargo build --locked -p ryoku-session --bins: exit 0"
+dependencies = "cargo-deny --all-features check: advisories, bans, licenses, sources all ok"
+spec = "rpmspec --define '_userunitdir /usr/lib/systemd/user' -P packaging/rpm/ryoku-session.spec: exit 0; host expansion only"
+diff = "git diff --check: exit 0"
+unit_verify = "Host systemd-analyze --user verify parses units but exits 1 because /usr/bin/ryoku-session and /usr/libexec/ryoku/ryoku-service are not installed. Native installed verification remains required."
+restrictions = "Initial sandbox denied Unix-socket operations in five existing QMP tests and cargo-deny's advisory lock. Complete checks passed outside sandbox; no assertion was removed or skipped. One local Clippy style error was corrected before final checks."
+
+[private_host_logs]
+workspace_tests_sha256 = "843263f830764b25152fb8db4d0cd31ecc09a89e677195867acc0e6a0140bfd5"
+clippy_sha256 = "99f71393b9903dca098310bb446022a4bdee195ea9996f351a787195555210a6"
+dependencies_sha256 = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+build_sha256 = "948c9c9e95c7fdb3a498660ba055b8d3c8846a5538fd5fdd538efbfa4514503a"
+
+[rpm_build_attempt]
+command = "rpmbuild -ba --define '_topdir <workspace>/target/issue25-session-rpm' <workspace>/target/issue25-session-rpm/SPECS/ryoku-session.spec"
+rpm_version = "4.20.1"
+exit_code = 11
+result = "blocked before prep: host RPM database cannot satisfy cargo >= 1.99 and rust >= 1.99 BuildRequires; no dependency check bypass, RPM package install or host system mutation"
+source_commit = "67b50add9a501c1be23a3f5a85c01682ce3b9053"
+source0_sha256 = "295898f4a58e114442ef318b4211f97f8405428fdd8d237f45261e3fc754c2c3"
+source1_sha256 = "fd3b11c454529b58a8e2be4ebc07c7cc68ec1ad69c9160420755f5b52ae7febb"
+source1_provenance = "Unchanged accepted issue23 vendor archive; session adds only existing rustix dependency, with no registry package changes"
+public_log = "issue25-session-rpm-host-build.log"
+binary_rpm_produced = false
+
+[rpm_mechanics_only]
+command = "CARGO_TARGET_DIR=<mechanics-topdir>/target rpmbuild -ba --nodeps --define '_topdir <mechanics-topdir>' --define '_tmppath <mechanics-topdir>/tmp' --define '_buildhost localhost' <mechanics-topdir>/SPECS/ryoku-session.spec"
+exit_code = 0
+scope = "Non-acceptance host mechanics only. Existing actual rustc/cargo 1.99.0 satisfy the declared >=1.99 minima; --nodeps bypasses missing RPMDB provider records, not missing toolchain binaries. No packages installed, no system state changed."
+source_commit = "67b50add9a501c1be23a3f5a85c01682ce3b9053"
+source0_sha256 = "295898f4a58e114442ef318b4211f97f8405428fdd8d237f45261e3fc754c2c3"
+source1_sha256 = "fd3b11c454529b58a8e2be4ebc07c7cc68ec1ad69c9160420755f5b52ae7febb"
+original_failure_preserved = "rpm_build_attempt and issue25-session-rpm-host-build.log remain unchanged"
+result = "prep, offline locked vendored release build, install and unpackaged-file checks passed; unsigned binary RPM and SRPM produced in isolated temporary topdir"
+manifest = "15 RPM entries; root-owned 0755 binaries/directories and 0644 configuration, units, documentation and license; no home/state paths or enablement links; no scriptlets"
+binary_rpm_sha256 = "6d0eba1672b47d2d64202dd439c3a55981bd182f737928b2ab1485039f83a253"
+source_rpm_sha256 = "f0e38cf327867128820808f42058a8b7fb4b9bcd8c85ca88f4bd92ec2a692022"
+public_build_log = "issue25-session-rpm-mechanics.log"
+public_manifest = "issue25-session-rpm-mechanics-files.tsv"
+public_requires = "issue25-session-rpm-mechanics-requires.txt"
+warning = "Host default debugsource machinery also emitted an empty debugsource package warning; no assertion of native debug packaging acceptance"
+sandbox_retry = "First mechanics invocation failed because default /var/tmp is read-only in sandbox; retry scoped _tmppath inside the same isolated topdir and passed"
+acceptance_limits = "Does not satisfy native RPM BuildRequires resolution, Tumbleweed ABI/dependency resolution, signed package install, SDDM/reboot or workflow acceptance"
+
+followup_source_checks = "Formatting, strict workspace Clippy, locked all-feature workspace tests and cargo-deny rerun after mechanics evidence: all passed; 474 top-level + 17 isolated subprocess passes, 0 failed, 5 existing ignored. No source/spec fix was needed."
+followup_tests_log_sha256 = "542c96a2e6f8d8b22e06f3c39cee7f6339e21838dd762734bd0783f8b80cd024"
+followup_clippy_log_sha256 = "8c233a54790c4800d3dd585436af679aa838da259bfdb129412e2d51cdb75cdc"
+followup_deny_log_sha256 = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+
+[native_acceptance]
+new_qemu_launched = false
+availability = "WSL2 host has QEMU and /dev/kvm, but no active QEMU/vm-lab. Historical retained disk/readiness are stopped/stale; current lab has no authenticated development-resume path. No preserved disk was booted or changed."
+packaged_native_build_install = "pending"
+installed_unit_verification = "pending"
+cold_sddm_login_and_startup_logs = "pending for current candidate; old staged receipts retained as historical only"
+reboot_and_kde_roundtrip = "pending for current candidate"
+intentional_ryoku_failure_to_kde = "pending"
+core_workflows = "pending; see docs/native-desktop-workflows.md"
+physical_devices = "none tested; virtual audio, virtual Ethernet and absent Wi-Fi/Bluetooth must be identified independently"
+watchdog_and_locked_crash = "unimplemented/unverified; direct native Hyprland warning retained"
+issue_must_remain_open = true

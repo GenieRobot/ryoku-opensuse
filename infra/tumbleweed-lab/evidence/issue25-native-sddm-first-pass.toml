@@ -1,0 +1,42 @@
+schema = 1
+date = "2026-10-16"
+source = "49247cd0e9722712cc5b3761ce3958b351f03863"
+runner = "retained disposable Tumbleweed QEMU/KVM guest; ordinary password SDDM login"
+scope = "first automatic native Hyprland/Ryoku login and visible shell; not reboot, KDE fallback, wrapper recovery, full workflow or issue completion"
+hyprland = "0.56.2-1.2"
+aquamarine = "0.15.1-1.1"
+quickshell = "unchanged official 0.3.2 at 4f508be500dea6e5732cc3d50382a0048b17e7b1; /usr/libexec/ryoku/quickshell/bin/qs"
+ryoku_upstream = "98a0368253d9628be72b853985878a5db90e1547"
+automatic_login = "passed; native helper exit 0 after cold-start reset-failed precondition removed"
+native_session = "SDDM; Wayland; Desktop=Hyprland; seat0; UID1001; ordinary fixture account"
+session_id = "218"
+session_leader_pid = 23897
+shell_unit = "ryoku-desktop-shell.service"
+shell_pid = 24015
+backend_unit = "ryoku-service.service"
+backend_pid = 24016
+process_scope = "PIDs observed in this one captured run only; no claim of stable identity across logout/reboot"
+visual = "reviewed PNG shows actual Ryoku bar, large clock and calendar; Hyprland warnings retained; no KDE desktop icons"
+previous_attempt = "native SDDM authentication/compositor succeeded but automatic shell startup failed because reset-failed rejected unloaded shell unit; failed attempt and diagnostic retained separately"
+remaining_runtime_warnings = "missing ryoku-eq helper, missing upstream shell IPC/icons helper, missing ddcutil, unavailable upstream sockets, portal startup failure; no fabricated providers"
+remaining_hyprland_warnings = "missing hyprland-guiutils, deprecated legacy configuration, direct launch without start-hyprland watchdog"
+
+[[artifacts]]
+path = "target/ryoku-development/development-login-ryoku-1792108748373680637-private.log"
+sha256 = "b26fe406948ae2d959ddc0f2a7549f3665339076e4314d26fb5a9a59fb158696"
+kind = "native login/process/socket checks; explicitly requires separate visual acceptance"
+
+[[artifacts]]
+path = "target/ryoku-development/ryoku-native-sddm-success.png"
+sha256 = "61df36c88ae0e23ac3e370ab26ba5fc5a0e16f0ebe7af34956068c20117570f1"
+kind = "actual reviewed native shell framebuffer"
+
+[[artifacts]]
+path = "target/ryoku-development/ryoku-native-sddm-process-private.log"
+sha256 = "e4a35397b2dfa21f543e26f1b922d1dca42e4e908eff9a9f5d07bc39be0ca022"
+kind = "session inventory, actual shell/backend unit PIDs, retained runtime warnings"
+
+[[artifacts]]
+path = "target/ryoku-development/ryoku-activation-diagnostic-private.log"
+sha256 = "707e7c0c7e69e2b1f974bfad852f7e6c38842dc4e0c3e80fd9a4ae111147f942"
+kind = "historical failed first-login diagnostic; not success evidence"
