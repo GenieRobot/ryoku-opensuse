@@ -604,6 +604,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ryoku-rashin"
+version = "0.1.0"
+dependencies = [
+ "rustix",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "ryoku-recovery"
 version = "0.1.0"
 dependencies = [

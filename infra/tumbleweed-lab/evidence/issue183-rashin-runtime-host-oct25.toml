@@ -1,0 +1,70 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+status = "host-runtime-slice-issue-incomplete"
+branch = "codex/feature/issue183-rashin-inventory"
+base_revision = "a50efed"
+upstream_revision = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+rustc = "1.99.0 (b940084d7 2026-09-28)"
+cargo = "1.99.0 (5f94df478 2026-08-27)"
+new_registry_dependencies = 0
+external_provider_requests = 0
+model_downloads = 0
+vm_runs = 0
+storage_before = "907 GiB available on workspace filesystem"
+storage_after = "905 GiB available after offline Cargo build/check outputs"
+hosted_ci = "pending exact-head draft PR run"
+
+[focused_tests]
+command = "cargo test --locked --offline -p ryoku-rashin"
+passed = 25
+failed = 0
+ignored = 0
+log_sha256 = "6b61a29d83ee2182eaf6062986e6fc66fefde87d664d04cbb6582aa8c9181050"
+
+[workspace_tests]
+command = "cargo test --workspace --all-features --locked --offline"
+result_rows = 54
+passed = 605
+failed = 0
+ignored = 7
+log_sha256 = "e0ad91268b92005959e94b2c2867c81370037da70eafae51fa060ee0c38f9741"
+
+[checks]
+format = "cargo fmt --all -- --check: passed"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed"
+dependencies = "cargo deny --offline --all-features check: advisories/bans/licenses/sources passed using cached advisory database"
+diff = "git diff --check: passed"
+socket_execution = "Tests require socketpair/bind, authorized escalation used after sandbox EPERM; no network provider requests"
+
+[rpm_dependency]
+spec = "packaging/rpm/ryoku-desktop.spec"
+subpackage = "ryoku-desktop-runtime"
+requirement = "curl"
+host_package = "curl-8.21.0-1.1.x86_64"
+binary = "/usr/bin/curl"
+parse = "rpmspec --parse packaging/rpm/ryoku-desktop.spec: passed"
+query = "rpmspec -q --requires packaging/rpm/ryoku-desktop.spec: exact curl requirement present"
+scope = "Dependency declaration and host ownership only; this runtime is not yet installed by an RPM"
+
+[acceptance]
+implemented = ["Private typed Unix API/CLI", "Authenticated HTTP and browser console", "Index-integrity local retrieval", "Ask cancel and history", "Independent Agent and Chat sessions", "Typed Fix investigation", "Effective local Agent wire/unwire", "Private configured HTTPS provider and model routes", "Labeled completion activity and fixture usage", "Pending-job restart interruption", "Private state atomic publication and unsafe-object refusal"]
+remaining = ["All retained upstream ACP/harness and v3 WebSocket/UI contracts", "External harness marker/skill/MCP wiring", "All individually typed Prowl provider/model/network/settings/project operations", "Full system/package/source/vault/memory/habits/skills/wiki index", "Terminal command-buffer/recipes/resume and transient Fix harness", "Claude/Codex/opencode quota and usage collectors", "Installed authenticated protected dispatcher and complete linked recovery/enrollment/writer lease integration", "Upstream console/native app/shell/Hub/package integration", "Tumbleweed install/login/interaction/usage/restart/removal/KDE VM gate", "Exact-head hosted CI"]
+linked_recovery_claimed = false
+full_upstream_parity_claimed = false
+issue_closure_requested = false
+
+[source_sha256]
+"Cargo.toml" = "8d685c3fcac26c96048167abda919a730f4373f793382a41bbadd4864f31e309"
+"Cargo.lock" = "7eecde15e6e262c586ed135300ea8c9cf7b5acc54884fd2d811a07e95244a753"
+"packaging/rpm/ryoku-desktop.spec" = "81800dd0a199eeeff36a56af87495b43beab5caf976224a53f9d0c4db5829d17"
+"suse/rashin/src/api.rs" = "286f42c9e287c5d6fe81adb0f7dffa7b32c1965e9a114c6dfd6813a9f5233b83"
+"suse/rashin/src/authorization.rs" = "a020dc9e490bc2cb870091402ed068eed2d25914715dd1918d95d6ab338c2d5e"
+"suse/rashin/src/http.rs" = "59ad3460e600ffdcf62cfb56bd89f42ac20342445e3045c4b2de92a4e7554eb5"
+"suse/rashin/src/lib.rs" = "ee5bd99b298569c70b689cc9c9f433a6dc770ef920e287b3a21a040bcbcbbfdd"
+"suse/rashin/src/main.rs" = "8ced3cc2505f475c2e69617f048d92f677b65c139f3502cc7ae34006eba03479"
+"suse/rashin/src/provider.rs" = "be456d3fb0c750104e6d9c27d23c5c5cc26314f38a5eef97d7379567a78c7f75"
+"suse/rashin/src/runtime.rs" = "5cae3e96d214b51051742ad6f68c47e260d01e915aef06097728967e6b801987"
+"suse/rashin/src/store.rs" = "c7ec7c531a339b75a9c1a7d6048ebd7fe03589a758e268e6a74e776dbbd01a22"
+"suse/rashin/tests/workflows.rs" = "7ab8eaf57246cf90c1c77ab91f3724f2608cb8cf68ef89218eeda899ad051c87"
+"suse/rashin/Cargo.toml" = "026aaea9d3a19f8ec075d3c93008e189dcae528c311d980e19a6064c0dd07178"

@@ -1,0 +1,72 @@
+use crate::provider::Provider;
+use serde::{Deserialize, Serialize};
+
+pub const MAX_REQUEST_BYTES: usize = 256 * 1024;
+
+/// Each action is individually typed. There is no shell, arbitrary URL proxy,
+/// privilege escalation, or generic service/package dispatcher.
+#[derive(Deserialize, Serialize)]
+#[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Request {
+    Status {},
+    Providers {},
+    PutProvider { id: String, provider: Provider },
+    RemoveProvider { id: String },
+    SetRoute { lane: Lane, provider: String, model: String },
+    Index { documents: Vec<Document> },
+    GetIndex {},
+    Ask { id: String, prompt: String },
+    Job { id: String },
+    Cancel { id: String },
+    ForgetJob { id: String },
+    DeleteSession { id: String },
+    Recent {},
+    NewSession { id: String, lane: Lane },
+    Sessions {},
+    Session { id: String },
+    Prompt { id: String, session: String, prompt: String },
+    Fix { id: String, kind: FixKind, component: String, evidence: String },
+    Wire { instructions: String },
+    Unwire {},
+    Usage {},
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Lane {
+    Ask,
+    Agent,
+    Chat,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FixKind {
+    Doctor,
+    Tip,
+    App,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Document {
+    pub name: String,
+    pub content: String,
+    /// Hash of the exact UTF-8 document bytes; verified before index publication.
+    pub sha256: String,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum Response {
+    Ok { data: serde_json::Value },
+    Error { error: crate::Error },
+}
+impl From<crate::Result<serde_json::Value>> for Response {
+    fn from(value: crate::Result<serde_json::Value>) -> Self {
+        match value {
+            Ok(data) => Self::Ok { data },
+            Err(error) => Self::Error { error },
+        }
+    }
+}

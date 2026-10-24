@@ -1,0 +1,17 @@
+[package]
+name = "ryoku-rashin"
+description = "Private typed Rashin assistant runtime for openSUSE"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+rustix = { version = "1.1.5", features = ["fs", "net", "process"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+
+[lints]
+workspace = true

@@ -53,6 +53,9 @@ Requires:       google-noto-sans-cjk-fonts
 Requires:       systemd
 Requires:       util-linux
 Requires:       dbus-1-tools
+# Issue183's explicitly configured HTTPS completion provider uses this fixed
+# distro client. Local/fixture providers never perform network requests.
+Requires:       curl
 # These qmldir modules are private to the shell's import root under /usr/share.
 # Tumbleweed's generator recognizes provides only below /qt6/qml/, while its
 # requires scanner also sees these private module imports. Keep all scanning

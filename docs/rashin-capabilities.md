@@ -1,6 +1,9 @@
 # Rashin 1.0: retained capabilities and implementation gates
 
 This is the preparatory inventory for [#183](https://github.com/GenieRobot/ryoku-opensuse/issues/183).
+The subsequent [Rust runtime slice](rashin-runtime.md) implements tested local
+assistant/API workflows and records the remaining full-parity gates. This source
+inventory continues to describe the complete retained upstream target.
 The full Rashin assistant and usage experience remains part of the Tumbleweed
 target. Runtime implementation and acceptance remain pending the explicit
 [#25](https://github.com/GenieRobot/ryoku-opensuse/issues/25) and
