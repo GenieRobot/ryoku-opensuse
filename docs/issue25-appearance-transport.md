@@ -78,7 +78,7 @@ claim the real theme worker or its template/reload effects protected or accepted
 | Restore/workspace playback/reload, rotation, playlist playback, startup/watchers | Typed handoff or explicit unavailable; stored selection/assignment must be authoritative | #176 (library/playlist metadata also #175) |
 | Settings actions, post-process, theme/palette/stage/depth and shell hooks | Retained, own typed write/executable envelope; no automatic arbitrary shell | #176 |
 | User pause/audio/workspace assignment controls | Retained, unavailable pending exact core appearance plan/state contract | #25 with #176 for automatic effects |
-| Lighting hardware state/control | Retained, unavailable; explicit hardware-provider ownership still required | Coordinator follow-up; not silently assigned to #25 |
+| Lighting hardware state/control | Retained, unavailable pending the typed preference/provider contract | #180 after #25/#173/#175/#176; preserve the full lighting affordance |
 
 The method-by-method ledger below inventories the pinned dispatchers. An
 unavailable query can be admitted only after its complete read/process/cache
