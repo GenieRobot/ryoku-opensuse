@@ -21,6 +21,7 @@ logout_adapter = "Private provider alias intercepts exact act session.exit; a fi
 other_provider_calls = "Literal original argv enters existing Rust provider writer; non-UTF-8 and metacharacter preservation tested"
 compositor_identity = "Requester and worker require nonempty WAYLAND_DISPLAY and HYPRLAND_INSTANCE_SIGNATURE"
 new_module_admission = "Ryoku.Spatial3D metadata required alongside Ui, FrameBars, PluginKit, Blobs and Wm/Hyprland"
+activation_admission = "Fixed payload metadata is checked before starting the target; a missing module enters existing activation cleanup/greeter exit instead of racing Type=exec readiness"
 
 [[source]]
 path = "ryoku/shell/quickshell/shell/services/SessionActions.qml"
