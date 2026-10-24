@@ -725,6 +725,68 @@ fn external_client_runtime_dependency_is_declared_for_tumbleweed() {
             .lines()
             .any(|line| line.split_whitespace().collect::<Vec<_>>() == ["Requires:", "curl"])
     );
+    assert!(
+        runtime.lines().any(|line| line.split_whitespace().collect::<Vec<_>>()
+            == ["Requires:", "rpm", ">=", "4.19"])
+    );
+}
+
+#[test]
+fn logs_api_is_read_only_bounded_and_unavailable_to_restricted_ask_clients() {
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let evidence =
+        rpc(&engine, Request::Logs { component: "rashin-synthetic-test.service".into() });
+    assert_eq!(evidence["component"], "rashin-synthetic-test.service");
+    let observations = evidence["observations"].as_array().unwrap();
+    assert_eq!(observations.len(), 4);
+    assert_eq!(observations[0]["kind"], "user_unit");
+    assert_eq!(observations[1]["kind"], "user_journal");
+    assert_eq!(observations[2]["kind"], "rpm_capability");
+    assert_eq!(observations[3]["kind"], "rpm_file_owner");
+    for observation in observations {
+        assert!(observation["text"].as_str().unwrap().len() <= 3 * 32 * 1024);
+    }
+    assert_eq!(
+        engine.dispatch_as(
+            ryoku_rashin::authorization::Access::AskClient,
+            Request::Logs { component: "curl".into() }
+        ),
+        Err(Error::Unauthorized)
+    );
+    assert_eq!(
+        engine.dispatch(Request::Logs { component: "--system".into() }),
+        Err(Error::InvalidRequest)
+    );
+}
+
+#[test]
+fn fix_includes_native_evidence_and_keeps_idempotency_across_recollection() {
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let request = || Request::Fix {
+        id: "native-fix".into(),
+        kind: FixKind::App,
+        component: "rashin-synthetic-test.service".into(),
+        evidence: "synthetic service error".into(),
+    };
+    rpc(&engine, request());
+    let job = done(&engine, "native-fix");
+    assert!(job["prompt"].as_str().unwrap().contains("rpm_file_owner"));
+    assert!(job["prompt"].as_str().unwrap().contains("user_journal"));
+    assert_eq!(rpc(&engine, request())["status"], "completed");
+}
+
+#[test]
+fn logs_cli_uses_the_same_bounded_native_collector() {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_ryoku-rashin"))
+        .args(["logs", "rashin-synthetic-test.service"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["observations"].as_array().unwrap().len(), 4);
+    assert!(output.stderr.is_empty());
 }
 
 #[test]

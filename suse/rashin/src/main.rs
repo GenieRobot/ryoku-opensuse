@@ -17,6 +17,11 @@ fn run() -> Result<()> {
         return Err(Error::InvalidRequest);
     }
     match args[0].to_str() {
+        Some("logs") => {
+            let component = args[1].to_str().ok_or(Error::InvalidRequest)?;
+            let evidence = ryoku_rashin::inspection::collect(component)?;
+            serde_json::to_writer(std::io::stdout(), &evidence).map_err(|_| Error::Storage)
+        }
         Some("serve" | "web") => {
             let store = Store::open(Path::new(&args[1]))?;
             let listener = store.listener()?;
@@ -83,7 +88,7 @@ fn run() -> Result<()> {
 fn main() {
     if let Err(error) = run() {
         eprintln!(
-            "ryoku-rashin: {error}; usage: ryoku-rashin serve|web PRIVATE_DIRECTORY | request SOCKET < request.json"
+            "ryoku-rashin: {error}; usage: ryoku-rashin serve|web PRIVATE_DIRECTORY | request SOCKET < request.json | logs COMPONENT"
         );
         std::process::exit(1);
     }

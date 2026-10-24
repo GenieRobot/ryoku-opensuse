@@ -3,6 +3,7 @@
 pub mod api;
 pub mod authorization;
 pub mod http;
+pub mod inspection;
 pub mod provider;
 pub mod runtime;
 pub mod store;

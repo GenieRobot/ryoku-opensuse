@@ -29,6 +29,7 @@ pub enum Request {
     Wire { instructions: String },
     Unwire {},
     Usage {},
+    Logs { component: String },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

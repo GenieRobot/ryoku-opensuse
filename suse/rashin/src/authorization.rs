@@ -31,6 +31,7 @@ impl Request {
             | Self::Sessions {}
             | Self::Session { .. }
             | Self::Usage {}
+            | Self::Logs { .. }
             | Self::Job { .. } => Action::Inspect,
             Self::Ask { .. } | Self::Cancel { .. } => Action::Ask,
             Self::NewSession { .. }
