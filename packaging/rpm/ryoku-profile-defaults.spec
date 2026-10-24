@@ -1,6 +1,6 @@
 Name:           ryoku-profile-defaults
 Version:        0.1.0
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Generic declarative defaults for the Ryoku openSUSE port
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse

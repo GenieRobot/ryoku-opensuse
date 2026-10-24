@@ -190,9 +190,61 @@ mod tests {
         assert!(qml_imports(required, &provided).is_err());
         provided.insert("qt6qmlimport(Ryoku.Ui.Singletons)".into());
         assert!(qml_imports(required, &provided).is_ok());
+        let tray = format!("{required}qt6qmlimport(Quickshell.Services.SystemTray)\n");
+        assert!(qml_imports(&tray, &provided).is_err());
+        provided.insert("qt6qmlimport(Quickshell.Services.SystemTray)".into());
+        assert!(qml_imports(&tray, &provided).is_ok());
         assert!(
             qml_imports(&format!("{required}qt6qmlimport(shell.unknown)\n"), &provided).is_err()
         );
+    }
+
+    #[test]
+    fn parsed_selected_quickshell_modules_have_real_static_rpm_providers() {
+        let imports: BTreeSet<_> =
+            include_str!("../../../upstream/evidence/ryoku-v1.0/qml-import-names.txt")
+                .lines()
+                .filter(|name| name.starts_with("Quickshell"))
+                .map(|name| format!("qt6qmlimport({name})"))
+                .collect();
+        let spec = include_str!("../../../packaging/rpm/ryoku-quickshell.spec");
+        let provided: BTreeSet<_> = spec
+            .lines()
+            .filter_map(|line| line.strip_prefix("Provides:"))
+            .map(str::trim)
+            .filter(|name| name.starts_with("qt6qmlimport(Quickshell"))
+            .map(str::to_owned)
+            .collect();
+        assert_eq!(imports, provided);
+        assert!(spec.lines().any(|line| {
+            line.strip_prefix("Release:").is_some_and(|value| value.trim() == "3%{?dist}")
+        }));
+        assert!(include_str!("../../../packaging/rpm/ryoku-desktop.spec").lines().any(|line| {
+            line.strip_prefix("Requires:")
+                .is_some_and(|value| value.trim() == "ryoku-quickshell = 0.3.2-3")
+        }));
+    }
+
+    #[test]
+    #[ignore = "requires native rpmspec; verifies parsed spec metadata, not a built RPM"]
+    fn native_spec_parser_preserves_systemtray_provider_and_matching_release() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../packaging/rpm");
+        for (file, query, expected) in [
+            ("ryoku-quickshell.spec", "--provides", "qt6qmlimport(Quickshell.Services.SystemTray)"),
+            ("ryoku-quickshell.spec", "--provides", "ryoku-quickshell = 0.3.2-3"),
+            ("ryoku-desktop.spec", "--requires", "ryoku-quickshell = 0.3.2-3"),
+        ] {
+            let output = Command::new("rpmspec")
+                .args(["-q", "--rpms", query])
+                .arg(root.join(file))
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+            assert!(
+                String::from_utf8(output.stdout).unwrap().lines().any(|line| line == expected),
+                "{file}: {expected}"
+            );
+        }
     }
 
     #[test]

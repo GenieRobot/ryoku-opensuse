@@ -15,6 +15,14 @@ under GPL version 3. Its pinned source revision and component boundaries are
 recorded in [issue #11](https://github.com/GenieRobot/ryoku-opensuse/issues/11)
 and the [upstream inventory](docs/upstream-inventory.md). Preserve upstream
 notices and licenses when importing a component.
+The 24 October Ryoku 1.0 source delta and openSUSE scope are tracked in
+[`docs/ryoku-v1.0-delta.md`](docs/ryoku-v1.0-delta.md), with a complete path
+ledger in [`upstream/ryoku-v1.0-path-delta.tsv`](upstream/ryoku-v1.0-path-delta.tsv).
+
+The selected upstream shell includes modified iNiR-derived components:
+Based on iNiR by snowarch (https://github.com/snowarch/inir).
+Their original copyright, GPL version 3 license and section 7 attribution
+terms remain in the payload. The openSUSE port is a modified derivative.
 
 ## Repository map
 

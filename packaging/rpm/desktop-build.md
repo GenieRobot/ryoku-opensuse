@@ -1,9 +1,27 @@
 # Pinned desktop RPM inputs
 
+## Ryoku 1.0 source refresh status
+
+The current source review pin is Ryoku v1.0.0 at
+`a59d051f0e8080052216f6c7b9eb7e5928935ce8`. Source2 and Source3 now export
+that exact tree with verified pinned font assets, updated hashes, and an
+issue 18 launch patch rebased to the new helper paths. Native package build,
+exact Tumbleweed dependency resolution, actual SDDM session acceptance and VM
+recovery remain open in [#173](https://github.com/GenieRobot/ryoku-opensuse/issues/173).
+The old #23 result remains evidence for its original 0.75.5 artifacts only.
+
+The candidate includes the merged #24 installer at main revision
+`51e5911635f31b71a05a2bd640306f0f482bc88b`. The co-versioned
+desktop/helper/defaults/tools packages use `0.1.0-8` for the changed 1.0
+payload/dependency set; Quickshell remains upstream `0.3.2` with packaging
+Release 3. #24's `0.1.0-7`/`0.3.2-2` Run10 evidence retains its original
+0.75.5 scope. No #24 installer or #25 session behavior is changed here.
+
 Issue #23 packages the pinned upstream desktop and existing Rust components.
 The `ryoku-desktop` metapackage selects the runtime, immutable profile defaults,
 service/helper and recovery inspector. Its runtime subpackage preserves the
-shell, Hub, shared QML, translations and native Blobs plugin; the fonts
+shell, Hub, shared QML, translations, Blobs/Spatial3D native modules, and the
+Ryogami wallpaper picker; the fonts
 subpackage owns only its dedicated font directory. Quickshell is built from
 official unchanged source in the private `/usr/libexec/ryoku/quickshell`
 prefix, leaving the distribution's `/usr/bin/qs` independent.
@@ -26,42 +44,46 @@ inputs and spec files. The source archive convention is documented in
 | --- | --- |
 | `ryoku-opensuse-0.1.0.tar.gz` | Exact committed port revision, normalized `git archive` with prefix `ryoku-opensuse-0.1.0/` |
 | `ryoku-opensuse-vendor-0.1.0.tar.xz` | Vendor archive from that revision's exact `Cargo.lock` |
-| `issue14-runtime-payload.tar.gz` | Ryoku `98a0368253d9628be72b853985878a5db90e1547`, unchanged export plus pinned fonts; SHA-256 `81151cef1a613b01ad8e6187df2e93cbfed70e1621de0ee2e7455d2904fc3e74` |
-| `ryoku-writers-98a0368.tar.xz` | Exact Git export of the same Ryoku revision, including four committed Go vendor closures; SHA-256 `bf6790f07f643dc7b3f282b0ce3b918b7f0efdb5c343a7572c5dd5ab9477feed` |
+| `ryoku-runtime-a59d051.tar.gz` | Selected Ryoku 1.0.0 tree exports plus 18 individually SHA-256-pinned font assets; archive SHA-256 `8aeff20645c14af76f3d341e5d4e7c31923fd249f6671caa704c8b23a6c84e65`; 54,073,125 bytes; 4,472 files including generated provenance/checksums |
+| `ryoku-writers-a59d051.tar.xz` | Exact 5,861-file export from tree `06b2962f82f43118c3a98372c2a4b435b689b725`, including Go vendor closures, session helper scripts, Ryogami picker and live wallpaper source; archive SHA-256 `7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be` |
 | `issue14-quickshell-0.3.2.tar.gz` | Official Quickshell `4f508be500dea6e5732cc3d50382a0048b17e7b1`; SHA-256 `5e8a7b7a1a1e40de641ee6cfd24f40aa612e13c27353e5746fc79b2861ca9fd0` |
 
 Both desktop specs check their external archive hashes before extraction. The
-desktop spec also verifies Source2's complete `SHA256SUMS` before building
-unchanged Blobs C++ sources. Only its two native libraries, `qmldir` and
-`ryoku-blobs.qmltypes` are installed; generated build-directory maps are excluded.
+desktop spec also verifies Source2's complete `SHA256SUMS` before building the
+expanded Blobs module and the Spatial3D module. It installs both full generated
+module trees, including shaders and plugin metadata, and the Ryogami picker
+module built from pinned upstream C++/QML sources. Generated CMake build trees
+and source maps are excluded.
 
 Source3 is selected by `upstream-writer-paths.txt` from the official pinned
-upstream archive. `upstream-source-audit` reconstructs every Git tree object
-from the recursive GitHub manifest, checks the pinned root tree
-`49cf710dea4a8bc2c5aa2c4b524be46c5c9a2cff`, then verifies every exported blob,
-executable mode and exact file set. The archive is sorted, owner/group 0, and
-timestamped at upstream commit epoch `1790452779`. Retain the API manifest,
-audit output and source digests alongside the build logs.
+upstream tree. The complete recursive GitHub tree manifest for v1.0.0 has SHA-256
+`5b5fbc92aae8082ba29135a350de5887078e13fd994b74b59c895b190aa9c774` and root
+tree `06b2962f82f43118c3a98372c2a4b435b689b725`. The selected 5,861 files were
+checked for exact path set, Git blob identity and executable modes. The archive
+is sorted, owner/group 0, and timestamped at upstream commit epoch `1792838837`.
+Retain the API manifest, audit output and source digests alongside build logs.
 
-The desktop spec applies the integrated issue #18
-`upstream/patches/issue18-writer-launch.patch` to Source3. This changes launch
-routing only. The shell IPC, Hyprland provider, Hub backend and Ryogami daemon
-build with Go 1.26.5 or newer using their committed vendor directories:
+The desktop spec applies the rebased issue #18
+`upstream/patches/issue18-writer-launch.patch` to Source3. It routes the v1.0
+Ryoshot and session-intro helpers through fixed Rust writer roles and pins IPC
+and Ryogami launches to the private Quickshell path. The shell IPC, Hyprland
+provider, Hub backend and Ryogami daemon build with Go 1.26.5 or newer using
+their committed vendor directories:
 `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOWORK=off CGO_ENABLED=0`,
 `-trimpath -mod=vendor -buildvcs=false`. No module resolution downloads or
 upstream installer run during the build. The binary RPM preserves upstream
 notices, vendored dependency license/notice files and the native Go standard
 library license. Source RPMs retain the full selected source/license closure.
 
-The patched shell/Hub QML and Ryogami picker accompany these exact binaries.
-Source2 still supplies unchanged shared QML, translations, Blobs and fonts.
-Upstream auxiliary scripts remain payload data and are never invoked by
-package installation/removal.
+The patched shell/Hub QML, Ryogami picker, Ryoshot helper and session-intro
+helper accompany these exact binaries. Source2 supplies the 1.0 shared QML,
+translations, Blobs/Spatial3D sources and fonts. Upstream host-setup and custom
+SDDM scripts remain excluded and are never invoked by package installation or
+removal.
 
-The payload's historical `RUNTIME.md` describes the rejected initial Noctalia
-runtime and is retained only in Source2. The installed provenance is
-`upstream/ryoku-runtime.toml`; its historical 20261013 repository observation
-is source provenance, not acceptance for a current rolling-release image.
+The installed provenance is `upstream/ryoku-runtime.toml`. Its previous
+20261013 repository observation is historical only; exact current Tumbleweed
+dependency resolution and acceptance are still required.
 
 ## Ownership and native builds
 
@@ -102,7 +124,7 @@ Qt6 scanner output and unresolved internal module imports.
 Its provides generator recognizes `qmldir` files only below `/qt6/qml/`, so
 the runtime explicitly provides its two private `shell.services` and
 `shell.barkit` modules under `/usr/share`. Quickshell's twelve public modules
-used by this payload are statically embedded in its private `qs` executable;
+used by the older payload were statically embedded in its private `qs` executable;
 the Quickshell spec declares their unversioned QML provides. Shared `Ryoku.*`
 modules retain automatic provides from their standard Qt paths, except the two
 shipped `Ryoku.Ui.Singletons` and `Ryoku.PluginKit.Singletons` directory imports:
@@ -111,6 +133,15 @@ The desktop
 build requires the native QML generators so missing tooling cannot silently
 remove the import requirements. These declarations do not make Quickshell's
 private modules available to an unrelated Qt executable.
+
+The selected 1.0 shell plus writer QML now use thirteen Quickshell modules.
+Release `0.3.2-3` adds the verified static
+`qt6qmlimport(Quickshell.Services.SystemTray)` Provide; desktop-runtime requires
+that exact release. Quickshell source, defaults and binary feature selection
+remain unchanged. The pinned status-notifier CMake target declares the exact
+URI and links its plugin into `qs`. See the retained module-source evidence
+and source-review dependency section. #24's `0.3.2-2` artifacts retain their
+original 0.75.5 acceptance label; they are not relabelled as v1 acceptance.
 
 Quickshell requires Qt private APIs. Its SDK and runtime imports are pinned to
 Qt 6.11.2 and RPM generates the native ELF dependency requirements. A rolling

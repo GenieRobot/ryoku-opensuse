@@ -3,7 +3,7 @@
 
 Name:           ryoku-quickshell
 Version:        0.3.2
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Pinned private Quickshell runtime for the experimental Ryoku desktop
 License:        LGPL-3.0-only
 URL:            https://git.outfoxxed.me/quickshell/quickshell
@@ -46,6 +46,7 @@ Provides:       qt6qmlimport(Quickshell.Networking)
 Provides:       qt6qmlimport(Quickshell.Services.Mpris)
 Provides:       qt6qmlimport(Quickshell.Services.Notifications)
 Provides:       qt6qmlimport(Quickshell.Services.Pipewire)
+Provides:       qt6qmlimport(Quickshell.Services.SystemTray)
 Provides:       qt6qmlimport(Quickshell.Services.UPower)
 Provides:       qt6qmlimport(Quickshell.Wayland)
 Provides:       qt6qmlimport(Quickshell.Widgets)

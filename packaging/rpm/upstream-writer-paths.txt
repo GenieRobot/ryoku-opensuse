@@ -2,7 +2,11 @@ LICENSE
 NOTICE
 ryoku/shell/ipc
 ryoku/shell/ryogami/daemon
-ryoku/shell/ryogami/wall-ui
+ryoku/shell/ryogami/picker
+ryoku/shell/livewall
+ryoku/shell/scripts/ryoku-cmd-ryoshot
+ryoku/shell/scripts/ryoku-session-intro
+ryoku/assets/brand
 ryoku/wm
 ryoku/hub/backend
 ryoku/shell/quickshell
