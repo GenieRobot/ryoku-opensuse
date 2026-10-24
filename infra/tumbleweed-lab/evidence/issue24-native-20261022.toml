@@ -60,3 +60,13 @@ correction = "fixed own-account namespace bootstrap through existing writer API;
 diagnostic_preview = "after bootstrap, identified signed plasmawayland.desktop name; corrected fixed KDE preservation list; native read-only preview then exited0"
 acceptance = "none; diagnostic working-tree binaries do not replace exact Run03 RPM source"
 disposal = "failed and diagnostic disks, firmware, seed, keys and staged VM inputs removed; final diagnostic QEMU exit0 and independent zero-process scan"
+
+[run04]
+candidate = "0fbf7899f718145a608901358519cba37dc92667"
+report = "issue24-native-20261022/run04.txt"
+result = "interrupted-by-host-shutdown-before-guest-boot-acceptance"
+observed = "signed image and firmware inputs verified; fresh overlay created; source UEFI boot began"
+failure = "host systemd-shutdown sent SIGTERM to QEMU before guest boot/bootstrap acceptance"
+resumption = "2026-10-24 authoritative host scan confirms no QEMU/vm-lab; source image hash unchanged"
+disposal = "owned disks, firmware, seed, SSH credentials and staged VM inputs removed; private diagnostics retained locally"
+acceptance = "none; interrupted run does not prove installer lifecycle or reset"

@@ -1,0 +1,16 @@
+issue=24
+candidate=0fbf7899f718145a608901358519cba37dc92667
+source_bundle_sha256=2cf157635724f6ad16582ce58398e9c2f566e7ed5d601864bfa24a8681abbc5b
+probe_sha256=90c47a8f6251f64a11df1e5113ec875fd833b5058bfefc2969c450560df07c26
+result=interrupted-by-host-shutdown-before-guest-boot-acceptance
+observed=signed image, native firmware and input hashes verified; fresh overlay created; UEFI began booting the source guest
+earliest_boundary=fresh_overlay=created; no guest bootstrap, derivation, native build or installer marker recorded
+qemu_log=qemu-system-x86_64: terminating on signal 15 from pid 1 (/usr/lib/systemd/systemd-shutdown)
+private_serial_sha256=28869f7a66d2fd8263786be9394306404eaaa7cac67871d2af2fe41dbb9d393b
+private_qemu_sha256=af6c3edcf48a49c54e328f15745dd56b6a64d2b682598fdfd35f9b4718468b7c
+runner_exit=not-retained-across-host-shutdown
+resumption_observation=2026-10-24; independent host process scan confirms zero QEMU and vm-lab
+source_image_sha256=ec8fd95a4c8a1315b3f2cdf609eb226e2578ac3faae18c1fc4242a911041a231
+source_image=unchanged
+disposal=owned disks, firmware variables, seed, SSH credentials and staged private VM inputs removed after zero-process and source-invariant checks; private logs retained locally
+acceptance=none; no native installer lifecycle or reset completion credited
