@@ -10,7 +10,10 @@ downloads = false
 
 [boundary]
 existing_root_check = "InstalledInventory validates current on-disk paths.cache through a no-follow configuration open"
-new_actor_check = "Native A receiver compares loaded cache/store/state/configuration roots with the enrolled standard layout before creating/consuming a write permit"
+new_actor_check = "Native A receiver compares HOME to the root-supplied account-home commitment, then loaded cache/store/state/configuration roots to that enrolled standard layout before creating/consuming a write permit"
+authenticated_home = "Root commitment derives from the NSS-bound AccountStateRoot home descriptor, never service HOME; the authenticated writer lease independently checks its capture context"
+home_mismatch_test = "Actor HOME and every loaded root agree with an alternate writable tree, but the account-bound permit refuses before writes to either tree; sentinel bytes survive and valid enrolled apply then succeeds"
+followup_parent = "24d38b2e04fb3c8c31331fd91d6baf7a47d5a554"
 refusal = "Correlated code -32012 becomes a typed helper/proxy layout diagnostic after refreeze; no successful result/history is fabricated"
 custom_data = "Retained custom outputs/index/state sentinel bytes survive both refused and subsequent enrolled-root operations"
 custom_parity = "Temporary fixed-layout coverage, not permanent feature exclusion; #175/#176 own configured-root enrollment/layout binding/restoration"
@@ -27,9 +30,12 @@ recovery_existing_ignored = 6
 service_passed = 124
 service_existing_ignored = 1
 rust_failed = 0
-native_passed_cases = 327
+native_passed_cases = 328
 native_missing_tool_skips = 7
 native_cross_issue_prerequisites = 9
+native_categories_disjoint = true
+native_missing_tool_tests = ["TestAutoOptimizeTouchesOnlyNewImages", "TestGradePreviewAndCommit", "TestOptimizeCancelStopsEarly", "TestOptimizeRunConvertsPNGs", "TestScanGeneratesThumb", "TestScanMergeMtimeChangeReprocesses", "TestScanSkipsFreshThumb"]
+native_excluded_prerequisite_tests = ["TestE2EDepthSetAndClearFoldIntoFrame", "TestE2EJSONRequestsAndEventsShareOneConnection", "TestE2EWallpaperNextAdvances", "TestE2EFavouriteSurvivesRescan", "TestE2ESetFavouriteBroadcastsCached", "TestE2EWallDeleteRequiresSubfolderCatalogKey", "TestEventsFlowWhileRequestRuns", "TestSlowSourceSearchDoesNotBlockStatusOnSameConnection", "TestClosingConnectionClearsSearchRegistry"]
 native_filter = "Exact same nine #175/#176 names in docs/issue25-appearance-transport.md; no blanket filtering"
 patch = "Tracked 16-file patch reproduced byte-for-byte; cached Source3 plus launch/appearance patches applied with fuzz=0"
 

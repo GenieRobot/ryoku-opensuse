@@ -335,16 +335,30 @@ pub struct ActorIdentity {
 #[serde(deny_unknown_fields)]
 pub struct ActorCall {
     pub actor: ActorIdentity,
+    /// Equality with the trusted capture account home; never authorization.
+    pub account_home_sha256: String,
     pub plan_sha256: String,
     pub frame: Vec<u8>,
     pub frame_sha256: String,
 }
 
 impl ActorCall {
+    pub fn validate_for_home(
+        &self,
+        expected_actor: &ActorIdentity,
+        authenticated_home: &str,
+    ) -> Result<(), WallpaperProtocolError> {
+        self.validate(expected_actor)?;
+        if self.account_home_sha256 != digest(authenticated_home.as_bytes()) {
+            return Err(WallpaperProtocolError::InvalidPermit);
+        }
+        Ok(())
+    }
     pub fn validate(&self, expected_actor: &ActorIdentity) -> Result<(), WallpaperProtocolError> {
         if self.actor != *expected_actor
             || self.actor.pid == 0
             || self.actor.start_time == 0
+            || !valid_sha256(&self.account_home_sha256)
             || !valid_sha256(&self.plan_sha256)
             || self.frame_sha256 != digest(&self.frame)
         {
@@ -453,11 +467,16 @@ mod tests {
         let frame = action().frame(1).unwrap();
         let call = ActorCall {
             actor: actor.clone(),
+            account_home_sha256: digest(b"/home/fixture"),
             plan_sha256: "ab".repeat(32),
             frame_sha256: digest(&frame),
             frame,
         };
-        call.validate(&actor).unwrap();
+        call.validate_for_home(&actor, "/home/fixture").unwrap();
+        assert!(call.validate_for_home(&actor, "/home/different").is_err());
+        let mut wrong_home = call.clone();
+        wrong_home.account_home_sha256 = digest(b"/home/different");
+        assert!(wrong_home.validate_for_home(&actor, "/home/fixture").is_err());
         let mut changed = call.clone();
         changed.frame = action().frame(2).unwrap();
         assert!(changed.validate(&actor).is_err());

@@ -222,7 +222,13 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
         let plan_sha256 = wire::digest(
             &serde_json::to_vec(&(plan, proof.linked())).map_err(|_| GateError::InvalidPlan)?,
         );
+        // This descriptor comes from AccountStateRoot's authenticated NSS
+        // lookup, never the service/daemon HOME environment.
+        let home = self.account.capture_home().map_err(|_| GateError::PlanChanged)?;
+        let home_path = std::fs::read_link(format!("/proc/self/fd/{}", home.as_raw_fd()))
+            .map_err(|_| GateError::PlanChanged)?;
         let call = ActorCall {
+            account_home_sha256: wire::digest(home_path.as_os_str().as_encoded_bytes()),
             actor: session.wallpaper_actor().map_err(|_| GateError::PlanChanged)?,
             plan_sha256,
             frame_sha256: wire::digest(&frame),

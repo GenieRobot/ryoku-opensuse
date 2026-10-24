@@ -56,8 +56,13 @@ Oversize state/input fails before mutation with an actionable error.
 ## Loaded wallpaper roots and custom-path parity
 
 The root inventory already validates the current on-disk `paths.cache` setting.
-The native A receiver now also checks its already-loaded cache directory, store
+The native A receiver also checks its already-loaded cache directory, store
 root, state root and configuration root before creating an execution permit.
+The root helper derives an account-home commitment from AccountStateRoot's
+NSS-bound home descriptor, not service environment. The authenticated writer
+lease checks this commitment against its capture context, and the native actor
+requires its HOME to match it before checking any HOME-relative roots. The
+commitment is an equality check, never authorization by itself.
 This covers a daemon that still holds an earlier cache/store after the file on
 disk returned to the enrolled layout. A mismatch returns a specific, correlated
 refusal before any wallpaper output, catalogue, selection or legacy-state write.
@@ -73,8 +78,10 @@ parity. `FileRecord` currently rejects unlisted UserHome paths, so silently
 accepting arbitrary cache roots would weaken the existing manifest/restore
 contract. This #25 slice adds no such broad enrollment.
 
-Four native receiver regressions cover loaded-cache, loaded-store, state-root
-and config-root mismatch. They preserve sentinel bytes in existing custom
+Five native receiver regressions cover loaded-cache, loaded-store, state-root,
+config-root and HOME mismatch. In the HOME case every loaded root matches the
+alternate HOME, while the permit remains bound to the authenticated account
+root; both the custom and enrolled trees remain unchanged on refusal. They preserve sentinel bytes in existing custom
 outputs/catalogue/selection files, create no enrolled wallpaper state on refusal,
 and apply successfully after the fixture's loaded roots are reset to the
 enrolled configuration. Root/proxy tests distinguish this refusal from success,
@@ -133,7 +140,7 @@ exec-stop and signal-delivery semantics.
 Helper tests preserve Rejected wire shape and verify success fields/caller denial.
 Bundle tests reject missing/ambiguous/stale/account-mismatched provenance.
 
-The native daemon suite is **327 passing test/subtest cases, 7 declared missing
+The native daemon suite is **328 passing test/subtest cases, 7 declared missing
 ImageMagick skips, 9 exact cross-issue exclusions**, with no blanket E2E filter.
 Four initially excluded #25 fixtures were rewritten to anonymous native query/A
 channels and now pass:
@@ -172,6 +179,10 @@ pinned native daemon module after the RPM prep patches, using the existing Go
 GOFLAGS=-buildvcs=false GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off \
   go test -mod=vendor -skip '^(TestE2EDepthSetAndClearFoldIntoFrame|TestE2EJSONRequestsAndEventsShareOneConnection|TestE2EWallpaperNextAdvances|TestE2EFavouriteSurvivesRescan|TestE2ESetFavouriteBroadcastsCached|TestE2EWallDeleteRequiresSubfolderCatalogKey|TestEventsFlowWhileRequestRuns|TestSlowSourceSearchDoesNotBlockStatusOnSameConnection|TestClosingConnectionClearsSearchRegistry)$' -count=1 -json ./...
 ```
+
+The seven executed-but-skipped tool cases and the nine excluded cross-issue
+prerequisites are distinct sets with no overlap. The receipt records every exact
+name in both sets.
 
 The seven tool-dependent skips are the existing grade, optimize conversion,
 optimize cancellation, auto-optimize and thumbnail-generation/freshness tests,

@@ -510,7 +510,8 @@ impl Endpoint {
                         stream.set_read_timeout(Some(TIMEOUT))?;
                         let call: crate::wallpaper_protocol::ActorCall =
                             read_actor_wire(&mut stream)?;
-                        call.validate(&actor.identity()?).map_err(|_| Error::Unsupported)?;
+                        call.validate_for_home(&actor.identity()?, &home)
+                            .map_err(|_| Error::Unsupported)?;
                         freeze.check()?;
                         self.namespace.check_lock(lock)?;
                         let execution = actor.execution()?;
