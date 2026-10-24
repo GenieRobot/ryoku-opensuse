@@ -10,6 +10,13 @@ exact Tumbleweed dependency resolution, actual SDDM session acceptance and VM
 recovery remain open in [#173](https://github.com/GenieRobot/ryoku-opensuse/issues/173).
 The old #23 result remains evidence for its original 0.75.5 artifacts only.
 
+The candidate includes the merged #24 installer at main revision
+`51e5911635f31b71a05a2bd640306f0f482bc88b`. The co-versioned
+desktop/helper/defaults/tools packages use `0.1.0-8` for the changed 1.0
+payload/dependency set; Quickshell remains upstream `0.3.2` with packaging
+Release 3. #24's `0.1.0-7`/`0.3.2-2` Run10 evidence retains its original
+0.75.5 scope. No #24 installer or #25 session behavior is changed here.
+
 Issue #23 packages the pinned upstream desktop and existing Rust components.
 The `ryoku-desktop` metapackage selects the runtime, immutable profile defaults,
 service/helper and recovery inspector. Its runtime subpackage preserves the

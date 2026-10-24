@@ -1,6 +1,6 @@
 Name:           ryoku-tools
 Version:        0.1.0
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Native offline Ryoku recovery console
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse

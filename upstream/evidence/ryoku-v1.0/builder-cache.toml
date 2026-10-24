@@ -1,0 +1,10 @@
+schema_version = 1
+role = "Disposable builder backing/cache only; never fresh 1.0 VM acceptance"
+backing_path = "target/issue23-packaging-20261016/disk.qcow2"
+backing_sha256_before_use = "ce4bd290a8247f4561771d154fdc845bab60c5981bf70f7905239940be189985"
+firmware_variables_source = "target/issue23-packaging-20261016/OVMF_VARS.fd"
+firmware_variables_sha256_before_copy = "4bc72bd5f15cd89d03595f16a355944ab0083951ac8a55d583e9b174a91f1319"
+historical_provenance = "Existing #23 disposable SDK guest; inspect its installed identity, package signatures and caches before reuse"
+write_policy = "Source disk and firmware remain unchanged; only a new qcow2 overlay and copied firmware variables may be booted"
+metered_policy = "Reuse hash-verified archives, signed RPMs and cached metadata; inspect package/cache closure before any specific missing download"
+native_acceptance = "pending; this record only identifies the locally measured builder inputs"
