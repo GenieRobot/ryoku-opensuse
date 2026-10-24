@@ -49,12 +49,12 @@ payload_note = "Ryoku 1.0.0 selected runtime exports and pinned font assets; sou
 
 [coordinated_writers]
 source_archive = "ryoku-writers-a59d051.tar.xz"
-source_archive_sha256 = "7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be"
+source_archive_sha256 = "387d829860ba844ad32ecdd5982678707665f3251e41bbb43c6fd6f87dc7eee0"
 source_commit_epoch = 1792838837
 source_scope = "packaging/rpm/upstream-writer-paths.txt"
 verified_tree_objects = 1072
-verified_source_files = 5861
-source_audit = "Reconstructed the pinned Git tree and verified selected path set, Git blob IDs, executable modes and 5,861 exported files against the complete recursive GitHub tree manifest."
+verified_source_files = 6968
+source_audit = "Reconstructed the pinned Git tree and verified selected path set, Git blob IDs, executable modes and 6,968 source entries (6,966 regular files and two bounded internal Git links), including complete CLI/Rashin source-only roots against the complete recursive GitHub tree manifest."
 previous_upstream_archive_url = "https://codeload.github.com/Ryoku-dev/ryoku/tar.gz/98a0368253d9628be72b853985878a5db90e1547"
 previous_upstream_archive_sha256 = "af0217a045188d222bf287d189bc88d8f09569541914d42928324e818a5a3b7e"
 upstream_tree_manifest_url = "https://api.github.com/repos/Ryoku-dev/ryoku/git/trees/06b2962f82f43118c3a98372c2a4b435b689b725?recursive=1"

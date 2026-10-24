@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "exporter_commit": "211f04004aca3ccd7c81955f42e797e1820242e4",
+  "exporter_ci_run": 40138454803,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "upstream_tree": "06b2962f82f43118c3a98372c2a4b435b689b725",
+  "independent_reproductions": 2,
+  "exports_identical": true,
+  "export_report": {
+    "gzip": "-n -9",
+    "review_note": "Complete selected non-vendor native source text scan; candidate write/process sites require the documented semantic disposition, and are not all configuration writes.",
+    "reviewed_source_files": 3679,
+    "runtime_archive": "ryoku-runtime-a59d051.tar.gz",
+    "runtime_bytes": 54073125,
+    "runtime_files": 4472,
+    "runtime_sha256": "8aeff20645c14af76f3d341e5d4e7c31923fd249f6671caa704c8b23a6c84e65",
+    "runtime_tar_epoch": 0,
+    "source_revision": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+    "source_tree": "06b2962f82f43118c3a98372c2a4b435b689b725",
+    "writer_archive": "ryoku-writers-a59d051.tar.xz",
+    "writer_bytes": 34625504,
+    "writer_sha256": "387d829860ba844ad32ecdd5982678707665f3251e41bbb43c6fd6f87dc7eee0",
+    "writer_source_files": 6968,
+    "writer_source_links": 2,
+    "writer_tar_epoch": 1792838837,
+    "xz": "-6"
+  },
+  "tar_validation": {
+    "regular_git_blob_ids_and_modes": 6966,
+    "literal_git_links": 2,
+    "directories": 669,
+    "uid_gid": 0,
+    "epoch": 1792838837,
+    "all_selected_paths_exact_no_extra_files": true,
+    "all_769_cli_and_338_rashin_entries_retained": true,
+    "runtime_source_manifest_unchanged": true,
+    "native_build_install_or_feature_acceptance": false,
+    "runtime_archive_byte_for_byte_unchanged": true,
+    "runtime_archive_bytes_compared_to_prior_artifact_both_runs": true
+  },
+  "writer_source_manifest_sha256": "92182b8e40385bdfb4fd9e699edaa6cea112466b135fc25d22a6b716e66d4136",
+  "writer_source_links_sha256": "8fc7f654ee01719d61ba1e15a84006422bc45b04f6f40fb7e54b4a5342522056",
+  "source_review_sha256": "a37f648324d253dc4de9392afbc003db2f618881bfa630ca312fecf38fa183f0",
+  "bounded_storage": {
+    "cap_bytes": 1342177280,
+    "measured_build_and_both_reproductions_bytes": 810958848,
+    "archives_generated_on_home": true,
+    "measured_after_focused_tests_bytes": 819200000
+  },
+  "network_vm_and_package_access": false,
+  "scope": "Raw source-only archive reproduction and object/link validation; runtime build/install selection unchanged; semantic, license, solver and fresh native acceptance remain open",
+  "tests": {
+    "exporter_and_policy_passed": 8,
+    "package_audit_and_native_spec_passed": 10,
+    "source2_scope_extension_byte_for_byte_assertion": "runtime archive and source manifest compared directly in fixture",
+    "offline": true
+  },
+  "exporter_binary_sha256": "1ea29e3cc7627ab35d720894ebb4f20a3b9e5c1ffe17015ed150a0c0c2572541",
+  "focused_test_source_sha256": "b6a923fd5dd66964710e938ff083cedc600b4046160e4ba052aff411b3cd6d4d"
+}

@@ -16,16 +16,16 @@ Store/themes/plugins/rices/apps, #183 Rashin/usage and #184 phone integration,
 in addition to #25/#175/#176. #47 remains the application inventory parent. #173 owns
 source/spec/provenance review only; those tasks retain the feature behavior
 and implement Tumbleweed-specific guardrails. Only edition-specific platform
-mechanisms are replaced. No code or package root is changed by this update.
+mechanisms are replaced. Complete CLI/Rashin raw source is retained without changing runtime build/install selection.
 
 ## Reproducible source evidence
 
 The Rust `upstream-runtime-export` tool reads exact Git objects and modes,
-checks the full source commit/tree, refuses selected links/submodules, and
+checks the full source commit/tree, confines raw-source links to selected regular Git targets, refuses runtime-mapped links/submodules, and
 checks each of the 18 font files against its independently pinned digest.
 It never exports mutable checkout bytes. Its tests dirty a checkout and prove
 the same bytes/modes/archives still result, and reject font tampering and
-selected links. An existing output directory is rejected.
+unsafe source links. An existing output directory is rejected.
 
 Run from the repository, with the two exact upstream commits fetched into a
 source cache and the manifest's pinned font files supplied in `FONT_ROOT`:
@@ -41,7 +41,7 @@ path/mode/blob/SHA-256 records are committed in
 | Input | Files | Bytes | SHA-256 |
 |---|---:|---:|---|
 | `ryoku-runtime-a59d051.tar.gz` | 4,472 | 54,073,125 | `8aeff20645c14af76f3d341e5d4e7c31923fd249f6671caa704c8b23a6c84e65` |
-| `ryoku-writers-a59d051.tar.xz` | 5,861 | 33,208,768 | `7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be` |
+| `ryoku-writers-a59d051.tar.xz` | 6,968 | 34,625,504 | `387d829860ba844ad32ecdd5982678707665f3251e41bbb43c6fd6f87dc7eee0` |
 
 Source2 has 4,450 Git-to-payload mappings, 18 font assets and four generated
 metadata files. Some Git blobs are deliberately mapped to two import roots.
@@ -52,7 +52,7 @@ numeric uid/gid 0, epoch 0 and gzip `-n -9`. Source3 uses the actual commit epoc
 Source2 replaces an earlier unaccepted candidate whose staging directory was
 lost; it does not claim that unrecoverable archive was reproduced.
 
-`source-sites.json` indexes all 3,411 selected non-vendor native source text
+`source-sites.json` indexes all 3,679 selected non-vendor native source text
 files, including embedded Python and Rust, with Git blob, SHA-256, QML imports,
 write/process candidate lines and export destinations. A candidate line is
 not automatically a configuration writer: stdout, sockets, caches, fixture
@@ -276,14 +276,13 @@ is inferred. Separately, the runtime expression includes verified `OFL-1.1`
 for all 22 selected iNiR fonts and delivers three uniquely named pinned OFL
 texts. Native delivery and complete asset-license acceptance remain open.
 
-The full verified Git tree preserves CLI source/provenance, but existing
-Source2/Source3 are selected exports and contain no `ryoku/cli` root.
-The next [source retention recipe](ryoku-v1.0-source-retention.md) adds the
-complete CLI/Rashin roots and a bounded raw-source-only Git link policy.
-Current archive/ledger selection facts are unchanged until exact regeneration;
-source retention does not replace protected feature implementation.
-Complete CLI source-only archive coverage, per-reconciler/host-verb semantic
-proof, and the owned Rust equivalents remain open. Additional #173 gates are
+Complete CLI/Rashin raw source-only archive retention is verified by two
+independent exports: all 769 CLI and 338 Rashin entries, including both bounded
+internal Git icon links. The [source retention proof](ryoku-v1.0-source-retention.md)
+records every Git blob/mode and byte-for-byte Source2 invariance. Current
+Source3 ledgers now say source-only-archived; runtime build/install selection
+is unchanged. Per-reconciler/host-verb semantic proof and the owned protected
+Rust equivalents remain open. Additional #173 gates are
 the remaining delta rows, native WaveCapture payload/solver/runtime closure, native picker
 license-payload verification and complete notices, native RPM/plugin/QML/ELF/tool checks,
 and fresh #25/#26 behavior/recovery acceptance. The builder remains paused;

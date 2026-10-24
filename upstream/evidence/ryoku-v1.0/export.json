@@ -1,7 +1,7 @@
 {
   "gzip": "-n -9",
   "review_note": "Complete selected non-vendor native source text scan; candidate write/process sites require the documented semantic disposition, and are not all configuration writes.",
-  "reviewed_source_files": 3411,
+  "reviewed_source_files": 3679,
   "runtime_archive": "ryoku-runtime-a59d051.tar.gz",
   "runtime_bytes": 54073125,
   "runtime_files": 4472,
@@ -10,9 +10,10 @@
   "source_revision": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
   "source_tree": "06b2962f82f43118c3a98372c2a4b435b689b725",
   "writer_archive": "ryoku-writers-a59d051.tar.xz",
-  "writer_bytes": 33208768,
-  "writer_sha256": "7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be",
-  "writer_source_files": 5861,
+  "writer_bytes": 34625504,
+  "writer_sha256": "387d829860ba844ad32ecdd5982678707665f3251e41bbb43c6fd6f87dc7eee0",
+  "writer_source_files": 6968,
+  "writer_source_links": 2,
   "writer_tar_epoch": 1792838837,
   "xz": "-6"
 }

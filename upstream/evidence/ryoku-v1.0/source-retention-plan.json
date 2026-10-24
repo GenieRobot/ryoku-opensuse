@@ -62,5 +62,7 @@
   "unchanged_source2_manifest_sha256": "a32211910081ece9ea1aa0c9001940c1847588b1fae3865815fa676e82651c16",
   "unchanged_rpm_spec_sha256": "ce77e8293bbf947a935b9461d93a3b05feaabbe1f0293d1f603aef5b1ac235ce",
   "link_evidence": "rashin-source-links.json",
-  "native_archive_and_runtime_acceptance": false
+  "native_archive_and_runtime_acceptance": false,
+  "project_commit": "211f04004aca3ccd7c81955f42e797e1820242e4",
+  "status": "Historical pre-regeneration plan; actual current artifacts and selection are in source-retention-reproduction.json and export.json"
 }

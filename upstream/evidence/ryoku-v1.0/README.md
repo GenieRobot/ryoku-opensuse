@@ -15,10 +15,11 @@ CLI files plus five upstream deletions). Each records exact Git identities and
 selection/install dispositions. `cli-lifecycle-sites.tsv` records 835 original
 write/process/probe candidate lines in 138 non-vendor production Go files.
 It is a lexical candidate index, not complete behavioral or recovery proof.
-The verified upstream Git tree preserves the complete CLI; selected
-Source2/Source3 exports currently do not include that root, so complete CLI
-source-only archive closure remains pending. These review records remove no
-source/package roots and do not reduce the full Ryogami target.
+Source3 now retains the complete 769-path CLI and 338-path core Rashin trees
+with source-only-archived dispositions; Source2 runtime mappings and RPM
+build/install targets are unchanged. `source-retention-reproduction.json`
+records two identical archives with every regular Git blob/mode and literal
+internal link verified. Raw retention does not certify functional providers.
 
 `current-not-selected` describes only the existing export/RPM state. It is not
 a permanent feature exclusion. Earlier ledger revisions called these rows
@@ -34,7 +35,8 @@ and protected-operation acceptance still required under those owners.
 The Ryogami/Rashin ledger has explicit `target_disposition` and `owner_issue`
 columns separate from its current source/export/install facts. All 338 Rashin
 source rows and three selected bridges say `retain-entire-component` / `#183`.
-The original source/blob/mode/export fields are unchanged. Current nonselection
+Original source/blob/mode and target ownership fields are unchanged; Source3
+selection flags now record complete raw retention. Current nonselection
 must not be interpreted as permission to omit a retained assistant capability;
 #183 owns the complete capability/entrypoint/provider matrix after prerequisites,
 and #173 retains source/archive/package closure responsibility.
@@ -45,9 +47,9 @@ are regular brand assets already selected in Source3. It records no host-link
 dereference and does not certify an installed link. The next source-only retention recipe validates
 selected internal regular targets and preserves literal Git link metadata;
 runtime mappings still reject links. `source-retention-plan.json` separates
-the new declared CLI/Rashin roots from unchanged current archive/ledger facts
-and records the bounded regeneration budget. Full retained archive coverage
-remains open until regenerated and verified.
+the historical pre-regeneration plan from actual verified reproduction evidence.
+Complete CLI/Rashin raw archive coverage is verified; protected behavior,
+license and native package/runtime acceptance remain open.
 
 `hyprland-plugin-boundary.json` pins seven selected upstream blobs and exact
 line anchors plus the project policy/recipe inputs for the partial compositor

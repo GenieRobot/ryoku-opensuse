@@ -18,8 +18,8 @@ renames in this area. Counts include tests and vendor files.
 [`cli-lifecycle-disposition.tsv`](../upstream/evidence/ryoku-v1.0/cli-lifecycle-disposition.tsv)
 records the 774-path union, current/prior exact blob and mode, delta status,
 area and Source2/Source3/RPM disposition. All 769 current `ryoku/cli/**`
-paths are absent from `runtime-source-manifest.tsv` and
-`writer-source-manifest.tsv`. `packaging/rpm/*.spec` does not build or install
+paths are present in Source3 with exact Git blobs/modes and source-only-archived
+disposition; they remain absent from Source2 runtime mappings. `packaging/rpm/*.spec` does not build or install
 this Go CLI, `ryoku-host`, `ryoku-manifest`, its boot guard or tmpfiles file.
 This is a current package gap, **not a decision to remove their intended
 features from the full Tumbleweed design**. Source0's project-owned Rust
@@ -38,14 +38,11 @@ tools and similarly named upstream Go commands are distinct implementations.
 | `plugin_template`, `systemd` | 8 / 2 | Scaffolding and upstream boot/tmpfiles metadata |
 | `vendor` | 382 | Exact Go dependencies/shared Ryoku WM/i18n source; not a new port executable |
 
-Complete CLI bytes remain available in the verified immutable upstream Git
-cache/tree. The existing Source2/Source3 archives are **selected exports, not
-complete upstream archives**: they do not contain this CLI. Full CLI archival
-coverage is therefore a pending #173 source-input task, not a property of
-their recorded hashes. Retain the exact complete source and notices in a
-verified source-only archive during the coordinated input refresh, without
-silently building or activating the edition-specific host actuators. No
-archive was generated or existing selection changed during this offline pass.
+Complete CLI bytes/notices are retained in the verified Source3 archive at
+SHA-256 `387d829860ba844ad32ecdd5982678707665f3251e41bbb43c6fd6f87dc7eee0`. Two independent reproductions
+verified all 769 CLI entries without building/installing the edition-specific
+host actuators. [Source retention proof](ryoku-v1.0-source-retention.md) separates
+this archive-input closure from remaining protected Tumbleweed behavior.
 
 ## Dispatch, runtime and subprocess boundaries
 
@@ -151,16 +148,13 @@ Shared vendored WM/i18n provenance remains in the complete per-file ledger.
 The CLI Go module declares Go 1.23 and local WM/i18n replacements; this does
 not change the selected shell/Ryogami SDK's Go 1.26 requirement.
 
-Validation here compares both immutable Git trees, exact path/blob/mode and
-delta counts, manifest nonselection and current RPM recipes; checks site line
-contents against original blobs; verifies local documentation links and
-`git diff --check`. No code, build, download, package/VM access or shell/session
-edit is part of this pass. The current source archives and runtime selection
-are unchanged.
+Validation compares both immutable Git trees, exact path/blob/mode and
+delta counts, source-only archive selection and current RPM recipes; checks
+original source-site lines, complete two-run archive bytes/modes/links and local
+documentation integrity. Source2 runtime selection remains unchanged.
 
 The remaining semantic work includes per-reconciler read/write/trust/restore
-proof, every nested host verb's Tumbleweed contract, full CLI source-only
-archival coverage, implementing the owned Rust equivalents, native provider
+proof, every nested host verb's Tumbleweed contract, implementing the owned Rust equivalents, native provider
 tests and refreshed #25/#26 lifecycle acceptance. This area inventory is not
 whole-CLI behavioral acceptance and does not complete the full #173 semantic
 matrix or authorize any mutation. #173 and PR #174 remain open/draft.

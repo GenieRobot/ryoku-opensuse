@@ -115,7 +115,7 @@ tar -xzf %{SOURCE2} -C runtime
 cd runtime
 sha256sum --check --status SHA256SUMS
 cd ..
-printf '7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be  %%s\n' '%{SOURCE3}' | sha256sum --check --status
+printf '387d829860ba844ad32ecdd5982678707665f3251e41bbb43c6fd6f87dc7eee0  %%s\n' '%{SOURCE3}' | sha256sum --check --status
 mkdir upstream-writers
 tar -xJf %{SOURCE3} -C upstream-writers
 patch --batch --forward --fuzz=0 -p1 -d upstream-writers < upstream/patches/issue18-writer-launch.patch

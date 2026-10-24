@@ -1,75 +1,74 @@
-# CLI/Rashin source archive retention gate
+# Verified CLI/Rashin source archive retention
 
-The complete Ryoku 1.0 target retains every CLI and Rashin component. This
-#173 tranche extends the **next Source3 export recipe**, preserving exact
-immutable source and mode facts while leaving Source2 mappings and RPM
-build/install unchanged. It does not substitute source archival for working
-protected features under #183 and the existing CLI/provider owners.
+The full Ryoku 1.0 target retains complete CLI and core Rashin functionality.
+This #173 tranche closes their raw-source archive-input gate, preserving every
+immutable path/blob/mode while leaving Source2 and runtime build/install
+selection unchanged. Functional protected behavior remains required under #183
+and the previously mapped session/lifecycle/provider owners.
 
-At pinned `a59d051f0e8080052216f6c7b9eb7e5928935ce8`, the declared additional
-roots are all `ryoku/cli/**` (769 paths, 9,936,015 blob bytes) and all
-`ryoku/rashin/**` (338 paths, 3,339,325 blob bytes). Rashin has 332 regular
-0644 files, four 0755 files and two Git 120000 icon links. CLI has 769 regular
-0644 files. No source path/capability is dropped. Exact group counts, selected
-scope, byte sizing and unchanged recipe hashes are in
+At upstream `a59d051f0e8080052216f6c7b9eb7e5928935ce8`, Source3 now contains
+all 769 `ryoku/cli/**` entries (9,936,015 blob bytes) and all 338
+`ryoku/rashin/**` entries (3,339,325 blob bytes). Rashin has 332 regular 0644
+files, four 0755 files and two Git 120000 icon links. CLI has 769 regular
+0644 files. Exact original identities and target owners are unchanged; the
+current ledgers now record `source-only-archived` with Source3 selected.
+Source2 mappings and current RPM build/install targets remain unchanged.
+
+Two independent offline exports produced Source3 SHA-256
+`387d829860ba844ad32ecdd5982678707665f3251e41bbb43c6fd6f87dc7eee0`,
+34,625,504 compressed bytes and 6,968 source entries. The independent tar/Git
+verifier checked all 6,966 regular blob IDs/modes, both literal link objects,
+669 directories, UID/GID 0 and epoch 1792838837, with no missing/extra source
+paths. Both archives and generated manifests/link/site evidence are identical.
+Source2 reproduced `8aeff20645c14af76f3d341e5d4e7c31923fd249f6671caa704c8b23a6c84e65`
+and its manifest remained byte-for-byte unchanged. Exact results are in
+[`source-retention-reproduction.json`](../upstream/evidence/ryoku-v1.0/source-retention-reproduction.json).
+The prior 5,861-entry Source3 hash remains historical evidence in
 [`source-retention-plan.json`](../upstream/evidence/ryoku-v1.0/source-retention-plan.json).
-
-The **currently recorded Source3 artifact** still contains 5,861 entries and
-has SHA-256 `7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be`.
-It has not been regenerated here, so the current disposition ledgers correctly
-retain the old export-selection facts. The next recipe declares 6,968 source
-entries / 108,218,278 blob bytes, including both links. Regeneration must update
-its archive hash, manifests, selection ledgers and owner references together;
-this tranche does not claim that artifact closure is complete. Rashin's full
-338-path target and #183 capability matrix remain mandatory throughout.
 
 ## Source-only link boundary
 
 `automation/src/source_link_policy.rs` resolves literal Git link bytes against
-selected immutable source paths without touching the host filesystem:
+selected immutable source paths without following host filesystem paths:
 
-- A link source must itself be a selected Git 120000 entry. Its UTF-8 target
-  must be relative, bounded, free of control/NUL/ambiguous platform separators
-  and resolve lexically within the archive root.
+- A source must be a selected Git 120000 link. Its UTF-8 target is relative,
+  bounded, free of control/NUL/ambiguous platform separators and resolves
+  lexically within the archive root.
 - The resolved target must be a selected regular Git 0644/0755 blob.
   Unselected/dangling targets, absolute paths, archive escapes, link chains,
   cycles, directory links and submodules are refused.
-- The exporter permits these links only in raw Source3; any Source2 runtime
-  mapping of a link is still rejected. It writes the literal link text,
-  records mode 120000 plus the link Git blob in the manifest, and records the
-  link object's SHA-256 and resolved Git blob in `writer-source-links.json`.
-  GNU tar preserves the link entry; no dereference option is used.
+- Links are permitted only in raw Source3; Source2 runtime mappings still
+  reject them. The manifest preserves mode 120000 and the link Git blob;
+  `writer-source-links.json` records literal text, SHA-256 and resolved blob.
+  GNU tar preserves link type/text without dereferencing it.
 
-The two pinned Rashin links resolve to brand assets already selected by
-Source3, as recorded in
+Both Rashin icon links resolve to already selected brand assets, as pinned in
 [`rashin-source-links.json`](../upstream/evidence/ryoku-v1.0/rashin-source-links.json).
-Preserving those raw source links does not authorize installed arbitrary links,
-file access or a runtime write. The new raw roots are not new Go build targets,
-QML runtime exports, service activation or package-installed Rashin entrypoints.
-Those implementation/acceptance paths remain owned by #183, #25, #27–29 and
-the previously mapped provider issues, preserving their full feature scope.
+Raw retention grants no arbitrary installed link/file access. The complete
+sources are preserved for the required CLI/Rashin implementations; archival
+presence does not activate an agent, collector, service or edition actuator.
+The #183 capability matrix at `a50efed8150e28098141cab6f12924844bbc6582`
+remains an immutable earlier selection checkpoint; this #173 ledger advances
+only its Source3 facts, preserving every path/blob/mode and retained capability.
 
-## Validation and generation gate
+## Validation and remaining gates
 
-The isolated Rust policy's three tests pass locally without dependencies;
-workspace formatting and diff checks pass. Exporter integration tests cover
-both pinned link texts/target blobs, literal tar type/text, repeat archive
-hashes, dirty host links ignored, unchanged runtime selection and refusal before
-publishing an archive. Their compilation/full execution is delegated to hosted
-exact-head CI because the local exporter dependency cache is unavailable; no
-missing dependencies are rebuilt or downloaded here.
+The eight exporter/policy tests cover exact pinned targets, positive tar link
+metadata, repeat hashes, dirty host links ignored, invalid-target rejection
+before archive publication and byte-for-byte Source2 archive/manifest invariance
+when only Source3 scope changes. All eight pass offline, alongside ten focused
+package/license/native-spec tests, formatting and diff checks. The exporter
+implementation at `211f04004aca3ccd7c81955f42e797e1820242e4` passed hosted
+[run 40138454803](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40138454803);
+refreshed-input exact-head checks remain a separate gate.
 
-No full archive/staging output was generated. Existing runtime/writer staging
-measures 134,596 / 108,756 KiB. Added raw source is exactly 13,275,340 bytes;
-the predicted next GNU Source3 tar is 114,032,640 bytes before XZ compression.
-The plan reserves **1,342,177,280 bytes (1.25 GiB)** for two complete fresh
-reproduction runs, retaining both stage trees/archives with one transient tar
-at a time and filesystem/metadata margin. Compressed output size cannot be
-known until generated; the reserve is a budget, not a measured new artifact.
+The offline build and both reproductions occupy 810,958,848 bytes before the
+small focused-test binaries, within the authorized 1,342,177,280-byte cap.
+No network, package install or VM access was used. Generated archives remain
+under the existing ignored target area; only source/evidence is committed.
 
-Before any full regeneration, the coordinator must remeasure available space
-against the existing storage guard and authorize that bounded output. Then
-generate twice from pinned Git objects, compare archive hashes, verify every
-regular blob/mode and both tar link entries, update actual manifests and source
-facts, and preserve existing Source2 bytes. Native package/build, licensing,
-solver, #183 behavior and #25/#26 acceptance remain separate open gates.
+Per-operation semantic/write/recovery review, complete redistribution/license
+closure (including the eleven shell-font blockers), native RPM/plugin/import/
+ELF and installed-system solver checks, functional core Rashin and refreshed
+#25/#26 acceptance remain open. Raw source input closure completes none of
+those behavior/native gates; #173 and PR #174 remain open/draft.

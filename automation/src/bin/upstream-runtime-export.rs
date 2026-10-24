@@ -680,15 +680,23 @@ mod tests {
             fs::create_dir_all(source.join(path).parent().unwrap()).unwrap();
             std::os::unix::fs::symlink(target, source.join(path)).unwrap();
         }
-        fs::write(fixture.0.join("scope"), "src\nryoku/rashin\nryoku/assets/brand\n").unwrap();
         fixture.commit();
         // The committed link object, never a dirty host link, supplies the bytes.
         for (path, _) in links {
             fs::remove_file(source.join(path)).unwrap();
             std::os::unix::fs::symlink("/host-path-must-not-be-read", source.join(path)).unwrap();
         }
+        fixture.export("baseline").unwrap();
+        fs::write(fixture.0.join("scope"), "src\nryoku/rashin\nryoku/assets/brand\n").unwrap();
         fixture.export("first").unwrap();
         fixture.export("second").unwrap();
+        for runtime_input in ["runtime.tar.gz", "runtime-source-manifest.tsv"] {
+            assert_eq!(
+                fs::read(fixture.0.join("baseline").join(runtime_input)).unwrap(),
+                fs::read(fixture.0.join("first").join(runtime_input)).unwrap(),
+                "Source3-only scope extension changed {runtime_input}"
+            );
+        }
         for archive in ["runtime.tar.gz", "writers.tar.xz"] {
             assert_eq!(
                 sha256(&fixture.0.join("first").join(archive)).unwrap(),
