@@ -703,6 +703,7 @@ fn compiled_inventory_preserves_preferences_links_absence_metadata_and_offline_l
     let root = fixture.path.join("source");
     fs::create_dir_all(root.join(".config/ryoku")).unwrap();
     fs::create_dir_all(root.join(".local/state/ryoku")).unwrap();
+    fs::create_dir_all(root.join(".cache/ryogami/wallpaper")).unwrap();
     fixture.write(
         crate::installed_inventory::PERSONAL_PROFILE,
         br#"{"schema_version":1,"id":"generic-desktop","settings":{"density":"compact"}}"#,
@@ -711,6 +712,12 @@ fn compiled_inventory_preserves_preferences_links_absence_metadata_and_offline_l
     fixture.write(".config/ryoku/profile.json", b"opaque upstream Hub data", 0o640);
     fixture.write(".config/ryoku/theme.json", b"customized theme", 0o640);
     fixture.write(".local/state/ryoku/stage-walls.json", b"opaque wall settings", 0o600);
+    fixture.write(
+        ".cache/ryogami/wallpaper/index.json",
+        br#"{"synthetic":{"apply_count":2}}"#,
+        0o640,
+    );
+    fixture.write(".cache/ryogami/wallpaper/state.json", br#"{"selected":"synthetic"}"#, 0o600);
     symlink("theme.json", root.join(".config/ryoku/shell.json")).unwrap();
     let plan = InstalledInventory::current().unwrap();
     let mut req = request("compiled-capture");
@@ -749,6 +756,29 @@ fn compiled_inventory_preserves_preferences_links_absence_metadata_and_offline_l
     assert!(manifest.files().iter().any(|r| matches!(r.kind, EntryKind::Absent)));
     let generation = fixture.store.open_verified_transaction(&manifest.transaction_id).unwrap();
     assert_eq!(generation.read_payload(sha256).unwrap(), b"customized theme");
+    for (path, bytes, mode) in [
+        (
+            crate::installed_inventory::WALLPAPER_STORE[0],
+            br#"{"synthetic":{"apply_count":2}}"#.as_slice(),
+            0o640,
+        ),
+        (
+            crate::installed_inventory::WALLPAPER_STORE[1],
+            br#"{"selected":"synthetic"}"#.as_slice(),
+            0o600,
+        ),
+    ] {
+        let record = manifest.files().iter().find(|record| record.path.as_str() == path).unwrap();
+        assert!(plan.accepts_record_kind(record));
+        let EntryKind::RegularFile { metadata, sha256, .. } = &record.kind else {
+            panic!("wallpaper store must be archived as regular files")
+        };
+        assert_eq!(
+            (metadata.uid, metadata.gid, metadata.mode),
+            (fixture.account.uid, fixture.account.gid, mode)
+        );
+        assert_eq!(generation.read_payload(sha256).unwrap(), bytes);
+    }
     fs::remove_file(root.join(crate::installed_inventory::PERSONAL_PROFILE)).unwrap();
     let resolved = protected.store.resolve_generation(&generation).unwrap();
     assert_eq!(resolved.settings.density, Some(Density::Compact));
@@ -1025,4 +1055,100 @@ fn plan_fingerprint_binds_complete_home_inventory_content_metadata_and_absence()
     fs::remove_file(fixture.path.join("source/.config/ryoku/unknown.json")).unwrap();
     fs::remove_file(fixture.path.join("source/.config/ryoku/shell.json")).unwrap();
     assert_eq!(absent, inventory.fingerprint(&fixture.source, &fixture.account).unwrap());
+}
+
+#[test]
+fn v1_wallpaper_store_is_bound_by_bytes_metadata_and_absence_without_media_enrollment() {
+    let fixture = Fixture::new();
+    let root = fixture.path.join("source");
+    fs::create_dir_all(root.join(".cache/ryogami/wallpaper")).unwrap();
+    fs::create_dir_all(root.join("Pictures/Wallpapers")).unwrap();
+    fixture.write("Pictures/Wallpapers/private.jpg", b"unrelated media sentinel", 0o600);
+    let inventory = InstalledInventory::current().unwrap();
+    let absent = inventory.fingerprint(&fixture.source, &fixture.account).unwrap();
+    let paths = inventory.paths_for_root(StateRoot::UserHome).unwrap();
+    assert!(
+        crate::installed_inventory::WALLPAPER_STORE
+            .iter()
+            .all(|path| { paths.iter().any(|enrolled| enrolled.as_str() == *path) })
+    );
+    assert!(!paths.iter().any(|path| path.as_str().starts_with("Pictures/")));
+    for path in crate::installed_inventory::WALLPAPER_STORE {
+        fixture.write(path, br#"{"selected":"synthetic"}"#, 0o600);
+        let present = inventory.fingerprint(&fixture.source, &fixture.account).unwrap();
+        assert_ne!(present, absent);
+        fixture.write(path, br#"{"selected":"changed"}"#, 0o600);
+        let changed = inventory.fingerprint(&fixture.source, &fixture.account).unwrap();
+        assert_ne!(present, changed);
+        fs::set_permissions(root.join(path), fs::Permissions::from_mode(0o640)).unwrap();
+        assert_ne!(changed, inventory.fingerprint(&fixture.source, &fixture.account).unwrap());
+        fs::remove_file(root.join(path)).unwrap();
+        assert_eq!(absent, inventory.fingerprint(&fixture.source, &fixture.account).unwrap());
+        symlink("../../../Pictures/Wallpapers/private.jpg", root.join(path)).unwrap();
+        assert!(inventory.fingerprint(&fixture.source, &fixture.account).is_err());
+        fs::remove_file(root.join(path)).unwrap();
+        fs::hard_link(root.join("Pictures/Wallpapers/private.jpg"), root.join(path)).unwrap();
+        assert!(inventory.fingerprint(&fixture.source, &fixture.account).is_err());
+        fs::remove_file(root.join(path)).unwrap();
+    }
+    // Derived caches and other action-owned state share the directory. Exact
+    // enrollment neither recurses through nor rejects those independent files.
+    fs::create_dir_all(root.join(".cache/ryogami/wallpaper/thumbs")).unwrap();
+    fixture.write(".cache/ryogami/wallpaper/thumbs/synthetic.jpg", b"derived image", 0o600);
+    fixture.write(".cache/ryogami/wallpaper/playlists.json", b"unrelated action sentinel", 0o600);
+    assert!(InstalledInventory::for_home(&fixture.source).is_ok());
+    assert_eq!(absent, inventory.fingerprint(&fixture.source, &fixture.account).unwrap());
+    assert_eq!(
+        fs::read(root.join("Pictures/Wallpapers/private.jpg")).unwrap(),
+        b"unrelated media sentinel"
+    );
+}
+
+#[test]
+fn v1_wallpaper_store_accepts_large_catalogues_and_exact_capture_bound() {
+    let fixture = Fixture::new();
+    let root = fixture.path.join("source");
+    fs::create_dir_all(root.join(".cache/ryogami/wallpaper")).unwrap();
+    let inventory = InstalledInventory::current().unwrap();
+    // The pinned Go Entry schema has twenty-one fields and no record-count cap.
+    // This realistic large library deliberately exceeds the old4MiB limit.
+    let mut catalogue = serde_json::Map::new();
+    for number in 0..10_000 {
+        let key = format!("synthetic-wallpaper-{number:05}");
+        let path = format!(
+            "~/Pictures/Wallpapers/collection-{number:05}/long-descriptive-wallpaper-name-3840x2160.jpg"
+        );
+        catalogue.insert(
+            key.clone(),
+            serde_json::json!({
+                "key": key, "name": format!("Synthetic wallpaper {number}"), "type": "static",
+                "path": path, "thumb": format!("~/.cache/ryogami/wallpaper/thumbs/{key}.jpg"),
+                "thumb_sm": format!("~/.cache/ryogami/wallpaper/thumbs-sm/{key}.jpg"),
+                "favourite": 0, "hue": 128, "sat": 100, "richness": 100,
+                "video_file": "", "video_prev": "", "we_id": "", "we_type": "",
+                "tags": "landscape,abstract,synthetic-fixture", "preview": "",
+                "filesize": 1_048_576, "width": 3840, "height": 2160, "mtime": 1_700_000_000,
+                "apply_count": 0,
+            }),
+        );
+    }
+    let bytes = serde_json::to_vec(&catalogue).unwrap();
+    assert!(bytes.len() > 4 * 1024 * 1024);
+    assert!(bytes.len() as u64 <= crate::installed_inventory::WALLPAPER_STORE_MAX_BYTES);
+    fixture.write(crate::installed_inventory::WALLPAPER_STORE[0], &bytes, 0o600);
+    inventory.fingerprint(&fixture.source, &fixture.account).unwrap();
+    drop(bytes);
+    drop(catalogue);
+    for path in crate::installed_inventory::WALLPAPER_STORE {
+        let file = File::create(root.join(path)).unwrap();
+        fs::set_permissions(root.join(path), fs::Permissions::from_mode(0o600)).unwrap();
+        file.set_len(crate::installed_inventory::WALLPAPER_STORE_MAX_BYTES).unwrap();
+        inventory.fingerprint(&fixture.source, &fixture.account).unwrap();
+        file.set_len(crate::installed_inventory::WALLPAPER_STORE_MAX_BYTES + 1).unwrap();
+        assert!(matches!(inventory.fingerprint(&fixture.source, &fixture.account),
+            Err(GenerationCaptureError::Inventory(InventoryError::WallpaperStoreCapacity { file, maximum_bytes }))
+            if file == *path && maximum_bytes == crate::installed_inventory::WALLPAPER_STORE_MAX_BYTES
+        ));
+        file.set_len(0).unwrap();
+    }
 }

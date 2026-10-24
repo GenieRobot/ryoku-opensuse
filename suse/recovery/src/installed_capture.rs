@@ -45,11 +45,19 @@ pub enum InventoryError {
     InvalidProfile,
     ProfileIdentityMismatch,
     UnsupportedManagedState,
+    WallpaperStoreCapacity { file: &'static str, maximum_bytes: u64 },
 }
 impl std::fmt::Display for InventoryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Never include private profile bytes or host paths in errors.
-        write!(f, "{self:?}")
+        if let Self::WallpaperStoreCapacity { file, maximum_bytes } = self {
+            write!(
+                f,
+                "wallpaper recovery file {file} exceeds the verified {maximum_bytes}-byte capacity; increase verified recovery capacity before applying changes"
+            )
+        } else {
+            write!(f, "{self:?}")
+        }
     }
 }
 impl std::error::Error for InventoryError {}
@@ -183,6 +191,7 @@ impl InstalledInventory {
             validate_managed_tree(home, path, 0, &mut visited)?;
         }
         validate_wallpaper_state_location(home)?;
+        validate_wallpaper_store_capacity(home)?;
         Ok(())
     }
     /// Complete fixed first-sprint preference scope for the pinned runtime on
@@ -195,14 +204,22 @@ impl InstalledInventory {
                 path,
                 writer: "pinned-session-preferences",
                 owner: Owner::Account,
-                kind: if *path == crate::installed_inventory::PERSONAL_PROFILE {
+                kind: if *path == crate::installed_inventory::PERSONAL_PROFILE
+                    || crate::installed_inventory::WALLPAPER_STORE.contains(path)
+                {
                     Kind::Regular
                 } else {
                     Kind::Preference
                 },
-                modes: &[0o600, 0o640, 0o644, 0o777],
+                modes: if crate::installed_inventory::WALLPAPER_STORE.contains(path) {
+                    &[0o600, 0o640, 0o644]
+                } else {
+                    &[0o600, 0o640, 0o644, 0o777]
+                },
                 max_bytes: if *path == crate::installed_inventory::PERSONAL_PROFILE {
                     ryoku_profiles::MAX_PROFILE_DOCUMENT_BYTES as u64
+                } else if crate::installed_inventory::WALLPAPER_STORE.contains(path) {
+                    crate::installed_inventory::WALLPAPER_STORE_MAX_BYTES
                 } else {
                     4 * 1024 * 1024
                 },
@@ -737,6 +754,39 @@ fn validate_wallpaper_state_location(home: &File) -> Result<(), GenerationCaptur
             && std::path::Path::new(value) != expected
         {
             return Err(InventoryError::UnsupportedManagedState.into());
+        }
+    }
+    Ok(())
+}
+
+fn validate_wallpaper_store_capacity(home: &File) -> Result<(), GenerationCaptureError> {
+    for path in crate::installed_inventory::WALLPAPER_STORE {
+        let file = match rustix::fs::openat2(
+            home,
+            *path,
+            rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC | rustix::fs::OFlags::NONBLOCK,
+            rustix::fs::Mode::empty(),
+            rustix::fs::ResolveFlags::BENEATH
+                | rustix::fs::ResolveFlags::NO_SYMLINKS
+                | rustix::fs::ResolveFlags::NO_MAGICLINKS
+                | rustix::fs::ResolveFlags::NO_XDEV,
+        ) {
+            Ok(file) => file,
+            Err(rustix::io::Errno::NOENT) => continue,
+            Err(error) => return Err(error.into()),
+        };
+        let stat = fstat(&file)?;
+        if FileType::from_raw_mode(stat.st_mode) != FileType::RegularFile {
+            return Err(InventoryError::EntryPolicy.into());
+        }
+        if stat.st_size < 0
+            || stat.st_size as u64 > crate::installed_inventory::WALLPAPER_STORE_MAX_BYTES
+        {
+            return Err(InventoryError::WallpaperStoreCapacity {
+                file: path,
+                maximum_bytes: crate::installed_inventory::WALLPAPER_STORE_MAX_BYTES,
+            }
+            .into());
         }
     }
     Ok(())
