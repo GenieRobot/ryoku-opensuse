@@ -74,6 +74,7 @@ a restrictive CSP; the console requires no JavaScript.
 | Index | `index` | Owner replaces a bounded set of explicitly uploaded UTF-8 documents; every SHA-256 is verified before publication |
 | Fix | `fix` | Owner supplies a typed doctor/tip/app finding; collects bounded user-unit/journal/RPM observations and creates an Agent investigation request with Tumbleweed ownership/recovery instructions |
 | Local agent instructions | `wire`, `unwire` | Owner installs/removes instructions for the built-in Agent lane; Ask/Chat are unaffected |
+| Local usage sources | `enroll_usage_source`, `collect_usage`, `disable_usage_source` | Owner explicitly enrolls a private tool data root, collects local activity or removes enrollment/cache; restricted Ask clients cannot use these actions |
 
 `authorization::Access::AskClient` is a separately tested restricted library
 policy: it cannot configure credentials/routes/index/wiring, start Fix/Agent/Chat,
@@ -138,7 +139,9 @@ Usage records preserve provider/model, input/output tokens, timestamp and
 whether token counts are estimates or fixture results. Provider-reported counts
 come from the completion response. The runtime's activity is explicitly **not
 provider quota**; quota is reported unavailable. Upstream Claude OAuth, Codex
-rate-limit and opencode collectors remain separate required work.
+live rate-limit RPC and opencode SQLite remain required work. The
+[enrolled local activity collectors](rashin-usage.md), persistent schedule,
+private fixture tests and dependency handoff are implemented separately.
 
 ## Privacy, persistence and failure
 
@@ -178,7 +181,7 @@ No row in the original inventory is removed by this slice.
 | Agent wire/unwire | Effective built-in Agent instructions | Exact external marker/skill/MCP wiring, preservation of unrelated config, harness readiness/default/model operations |
 | Index/vault/memory/wiki/skills | SHA-256-verified uploaded local document retrieval | System/package/desktop/source/user/habits maps, bounded source mirrors, registered projects, vault/memory/journal enrollment and complete offline skills/wiki |
 | Provider/model/network | Local/fixture and configured HTTPS completion, private keys, catalog selection, unavailable-pick retention | Every individual Prowl provider/sign-in/model/profile/fallback/cache/network/project/harness/skill operation, adapter/source integrity and full settings UI |
-| Usage | Real completion activity, labeled estimates and fixture data | Claude OAuth quota/activity, Codex app-server buckets/activity, opencode JSON/SQLite costs/soft caps, collector schedule and upstream usage UI |
+| Usage | Completion activity plus enrolled Claude/Codex/opencode JSON activity, costs/soft caps, local/UTC days, persistent five-minute scheduling and source failure statuses | Live OAuth/RPC/session-limit quota, opencode SQLite and complete model/session rows, separate timer and original shell/cache UI |
 | Web/app/API | Tested authenticated Rust HTTP/Unix boundary and basic browser console | Retained upstream Svelte console/native app and all source routes/sheets, theme/vitals/system/vault content and shell/Hub bridges |
 | Terminal | Typed JSON CLI, no arbitrary command execution | Upstream proposed-command tiers, command buffer confirmation, continuation/run feedback/recipes and shell integrations |
 | Lifecycle | Explicit optional standalone process, restart and stale socket recovery | Optional RPM install/remove, enable-now/login/linger/disable choices, Prowl lifecycle, no implicit reinstallation and registered writer coordination |

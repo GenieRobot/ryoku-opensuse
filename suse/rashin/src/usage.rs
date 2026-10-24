@@ -1,0 +1,597 @@
+//! Bounded, explicitly enrolled local activity collectors. Parsing never retains
+//! prompt/message content or credentials. Activity and soft caps are not quota.
+use crate::{Error, Result};
+use jiff::{Timestamp, ToSpan, tz::TimeZone};
+use rustix::fs::{self, FileType, Mode, OFlags, ResolveFlags};
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs::File,
+    io::{Read, Seek, SeekFrom},
+    os::fd::AsRawFd,
+    path::{Path, PathBuf},
+    time::{Duration, Instant},
+};
+
+const NO_LINKS: ResolveFlags = ResolveFlags::BENEATH.union(ResolveFlags::NO_SYMLINKS);
+const FILE_BYTES: u64 = 4 * 1024 * 1024;
+const TOTAL_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_FILES: usize = 4096;
+const MAX_DIRECTORIES: usize = 512;
+const MAX_EVENTS: usize = 100_000;
+pub const INTERVAL_SECONDS: u64 = 300;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Tool {
+    Claude,
+    Codex,
+    Opencode,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Enrollment {
+    pub tool: Tool,
+    pub path: PathBuf,
+    device: u64,
+    inode: u64,
+    pub soft_caps: SoftCaps,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SoftCaps {
+    pub five_hour_limit: u64,
+    pub seven_day_limit: u64,
+}
+impl Default for SoftCaps {
+    fn default() -> Self {
+        Self { five_hour_limit: 1_000_000, seven_day_limit: 20_000_000 }
+    }
+}
+impl SoftCaps {
+    pub fn validate(&self) -> Result<()> {
+        if self.five_hour_limit == 0
+            || self.seven_day_limit == 0
+            || self.five_hour_limit > 1_000_000_000_000_000
+            || self.seven_day_limit > 1_000_000_000_000_000
+        {
+            Err(Error::InvalidRequest)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl Enrollment {
+    pub fn enroll(tool: Tool, path: &Path) -> Result<Self> {
+        let directory = private_directory(path)?;
+        let stat = fs::fstat(&directory).map_err(|_| Error::Storage)?;
+        Ok(Self {
+            tool,
+            path: path.to_owned(),
+            device: stat.st_dev,
+            inode: stat.st_ino,
+            soft_caps: SoftCaps::default(),
+        })
+    }
+    fn open(&self) -> Result<File> {
+        self.soft_caps.validate()?;
+        let directory = private_directory(&self.path)?;
+        let stat = fs::fstat(&directory).map_err(|_| Error::Storage)?;
+        if stat.st_dev != self.device || stat.st_ino != self.inode {
+            return Err(Error::Integrity);
+        }
+        Ok(directory)
+    }
+}
+
+fn private_directory(path: &Path) -> Result<File> {
+    if !path.is_absolute()
+        || path.components().any(|part| {
+            matches!(part, std::path::Component::ParentDir | std::path::Component::CurDir)
+        })
+    {
+        return Err(Error::UnsafeState);
+    }
+    let root = File::open("/").map_err(|_| Error::Storage)?;
+    let directory = File::from(
+        fs::openat2(
+            &root,
+            path.strip_prefix("/").map_err(|_| Error::UnsafeState)?,
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+            Mode::empty(),
+            NO_LINKS,
+        )
+        .map_err(|_| Error::UnsafeState)?,
+    );
+    let stat = fs::fstat(&directory).map_err(|_| Error::Storage)?;
+    if stat.st_uid != rustix::process::geteuid().as_raw() || stat.st_mode & 0o7777 != 0o700 {
+        return Err(Error::UnsafeState);
+    }
+    Ok(directory)
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Report {
+    pub tool: Tool,
+    pub source_status: String,
+    pub attempted_at: u64,
+    pub updated_at: Option<u64>,
+    pub files_scanned: usize,
+    pub partial: bool,
+    pub calendar: String,
+    pub five_hour_tokens: u64,
+    pub seven_day_tokens: u64,
+    pub last_hour_tokens: u64,
+    pub today_tokens: u64,
+    pub recent_days: Vec<Value>,
+    pub five_hour_cost: f64,
+    pub seven_day_cost: f64,
+    pub cost_status: String,
+    pub models: Vec<Value>,
+    pub soft_caps: Option<Value>,
+    pub quota_status: String,
+    pub last_error: Option<Error>,
+}
+
+impl Report {
+    pub fn unavailable(tool: Tool, now: u64) -> Self {
+        Self {
+            tool,
+            source_status: "unavailable".into(),
+            attempted_at: now,
+            updated_at: None,
+            files_scanned: 0,
+            partial: false,
+            calendar: String::new(),
+            five_hour_tokens: 0,
+            seven_day_tokens: 0,
+            last_hour_tokens: 0,
+            today_tokens: 0,
+            recent_days: Vec::new(),
+            five_hour_cost: 0.0,
+            seven_day_cost: 0.0,
+            cost_status: "unavailable".into(),
+            models: Vec::new(),
+            soft_caps: None,
+            quota_status: "unavailable".into(),
+            last_error: None,
+        }
+    }
+    pub fn stale(mut self, now: u64) -> Self {
+        self.source_status = "stale".into();
+        self.attempted_at = now;
+        self
+    }
+}
+
+pub fn due(now: u64, last_attempt: Option<u64>) -> bool {
+    last_attempt.is_none_or(|last| now.saturating_sub(last) >= INTERVAL_SECONDS || last > now)
+}
+
+#[derive(Default)]
+struct Scan {
+    bytes: u64,
+    files: usize,
+    directories: usize,
+    partial: bool,
+    events: Vec<Event>,
+    seen_files: BTreeSet<(u64, u64)>,
+}
+struct Event {
+    time: i64,
+    tokens: u64,
+    cache_read: u64,
+    cost: f64,
+    cost_reported: bool,
+    model: String,
+    provider: String,
+}
+
+pub fn collect(enrollment: &Enrollment, now: u64) -> Result<Report> {
+    let root = enrollment.open()?;
+    let roots: &[&str] = match enrollment.tool {
+        Tool::Claude => &["projects"],
+        Tool::Codex => &["sessions", "archived_sessions"],
+        Tool::Opencode => &["storage/message", "storage/session/message"],
+    };
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let mut scan = Scan::default();
+    let mut found = false;
+    for path in roots {
+        match fs::openat2(
+            &root,
+            *path,
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+            Mode::empty(),
+            NO_LINKS,
+        ) {
+            Ok(_) => {
+                found = true;
+                scan_directory(&root, Path::new(path), 0, enrollment.tool, deadline, &mut scan)?;
+            }
+            Err(rustix::io::Errno::NOENT) => (),
+            Err(_) => return Err(Error::UnsafeState),
+        }
+    }
+    // A replaced enrollment never publishes results from its former identity.
+    enrollment.open()?;
+    if !found {
+        return Ok(Report::unavailable(enrollment.tool, now));
+    }
+    if enrollment.tool == Tool::Opencode
+        && scan.events.is_empty()
+        && fs::statat(&root, "opencode.db", fs::AtFlags::SYMLINK_NOFOLLOW).is_ok()
+    {
+        scan.partial = true;
+    }
+    if scan.partial && scan.events.is_empty() {
+        return Err(Error::ProviderUnavailable);
+    }
+    aggregate(enrollment.tool, now, &enrollment.soft_caps, scan)
+}
+
+fn scan_directory(
+    root: &File,
+    path: &Path,
+    depth: usize,
+    tool: Tool,
+    deadline: Instant,
+    scan: &mut Scan,
+) -> Result<()> {
+    if depth > 8 || scan.directories >= MAX_DIRECTORIES || Instant::now() >= deadline {
+        scan.partial = true;
+        return Ok(());
+    }
+    scan.directories += 1;
+    let directory = File::from(
+        fs::openat2(
+            root,
+            path,
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+            Mode::empty(),
+            NO_LINKS,
+        )
+        .map_err(|_| Error::UnsafeState)?,
+    );
+    let stat = fs::fstat(&directory).map_err(|_| Error::Storage)?;
+    if stat.st_uid != rustix::process::geteuid().as_raw() || stat.st_mode & 0o022 != 0 {
+        return Err(Error::UnsafeState);
+    }
+    let entries = std::fs::read_dir(format!("/proc/self/fd/{}", directory.as_raw_fd()))
+        .map_err(|_| Error::Storage)?;
+    for entry in entries {
+        if scan.files >= MAX_FILES || scan.bytes >= TOTAL_BYTES || Instant::now() >= deadline {
+            scan.partial = true;
+            break;
+        }
+        let entry = entry.map_err(|_| Error::Storage)?;
+        let kind = entry.file_type().map_err(|_| Error::Storage)?;
+        let relative = path.join(entry.file_name());
+        if kind.is_symlink() {
+            return Err(Error::UnsafeState);
+        }
+        if kind.is_dir() {
+            scan_directory(root, &relative, depth + 1, tool, deadline, scan)?;
+            continue;
+        }
+        let extension = relative.extension().and_then(|name| name.to_str());
+        if !kind.is_file()
+            || extension != Some(if tool == Tool::Opencode { "json" } else { "jsonl" })
+        {
+            continue;
+        }
+        let mut file = File::from(
+            fs::openat2(
+                root,
+                &relative,
+                OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NONBLOCK,
+                Mode::empty(),
+                NO_LINKS,
+            )
+            .map_err(|_| Error::UnsafeState)?,
+        );
+        let before = fs::fstat(&file).map_err(|_| Error::Storage)?;
+        if FileType::from_raw_mode(before.st_mode) != FileType::RegularFile
+            || before.st_uid != rustix::process::geteuid().as_raw()
+            || before.st_nlink != 1
+            || before.st_mode & 0o022 != 0
+        {
+            return Err(Error::UnsafeState);
+        }
+        if !scan.seen_files.insert((before.st_dev, before.st_ino)) {
+            continue;
+        }
+        scan.files += 1;
+        let mut tailed = false;
+        if before.st_size as u64 > FILE_BYTES {
+            scan.partial = true;
+            if tool == Tool::Opencode {
+                continue;
+            }
+            file.seek(SeekFrom::End(-(FILE_BYTES as i64))).map_err(|_| Error::Storage)?;
+            tailed = true;
+        }
+        let remaining = FILE_BYTES.min(TOTAL_BYTES - scan.bytes);
+        if before.st_size as u64 > remaining {
+            scan.partial = true;
+        }
+        let mut bytes = Vec::new();
+        (&mut file).take(remaining).read_to_end(&mut bytes).map_err(|_| Error::Storage)?;
+        scan.bytes += bytes.len() as u64;
+        let after = fs::fstat(&file).map_err(|_| Error::Storage)?;
+        if before.st_size != after.st_size
+            || before.st_mtime != after.st_mtime
+            || before.st_mtime_nsec != after.st_mtime_nsec
+        {
+            scan.partial = true;
+        }
+        if tool == Tool::Opencode {
+            match serde_json::from_slice::<Value>(&bytes) {
+                Ok(value) => parse_opencode(&value, scan),
+                Err(_) => scan.partial = true,
+            }
+        } else {
+            let mut previous = None;
+            for (index, line) in bytes.split(|byte| *byte == b'\n').enumerate() {
+                if (tailed && index == 0) || line.is_empty() {
+                    continue;
+                }
+                match serde_json::from_slice::<Value>(line) {
+                    Ok(value) if tool == Tool::Claude => parse_claude(&value, scan),
+                    Ok(value) => parse_codex(&value, &mut previous, tailed, scan),
+                    Err(_) => scan.partial = true,
+                }
+            }
+        }
+    }
+    let after = fs::fstat(&directory).map_err(|_| Error::Storage)?;
+    if after.st_mtime != stat.st_mtime || after.st_mtime_nsec != stat.st_mtime_nsec {
+        scan.partial = true;
+    }
+    let current = fs::openat2(
+        root,
+        path,
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+        Mode::empty(),
+        NO_LINKS,
+    )
+    .map_err(|_| Error::UnsafeState)?;
+    let current = fs::fstat(current).map_err(|_| Error::Storage)?;
+    if current.st_dev != stat.st_dev || current.st_ino != stat.st_ino {
+        return Err(Error::Integrity);
+    }
+    Ok(())
+}
+
+fn number(value: &Value, key: &str) -> u64 {
+    value.get(key).and_then(Value::as_u64).unwrap_or_default()
+}
+fn label(value: Option<&str>) -> String {
+    value
+        .unwrap_or("unknown")
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(128)
+        .collect()
+}
+fn stamp(value: &Value) -> Option<i64> {
+    value.as_str()?.parse::<Timestamp>().ok().map(Timestamp::as_second)
+}
+fn push(scan: &mut Scan, event: Event) {
+    if event.tokens > 0 || event.cache_read > 0 || event.cost > 0.0 {
+        if scan.events.len() >= MAX_EVENTS {
+            scan.partial = true;
+        } else {
+            scan.events.push(event);
+        }
+    }
+}
+
+fn parse_claude(value: &Value, scan: &mut Scan) {
+    let message = &value["message"];
+    if message["role"] != "assistant" {
+        return;
+    }
+    let Some(time) = stamp(&value["timestamp"]) else {
+        scan.partial = true;
+        return;
+    };
+    let usage = &message["usage"];
+    let Some(tokens) =
+        ["input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"]
+            .iter()
+            .try_fold(0u64, |total, key| total.checked_add(number(usage, key)))
+    else {
+        scan.partial = true;
+        return;
+    };
+    push(
+        scan,
+        Event {
+            time,
+            tokens,
+            cache_read: number(usage, "cache_read_input_tokens"),
+            cost: 0.0,
+            cost_reported: false,
+            model: label(message["model"].as_str()),
+            provider: "anthropic".into(),
+        },
+    );
+}
+
+fn parse_codex(value: &Value, previous: &mut Option<u64>, tailed: bool, scan: &mut Scan) {
+    let payload = &value["payload"];
+    if payload["type"] != "token_count" {
+        return;
+    }
+    let Some(time) = stamp(&value["timestamp"]) else {
+        scan.partial = true;
+        return;
+    };
+    let info = &payload["info"];
+    let total = ["total_token_usage", "totalTokenUsage", "token_usage", "tokenUsage"]
+        .iter()
+        .find_map(|key| info[*key]["total_tokens"].as_u64());
+    let last = ["last_token_usage", "lastTokenUsage"]
+        .iter()
+        .find_map(|key| info[*key]["total_tokens"].as_u64())
+        .unwrap_or_default();
+    let tokens = if let Some(total) = total {
+        let delta = match *previous {
+            Some(before) if total >= before => total - before,
+            Some(_) => total,
+            None if tailed => last,
+            None => total,
+        };
+        *previous = Some(total);
+        delta
+    } else {
+        last
+    };
+    push(
+        scan,
+        Event {
+            time,
+            tokens,
+            cache_read: 0,
+            cost: 0.0,
+            cost_reported: false,
+            model: label(payload["model"].as_str()),
+            provider: "openai".into(),
+        },
+    );
+}
+
+fn parse_opencode(value: &Value, scan: &mut Scan) {
+    if value["role"] != "assistant" || value["modelID"].as_str().is_none() {
+        return;
+    }
+    let time = value["time"]["completed"]
+        .as_i64()
+        .or_else(|| value["time"]["created"].as_i64())
+        .or_else(|| value["time"].as_i64());
+    let Some(time) = time else {
+        scan.partial = true;
+        return;
+    };
+    let usage = &value["tokens"];
+    let cache = &usage["cache"];
+    let Some(tokens) = [
+        number(usage, "input"),
+        number(usage, "output"),
+        number(usage, "reasoning"),
+        number(cache, "write"),
+    ]
+    .into_iter()
+    .try_fold(0u64, u64::checked_add) else {
+        scan.partial = true;
+        return;
+    };
+    let cost =
+        value["cost"].as_f64().filter(|cost| cost.is_finite() && *cost >= 0.0).unwrap_or_default();
+    push(
+        scan,
+        Event {
+            time: time / 1000,
+            tokens,
+            cache_read: number(cache, "read"),
+            cost,
+            cost_reported: value["cost"]
+                .as_f64()
+                .is_some_and(|cost| cost.is_finite() && cost >= 0.0),
+            model: label(value["modelID"].as_str()),
+            provider: label(value["providerID"].as_str()),
+        },
+    );
+}
+
+fn aggregate(tool: Tool, now: u64, soft_caps: &SoftCaps, scan: Scan) -> Result<Report> {
+    soft_caps.validate()?;
+    let now = i64::try_from(now).map_err(|_| Error::InvalidRequest)?;
+    let zone = if tool == Tool::Claude {
+        TimeZone::UTC
+    } else {
+        TimeZone::try_system().map_err(|_| Error::ProviderUnavailable)?
+    };
+    let today = Timestamp::from_second(now)
+        .map_err(|_| Error::InvalidRequest)?
+        .to_zoned(zone.clone())
+        .date();
+    let mut daily = BTreeMap::new();
+    for day in (0..7).rev() {
+        daily.insert(
+            today.checked_sub((day as i64).days()).map_err(|_| Error::InvalidRequest)?.to_string(),
+            0u64,
+        );
+    }
+    let mut report = Report::unavailable(tool, now as u64);
+    report.source_status = if scan.partial { "partial" } else { "fresh" }.into();
+    report.partial = scan.partial;
+    report.updated_at = Some(now as u64);
+    report.files_scanned = scan.files;
+    report.calendar = if tool == Tool::Claude { "UTC" } else { "system-local" }.into();
+    let mut models: BTreeMap<(String, String), (u64, u64, f64)> = BTreeMap::new();
+    for event in scan.events {
+        if event.time > now + 120 || event.time < now - 8 * 86400 {
+            continue;
+        }
+        let date = Timestamp::from_second(event.time)
+            .map_err(|_| Error::InvalidRequest)?
+            .to_zoned(zone.clone())
+            .date();
+        let add = |total: &mut u64| -> Result<()> {
+            *total = total.checked_add(event.tokens).ok_or(Error::Limit)?;
+            Ok(())
+        };
+        if event.time >= now - 7 * 86400 {
+            if event.cost_reported {
+                report.cost_status = "local_reported".into();
+            }
+            add(&mut report.seven_day_tokens)?;
+            report.seven_day_cost += event.cost;
+        }
+        if event.time >= now - 5 * 3600 {
+            add(&mut report.five_hour_tokens)?;
+            report.five_hour_cost += event.cost;
+        }
+        if event.time >= now - 3600 {
+            add(&mut report.last_hour_tokens)?;
+        }
+        if date == today {
+            add(&mut report.today_tokens)?;
+        }
+        if let Some(tokens) = daily.get_mut(&date.to_string()) {
+            add(tokens)?;
+        }
+        let key = (event.provider, event.model);
+        if !models.contains_key(&key) && models.len() >= 128 {
+            report.partial = true;
+            report.source_status = "partial".into();
+            continue;
+        }
+        let model = models.entry(key).or_default();
+        model.0 = model.0.checked_add(event.tokens).ok_or(Error::Limit)?;
+        model.1 = model.1.checked_add(event.cache_read).ok_or(Error::Limit)?;
+        model.2 += event.cost;
+        if !model.2.is_finite() {
+            return Err(Error::Limit);
+        }
+    }
+    if !report.five_hour_cost.is_finite() || !report.seven_day_cost.is_finite() {
+        return Err(Error::Limit);
+    }
+    report.recent_days =
+        daily.into_iter().map(|(date, tokens)| json!({"date":date,"tokens":tokens})).collect();
+    report.models = models.into_iter().take(128).map(|((provider, model), (tokens, cache_read, cost))| json!({"provider":provider,"model":model,"tokens":tokens,"cache_read":cache_read,"cache_read_available":tool != Tool::Codex,"cost":cost})).collect();
+    if tool == Tool::Opencode {
+        report.soft_caps = Some(
+            json!({"source":"local_soft_caps","five_hour_limit":soft_caps.five_hour_limit,"seven_day_limit":soft_caps.seven_day_limit,"five_hour_utilization":(report.five_hour_tokens as f64 / soft_caps.five_hour_limit as f64).min(1.0),"seven_day_utilization":(report.seven_day_tokens as f64 / soft_caps.seven_day_limit as f64).min(1.0),"provider_quota":false}),
+        );
+    }
+    Ok(report)
+}

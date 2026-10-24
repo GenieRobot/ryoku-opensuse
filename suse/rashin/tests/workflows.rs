@@ -729,6 +729,11 @@ fn external_client_runtime_dependency_is_declared_for_tumbleweed() {
         runtime.lines().any(|line| line.split_whitespace().collect::<Vec<_>>()
             == ["Requires:", "rpm", ">=", "4.19"])
     );
+    assert!(
+        runtime
+            .lines()
+            .any(|line| line.split_whitespace().collect::<Vec<_>>() == ["Requires:", "timezone"])
+    );
 }
 
 #[test]

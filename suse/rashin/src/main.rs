@@ -17,6 +17,18 @@ fn run() -> Result<()> {
         return Err(Error::InvalidRequest);
     }
     match args[0].to_str() {
+        Some("usage-claude" | "usage-codex" | "usage-opencode") => {
+            let tool = match args[0].to_str() {
+                Some("usage-claude") => ryoku_rashin::usage::Tool::Claude,
+                Some("usage-codex") => ryoku_rashin::usage::Tool::Codex,
+                _ => ryoku_rashin::usage::Tool::Opencode,
+            };
+            let enrollment = ryoku_rashin::usage::Enrollment::enroll(tool, Path::new(&args[1]))?;
+            let at =
+                u64::try_from(jiff::Timestamp::now().as_second()).map_err(|_| Error::Storage)?;
+            let report = ryoku_rashin::usage::collect(&enrollment, at)?;
+            serde_json::to_writer(std::io::stdout(), &report).map_err(|_| Error::Storage)
+        }
         Some("logs") => {
             let component = args[1].to_str().ok_or(Error::InvalidRequest)?;
             let evidence = ryoku_rashin::inspection::collect(component)?;
@@ -31,6 +43,7 @@ fn run() -> Result<()> {
                     .map_err(|_| Error::Storage)?;
                 let origin = format!("http://{}", http.local_addr().map_err(|_| Error::Storage)?);
                 let engine = Engine::open(store)?;
+                engine.start_usage_scheduler()?;
                 let unix_engine = std::sync::Arc::clone(&engine);
                 std::thread::Builder::new()
                     .name("rashin-unix".into())
@@ -43,7 +56,9 @@ fn run() -> Result<()> {
                 );
                 ryoku_rashin::http::Gateway::new(engine, token, origin)?.serve(http)
             } else {
-                serve(listener, Engine::open(store)?)
+                let engine = Engine::open(store)?;
+                engine.start_usage_scheduler()?;
+                serve(listener, engine)
             }
         }
         Some("request") => {

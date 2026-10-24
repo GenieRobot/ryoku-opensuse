@@ -7,6 +7,7 @@ pub mod inspection;
 pub mod provider;
 pub mod runtime;
 pub mod store;
+pub mod usage;
 
 use serde::{Deserialize, Serialize};
 

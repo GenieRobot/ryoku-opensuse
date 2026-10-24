@@ -10,26 +10,77 @@ pub const MAX_REQUEST_BYTES: usize = 256 * 1024;
 pub enum Request {
     Status {},
     Providers {},
-    PutProvider { id: String, provider: Provider },
-    RemoveProvider { id: String },
-    SetRoute { lane: Lane, provider: String, model: String },
-    Index { documents: Vec<Document> },
+    PutProvider {
+        id: String,
+        provider: Provider,
+    },
+    RemoveProvider {
+        id: String,
+    },
+    SetRoute {
+        lane: Lane,
+        provider: String,
+        model: String,
+    },
+    Index {
+        documents: Vec<Document>,
+    },
     GetIndex {},
-    Ask { id: String, prompt: String },
-    Job { id: String },
-    Cancel { id: String },
-    ForgetJob { id: String },
-    DeleteSession { id: String },
+    Ask {
+        id: String,
+        prompt: String,
+    },
+    Job {
+        id: String,
+    },
+    Cancel {
+        id: String,
+    },
+    ForgetJob {
+        id: String,
+    },
+    DeleteSession {
+        id: String,
+    },
     Recent {},
-    NewSession { id: String, lane: Lane },
+    NewSession {
+        id: String,
+        lane: Lane,
+    },
     Sessions {},
-    Session { id: String },
-    Prompt { id: String, session: String, prompt: String },
-    Fix { id: String, kind: FixKind, component: String, evidence: String },
-    Wire { instructions: String },
+    Session {
+        id: String,
+    },
+    Prompt {
+        id: String,
+        session: String,
+        prompt: String,
+    },
+    Fix {
+        id: String,
+        kind: FixKind,
+        component: String,
+        evidence: String,
+    },
+    Wire {
+        instructions: String,
+    },
     Unwire {},
     Usage {},
-    Logs { component: String },
+    Logs {
+        component: String,
+    },
+    EnrollUsageSource {
+        tool: crate::usage::Tool,
+        path: String,
+        soft_caps: Option<crate::usage::SoftCaps>,
+    },
+    CollectUsage {
+        tool: crate::usage::Tool,
+    },
+    DisableUsageSource {
+        tool: crate::usage::Tool,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

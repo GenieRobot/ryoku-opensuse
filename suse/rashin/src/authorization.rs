@@ -19,6 +19,8 @@ pub enum Action {
     Index,
     Fix,
     AgentInstructions,
+    UsageSource,
+    UsageCollect,
 }
 
 impl Request {
@@ -43,6 +45,8 @@ impl Request {
             Self::Index { .. } => Action::Index,
             Self::Fix { .. } => Action::Fix,
             Self::Wire { .. } | Self::Unwire {} => Action::AgentInstructions,
+            Self::EnrollUsageSource { .. } | Self::DisableUsageSource { .. } => Action::UsageSource,
+            Self::CollectUsage { .. } => Action::UsageCollect,
         }
     }
 }

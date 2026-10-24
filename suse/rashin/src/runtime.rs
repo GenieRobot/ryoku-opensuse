@@ -82,6 +82,10 @@ struct State {
     jobs: BTreeMap<String, Job>,
     usage: Vec<Usage>,
     instructions: Option<String>,
+    #[serde(default)]
+    usage_sources: BTreeMap<crate::usage::Tool, crate::usage::Enrollment>,
+    #[serde(default)]
+    tool_usage: BTreeMap<crate::usage::Tool, crate::usage::Report>,
 }
 
 impl Default for State {
@@ -99,6 +103,8 @@ impl Default for State {
             jobs: BTreeMap::new(),
             usage: Vec::new(),
             instructions: None,
+            usage_sources: BTreeMap::new(),
+            tool_usage: BTreeMap::new(),
         }
     }
 }
@@ -109,6 +115,8 @@ pub struct Engine {
     cancellations: Mutex<BTreeMap<String, Arc<AtomicBool>>>,
     healthy: AtomicBool,
     active: Arc<AtomicUsize>,
+    usage_collection: Mutex<()>,
+    scheduler_started: AtomicBool,
 }
 
 struct ProviderPermit(Arc<AtomicUsize>);
@@ -150,6 +158,8 @@ impl Engine {
             cancellations: Mutex::new(BTreeMap::new()),
             healthy: AtomicBool::new(true),
             active: Arc::new(AtomicUsize::new(0)),
+            usage_collection: Mutex::new(()),
+            scheduler_started: AtomicBool::new(false),
         }))
     }
 
@@ -192,6 +202,30 @@ impl Engine {
             return Err(Error::Unauthorized);
         }
         match request {
+            Request::EnrollUsageSource { tool, path, soft_caps } => {
+                let mut enrollment =
+                    crate::usage::Enrollment::enroll(tool, std::path::Path::new(&path))?;
+                if let Some(caps) = soft_caps {
+                    if tool != crate::usage::Tool::Opencode {
+                        return Err(Error::InvalidRequest);
+                    }
+                    caps.validate()?;
+                    enrollment.soft_caps = caps;
+                }
+                self.transaction(|state| {
+                    if state.usage_sources.get(&tool) != Some(&enrollment) {
+                        state.tool_usage.remove(&tool);
+                    }
+                    state.usage_sources.insert(tool, enrollment);
+                    Ok(json!({"enrolled":tool,"interval_seconds":crate::usage::INTERVAL_SECONDS}))
+                })
+            }
+            Request::DisableUsageSource { tool } => self.transaction(|state| {
+                state.usage_sources.remove(&tool);
+                state.tool_usage.remove(&tool);
+                Ok(json!({"disabled":tool}))
+            }),
+            Request::CollectUsage { tool } => self.collect_tool_usage(tool, now()),
             Request::Logs { component } => {
                 serde_json::to_value(crate::inspection::collect(&component)?)
                     .map_err(|_| Error::Storage)
@@ -368,12 +402,102 @@ impl Engine {
                         json!({"id":id,"session":state.sessions.get(&id).ok_or(Error::NotFound)?}),
                     ),
                     Request::Usage {} => Ok(
-                        json!({"activity":state.usage,"quota":null,"quota_status":"unavailable","source":"rashin-completions","note":"Estimated tokens are local estimates; activity is not provider quota."}),
+                        json!({"activity":state.usage,"tools":state.tool_usage.iter().map(|(tool, report)| {
+                            let mut report = report.clone();
+                            if report.updated_at.is_some_and(|updated| now().saturating_sub(updated) > crate::usage::INTERVAL_SECONDS * 3) { report.source_status = "stale".into(); }
+                            (tool, report)
+                        }).collect::<BTreeMap<_,_>>(),"sources":state.usage_sources,"quota":null,"quota_status":"unavailable","source":"rashin-completions-and-enrolled-local-activity","note":"Estimated tokens and local soft caps are not provider quota."}),
                     ),
                     _ => unreachable!("mutating requests handled above"),
                 }
             }
         }
+    }
+
+    fn collect_tool_usage(&self, tool: crate::usage::Tool, at: u64) -> Result<Value> {
+        let _lease = self.usage_collection.try_lock().map_err(|_| Error::Busy)?;
+        let enrollment = self
+            .state
+            .lock()
+            .map_err(|_| Error::Storage)?
+            .usage_sources
+            .get(&tool)
+            .cloned()
+            .ok_or(Error::NotFound)?;
+        let collected = crate::usage::collect(&enrollment, at);
+        self.transaction(|state| {
+            if state.usage_sources.get(&tool) != Some(&enrollment) {
+                return Err(Error::Conflict);
+            }
+            let report = match collected {
+                Ok(report) => report,
+                Err(error) => {
+                    let mut report = state
+                        .tool_usage
+                        .get(&tool)
+                        .cloned()
+                        .filter(|report| report.updated_at.is_some())
+                        .map(|report| report.stale(at))
+                        .unwrap_or_else(|| crate::usage::Report::unavailable(tool, at));
+                    report.last_error = Some(error);
+                    report
+                }
+            };
+            let response = serde_json::to_value(&report).map_err(|_| Error::Storage)?;
+            state.tool_usage.insert(tool, report);
+            Ok(response)
+        })
+    }
+
+    /// Persistent last-attempt times supply five-minute scheduling and restart
+    /// catch-up. Only explicitly enrolled tools are read; failures preserve a
+    /// labeled stale last-good result and never start OAuth/RPC/network work.
+    pub fn collect_due_usage(&self, at: u64) -> Result<()> {
+        if !self.healthy.load(Ordering::Acquire) {
+            return Err(Error::Storage);
+        }
+        let due: Vec<_> = {
+            let state = self.state.lock().map_err(|_| Error::Storage)?;
+            state
+                .usage_sources
+                .keys()
+                .filter(|tool| {
+                    crate::usage::due(
+                        at,
+                        state.tool_usage.get(tool).map(|report| report.attempted_at),
+                    )
+                })
+                .copied()
+                .collect()
+        };
+        for tool in due {
+            let _ = self.collect_tool_usage(tool, at);
+        }
+        Ok(())
+    }
+
+    pub fn start_usage_scheduler(self: &Arc<Self>) -> Result<()> {
+        if self.scheduler_started.swap(true, Ordering::AcqRel) {
+            return Ok(());
+        }
+        let engine = Arc::downgrade(self);
+        std::thread::Builder::new()
+            .name("rashin-usage".into())
+            .spawn(move || {
+                loop {
+                    let Some(engine) = engine.upgrade() else {
+                        break;
+                    };
+                    let _ = engine.collect_due_usage(now());
+                    drop(engine);
+                    std::thread::sleep(Duration::from_secs(1));
+                }
+            })
+            .map_err(|_| {
+                self.scheduler_started.store(false, Ordering::Release);
+                Error::Storage
+            })?;
+        Ok(())
     }
 
     fn start(
