@@ -78,3 +78,11 @@ entries do not state a version. The candidate RPM records that limitation as
 or infer a single GPL license from the RPM header. This is a provenance record;
 redistribution/license-metadata closure remains a #173 acceptance item until
 the native package review accepts that recorded license identity.
+
+`upstream/evidence/ryoku-v1.0/sound-asset-provenance.json` records all selected
+sounds: 63 direct UI files plus ten IPC `.oga` resources, all retained. Cached
+upstream COPYING is empty; no grant/version is inferred from it. All 32 typing
+hashes match their pinned Monkeytype GPL-3.0-only declaration. The 31 Python-bar
+samples retain component AGPL attribution, with separate per-sample terms still
+unestablished. See `docs/ryoku-v1.0-sound-rights-review.md` for exact source and
+metadata limits; accepted redistribution/native license delivery remain open.

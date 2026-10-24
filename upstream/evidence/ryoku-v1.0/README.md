@@ -76,6 +76,17 @@ the other eleven fonts. `font-license-validation.json` records the focused
 nine-test audit/native-spec result, exact input hashes and cached-toolchain
 limits separately from pending native package and redistribution acceptance.
 
+`sound-asset-disposition.tsv` / `sound-asset-provenance.json` record all 73
+selected source audio paths: 63 UI assets and ten embedded IPC sounds. They
+pin every blob/mode/digest, 32 typing-manifest matches, ten cached freedesktop
+member/CREDITS matches and exact source/metadata rights limits. Empty COPYING
+and unknown CC-BY-SA version grant nothing new; all paths/choices remain
+retained and redistribution acceptance stays open.
+
+`sound-rights-validation.json` records exact input hashes and the independent
+identity/selection, cached-member, declaration and metadata-boundary checks;
+it is not accepted redistribution or native playback evidence.
+
 `wavecapture-providers.json` and three literal `.xml.fragment` files preserve
 the verified primary package-file evidence for `pactl` / `pw-record` plus the
 PipeWire PulseAudio capability provider. They retain primary conflicts and
