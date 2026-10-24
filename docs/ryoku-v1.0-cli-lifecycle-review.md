@@ -120,6 +120,13 @@ writer lease, linked capture and durable operation accounting; credentials or
 a launch checkpoint alone do not authorize later repair subprocesses. Shell
 hooks require bounded write scope and explicit authorization, including their
 external/runtime effects, before they can participate in a protected action.
+For the retained Ryogami surface, [#175](https://github.com/GenieRobot/ryoku-opensuse/issues/175)
+owns source/workshop/model/library/delete providers and
+[#176](https://github.com/GenieRobot/ryoku-opensuse/issues/176) owns startup,
+restore, postapply and timer/watcher execution policy, integrated with #25's
+protected core appearance transport. Both preserve the existing experience;
+their scoped ownership does not grant generic CLI/transient command execution
+or certify unimplemented behavior.
 
 Selected Hub/Ryogami callers of `ryoku-host` still exist outside this CLI
 tree (for example Hub `backend/{wm,phone}.go` and Ryogami

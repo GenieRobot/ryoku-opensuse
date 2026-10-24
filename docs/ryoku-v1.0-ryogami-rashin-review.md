@@ -113,16 +113,19 @@ not being pursued, and those bindings remain intact.
 
 ### Ownership and retained full-feature integration plan
 
-The issue scopes below were read on 24 October 2026. They are ownership
-boundaries, not a claim that a provider has been implemented or certified.
+The issue scopes below were read on 24 October 2026, including the new M2
+owners #175 and #176 under tracker #4. They are ownership boundaries, not a
+claim that a provider has been implemented or certified. Both new tasks depend
+on #173's source-path review and #25's protected core appearance integration;
+they retain the complete UI and behavior.
 
 | Work | Existing owner / contract | Required next implementation and evidence |
 |---|---|---|
 | Core wallpaper display/apply/restore, editor integration, transitions, dynamic palette, video and depth | [#25: core desktop and appearance boundaries](https://github.com/GenieRobot/ryoku-opensuse/issues/25), using the existing #18 writer/capture and #20 durable mutation contracts | Retain all source/UI/package nodes. Route every persistent apply, assignment, favorite, playlist, settings and effect change through a typed Rust plan with explicit affected paths, authorization, linked pre-checkpoint verification, revalidation, health and post-change accounting. Include daemon startup, timers and direct IPC; wrapping only the public CLI is insufficient. Native appearance/session acceptance remains #25, combined recovery #26. |
-| Newly nested Ryogami index/state and configuration ownership | #25 appearance integration consuming #18 capture and #20 coordination; neither completed foundation issue certifies new v1 paths | Reconcile `.cache/ryogami/wallpaper/{index,state}.json`, configured library/cache roots, absent files, ownership and bounds with the complete capture/restore model. Classify persistent preferences/receipts versus regenerable thumbnails/model indexes. No broad home-directory capture or inventory expansion is made by this source review. |
+| Newly nested Ryogami index/state and configuration ownership | #25 core appearance integration and #175 retained library/provider operations, consuming #18 capture and #20 coordination | Reconcile `.cache/ryogami/wallpaper/{index,state}.json`, configured library/cache roots, absent files, ownership and bounds with the complete capture/restore model. Classify persistent preferences/receipts versus regenerable thumbnails/model indexes. Neither completed foundation issue certifies new v1 paths; no broad home-directory capture or inventory expansion is made by this source review. |
 | RPM dependency installation/removal needed by the retained features | [#27: package discovery/plans](https://github.com/GenieRobot/ryoku-opensuse/issues/27), [#28: protected package/repository/full-system transactions](https://github.com/GenieRobot/ryoku-opensuse/issues/28), [#29: native clients/progress](https://github.com/GenieRobot/ryoku-opensuse/issues/29) | Reuse the shared package plan and protected execution when a feature needs a distro package. Preserve full Tumbleweed transaction policy. These issues do not automatically authorize image/video/model downloads or file deletion. #30 is optional Myrlyn integration, not a Ryogami provider owner. |
-| Image/video source downloads, Steam workshop, model pack install/remove and source-media deletion | #25 owns the retained Ryogami integration; **no existing task inspected explicitly defines these file/network/model operation contracts** | Coordinator must scope the missing subwork under the appearance owner before implementation. Define bounded source/manifest/trust identities, destination ownership, quotas, interruption/resume and deletion/restore receipts. Network credentials/account/remote effects need a separate policy; a local snapshot cannot undo a remote action. Do not misassign these operations to RPM install/remove or silently omit them from the target. |
-| Automatic postapply shell hooks and arbitrary configured commands | #25 integration depends on #20's trusted typed provider seam; **no inspected issue grants a generic shell-command capability** | Establish exact authorized hook identities, permitted arguments, execution environment, complete write scope and external side-effect policy before execution. An arbitrary shell string cannot supply its own trusted plan or checkpoint proof. Route startup/restore hooks through the same operation boundary as explicit actions; do not execute hooks merely because the daemon starts or a file is restored. Coordinator must resolve the missing hook contract; no proxy or generic exec API is introduced here. |
+| Image/video source downloads, Steam workshop, model pack install/remove, library management and source-media deletion | [#175: protect retained Ryogami library and provider actions](https://github.com/GenieRobot/ryoku-opensuse/issues/175), integrated with #25's protected core transport and #18/#20 contracts | Implement bounded Rust providers behind the authenticated helper: source/manifest/trust identities, exact account-owned destinations, size/time quotas, safe interruption/resume and trash/restore receipts. Revalidate reviewed plans and linked pre/post state before local writes/deletes/process launches. Keep credentials private and record remote requests separately because local rollback cannot undo external effects. Preserve every picker/CLI/daemon action; RPM acquisition remains #27–29. |
+| Startup/restore/postapply hooks, timers/watchers and configured commands | [#176: constrain retained Ryogami startup and post-apply hooks](https://github.com/GenieRobot/ryoku-opensuse/issues/176), integrated with #25 and #18/#20 | Implement Rust-owned typed execution policy bound to authenticated account, exact hook identity/content, permitted arguments/environment/directory, time and write/network scope. Enabling/changing policy requires explicit authorization; every automatic run revalidates an exact approved policy and complete linked capture/accounting before launch. Arbitrary shell strings cannot supply trusted plans. Preserve hook configuration and approved behavior; prove child containment/refreeze and no silent unapproved restore execution. No generic privileged exec API is granted. |
 | User-service changes | [#31: narrowly typed service controls](https://github.com/GenieRobot/ryoku-opensuse/issues/31), with #25 responsible for ordinary session lifecycle | Separate runtime start/stop from persistent enablement/config changes and document restore limits. This does not authorize arbitrary systemctl commands or require putting service control in #173. |
 | Separate Rashin/other app adoption | [#47: remaining application inventory and scoped application issues](https://github.com/GenieRobot/ryoku-opensuse/issues/47) | Current export exclusion is an inventory fact, not a decision to delete those applications from the eventual full product. Each future activation needs its explicit app/state/provider acceptance. This is distinct from already retained core Ryogami. |
 
@@ -134,6 +137,9 @@ pre/post accounting described in [mutation coordination](mutation-coordination.m
 The current service `ManagedAction` enum has package/profile/checkpoint actions,
 but no wallpaper, source-download, model-pack, source-delete or hook action.
 Those typed contracts and an installed provider dispatcher remain missing;
+#25 owns core appearance transport, #175 the retained library/providers and
+#176 automatic hook execution policy. Creating these owners does not implement
+their contracts or certify the currently reachable writes;
 the documented zero-certified-provider-write result must not be relabelled
 as support for them. Existing daemon JSON-RPC IDs and settings-action names
 are source entrypoints, not authorization or a replacement for durable
@@ -178,11 +184,13 @@ The concrete source/dependency sequence for #173 is:
 4. Build/test the exact candidate and inspect generated picker/Blobs/Spatial3D
    module metadata, shaders, imports and ELF closure. Keep source compilation
    and tool-suite evidence separate from guest graphics/codec results.
-5. Coordinate #25's protected full appearance adapter and native session
-   acceptance with the refreshed package, then #26's combined recovery gate.
-   If missing typed operation work must be split, the coordinator must resolve
-   ownership and the #173/#25 prerequisite ordering explicitly; do not resolve
-   that scheduling dependency by dropping features or bypassing protection.
+5. Coordinate #25's protected full appearance adapter with #175's retained
+   library/providers and #176's startup/restore/postapply policy, using the
+   reviewed pushed #25 interface and issue-specific branches as their scopes
+   require. Then verify native session/provider/hook behavior with the refreshed
+   package under #26's combined recovery gate. Preserve full functionality and
+   keep prerequisite ordering explicit; no feature removal or protection
+   bypass substitutes for those implementation and acceptance results.
 
 ## Excluded Rashin runtime
 

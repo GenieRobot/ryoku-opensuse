@@ -72,7 +72,7 @@ pending. This source-only review changes no #25 shell/session files.
 | Voxtype/Redux | `voxtype.go`, embedded `assets/redux/{adapter.py,setup.py}` | Get is a query; config/model writes, download/build/setup, service registration/removal and package changes are refused. Direct DictationPage shell deletion/package commands and dock setup/restart launches are replaced by Rust refusal. Embedded Python remains upstream provenance, never a new project provider. |
 | Host/package/auth | Hub SettingsSheet, Dictation/Global/Input/Connections/Users/Lockscreen/Updates pages | Direct package install/remove/update, PAM/keyring/fingerprint/security-key writes, system keymap/timezone and service changes enter Rust refusal. Display probes are retained. No pacman/DNF/XBPS or privileged helper is installed. |
 | Network/Bluetooth | Selected shell bar/sidebar/Stage/iNiR services and Hub Connections | Direct nmcli profile/password/hotspot mutations, Tailscale changes/operator escalation, battery sysfs/pkexec writes and deferred package actions enter Rust refusal. Direct Quickshell Networking/BlueZ connect/disconnect/forget/trust/power/discovery assignments are replaced before API dispatch. Read-only properties and status/list queries remain. Original Bluetooth link/agent scripts are excluded. |
-| Ryogami | `ryoku/shell/ryogami/{daemon,picker}` plus separate `ryoku/shell/livewall` | Preserve the complete daemon/editor/livewall experience and its package/UI nodes; no exclusion is pursued. No current Ryogami `hyprland`/`bin` subtrees exist. [Exact inventory and protected-integration ownership](ryoku-v1.0-ryogami-rashin-review.md) identify reachable writes and automatic hooks needing #25's Rust appearance integration with #18/#20 contracts; missing download/model/hook work needs explicit scope. Selection does not certify those writes. Native/tool/license acceptance remains pending. |
+| Ryogami | `ryoku/shell/ryogami/{daemon,picker}` plus separate `ryoku/shell/livewall` | Preserve the complete daemon/editor/livewall experience and its package/UI nodes; no exclusion is pursued. No current Ryogami `hyprland`/`bin` subtrees exist. [Exact inventory and protected-integration ownership](ryoku-v1.0-ryogami-rashin-review.md) map core appearance to #25, retained source/workshop/model/library/delete providers to #175 and startup/restore/postapply policy to #176, using #18/#20 contracts. These owners retain full functionality; selection and task creation do not certify current writes. Native/tool/license acceptance remains pending. |
 | WM/session | `ryoku/wm`, selected Hyprland bridge | Hyprland remains the initial compositor. Niri and Wayfire provider activation is deferred to #46. The port's Rust session adapter remains authoritative. |
 | Greeter/lock/security | Upstream greeter, `sddm/setup`, guard, custom qylock, Bluetooth agent/link | Exact excluded path families are outside the source export/install recipes. Do not import root display-manager watchdog/restart, PAM/autologin rewriting, custom lock guarantees, or re-pairing behavior. Native hyprlock and distro SDDM/KDE fallback require fresh #25 acceptance. |
 | Other distributions/apps | Fedora/Void/Nix, installer/ISO/release publishers, standalone Rashin/store/apps/palette bridge | Reference/excluded source only. No alternate package manager, boot/init/GRUB/Plymouth mutation, installer, repository signing/publisher, model capability or standalone app scope is imported. |
@@ -191,9 +191,12 @@ make an unresolved runtime alias or generated module disappear.
 
 ### Source-review checkpoint (24 October 2026)
 
-Hosted Rust checks [run 40129795018](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40129795018)
+Hosted Rust checks [run 40130495735](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40130495735)
 completed successfully for exact documentation head
-`b7a51b32bf98ae1a64181e09929edc227b2808ec`. The earlier CLI source-review head
+`ca033724bd91f51575aa13386cd9aadaa187678d`. The earlier documentation head
+`b7a51b32bf98ae1a64181e09929edc227b2808ec` passed
+[run 40129795018](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40129795018).
+The CLI source-review head
 `0d70b432600284f8bc50cf9c174a1b92ce49c875` also passed
 [run 40129176975](https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40129176975).
 These results include the full Ryogami preservation handoff. Subsequent
@@ -208,8 +211,12 @@ lifecycle 774 current/prior paths with 835 original source-site records.
 These inventories do not certify the reachable mutation paths. #25 owns core
 appearance/settings integration through the existing Rust authorization,
 complete capture and linked pre/post mutation contracts; package operations
-remain #27–29, service/security scope #31/#32. Image/model/file deletion and
-arbitrary hooks still need explicit typed scope and bounded write ownership.
+remain #27–29, service/security scope #31/#32. Retained source/workshop/model/
+library/delete operations are owned by [#175](https://github.com/GenieRobot/ryoku-opensuse/issues/175);
+automatic startup/restore/postapply hooks and timers/watchers by
+[#176](https://github.com/GenieRobot/ryoku-opensuse/issues/176). Both require
+typed authorization, bounded ownership and linked recovery, preserving full
+functionality; their implementation and acceptance remain open.
 
 The full verified Git tree preserves CLI source/provenance, but existing
 Source2/Source3 are selected exports and contain no `ryoku/cli` root.
@@ -220,9 +227,9 @@ license delivery and complete notices, native RPM/plugin/QML/ELF/tool checks,
 and fresh #25/#26 behavior/recovery acceptance. The builder remains paused;
 a green hosted Rust run proves none of those native gates.
 
-The coordinator's latest host measurement reports **9.8 GiB free on Windows
+The coordinator's latest host measurement reports **12.0 GiB free on Windows
 C:** and repository `target/` unchanged at **41 GiB**, improving from the prior
-4.0 GiB host reading. This is still below the existing 10 GiB guard. The VM
+9.8 GiB and 4.0 GiB host readings. The existing storage guard is unchanged. The VM
 stays paused until the coordinator reassesses the storage gate; this reading
 does not authorize a build, install, guest access or target-cache rebuild.
 No VM or package state was accessed for this documentation update.
