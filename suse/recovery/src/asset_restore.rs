@@ -479,21 +479,11 @@ impl FileRestorePlan {
             .ok_or(RestoreError::InvalidBinding)?;
         match &self.record.target.kind {
             EntryKind::RegularFile { .. } => {
-                let stage = File::from(fs::openat(
+                let stage = crate::account_inode::create(
                     &parent,
                     stage_leaf,
-                    OFlags::RDWR
-                        | OFlags::CREATE
-                        | OFlags::EXCL
-                        | OFlags::NOFOLLOW
-                        | OFlags::CLOEXEC,
-                    Mode::from_raw_mode(0o600),
-                )?);
-                fs::fchmod(&stage, Mode::from_raw_mode(0o600))?;
-                fs::fchown(
-                    &stage,
-                    Some(fs::Uid::from_raw(account.uid)),
-                    Some(fs::Gid::from_raw(account.gid)),
+                    account,
+                    crate::account_inode::Kind::File,
                 )?;
                 source.prepare_asset_inode(
                     &self.record.target.path,
@@ -616,7 +606,11 @@ fn read_record(parent: &File, name: &str) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
-fn parent(home: &File, path: &AssetPath, account: &CaptureAccount) -> Result<(File, String)> {
+pub(crate) fn parent(
+    home: &File,
+    path: &AssetPath,
+    account: &CaptureAccount,
+) -> Result<(File, String)> {
     let relative = path.home_relative().map_err(|_| RestoreError::InvalidBinding)?;
     let (parents, leaf) = relative.as_str().rsplit_once('/').unwrap_or(("", relative.as_str()));
     let mut current = home.try_clone()?;

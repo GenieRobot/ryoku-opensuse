@@ -301,6 +301,53 @@ impl VerifiedGeneration {
         Ok(())
     }
 
+    /// Restore metadata on an already-created owned tree directory after its
+    /// children are complete. The caller retains its protected tree journal.
+    pub(crate) fn prepare_asset_directory_metadata(
+        &self,
+        path: &crate::ryogami_assets::AssetPath,
+        account: &crate::installed_capture::CaptureAccount,
+        directory: &File,
+    ) -> Result<(), GenerationError> {
+        let assets = self.manifest.assets().ok_or(GenerationError::PayloadMismatch)?;
+        assets.require_account(account).map_err(|_| GenerationError::PayloadMismatch)?;
+        let record = assets
+            .entries()
+            .iter()
+            .find(|record| record.path == *path)
+            .ok_or(GenerationError::PayloadMismatch)?;
+        let EntryKind::Directory { metadata } = &record.kind else {
+            return Err(GenerationError::InvalidEntryType);
+        };
+        let stat = rustix::fs::fstat(directory)?;
+        if rustix::fs::FileType::from_raw_mode(stat.st_mode) != rustix::fs::FileType::Directory
+            || stat.st_uid != account.uid
+            || stat.st_gid != account.gid
+        {
+            return Err(GenerationError::InvalidEntryType);
+        }
+        let acl = metadata
+            .acl_sha256
+            .as_ref()
+            .map(|digest| {
+                crate::metadata::AclPayload::decode(&self.read_payload(digest)?)
+                    .map_err(|_| GenerationError::PayloadMismatch)
+            })
+            .transpose()?;
+        let mut xattrs = BTreeMap::new();
+        for (name, digest) in &metadata.extended.values {
+            xattrs.insert(*name, self.read_payload(digest)?);
+        }
+        crate::inode_metadata::apply_verified_metadata(
+            directory,
+            metadata,
+            true,
+            acl.as_ref(),
+            xattrs.iter().map(|(name, value)| (*name, value.as_slice())).collect(),
+        )
+        .map_err(GenerationError::InodeMetadata)
+    }
+
     /// Provides only an independently verified immutable referenced asset;
     /// restore code can copy it in bounded chunks without a payload-sized Vec.
     pub fn open_asset_payload(&self, digest: &Sha256) -> Result<File, GenerationError> {

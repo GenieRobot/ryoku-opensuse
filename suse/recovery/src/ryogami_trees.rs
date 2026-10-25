@@ -49,6 +49,7 @@ pub(crate) fn validate_roots(roots: &[AssetPath], paths: &[AssetPath]) -> Result
         if !matches!(
             root.namespace(),
             AssetNamespace::SemanticModels
+                | AssetNamespace::TreeStage
                 | AssetNamespace::WorkshopContent
                 | AssetNamespace::ConfiguredLibrary
                 | AssetNamespace::RemotePreviews

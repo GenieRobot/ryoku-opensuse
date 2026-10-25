@@ -35,6 +35,7 @@ pub enum AssetNamespace {
     WorkshopContent,
     ConfiguredLibrary,
     ModelReferenceStage,
+    TreeStage,
 }
 impl AssetNamespace {
     pub fn home_prefix(self) -> &'static str {
@@ -44,7 +45,7 @@ impl AssetNamespace {
             Self::RemotePreviews => ".cache/ryogami/remote-preview",
             Self::RemoteThumbnails => ".cache/ryogami/remote",
             Self::WorkshopContent => ".local/share/ryogami/workshop",
-            Self::ConfiguredLibrary | Self::ModelReferenceStage => "",
+            Self::ConfiguredLibrary | Self::ModelReferenceStage | Self::TreeStage => "",
         }
     }
 }
@@ -92,6 +93,14 @@ impl AssetPath {
         }
         if self.relative.as_str().len() > 1024 || self.relative.as_str().split('/').count() > 16 {
             return Err(AssetError::Path);
+        }
+        if self.namespace == AssetNamespace::TreeStage {
+            let leaf = self.relative.as_str().split('/').next().ok_or(AssetError::Path)?;
+            let token = leaf
+                .strip_prefix(".ryoku-tree-stage-")
+                .or_else(|| leaf.strip_prefix(".ryoku-tree-trash-"))
+                .ok_or(AssetError::Path)?;
+            Sha256::new(token).map_err(|_| AssetError::Path)?;
         }
         if self.namespace == AssetNamespace::ModelReferenceStage {
             let digest = self

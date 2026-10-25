@@ -85,6 +85,23 @@ impl Fixture {
         transaction: &str,
     ) -> VerifiedGeneration {
         let assets = capture_assets(&self.home, &self.account, paths, MAX_CAPTURE_LIMITS).unwrap();
+        self.publish_assets(number, assets, include_preferences, transaction)
+    }
+    fn capture_scope(&self, number: u64, scope: &AssetScope) -> VerifiedGeneration {
+        self.publish_assets(
+            number,
+            scope.capture(&self.home, &self.account).unwrap(),
+            true,
+            &format!("tx-{number}"),
+        )
+    }
+    fn publish_assets(
+        &self,
+        number: u64,
+        assets: crate::ryogami_assets::CapturedAssets,
+        include_preferences: bool,
+        transaction: &str,
+    ) -> VerifiedGeneration {
         let link = SnapshotLink::new(
             Identifier::new("root").unwrap(),
             (40 + number).to_string(),
@@ -665,3 +682,6 @@ fn combined_restore_preparation_keeps_preferences_and_every_asset_bound_to_fresh
 
 #[path = "combined_restore_tests.rs"]
 mod combined;
+
+#[path = "tree_restore_tests.rs"]
+mod trees;

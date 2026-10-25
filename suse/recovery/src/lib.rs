@@ -7,6 +7,8 @@
 //! generation publication, and recovery properties before using a manifest to
 //! authorize a mutation.
 
+#[cfg(target_os = "linux")]
+mod account_inode;
 pub mod account_principal;
 #[cfg(target_os = "linux")]
 pub mod asset_restore;
@@ -60,6 +62,8 @@ pub mod state_creation;
 #[cfg(target_os = "linux")]
 pub mod state_mount;
 pub mod state_provision;
+#[cfg(target_os = "linux")]
+pub mod tree_restore;
 mod wallpaper_channel;
 pub mod wallpaper_protocol;
 mod wallpaper_proxy;
