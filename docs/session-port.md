@@ -56,7 +56,11 @@ A missing or invalid handler gives an actionable native Default Applications
 error. Query capture is capped at 4096 bytes and 3 seconds; the launch client has
 30 seconds for its native startup handshake, with owned-group kill/reap on a
 stall. Successful launch does not impose a GUI application lifetime deadline.
-The RPM requires both exact native tool paths. Hub `desktop.apps` and legacy
+The RPM requires both exact native tool paths. Packaged `Super+Return` and
+`Super+E` enter the same terminal/files adapter instead of spawning fixed GUI
+executables directly; native file-manager preference is therefore respected.
+The [packaged shortcut contract](../infra/tumbleweed-lab/evidence/issue25-app-keybinds-20261025.toml)
+checks both exact bindings against their supported no-argument parser forms. Hub `desktop.apps` and legacy
 `apps` custom commands, additional editor/notes roles and preference edits remain
 required under #180; this default-dispatch slice does not claim that parity.
 The [offline launcher receipt](../infra/tumbleweed-lab/evidence/issue25-app-defaults-20261025.toml)

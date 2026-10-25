@@ -386,6 +386,25 @@ mod tests {
     }
 
     #[test]
+    fn packaged_terminal_and_files_shortcuts_enter_the_supported_role_contract() {
+        let config = include_str!("../../../../packaging/rpm/session/hyprland.conf");
+        for (key, role) in [("Return", "terminal"), ("E", "files")] {
+            let prefix = format!("bind = SUPER, {key}, exec, ");
+            let bindings =
+                config.lines().filter_map(|line| line.strip_prefix(&prefix)).collect::<Vec<_>>();
+            assert_eq!(bindings, [format!("/usr/bin/ryoku-app {role}")]);
+            match parse(&args(&[role])).unwrap() {
+                Launch::Terminal(Terminal::DefaultShell) if role == "terminal" => {}
+                Launch::Desktop(DesktopRole::Files, operands)
+                    if role == "files" && operands.is_empty() => {}
+                other => panic!(
+                    "packaged shortcut does not enter its supported no-argument role: {other:?}"
+                ),
+            }
+        }
+    }
+
+    #[test]
     fn refuses_root_and_mismatched_real_effective_ids() {
         for ids in
             [(0, 0, 0, 0), (1000, 0, 1000, 1000), (1000, 1001, 1000, 1000), (1000, 1000, 1000, 0)]
