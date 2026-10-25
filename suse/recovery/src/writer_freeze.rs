@@ -130,6 +130,7 @@ impl WriterFreeze {
                         }
                     };
                     if let Some(execution) = &executing
+                        && !poisoned
                         && let Err(error) = owner.run_tick(execution)
                     {
                         #[cfg(test)]
@@ -153,8 +154,7 @@ impl WriterFreeze {
                         #[cfg(not(test))]
                         let _ = error;
                         poisoned = true;
-                        let _ = owner.refreeze_actor(execution);
-                        executing = None;
+                        let _ = owner.abort_actor();
                     }
                     let Some(request) = request else { continue };
                     match request {
@@ -171,23 +171,32 @@ impl WriterFreeze {
                             } else {
                                 owner.begin_actor(&execution)
                             };
-                            if result.is_ok() {
+                            if !poisoned && executing.is_none() {
                                 executing = Some(execution);
-                            } else {
+                            }
+                            if result.is_err() {
                                 poisoned = true;
-                                let _ = owner.refreeze_actor(&execution);
+                                let _ = owner.abort_actor();
                             }
                             let _ = reply.send(result);
                         }
                         Request::Refreeze(reply) => {
-                            let result = if let Some(execution) = &executing {
+                            let result = if poisoned {
+                                owner.abort_actor()
+                            } else if let Some(execution) = &executing {
                                 owner.refreeze_actor(execution)
                             } else {
                                 owner.refreeze()
                             };
-                            executing = None;
                             if result.is_err() {
                                 poisoned = true;
+                                let _ = owner.abort_actor();
+                            } else if !poisoned {
+                                executing = None;
+                                owner.actor_processes.clear();
+                                for held in owner.tasks.values_mut() {
+                                    held.actor_owned = false;
+                                }
                             }
                             let _ = reply.send(if poisoned {
                                 Err(Error::WriterUnavailable)
@@ -196,20 +205,40 @@ impl WriterFreeze {
                             });
                         }
                         Request::Release(reply) => {
-                            let stopped = if let Some(execution) = &executing {
+                            let stopped = if poisoned {
+                                owner.abort_actor()
+                            } else if let Some(execution) = &executing {
                                 owner.refreeze_actor(execution)
                             } else {
-                                Ok(())
+                                owner.refreeze()
                             };
-                            let result = stopped.and_then(|()| owner.detach());
+                            let result = match stopped {
+                                Ok(()) => {
+                                    owner.actor_processes.clear();
+                                    owner.detach()
+                                }
+                                Err(_) => {
+                                    poisoned = true;
+                                    owner.abort_actor().and_then(|()| owner.detach())
+                                }
+                            };
+                            let complete = result.is_ok();
                             let _ = reply.send(result);
-                            return;
+                            if complete {
+                                return;
+                            }
+                            // Keep this tracer alive if cleanup is ambiguous.
+                            // Channel disconnect below retries with the same pins.
                         }
                     }
                 }
-                // Dropping the command channel ends the tracer thread even when
-                // an uninterruptible task could not reach ptrace-stop. The kernel
-                // then removes all remaining tracing relationships automatically.
+                // A dropped client cannot authorize a live rejected actor to
+                // resume. Retain tracer ownership until cleanup is proven.
+                if executing.is_some() || poisoned {
+                    while owner.abort_actor().is_err() {
+                        thread::sleep(Duration::from_millis(20));
+                    }
+                }
             })?;
         match received.recv_timeout(TIMEOUT + Duration::from_secs(1)) {
             Ok(Ok(())) => Ok(Self { sender: Some(sender), owner: Some(owner) }),
@@ -266,7 +295,11 @@ impl WriterFreeze {
         } else {
             Ok(())
         };
-        if let Some(owner) = self.owner.take() {
+        // On failure the dedicated tracer retains ownership and retries
+        // cleanup. Dropping JoinHandle detaches the thread, not its tracees.
+        if let Some(owner) = self.owner.take()
+            && result.is_ok()
+        {
             owner.join().map_err(|_| Error::WriterUnavailable)?;
         }
         result
@@ -299,6 +332,9 @@ struct TraceOwner {
     target: Target,
     tracer: i32,
     tasks: BTreeMap<i32, Held>,
+    // Pinned before the first resume; survives exec de-threading and /proc gaps.
+    actor_processes: BTreeMap<i32, File>,
+    cleanup_required: bool,
 }
 // false means a same-tracer kernel-stopped task is awaiting its parent event
 // or its event-enrolled non-actor initial stop. Retries never grant ownership.
@@ -322,6 +358,18 @@ fn actor_scan_ready(tracer: i32, held: &BTreeMap<i32, Held>, scanned: &[Task]) -
             {
                 ready = false
             }
+            // A real parent event already enrolled this exact non-actor.
+            // R here is only PendingInitialStop: no ownership/stopped state
+            // changes and no ready result. Only poll() may consume its stop.
+            Some(record)
+                if record.start == task.start
+                    && record.tgid == task.tgid
+                    && !record.actor_owned
+                    && !record.stopped
+                    && task.state == 'R' =>
+            {
+                ready = false
+            }
             None if task.state == 't' => ready = false,
             _ => return Err(Error::WriterUnavailable),
         }
@@ -338,7 +386,13 @@ impl TraceOwner {
             .ok_or(Error::UnsafeBoundary)?
             .parse()
             .map_err(|_| Error::UnsafeBoundary)?;
-        let mut owner = Self { target, tracer, tasks: BTreeMap::new() };
+        let mut owner = Self {
+            target,
+            tracer,
+            tasks: BTreeMap::new(),
+            actor_processes: BTreeMap::new(),
+            cleanup_required: false,
+        };
         let deadline = Instant::now() + TIMEOUT;
         loop {
             for task in owner.target.scan()? {
@@ -399,9 +453,12 @@ impl TraceOwner {
     fn poll(&mut self) -> Result<()> {
         let tids: Vec<_> = self.tasks.keys().copied().collect();
         for tid in tids {
-            if self.tasks[&tid].stopped {
+            if self.tasks[&tid].stopped && !self.cleanup_required {
                 continue;
             }
+            // SIGKILL also terminates threads whose prior ptrace stop was
+            // already consumed. Reap their terminal waits during cleanup so
+            // the pinned thread group can finish dying; never resume them.
             let Some(status) = wait_task(tid)? else {
                 continue;
             };
@@ -482,6 +539,8 @@ impl TraceOwner {
             }
             thread::sleep(Duration::from_millis(2));
         }
+        self.pin_actor_processes()?;
+        self.cleanup_required = true;
         for (&tid, held) in &mut self.tasks {
             if !held.actor_owned {
                 continue;
@@ -503,6 +562,8 @@ impl TraceOwner {
         let result = self.refreeze_using(Some(execution));
         if result.is_err() {
             let _ = self.refreeze();
+        } else {
+            self.cleanup_required = false;
         }
         result
     }
@@ -532,31 +593,78 @@ impl TraceOwner {
         Ok(())
     }
 
+    fn pin_actor_processes(&mut self) -> Result<()> {
+        use rustix::process::{Pid, PidfdFlags, pidfd_open};
+        let groups: std::collections::BTreeSet<_> =
+            self.tasks.values().filter(|held| held.actor_owned).map(|held| held.tgid).collect();
+        for tgid in groups {
+            if self.actor_processes.contains_key(&tgid) {
+                continue;
+            }
+            let before = read_task(tgid)?.ok_or(Error::WriterUnavailable)?;
+            let held = self.tasks.get(&tgid).ok_or(Error::WriterUnavailable)?;
+            if !held.actor_owned
+                || before.start != held.start
+                || before.tgid != tgid
+                || before.tracer != self.tracer
+            {
+                return Err(Error::WriterUnavailable);
+            }
+            let fd = pidfd_open(
+                Pid::from_raw(tgid).ok_or(Error::WriterUnavailable)?,
+                PidfdFlags::empty(),
+            )
+            .map_err(std::io::Error::from)?;
+            let after = read_task(tgid)?.ok_or(Error::WriterUnavailable)?;
+            if after.start != before.start || after.tgid != tgid || after.tracer != self.tracer {
+                return Err(Error::WriterUnavailable);
+            }
+            self.actor_processes.insert(tgid, File::from(fd));
+        }
+        Ok(())
+    }
+
     fn terminate_rejected_image(&mut self, tid: i32) -> Result<()> {
-        use rustix::process::{Pid, PidfdFlags, Signal, pidfd_open, pidfd_send_signal};
-        // EXEC is an event stop, not a signal-delivery stop. Pin the owned
-        // process and send real SIGKILL; PTRACE_CONT signal injection can be
-        // ignored here. A reused numeric PID can never receive this signal.
-        let pid = Pid::from_raw(tid).ok_or(Error::WriterUnavailable)?;
-        let process = pidfd_open(pid, PidfdFlags::empty()).map_err(std::io::Error::from)?;
-        let observed = read_task(tid)?.ok_or(Error::WriterUnavailable)?;
         let held = self.tasks.get(&tid).ok_or(Error::WriterUnavailable)?;
-        if observed.tracer != self.tracer
-            || observed.tgid != held.tgid
-            || !held.actor_owned
-            || !held.exec
-        {
+        if !held.actor_owned || !held.exec || !self.actor_processes.contains_key(&held.tgid) {
             return Err(Error::WriterUnavailable);
         }
-        pidfd_send_signal(&process, Signal::KILL).map_err(std::io::Error::from)?;
+        // Use the pre-resume process pin, never a PID reopened during exec.
+        self.abort_actor()
+    }
+
+    fn abort_actor(&mut self) -> Result<()> {
+        use rustix::process::{Signal, pidfd_send_signal};
+        self.cleanup_required = true;
         let deadline = Instant::now() + TIMEOUT;
         loop {
-            let exited = wait_task(tid)?
-                .is_some_and(|status| libc::WIFEXITED(status) || libc::WIFSIGNALED(status));
-            let dead = read_task(tid)?
-                .is_none_or(|task| task.start != observed.start || matches!(task.state, 'Z' | 'X'));
-            if exited || dead {
-                self.tasks.remove(&tid);
+            self.poll()?;
+            // A fork event can enroll another owned group before its first
+            // resume. Pin that exact stopped child too; scans never grant it.
+            self.pin_actor_processes()?;
+            for process in self.actor_processes.values() {
+                if !process_dead(process)? {
+                    match pidfd_send_signal(process, Signal::KILL) {
+                        Ok(()) | Err(rustix::io::Errno::SRCH) => (),
+                        Err(error) => return Err(std::io::Error::from(error).into()),
+                    }
+                }
+            }
+            self.poll()?;
+            if self
+                .actor_processes
+                .values()
+                .map(process_dead)
+                .collect::<Result<Vec<_>>>()?
+                .into_iter()
+                .all(|dead| dead)
+            {
+                // A vanished /proc entry is never a death receipt. Only these
+                // pidfds authorize removal of the corresponding held groups.
+                self.tasks.retain(|_, held| !self.actor_processes.contains_key(&held.tgid));
+                self.refreeze()?;
+                self.check()?;
+                self.cleanup_required = false;
                 return Ok(());
             }
             if Instant::now() >= deadline {
@@ -621,6 +729,9 @@ impl TraceOwner {
         Ok(())
     }
     fn detach(&mut self) -> Result<()> {
+        if self.cleanup_required {
+            return Err(Error::WriterUnavailable);
+        }
         let mut failure = false;
         for (tid, held) in std::mem::take(&mut self.tasks) {
             if let Err(error) = control(libc::PTRACE_DETACH, tid, held.signal as usize)
@@ -634,8 +745,27 @@ impl TraceOwner {
 }
 impl Drop for TraceOwner {
     fn drop(&mut self) {
+        // Do not turn a failed bounded cleanup into an implicit detach.
+        while self.cleanup_required && self.abort_actor().is_err() {
+            thread::sleep(Duration::from_millis(20));
+        }
         let _ = self.detach();
     }
+}
+
+#[allow(unsafe_code)] // poll only observes the already pinned process descriptor.
+fn process_dead(process: &File) -> Result<bool> {
+    use std::os::fd::AsRawFd;
+    let mut fd = libc::pollfd { fd: process.as_raw_fd(), events: libc::POLLIN, revents: 0 };
+    // SAFETY: fd is a valid single-element pollfd array; timeout is nonblocking.
+    let result = unsafe { libc::poll(&mut fd, 1, 0) };
+    if result < 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    if fd.revents & (libc::POLLERR | libc::POLLNVAL) != 0 {
+        return Err(Error::WriterUnavailable);
+    }
+    Ok(fd.revents & (libc::POLLIN | libc::POLLHUP) != 0)
 }
 
 impl Target {
@@ -886,6 +1016,15 @@ mod tests {
         // A real parent event can enroll a non-actor child before its own
         // initial stop is consumed. Poll for that stop; never resume it.
         assert!(!actor_scan_ready(7, &held, std::slice::from_ref(&stopped)).unwrap());
+        assert!(!actor_scan_ready(7, &held, &[task(17, 'R', 7)]).unwrap());
+        assert!(actor_scan_ready(7, &held, &[task(17, 'R', 8)]).is_err());
+        held.get_mut(&17).unwrap().tgid = 18;
+        assert!(actor_scan_ready(7, &held, &[task(17, 'R', 7)]).is_err());
+        held.get_mut(&17).unwrap().tgid = 17;
+        held.get_mut(&17).unwrap().start = 41;
+        assert!(actor_scan_ready(7, &held, &[task(17, 'R', 7)]).is_err());
+        held.get_mut(&17).unwrap().start = 42;
+        assert!(!held[&17].stopped);
         assert!(!held[&17].actor_owned);
         held.get_mut(&17).unwrap().stopped = true;
         assert!(actor_scan_ready(7, &held, &[stopped]).unwrap());
@@ -1041,6 +1180,7 @@ mod tests {
         while !path.join("exec-now").exists() {
             thread::sleep(Duration::from_millis(2));
         }
+        std::fs::write(path.join("exec-attempted"), "1").unwrap();
         panic!(
             "exec fixture failed: {}",
             Command::new("/usr/bin/touch").arg(path.join("forbidden-exec-write")).exec()
@@ -1153,7 +1293,12 @@ mod tests {
             assert!(!owner.tasks[&child].stopped);
             assert!(!owner.tasks[&child].actor_owned);
             assert_eq!(read_task(child).unwrap().unwrap().tracer, owner.tracer);
-            assert_eq!(read_task(child).unwrap().unwrap().state, 't');
+            // Parent-event enrollment can precede the child's initial stop.
+            // It remains pending; the next tick must consume that stop first.
+            assert!(
+                !actor_scan_ready(owner.tracer, &owner.tasks, &owner.target.scan().unwrap())
+                    .unwrap()
+            );
             for held in owner.tasks.values_mut() {
                 held.actor_owned = held.tgid == actor_pid;
             }
@@ -1175,6 +1320,36 @@ mod tests {
             pending.wait("writer-ended");
             pending.reap_last();
 
+            // Force a real PTRACE_CONT error after one actor thread was
+            // resumed. This exercises begin_actor's error return before the
+            // owner receives a successful lease, without a timing assumption.
+            let mut early = Fixture::new();
+            let early_pid = early.spawn("writer");
+            for index in 0..3 {
+                early.wait(&format!("counter-{index}"));
+            }
+            let mut owner = TraceOwner::freeze(target()).unwrap();
+            let sibling_before = sibling.counters();
+            let second =
+                *owner.tasks.iter().filter(|(_, held)| held.tgid == early_pid).nth(1).unwrap().0;
+            owner.tasks.get_mut(&second).unwrap().signal = i32::MAX;
+            assert!(
+                owner
+                    .begin_actor(&ActorExecution { actor_pid: early_pid, executables: vec![] })
+                    .is_err()
+            );
+            assert!(owner.actor_processes.contains_key(&early_pid));
+            owner.abort_actor().unwrap();
+            assert!(process_dead(&owner.actor_processes[&early_pid]).unwrap());
+            owner.check().unwrap();
+            assert_eq!(sibling.counters(), sibling_before);
+            assert_eq!(read_task(sibling_pid).unwrap().unwrap().state, 't');
+            owner.detach().unwrap();
+            assert!(
+                read_task(early_pid).unwrap().is_none_or(|task| matches!(task.state, 'Z' | 'X'))
+            );
+            sibling.resumed(&sibling_before);
+
             let mut replacement = Fixture::new();
             let replacement_pid = replacement.spawn("exec-writer");
             for index in 0..3 {
@@ -1183,14 +1358,21 @@ mod tests {
             let mut guard = WriterFreeze::start(target()).unwrap();
             let sibling_before = sibling.counters();
             std::fs::write(replacement.path.join("exec-now"), "1").unwrap();
-            guard
-                .run_actor(ActorExecution { actor_pid: replacement_pid, executables: vec![] })
-                .unwrap();
+            // Rejection may be observed while begin_actor is still resuming
+            // the actor's other threads. Both timings must satisfy the same
+            // observed-death, poison and sibling-stop assertions below.
+            let started =
+                guard.run_actor(ActorExecution { actor_pid: replacement_pid, executables: vec![] });
+            eprintln!("forbidden exec lease start: {started:?}");
             let deadline = Instant::now() + TIMEOUT;
             while read_task(replacement_pid).unwrap().is_some_and(|task| task.state != 'Z') {
                 assert!(Instant::now() < deadline, "actor exec did not fail closed");
                 thread::sleep(Duration::from_millis(2));
             }
+            assert!(
+                replacement.path.join("exec-attempted").exists(),
+                "fixture never reached its exec attempt"
+            );
             assert!(
                 !replacement.path.join("forbidden-exec-write").exists(),
                 "rejected image ran user code"

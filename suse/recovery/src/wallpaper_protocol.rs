@@ -13,6 +13,7 @@ pub enum PublicRequest {
     Query { id: Option<i64>, frame: Vec<u8> },
     Apply { id: i64, action: WallpaperApply, plain: bool },
     Audio { id: i64, action: WallpaperAudio },
+    Workspace { id: i64, action: crate::workspace_protocol::WorkspaceRequest, plain: bool },
     Handoff { id: i64, action: AutomaticHandoff },
 }
 
@@ -121,6 +122,9 @@ pub fn parse_public(bytes: &[u8]) -> Result<PublicRequest, WallpaperProtocolErro
     if bytes == b"wallpaper ui\n" {
         return Ok(PublicRequest::Query { id: None, frame: bytes.to_vec() });
     }
+    if let Some(action) = parse_plain_workspace(bytes)? {
+        return Ok(PublicRequest::Workspace { id: 0, action, plain: true });
+    }
     if let Some(rest) = bytes.strip_prefix(b"wallpaper set ") {
         let rest = std::str::from_utf8(&rest[..rest.len() - 1])
             .map_err(|_| WallpaperProtocolError::InvalidFrame)?;
@@ -161,6 +165,21 @@ pub fn parse_public(bytes: &[u8]) -> Result<PublicRequest, WallpaperProtocolErro
             .map_err(|_| WallpaperProtocolError::InvalidAction)?;
         action.validate()?;
         return Ok(PublicRequest::Apply { id: request.id, action, plain: false });
+    }
+    if matches!(request.method.as_str(), "wall.assign" | "wall.unassign") {
+        let params: crate::workspace_protocol::WorkspaceRpcParams =
+            serde_json::from_value(request.params)
+                .map_err(|_| WallpaperProtocolError::InvalidAction)?;
+        let operation = if request.method == "wall.assign" {
+            crate::workspace_protocol::WorkspaceOperation::Assign
+        } else {
+            crate::workspace_protocol::WorkspaceOperation::Unassign
+        };
+        return Ok(PublicRequest::Workspace {
+            id: request.id,
+            action: params.into_request(operation)?,
+            plain: false,
+        });
     }
     if request.method == "wall.set_audio" {
         let action: WallpaperAudio = serde_json::from_value(request.params)
@@ -207,6 +226,66 @@ pub fn parse_public(bytes: &[u8]) -> Result<PublicRequest, WallpaperProtocolErro
         return Ok(PublicRequest::Query { id: Some(request.id), frame: bytes.to_vec() });
     }
     Err(WallpaperProtocolError::UnownedAction)
+}
+
+fn strip_plain_flag(
+    text: &str,
+    flag: &str,
+    has_value: bool,
+) -> Result<(String, Option<String>), WallpaperProtocolError> {
+    let matches = text
+        .match_indices(flag)
+        .filter(|(index, _)| {
+            (*index == 0 || text[..*index].ends_with(char::is_whitespace))
+                && (index + flag.len() == text.len()
+                    || text[index + flag.len()..].starts_with(char::is_whitespace))
+        })
+        .collect::<Vec<_>>();
+    if matches.is_empty() {
+        return Ok((text.into(), None));
+    }
+    if matches.len() != 1 {
+        return Err(WallpaperProtocolError::InvalidAction);
+    }
+    let index = matches[0].0;
+    let mut end = index + flag.len();
+    let value = if has_value {
+        let rest = &text[end..];
+        let trimmed = rest.trim_start();
+        end += rest.len() - trimmed.len();
+        let value =
+            trimmed.split_whitespace().next().ok_or(WallpaperProtocolError::InvalidAction)?;
+        end += value.len();
+        value.to_owned()
+    } else {
+        String::new()
+    };
+    Ok((format!("{} {}", &text[..index], &text[end..]).trim().to_owned(), Some(value)))
+}
+fn parse_plain_workspace(
+    bytes: &[u8],
+) -> Result<Option<crate::workspace_protocol::WorkspaceRequest>, WallpaperProtocolError> {
+    use crate::workspace_protocol::{WorkspaceOperation, WorkspaceRpcParams};
+    let text = std::str::from_utf8(bytes).map_err(|_| WallpaperProtocolError::InvalidFrame)?;
+    let Some(text) = text.strip_prefix("wallpaper ").and_then(|s| s.strip_suffix('\n')) else {
+        return Ok(None);
+    };
+    let (text, output) = strip_plain_flag(text, "--screen", true)?;
+    let (text, workspace) = strip_plain_flag(&text, "--workspace", false)?;
+    let (mode, path) = text.split_once(' ').unwrap_or((&text, ""));
+    let operation = match mode {
+        "assign" => WorkspaceOperation::Assign,
+        "unassign" => WorkspaceOperation::Unassign,
+        "set" if workspace.is_some() => WorkspaceOperation::Assign,
+        _ => return Ok(None),
+    };
+    let path = path.trim();
+    let kind = (!path.is_empty()).then(|| crate::workspace_protocol::inferred_kind(path));
+    let params: WorkspaceRpcParams = serde_json::from_value(
+        serde_json::json!({"output":output.unwrap_or_default(),"path":path,"type":kind}),
+    )
+    .map_err(|_| WallpaperProtocolError::InvalidAction)?;
+    Ok(Some(params.into_request(operation)?))
 }
 
 /// Reviewed nonmutating cases in the pinned daemon's RPC dispatcher. Preview,
@@ -390,24 +469,31 @@ struct RpcAudio {
 pub enum WallpaperChange {
     Apply(WallpaperApply),
     Audio(WallpaperAudio),
+    Workspace(Box<crate::workspace_protocol::WorkspaceChange>),
 }
 impl WallpaperChange {
     pub fn validate(&self) -> Result<(), WallpaperProtocolError> {
         match self {
             Self::Apply(a) => a.validate(),
             Self::Audio(a) => a.validate(),
+            Self::Workspace(a) => a.validate(),
         }
     }
     pub fn frame(&self, id: i64) -> Result<Vec<u8>, WallpaperProtocolError> {
         match self {
             Self::Apply(a) => a.frame(id),
             Self::Audio(a) => a.frame(id),
+            Self::Workspace(a) => a.frame(id),
         }
     }
     pub fn operation_key(&self) -> &'static str {
         match self {
             Self::Apply(_) => "wallpaper-apply-v1",
             Self::Audio(_) => "wallpaper-audio-v1",
+            Self::Workspace(a) => match a.request.operation {
+                crate::workspace_protocol::WorkspaceOperation::Assign => "workspace-assign-v1",
+                crate::workspace_protocol::WorkspaceOperation::Unassign => "workspace-unassign-v1",
+            },
         }
     }
 }
@@ -415,6 +501,9 @@ pub fn parse_change(bytes: &[u8]) -> Result<(i64, WallpaperChange), WallpaperPro
     bounded_line(bytes, MAX_REQUEST_BYTES)?;
     if let Ok((id, action)) = parse_apply(bytes) {
         return Ok((id, WallpaperChange::Apply(action)));
+    }
+    if let Ok((id, action)) = crate::workspace_protocol::parse_frame(bytes) {
+        return Ok((id, WallpaperChange::Workspace(Box::new(action))));
     }
     let request: RpcAudio =
         serde_json::from_slice(bytes).map_err(|_| WallpaperProtocolError::InvalidFrame)?;

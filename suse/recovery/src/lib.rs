@@ -54,6 +54,7 @@ pub mod state_provision;
 mod wallpaper_channel;
 pub mod wallpaper_protocol;
 mod wallpaper_proxy;
+pub mod workspace_protocol;
 #[cfg(target_os = "linux")]
 mod writer_command_policy;
 mod writer_freeze;

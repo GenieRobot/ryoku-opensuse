@@ -76,7 +76,7 @@ upscale.cancel	rpc.go	retained-guarded-unavailable	#175
 upscale.start	rpc.go	retained-guarded-unavailable	#175
 upscale.status	daemon.go,rpc.go	bounded-query	#25
 wall.apply	rpc.go	protected-static-video-only	#25; WE #175; theme #176
-wall.assign	rpc.go	retained-guarded-unavailable	#25 core state contract; #176 automatic effects
+wall.assign	rpc.go	root-authorized-linked-manual-workspace	#25 resolved target/state/repaint; #176 automatic effects
 wall.cache_rebuild	rpc.go	retained-guarded-unavailable	#175
 wall.delete	rpc.go	retained-guarded-unavailable	#175
 wall.list	daemon.go,rpc.go	bounded-query	#25
@@ -87,7 +87,7 @@ wall.rotation_status	daemon.go,rpc.go	bounded-query	#25
 wall.rotation_stop	rpc.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
 wall.set_audio	daemon.go,rpc.go	root-authorized-linked-audio	#25 outputs/workspace audio; #175 external/WE; #176 automatic effects
 wall.set_favourite	rpc.go	retained-guarded-unavailable	#175
-wall.unassign	rpc.go	retained-guarded-unavailable	#25 core state contract; #176 automatic effects
+wall.unassign	rpc.go	root-authorized-linked-manual-workspace	#25 resolved target/state/repaint; #176 automatic effects
 wall.workspaces	daemon.go,rpc.go	bounded-query	#25
 wallhaven.	rpc_extended.go	retained-guarded-unavailable	#175
 wallhaven.collections	rpc_sources.go	retained-guarded-unavailable	#175

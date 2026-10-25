@@ -62,6 +62,21 @@ pub fn set_audio(
 ) -> Result<CompletedWallpaper, ServiceError> {
     change(peer, operator_gid, WallpaperChange::Audio(action.normalized()), rpc_id)
 }
+pub fn workspace(
+    peer: &PeerIdentity,
+    operator_gid: u32,
+    request: ryoku_recovery::workspace_protocol::WorkspaceRequest,
+    rpc_id: i64,
+) -> Result<CompletedWallpaper, ServiceError> {
+    change(
+        peer,
+        operator_gid,
+        WallpaperChange::Workspace(Box::new(
+            ryoku_recovery::workspace_protocol::WorkspaceChange::intent(request),
+        )),
+        rpc_id,
+    )
+}
 fn change(
     peer: &PeerIdentity,
     operator_gid: u32,
@@ -115,6 +130,14 @@ fn change(
     let action_kind = match &action {
         WallpaperChange::Apply(_) => ManagedActionKind::ApplyWallpaper,
         WallpaperChange::Audio(_) => ManagedActionKind::SetWallpaperAudio,
+        WallpaperChange::Workspace(action) => match action.request.operation {
+            ryoku_recovery::workspace_protocol::WorkspaceOperation::Assign => {
+                ManagedActionKind::AssignWorkspace
+            }
+            ryoku_recovery::workspace_protocol::WorkspaceOperation::Unassign => {
+                ManagedActionKind::UnassignWorkspace
+            }
+        },
     };
     let mut provider = WallpaperProvider {
         account,
@@ -125,6 +148,7 @@ fn change(
         bundle: &bundle,
         packages: packages.clone(),
         actor_layout_changed: false,
+        last_plan: None,
     };
     let planned = review_operator_plan(peer, operator_gid, &mut provider).map_err(gate_error)?;
     let result = run_operator_mutation(
@@ -196,6 +220,18 @@ fn validate_actor_reply(
         WallpaperChange::Audio(_) => {
             audio_receipt(&value["result"]).map_err(|_| ActorReplyError::Failed)?;
         }
+        WallpaperChange::Workspace(action) => {
+            let prepared = action.prepared.as_ref().ok_or(ActorReplyError::Failed)?;
+            match action.request.operation {
+                ryoku_recovery::workspace_protocol::WorkspaceOperation::Assign
+                    if value["result"]["assignment"]["id"] == prepared.target.id
+                        && value["result"]["assignment"]["output"] == prepared.target.output => {}
+                ryoku_recovery::workspace_protocol::WorkspaceOperation::Unassign
+                    if value["result"]["removed"].as_bool()
+                        == Some(!prepared.remove_keys.is_empty()) => {}
+                _ => return Err(ActorReplyError::Failed),
+            }
+        }
         _ => return Err(ActorReplyError::Failed),
     }
     Ok(())
@@ -235,6 +271,7 @@ struct WallpaperProvider<'a> {
     bundle: &'a VerifiedProfileBundle,
     packages: Vec<PackageRevision>,
     actor_layout_changed: bool,
+    last_plan: Option<PlannedChange>,
 }
 impl NativeMutationProvider for WallpaperProvider<'_> {
     type Output = Vec<u8>;
@@ -247,21 +284,78 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
             return Err(GateError::PlanChanged);
         }
         let home = self.account.capture_home().map_err(|_| GateError::PlanChanged)?;
+        if let WallpaperChange::Workspace(action) = &mut self.action {
+            let actor = session.wallpaper_actor().map_err(|_| GateError::PlanChanged)?;
+            let (target, active) = crate::workspace_selection::read_target(
+                &actor,
+                self.account.uid(),
+                &action.request.workspace,
+            )
+            .map_err(|_| GateError::PlanChanged)?;
+            let home_path = std::fs::read_link(format!("/proc/self/fd/{}", home.as_raw_fd()))
+                .map_err(|_| GateError::PlanChanged)?;
+            let optional = |path, maximum| match read_home(&home, path, maximum) {
+                Ok(bytes) => Ok(Some(bytes)),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+                Err(_) => Err(GateError::PlanChanged),
+            };
+            let outputs = optional(".cache/ryogami/outputs.json", 4 * 1024 * 1024)?;
+            let workspaces = optional(".cache/ryogami/workspaces.json", 16 * 1024 * 1024)?;
+            let settings = optional(".config/ryoku/ryogami.json", 4 * 1024 * 1024)?;
+            action.prepared = Some(
+                crate::workspace_selection::prepare(
+                    &action.request,
+                    target,
+                    active,
+                    crate::workspace_selection::StoredWorkspace {
+                        home: &home_path,
+                        outputs: outputs.as_deref(),
+                        workspaces: workspaces.as_deref(),
+                        settings: settings.as_deref(),
+                    },
+                    || {
+                        crate::workspace_selection::default_source(
+                            &actor,
+                            self.account.uid(),
+                            &home,
+                            settings.as_deref(),
+                        )
+                    },
+                )
+                .map_err(|_| GateError::PlanChanged)?,
+            );
+        }
         let source = match &self.action {
             WallpaperChange::Apply(action) => Some(
                 source_identity(&home, self.account.uid(), &action.path, action.kind)
                     .map_err(|_| GateError::PlanChanged)?,
             ),
             WallpaperChange::Audio(_) => None,
+            WallpaperChange::Workspace(action) => action
+                .prepared
+                .as_ref()
+                .ok_or(GateError::InvalidPlan)?
+                .wallpaper
+                .as_ref()
+                .map(|wallpaper| {
+                    source_identity(&home, self.account.uid(), &wallpaper.path, wallpaper.kind)
+                })
+                .transpose()
+                .map_err(|_| GateError::PlanChanged)?,
         };
         let actor = session.wallpaper_actor().map_err(|_| GateError::PlanChanged)?;
-        let bytes = serde_json::to_vec(&serde_json::json!({"action":self.action,"rpc_id":self.rpc_id,"source":source,"actor":actor,"bundle":self.bundle.id(),"packages":self.packages})).map_err(|_| GateError::InvalidPlan)?;
-        Ok(PlannedChange {
-            operation_key: self.action.operation_key().into(),
-            plan_fingerprint: wire::digest(&bytes),
-            affected_state_fingerprint: "00".repeat(32),
-        })
+        let plan = wallpaper_plan(
+            &self.action,
+            self.rpc_id,
+            source.as_ref(),
+            &actor,
+            self.bundle.id(),
+            &self.packages,
+        )?;
+        self.last_plan = Some(plan.clone());
+        Ok(plan)
     }
+
     fn authorize(&mut self, plan: &PlannedChange) -> Result<(), GateError> {
         authorize_helper_operator(self.peer, self.operator_gid)
             .map_err(|_| GateError::PreflightFailed)?;
@@ -275,9 +369,13 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
         proof: &VerifiedLinkedGeneration,
         session: &NativeCaptureSession,
     ) -> Result<Vec<u8>, GateError> {
+        // NativeIntegration just compared this prior plan with the reviewed
+        // one. Do not replace it with a changed live focus/source/state during
+        // this final provider-side check while the compositor remains active.
+        let previous = self.last_plan.clone().ok_or(GateError::InvalidPlan)?;
         let plan = self.plan(session)?;
         self.authorize(&plan)?;
-        let frame = self.action.frame(self.rpc_id).map_err(|_| GateError::InvalidPlan)?;
+        let frame = dispatch_frame(&previous, &plan, &self.action, self.rpc_id)?;
         // The digest is built here from the helper's current exact plan and
         // linked proof, not accepted from the public peer.
         let plan_sha256 = wire::digest(
@@ -309,6 +407,27 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
     fn health_check(&mut self, reply: &Vec<u8>) -> Result<(), GateError> {
         self.account.revalidate().map_err(|_| GateError::PostChangeFailed)?;
         let home = self.account.capture_home().map_err(|_| GateError::PostChangeFailed)?;
+        if let WallpaperChange::Workspace(action) = &self.action {
+            let prepared = action.prepared.as_ref().ok_or(GateError::PostChangeFailed)?;
+            let bytes = match read_home(&home, ".cache/ryogami/workspaces.json", 16 * 1024 * 1024) {
+                Ok(bytes) => bytes,
+                Err(error)
+                    if error.kind() == std::io::ErrorKind::NotFound
+                        && prepared.remove_keys.is_empty()
+                        && action.request.operation
+                            == ryoku_recovery::workspace_protocol::WorkspaceOperation::Unassign =>
+                {
+                    return Ok(());
+                }
+                Err(_) => return Err(GateError::PostChangeFailed),
+            };
+            let state: serde_json::Value =
+                serde_json::from_slice(&bytes).map_err(|_| GateError::PostChangeFailed)?;
+            let home_path = std::fs::read_link(format!("/proc/self/fd/{}", home.as_raw_fd()))
+                .map_err(|_| GateError::PostChangeFailed)?;
+            return crate::workspace_selection::verify_post(prepared, &state, &home_path)
+                .map_err(|_| GateError::PostChangeFailed);
+        }
         if let WallpaperChange::Audio(action) = &self.action {
             let reply: serde_json::Value =
                 serde_json::from_slice(reply).map_err(|_| GateError::PostChangeFailed)?;
@@ -371,6 +490,37 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
     fn cancellation_requested(&self) -> bool {
         false
     }
+}
+
+fn wallpaper_plan(
+    action: &WallpaperChange,
+    rpc_id: i64,
+    source: Option<&SourceIdentity>,
+    actor: &wire::ActorIdentity,
+    bundle: &ryoku_recovery::Sha256,
+    packages: &[PackageRevision],
+) -> Result<PlannedChange, GateError> {
+    let bytes = serde_json::to_vec(&serde_json::json!({
+        "action":action,"rpc_id":rpc_id,"source":source,"actor":actor,
+        "bundle":bundle,"packages":packages,
+    }))
+    .map_err(|_| GateError::InvalidPlan)?;
+    Ok(PlannedChange {
+        operation_key: action.operation_key().into(),
+        plan_fingerprint: wire::digest(&bytes),
+        affected_state_fingerprint: "00".repeat(32),
+    })
+}
+fn dispatch_frame(
+    previous: &PlannedChange,
+    current: &PlannedChange,
+    action: &WallpaperChange,
+    rpc_id: i64,
+) -> Result<Vec<u8>, GateError> {
+    if previous != current || current.operation_key != action.operation_key() {
+        return Err(GateError::PlanChanged);
+    }
+    action.frame(rpc_id).map_err(|_| GateError::InvalidPlan)
 }
 
 #[derive(Clone)]
@@ -670,6 +820,53 @@ fn gate_error(error: GateError) -> ServiceError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn final_dispatch_refuses_changed_focus_state_or_source_before_emitting_a_frame() {
+        use ryoku_recovery::workspace_protocol::{PreparedWorkspace, WorkspaceChange};
+        let prepared: PreparedWorkspace = serde_json::from_value(serde_json::json!({
+            "request":{"operation":"assign","workspace":{"id":"","name":"","output":""}},
+            "provider":"hyprland","target":{"id":"1","name":"1","output":"DP-1"},
+            "active":true,"wallpaper":{"type":"static","path":"/home/fixture/a.png","mute":true,"volume":40},
+            "workspace_sha256":"11".repeat(32),"outputs_sha256":"22".repeat(32),"remove_keys":[],
+        })).unwrap();
+        let action = |prepared: PreparedWorkspace| {
+            WallpaperChange::Workspace(Box::new(WorkspaceChange {
+                request: prepared.request.clone(),
+                prepared: Some(prepared),
+            }))
+        };
+        let original = action(prepared.clone());
+        let mut source =
+            SourceIdentity { dev: 1, ino: 2, size: 3, changed: (4, 5), sha256: "33".repeat(32) };
+        let actor = wire::ActorIdentity { pid: 42, start_time: 43 };
+        let bundle = ryoku_recovery::Sha256::new("44".repeat(32)).unwrap();
+        let make_plan = |action: &WallpaperChange, source: &SourceIdentity| {
+            wallpaper_plan(action, 9, Some(source), &actor, &bundle, &[]).unwrap()
+        };
+        let reviewed = make_plan(&original, &source);
+        let frame =
+            dispatch_frame(&reviewed, &make_plan(&original, &source), &original, 9).unwrap();
+        assert_eq!(wire::parse_change(&frame).unwrap(), (9, original.clone()));
+        let mut changed_focus = prepared.clone();
+        changed_focus.target.id = "2".into();
+        changed_focus.target.name = "2".into();
+        let mut changed_state = prepared.clone();
+        changed_state.workspace_sha256 = Some("55".repeat(32));
+        let mut changed_outputs = prepared;
+        changed_outputs.outputs_sha256 = Some("66".repeat(32));
+        for changed in [changed_focus, changed_state, changed_outputs] {
+            let current_action = action(changed);
+            let result =
+                dispatch_frame(&reviewed, &make_plan(&current_action, &source), &current_action, 9);
+            assert!(matches!(result, Err(GateError::PlanChanged)));
+        }
+        source.sha256 = "77".repeat(32);
+        assert!(matches!(
+            dispatch_frame(&reviewed, &make_plan(&original, &source), &original, 9),
+            Err(GateError::PlanChanged)
+        ));
+    }
+
     #[test]
     fn audio_receipts_are_bounded_unique_and_not_apply_success() {
         let action = WallpaperChange::Audio(WallpaperAudio {

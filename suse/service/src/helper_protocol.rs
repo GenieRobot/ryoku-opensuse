@@ -82,6 +82,7 @@ pub enum HelperOutcome {
     Rejected(ServiceError),
     WallpaperApplied { operation_id: crate::OperationId, reply: Vec<u8> },
     WallpaperAudioSet { operation_id: crate::OperationId, reply: Vec<u8> },
+    WorkspaceWallpaperChanged { operation_id: crate::OperationId, reply: Vec<u8> },
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -90,6 +91,7 @@ enum HelperOutcomeWire {
     Rejected { error: ServiceError },
     WallpaperApplied { operation_id: crate::OperationId, reply: Vec<u8> },
     WallpaperAudioSet { operation_id: crate::OperationId, reply: Vec<u8> },
+    WorkspaceWallpaperChanged { operation_id: crate::OperationId, reply: Vec<u8> },
 }
 impl From<HelperOutcome> for HelperOutcomeWire {
     fn from(value: HelperOutcome) -> Self {
@@ -97,6 +99,9 @@ impl From<HelperOutcome> for HelperOutcomeWire {
             HelperOutcome::Rejected(error) => Self::Rejected { error },
             HelperOutcome::WallpaperAudioSet { operation_id, reply } => {
                 Self::WallpaperAudioSet { operation_id, reply }
+            }
+            HelperOutcome::WorkspaceWallpaperChanged { operation_id, reply } => {
+                Self::WorkspaceWallpaperChanged { operation_id, reply }
             }
             HelperOutcome::WallpaperApplied { operation_id, reply } => {
                 Self::WallpaperApplied { operation_id, reply }
@@ -110,6 +115,9 @@ impl From<HelperOutcomeWire> for HelperOutcome {
             HelperOutcomeWire::Rejected { error } => Self::Rejected(error),
             HelperOutcomeWire::WallpaperAudioSet { operation_id, reply } => {
                 Self::WallpaperAudioSet { operation_id, reply }
+            }
+            HelperOutcomeWire::WorkspaceWallpaperChanged { operation_id, reply } => {
+                Self::WorkspaceWallpaperChanged { operation_id, reply }
             }
             HelperOutcomeWire::WallpaperApplied { operation_id, reply } => {
                 Self::WallpaperApplied { operation_id, reply }
@@ -183,6 +191,15 @@ pub fn dispatch_operator_request(
             HelperRequest::SetWallpaperAudio { action, rpc_id } => {
                 match crate::wallpaper::set_audio(&peer, operator_gid, action, rpc_id) {
                     Ok(completed) => HelperOutcome::WallpaperAudioSet {
+                        operation_id: completed.operation_id,
+                        reply: completed.reply,
+                    },
+                    Err(error) => HelperOutcome::Rejected(error),
+                }
+            }
+            HelperRequest::ChangeWorkspaceWallpaper { action, rpc_id } => {
+                match crate::wallpaper::workspace(&peer, operator_gid, action, rpc_id) {
+                    Ok(completed) => HelperOutcome::WorkspaceWallpaperChanged {
                         operation_id: completed.operation_id,
                         reply: completed.reply,
                     },
@@ -394,7 +411,9 @@ pub(crate) fn check_action_availability_until(
         }
         match response.outcome {
             HelperOutcome::Rejected(error) => Ok(error),
-            HelperOutcome::WallpaperApplied { .. } | HelperOutcome::WallpaperAudioSet { .. } => {
+            HelperOutcome::WallpaperApplied { .. }
+            | HelperOutcome::WallpaperAudioSet { .. }
+            | HelperOutcome::WorkspaceWallpaperChanged { .. } => {
                 Err(ProtocolError::Malformed("unexpected mutation response to availability probe"))
             }
         }
@@ -472,7 +491,7 @@ fn wait_helper_ready(
     }
 }
 
-fn connect_helper_until(path: &Path, deadline: Instant) -> std::io::Result<UnixStream> {
+pub(crate) fn connect_helper_until(path: &Path, deadline: Instant) -> std::io::Result<UnixStream> {
     remaining(deadline).map_err(|_| std::io::Error::from(std::io::ErrorKind::TimedOut))?;
     let socket = socket_with(
         AddressFamily::UNIX,
@@ -590,6 +609,36 @@ mod tests {
     use std::io::{BufRead, BufReader};
     use std::os::unix::net::UnixStream;
 
+    #[test]
+    fn manual_workspace_helper_has_no_client_preparation_or_authority_shortcut() {
+        use ryoku_recovery::workspace_protocol::{
+            WorkspaceOperation, WorkspaceRequest, WorkspaceSelector,
+        };
+        for operation in [WorkspaceOperation::Assign, WorkspaceOperation::Unassign] {
+            let action = WorkspaceRequest {
+                operation,
+                workspace: WorkspaceSelector { output: "DP-1".into(), ..Default::default() },
+                wallpaper: None,
+            };
+            let response = dispatch_operator_request(
+                PeerIdentity { uid: 1000, gid: 1000, supplementary_gids: vec![], pid: None },
+                4242,
+                valid_envelope(HelperRequest::ChangeWorkspaceWallpaper { action, rpc_id: 4 }),
+            )
+            .unwrap();
+            assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
+        }
+        let success = HelperOutcome::WorkspaceWallpaperChanged {
+            operation_id: crate::OperationId::new("workspace-wire").unwrap(),
+            reply: b"reply".to_vec(),
+        };
+        let wire = serde_json::to_value(&success).unwrap();
+        assert_eq!(wire["result"], "workspace_wallpaper_changed");
+        assert!(wire.get("reply").is_some());
+        assert!(wire.get("error").is_none());
+        assert_eq!(serde_json::from_value::<HelperOutcome>(wire).unwrap(), success);
+        assert!(serde_json::from_value::<HelperRequest>(serde_json::json!({"operation":"change_workspace_wallpaper","rpc_id":4,"action":{"operation":"assign","workspace":{"output":"DP-1"},"wallpaper":null,"prepared":{"active":true}}})).is_err());
+    }
     #[test]
     fn audio_wire_and_dispatch_keep_action_authority_separate() {
         let action = ryoku_recovery::wallpaper_protocol::WallpaperAudio {

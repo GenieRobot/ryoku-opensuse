@@ -184,6 +184,11 @@ fn apply_via_helper(id: i64, action: &WallpaperChange) -> io::Result<Vec<u8>> {
         WallpaperChange::Audio(action) => {
             ("set_wallpaper_audio", "wallpaper_audio_set", serde_json::to_value(action))
         }
+        WallpaperChange::Workspace(action) => (
+            "change_workspace_wallpaper",
+            "workspace_wallpaper_changed",
+            serde_json::to_value(&action.request),
+        ),
     };
     let params = params.map_err(io::Error::other)?;
     let request = serde_json::json!({"version":1,"request_id":request_id,"request":{"operation":operation,"action":params,"rpc_id":id}});
@@ -318,6 +323,30 @@ fn relay_authenticated(
                                 serde_json::from_slice(&reply).map_err(io::Error::other)?;
                             if value.get("error").is_some() {
                                 b"err wallpaper action failed; inspect the linked operation history\n".to_vec()
+                            } else {
+                                b"ok\n".to_vec()
+                            }
+                        } else {
+                            reply
+                        };
+                        write_public(&output, &reply)?;
+                    }
+                    Ok(PublicRequest::Workspace { id, action, plain }) => {
+                        let reply = mutation_reply(
+                            id,
+                            apply(
+                                id,
+                                &WallpaperChange::Workspace(Box::new(
+                                    crate::workspace_protocol::WorkspaceChange::intent(action),
+                                )),
+                            ),
+                        )?;
+                        let reply = if plain {
+                            let value: serde_json::Value =
+                                serde_json::from_slice(&reply).map_err(io::Error::other)?;
+                            if value.get("error").is_some() {
+                                b"err wallpaper: workspace authorization or recovery unavailable\n"
+                                    .to_vec()
                             } else {
                                 b"ok\n".to_vec()
                             }
@@ -502,6 +531,60 @@ mod tests {
     use crate::wallpaper_protocol::WallpaperApply;
     use std::{collections::BTreeMap, io::Read, sync::atomic::AtomicUsize};
 
+    #[test]
+    fn direct_workspace_intents_use_helper_and_private_prepared_frames_never_reach_query() {
+        use crate::workspace_protocol::WorkspaceOperation;
+        let (mut client, proxy) = UnixStream::pair().unwrap();
+        client.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let (native, mut backend) = UnixStream::pair().unwrap();
+        let calls = AtomicUsize::new(0);
+        std::thread::scope(|scope| {
+            let worker = scope.spawn(|| {
+                relay_authenticated(proxy, native, &mut |id, change| {
+                    let WallpaperChange::Workspace(action) = change else {
+                        panic!("wrong helper action")
+                    };
+                    assert!(action.prepared.is_none());
+                    assert_eq!(action.request.workspace.output, "DP-1");
+                    calls.fetch_add(1, Ordering::Relaxed);
+                    let result = if action.request.operation == WorkspaceOperation::Assign {
+                        serde_json::json!({"assignment":{"id":"work","output":"DP-1"}})
+                    } else {
+                        serde_json::json!({"removed":true})
+                    };
+                    let mut bytes =
+                        serde_json::to_vec(&serde_json::json!({"id":id,"result":result})).unwrap();
+                    bytes.push(b'\n');
+                    Ok(bytes)
+                })
+            });
+            let mut reader = BufReader::new(client.try_clone().unwrap());
+            client.write_all(b"wallpaper assign --screen DP-1\n").unwrap();
+            let mut reply = String::new();
+            reader.read_line(&mut reply).unwrap();
+            assert_eq!(reply, "ok\n");
+            client
+                .write_all(
+                    b"{\"id\":2,\"method\":\"wall.unassign\",\"params\":{\"output\":\"DP-1\"}}\n",
+                )
+                .unwrap();
+            reply.clear();
+            reader.read_line(&mut reply).unwrap();
+            assert!(reply.contains("removed"));
+            client
+                .write_all(b"{\"id\":3,\"method\":\"broker.workspace\",\"params\":{}}\n")
+                .unwrap();
+            reply.clear();
+            reader.read_line(&mut reply).unwrap();
+            assert!(reply.contains("error"));
+            assert_eq!(calls.load(Ordering::Relaxed), 2);
+            backend.set_read_timeout(Some(Duration::from_millis(100))).unwrap();
+            assert!(backend.read(&mut [0]).is_err());
+            client.shutdown(std::net::Shutdown::Both).unwrap();
+            backend.shutdown(std::net::Shutdown::Both).unwrap();
+            worker.join().unwrap().unwrap();
+        });
+    }
     #[test]
     fn direct_audio_frames_require_the_typed_helper_and_never_reach_query_actor() {
         let (mut client, proxy) = UnixStream::pair().unwrap();

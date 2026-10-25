@@ -44,11 +44,17 @@ index 316de02..9ace19c 100644
  	}
  }
 diff --git a/ryoku/shell/ryogami/daemon/apply.go b/ryoku/shell/ryogami/daemon/apply.go
-index 3d23bef..2609f6e 100644
+index 3d23bef..7c6ca79 100644
 --- a/ryoku/shell/ryogami/daemon/apply.go
 +++ b/ryoku/shell/ryogami/daemon/apply.go
-@@ -5,9 +5,12 @@ import (
+@@ -1,13 +1,18 @@
+ package main
+ 
+ import (
++	"crypto/sha256"
+ 	"encoding/json"
  	"fmt"
++	"io"
  	"os"
  	"path/filepath"
 +	"reflect"
@@ -60,7 +66,7 @@ index 3d23bef..2609f6e 100644
  )
  
  // The apply path: publish the frame the shell QML renders, persist the
-@@ -18,12 +21,20 @@ import (
+@@ -18,12 +23,26 @@ import (
  // video_engine knob: "ryogami" (the C player + READY handshake, default) or
  // "in_shell" (the clip publishes as videoPath and the shell decodes it).
  func (d *daemon) applyWallpaperReasonRecord(reason, wpType, path, mode string, outputs []string, mute map[string]bool, volume map[string]int, record bool) error {
@@ -68,6 +74,12 @@ index 3d23bef..2609f6e 100644
 +		brokerReplayPending(reason, wpType, path, outputs, mute, volume, record)
 +		return fmt.Errorf("wallpaper apply requires its exact single-use Rust permit")
 +	}
++	return d.applyWallpaperPrepared(reason, wpType, path, mode, outputs, mute, volume, record)
++}
++
++// Entered only after a user apply token or a private prepared workspace call.
++// Automatic callers still pass through their own typed authorization wrapper.
++func (d *daemon) applyWallpaperPrepared(reason, wpType, path, mode string, outputs []string, mute map[string]bool, volume map[string]int, record bool) error {
  	if path == "" {
  		return fmt.Errorf("missing 'path' parameter")
  	}
@@ -81,7 +93,7 @@ index 3d23bef..2609f6e 100644
  	// An empty caller set means every output; a named set a guard emptied leaves nothing to paint.
  	req := &applyRequest{Type: wpType, Path: path, Outputs: outputs, Reason: reason}
  	pickOnly := false
-@@ -59,7 +70,7 @@ func (d *daemon) applyWallpaperReasonRecord(reason, wpType, path, mode string, o
+@@ -59,7 +78,7 @@ func (d *daemon) applyWallpaperReasonRecord(reason, wpType, path, mode string, o
  	paint := path
  	prefs := wallPrefs()
  	// Stop any Wallpaper Engine scene on these outputs so the two renderers do not overdraw.
@@ -90,7 +102,7 @@ index 3d23bef..2609f6e 100644
  		_ = d.paper.stop(stopTargets(outputs))
  	}
  	// A switch away from a live clip must drop any transcode still in flight
-@@ -313,7 +324,7 @@ func defaultWallpaperFrom(state map[string]map[string]interface{}) string {
+@@ -313,7 +332,7 @@ func defaultWallpaperFrom(state map[string]map[string]interface{}) string {
  func syncWallState(state map[string]map[string]interface{}) {
  	dir := stateHome()
  	_ = os.MkdirAll(dir, 0o755)
@@ -99,7 +111,7 @@ index 3d23bef..2609f6e 100644
  }
  
  // legacyWallStatePath: the shell's own choice from before Ryogami owned the
-@@ -912,3 +923,212 @@ func (d *daemon) wallpaperStillExpected(path string, targetOutputs []string, wor
+@@ -912,3 +931,428 @@ func (d *daemon) wallpaperStillExpected(path string, targetOutputs []string, wor
  	}
  	return true
  }
@@ -312,6 +324,222 @@ index 3d23bef..2609f6e 100644
 +	}
 +	return nil
 +}
++
++type brokerWorkspaceTarget struct {
++	ID     string `json:"id"`
++	Name   string `json:"name"`
++	Output string `json:"output"`
++}
++type brokerWorkspaceWall struct {
++	Type   string `json:"type"`
++	Path   string `json:"path"`
++	Mute   bool   `json:"mute"`
++	Volume int    `json:"volume"`
++}
++type brokerWorkspaceIntent struct {
++	Type   string `json:"type"`
++	Path   string `json:"path"`
++	Mute   *bool  `json:"mute"`
++	Volume *int   `json:"volume"`
++}
++type brokerWorkspaceRequest struct {
++	Operation string                 `json:"operation"`
++	Workspace brokerWorkspaceTarget  `json:"workspace"`
++	Wallpaper *brokerWorkspaceIntent `json:"wallpaper"`
++}
++type brokerWorkspace struct {
++	Request      brokerWorkspaceRequest `json:"request"`
++	Provider     string                 `json:"provider"`
++	Target       brokerWorkspaceTarget  `json:"target"`
++	Active       bool                   `json:"active"`
++	Wallpaper    *brokerWorkspaceWall   `json:"wallpaper"`
++	WorkspaceSHA *string                `json:"workspace_sha256"`
++	OutputsSHA   *string                `json:"outputs_sha256"`
++	RemoveKeys   []string               `json:"remove_keys"`
++}
++
++func (p *brokerWorkspace) valid() bool {
++	if p.Provider != "hyprland" || (p.Request.Operation != "assign" && p.Request.Operation != "unassign") || p.Target.ID == "" || p.Target.Output == "" || len(p.Target.ID) > 128 || len(p.Target.Name) > 256 || len(p.Target.Output) > 128 || len(p.RemoveKeys) > 2 {
++		return false
++	}
++	for _, value := range []string{p.Target.ID, p.Target.Name, p.Target.Output} {
++		if strings.IndexFunc(value, unicode.IsControl) >= 0 {
++			return false
++		}
++	}
++	if p.Request.Workspace.ID != "" && p.Request.Workspace.ID != p.Target.ID {
++		return false
++	}
++	if p.Request.Workspace.Output != "" && p.Request.Workspace.Output != p.Target.Output {
++		return false
++	}
++	if p.Request.Workspace.ID == "" && !p.Active {
++		return false
++	}
++	if p.Request.Wallpaper != nil {
++		requested := p.Request.Wallpaper
++		resolved := p.Wallpaper
++		if p.Request.Operation != "assign" || resolved == nil || requested.Type != resolved.Type || requested.Path != resolved.Path || requested.Mute != nil && *requested.Mute != resolved.Mute || requested.Volume != nil && *requested.Volume != resolved.Volume {
++			return false
++		}
++	}
++	keys := map[string]bool{}
++	for _, key := range p.RemoveKeys {
++		if key == "" || len(key) > 256 || strings.IndexFunc(key, unicode.IsControl) >= 0 || keys[key] {
++			return false
++		}
++		keys[key] = true
++	}
++	if p.Request.Operation == "assign" && p.Wallpaper == nil {
++		return false
++	}
++	if p.Wallpaper != nil {
++		w := p.Wallpaper
++		if (w.Type != "static" && w.Type != "video") || !filepath.IsAbs(w.Path) || len(w.Path) > 4096 || strings.IndexFunc(w.Path, unicode.IsControl) >= 0 || w.Volume < 0 || w.Volume > 100 {
++			return false
++		}
++	}
++	for _, hash := range []*string{p.WorkspaceSHA, p.OutputsSHA} {
++		if hash != nil {
++			if len(*hash) != 64 {
++				return false
++			}
++			for _, c := range *hash {
++				if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
++					return false
++				}
++			}
++		}
++	}
++	return true
++}
++func boundWorkspaceState(path string, expected *string, maximum int64) ([]byte, error) {
++	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC|syscall.O_NONBLOCK, 0)
++	if os.IsNotExist(err) && expected == nil {
++		return nil, nil
++	}
++	if err != nil {
++		return nil, err
++	}
++	file := os.NewFile(uintptr(fd), path)
++	defer file.Close()
++	info, err := file.Stat()
++	if err != nil {
++		return nil, err
++	}
++	stat, ok := info.Sys().(*syscall.Stat_t)
++	if !info.Mode().IsRegular() || !ok || stat.Uid != uint32(os.Geteuid()) || stat.Nlink != 1 || info.Size() > maximum || expected == nil {
++		return nil, fmt.Errorf("workspace state changed before authorized call")
++	}
++	bytes, err := io.ReadAll(io.LimitReader(file, maximum+1))
++	if err != nil {
++		return nil, err
++	}
++	if int64(len(bytes)) > maximum || fmt.Sprintf("%x", sha256.Sum256(bytes)) != *expected {
++		return nil, fmt.Errorf("workspace state no longer matches linked preparation")
++	}
++	return bytes, nil
++}
++func (d *daemon) brokerWorkspaceApply(p *brokerWorkspace) (map[string]interface{}, error) {
++	return d.brokerWorkspaceWithPaint(p, func() error {
++		if p.Wallpaper == nil {
++			return nil
++		}
++		w := p.Wallpaper
++		return d.applyWallpaperPrepared("workspace", w.Type, w.Path, "set", []string{p.Target.Output}, map[string]bool{p.Target.Output: w.Mute}, map[string]int{p.Target.Output: w.Volume}, false)
++	})
++}
++func (d *daemon) brokerWorkspaceWithPaint(p *brokerWorkspace, paint func() error) (map[string]interface{}, error) {
++	if !p.valid() {
++		return nil, fmt.Errorf("invalid prepared manual workspace action")
++	}
++	workspacePath := d.workspaces.path()
++	before, err := boundWorkspaceState(workspacePath, p.WorkspaceSHA, 16*1024*1024)
++	if err != nil {
++		return nil, err
++	}
++	if _, err = boundWorkspaceState(filepath.Join(d.config().cacheDir(), "outputs.json"), p.OutputsSHA, 4*1024*1024); err != nil {
++		return nil, err
++	}
++	state := workspaceWallState{Version: workspaceStateVersion, Assignments: map[string]workspaceWall{}}
++	if before != nil {
++		if err = json.Unmarshal(resolvedJSON(before), &state); err != nil {
++			return nil, err
++		}
++		if state.Assignments == nil {
++			return nil, fmt.Errorf("invalid captured workspace assignments")
++		}
++	}
++	old := workspaceWallState{Version: state.Version, Assignments: map[string]workspaceWall{}}
++	for key, wall := range state.Assignments {
++		old.Assignments[key] = wall
++	}
++	for _, key := range p.RemoveKeys {
++		if _, exists := state.Assignments[key]; !exists {
++			return nil, fmt.Errorf("prepared workspace assignment disappeared")
++		}
++	}
++	if p.Wallpaper != nil {
++		if _, err = os.Stat(p.Wallpaper.Path); err != nil {
++			return nil, err
++		}
++	}
++	for _, key := range p.RemoveKeys {
++		delete(state.Assignments, key)
++	}
++	result := map[string]interface{}{"removed": len(p.RemoveKeys) > 0}
++	if p.Request.Operation == "assign" {
++		w := p.Wallpaper
++		wall := workspaceWall{Provider: p.Provider, ID: p.Target.ID, Name: p.Target.Name, Output: p.Target.Output, Type: w.Type, Path: w.Path, Mute: w.Mute, Volume: w.Volume}
++		state.Assignments[workspaceKey(p.Provider, p.Target.ID)] = wall
++		result = map[string]interface{}{"assignment": wall}
++	}
++	changed := p.Request.Operation == "assign" || len(p.RemoveKeys) > 0
++	if changed {
++		if err = os.MkdirAll(filepath.Dir(workspacePath), 0o755); err != nil {
++			return nil, err
++		}
++		if err = saveJSONChecked(workspacePath, state); err != nil {
++			return nil, err
++		}
++	}
++	d.workspaces.mu.Lock()
++	previousActive, hadActive := d.workspaces.active[p.Target.Output]
++	previousProvider := d.workspaces.provider
++	activeWasNil := d.workspaces.active == nil
++	d.workspaces.state = state
++	if p.Active {
++		if d.workspaces.active == nil {
++			d.workspaces.active = map[string]workspaceTarget{}
++		}
++		d.workspaces.active[p.Target.Output] = workspaceTarget{Provider: p.Provider, ID: p.Target.ID, Name: p.Target.Name, Output: p.Target.Output}
++		d.workspaces.provider = p.Provider
++	}
++	d.workspaces.mu.Unlock()
++	if changed && p.Active {
++		if err = paint(); err != nil {
++			compensation := restoreAudioState(audioReplacement{path: workspacePath, before: before, existed: p.WorkspaceSHA != nil})
++			d.workspaces.mu.Lock()
++			d.workspaces.state = old
++			if p.Active {
++				if activeWasNil {
++					d.workspaces.active = nil
++				} else if hadActive {
++					d.workspaces.active[p.Target.Output] = previousActive
++				} else {
++					delete(d.workspaces.active, p.Target.Output)
++				}
++				d.workspaces.provider = previousProvider
++			}
++			d.workspaces.mu.Unlock()
++			if compensation != nil {
++				return nil, fmt.Errorf("workspace repaint failed (%v); compensation failed (%v); linked recovery required", err, compensation)
++			}
++			return nil, fmt.Errorf("workspace repaint failed (%v); prior assignment compensated; operation remains failed", err)
++		}
++	}
++	return result, nil
++}
 diff --git a/ryoku/shell/ryogami/daemon/apply_test.go b/ryoku/shell/ryogami/daemon/apply_test.go
 index a38ea4c..7ac1c20 100644
 --- a/ryoku/shell/ryogami/daemon/apply_test.go
@@ -328,7 +556,7 @@ index a38ea4c..7ac1c20 100644
  	// Seed the poisoned state: both webps recorded as video with a transcode.
  	d.store.entries["still.webp"] = Entry{Key: "still.webp", Name: "still.webp", Type: "video", VideoFile: "anim/still.mp4"}
 diff --git a/ryoku/shell/ryogami/daemon/daemon.go b/ryoku/shell/ryogami/daemon/daemon.go
-index 9b7e35f..11f6e2d 100644
+index 9b7e35f..a8daeb1 100644
 --- a/ryoku/shell/ryogami/daemon/daemon.go
 +++ b/ryoku/shell/ryogami/daemon/daemon.go
 @@ -2,16 +2,21 @@ package main
@@ -353,7 +581,7 @@ index 9b7e35f..11f6e2d 100644
  )
  
  const (
-@@ -22,6 +27,261 @@ const (
+@@ -22,6 +27,276 @@ const (
  
  var connectionSequence atomic.Uint64
  
@@ -574,15 +802,20 @@ index 9b7e35f..11f6e2d 100644
 +		return
 +	}
 +	var req request
-+	if json.Unmarshal(permit.Frame, &req) != nil || (req.Method != "wall.apply" && req.Method != "wall.set_audio") {
++	if json.Unmarshal(permit.Frame, &req) != nil || (req.Method != "wall.apply" && req.Method != "wall.set_audio" && req.Method != "broker.workspace") {
 +		return
 +	}
 +	var action brokerAction
 +	var audio brokerAudio
++	var workspace brokerWorkspace
 +	decoder = json.NewDecoder(strings.NewReader(string(req.Params)))
 +	decoder.DisallowUnknownFields()
 +	if req.Method == "wall.apply" {
 +		if decoder.Decode(&action) != nil || (action.Type != "static" && action.Type != "video") {
++			return
++		}
++	} else if req.Method == "broker.workspace" {
++		if decoder.Decode(&workspace) != nil || !workspace.valid() {
 +			return
 +		}
 +	} else {
@@ -592,6 +825,16 @@ index 9b7e35f..11f6e2d 100644
 +	}
 +	if !d.brokerLayoutMatches(permit.HomeSHA) {
 +		reply, _ := json.Marshal(errResp(req.ID, -32012, "loaded wallpaper state roots differ from enrolled restore-point locations; restart the service with an enrolled configuration"))
++		fmt.Fprintf(conn, "%s\n", reply)
++		return
++	}
++	if req.Method == "broker.workspace" {
++		result, err := d.brokerWorkspaceApply(&workspace)
++		response := ok(req.ID, result)
++		if err != nil {
++			response = errResp(req.ID, -32015, err.Error())
++		}
++		reply, _ := json.Marshal(response)
 +		fmt.Fprintf(conn, "%s\n", reply)
 +		return
 +	}
@@ -615,7 +858,7 @@ index 9b7e35f..11f6e2d 100644
  // daemon wires the pieces: the wallpaper surface (rendered by the shell QML),
  // the catalog store (served to the picker), the event hub, and the managed
  // picker process. One unix socket serves everything.
-@@ -107,35 +367,13 @@ func (d *daemon) broadcast(name string, data interface{}) {
+@@ -107,35 +382,13 @@ func (d *daemon) broadcast(name string, data interface{}) {
  	d.events.publish(string(b))
  }
  
@@ -654,7 +897,7 @@ index 9b7e35f..11f6e2d 100644
  	d := &daemon{
  		cfg:            cfg,
  		surface:        newWallSurface(),
-@@ -152,7 +390,9 @@ func runDaemon() error {
+@@ -152,7 +405,9 @@ func runDaemon() error {
  	d.sources = newSources(d)
  	d.paper = newPaperClient(d)
  	d.workshop = newWorkshopLib(d)
@@ -665,7 +908,7 @@ index 9b7e35f..11f6e2d 100644
  	cfg = d.config()
  	// A finished pipeline replaced sources on disk, so the catalog rescans;
  	// every pipeline event also reaches subscribed clients untouched.
-@@ -178,7 +418,7 @@ func runDaemon() error {
+@@ -178,7 +433,7 @@ func runDaemon() error {
  
  	// livewall children must not outlive the daemon, and a previous daemon's
  	// orphans must not play under a fresh restore.
@@ -674,7 +917,7 @@ index 9b7e35f..11f6e2d 100644
  	go func() {
  		sig := make(chan os.Signal, 1)
  		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-@@ -197,44 +437,83 @@ func runDaemon() error {
+@@ -197,44 +452,83 @@ func runDaemon() error {
  	// Publish the empty snapshot so a subscriber before the first set sees a
  	// defined frame, then restore the last wallpaper and rescan the catalog.
  	d.surface.publishCurrent()
@@ -790,7 +1033,7 @@ index 9b7e35f..11f6e2d 100644
  	}
  }
  
-@@ -585,6 +864,9 @@ func (d *daemon) resetCache() {
+@@ -585,6 +879,9 @@ func (d *daemon) resetCache() {
  // nothing extra today (thumbs are mtime-gated), it only bypasses the
  // one-at-a-time gate's early return so an explicit rebuild always runs.
  func (d *daemon) rescan(force bool) {
@@ -823,7 +1066,7 @@ index 0d34a34..d3a9a3d 100644
  // live on the socket, never steal it: the interloper restores the saved
  // wallpaper over the running one and dies with the terminal, leaving the
 diff --git a/ryoku/shell/ryogami/daemon/e2e_test.go b/ryoku/shell/ryogami/daemon/e2e_test.go
-index d7a968a..f4314d1 100644
+index d7a968a..2383416 100644
 --- a/ryoku/shell/ryogami/daemon/e2e_test.go
 +++ b/ryoku/shell/ryogami/daemon/e2e_test.go
 @@ -1,86 +1,150 @@
@@ -874,7 +1117,12 @@ index d7a968a..f4314d1 100644
  	runtime := filepath.Join(root, "run")
 -	if err := os.MkdirAll(runtime, 0o755); err != nil {
 -		t.Fatal(err)
--	}
++	cache := filepath.Join(root, ".cache", "ryogami")
++	for _, path := range []string{runtime, filepath.Join(cache, "wallpaper")} {
++		if err := os.MkdirAll(path, 0o755); err != nil {
++			t.Fatal(err)
++		}
+ 	}
 -	bin := filepath.Join(root, "ryogami-test-bin")
 -	build := exec.Command("go", "build", "-o", bin, ".")
 -	if out, err := build.CombinedOutput(); err != nil {
@@ -893,23 +1141,6 @@ index d7a968a..f4314d1 100644
 -	)
 -	if err := cmd.Start(); err != nil {
 -		t.Fatal(err)
--	}
--	d := &testDaemon{t: t, cmd: cmd, sock: filepath.Join(runtime, "ryogami.sock"), root: root}
--	t.Cleanup(func() { _ = cmd.Process.Kill(); _, _ = cmd.Process.Wait() })
--	deadline := time.Now().Add(15 * time.Second)
--	for {
--		if _, err := os.Stat(d.sock); err == nil {
--			return d
--		}
--		if time.Now().After(deadline) {
--			t.Fatal("daemon socket never appeared")
-+	cache := filepath.Join(root, ".cache", "ryogami")
-+	for _, path := range []string{runtime, filepath.Join(cache, "wallpaper")} {
-+		if err := os.MkdirAll(path, 0o755); err != nil {
-+			t.Fatal(err)
- 		}
--		time.Sleep(25 * time.Millisecond)
- 	}
 +	for key, value := range map[string]string{
 +		"RYOGAMI_HEADLESS": "1", "HOME": root, "XDG_RUNTIME_DIR": runtime,
 +		"XDG_CONFIG_HOME":  filepath.Join(root, ".config"),
@@ -919,7 +1150,18 @@ index d7a968a..f4314d1 100644
 +		"XDG_PICTURES_DIR": filepath.Join(root, "Pictures"),
 +	} {
 +		t.Setenv(key, value)
-+	}
+ 	}
+-	d := &testDaemon{t: t, cmd: cmd, sock: filepath.Join(runtime, "ryogami.sock"), root: root}
+-	t.Cleanup(func() { _ = cmd.Process.Kill(); _, _ = cmd.Process.Wait() })
+-	deadline := time.Now().Add(15 * time.Second)
+-	for {
+-		if _, err := os.Stat(d.sock); err == nil {
+-			return d
+-		}
+-		if time.Now().After(deadline) {
+-			t.Fatal("daemon socket never appeared")
+-		}
+-		time.Sleep(25 * time.Millisecond)
 +	// Starting the installed native entry point without its Rust owner must
 +	// fail before it creates a named listener or performs startup writes.
 +	t.Setenv("RYOKU_WALLPAPER_BROKER_FD", "")
@@ -929,7 +1171,7 @@ index d7a968a..f4314d1 100644
 +	sock := filepath.Join(runtime, "ryogami.sock")
 +	if _, err := os.Lstat(sock); !os.IsNotExist(err) {
 +		t.Fatalf("native listener exists: %v", err)
-+	}
+ 	}
 +	var cfg config
 +	cfg.Paths.Cache = cache
 +	cfg.Paths.Wallpaper = filepath.Join(root, "Pictures", "Wallpapers")
@@ -995,14 +1237,14 @@ index d7a968a..f4314d1 100644
 +	frame, err := json.Marshal(map[string]interface{}{"id": id, "method": method, "params": params})
 +	if err != nil {
 +		d.t.Fatal(err)
-+	}
+ 	}
 +	frame = append(frame, '\n')
 +	var permit brokerPermit
 +	permit.Actor.PID = os.Getpid()
 +	stat, err := os.ReadFile("/proc/self/stat")
 +	if err != nil {
 +		d.t.Fatal(err)
- 	}
++	}
 +	fields := strings.Fields(string(stat)[strings.LastIndex(string(stat), ") ")+2:])
 +	permit.Actor.Start, err = strconv.ParseUint(fields[19], 10, 64)
 +	if err != nil {
@@ -1140,7 +1382,7 @@ index d7a968a..f4314d1 100644
  	if !strings.Contains(reply, `"applied"`) {
  		t.Fatalf("apply replied: %s", reply)
  	}
-@@ -480,4 +623,272 @@ func TestE2EWallApplyWritesLegacyState(t *testing.T) {
+@@ -480,4 +623,498 @@ func TestE2EWallApplyWritesLegacyState(t *testing.T) {
  	if got != img {
  		t.Fatalf("state file = %q, want %q", got, img)
  	}
@@ -1409,6 +1651,232 @@ index d7a968a..f4314d1 100644
 +				}
 +			} else if !strings.Contains(reply, `"error"`) || string(before) != string(after) {
 +				t.Fatalf("invalid receipt key wrote state: %s", reply)
++			}
++		})
++	}
++}
++
++func workspaceBoundHash(t *testing.T, path string) *string {
++	t.Helper()
++	bytes, err := os.ReadFile(path)
++	if os.IsNotExist(err) {
++		return nil
++	}
++	if err != nil {
++		t.Fatal(err)
++	}
++	hash := fmt.Sprintf("%x", sha256.Sum256(bytes))
++	return &hash
++}
++func workspaceFixturePlan(d *testDaemon, operation string, path string, remove bool) brokerWorkspace {
++	p := brokerWorkspace{Request: brokerWorkspaceRequest{Operation: operation, Workspace: brokerWorkspaceTarget{Output: "DP-1"}}, Provider: "hyprland", Target: brokerWorkspaceTarget{ID: "work", Name: "work", Output: "DP-1"}, Active: true, WorkspaceSHA: workspaceBoundHash(d.t, d.native.workspaces.path()), OutputsSHA: workspaceBoundHash(d.t, filepath.Join(d.native.cfg.cacheDir(), "outputs.json")), RemoveKeys: []string{}}
++	if path != "" {
++		p.Wallpaper = &brokerWorkspaceWall{Type: "static", Path: path, Mute: true, Volume: 100}
++	}
++	if remove {
++		p.RemoveKeys = []string{"hyprland:work"}
++	}
++	return p
++}
++func TestE2EPreparedWorkspaceAssignUnassignPersistsAndRepaintsWithoutApplyToken(t *testing.T) {
++	d := startDaemon(t)
++	fallback := filepath.Join(d.root, "fallback.png")
++	chosen := filepath.Join(d.root, "chosen.png")
++	writeE2EPNG(t, fallback)
++	writeE2EPNG(t, chosen)
++	if reply := d.apply(100, fallback); !strings.Contains(reply, `"applied"`) {
++		t.Fatal(reply)
++	}
++	outputsPath := filepath.Join(d.native.cfg.cacheDir(), "outputs.json")
++	outputsBefore, _ := os.ReadFile(outputsPath)
++	legacyBefore, _ := os.ReadFile(filepath.Join(stateHome(), "ryoku-wallpaper"))
++	unrelated := workspaceWall{Provider: "hyprland", ID: "other", Name: "Other", Output: "HDMI-A-1", Type: "static", Path: fallback, Mute: false, Volume: 45}
++	if err := saveJSONChecked(d.native.workspaces.path(), workspaceWallState{Version: workspaceStateVersion, Assignments: map[string]workspaceWall{"hyprland:other": unrelated}}); err != nil {
++		t.Fatal(err)
++	}
++	p := workspaceFixturePlan(d, "assign", fallback, false)
++	if reply := d.approvedAction(101, "broker.workspace", p); !strings.Contains(reply, `"assignment"`) {
++		t.Fatal(reply)
++	}
++	state := workspaceWallState{}
++	loadJSON(d.native.workspaces.path(), &state)
++	if state.Assignments["hyprland:work"].Path != fallback || d.native.surface.snapshot().Outputs["DP-1"].Path != fallback {
++		t.Fatal("current-screen assignment did not persist/repaint")
++	}
++	p = workspaceFixturePlan(d, "assign", chosen, true)
++	p.Request.Wallpaper = &brokerWorkspaceIntent{Type: "static", Path: chosen}
++	if reply := d.approvedAction(102, "broker.workspace", p); !strings.Contains(reply, `"assignment"`) {
++		t.Fatal(reply)
++	}
++	if d.native.surface.snapshot().Outputs["DP-1"].Path != chosen {
++		t.Fatal("explicit assignment did not repaint")
++	}
++	if reply := d.approvedAction(106, "wall.set_audio", brokerAudio{Outputs: []string{"DP-1"}, Mute: boolPtrForAudio(false), Volume: intPtrForAudio(30)}); !strings.Contains(reply, `"audio_written"`) {
++		t.Fatal(reply)
++	}
++	afterAudio := workspaceWallState{}
++	loadJSON(d.native.workspaces.path(), &afterAudio)
++	if afterAudio.Assignments["hyprland:work"].Mute || afterAudio.Assignments["hyprland:work"].Volume != 30 {
++		t.Fatal("manual assignment was not integrated with active-workspace audio")
++	}
++	before, _ := os.ReadFile(d.native.workspaces.path())
++	frame, _ := json.Marshal(map[string]interface{}{"id": 103, "method": "broker.workspace", "params": p})
++	denied := d.send(string(frame))
++	after, _ := os.ReadFile(d.native.workspaces.path())
++	if !strings.Contains(denied, `"error"`) || string(before) != string(after) {
++		t.Fatal("query channel accepted a prepared workspace mutator")
++	}
++	p = workspaceFixturePlan(d, "unassign", fallback, true)
++	if reply := d.approvedAction(104, "broker.workspace", p); !strings.Contains(reply, `"removed":true`) {
++		t.Fatal(reply)
++	}
++	state = workspaceWallState{}
++	loadJSON(d.native.workspaces.path(), &state)
++	if len(d.native.workspaces.snapshot().Assignments) != 1 || len(state.Assignments) != 1 || state.Assignments["hyprland:other"] != unrelated || d.native.surface.snapshot().Outputs["DP-1"].Path != fallback {
++		t.Fatal("unassign did not restore display fallback")
++	}
++	outputsAfter, _ := os.ReadFile(outputsPath)
++	legacyAfter, _ := os.ReadFile(filepath.Join(stateHome(), "ryoku-wallpaper"))
++	if string(outputsBefore) != string(outputsAfter) || string(legacyBefore) != string(legacyAfter) {
++		t.Fatal("assignment repaints changed output/legacy selections")
++	}
++	p = workspaceFixturePlan(d, "unassign", fallback, false)
++	if reply := d.approvedAction(105, "broker.workspace", p); !strings.Contains(reply, `"removed":false`) {
++		t.Fatal(reply)
++	}
++	p = workspaceFixturePlan(d, "assign", chosen, false)
++	p.Request.Workspace.ID = "future"
++	p.Request.Wallpaper = &brokerWorkspaceIntent{Type: "static", Path: chosen}
++	p.Target.ID = "future"
++	p.Target.Name = "Later"
++	p.Request.Workspace.Name = "Later"
++	p.Active = false
++	beforeFrame := d.native.surface.snapshot().Outputs["DP-1"].Path
++	if reply := d.approvedAction(107, "broker.workspace", p); !strings.Contains(reply, `"assignment"`) {
++		t.Fatal(reply)
++	}
++	if d.native.surface.snapshot().Outputs["DP-1"].Path != beforeFrame {
++		t.Fatal("inactive future assignment repainted active workspace")
++	}
++
++}
++func TestE2EPreparedWorkspaceStateAliasesAndStaleBindingsRefuseBeforeWrites(t *testing.T) {
++	for _, kind := range []string{"workspace-symlink", "workspace-hardlink", "outputs-symlink", "outputs-hardlink", "workspace-stale", "outputs-stale"} {
++		t.Run(kind, func(t *testing.T) {
++			d := startDaemon(t)
++			image := filepath.Join(d.root, "wall.png")
++			writeE2EPNG(t, image)
++			if reply := d.apply(110, image); !strings.Contains(reply, `"applied"`) {
++				t.Fatal(reply)
++			}
++			p := workspaceFixturePlan(d, "assign", image, false)
++			if reply := d.approvedAction(111, "broker.workspace", p); !strings.Contains(reply, `"assignment"`) {
++				t.Fatal(reply)
++			}
++			p = workspaceFixturePlan(d, "unassign", image, true)
++			path := d.native.workspaces.path()
++			if strings.HasPrefix(kind, "outputs-") {
++				path = filepath.Join(d.native.cfg.cacheDir(), "outputs.json")
++			}
++			sentinel := filepath.Join(d.root, "untouched-state")
++			original, _ := os.ReadFile(path)
++			if err := os.WriteFile(sentinel, original, 0o600); err != nil {
++				t.Fatal(err)
++			}
++			if strings.HasSuffix(kind, "stale") {
++				if err := os.WriteFile(path, append(original, ' '), 0o600); err != nil {
++					t.Fatal(err)
++				}
++			} else {
++				os.Remove(path)
++				var err error
++				if strings.HasSuffix(kind, "symlink") {
++					err = os.Symlink(sentinel, path)
++				} else {
++					err = os.Link(sentinel, path)
++				}
++				if err != nil {
++					t.Fatal(err)
++				}
++			}
++			before, _ := os.ReadFile(path)
++			workspaceBefore, _ := os.ReadFile(d.native.workspaces.path())
++			outputBefore, _ := os.ReadFile(filepath.Join(d.native.cfg.cacheDir(), "outputs.json"))
++			frameBefore := d.native.surface.snapshot().Outputs["DP-1"].Path
++			reply := d.approvedAction(112, "broker.workspace", p)
++			if !strings.Contains(reply, `"error"`) {
++				t.Fatal(reply)
++			}
++			after, _ := os.ReadFile(path)
++			workspaceAfter, _ := os.ReadFile(d.native.workspaces.path())
++			outputAfter, _ := os.ReadFile(filepath.Join(d.native.cfg.cacheDir(), "outputs.json"))
++			sentinelAfter, _ := os.ReadFile(sentinel)
++			if string(before) != string(after) || string(workspaceBefore) != string(workspaceAfter) || string(outputBefore) != string(outputAfter) || string(original) != string(sentinelAfter) || d.native.surface.snapshot().Outputs["DP-1"].Path != frameBefore {
++				t.Fatal("refused workspace call mutated state/frame/sentinel")
++			}
++		})
++	}
++}
++func TestWorkspaceRepaintFailureCompensatesAndNeverReturnsSuccess(t *testing.T) {
++	for _, kind := range []string{"assign-absence", "unassign-existing", "compensation-failed"} {
++		t.Run(kind, func(t *testing.T) {
++			d := startDaemon(t)
++			image := filepath.Join(d.root, "wall.png")
++			writeE2EPNG(t, image)
++			if reply := d.apply(120, image); !strings.Contains(reply, `"applied"`) {
++				t.Fatal(reply)
++			}
++			p := workspaceFixturePlan(d, "assign", image, false)
++			if kind != "assign-absence" {
++				if reply := d.approvedAction(121, "broker.workspace", p); !strings.Contains(reply, `"assignment"`) {
++					t.Fatal(reply)
++				}
++				operation := "assign"
++				if kind == "unassign-existing" {
++					operation = "unassign"
++				}
++				p = workspaceFixturePlan(d, operation, image, true)
++			}
++			if kind == "compensation-failed" {
++				other := filepath.Join(d.root, "other.png")
++				writeE2EPNG(t, other)
++				p.Wallpaper.Path = other
++				p.Request.Wallpaper = &brokerWorkspaceIntent{Type: "static", Path: other}
++			}
++			before, readErr := os.ReadFile(d.native.workspaces.path())
++			sentinel := filepath.Join(d.root, "sentinel")
++			os.WriteFile(sentinel, []byte("sentinel"), 0o600)
++			result, err := d.native.brokerWorkspaceWithPaint(&p, func() error {
++				current, _ := os.ReadFile(d.native.workspaces.path())
++				if string(current) == string(before) {
++					t.Fatal("fault did not follow metadata replacement")
++				}
++				if kind == "compensation-failed" {
++					os.Remove(d.native.workspaces.path())
++					if err := os.Symlink(sentinel, d.native.workspaces.path()); err != nil {
++						t.Fatal(err)
++					}
++				}
++				return os.ErrPermission
++			})
++			if err == nil || result != nil {
++				t.Fatal("repaint failure accepted")
++			}
++			after, afterErr := os.ReadFile(d.native.workspaces.path())
++			if kind == "compensation-failed" {
++				if !strings.Contains(err.Error(), "linked recovery required") {
++					t.Fatal(err)
++				}
++				sentinelAfter, _ := os.ReadFile(sentinel)
++				if string(sentinelAfter) != "sentinel" {
++					t.Fatal("compensation followed symlink")
++				}
++			} else if os.IsNotExist(readErr) {
++				if !os.IsNotExist(afterErr) {
++					t.Fatal("absence not restored")
++				}
++			} else if string(before) != string(after) {
++				t.Fatal("assignment preimage not restored")
 +			}
 +		})
 +	}

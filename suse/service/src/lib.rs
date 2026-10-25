@@ -16,6 +16,7 @@ pub mod protected_state;
 pub mod runtime;
 mod runtime_paths;
 pub mod wallpaper;
+mod workspace_selection;
 
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -206,6 +207,8 @@ pub enum ManagedActionKind {
     RestoreCheckpoint,
     ApplyWallpaper,
     SetWallpaperAudio,
+    AssignWorkspace,
+    UnassignWorkspace,
 }
 
 impl From<&ManagedAction> for ManagedActionKind {
@@ -341,6 +344,10 @@ pub fn read_envelope(reader: &mut impl BufRead) -> Result<Envelope, ProtocolErro
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HelperRequest {
+    ChangeWorkspaceWallpaper {
+        action: ryoku_recovery::workspace_protocol::WorkspaceRequest,
+        rpc_id: i64,
+    },
     SetWallpaperAudio {
         action: ryoku_recovery::wallpaper_protocol::WallpaperAudio,
         rpc_id: i64,
@@ -380,6 +387,12 @@ impl HelperRequest {
                 return Ok(());
             }
             Self::SetWallpaperAudio { action, rpc_id } => {
+                if *rpc_id < 0 || action.validate().is_err() {
+                    return Err(ProtocolError::Malformed("invalid wallpaper action"));
+                }
+                return Ok(());
+            }
+            Self::ChangeWorkspaceWallpaper { action, rpc_id } => {
                 if *rpc_id < 0 || action.validate().is_err() {
                     return Err(ProtocolError::Malformed("invalid wallpaper action"));
                 }

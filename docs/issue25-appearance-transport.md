@@ -15,10 +15,12 @@ query allowlist and bounds replies; a UI never receives a native descriptor.
 The native daemon starts only with the Rust parent's inherited control fd and
 has no named listener/fallback. SCM_RIGHTS transfers one R or A connection at a
 time. R also checks the native query allowlist; A accepts exactly one canonical
-`wall.apply` or `wall.set_audio` frame/permit and EOF, returns one reply and closes. Labels alone
+`wall.apply`, `wall.set_audio` or root-prepared `broker.workspace` frame/permit
+and EOF, returns one reply and closes. Labels alone
 confer no public authority.
 
-Public static/video apply and wallpaper audio control go to the fixed root helper with a typed action and
+Public static/video apply, wallpaper audio and manual workspace assignment go to
+the fixed root helper with a typed action and
 RPC id. Kernel identity plus the existing operator-group policy authorize the
 account. The root provider resolves the unambiguous latest successful Complete
 post-checkpoint for that account, verifies its generation and live historical
@@ -114,6 +116,62 @@ an exclusive-temp sentinel/mode check covers the atomic primitive. These are
 local protocol/state proofs, not installed audio-device or full VM acceptance.
 See the [audio receipt](../infra/tumbleweed-lab/evidence/issue25-wallpaper-audio-20261025.toml).
 
+## Manual workspace assignment and unassignment
+
+`wall.assign` and `wall.unassign`, including the existing plain `--workspace` and
+`--screen` aliases, now have independent typed user intents. They cannot supply
+a prepared plan, actor frame or source-state digest. The root helper resolves
+the authenticated actor's Hyprland session using a fixed read-only `j/monitors all`
+query. The compositor connection checks socket/account ownership, kernel peer
+credentials, pinned installed image and process start; frames/replies and the
+whole read have explicit bounds. It never dispatches a compositor mutation or
+resumes the writer-wrapped WM proxy. Empty selection uses the focused screen;
+explicit screen and future workspace selection preserve the upstream name-first
+workspace identity. Missing or ambiguous session evidence refuses the request.
+
+The provider resolves current assignment, named/shared output fallback or the
+first supported static library entry from captured state. It preserves configured
+mute/volume defaults and explicit source/audio choices, binds exact outputs and
+workspace bytes/absence into the revalidated plan, and captures the existing
+wallpaper state plus `.cache/ryogami/workspaces.json`. Only that resolved plan
+becomes a single-use private `broker.workspace` frame after authorization and the
+linked pre-checkpoint. The root repeats the complete plan comparison immediately before emitting the
+actor frame. Focus, captured-state or source-identity changes refuse dispatch; a
+second live query cannot silently replace the reviewed target. The native receiver
+rechecks both state commitments before writing. It preserves unrelated assignments, performs exact legacy-name migration,
+and repaints only an active target. Future workspace assignment persists its row
+without repainting a different active workspace. Unassignment preserves the
+upstream output/static fallback. A current manual assignment updates the native
+active workspace identity so subsequent audio controls reach that assignment.
+
+The native state replacement is atomic. Repaint failure compensates prior
+workspace bytes or absence and restores active/provider state; compensation
+failure reports that linked recovery is required. Root post-state validation
+checks target/provider/source/audio and exact migrated-key removal before a
+`workspace_wallpaper_changed` success. Direct socket/helper tests reject forged
+prepared frames, preserve selector aliases and prove that intents reach the typed
+helper rather than the read-only native channel. Native inherited-channel tests
+cover assign/repaint/audio/unassign/fallback, inactive targets, unrelated metadata,
+stale state and successful/failed compensation. Automatic workspace playback and
+theme/hook effects retain their separate #176 handoff; this manual permit cannot
+authorize them.
+
+The writer regression also injects a real second-thread resume error after one
+actor thread was continued. Failed begin/tick/refreeze retains its actor context.
+Every admitted actor process group is pinned with a pidfd before first resume,
+including descendants enrolled by real fork/clone events. Poisoned cleanup signals
+only those pins and consumes terminal waits even for previously stopped threads.
+Neither a transient missing `/proc` entry during exec de-threading nor a sent
+SIGKILL proves death: pidfd readiness plus full stopped-target verification must
+precede detach. If bounded cleanup cannot establish both, the dedicated tracer
+retains the stops and retries after returning failure. Unrelated writers are
+never continued by that cleanup. The regression preserves no-marker/no-surviving
+actor checks and sibling-stop checks through cleanup and release.
+
+See the [manual workspace receipt](../infra/tumbleweed-lab/evidence/issue25-workspace-manual-20261025.toml) and
+[retained failed/corrected logs](../infra/tumbleweed-lab/evidence/issue25-workspace-regression-20261025.log)
+for exact offline commands, counts and remaining acceptance gates.
+
 ## Loaded wallpaper roots and custom-path parity
 
 The root inventory already validates the current on-disk `paths.cache` setting.
@@ -157,7 +215,7 @@ carry bounded wallpaper-frame data. Restore/workspace/reload handoffs carry the
 exact action, reason, record flag and a typed stored-state source. Issue #176
 must independently resolve that source, authorize its exact purpose, capture its
 complete writes and run it under its own held mutation/actor contract. User
-apply permission cannot authorize restore, workspace assignment, playlist,
+apply permission cannot authorize restore, automatic workspace playback, playlist,
 Wallpaper Engine, automatic hooks or arbitrary `sh -c` commands.
 
 The native startup/watch/post-apply registrations and shell
@@ -175,7 +233,8 @@ claim the real theme worker or its template/reload effects protected or accepted
 | Restore/workspace playback/reload, rotation, playlist playback, startup/watchers | Typed handoff or explicit unavailable; stored selection/assignment must be authoritative | #176 (library/playlist metadata also #175) |
 | Settings actions, post-process, theme/palette/stage/depth and shell hooks | Retained, own typed write/executable envelope; no automatic arbitrary shell | #176 |
 | User wallpaper mute/volume (`wall.set_audio`) | Root-authenticated single-use audio action with outputs/workspace capture and post-state receipt | #25; WE audio needs #175 |
-| User pause/workspace assignment controls | Retained, unavailable pending exact core appearance plan/state contract | #25 with #176 for automatic effects |
+| Manual workspace assign/unassign | Root-resolved single-use action; captured-state binding, repaint/compensation and post-state checks | #25; automatic playback/theme effects remain #176 |
+| User pause controls | Retained, unavailable pending exact core appearance plan/state contract | #25 with #176 for automatic effects |
 | Lighting hardware state/control | Retained, unavailable pending the typed preference/provider contract | #180 after #25/#173/#175/#176; preserve the full lighting affordance |
 
 The method-by-method ledger below inventories the pinned dispatchers. An
@@ -202,7 +261,7 @@ exec-stop and signal-delivery semantics.
 Helper tests preserve Rejected wire shape and verify success fields/caller denial.
 Bundle tests reject missing/ambiguous/stale/account-mismatched provenance.
 
-The native daemon suite is **345 passing test/subtest cases, 7 declared missing
+The native daemon suite is **357 passing test/subtest cases, 7 declared missing
 ImageMagick skips, 9 exact cross-issue exclusions**, with no blanket E2E filter.
 Four initially excluded #25 fixtures were rewritten to anonymous native query/A
 channels and now pass:
