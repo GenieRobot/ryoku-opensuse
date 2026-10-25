@@ -315,6 +315,21 @@ impl Provider {
         self.complete_with_progress(model, messages, cancelled, &mut |_| Ok(()))
     }
 
+    pub(crate) fn complete_with_read_tools(
+        &self,
+        model: &str,
+        messages: &[Message],
+        cancelled: &AtomicBool,
+        emit: &mut impl FnMut(&str) -> Result<()>,
+    ) -> Result<Completion> {
+        match self {
+            Self::ProwlResolved { port, token, streaming, .. } => {
+                crate::prowl::Connection { port: *port, token: token.clone() }
+                    .complete_with_tools(model, messages, *streaming, cancelled, emit)
+            }
+            _ => Err(Error::InvalidRequest),
+        }
+    }
     pub fn complete_with_progress(
         &self,
         model: &str,
@@ -524,14 +539,23 @@ impl Provider {
 }
 
 pub(crate) fn parse_json_completion(bytes: &[u8]) -> Result<Completion> {
+    parse_json_completion_allow_empty(bytes, false)
+}
+pub(crate) fn parse_json_completion_allow_empty(
+    bytes: &[u8],
+    allow_empty: bool,
+) -> Result<Completion> {
     let value: serde_json::Value =
         serde_json::from_slice(bytes).map_err(|_| Error::ProviderFailed)?;
-    let answer = value
-        .pointer("/choices/0/message/content")
-        .and_then(|v| v.as_str())
-        .ok_or(Error::ProviderFailed)?
-        .to_owned();
-    text(&answer, 128 * 1024).map_err(|_| Error::ProviderFailed)?;
+    let content = value.pointer("/choices/0/message/content");
+    let answer = if allow_empty && content.is_none_or(|v| v.is_null()) {
+        String::new()
+    } else {
+        content.and_then(|v| v.as_str()).ok_or(Error::ProviderFailed)?.to_owned()
+    };
+    if !(allow_empty && answer.is_empty()) {
+        text(&answer, 128 * 1024).map_err(|_| Error::ProviderFailed)?;
+    }
     let input = value.pointer("/usage/prompt_tokens").and_then(|v| v.as_u64());
     let output = value.pointer("/usage/completion_tokens").and_then(|v| v.as_u64());
     let actual_model = value

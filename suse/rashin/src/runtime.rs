@@ -9,7 +9,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     io::{Read, Write},
     os::unix::net::{UnixListener, UnixStream},
     sync::{
@@ -151,6 +151,8 @@ struct State {
     prowl: Option<crate::prowl::Connection>,
     #[serde(default)]
     prowl_revision: u64,
+    #[serde(default)]
+    read_only_tools: BTreeSet<String>,
     routes: BTreeMap<Lane, Route>,
     documents: Vec<Document>,
     sessions: BTreeMap<String, Session>,
@@ -174,6 +176,7 @@ impl Default for State {
             provider_revisions: BTreeMap::new(),
             prowl: None,
             prowl_revision: 0,
+            read_only_tools: BTreeSet::new(),
             providers: BTreeMap::from([("local".into(), Provider::Local {})]),
             routes: [Lane::Ask, Lane::Agent, Lane::Chat]
                 .into_iter()
@@ -192,7 +195,7 @@ impl Default for State {
 }
 
 fn describe_provider(state: &State, id: &str, provider: &Provider) -> Value {
-    if provider.is_prowl() {
+    let mut description = if provider.is_prowl() {
         match provider.resolve(state.prowl.as_ref()) {
             Ok(provider) => provider.describe(id),
             Err(_) => {
@@ -204,7 +207,9 @@ fn describe_provider(state: &State, id: &str, provider: &Provider) -> Value {
         }
     } else {
         provider.describe(id)
-    }
+    };
+    description["read_only_tools_enabled"] = json!(state.read_only_tools.contains(id));
+    description
 }
 
 struct EvidencePreview {
@@ -232,6 +237,7 @@ struct StartOptions {
     handoff_ask: Option<String>,
     manual_handoff: Option<Handoff>,
     catalog_provider: Option<String>,
+    disable_tools: bool,
 }
 fn bump_provider(state: &mut State, id: &str) -> Result<()> {
     let revision = state.provider_revisions.entry(id.into()).or_default();
@@ -315,6 +321,13 @@ impl Engine {
             }
         }
         validate_documents(&state.documents)?;
+        if state
+            .read_only_tools
+            .iter()
+            .any(|id| state.providers.get(id).is_none_or(|p| !p.is_prowl()))
+        {
+            return Err(Error::Integrity);
+        }
         for (id, provider) in &state.providers {
             identifier(id)?;
             provider.validate()?;
@@ -415,6 +428,18 @@ impl Engine {
                     Ok(json!({"connected":id,"credential_reference":"private_prowl_connection","routes":state.routes}))
                 })
             }
+            Request::SetReadOnlyTools { provider, enabled } => self.transaction(|state| {
+                if !state.providers.get(&provider).ok_or(Error::NotFound)?.is_prowl() {
+                    return Err(Error::InvalidRequest);
+                }
+                if enabled {
+                    state.read_only_tools.insert(provider.clone());
+                } else {
+                    state.read_only_tools.remove(&provider);
+                }
+                bump_provider(state, &provider)?;
+                Ok(json!({"provider":provider,"read_only_tools_enabled":enabled}))
+            }),
             Request::ConfigureProwl { port, token } => self.transaction(|state| {
                 let token = token
                     .or_else(|| state.prowl.as_ref().map(|connection| connection.token.clone()))
@@ -708,6 +733,7 @@ impl Engine {
                     StartOptions {
                         fingerprint: Some(fingerprint),
                         evidence_approval: Some(approval),
+                        disable_tools: true,
                         ..StartOptions::default()
                     },
                 )
@@ -760,6 +786,9 @@ impl Engine {
                     }
                     let description = provider.describe(&id);
                     bump_provider(state, &id)?;
+                    if !provider.is_prowl() {
+                        state.read_only_tools.remove(&id);
+                    }
                     state.providers.insert(id, provider);
                     Ok(description)
                 })
@@ -790,6 +819,7 @@ impl Engine {
                 }
                 state.providers.remove(&id).ok_or(Error::NotFound)?;
                 state.provider_revisions.remove(&id);
+                state.read_only_tools.remove(&id);
                 state.configuration_revision =
                     state.configuration_revision.checked_add(1).ok_or(Error::Limit)?;
                 // Saved picks remain visible when their provider disappears.
@@ -1231,6 +1261,7 @@ impl Engine {
             let provider = state.providers.get(&route.provider).ok_or(Error::ProviderUnavailable)?.resolve(state.prowl.as_ref())?;
             if catalog_provider.is_none() && !provider.models().contains(&route.model) { return Err(Error::ProviderUnavailable); }
             let catalog_revision=catalog_provider.as_ref().map(|id|state.provider_revisions.get(id).copied().unwrap_or_default());
+            let read_only_tools = !options.disable_tools && state.read_only_tools.contains(&route.provider);
             if let Some(session) = &session
                 && state.sessions.get(session).ok_or(Error::NotFound)?.lane != lane { return Err(Error::InvalidRequest); }
             let handoff = if let Some(ask_id) = options.handoff_ask {Some(self.handoff_context(state,&ask_id)?)}
@@ -1285,7 +1316,7 @@ impl Engine {
                 old.cancelled.store(true,Ordering::Release);
             }
             registered=true;
-            task = Some((provider, route.model, messages, permit,catalog_revision));
+            task = Some((provider, route.model, messages, permit,catalog_revision,read_only_tools));
             Ok(json!({"id":id,"status":"running"}))
         });
         let response = match response {
@@ -1308,7 +1339,7 @@ impl Engine {
                 worker.text.clear();
             }
         }
-        if let Some((provider, model, messages, permit, catalog_revision)) = task {
+        if let Some((provider, model, messages, permit, catalog_revision, read_only_tools)) = task {
             let engine = Arc::clone(self);
             let job_id = id.clone();
             if std::thread::Builder::new()
@@ -1322,26 +1353,26 @@ impl Engine {
                         return;
                     }
                     let fixture = matches!(&provider, Provider::Fixture { .. });
-                    let result = provider.complete_with_progress(
-                        &model,
-                        &messages,
-                        &cancelled,
-                        &mut |delta| {
-                            if cancelled.load(Ordering::Acquire) {
-                                return Err(Error::Cancelled);
-                            }
-                            let mut active = engine.in_flight.lock().map_err(|_| Error::Storage)?;
-                            let progress = active
-                                .get_mut(&job_id)
-                                .filter(|active| active.generation == generation)
-                                .ok_or(Error::Cancelled)?;
-                            if progress.text.len() + delta.len() > 128 * 1024 {
-                                return Err(Error::Limit);
-                            }
-                            progress.text.push_str(delta);
-                            Ok(())
-                        },
-                    );
+                    let mut emit = |delta: &str| {
+                        if cancelled.load(Ordering::Acquire) {
+                            return Err(Error::Cancelled);
+                        }
+                        let mut active = engine.in_flight.lock().map_err(|_| Error::Storage)?;
+                        let progress = active
+                            .get_mut(&job_id)
+                            .filter(|active| active.generation == generation)
+                            .ok_or(Error::Cancelled)?;
+                        if progress.text.len() + delta.len() > 128 * 1024 {
+                            return Err(Error::Limit);
+                        }
+                        progress.text.push_str(delta);
+                        Ok(())
+                    };
+                    let result = if read_only_tools {
+                        provider.complete_with_read_tools(&model, &messages, &cancelled, &mut emit)
+                    } else {
+                        provider.complete_with_progress(&model, &messages, &cancelled, &mut emit)
+                    };
                     engine.publish_completion(&job_id, generation, result, fixture);
                     engine.finish_active(&job_id, generation);
                 })

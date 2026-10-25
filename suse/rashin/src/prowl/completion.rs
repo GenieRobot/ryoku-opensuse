@@ -80,13 +80,24 @@ fn request(
     cancelled: &AtomicBool,
     emit: &mut impl FnMut(&[u8]) -> Result<()>,
 ) -> Result<()> {
-    let deadline = Instant::now() + Duration::from_secs(45);
+    request_until(connection, body, cancelled, Instant::now() + Duration::from_secs(45), emit)
+}
+pub(super) fn request_until(
+    connection: &Connection,
+    body: Option<&[u8]>,
+    cancelled: &AtomicBool,
+    deadline: Instant,
+    emit: &mut impl FnMut(&[u8]) -> Result<()>,
+) -> Result<()> {
     remaining(deadline, cancelled)?;
     let address = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, connection.port));
-    let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(1))
-        .map_err(|_| Error::ProviderUnavailable)?;
+    let mut stream = TcpStream::connect_timeout(
+        &address,
+        remaining(deadline, cancelled)?.min(Duration::from_secs(1)),
+    )
+    .map_err(|_| Error::ProviderUnavailable)?;
     // Ownership proof uses a short independent bound; no request bytes before it.
-    verify_peer(&stream, Instant::now() + Duration::from_secs(3))?;
+    verify_peer(&stream, deadline.min(Instant::now() + Duration::from_secs(3)))?;
     remaining(deadline, cancelled)?;
     let (method, path) =
         if body.is_some() { ("POST", "/v1/chat/completions") } else { ("GET", "/v1/models") };

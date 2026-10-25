@@ -178,6 +178,13 @@ pub(super) fn submit(engine: &Arc<Engine>, body: &[u8]) -> Result<String> {
                 .dispatch(Request::DisableUsageSource { tool: tool(value(&fields, "tool")?)? })?;
             Ok("/usage".into())
         }
+        "set_read_only_tools" => {
+            engine.dispatch(Request::SetReadOnlyTools {
+                provider: value(&fields, "provider")?.into(),
+                enabled: fields.contains_key("enabled"),
+            })?;
+            Ok("/console".into())
+        }
         "connect_prowl_provider" => {
             engine.dispatch(Request::ConnectProwlProvider {
                 id: value(&fields, "provider")?.into(),
@@ -411,6 +418,12 @@ pub(super) fn home(engine: &Arc<Engine>) -> Result<String> {
             body += &format!(
                 "<p>Gateway connection configured: {}. <a href=\"/prowl\">Manage private gateway connection</a></p>",
                 provider["available"]
+            );
+            body += &begin("set_read_only_tools");
+            body += &hidden("provider", id);
+            body += &format!(
+                "<label><input name=\"enabled\" type=\"checkbox\" value=\"true\"{}>Enable read-only system tools</label><p>Allows the model to read installed packages, cached updates, user service status, process names, disk, kernel, GPU and network state. Results go to this gateway and may reach its configured external provider. Fix keeps these tools disabled.</p><button>Save tool permission</button></form>",
+                if provider["read_only_tools_enabled"] == true { " checked" } else { "" }
             );
             body += &begin("update_prowl_provider");
             body += &hidden("provider", id);

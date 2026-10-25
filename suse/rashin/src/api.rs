@@ -21,6 +21,10 @@ pub enum Request {
         models: Vec<String>,
         streaming: bool,
     },
+    SetReadOnlyTools {
+        provider: String,
+        enabled: bool,
+    },
     ReadProwl {
         query: crate::prowl::Query,
     },

@@ -650,3 +650,47 @@ non-streamed Chat, model refresh and usage, saved-pick retention, one-copy priva
 credential storage, unavailable disconnect state, stale credential/catalog races,
 and cancellation closing the actual stream without partial transcript or usage.
 No external provider account/request or model download is needed for these tests.
+
+## Explicit read-only system tools
+
+A Prowl provider's **Enable read-only system tools** browser permission, or owner
+`set_read_only_tools {provider,enabled}`, enables the retained fast lane's
+`system_query` function. It starts disabled and survives restart only after an
+explicit owner change. The form explains that native query results go to the
+selected gateway and may reach its configured external provider. Scoped Ask
+clients cannot change this permission. Accepted jobs capture the permission with
+their provider; changing it affects new jobs. Cancel an accepted job to stop it.
+Native Fix always disables tool calls, preserving its reviewed bounded evidence.
+
+The eight retained topics remain available with Tumbleweed commands: installed
+packages/count through RPM; cached updates through `zypper --no-refresh`; user
+service state through `systemctl --user show`; process names and CPU/memory through
+`ps`; filesystem capacity through `df`; kernel release through `uname`; display
+controllers through `lspci`; and interface addresses through `ip -brief addr`.
+Executable paths and options are fixed. Model arguments select only an explicitly
+validated installed package or user service name. There is no shell, command
+substitution, arbitrary executable, repository refresh, installation or gateway
+spawn. Process/network summaries retain the 16/12-line limits. Results label
+truncation and failures; an unavailable native command never becomes fabricated
+success. Runtime RPM requirements include the exact Tumbleweed provider names
+`zypper`, `procps`, `coreutils`, `pciutils` and `iproute2`.
+
+The bounded gateway loop follows pinned `backend/quick.go` lines389–429 and
+`quicktools.go` lines27–135: at most four tool rounds, then one final answer round
+without tool schemas. A tool call in that final round fails instead of executing.
+Unknown tools and invalid arguments return bounded error results to the model;
+they select no executable. Each round allows at most eight calls with 16KiB
+arguments each, 128-byte IDs and 64-byte function names. Fragmented UTF-8/SSE
+assembly preserves call IDs and arguments while enforcing existing frame/body
+bounds. Missing terminal, duplicate IDs, malformed frames and excessive calls fail.
+One 45-second deadline covers the entire loop; each native probe gets at most
+eight seconds, checks cancellation and kills/reaps its child on every outcome.
+No extra worker or background service is created. Token accounting accumulates
+all rounds; intermediate tool messages/results stay ephemeral, while only the
+successful final answer and aggregate usage enter private conversation state.
+
+This is the first executable read-only tool slice. The complete retained
+`read_file`/`list_dir` vault/config roots and secret/path boundaries, source
+`search_code`, public-web `fetch_url` DNS/redirect restrictions, tool activity UI,
+TOOLS_REQUIRED escalation and isolated ACP/harness operations remain required
+follow-ups. Protected mutations and full native/package/VM acceptance stay open.

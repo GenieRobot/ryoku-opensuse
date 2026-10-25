@@ -118,9 +118,13 @@ impl Decoder {
         }
         Ok(())
     }
-    pub(crate) fn finish(
+    pub(crate) fn finish(self, emit: &mut impl FnMut(&str) -> Result<()>) -> Result<Completion> {
+        self.finish_allow_empty(emit, false)
+    }
+    pub(crate) fn finish_allow_empty(
         mut self,
         emit: &mut impl FnMut(&str) -> Result<()>,
+        allow_empty: bool,
     ) -> Result<Completion> {
         if !self.pending.is_empty() {
             let line = std::mem::take(&mut self.pending);
@@ -130,7 +134,9 @@ impl Decoder {
         if !self.done {
             return Err(Error::ProviderFailed);
         }
-        text(&self.answer, 128 * 1024).map_err(|_| Error::ProviderFailed)?;
+        if !(allow_empty && self.answer.is_empty()) {
+            text(&self.answer, 128 * 1024).map_err(|_| Error::ProviderFailed)?;
+        }
         Ok(Completion {
             text: self.answer,
             input_tokens: self.input.unwrap_or_default(),

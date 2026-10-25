@@ -744,6 +744,13 @@ fn external_client_runtime_dependency_is_declared_for_tumbleweed() {
         .split("%description runtime\n")
         .next()
         .unwrap();
+    for package in ["zypper", "procps", "coreutils", "pciutils", "iproute2"] {
+        assert!(
+            runtime
+                .lines()
+                .any(|line| line.split_whitespace().collect::<Vec<_>>() == ["Requires:", package])
+        );
+    }
     assert!(
         runtime
             .lines()
@@ -3479,4 +3486,298 @@ fn prowl_gateway_credential_refresh_rejects_stale_catalog_and_keeps_reference_an
     let state = fs::read_to_string(fixture.path.join("state.json")).unwrap();
     assert_eq!(state.matches("PRIVATE_PROWL_COMPLETION_TOKEN").count(), 1);
     assert_eq!(engine.dispatch(Request::Status {}).unwrap()["routes"]["ask"]["model"], "auto:fast");
+}
+
+fn tool_round_response(name: &str, arguments: &str, id: &str) -> Value {
+    json!({"model":"tool-actual","choices":[{"message":{"content":null,"tool_calls":[{"id":id,"type":"function","function":{"name":name,"arguments":arguments}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":2,"completion_tokens":3}})
+}
+fn tool_answer() -> Value {
+    json!({"model":"tool-actual","choices":[{"message":{"content":"Evidence-backed tool answer"},"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":3}})
+}
+fn tool_gateway(
+    responses: Vec<Option<Value>>,
+) -> (u16, std::sync::mpsc::Receiver<Value>, std::thread::JoinHandle<()>) {
+    use std::{net::TcpListener, sync::mpsc};
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let (tx, rx) = mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        for response in responses {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let mut stream = loop {
+                match listener.accept() {
+                    Ok((s, _)) => break s,
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(Instant::now() < deadline);
+                        std::thread::sleep(Duration::from_millis(2));
+                    }
+                    Err(e) => panic!("tool gateway accept: {e}"),
+                }
+            };
+            stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            stream.set_write_timeout(Some(Duration::from_secs(2))).unwrap();
+            let mut header = Vec::new();
+            while !header.ends_with(b"\r\n\r\n") {
+                assert!(header.len() < 8192);
+                let mut byte = [0];
+                stream.read_exact(&mut byte).unwrap();
+                header.push(byte[0]);
+            }
+            let header = String::from_utf8(header).unwrap();
+            assert!(header.starts_with("POST /v1/chat/completions HTTP/1.1\r\n"));
+            assert!(header.contains("Authorization: Bearer PRIVATE_TOOL_GATEWAY_KEY\r\n"));
+            let length = header
+                .lines()
+                .find_map(|l| l.strip_prefix("Content-Length: "))
+                .unwrap()
+                .parse::<usize>()
+                .unwrap();
+            assert!(length <= 256 * 1024);
+            let mut bytes = vec![0; length];
+            stream.read_exact(&mut bytes).unwrap();
+            let body: Value = serde_json::from_slice(&bytes).unwrap();
+            assert!(!String::from_utf8(bytes).unwrap().contains("PRIVATE_TOOL_GATEWAY_KEY"));
+            tx.send(body.clone()).unwrap();
+            let Some(response) = response else {
+                stream.write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n").unwrap();
+                let data = "data: {\"choices\":[{\"delta\":{\"content\":\"waiting\"}}]}\n\n";
+                write!(stream, "{:x}\r\n{}\r\n", data.len(), data).unwrap();
+                stream.flush().unwrap();
+                stream.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+                let mut byte = [0];
+                match stream.read(&mut byte) {
+                    Ok(0) => {}
+                    Err(e) if e.kind() == std::io::ErrorKind::ConnectionReset => {}
+                    other => panic!("cancelled tool round stayed connected: {other:?}"),
+                };
+                continue;
+            };
+            let output = if body["stream"] == true {
+                let message = &response["choices"][0]["message"];
+                let mut delta = json!({"content":message["content"]});
+                if let Some(calls) = message["tool_calls"].as_array() {
+                    delta["tool_calls"] = json!(
+                        calls
+                            .iter()
+                            .enumerate()
+                            .map(|(i, call)| {
+                                let mut call = call.clone();
+                                call["index"] = json!(i);
+                                call
+                            })
+                            .collect::<Vec<_>>()
+                    );
+                }
+                format!(
+                    "data: {}\n\ndata: [DONE]\n\n",
+                    json!({"choices":[{"index":0,"delta":delta,"finish_reason":response["choices"][0]["finish_reason"]}],"usage":response["usage"],"model":response["model"]})
+                )
+            } else {
+                response.to_string()
+            };
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{output}",
+                output.len()
+            )
+            .unwrap();
+        }
+    });
+    (port, rx, worker)
+}
+fn connect_tool_gateway(engine: &Arc<Engine>, port: u16, streaming: bool) {
+    engine
+        .dispatch(Request::ConfigureProwl { port, token: Some("PRIVATE_TOOL_GATEWAY_KEY".into()) })
+        .unwrap();
+    engine
+        .dispatch(Request::ConnectProwlProvider {
+            id: "tool-gateway".into(),
+            models: vec!["auto:fast".into()],
+            streaming,
+        })
+        .unwrap();
+    for lane in [Lane::Ask, Lane::Agent] {
+        engine
+            .dispatch(Request::SetRoute {
+                lane,
+                provider: "tool-gateway".into(),
+                model: "auto:fast".into(),
+            })
+            .unwrap();
+    }
+}
+#[test]
+fn tool_round_gateway_executes_real_kernel_query_only_after_owner_enablement_and_fix_stays_disabled()
+ {
+    use ryoku_rashin::{api::FixKind, authorization::Access};
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let (port, requests, server) = tool_gateway(vec![
+        Some(tool_answer()),
+        Some(tool_round_response("system_query", r#"{"topic":"kernel"}"#, "kernel-call")),
+        Some(tool_answer()),
+        Some(tool_answer()),
+    ]);
+    connect_tool_gateway(&engine, port, true);
+    engine
+        .dispatch(Request::Ask { id: "tools-off".into(), prompt: "No implicit tools".into() })
+        .unwrap();
+    assert_eq!(done(&engine, "tools-off")["status"], "completed");
+    assert!(requests.recv_timeout(Duration::from_secs(2)).unwrap().get("tools").is_none());
+    assert_eq!(
+        engine.dispatch_as(
+            Access::AskClient,
+            Request::SetReadOnlyTools { provider: "tool-gateway".into(), enabled: true }
+        ),
+        Err(Error::Unauthorized)
+    );
+    let gateway = ryoku_rashin::http::Gateway::new(
+        engine.clone(),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    assert!(
+        ui_submit(
+            &gateway,
+            &[("action", "set_read_only_tools"), ("provider", "tool-gateway"), ("enabled", "true")]
+        )
+        .starts_with("HTTP/1.1 303")
+    );
+    engine
+        .dispatch(Request::Ask { id: "tools-on".into(), prompt: "Read the kernel version".into() })
+        .unwrap();
+    let job = done(&engine, "tools-on");
+    assert_eq!(job["answer"], "Evidence-backed tool answer");
+    let first = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert_eq!(first["tools"][0]["function"]["name"], "system_query");
+    let next = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    let messages = next["messages"].as_array().unwrap();
+    let result = messages.last().unwrap();
+    assert_eq!(result["role"], "tool");
+    assert_eq!(result["tool_call_id"], "kernel-call");
+    let native: Value = serde_json::from_str(result["content"].as_str().unwrap()).unwrap();
+    assert_eq!(native["output"], fs::read_to_string("/proc/sys/kernel/osrelease").unwrap().trim());
+    assert_eq!(messages[messages.len() - 2]["tool_calls"][0]["id"], "kernel-call");
+    let activity = engine.dispatch(Request::Usage {}).unwrap();
+    let rows = activity["activity"].as_array().unwrap();
+    let row = rows.iter().find(|r| r["job"] == "tools-on").unwrap();
+    assert_eq!(row["input_tokens"], 4);
+    assert_eq!(row["output_tokens"], 6);
+    let preview = engine
+        .dispatch(Request::FixPreview {
+            kind: FixKind::App,
+            component: "synthetic.service".into(),
+            evidence: "finding".into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::Fix {
+            id: "fix-no-tools".into(),
+            kind: FixKind::App,
+            component: "synthetic.service".into(),
+            evidence: "finding".into(),
+            native_evidence_consent: Some(
+                preview["native_evidence_consent"].as_str().unwrap().into(),
+            ),
+        })
+        .unwrap();
+    assert_eq!(done(&engine, "fix-no-tools")["status"], "completed");
+    assert!(requests.recv_timeout(Duration::from_secs(2)).unwrap().get("tools").is_none());
+    server.join().unwrap();
+    drop(gateway);
+    drop(engine);
+    let engine = fixture.reopen();
+    let providers = engine.dispatch(Request::Providers {}).unwrap();
+    assert!(
+        providers["providers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["id"] == "tool-gateway" && p["read_only_tools_enabled"] == true)
+    );
+}
+#[test]
+fn tool_round_gateway_bounds_four_rounds_then_disables_tools_and_handles_unknown_malformed_calls() {
+    for violate_final in [false, true] {
+        let fixture = Fixture::new();
+        let engine = fixture.engine();
+        let mut responses = vec![
+            Some(tool_round_response("unknown_tool", "{}", "unknown")),
+            Some(tool_round_response("system_query", "not json", "malformed")),
+            Some(tool_round_response("system_query", r#"{"topic":"shell"}"#, "invalid-topic")),
+            Some(tool_round_response("system_query", r#"{"topic":"kernel"}"#, "real-kernel")),
+        ];
+        responses.push(Some(if violate_final {
+            tool_round_response("system_query", r#"{"topic":"kernel"}"#, "forbidden-fifth")
+        } else {
+            tool_answer()
+        }));
+        let (port, requests, server) = tool_gateway(responses);
+        connect_tool_gateway(&engine, port, false);
+        engine
+            .dispatch(Request::SetReadOnlyTools { provider: "tool-gateway".into(), enabled: true })
+            .unwrap();
+        engine
+            .dispatch(Request::Ask {
+                id: "round-budget".into(),
+                prompt: "Use bounded tools".into(),
+            })
+            .unwrap();
+        let job = done(&engine, "round-budget");
+        assert_eq!(job["status"], if violate_final { "failed" } else { "completed" });
+        let bodies = (0..5)
+            .map(|_| requests.recv_timeout(Duration::from_secs(2)).unwrap())
+            .collect::<Vec<_>>();
+        assert!(bodies[..4].iter().all(|b| b.get("tools").is_some()));
+        assert!(bodies[4].get("tools").is_none());
+        let results = bodies[4]["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|m| m["role"] == "tool")
+            .map(|m| serde_json::from_str::<Value>(m["content"].as_str().unwrap()).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(results.len(), 4);
+        assert_eq!(results[0]["error"], "unknown_tool");
+        assert_eq!(results[1]["error"], "InvalidRequest");
+        assert_eq!(results[2]["error"], "InvalidRequest");
+        assert!(results[3]["output"].as_str().unwrap().len() > 1);
+        server.join().unwrap();
+        if violate_final {
+            assert!(
+                engine.dispatch(Request::Usage {}).unwrap()["activity"]
+                    .as_array()
+                    .unwrap()
+                    .is_empty()
+            );
+        }
+    }
+}
+#[test]
+fn tool_round_gateway_cancellation_closes_followup_stream_without_partial_answer_or_usage() {
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let (port, requests, server) = tool_gateway(vec![
+        Some(tool_round_response("system_query", r#"{"topic":"kernel"}"#, "kernel")),
+        None,
+    ]);
+    connect_tool_gateway(&engine, port, true);
+    engine
+        .dispatch(Request::SetReadOnlyTools { provider: "tool-gateway".into(), enabled: true })
+        .unwrap();
+    engine
+        .dispatch(Request::Ask { id: "cancel-tool-round".into(), prompt: "Read then wait".into() })
+        .unwrap();
+    requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    let followup = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert_eq!(followup["messages"].as_array().unwrap().last().unwrap()["role"], "tool");
+    engine.dispatch(Request::Cancel { id: "cancel-tool-round".into() }).unwrap();
+    assert_eq!(done(&engine, "cancel-tool-round")["status"], "cancelled");
+    server.join().unwrap();
+    assert!(engine.dispatch(Request::Usage {}).unwrap()["activity"].as_array().unwrap().is_empty());
+    let state = fs::read_to_string(fixture.path.join("state.json")).unwrap();
+    assert!(!state.contains("Evidence-backed tool answer"));
+    assert!(!state.contains("waiting"));
 }

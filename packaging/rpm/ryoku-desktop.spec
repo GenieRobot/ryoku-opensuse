@@ -59,6 +59,12 @@ Requires:       curl
 Requires:       rpm >= 4.19
 Requires:       timezone
 Requires:       libsqlite3-0
+# Explicit owner-enabled read-only system_query tools: fixed local probes.
+Requires:       zypper
+Requires:       procps
+Requires:       coreutils
+Requires:       pciutils
+Requires:       iproute2
 # These qmldir modules are private to the shell's import root under /usr/share.
 # Tumbleweed's generator recognizes provides only below /qt6/qml/, while its
 # requires scanner also sees these private module imports. Keep all scanning
