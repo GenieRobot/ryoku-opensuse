@@ -414,6 +414,21 @@ impl CaptureWriterLease {
         self.check()?;
         Ok(reply)
     }
+    pub(crate) fn run_configured_hook(
+        &self,
+        call: &crate::hook_protocol::HookCall,
+    ) -> Result<crate::hook_protocol::HookReceipt> {
+        if self.actor_used.replace(true) {
+            return Err(Error::Unsupported);
+        }
+        let mut stream = self.wallpaper_stream()?;
+        stream.set_read_timeout(Some(Duration::from_secs(40)))?;
+        stream.write_all(b"H")?;
+        write_actor_wire(&mut stream, call)?;
+        let receipt = read_actor_wire(&mut stream)?;
+        self.check()?;
+        Ok(receipt)
+    }
 }
 impl Drop for CaptureWriterLease {
     fn drop(&mut self) {
@@ -600,6 +615,52 @@ impl Endpoint {
                             }
                         }
                         write_actor_wire(&mut stream, &applied)?;
+                        stream.set_read_timeout(Some(Duration::from_millis(100)))?;
+                    }
+                    Ok(1) if request == *b"H" => {
+                        if actor_used || actor.is_none() {
+                            return Err(Error::Unsupported);
+                        }
+                        stream.set_read_timeout(Some(TIMEOUT))?;
+                        let call: crate::hook_protocol::HookCall = read_actor_wire(&mut stream)?;
+                        if !call.validate(self.namespace.uid, &home) {
+                            return Err(Error::Unsupported);
+                        }
+                        freeze.check()?;
+                        self.namespace.check_lock(lock)?;
+                        actor_used = true;
+                        // The new child is owned by this Rust parent, not a resumed
+                        // native writer. Its policy denies every fork/clone and
+                        // bounds writes with Landlock before the first exec.
+                        let execution = crate::hook_supervisor::run(&call, &home, || {
+                            let mut byte = [0_u8];
+                            let connected = rustix::net::recv(
+                                &stream,
+                                &mut byte,
+                                rustix::net::RecvFlags::PEEK | rustix::net::RecvFlags::DONTWAIT,
+                            );
+                            matches!(connected, Ok((0, _)))
+                                || connected.is_err_and(|error| {
+                                    !matches!(
+                                        error,
+                                        rustix::io::Errno::AGAIN | rustix::io::Errno::INTR
+                                    )
+                                })
+                                || SHUTDOWN_SIGNAL.load(std::sync::atomic::Ordering::Relaxed) != 0
+                        });
+                        // A success/failure response is sent only after child death
+                        // and renewed proof that every unrelated tree stayed stopped.
+                        freeze.check()?;
+                        self.namespace.check_lock(lock)?;
+                        let receipt = crate::hook_protocol::HookReceipt {
+                            policy_sha256: crate::wallpaper_protocol::digest(
+                                &serde_json::to_vec(&call.policy)
+                                    .map_err(|_| Error::Unsupported)?,
+                            ),
+                            completed: execution.is_ok(),
+                            refusal: execution.err().map(|error| error.to_string()),
+                        };
+                        write_actor_wire(&mut stream, &receipt)?;
                         stream.set_read_timeout(Some(Duration::from_millis(100)))?;
                     }
                     Ok(_) => return Err(Error::Unsupported),

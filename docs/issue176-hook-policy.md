@@ -1,0 +1,142 @@
+# Ryogami automatic hook capability and effect matrix
+
+Issue #176 is open. This branch is based on the exact #25 transport head
+`899d97f9234b4dab1f947921b25c301d012deb2d`; source facts below refer to upstream
+`a59d051f0e8080052216f6c7b9eb7e5928935ce8`. Paths beginning `daemon/` are under
+`ryoku/shell/ryogami/`; `ipc/` is under `ryoku/shell/`.
+
+Registration does not confer authority. Each automatic invocation needs its
+own account/content/executable/write-set policy, independently verified linked
+pre-state, bounded execution, writer isolation and verified post-state. The
+original source, editor, settings and UI remain retained.
+
+| Registration / trigger | Original executable, arguments and environment | Persistent writes / children / external effects | Contract and current implementation scope |
+| --- | --- | --- | --- |
+| `daemon/postapply.go` `afterApply`, excluding restore-like reasons | Arbitrary configured command after quoted `%type%`, `%name%`, `%path%`, `%thumb%` replacement; `sh -c` → `nohup setsid sh -c`, inherited environment | Arbitrary filesystem/network/process effects; detached children outlive reply | Exact configured-command policy; this issue's first operational slice supports bounded built-in commands and existing enrolled regular-file outputs. No inherited environment, detached child or implicit authority. |
+| `daemon/postapply.go` `onStart`, `postProcessOnRestore=true` | Same command list; event reconstructed from saved outputs | Same effects during login/restore; selection of `*` or first sorted output | Same exact policy, with separately approved restore permission and authoritative saved-output match. Recovery does not implicitly approve a command. |
+| `daemon/schedule.go` onStart and `schedule` setting | Timer to next schedule transition; `ryoku-hub desktop matugen set {mode:…}`; wallpaper/random/playlist calls | Wallpaper selection, palette setting, child Hub and its writers; scheduled external WE effects | Separate schedule/selection/palette envelopes; retained #176 gate. |
+| `daemon/overview_backdrop.go` onStart and `overviewBackdrop.*` | In-process resolve/copy/blur helper pipeline | Overview backdrop directory/cache, generated image and settings-derived output | Exact source/cache inventory and transform identities needed; retained gate. |
+| `daemon/library_thumbjobs.go` onStart and `performance.maxThumbJobs` | In-process atomic job limit 1–32; later scan worker goroutines | Registration changes memory only; actual scan invokes image/video tools and generates thumbnail/catalogue files | Keep registration distinct from scan effects; library generation provider is #175, trigger accounting #176. |
+| `daemon/lens.go` onStart and `semantic.*` | Lens service and configured semantic model/runtime helpers | Semantic library/index/cache/model processes and potential provider installation | #175 model/provider authorization plus #176 lifetime/trigger policy; retained gate. |
+| `daemon/pause_rules.go` onStart, `playback.*`, `paper.idlePauseSeconds`, afterApply | Window/process/audio/idle polling, two-second timer; native/external player pause | Playback runtime effects and signals; process inspection; no implicit user resume grant | Independent exact-player policy; #25 manual pause grants no automatic permission. |
+| `daemon/library_videocache.go` onStart, daily loop | In-process prune; explicit clear stops/restores player | Deletes transcoded media/cache; player stop/restore and any restore hooks | #175 deletion/retention receipts plus #176 timer and restore authorization. |
+| `daemon/rotation_settings.go` onStart and `general.random*` | In-process random pool, interval minimum ten seconds | Repeated wallpaper apply, playlist/catalogue state and downstream hooks | Stored-selection binding and independent apply plus hook envelopes; retained gate. |
+| `daemon/power.go` onStart | Power subscription with fallback ticker | Effective performance/pause/render changes and consequent player work | Read subscription separated from each authorized effect; retained gate. |
+| `daemon/display_fill.go` onStart and `display.fillModes` | In-process fit map and surface republish | Live wallpaper frame/publication; no persistent write in registration | Typed publication policy needed; no command-policy grant borrowed. |
+| `daemon/library_trash.go` onStart, daily loop | In-process trash retention | Deletes original media at stored paths, rewrites `.local/share/ryogami/trash/manifest.json`; copy/rename/remove branches | #175 exact recoverable-media ownership, #176 timer/trigger; retained gate. |
+| `daemon/audio_duck.go` onStart and `playback.muteOnOtherAudio` | Resolved `pactl list sink-inputs`, long-lived `pactl subscribe`, retry goroutine | Audio-server reads followed by effective mute/playback effects | Exact executable/server identities, subscription lifetime and player policy needed. |
+| `daemon/notify.go` afterApply except restore-like reasons | Resolved `notify-send -a Ryogami [-i thumbnail/source] "Wallpaper changed" name`; child and wait goroutine | Desktop notification/D-Bus side effect; referenced icon reads | Separate notification/runtime executable/server policy; retained gate. |
+| `daemon/matugen_outputs.go` afterApply | Configured `externalMatugenCommand`, split into argv with `%config%`, `%path%`, `%scheme%`, `%mode%`, `%index%`; video thumbnail fallback | Writes `<cache>/matugen-config.toml`; configured template inputs/outputs and arbitrary configured `post_hook` reloads; renderer children | Complete template/content/output/reload policy separate from configured postProcessing; retained gate. |
+| `daemon/theme_policy.go` afterApply and `theme.policy`, `theme.staticTheme`, `theme.customColors` | Shell/Hub palette bridge; custom seed theme construction; wallpaper-follow reassertion | Theme seed/settings/palette writes and downstream renderer/reload work | Own exact palette/template/reload envelope; retained gate. |
+| `daemon/palette_frame.go` `matugen.videoFrame` | Reload config and restore outputs | Re-extracts video still, republish/apply and downstream theme effects | Independent restore/source/transform policy; retained gate. |
+| `daemon/wallpaper_mute.go` `wallpaperMute` | In-process default and `setAudio` | Output/workspace audio persistence, player/audio effects | #25 manual audio action supplies no watcher permission; retained gate. |
+| `daemon/library_paths.go` `paths.wallpaper`, `paths.videoWallpaper` | Reload config, library rewatch, asynchronous rescan | New configured roots, catalogue/cache/transforms and child processes | #175 root/scan policy plus #176 watcher purpose; retained gate. |
+| `daemon/workshop_library.go` `paths.steam`, `paths.steamWorkshop` | Workshop rewatch request | Subsequent workshop catalogue/provider work on changed roots | #175 configured-root/provider policy plus #176 callback envelope. |
+| `daemon/library_watch_status.go` `library.pollingFallback` | Rewatch channel; inotify or polling loop | Subsequent library scans and their cache/catalogue/tool effects | #175 scan provider, #176 polling lifetime/event authorization. |
+| `daemon/resource_tier.go` `resource_tier` | In-memory decode cap, restore while video plays | Player replacement/decode/cache plus downstream restore effects | Exact restore/player policy; retained gate. |
+| `daemon/theme_preview.go` `shell.hoverPreview` | End hover preview when disabled | Restores prior palette/theme/preview state and any bridge effects | Exact preview/restore/reload policy; retained gate. |
+| `daemon/process.go` picker release setting | `kickPark` and idle grace supervision | Picker stop/restart/runtime lifetime; fixed QML child | Preserve picker path; independent runtime lifetime policy; no shell-command authority. |
+| `daemon/daemon.go` startup migration, heal, store initialization, restore/rescan, playlist resume | In-process migration/scan plus image/video/WE helpers | Config/cache/index/state migration, rewritten/removed animated WebP, persisted library and selection, players | Each root/write/provider decision remains individually gated; #25 core user apply is not startup authority. |
+| `daemon/daemon.go` settings/library/WM/workshop watchers and `restore_watch.go` | Filesystem/WM subscriptions and fallback loops | Settings watcher callbacks, rescans, hotplug/workspace/restore apply and spawned helpers | Registration alone cannot authorize callbacks; exact purpose/source binding needed on every event. |
+| `daemon/daemon.go::warmAvailability` → registered availability callbacks | `videoOptimize` calls `ffmpeg -hide_banner -encoders` and `-decoders`; `weather` uses DNS plus two-second TCP connection to `api.open-meteo.com:443`; other callbacks inspect battery sysfs, executable paths, model/runtime manifests and palette scripts | Child FFmpeg probes and external network contact occur outside the grouped start callbacks; discovery-only callbacks read local state | **Still incomplete in this slice:** group start gates do not protect these probes. Exact process/read/network availability policies and per-probe tests are required within #176 before acceptance. |
+| `ipc/ryogami.go` wallpaper frame change → `scheduleTheme()` → `ipc/theming.go::paintWorker` | Shell daemon; dynamic/static matugen branch, ffmpeg video sample, WM adapter, Hub lighting worker | See complete downstream effect list below | #25 preserves the typed `shell.wallpaper.theme` handoff. Theme remains separately gated pending full path/template/reload enrollment; the actual worker remains retained. |
+| `ipc/ryogami.go` source/depth change → stage worker | Shell stage/cutout/helper pipeline | Generated depth/cache, frame depth publication, potentially model/helper work | Separate stage source/model/write/recovery policy; retained gate. |
+
+The wallpaper theme handoff is not equivalent to writing `colors.json`.
+The issue's `applyRyogamiFrame` entrypoint description corresponds to
+`consumeRyogamiFrames` at this exact v1.0 source pin: changed frame sources wake
+`scheduleTheme`, while source/depth changes separately wake stage. The #25
+patch preserves these as typed requests to their independent Rust owner.
+`paintWorker` first writes wallpaper luminance/tone even for a named theme. Its
+static branch calls `matugenApplyStatic`; the dynamic branch checks Match
+wallpaper, samples video as needed and calls `matugenApply`. `ipc/matugen.go`
+uses the configured template map, its generated active config and template
+`post_hook` commands; it writes palette/tones, GTK CSS, KDE globals, font config,
+application templates, optional Obsidian links and Steam Material theme paths.
+`liveFrame` generates a per-video PNG with ffmpeg, atomically repoints the
+stable poster symlink and prunes old frames. Success reloads compositor config,
+reapplies border colours, restores a live Hub preview via a temporary JSON file
+(and may delete a stale preview marker), then wakes `ledsWorker` to invoke
+`ryoku-hub lighting accent`. These paths, custom templates and hardware effects
+are not all enrolled by #25's fixed wallpaper inventory. No theme execution
+permission follows from a wallpaper user operation or configured shell hook.
+
+The first slice's deliberately narrow execution policy is an initial supported
+policy class, not permanent removal of commands, children, custom roots or
+networked hooks. Extending it requires a new reviewed policy class with complete
+recovery and effect accounting. Native Tumbleweed login/restore/theme lifecycle
+acceptance remains required under #26. No VM or media/model download is allowed
+while the host C: storage gate remains active.
+
+## Implemented configured-command path
+
+The retained daemon sends `hook.postprocess` with the filtered command index,
+exact configured command SHA-256, saved wallpaper path/type and restore flag.
+It sends no executable or expanded shell command to the helper and never
+executes a returned command. Matching configured commands run independently of
+the broader start/after-apply registration groups, exactly once. The startup
+route independently reads saved output selection and requires both the UI's
+`postProcessOnRestore` choice and the exact policy's restore permission.
+
+`ryoku-hook inspect INDEX` prints the current command, type and digest.
+After reviewing those bytes, an operator explicitly invokes:
+
+```text
+ryoku-hook authorize INDEX COMMAND_SHA256 SECONDS apply|restore [kitty_user] [fish_user]
+```
+
+`kitty_user` means the existing `.config/kitty/user.conf`; `fish_user` means the
+existing `.config/fish/user.fish`. Both are already exact capture/restore
+inventory entries. No arbitrary output path or recursive directory is admitted.
+Commands, settings, custom paths and UI affordances remain retained. This first
+supported policy class runs Bash built-ins, with literal upstream-compatible
+placeholder quoting, clean HOME/PATH/LANG, account home as working directory,
+1–30 second wall deadline, two-second CPU limit, 128 MiB address limit and
+16 MiB output limit. Output inodes are write-only; reads are restricted to
+pinned Bash/interpreter/library/cache inodes. A written output cannot become
+a `dlopen`/ELF-loader input. Bash and its reviewed runtime
+content jointly identify the executable policy. Landlock ABI 3 constrains file
+reads, writes, creation, truncation, rename and executable access; a native
+x86_64 seccomp allowlist denies networking, child creation, process control,
+namespace/mount/ptrace/io_uring APIs and device ioctls. The ELF loader cannot read
+an unapproved executable. Child descriptors are closed on exec; no daemon or
+helper socket is inherited. Existing output links, multiple links, unsafe modes,
+wrong owner, alternate roots, modified command/config/runtime or unknown policy
+refuse before launching.
+The helper's captured home and output device/inode identities join the exact
+plan and private call. The wrapper checks them before launch and uses the pinned
+home descriptor as cwd; a substituted HOME directory or output inode cannot
+redirect writes into an uncaptured tree.
+
+Approval itself uses the authenticated operator helper and existing protected
+mutation coordinator. The root-owned `0600` policy record lives in verified
+rollback-independent state and references its approval operation. A pending,
+failed or interrupted approval is unusable: each run requires Succeeded,
+Complete and a linked post-checkpoint for that referenced approval. Every run
+independently checks current account, complete configuration bytes, command
+content/index/type, saved output selection and exact execution/write policy.
+It then acquires the existing machine lock and all account writer freezes,
+requires verified linked pre-capture, revalidates the exact plan and durably
+enters Applying before the one-use authenticated writer-lease `H` message.
+The root helper's capabilities and read-only home protection are unchanged.
+
+The Rust account wrapper spawns the confined command while every native writer
+tree stays stopped. The policy denies all fork/clone forms, so this initial
+class has no permitted grandchildren to lose during refreeze. Timeout,
+helper disconnect or wrapper shutdown kills the exact owned child; parent
+death also sends SIGKILL. The wrapper observes child death and rechecks the
+held writer freeze before acknowledging any result. A kernel-stalled child
+retains that lease while the helper times out; no completion is invented.
+Root health checks, full installed post-capture and durable Complete precede
+the correlated success response. Failed execution/refreeze/post-capture keeps
+the existing recoverable Applying/MayHaveMutated or post-capture-failure history.
+The declared outputs and their exact post-state are in the linked generation;
+the policy digest in the receipt identifies that write set. Policy records are
+operational authorization metadata, not user-editable configuration.
+
+Unsupported external executables, children, file creation/replacement, custom
+roots and network effects receive real policy/refusal errors. They retain their
+UI/source and require further reviewed policy classes. This is usable bounded
+command execution, not acceptance of the remaining matrix rows. Native daemon
+trigger→helper approval→Snapper/generation→actual desktop execution, interrupted
+approval restoration, and all full Tumbleweed lifecycle tests remain unproven.

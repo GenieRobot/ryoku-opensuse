@@ -98,6 +98,17 @@ impl NativeCaptureSession {
         self.revalidate()?;
         Ok(reply)
     }
+    /// Root-only typed hook provider dispatch after durable Applying and linked
+    /// pre-proof verification. The user wrapper never resumes a native writer.
+    pub fn run_configured_hook(
+        &self,
+        call: &crate::hook_protocol::HookCall,
+    ) -> Result<crate::hook_protocol::HookReceipt> {
+        self.revalidate()?;
+        let receipt = self.freezer.run_configured_hook(call)?;
+        self.revalidate()?;
+        Ok(receipt)
+    }
     /// Shared protected journal anchor. Access is valid only while this session
     /// owns the machine lock and all registered account writers are stopped.
     pub fn coordinator_directory(&self) -> Result<&File> {

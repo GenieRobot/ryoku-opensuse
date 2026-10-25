@@ -22,6 +22,10 @@ pub mod disk_stage;
 pub mod generation;
 #[cfg(target_os = "linux")]
 pub mod generation_capture;
+pub mod hook_client;
+pub mod hook_protocol;
+mod hook_supervisor;
+pub use hook_supervisor::shell_digest as hook_shell_digest;
 #[cfg(target_os = "linux")]
 pub mod inode_metadata;
 #[cfg(target_os = "linux")]

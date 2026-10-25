@@ -366,6 +366,22 @@ fn relay_authenticated(
                         let reply = mutation_reply(id, apply(id, &WallpaperChange::Audio(action)))?;
                         write_public(&output, &reply)?;
                     }
+                    Ok(PublicRequest::Handoff { id, action })
+                        if action.action == wire::AutomaticAction::ConfiguredPostProcess =>
+                    {
+                        let event = action.postprocess.expect("parser requires exact event");
+                        let response = crate::hook_client::exchange(
+                            serde_json::json!({"operation":"run_configured_hook", "action": event}),
+                            "configured_hook_completed",
+                        );
+                        let reply = match response {
+                            Ok(outcome) => serde_json::to_vec(&serde_json::json!({"id":id,"result":{"approved":true,"operation_id":outcome["operation_id"],"receipt":outcome["receipt"]}})).map_err(io::Error::other)?,
+                            Err(error) => { let mut reply = error_reply(id, &error.to_string()); reply.pop(); reply },
+                        };
+                        let mut reply = reply;
+                        reply.push(b'\n');
+                        write_public(&output, &reply)?;
+                    }
                     Ok(PublicRequest::Handoff { id, .. }) => {
                         write_public(
                             &output,
