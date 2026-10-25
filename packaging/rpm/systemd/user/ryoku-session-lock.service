@@ -2,7 +2,12 @@
 Description=Native Ryoku session lock
 PartOf=ryoku-desktop-session.target
 After=ryoku-desktop-session.target
-ConditionEnvironment=WAYLAND_DISPLAY
+# A lock request must fail its start job if the manager lost the session
+# identities; a failed Condition would silently skip instead.
+AssertEnvironment=WAYLAND_DISPLAY
+AssertEnvironment=!WAYLAND_DISPLAY=
+AssertEnvironment=HYPRLAND_INSTANCE_SIGNATURE
+AssertEnvironment=!HYPRLAND_INSTANCE_SIGNATURE=
 
 [Service]
 Type=exec

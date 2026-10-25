@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reject lock requests without compositor identities and fail the packaged
+  start job when the manager lacks them, preserving native locker/PAM behavior
+  and the full wait lifetime.
+
 - Bound launcher/quick-settings/clipboard/notification navigation IPC clients;
   reap a stalled client tree while preserving the running server and all
   interactive compositor, lock, screenshot and daemon lifetimes.

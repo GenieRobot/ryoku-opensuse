@@ -272,6 +272,17 @@ fn require_current_compositor() -> Result<()> {
     )
 }
 
+fn lock_using(
+    wayland: Option<&OsStr>,
+    instance: Option<&OsStr>,
+    execute: &mut impl FnMut(Command) -> Result<()>,
+) -> Result<()> {
+    validate_compositor_environment(wayland, instance)?;
+    // Preserve the complete lock/unlock lifetime. Missing manager identities
+    // fail the unit's assertions rather than silently skipping the request.
+    execute(systemctl(&["start", "--wait", LOCK_UNIT]))
+}
+
 fn exit_compositor_command() -> Command {
     let mut command = Command::new("/usr/bin/hyprctl");
     command.args(["dispatch", "exit"]).stdin(Stdio::null());
@@ -434,7 +445,11 @@ fn run(action: Action) -> Result<()> {
         }
         // Waiting covers the complete native lock/unlock lifetime. This does
         // not return a fabricated secure-lock acknowledgement for suspend.
-        Action::Lock => checked(systemctl(&["start", "--wait", LOCK_UNIT])),
+        Action::Lock => lock_using(
+            env::var_os("WAYLAND_DISPLAY").as_deref(),
+            env::var_os("HYPRLAND_INSTANCE_SIGNATURE").as_deref(),
+            &mut checked,
+        ),
         Action::ClipboardKeeper => Err(clipboard_keeper_command().exec().into()),
         Action::ShellCommand(arguments) => {
             Err(daemon_command_at(&arguments, Path::new(PAYLOAD), Path::new(QML_MODULES))?
@@ -989,7 +1004,16 @@ mod tests {
         }
         assert_eq!(metadata_words(lock, "Unit", "PartOf"), [TARGET]);
         assert_eq!(metadata_words(lock, "Unit", "After"), [TARGET]);
-        assert_eq!(metadata_words(lock, "Unit", "ConditionEnvironment"), ["WAYLAND_DISPLAY"]);
+        assert!(metadata_words(lock, "Unit", "ConditionEnvironment").is_empty());
+        assert_eq!(
+            metadata_words(lock, "Unit", "AssertEnvironment"),
+            [
+                "WAYLAND_DISPLAY",
+                "!WAYLAND_DISPLAY=",
+                "HYPRLAND_INSTANCE_SIGNATURE",
+                "!HYPRLAND_INSTANCE_SIGNATURE=",
+            ]
+        );
         assert_eq!(
             metadata_words(lock, "Service", "ExecStart"),
             ["/usr/bin/hyprlock", "--config", "/usr/share/ryoku-opensuse/session/hyprlock.conf"]
@@ -1179,6 +1203,78 @@ mod tests {
             (wayland, Some(OsStr::new(""))),
         ] {
             assert!(validate_compositor_environment(wayland, instance).is_err());
+        }
+    }
+
+    #[test]
+    fn lock_requires_client_identities_before_waiting_and_propagates_start_failure() {
+        for (wayland, instance) in [
+            (None, None),
+            (Some(OsStr::new("")), Some(OsStr::new("instance"))),
+            (Some(OsStr::new("wayland-0")), None),
+            (Some(OsStr::new("wayland-0")), Some(OsStr::new(""))),
+        ] {
+            let mut called = false;
+            assert!(
+                lock_using(wayland, instance, &mut |_| {
+                    called = true;
+                    Ok(())
+                })
+                .is_err()
+            );
+            assert!(!called, "invalid client still requested a lock start");
+        }
+        for role in ["success", "failure"] {
+            let result = lock_using(
+                Some(OsStr::new("wayland-0")),
+                Some(OsStr::new("instance")),
+                &mut |command| {
+                    assert_eq!(command.get_program(), "/usr/bin/systemctl");
+                    assert_eq!(
+                        command.get_args().collect::<Vec<_>>(),
+                        ["--user", "--no-ask-password", "start", "--wait", LOCK_UNIT]
+                    );
+                    checked(fixture_command(role))
+                },
+            );
+            assert_eq!(result.is_ok(), role == "success");
+        }
+    }
+
+    #[test]
+    fn native_lock_assertions_reject_absent_empty_and_partial_manager_identities() {
+        let unit = include_str!("../../../packaging/rpm/systemd/user/ryoku-session-lock.service");
+        let assertions = metadata_words(unit, "Unit", "AssertEnvironment");
+        assert_eq!(assertions.len(), 4);
+        for (wayland, instance, valid) in [
+            (None, None, false),
+            (Some(""), Some(""), false),
+            (Some("wayland-0"), None, false),
+            (None, Some("instance"), false),
+            (Some("wayland-0"), Some(""), false),
+            (Some(""), Some("instance"), false),
+            (Some("wayland-0"), Some("instance"), true),
+        ] {
+            let mut command = Command::new("/usr/bin/systemd-analyze");
+            command
+                .arg("condition")
+                .args(assertions.iter().map(|value| format!("AssertEnvironment={value}")))
+                .env_remove("WAYLAND_DISPLAY")
+                .env_remove("HYPRLAND_INSTANCE_SIGNATURE")
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null());
+            if let Some(value) = wayland {
+                command.env("WAYLAND_DISPLAY", value);
+            }
+            if let Some(value) = instance {
+                command.env("HYPRLAND_INSTANCE_SIGNATURE", value);
+            }
+            assert_eq!(
+                checked_control(command, CONTROL_TIMEOUT).is_ok(),
+                valid,
+                "native read-only assertion evaluator disagreed for {wayland:?}/{instance:?}"
+            );
         }
     }
 

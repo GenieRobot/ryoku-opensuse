@@ -1,0 +1,56 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+branch_parent = "3e32377e81790314d5903cd857b530f02a395f22"
+scope = "Distro-hyprlock adapter client precondition and packaged start-job failure reporting"
+native_lock_acceptance = false
+native_build = false
+package_build = false
+vm_access = false
+qmp_access = false
+downloads = false
+actual_lock_started = false
+pam_changes = false
+
+[contract]
+problem = "Lock client previously had no compositor-identity check; a missing manager WAYLAND_DISPLAY could silently skip the unit via ConditionEnvironment"
+client = "Refuse missing/empty WAYLAND_DISPLAY or HYPRLAND_INSTANCE_SIGNATURE before any command; preserve exact user systemctl start --wait and propagate nonzero start result"
+unit = "Replace ConditionEnvironment with presence plus negated empty-value AssertEnvironment for both identities; no other lock/PAM or lifetime change"
+assertions = ["WAYLAND_DISPLAY", "!WAYLAND_DISPLAY=", "HYPRLAND_INSTANCE_SIGNATURE", "!HYPRLAND_INSTANCE_SIGNATURE="]
+semantics_reference = "https://www.freedesktop.org/software/systemd/man/257/systemd.unit.html#Conditions%20and%20Asserts"
+semantics = "Condition failure skips; unmet assertion fails the start job, without necessarily putting the unit into failed state; expression environment comes from the manager during actual unit start"
+scope_limit = "Packaged precondition/job reporting only; arbitrary user drop-ins, actual visible locker, PAM/password, suspend and locked-crash guarantees are not certified"
+lock_unit_sha256 = "4c2532cfe7c5554addf9024d0a9a04824a275a5b18f8a4d1733d7965a8e1d339"
+
+[checks]
+focused = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo test --offline --locked -p ryoku-session"
+session_passed = 22
+terminal_passed = 4
+failed = 0
+new = ["tests::lock_requires_client_identities_before_waiting_and_propagates_start_failure", "tests::native_lock_assertions_reject_absent_empty_and_partial_manager_identities"]
+client_matrix = "Missing/empty/partial input never dispatches; valid identity preserves exact fixed start --wait; successful/failing owned subprocess results propagate"
+native_evaluator = "systemd-analyze condition applied to actual four packaged AssertEnvironment expressions, in synthetic child environments; tool version261 (261.1) locally"
+evaluator_matrix = "Seven absent/empty/partial/nonempty combinations: six refuse and both nonempty succeed; bounded evaluation only, no unit/manager environment is changed or started"
+metadata = "Cross-file contract requires no skip-condition and exact four assertions, original native hyprlock ExecStart/PartOf ordering and no added lock-lifetime timeout"
+workspace = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo test --workspace --all-features --offline --locked"
+workspace_passed = true
+vm_lab_passed = 94
+recovery_passed = 246
+recovery_existing_ignored = 6
+service_passed = 140
+service_existing_ignored = 1
+clippy = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo clippy --workspace --all-targets --all-features --offline --locked -- -D warnings"
+clippy_passed = true
+format = "cargo fmt --all --check"
+whitespace = "git diff --check"
+
+[environment_privacy]
+sandbox_probe = "Initial standalone tool probe could not initialize its local Unix credential sockets under restricted sandbox, before assertion evaluation; explicitly allowed read-only rerun and complete tests pass"
+paths = "Reuse existing /dev/sdd target/cache/toolchain and /tmp tmpfs; no duplicate target, C-mounted output, real unit/service/PAM/cgroup mutation or native package phase"
+logs = "Only fixed metadata/commands/test results published; raw logs remain outside public repository and no credentials are published"
+
+[remaining]
+issue_open = true
+pr_draft = true
+native = "Exact combined #173 packages, storage/builder clearance, actual native start-job assertion failure and ordinary Ryoku lock/unlock/wrong-password/cancel tests remain required"
+owners = "No upstream qylock/guard/greeter or #177 PAM-policy work taken; full native session/device workflow and #176 real theme-accounting gates remain open"

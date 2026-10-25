@@ -157,6 +157,17 @@ native Quickshell frames, cold rendering or session acceptance.
 
 ## Recovery and authentication limits
 
+The native lock adapter now rejects missing or empty inherited Wayland/Hyprland
+identities before invoking the same `systemctl --user start --wait` request.
+Its unit also asserts both manager identities are present and nonempty. An
+unmet assertion fails the queued start job; the former condition could skip it
+without that failure. Assertions do not necessarily mark the unit failed.
+See [systemd's condition/assert contract](https://www.freedesktop.org/software/systemd/man/257/systemd.unit.html#Conditions%20and%20Asserts).
+The [lock precondition receipt](../infra/tumbleweed-lab/evidence/issue25-lock-preconditions-20261025.toml)
+records client/result regressions and read-only native expression evaluation.
+The distro locker, PAM files and complete lock/unlock lifetime remain unchanged;
+these checks provide no visible-lock, password, suspend or crash-security result.
+
 Writer registration coordinates capture of the daemon's writers. It does not
 create a linked checkpoint, authorize an action or certify upstream mutation
 controls. Issue #1 still requires verified linked pre-change capture for every
