@@ -134,6 +134,30 @@ pub(crate) struct Captured {
     protected: Identity,
 }
 impl Captured {
+    pub fn id(&self) -> &str {
+        &self.grant.id
+    }
+    pub fn path(&self) -> &Path {
+        &self.grant.path
+    }
+    pub fn ensure_current(&self) -> Result<()> {
+        self.grant.capture(self.protected).map(|_| ())
+    }
+    pub fn authorize_source_hit(&self, path: &str) -> Result<String> {
+        let input = if Path::new(path).is_absolute() {
+            path.to_owned()
+        } else {
+            format!("{}:/{path}", self.grant.id)
+        };
+        let relative = self.relative(&input)?;
+        let file = self.open(&relative)?;
+        let stat = fs::fstat(&file).map_err(|_| Error::Storage)?;
+        if FileType::from_raw_mode(stat.st_mode) != FileType::RegularFile || stat.st_nlink != 1 {
+            return Err(Error::UnsafeState);
+        }
+        Ok(relative.to_str().ok_or(Error::InvalidRequest)?.to_owned())
+    }
+
     pub fn describe(&self) -> Value {
         self.grant.describe()
     }

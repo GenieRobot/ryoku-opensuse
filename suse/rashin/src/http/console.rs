@@ -178,6 +178,18 @@ pub(super) fn submit(engine: &Arc<Engine>, body: &[u8]) -> Result<String> {
                 .dispatch(Request::DisableUsageSource { tool: tool(value(&fields, "tool")?)? })?;
             Ok("/usage".into())
         }
+        "set_code_search" => {
+            if fields.get("root_id").is_some_and(|id| !id.is_empty())
+                && fields.get("confirm").map(String::as_str) != Some("yes")
+            {
+                return Err(Error::InvalidRequest);
+            }
+            engine.dispatch(Request::SetCodeSearch {
+                provider: value(&fields, "provider")?.into(),
+                root_id: fields.get("root_id").filter(|id| !id.is_empty()).cloned(),
+            })?;
+            Ok("/console".into())
+        }
         "enroll_read_root" => {
             if fields.get("confirm").map(String::as_str) != Some("yes") {
                 return Err(Error::InvalidRequest);
@@ -447,11 +459,20 @@ pub(super) fn home(engine: &Arc<Engine>) -> Result<String> {
                     escape(root["path"].as_str().ok_or(Error::Integrity)?),
                     root["available"]
                 );
+                body += &begin("set_code_search");
+                body += &hidden("provider", id);
+                body += &hidden("root_id", root_id);
+                body +=
+                    &format!("<p>Current indexed source: {}</p>", roots["source_root"] == root_id);
+                body += "<label><input name=\"confirm\" type=\"checkbox\" value=\"yes\" required>Allow this provider to search Prowl's index of this source root and receive matching file snippets.</label><button>Use as indexed source</button></form>";
                 body += &begin("disable_read_root");
                 body += &hidden("provider", id);
                 body += &hidden("root_id", root_id);
                 body += "<button>Disable file root</button></form>";
             }
+            body += &begin("set_code_search");
+            body += &hidden("provider", id);
+            body += "<button>Disable source search</button></form>";
             body += &begin("enroll_read_root");
             body += &hidden("provider", id);
             body += "<label>Root ID<input name=\"root_id\" required maxlength=\"64\"></label><label>Absolute directory<input name=\"path\" required maxlength=\"4096\"></label><label><input name=\"confirm\" type=\"checkbox\" value=\"yes\" required>Allow this gateway and its configured provider to read/list ordinary text files in this directory. Secret and credential Store paths remain blocked.</label><button>Enroll file root</button></form>";

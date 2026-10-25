@@ -21,6 +21,10 @@ pub enum Request {
         models: Vec<String>,
         streaming: bool,
     },
+    SetCodeSearch {
+        provider: String,
+        root_id: Option<String>,
+    },
     ReadRoots {
         provider: String,
     },

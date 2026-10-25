@@ -757,3 +757,44 @@ NSS/default vault/config/data discovery and complete protected enrollment/writer
 recovery still depend on the stable shared native contract; no #25 files are
 changed here. Source search, public-web fetch, tool activity/escalation and full
 ACP/harness/native/package/VM acceptance remain required follow-ups.
+
+## Indexed source search through Prowl
+
+After enrolling an ordinary source root, separately select **Use as indexed
+source** in its provider section and confirm the snippet disclosure. The owner
+API is `set_code_search {provider,root_id}`; `root_id:null` disables source search.
+`read_roots` exposes the saved selection and root availability. It survives
+restart, while disabling/re-enrolling that root clears the selection. This does
+not start a service, build/download an index or enable system queries. Select
+an existing Prowl index of the enrolled source. Scoped clients cannot change it.
+
+Pinned `backend/prowl.go` lines215–252 and `prowl_test.go` lines99–147 supply the
+retained contract: authenticated `GET /api/code/search`, fixed `q`, `repo` and
+`limit=20`, then at most12 tool hits with 160-byte snippets. The repo comes only
+from the captured owner-selected root. UTF-8 query/path bytes are percent-encoded
+into the fixed loopback endpoint; they cannot select a URL, header or option.
+Queries are bounded to1024bytes and encoded paths to8KiB. The existing verified
+same-owner connected stream and bounded response handling apply to every search.
+Index I/O checks cancellation under a20-second bound within the whole tool loop's
+45-second budget. No gateway management bearer enters a URL, tool argument,
+returned hit or client log.
+
+Only typed file/start_line/snippet fields survive decoding. More than20 hits,
+malformed data, excessive fields or credential echoes fail without relaying the
+raw response. Decoded metadata strings and snippet/file fields are checked before
+truncation, so JSON Unicode escaping cannot hide the management credential. Every result path must identify an allowed ordinary file through
+the held root; outside/secret/Store/link/missing targets are omitted with a count.
+At most12 remaining hits and UTF-8-safe160-byte snippets reach the model. These
+are labeled Prowl-index results, whose content freshness follows the configured
+index. The selected root's device/inode is revalidated before and after the index
+request; replacement during a held response returns Integrity and discloses no
+snippets. A later re-enrollment requires an explicit new source selection.
+
+The actual authenticated gateway fixtures exercise completion→index search→tool
+result→completion, exact encoded query/repo/limit, owner/browser selection and
+restart/disable, unsafe hit omission, unknown field removal, hit/snippet limits,
+malformed/credential echo responses, cancellation during index I/O and a barrier
+controlled source replacement. Index report/build/mirror lifecycle and the full
+Prowl/native package acceptance remain required alongside public-web fetch,
+tool activity/escalation, ACP/harness/process/terminal and protected native
+state/writer/recovery integration. No retained feature is removed from the target.

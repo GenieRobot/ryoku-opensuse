@@ -14,6 +14,7 @@ use std::{
 pub(crate) struct Context {
     pub system_queries: bool,
     pub roots: Vec<read_roots::Captured>,
+    pub code_root: Option<String>,
 }
 impl Context {
     pub fn enabled(&self) -> bool {
@@ -33,6 +34,9 @@ fn schema(context: &Context) -> Value {
         ] {
             tools.push(json!({"type":"function","function":{"name":name,"description":format!("{description}. Only these owner-enrolled roots are authorized: {roots:?}. Use an absolute path or ROOT_ID:/relative/path. No symlink,secret or credential Store reads."),"parameters":{"type":"object","additionalProperties":false,"properties":{"path":{"type":"string"}},"required":["path"]}}}));
         }
+    }
+    if let Some(root_id) = &context.code_root {
+        tools.push(json!({"type":"function","function":{"name":"search_code","description":format!("Search the configured Prowl source index for enrolled root {root_id}. Returns bounded current-root source snippets."),"parameters":{"type":"object","additionalProperties":false,"properties":{"query":{"type":"string"}},"required":["query"]}}}));
     }
     Value::Array(tools)
 }
@@ -132,6 +136,23 @@ pub(super) fn complete(
             }
             let result = if call.function.name == "system_query" && context.system_queries {
                 match system_query::execute(&call.function.arguments, cancelled, deadline) {
+                    Ok(value) => value,
+                    Err(Error::Cancelled) => return Err(Error::Cancelled),
+                    Err(error) => json!({"error":format!("{error}")}).to_string(),
+                }
+            } else if call.function.name == "search_code" && context.code_root.is_some() {
+                let root = context
+                    .roots
+                    .iter()
+                    .find(|root| Some(root.id()) == context.code_root.as_deref())
+                    .ok_or(Error::Integrity)?;
+                match super::code_search::execute(
+                    connection,
+                    root,
+                    &call.function.arguments,
+                    cancelled,
+                    deadline,
+                ) {
                     Ok(value) => value,
                     Err(Error::Cancelled) => return Err(Error::Cancelled),
                     Err(error) => json!({"error":format!("{error}")}).to_string(),

@@ -3497,6 +3497,12 @@ fn tool_answer() -> Value {
 fn tool_gateway(
     responses: Vec<Option<Value>>,
 ) -> (u16, std::sync::mpsc::Receiver<Value>, std::thread::JoinHandle<()>) {
+    tool_gateway_with_hook(responses, |_| {})
+}
+fn tool_gateway_with_hook<F: FnMut(&Value) + Send + 'static>(
+    responses: Vec<Option<Value>>,
+    mut hook: F,
+) -> (u16, std::sync::mpsc::Receiver<Value>, std::thread::JoinHandle<()>) {
     use std::{net::TcpListener, sync::mpsc};
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     listener.set_nonblocking(true).unwrap();
@@ -3525,7 +3531,8 @@ fn tool_gateway(
                 header.push(byte[0]);
             }
             let header = String::from_utf8(header).unwrap();
-            assert!(header.starts_with("POST /v1/chat/completions HTTP/1.1\r\n"));
+            let search = header.starts_with("GET /api/code/search?");
+            assert!(search || header.starts_with("POST /v1/chat/completions HTTP/1.1\r\n"));
             assert!(header.contains("Authorization: Bearer PRIVATE_TOOL_GATEWAY_KEY\r\n"));
             let length = header
                 .lines()
@@ -3536,9 +3543,15 @@ fn tool_gateway(
             assert!(length <= 256 * 1024);
             let mut bytes = vec![0; length];
             stream.read_exact(&mut bytes).unwrap();
-            let body: Value = serde_json::from_slice(&bytes).unwrap();
+            let body: Value = if search {
+                assert!(bytes.is_empty());
+                json!({"method":"GET","request_path":header.lines().next().unwrap().split_whitespace().nth(1).unwrap()})
+            } else {
+                serde_json::from_slice(&bytes).unwrap()
+            };
             assert!(!String::from_utf8(bytes).unwrap().contains("PRIVATE_TOOL_GATEWAY_KEY"));
             tx.send(body.clone()).unwrap();
+            hook(&body);
             let Some(response) = response else {
                 stream.write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n").unwrap();
                 let data = "data: {\"choices\":[{\"delta\":{\"content\":\"waiting\"}}]}\n\n";
@@ -4029,4 +4042,282 @@ fn enrolled_file_tool_cancellation_drops_ephemeral_read_results_and_closes_follo
     assert!(engine.dispatch(Request::Usage {}).unwrap()["activity"].as_array().unwrap().is_empty());
     let state = fs::read_to_string(fixture.path.join("state.json")).unwrap();
     assert!(!state.contains("UNPERSISTED_ENROLLED_TEXT"));
+}
+
+fn code_call(query: &str) -> Value {
+    tool_round_response("search_code", &json!({"query":query}).to_string(), "code-query")
+}
+fn percent(value: &str) -> String {
+    let mut out = String::new();
+    for b in value.bytes() {
+        if b.is_ascii_alphanumeric() || b"-._~".contains(&b) {
+            out.push(b as char);
+        } else {
+            use std::fmt::Write;
+            write!(out, "%{b:02X}").unwrap();
+        }
+    }
+    out
+}
+#[test]
+fn code_search_gateway_uses_owner_selected_root_and_returns_only_authorized_bounded_hits() {
+    use ryoku_rashin::authorization::Access;
+    let source = Fixture::new();
+    let state = source.path.join("account-state");
+    fs::create_dir(&state).unwrap();
+    fs::set_permissions(&state, fs::Permissions::from_mode(0o700)).unwrap();
+    let engine = Engine::open(Store::open(&state).unwrap()).unwrap();
+    fs::create_dir(source.path.join("src")).unwrap();
+    fs::write(source.path.join("src/main.rs"), "fn main() {}\n").unwrap();
+    fs::write(source.path.join("api-key"), "PRIVATE_CODE_SENTINEL").unwrap();
+    symlink("src/main.rs", source.path.join("link")).unwrap();
+    let hits = json!([{"file":"src/main.rs","start_line":7,"snippet":format!("  {}  ","matching λ".repeat(40)),"unknown_secret":"PRIVATE_UNKNOWN_CODE_FIELD"},{"file":"api-key","start_line":1,"snippet":"PRIVATE_CODE_SENTINEL"},{"file":"account-state/state.json","start_line":1,"snippet":"PRIVATE_STORE_CODE_SENTINEL"},{"file":"../outside","start_line":1,"snippet":"outside"},{"file":"/etc/passwd","start_line":1,"snippet":"outside"},{"file":"link","start_line":1,"snippet":"link"},{"file":"deleted.rs","start_line":1,"snippet":"stale"}]);
+    let (port, requests, server) = tool_gateway(vec![
+        Some(code_call("needle & λ")),
+        Some(hits),
+        Some(tool_answer()),
+        Some(tool_answer()),
+    ]);
+    connect_tool_gateway(&engine, port, true);
+    engine
+        .dispatch(Request::EnrollReadRoot {
+            provider: "tool-gateway".into(),
+            id: "source".into(),
+            path: source.path.to_str().unwrap().into(),
+        })
+        .unwrap();
+    assert_eq!(
+        engine.dispatch_as(
+            Access::AskClient,
+            Request::SetCodeSearch {
+                provider: "tool-gateway".into(),
+                root_id: Some("source".into())
+            }
+        ),
+        Err(Error::Unauthorized)
+    );
+    let gateway = ryoku_rashin::http::Gateway::new(
+        engine.clone(),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    let mut fields =
+        vec![("action", "set_code_search"), ("provider", "tool-gateway"), ("root_id", "source")];
+    assert!(ui_submit(&gateway, &fields).starts_with("HTTP/1.1 400"));
+    fields.push(("confirm", "yes"));
+    assert!(ui_submit(&gateway, &fields).starts_with("HTTP/1.1 303"));
+    engine
+        .dispatch(Request::Ask { id: "source-search".into(), prompt: "Search source".into() })
+        .unwrap();
+    assert_eq!(done(&engine, "source-search")["status"], "completed");
+    let first = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert!(
+        first["tools"].as_array().unwrap().iter().any(|t| t["function"]["name"] == "search_code")
+    );
+    assert!(
+        !first["tools"].as_array().unwrap().iter().any(|t| t["function"]["name"] == "system_query")
+    );
+    let query = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert_eq!(query["method"], "GET");
+    assert_eq!(
+        query["request_path"],
+        format!(
+            "/api/code/search?q=needle%20%26%20%CE%BB&repo={}&limit=20",
+            percent(source.path.to_str().unwrap())
+        )
+    );
+    let final_request = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    let result: Value = serde_json::from_str(
+        final_request["messages"].as_array().unwrap().last().unwrap()["content"].as_str().unwrap(),
+    )
+    .unwrap();
+    assert_eq!(result["hits"].as_array().unwrap().len(), 1);
+    assert_eq!(result["hits"][0]["file"], "src/main.rs");
+    assert_eq!(result["hits"][0]["line"], 7);
+    assert!(result["hits"][0]["text"].as_str().unwrap().len() <= 160);
+    assert_eq!(result["omitted"], 6);
+    for sentinel in
+        ["PRIVATE_CODE_SENTINEL", "PRIVATE_UNKNOWN_CODE_FIELD", "PRIVATE_STORE_CODE_SENTINEL"]
+    {
+        assert!(!final_request.to_string().contains(sentinel));
+    }
+    drop(gateway);
+    drop(engine);
+    let state_fixture = Fixture { path: state };
+    let engine = state_fixture.reopen();
+    assert_eq!(
+        engine.dispatch(Request::ReadRoots { provider: "tool-gateway".into() }).unwrap()["source_root"],
+        "source"
+    );
+    engine
+        .dispatch(Request::SetCodeSearch { provider: "tool-gateway".into(), root_id: None })
+        .unwrap();
+    engine
+        .dispatch(Request::Ask { id: "search-disabled".into(), prompt: "No source tool".into() })
+        .unwrap();
+    assert_eq!(done(&engine, "search-disabled")["status"], "completed");
+    let disabled = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert!(
+        !disabled["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["function"]["name"] == "search_code")
+    );
+    server.join().unwrap();
+}
+#[test]
+fn code_search_gateway_drops_malformed_oversized_and_credential_echo_responses_and_bounds_hits() {
+    for variant in 0..4 {
+        let fixture = Fixture::new();
+        let engine = fixture.engine();
+        let source = Fixture::new();
+        fs::write(source.path.join("main.rs"), "ordinary").unwrap();
+        let hit = json!({"file":"main.rs","start_line":1,"snippet":"ordinary"});
+        let response = match variant {
+            0 => json!({"error":"PRIVATE_GATEWAY_ERROR"}),
+            1 => json!((0..21).map(|_| hit.clone()).collect::<Vec<_>>()),
+            2 => json!([{"file":"main.rs","start_line":1,"snippet":"PRIVATE_TOOL_GATEWAY_KEY"}]),
+            _ => json!((0..20).map(|_| hit.clone()).collect::<Vec<_>>()),
+        };
+        let (port, requests, server) =
+            tool_gateway(vec![Some(code_call("needle")), Some(response), Some(tool_answer())]);
+        connect_tool_gateway(&engine, port, false);
+        engine
+            .dispatch(Request::EnrollReadRoot {
+                provider: "tool-gateway".into(),
+                id: "source".into(),
+                path: source.path.to_str().unwrap().into(),
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::SetCodeSearch {
+                provider: "tool-gateway".into(),
+                root_id: Some("source".into()),
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::Ask { id: "source-errors".into(), prompt: "Search safely".into() })
+            .unwrap();
+        assert_eq!(done(&engine, "source-errors")["status"], "completed");
+        requests.recv_timeout(Duration::from_secs(2)).unwrap();
+        requests.recv_timeout(Duration::from_secs(2)).unwrap();
+        let final_request = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+        let result: Value = serde_json::from_str(
+            final_request["messages"].as_array().unwrap().last().unwrap()["content"]
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap();
+        match variant {
+            0 | 2 => assert_eq!(result["error"], "ProviderFailed"),
+            1 => assert_eq!(result["error"], "Limit"),
+            _ => {
+                assert_eq!(result["hits"].as_array().unwrap().len(), 12);
+                assert_eq!(result["omitted"], 8);
+            }
+        }
+        assert!(!final_request.to_string().contains("PRIVATE_GATEWAY_ERROR"));
+        server.join().unwrap();
+    }
+}
+#[test]
+fn code_search_gateway_cancellation_closes_index_request_without_final_completion_or_usage() {
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let source = Fixture::new();
+    fs::write(source.path.join("main.rs"), "ordinary").unwrap();
+    let (port, requests, server) = tool_gateway(vec![Some(code_call("needle")), None]);
+    connect_tool_gateway(&engine, port, true);
+    engine
+        .dispatch(Request::EnrollReadRoot {
+            provider: "tool-gateway".into(),
+            id: "source".into(),
+            path: source.path.to_str().unwrap().into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::SetCodeSearch {
+            provider: "tool-gateway".into(),
+            root_id: Some("source".into()),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::Ask { id: "cancel-code".into(), prompt: "Search then wait".into() })
+        .unwrap();
+    requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    let query = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert_eq!(query["method"], "GET");
+    engine.dispatch(Request::Cancel { id: "cancel-code".into() }).unwrap();
+    assert_eq!(done(&engine, "cancel-code")["status"], "cancelled");
+    server.join().unwrap();
+    assert!(requests.try_recv().is_err());
+    assert!(engine.dispatch(Request::Usage {}).unwrap()["activity"].as_array().unwrap().is_empty());
+}
+#[test]
+fn code_search_gateway_rejects_source_replacement_during_index_response_without_disclosing_hits() {
+    use std::sync::mpsc;
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let source = Fixture::new();
+    fs::write(source.path.join("main.rs"), "ordinary").unwrap();
+    let (release_tx, release_rx) = mpsc::channel();
+    let (port, requests, server) = tool_gateway_with_hook(
+        vec![
+            Some(code_call("needle")),
+            Some(
+                json!([{"file":"main.rs","start_line":1,"snippet":"PRIVATE_STALE_SOURCE_SNIPPET"}]),
+            ),
+            Some(tool_answer()),
+        ],
+        move |request| {
+            if request["method"] == "GET" {
+                release_rx.recv_timeout(Duration::from_secs(3)).unwrap();
+            }
+        },
+    );
+    connect_tool_gateway(&engine, port, false);
+    engine
+        .dispatch(Request::EnrollReadRoot {
+            provider: "tool-gateway".into(),
+            id: "source".into(),
+            path: source.path.to_str().unwrap().into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::SetCodeSearch {
+            provider: "tool-gateway".into(),
+            root_id: Some("source".into()),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::Ask { id: "stale-code".into(), prompt: "Search source".into() })
+        .unwrap();
+    requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    let moved = source.path.with_extension("moved");
+    fs::rename(&source.path, &moved).unwrap();
+    fs::create_dir(&source.path).unwrap();
+    fs::set_permissions(&source.path, fs::Permissions::from_mode(0o700)).unwrap();
+    fs::write(source.path.join("main.rs"), "replacement").unwrap();
+    release_tx.send(()).unwrap();
+    assert_eq!(done(&engine, "stale-code")["status"], "completed");
+    let final_request = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    let result: Value = serde_json::from_str(
+        final_request["messages"].as_array().unwrap().last().unwrap()["content"].as_str().unwrap(),
+    )
+    .unwrap();
+    assert_eq!(result["error"], "Integrity");
+    assert!(!final_request.to_string().contains("PRIVATE_STALE_SOURCE_SNIPPET"));
+    server.join().unwrap();
+    engine
+        .dispatch(Request::EnrollReadRoot {
+            provider: "tool-gateway".into(),
+            id: "source".into(),
+            path: source.path.to_str().unwrap().into(),
+        })
+        .unwrap();
+    assert!(engine.dispatch(Request::ReadRoots{provider:"tool-gateway".into()}).unwrap()["source_root"].is_null());
+    fs::remove_dir_all(moved).unwrap();
 }

@@ -89,6 +89,22 @@ pub(super) fn request_until(
     deadline: Instant,
     emit: &mut impl FnMut(&[u8]) -> Result<()>,
 ) -> Result<()> {
+    let endpoint = if body.is_some() { Endpoint::Completions } else { Endpoint::Models };
+    request_endpoint(connection, endpoint, body, cancelled, deadline, emit)
+}
+pub(super) enum Endpoint<'a> {
+    Completions,
+    Models,
+    CodeSearch { repo: &'a str, query: &'a str },
+}
+pub(super) fn request_endpoint(
+    connection: &Connection,
+    endpoint: Endpoint<'_>,
+    body: Option<&[u8]>,
+    cancelled: &AtomicBool,
+    deadline: Instant,
+    emit: &mut impl FnMut(&[u8]) -> Result<()>,
+) -> Result<()> {
     remaining(deadline, cancelled)?;
     let address = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, connection.port));
     let mut stream = TcpStream::connect_timeout(
@@ -99,8 +115,11 @@ pub(super) fn request_until(
     // Ownership proof uses a short independent bound; no request bytes before it.
     verify_peer(&stream, deadline.min(Instant::now() + Duration::from_secs(3)))?;
     remaining(deadline, cancelled)?;
-    let (method, path) =
-        if body.is_some() { ("POST", "/v1/chat/completions") } else { ("GET", "/v1/models") };
+    let (method, path) = match endpoint {
+        Endpoint::Completions => ("POST", "/v1/chat/completions".to_owned()),
+        Endpoint::Models => ("GET", "/v1/models".to_owned()),
+        Endpoint::CodeSearch { repo, query } => ("GET", super::code_search::path(repo, query)?),
+    };
     let header = format!(
         "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nAuthorization: Bearer {}\r\nContent-Type: application/json\r\nAccept: application/json, text/event-stream\r\nAccept-Encoding: identity\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
         connection.port,

@@ -60,6 +60,7 @@ impl Request {
             | Self::ConnectProwlProvider { .. }
             | Self::SetReadOnlyTools { .. }
             | Self::ReadRoots { .. }
+            | Self::SetCodeSearch { .. }
             | Self::EnrollReadRoot { .. }
             | Self::DisableReadRoot { .. } => Action::ProviderCredentials,
             Self::SetRoute { .. } => Action::Route,

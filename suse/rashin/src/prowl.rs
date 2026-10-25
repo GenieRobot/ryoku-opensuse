@@ -5,6 +5,7 @@
 use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+mod code_search;
 mod completion;
 pub(crate) mod read_roots;
 mod system_query;
@@ -68,8 +69,21 @@ impl Connection {
         if body.windows(self.token.len()).any(|window| window == self.token.as_bytes()) {
             return Err(Error::ProviderFailed);
         }
-        parse(query, &body)
+        public_response(parse(query, &body)?, &self.token)
     }
+}
+fn public_response(value: Value, token: &str) -> Result<Value> {
+    fn contains(value: &Value, token: &str) -> bool {
+        match value {
+            Value::String(text) => text.contains(token),
+            Value::Array(rows) => rows.iter().any(|v| contains(v, token)),
+            Value::Object(fields) => {
+                fields.iter().any(|(name, value)| name.contains(token) || contains(value, token))
+            }
+            _ => false,
+        }
+    }
+    if contains(&value, token) { Err(Error::ProviderFailed) } else { Ok(value) }
 }
 fn valid_id(id: u64) -> Result<()> {
     if id == 0 || id > 9_007_199_254_740_991 {
@@ -266,6 +280,22 @@ impl Connection {
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn decoded_public_fields_refuse_json_escaped_management_credentials() {
+        let bytes = br#"{"profile":{"name":"PRIVATE\u005fMANAGEMENT_KEY"}}"#;
+        assert!(
+            !bytes.windows(b"PRIVATE_MANAGEMENT_KEY".len()).any(|w| w == b"PRIVATE_MANAGEMENT_KEY")
+        );
+        let value: Value = serde_json::from_slice(bytes).unwrap();
+        assert_eq!(public_response(value, "PRIVATE_MANAGEMENT_KEY"), Err(Error::ProviderFailed));
+        assert!(
+            public_response(
+                serde_json::json!({"profile":{"name":"ordinary"}}),
+                "PRIVATE_MANAGEMENT_KEY"
+            )
+            .is_ok()
+        );
+    }
     #[test]
     fn routes_credentials_and_fixed_transport_have_no_generic_proxy_or_command_path() {
         assert_eq!(Query::Profiles {}.path().unwrap(), "/api/profiles");
