@@ -221,7 +221,11 @@ fn capture_publish_verify_using_capacity(
         capture_files,
         check_capacity,
         |_, _, profile| {
-            Ok(CaptureProvenance { profile_revision: profile, account_principal: None })
+            Ok(CaptureProvenance {
+                profile_revision: profile,
+                account_principal: None,
+                assets: None,
+            })
         },
         || Ok(()),
     )
@@ -232,6 +236,7 @@ fn capture_publish_verify_using_capacity(
 pub(crate) struct CaptureProvenance {
     pub profile_revision: Option<ProfileRevision>,
     pub account_principal: Option<crate::AccountPrincipal>,
+    pub assets: Option<(crate::ryogami_assets::CapturedAssets, File)>,
 }
 
 pub(crate) fn capture_publish_verify_checked(
@@ -325,15 +330,23 @@ pub(crate) fn capture_publish_verify_checked(
     }
 
     let mut boundary_error = None;
-    let publication = store.publish_checked(&manifest, &payloads, || match boundary() {
+    let check_boundary = || match boundary() {
         Ok(()) => true,
         Err(error) => {
             boundary_error = Some(error);
             false
         }
-    });
+    };
+    let publication = match provenance.assets {
+        Some((assets, home)) => store
+            .publish_with_assets(manifest.clone(), &payloads, &assets, &home, check_boundary)
+            .map(|published| {
+                manifest = published;
+            }),
+        None => store.publish_checked(&manifest, &payloads, check_boundary),
+    };
     if matches!(publication, Err(GenerationError::PublicationRejected)) {
-        return Err(boundary_error.expect("a rejected boundary retains its error"));
+        return Err(boundary_error.unwrap_or(GenerationCaptureError::VerificationMismatch));
     }
     publication?;
     let stored = store.verify_transaction(&manifest.transaction_id)?;

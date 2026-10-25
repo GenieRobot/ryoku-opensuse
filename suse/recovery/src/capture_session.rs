@@ -128,6 +128,24 @@ impl NativeCaptureSession {
         if self.inventory_fingerprint()?.as_str() != expected {
             return Err(CaptureSessionError::UnsafeBoundary);
         }
+        if let Some(assets) = manifest.assets() {
+            assets
+                .require_account(&self.account)
+                .map_err(|_| CaptureSessionError::UnsafeBoundary)?;
+            let paths =
+                assets.entries().iter().map(|record| record.path.clone()).collect::<Vec<_>>();
+            let current = crate::ryogami_assets::capture_assets(
+                &self.home,
+                &self.account,
+                &paths,
+                crate::ryogami_assets::MAX_CAPTURE_LIMITS,
+            )
+            .map_err(|_| CaptureSessionError::UnsafeBoundary)?;
+            if current.inventory() != assets {
+                return Err(CaptureSessionError::UnsafeBoundary);
+            }
+            self.revalidate()?;
+        }
         Ok(())
     }
 
@@ -312,6 +330,38 @@ impl NativeCaptureSession {
         // Publication performs the final lease check while it can still retract
         // its generation. A fallible check here would strand a published result.
         Ok(manifest)
+    }
+
+    /// Capture the fixed preferences and a server-enrolled exact asset set in
+    /// one linked generation while the same authenticated account lease holds.
+    /// Wire requests never provide roots, accounts or a native snapshot receipt.
+    pub fn capture_with_assets(
+        &self,
+        request: InstalledCaptureRequest,
+        bundle: &VerifiedProfileBundle,
+        declarations: &[crate::ryogami_assets::AssetPath],
+    ) -> Result<RecoveryManifest> {
+        self.revalidate()?;
+        let inventory =
+            InstalledInventory::for_home(&self.home).map_err(CaptureSessionError::Capture)?;
+        crate::installed_capture::capture_installed_configuration_with_sources_checked(
+            &self.store,
+            &inventory,
+            InstalledRoots {
+                user_configuration: &self.home,
+                account_home: Some(&self.home),
+                system_configuration: None,
+                account: self.account.clone(),
+            },
+            request,
+            crate::capture::capture_inventory,
+            crate::installed_capture::InstalledCaptureSources {
+                bundle: Some(bundle),
+                assets: Some(declarations),
+            },
+            || self.revalidate().map_err(|_| GenerationCaptureError::CoordinationLost),
+        )
+        .map_err(CaptureSessionError::Capture)
     }
 
     pub fn finish(mut self) -> Result<()> {

@@ -38,14 +38,26 @@ revalidate the reviewed plan, publish the durable result and verify post-state.
 The type-level linked proof used by the trash tests is a synthetic fixture;
 those tests do not create native Snapper checkpoints.
 
-The inherited inventory explicitly omits referenced media/model payloads and
-limits generation files to 16 MiB, 64 MiB total. It cannot be relabelled as
-complete coverage for videos, Steam trees or model packs. Before activation,
-#175 needs a separately verified asset receipt/content capture and restore
-extension, exact source-to-destination ownership, and account-private remote
-request accounting. No current helper request has been changed to forward an
-unprotected operation. No upstream component, picker control, daemon feature,
-package path or language has been removed or rewritten by this checkpoint.
+The historical preference inventory retains its 16 MiB/file and 64 MiB total
+limits and byte-identical schema-1/2 representation. The new asset inventory
+adds schema 3 only when exact ordinary-account-owned entries and an original
+native snapshot receipt are present. It enrolls fixed provider/model/preview/
+thumbnail/Workshop namespaces, exact absence and metadata, with 4,096 entries,
+8 GiB/file and 32 GiB total bounds. Capture, publication, payload verification
+and restore staging stream content in bounded chunks. No parent traversal,
+symlink or hardlink enrollment is accepted. `NativeCaptureSession` can capture
+this set with the whole preference inventory into one sealed generation;
+its inventory readback also checks all enrolled assets.
+
+Restore staging preserves content, uid/gid, mode, mtime and supported ACL/label
+metadata on a caller-owned private inode. The old preference-only planner and
+stage explicitly refuse asset-bearing manifests instead of silently skipping
+media. This is not a completed live restore: journaled destination publication,
+parent-directory enrollment, configured image/video roots, complete provider
+write sets and installed routing remain open. No current helper request has
+been changed to forward an unprotected operation. No upstream component,
+picker control, daemon feature, package path or language has been removed or
+rewritten by this checkpoint.
 
 ## Operation and side-effect matrix
 
@@ -105,6 +117,27 @@ is part of this evidence.
 The initial sandbox run refused a synthetic Unix-socket write with EPERM.
 The separately approved offline local-socket rerun passed; that environmental
 refusal is not relabelled a product failure or silently skipped.
+
+The recovery extension adds 15 deterministic local tests (seven asset inventory,
+six streamed generation/restore-stage, and two installed-capture integration
+tests). A sparse zero-byte-content fixture of 16 MiB + 1 byte verifies that
+large assets never require a payload-sized `Vec`. Shape-only native receipt
+fixtures do not prove native Btrfs/Snapper operation.
+
+| Recovery boundary | Evidence |
+| --- | --- |
+| Exact namespaces/account/absence/privacy | `ryogami_assets` tests cover fixed namespaces, wrong owner/account, traversal, duplicate paths, symlink/hardlink refusal, quotas and unrelated sentinels |
+| One linked manifest | `installed_capture_publishes_preferences_and_exact_assets_in_one_native_linked_manifest` retains preference metadata, asset bytes, absence, principal and original snapshot receipt |
+| Stale capture/interruption | Changed asset after capture rejects/retracts publication; interrupted streaming leaves no published transaction |
+| Large verified payload | `schema3_streams_large_assets_and_verifies_both_payload_families` verifies preference and asset content while the old buffered accessor refuses oversized bytes |
+| Restore staging | `streamed_restore_preserves_asset_bytes_and_metadata_without_legacy_stage` checks exact restored bytes/uid/gid/mode/mtime and preference-only staging refusal |
+| Restore refusal/cancel | Wrong account, unreferenced path and nonempty target refuse; cancellation never publishes a target and interrupted staging cannot be reused |
+| Legacy compatibility | Existing schema-1/2 workspace tests pass; schema-2 canonical bytes and old capture/capacity bounds are unchanged |
+
+The first installed-capture integration fixture used an invalid all-zero native
+filesystem UUID; correcting the synthetic receipt made the intended integration
+pass. Strict lint found a complex inode fingerprint tuple; replacing it with
+named fields and fixing its size access passed the subsequent full check.
 
 ## Remaining acceptance gates
 

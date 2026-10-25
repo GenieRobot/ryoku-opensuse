@@ -183,9 +183,48 @@ pub(crate) fn capture_inventory_with_xattrs(
     limits: CaptureLimits,
     xattrs: &impl XattrReader,
 ) -> Result<CapturedInventory, CaptureError> {
-    if limits.max_paths > HARD_MAX_PATHS
-        || limits.max_file_bytes > HARD_MAX_FILE_BYTES
-        || limits.max_total_bytes > HARD_MAX_TOTAL_BYTES
+    capture_inventory_bounded(
+        root_fd,
+        root,
+        declared,
+        limits,
+        xattrs,
+        CaptureLimits {
+            max_paths: HARD_MAX_PATHS,
+            max_file_bytes: HARD_MAX_FILE_BYTES,
+            max_total_bytes: HARD_MAX_TOTAL_BYTES,
+        },
+    )
+}
+
+/// Only the code-owned Ryogami asset enrollment calls this larger streaming
+/// collector. Public exact-file/preferences capture retains its original caps.
+pub(crate) fn capture_ryogami_assets(
+    home: &File,
+    declared: &[RelativePath],
+    limits: CaptureLimits,
+) -> Result<CapturedInventory, CaptureError> {
+    capture_inventory_bounded(
+        home,
+        StateRoot::StateGeneration,
+        declared,
+        limits,
+        &KernelXattrs,
+        crate::ryogami_assets::MAX_CAPTURE_LIMITS,
+    )
+}
+
+fn capture_inventory_bounded(
+    root_fd: &File,
+    root: StateRoot,
+    declared: &[RelativePath],
+    limits: CaptureLimits,
+    xattrs: &impl XattrReader,
+    maximum: CaptureLimits,
+) -> Result<CapturedInventory, CaptureError> {
+    if limits.max_paths > maximum.max_paths
+        || limits.max_file_bytes > maximum.max_file_bytes
+        || limits.max_total_bytes > maximum.max_total_bytes
     {
         return Err(CaptureError::InvalidLimits);
     }

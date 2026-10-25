@@ -37,6 +37,9 @@ const GENERATION_AUXILIARY_BLOCKS: u64 = 4;
 /// this protected store rather than in public manifest fields.
 pub type Payloads = BTreeMap<Sha256, Vec<u8>>;
 
+#[path = "generation_stream.rs"]
+mod stream;
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CatalogLink {
@@ -76,6 +79,7 @@ pub enum GenerationError {
     Io(std::io::Error),
     Validation(crate::ValidationError),
     MachineState(MachineStateError),
+    InodeMetadata(crate::inode_metadata::InodeMetadataError),
     StateMount(StateMountError),
 }
 
@@ -108,6 +112,7 @@ impl std::fmt::Display for GenerationError {
             Self::Filesystem(error) => write!(f, "generation filesystem operation failed: {error}"),
             Self::Io(error) => write!(f, "generation payload I/O failed: {error}"),
             Self::Validation(error) => write!(f, "manifest validation failed: {error:?}"),
+            Self::InodeMetadata(error) => write!(f, "asset staging metadata failed: {error}"),
             Self::MachineState(error) => {
                 write!(f, "trusted machine identity is unavailable: {error}")
             }
@@ -320,7 +325,22 @@ impl GenerationStore {
         payload_bytes: u64,
         payload_file_count: usize,
     ) -> Result<(), GenerationError> {
-        if payload_bytes > MAX_GENERATION_BYTES || payload_file_count > MAX_GENERATION_PAYLOADS {
+        self.ensure_space_bounded(
+            payload_bytes,
+            payload_file_count,
+            MAX_GENERATION_BYTES,
+            MAX_GENERATION_PAYLOADS,
+        )
+    }
+
+    fn ensure_space_bounded(
+        &self,
+        payload_bytes: u64,
+        payload_file_count: usize,
+        maximum_bytes: u64,
+        maximum_files: usize,
+    ) -> Result<(), GenerationError> {
+        if payload_bytes > maximum_bytes || payload_file_count > maximum_files {
             return Err(GenerationError::InventoryTooLarge);
         }
         let stats = fstatvfs(&self.staging)?;
@@ -407,6 +427,16 @@ impl GenerationStore {
         payloads: &Payloads,
         mut boundary: impl FnMut() -> bool,
     ) -> Result<(), GenerationError> {
+        self.publish_streamed_checked(manifest, payloads, &BTreeMap::new(), |_| boundary())
+    }
+
+    fn publish_streamed_checked(
+        &self,
+        manifest: &RecoveryManifest,
+        payloads: &Payloads,
+        streams: &BTreeMap<Sha256, File>,
+        mut boundary: impl FnMut(bool) -> bool,
+    ) -> Result<(), GenerationError> {
         let stage_name = format!("{}.stage", manifest.transaction_id.as_str());
         let catalog_name = format!("{}.json", manifest.transaction_id.as_str());
         let temp_name = format!("{}.tmp", manifest.transaction_id.as_str());
@@ -415,7 +445,7 @@ impl GenerationStore {
         let mut indexed = false;
         let mut index_written = false;
         let result = (|| {
-            if !boundary() {
+            if !boundary(true) {
                 return Err(GenerationError::PublicationRejected);
             }
             if !manifest.is_mutation_ready() {
@@ -432,7 +462,9 @@ impl GenerationStore {
                 return Err(GenerationError::InventoryTooLarge);
             }
             let required = required_payloads(manifest)?;
-            if required != payloads.keys().cloned().collect() {
+            if streams.keys().any(|key| payloads.contains_key(key))
+                || required != payloads.keys().chain(streams.keys()).cloned().collect()
+            {
                 return Err(GenerationError::PayloadMismatch);
             }
             let mut total = 0_u64;
@@ -440,14 +472,28 @@ impl GenerationStore {
                 total = total
                     .checked_add(bytes.len() as u64)
                     .ok_or(GenerationError::InventoryTooLarge)?;
-                if total > MAX_GENERATION_BYTES
+                if bytes.len() as u64 > MAX_GENERATION_FILE_BYTES
+                    || total > stream::total_limit(manifest)
                     || digest_bytes(bytes) != *digest
                     || !valid_payload_shape(manifest, digest, bytes)
                 {
                     return Err(GenerationError::PayloadMismatch);
                 }
             }
-            self.ensure_available_space(total, payloads.len())?;
+            for (digest, source) in streams {
+                let size = stream::content_size(manifest, digest)?;
+                stream::verify_source(source, size, digest)?;
+                total = total.checked_add(size).ok_or(GenerationError::InventoryTooLarge)?;
+                if total > stream::total_limit(manifest) {
+                    return Err(GenerationError::InventoryTooLarge);
+                }
+            }
+            self.ensure_space_bounded(
+                total,
+                payloads.len() + streams.len(),
+                stream::total_limit(manifest),
+                stream::payload_limit(manifest),
+            )?;
 
             let tx = manifest.transaction_id.as_str();
             let generation = manifest.generation_id.as_str();
@@ -468,7 +514,7 @@ impl GenerationStore {
                         return Err(GenerationError::GenerationCollision);
                     }
                     let verified = self.verify_transaction(&manifest.transaction_id)?;
-                    if !boundary() {
+                    if !boundary(true) {
                         return Err(GenerationError::PublicationRejected);
                     }
                     return if verified.canonical_bytes()? == manifest.canonical_bytes()? {
@@ -503,6 +549,15 @@ impl GenerationStore {
                                     bytes,
                                 )?;
                             }
+                            for (digest, source) in streams {
+                                stream::write_new_stream(
+                                    &payload_dir,
+                                    digest,
+                                    source,
+                                    stream::content_size(manifest, digest)?,
+                                    &mut || boundary(false),
+                                )?;
+                            }
                             fsync(&payload_dir)?;
                             fsync(&stage)?;
                             verify_directory(&stage, Some(manifest), false)?;
@@ -511,7 +566,7 @@ impl GenerationStore {
                         }
                         Err(error) => return Err(error.into()),
                     };
-                    if !boundary() {
+                    if !boundary(true) {
                         return Err(GenerationError::PublicationRejected);
                     }
                     renameat_with(
@@ -550,7 +605,7 @@ impl GenerationStore {
                 Err(error) => return Err(error),
             }
             index_written = true;
-            if !boundary() {
+            if !boundary(true) {
                 return Err(GenerationError::PublicationRejected);
             }
             if let Err(error) = renameat_with(
@@ -565,7 +620,7 @@ impl GenerationStore {
             indexed = true;
             fsync(&self.catalog)?;
             self.verify_transaction(&manifest.transaction_id)?;
-            if !boundary() {
+            if !boundary(true) {
                 return Err(GenerationError::PublicationRejected);
             }
             Ok(())
@@ -667,7 +722,7 @@ fn verify_transaction_from(
     let link_bytes = read_file(catalog, &format!("{}.json", transaction_id.as_str()), 4096)?;
     let link: CatalogLink = serde_json::from_slice(&link_bytes)
         .map_err(|error| GenerationError::Io(std::io::Error::other(error)))?;
-    if !matches!(link.schema_version, 1..=3)
+    if !matches!(link.schema_version, 1..=4)
         || &link.transaction_id != transaction_id
         || link.canonical_bytes()? != link_bytes
     {
@@ -687,6 +742,9 @@ fn verify_transaction_from(
 // readers reject catalog v2 before interpreting the new generation format;
 // content-only generations remain compatible with the v1 catalog contract.
 fn catalog_schema(manifest: &RecoveryManifest) -> u16 {
+    if manifest.assets().is_some() {
+        return 4;
+    }
     // Readers predating native receipts must reject these links rather than
     // present incomplete historical identity as a verified restore partner.
     if manifest.root_snapshot_receipt().is_some() {
@@ -724,6 +782,20 @@ fn required_payloads(manifest: &RecoveryManifest) -> Result<BTreeSet<Sha256>, Ge
             return Err(GenerationError::UnsafeSymlinkTarget);
         }
     }
+    if let Some(assets) = manifest.assets() {
+        assets.validate().map_err(|_| GenerationError::PayloadMismatch)?;
+        for entry in assets.entries() {
+            if let EntryKind::RegularFile { sha256, .. } = &entry.kind {
+                result.insert(sha256.clone());
+            }
+            if let Some(metadata) = entry_metadata(&entry.kind) {
+                if let Some(digest) = &metadata.acl_sha256 {
+                    result.insert(digest.clone());
+                }
+                result.extend(metadata.extended.values.values().cloned());
+            }
+        }
+    }
     Ok(result)
 }
 
@@ -739,7 +811,7 @@ fn verify_directory(
     let manifest = RecoveryManifest::parse_verified_json(&manifest_bytes)?;
     if !manifest.is_mutation_ready()
         || manifest.files().len() > MAX_GENERATION_FILES
-        || required_payloads(&manifest)?.len() > MAX_GENERATION_PAYLOADS
+        || required_payloads(&manifest)?.len() > stream::payload_limit(&manifest)
     {
         return Err(GenerationError::IncompletePublication);
     }
@@ -763,13 +835,22 @@ fn verify_directory(
     )?;
     let mut total = 0_u64;
     for digest in required {
+        if stream::is_large_asset(&manifest, &digest)? {
+            let size = stream::content_size(&manifest, &digest)?;
+            stream::open_verified_blob(&payload_dir, size, &digest)?;
+            total = total.checked_add(size).ok_or(GenerationError::InventoryTooLarge)?;
+            if total > stream::total_limit(&manifest) {
+                return Err(GenerationError::IncompletePublication);
+            }
+            continue;
+        }
         let bytes = read_file(
             &payload_dir,
             &format!("{}.blob", digest.as_str()),
             MAX_GENERATION_FILE_BYTES,
         )?;
         total = total.checked_add(bytes.len() as u64).ok_or(GenerationError::InventoryTooLarge)?;
-        if total > MAX_GENERATION_BYTES || digest_bytes(&bytes) != digest {
+        if total > stream::total_limit(&manifest) || digest_bytes(&bytes) != digest {
             return Err(GenerationError::IncompletePublication);
         }
         if !valid_payload_shape(&manifest, &digest, &bytes) {
@@ -781,8 +862,13 @@ fn verify_directory(
 
 fn valid_payload_shape(manifest: &RecoveryManifest, digest: &Sha256, bytes: &[u8]) -> bool {
     let mut referenced = false;
-    for record in manifest.files() {
-        if let EntryKind::RegularFile { size, sha256, .. } = &record.kind
+    for kind in manifest.files().iter().map(|record| &record.kind).chain(
+        manifest
+            .assets()
+            .into_iter()
+            .flat_map(|assets| assets.entries().iter().map(|entry| &entry.kind)),
+    ) {
+        if let EntryKind::RegularFile { size, sha256, .. } = kind
             && sha256 == digest
         {
             referenced = true;
@@ -790,7 +876,7 @@ fn valid_payload_shape(manifest: &RecoveryManifest, digest: &Sha256, bytes: &[u8
                 return false;
             }
         }
-        if let Some(metadata) = entry_metadata(&record.kind) {
+        if let Some(metadata) = entry_metadata(kind) {
             if metadata.acl_sha256.as_ref() == Some(digest) {
                 referenced = true;
                 if AclPayload::decode(bytes).is_err() {

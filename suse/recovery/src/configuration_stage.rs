@@ -80,6 +80,7 @@ impl StagedConfiguration {
 #[derive(Debug)]
 pub enum StageError {
     SystemOnlyScope,
+    AssetRestoreRequired,
     PlanMismatch,
     EmptyConfiguration,
     PayloadBudgetExceeded,
@@ -90,6 +91,7 @@ pub enum StageError {
 impl std::fmt::Display for StageError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::AssetRestoreRequired => formatter.write_str("asset-aware restore is required"),
             Self::SystemOnlyScope => {
                 formatter.write_str("system-only restore has no configuration stage")
             }
@@ -128,6 +130,9 @@ pub fn stage_configuration(
         return Err(StageError::SystemOnlyScope);
     }
     let manifest = generation.manifest();
+    if manifest.assets().is_some() {
+        return Err(StageError::AssetRestoreRequired);
+    }
     if manifest.manifest_sha256.as_ref() != Some(&plan.source_manifest_sha256)
         || plan.transaction_id != manifest.transaction_id
         || plan.generation_id != manifest.generation_id

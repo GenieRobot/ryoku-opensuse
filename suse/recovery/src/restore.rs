@@ -135,6 +135,7 @@ pub enum PreflightError {
     ConfigurationScopeEmpty,
     EntryCountOverflow,
     ConfigurationScopeTooLarge,
+    AssetRestoreRequired,
 }
 
 impl std::fmt::Display for PreflightError {
@@ -193,6 +194,10 @@ fn build_restore_plan(
     system_compatibility: CompatibilityStatus,
     configuration_compatibility: CompatibilityStatus,
 ) -> Result<RestorePlan, PreflightError> {
+    if manifest.assets().is_some() {
+        // Preference-only restore must never silently omit enrolled assets.
+        return Err(PreflightError::AssetRestoreRequired);
+    }
     if !manifest.is_mutation_ready() || manifest.validate().is_err() {
         return Err(PreflightError::ManifestInvalid);
     }

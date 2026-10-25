@@ -26,8 +26,9 @@ use rustix::{
 };
 
 use crate::{
-    EntryKind, RelativePath, XattrName, configuration_stage::StagedEntry,
-    metadata::MAX_METADATA_VALUE_BYTES,
+    EntryKind, EntryMetadata, RelativePath, XattrName,
+    configuration_stage::StagedEntry,
+    metadata::{AclPayload, MAX_METADATA_VALUE_BYTES},
 };
 
 #[derive(Debug)]
@@ -106,7 +107,23 @@ pub fn prepare_inode_metadata(file: &File, entry: &StagedEntry) -> Result<(), In
         }
         _ => return Err(InodeMetadataError::UnsupportedKind),
     };
-    let acl = entry.acl();
+    apply_verified_metadata(file, metadata, directory, entry.acl(), entry.xattrs().collect())
+}
+
+/// Apply metadata after the caller has independently verified the entire
+/// staging inode's type and bytes. This is private to recovery implementations;
+/// it neither chooses a destination nor publishes an inode.
+pub(crate) fn apply_verified_metadata(
+    file: &File,
+    metadata: &EntryMetadata,
+    directory: bool,
+    acl: Option<&AclPayload>,
+    attributes: Vec<(XattrName, &[u8])>,
+) -> Result<(), InodeMetadataError> {
+    let before = file.metadata()?;
+    if before.is_dir() != directory || (!directory && (!before.is_file() || before.nlink() != 1)) {
+        return Err(InodeMetadataError::InodeMismatch);
+    }
     if metadata.mode & !0o7777 != 0
         || metadata.uid == u32::MAX
         || metadata.gid == u32::MAX
@@ -120,7 +137,6 @@ pub fn prepare_inode_metadata(file: &File, entry: &StagedEntry) -> Result<(), In
         .try_into()
         .map_err(|_| InodeMetadataError::InvalidMetadata)?;
     let nanos = metadata.mtime_unix_ns.rem_euclid(1_000_000_000) as _;
-    let attributes: Vec<_> = entry.xattrs().collect();
     let label = attributes
         .iter()
         .find_map(|(name, value)| (*name == XattrName::SelinuxLabel).then_some(*value));

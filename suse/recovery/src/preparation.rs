@@ -849,6 +849,7 @@ fn capture_current_state(
             Ok(CaptureProvenance {
                 profile_revision,
                 account_principal: source.account_principal().cloned(),
+                assets: None,
             })
         },
         || Ok(()),

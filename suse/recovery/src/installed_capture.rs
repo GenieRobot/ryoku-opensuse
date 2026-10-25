@@ -548,6 +548,11 @@ fn capture_installed_configuration_using_profile(
     )
 }
 
+pub(crate) struct InstalledCaptureSources<'a> {
+    pub bundle: Option<&'a crate::installed_profiles::VerifiedProfileBundle>,
+    pub assets: Option<&'a [crate::ryogami_assets::AssetPath]>,
+}
+
 pub(crate) fn capture_installed_configuration_checked(
     store: &GenerationStore,
     inventory: &InstalledInventory,
@@ -563,6 +568,33 @@ pub(crate) fn capture_installed_configuration_checked(
     bundle: Option<&crate::installed_profiles::VerifiedProfileBundle>,
     boundary: impl Fn() -> Result<(), GenerationCaptureError>,
 ) -> Result<RecoveryManifest, GenerationCaptureError> {
+    capture_installed_configuration_with_sources_checked(
+        store,
+        inventory,
+        roots,
+        request,
+        capture_files,
+        InstalledCaptureSources { bundle, assets: None },
+        boundary,
+    )
+}
+
+pub(crate) fn capture_installed_configuration_with_sources_checked(
+    store: &GenerationStore,
+    inventory: &InstalledInventory,
+    roots: InstalledRoots<'_>,
+    request: InstalledCaptureRequest,
+    capture_files: impl Fn(
+        &File,
+        StateRoot,
+        &[RelativePath],
+        crate::capture::CaptureLimits,
+    )
+        -> Result<crate::capture::CapturedInventory, crate::capture::CaptureError>,
+    sources: InstalledCaptureSources<'_>,
+    boundary: impl Fn() -> Result<(), GenerationCaptureError>,
+) -> Result<RecoveryManifest, GenerationCaptureError> {
+    let bundle = sources.bundle;
     let checked_boundary = || {
         boundary()?;
         if inventory.paths.contains_key(&StateRoot::UserHome) {
@@ -663,6 +695,21 @@ pub(crate) fn capture_installed_configuration_checked(
             Ok(crate::generation_capture::CaptureProvenance {
                 profile_revision: Some(provenance),
                 account_principal: Some(roots.account.principal.clone()),
+                assets: sources
+                    .assets
+                    .map(|declarations| {
+                        let home = roots.account_home.ok_or(InventoryError::MissingRoot)?;
+                        let captured = crate::ryogami_assets::capture_assets(
+                            home,
+                            &roots.account,
+                            declarations,
+                            crate::ryogami_assets::MAX_CAPTURE_LIMITS,
+                        )
+                        .map_err(|_| GenerationCaptureError::VerificationMismatch)?;
+                        checked_boundary()?;
+                        Ok::<_, GenerationCaptureError>((captured, home.try_clone()?))
+                    })
+                    .transpose()?,
             })
         },
         checked_boundary,
