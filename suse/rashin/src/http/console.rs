@@ -637,6 +637,12 @@ pub(super) fn job(engine: &Arc<Engine>, id: &str) -> Result<String> {
     if job["tool_activity_truncated"] == true {
         body += "<p>Tool activity was omitted to preserve space for the final result.</p>";
     }
+    if job["needs_agent"] == true {
+        body += &format!(
+            "<h3>Agent handoff required</h3><p>{}</p><p>Continue explicitly in Agent to review the requested change.</p>",
+            escape(text(job, "needs_agent_reason"))
+        );
+    }
     if let Some(answer) = job["answer"].as_str() {
         body += &format!("<h3>Answer</h3><pre>{}</pre>", escape(answer));
     }

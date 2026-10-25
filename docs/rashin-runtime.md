@@ -362,7 +362,7 @@ No row in the original inventory is removed by this slice.
 
 | Retained upstream capability | Implemented and host-tested in this runtime | Still required for full #183 acceptance |
 | --- | --- | --- |
-| Ask/recent/cancel/handoff | Asynchronous local/fixture/HTTPS/Prowl Ask, bounded live SSE progress, actual model/usage, cancellation/restart, canonical recorded/manual/unfinished handoff and atomic Agent Run cancelling Ask | Original launcher/shell/Hub entrypoints and shared history, TOOLS_REQUIRED isolated Ask fallback, ACP cancellation and complete WebSocket-v3 replay |
+| Ask/recent/cancel/handoff | Asynchronous local/fixture/HTTPS/Prowl Ask, bounded live SSE progress, actual model/usage, cancellation/restart, canonical recorded/manual/unfinished handoff, typed NEEDS_AGENT reasons and atomic Agent Run cancelling Ask | Original launcher/shell/Hub entrypoints and shared history, TOOLS_REQUIRED isolated Ask fallback, ACP cancellation and complete WebSocket-v3 replay |
 | Agent/plain Chat | Independent persistent sessions/turns, load/read/delete, saved routes and explicit model picks; both JSON/SSE gateway completions | Actual ACP initialize/session/prompt/notifications/load/resume, replay, all retained harnesses, approvals/diffs/images/thinking/terminal |
 | Fix doctor/tip/app | Typed investigation, bounded native user-unit/journal/RPM evidence, external destination/finding preview, expiring single-use exact-action consent, replay safety; tools disabled to preserve reviewed evidence | Complete upstream app/coredump/package-change context and native entrypoints, transient unit/terminal harness, actual authorized repair providers with linked recovery |
 | Agent wire/unwire | Effective owner-controlled built-in Agent instructions, separate Ask/Chat, private persistence and scoped denial | Exact external marker/skill/MCP wiring, unrelated config preservation, native harness readiness/default/model operations and protected writer enrollment |
@@ -909,3 +909,41 @@ Actual gateway fixtures hold a native search request while API/browser show
 `running`, then prove success/failure/cancellation, privacy and saved restart
 history. Separate tests cover interrupted restart, stale generation, all32 rows
 and answer/cancellation retention at the state limit.
+
+
+## Ask requests that need Agent
+
+The retained `backend/ask.go:29` and `backend/askserve.go:362–382` represent a
+requested machine change with `NEEDS_AGENT:` and a bounded one-line reason;
+`backend/askserve_test.go:359–367` asserts that the marker is stripped. All
+references are under `ryoku/rashin/` at the pinned1.0 commit above. The Rust Ask
+lane now requests and recognizes this response, normalizes whitespace, clips at
+safe UTF-8 boundaries to500bytes and stores `needs_agent:true` with
+`needs_agent_reason` alongside the cleaned answer. An empty marker reason keeps
+the upstream `(no answer)` fallback and typed requirement. Ordinary text and
+non-leading/case-different marker mentions retain their meaning.
+
+Ask's live progress holds possible leading marker fragments across delta
+boundaries and suppresses the control response until its final cleaned result
+is atomically published. The filter resets between actual tool rounds, so a
+later answer cannot leak a marker after an earlier tool preamble. Its memory and
+input stay within the existing128KiB progress bound. Cancellation/failure saves
+no partial reason, answer, handoff or usage; stale generations retain their
+existing guard. Agent and plain Chat keep their own text and histories.
+
+The authenticated job page labels **Agent handoff required**, escapes the
+reason, and offers the actual existing Stage/Run controls. A completed flagged
+Ask grants no new capability and starts no Agent by itself. Owner confirmation
+through these controls captures the canonical question/cleaned answer, runs the
+selected Agent session once, and preserves Chat separation and retry/restart
+semantics. Restricted Ask clients cannot invoke owner handoff actions.
+
+Actual JSON/SSE gateway fixtures exercise typed reasons, a tool preamble before
+the marker, escaped browser display, explicit Agent execution, idempotent retry,
+restart and separate Chat. Deterministic streamed fixtures prove split marker
+suppression and cancellation/failure without incomplete records. Automatic
+`TOOLS_REQUIRED` or failed fast-lane fallback into the real isolated read-only
+ACP lane (`askserve.go:88–107,152–220`) remains required, together with complete
+ACP/approvals/diffs/replay/native UI and all other acceptance-map rows. Explicit
+Agent continuation implements the retained change-request branch; it does not
+substitute for the isolated Ask fallback.

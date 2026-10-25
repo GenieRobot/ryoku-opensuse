@@ -4765,3 +4765,253 @@ fn tool_activity_live_gateway_browser_privacy_terminal_history_and_cancel_are_co
         );
     }
 }
+
+#[test]
+fn needs_agent_split_stream_never_leaks_marker_and_chat_stays_independent() {
+    use ryoku_rashin::provider::FixtureOutcome;
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    engine
+        .dispatch(Request::PutProvider {
+            id: "marker-stream".into(),
+            provider: Provider::Fixture {
+                catalog: None,
+                delay_millis: 600,
+                outcome: FixtureOutcome::Stream {
+                    chunks: vec![
+                        " \nNEE".into(),
+                        "DS_".into(),
+                        "AGENT:".into(),
+                        " edit the service\n and restart it".into(),
+                    ],
+                    fail: false,
+                },
+            },
+        })
+        .unwrap();
+    for lane in [Lane::Ask, Lane::Chat] {
+        engine
+            .dispatch(Request::SetRoute {
+                lane,
+                provider: "marker-stream".into(),
+                model: "fixture-v1".into(),
+            })
+            .unwrap();
+    }
+    engine.dispatch(Request::NewSession { id: "marker-chat".into(), lane: Lane::Chat }).unwrap();
+    engine.dispatch(Request::Ask { id: "marker-ask".into(), prompt: "change it".into() }).unwrap();
+    engine
+        .dispatch(Request::Prompt {
+            id: "marker-chat-turn".into(),
+            session: "marker-chat".into(),
+            prompt: "quote it".into(),
+        })
+        .unwrap();
+    let until = Instant::now() + Duration::from_secs(3);
+    let mut running_polls = 0;
+    loop {
+        let job = rpc(&engine, Request::Job { id: "marker-ask".into() });
+        if job["job"]["status"] != "running" {
+            break;
+        }
+        running_polls += 1;
+        assert_eq!(job["progress"], "");
+        assert!(Instant::now() < until);
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(running_polls > 1);
+    let ask = done(&engine, "marker-ask");
+    assert_eq!(ask["status"], "completed");
+    assert_eq!(ask["needs_agent"], true);
+    assert_eq!(ask["answer"], "edit the service and restart it");
+    assert_eq!(ask["needs_agent_reason"], ask["answer"]);
+    let chat = done(&engine, "marker-chat-turn");
+    assert_eq!(chat["status"], "completed");
+    assert_ne!(chat["needs_agent"], true);
+    assert!(chat["answer"].as_str().unwrap().contains("NEEDS_AGENT:"));
+    assert!(rpc(&engine, Request::Sessions {})["pending_handoff"].is_null());
+    let messages = rpc(&engine, Request::Session { id: "marker-chat".into() });
+    assert_eq!(messages["session"]["messages"][1]["content"], chat["answer"]);
+}
+
+#[test]
+fn needs_agent_actual_gateway_normalizes_reason_browser_handoff_replay_and_restart() {
+    use ryoku_rashin::authorization::Access;
+    for streaming in [false, true] {
+        let fixture = Fixture::new();
+        let engine = fixture.engine();
+        let marker_answer = json!({"model":"tool-actual","choices":[{"message":{"content":"  NEEDS_AGENT: edit <service>\n and restart it"},"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":3}});
+        let mut responses = Vec::new();
+        if streaming {
+            let mut probe =
+                tool_round_response("system_query", r#"{"topic":"kernel"}"#, "before-marker");
+            probe["choices"][0]["message"]["content"] = json!("Inspecting state");
+            responses.push(Some(probe));
+        }
+        responses.push(Some(marker_answer.clone()));
+        responses.push(Some(marker_answer));
+        let count = responses.len();
+        let (port, requests, server) = tool_gateway(responses);
+        connect_tool_gateway(&engine, port, streaming);
+        if streaming {
+            engine
+                .dispatch(Request::SetReadOnlyTools {
+                    provider: "tool-gateway".into(),
+                    enabled: true,
+                })
+                .unwrap();
+        }
+        engine
+            .dispatch(Request::SetRoute {
+                lane: Lane::Chat,
+                provider: "tool-gateway".into(),
+                model: "auto:fast".into(),
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::NewSession { id: "handoff-target".into(), lane: Lane::Agent })
+            .unwrap();
+        engine
+            .dispatch(Request::NewSession { id: "independent".into(), lane: Lane::Chat })
+            .unwrap();
+        engine
+            .dispatch(Request::Ask { id: "needs-change".into(), prompt: "change it".into() })
+            .unwrap();
+        let ask = done(&engine, "needs-change");
+        assert_eq!(ask["needs_agent"], true);
+        assert_eq!(ask["needs_agent_reason"], "edit <service> and restart it");
+        assert_eq!(ask["answer"], ask["needs_agent_reason"]);
+        assert!(!ask.to_string().contains("NEEDS_AGENT:"));
+        assert!(
+            rpc(&engine, Request::Session { id: "handoff-target".into() })["session"]["messages"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        engine
+            .dispatch(Request::Prompt {
+                id: "separate-chat".into(),
+                session: "independent".into(),
+                prompt: "quote it".into(),
+            })
+            .unwrap();
+        let chat = done(&engine, "separate-chat");
+        assert_ne!(chat["needs_agent"], true);
+        assert!(chat["answer"].as_str().unwrap().contains("NEEDS_AGENT:"));
+        let gateway = ryoku_rashin::http::Gateway::new(
+            engine.clone(),
+            "1".repeat(64),
+            "http://127.0.0.1:51321".into(),
+        )
+        .unwrap();
+        let html = http(&gateway, "GET", "/job/needs-change", BROWSER_AUTH, "");
+        assert!(html.contains("Agent handoff required"));
+        assert!(html.contains("edit &lt;service&gt; and restart it"));
+        assert!(!html.contains("NEEDS_AGENT:"));
+        assert_eq!(
+            engine.dispatch_as(
+                Access::AskClient,
+                Request::Handoff { ask_id: "needs-change".into(), run: None }
+            ),
+            Err(Error::Unauthorized)
+        );
+        engine
+            .dispatch(Request::SetRoute {
+                lane: Lane::Agent,
+                provider: "local".into(),
+                model: "local-retrieval-v1".into(),
+            })
+            .unwrap();
+        assert!(
+            ui_submit(&gateway, &[("action", "handoff"), ("ask_id", "needs-change")])
+                .starts_with("HTTP/1.1 303")
+        );
+        let pending = rpc(&engine, Request::Sessions {});
+        assert_eq!(pending["pending_handoff"]["answer"], ask["answer"]);
+        let fields = [
+            ("action", "handoff_run"),
+            ("ask_id", "needs-change"),
+            ("session", "handoff-target"),
+            ("id", "explicit-agent"),
+        ];
+        assert!(ui_submit(&gateway, &fields).starts_with("HTTP/1.1 303"));
+        let run = done(&engine, "explicit-agent");
+        assert_eq!(run["status"], "completed");
+        assert_eq!(run["handoff"]["answer"], ask["answer"]);
+        assert_ne!(run["needs_agent"], true);
+        assert!(ui_submit(&gateway, &fields).starts_with("HTTP/1.1 303"));
+        assert_eq!(
+            rpc(&engine, Request::Session { id: "handoff-target".into() })["session"]["messages"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        assert_eq!(
+            rpc(&engine, Request::Session { id: "independent".into() })["session"]["messages"][1]["content"],
+            chat["answer"]
+        );
+        server.join().unwrap();
+        let bodies = (0..count)
+            .map(|_| requests.recv_timeout(Duration::from_secs(2)).unwrap())
+            .collect::<Vec<_>>();
+        assert!(
+            bodies[0]["messages"][0]["content"]
+                .as_str()
+                .unwrap()
+                .contains("If a change is required, reply NEEDS_AGENT:")
+        );
+        assert!(requests.try_recv().is_err());
+        drop(gateway);
+        drop(engine);
+        let engine = fixture.reopen();
+        assert_eq!(done(&engine, "needs-change")["needs_agent_reason"], ask["needs_agent_reason"]);
+    }
+}
+
+#[test]
+fn needs_agent_unfinished_cancel_and_failure_publish_no_reason_or_partial_handoff() {
+    use ryoku_rashin::provider::FixtureOutcome;
+    for cancel in [true, false] {
+        let fixture = Fixture::new();
+        let engine = fixture.engine();
+        engine
+            .dispatch(Request::PutProvider {
+                id: "unfinished-marker".into(),
+                provider: Provider::Fixture {
+                    catalog: None,
+                    delay_millis: 300,
+                    outcome: FixtureOutcome::Stream {
+                        chunks: vec!["NEEDS_".into(), "AGENT:".into(), " change it".into()],
+                        fail: !cancel,
+                    },
+                },
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::SetRoute {
+                lane: Lane::Ask,
+                provider: "unfinished-marker".into(),
+                model: "fixture-v1".into(),
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::Ask { id: "unfinished-marker".into(), prompt: "change it".into() })
+            .unwrap();
+        assert_eq!(rpc(&engine, Request::Job { id: "unfinished-marker".into() })["progress"], "");
+        if cancel {
+            engine.dispatch(Request::Cancel { id: "unfinished-marker".into() }).unwrap();
+        }
+        let job = done(&engine, "unfinished-marker");
+        assert_eq!(job["status"], if cancel { "cancelled" } else { "failed" });
+        assert_ne!(job["needs_agent"], true);
+        assert!(job["needs_agent_reason"].is_null());
+        assert!(job["answer"].is_null());
+        assert!(rpc(&engine, Request::Usage {})["activity"].as_array().unwrap().is_empty());
+        assert_eq!(
+            engine.dispatch(Request::Handoff { ask_id: "unfinished-marker".into(), run: None }),
+            Err(Error::Conflict)
+        );
+        assert!(rpc(&engine, Request::Sessions {})["pending_handoff"].is_null());
+    }
+}
