@@ -36,6 +36,9 @@ pub enum AssetNamespace {
     ConfiguredLibrary,
     ModelReferenceStage,
     TreeStage,
+    MediaTrash,
+    CatalogStage,
+    WallpaperCache,
 }
 impl AssetNamespace {
     pub fn home_prefix(self) -> &'static str {
@@ -45,7 +48,12 @@ impl AssetNamespace {
             Self::RemotePreviews => ".cache/ryogami/remote-preview",
             Self::RemoteThumbnails => ".cache/ryogami/remote",
             Self::WorkshopContent => ".local/share/ryogami/workshop",
-            Self::ConfiguredLibrary | Self::ModelReferenceStage | Self::TreeStage => "",
+            Self::ConfiguredLibrary
+            | Self::ModelReferenceStage
+            | Self::TreeStage
+            | Self::MediaTrash
+            | Self::CatalogStage => "",
+            Self::WallpaperCache => ".cache/ryogami/wallpaper",
         }
     }
 }
@@ -93,6 +101,39 @@ impl AssetPath {
         }
         if self.relative.as_str().len() > 1024 || self.relative.as_str().split('/').count() > 16 {
             return Err(AssetError::Path);
+        }
+        if self.namespace == AssetNamespace::CatalogStage {
+            let token = self
+                .relative
+                .as_str()
+                .strip_prefix(".ryoku-catalog-")
+                .and_then(|name| name.strip_suffix(".part"))
+                .ok_or(AssetError::Path)?;
+            Sha256::new(token).map_err(|_| AssetError::Path)?;
+        }
+        if self.namespace == AssetNamespace::MediaTrash {
+            let (token, index) = self
+                .relative
+                .as_str()
+                .strip_prefix(".ryoku-media-trash-")
+                .and_then(|name| name.rsplit_once('-'))
+                .ok_or(AssetError::Path)?;
+            Sha256::new(token).map_err(|_| AssetError::Path)?;
+            let index: u8 = index.parse().map_err(|_| AssetError::Path)?;
+            if index > 3 || self.relative.as_str() != format!(".ryoku-media-trash-{token}-{index}")
+            {
+                return Err(AssetError::Path);
+            }
+        }
+        if self.namespace == AssetNamespace::WallpaperCache {
+            let (directory, leaf) =
+                self.relative.as_str().split_once('/').ok_or(AssetError::Path)?;
+            if !matches!(directory, "thumbs" | "thumbs-sm" | "video-thumbs" | "anim")
+                || leaf.is_empty()
+                || leaf.contains('/')
+            {
+                return Err(AssetError::Path);
+            }
         }
         if self.namespace == AssetNamespace::TreeStage {
             let leaf = self.relative.as_str().split('/').next().ok_or(AssetError::Path)?;

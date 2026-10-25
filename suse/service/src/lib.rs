@@ -16,6 +16,7 @@ pub mod native_mutation;
 pub mod protected_state;
 pub mod runtime;
 mod runtime_paths;
+pub mod ryogami_media;
 pub mod ryogami_model_references;
 pub mod ryogami_models;
 #[cfg(target_os = "linux")]
@@ -219,6 +220,8 @@ pub enum ManagedActionKind {
     UnassignWorkspace,
     AddModelReference,
     ForgetModelReference,
+    DeleteMedia,
+    RestoreMedia,
 }
 
 impl From<&ManagedAction> for ManagedActionKind {
@@ -354,6 +357,10 @@ pub fn read_envelope(reader: &mut impl BufRead) -> Result<Envelope, ProtocolErro
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HelperRequest {
+    ChangeMedia {
+        action: ryoku_recovery::ryogami_media_protocol::MediaIntent,
+        rpc_id: i64,
+    },
     ChangeModelReferences {
         action: ryoku_recovery::ryogami_models_protocol::ModelReferenceIntent,
         rpc_id: i64,
@@ -398,6 +405,12 @@ pub enum HelperRequest {
 impl HelperRequest {
     pub fn validate(&self) -> Result<(), ProtocolError> {
         let (transaction, manifest) = match self {
+            Self::ChangeMedia { action, rpc_id } => {
+                if *rpc_id < 0 || action.validate().is_err() {
+                    return Err(ProtocolError::Malformed("invalid media action"));
+                }
+                return Ok(());
+            }
             Self::ChangeModelReferences { action, rpc_id } => {
                 if *rpc_id < 0 || action.validate().is_err() {
                     return Err(ProtocolError::Malformed("invalid model reference action"));

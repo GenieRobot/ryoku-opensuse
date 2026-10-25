@@ -50,6 +50,7 @@ pub mod restore;
 pub mod rpm_defaults;
 #[cfg(target_os = "linux")]
 pub mod ryogami_assets;
+pub mod ryogami_media_protocol;
 pub mod ryogami_models_protocol;
 #[cfg(target_os = "linux")]
 pub mod ryogami_trees;

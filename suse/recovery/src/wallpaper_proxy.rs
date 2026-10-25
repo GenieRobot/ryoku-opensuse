@@ -196,6 +196,14 @@ fn models_via_helper(
         serde_json::to_value(action).map_err(io::Error::other)?,
     ).or_else(|_| Ok(error_reply(id, "Model authorization or linked recovery is unavailable; inspect the protected operation history")))
 }
+fn media_via_helper(
+    id: i64,
+    action: &crate::ryogami_media_protocol::MediaIntent,
+) -> io::Result<Vec<u8>> {
+    action.validate().map_err(io::Error::other)?;
+    exchange_mutation_helper(id,"change_media","media_changed",serde_json::to_value(action).map_err(io::Error::other)?)
+        .or_else(|_|Ok(error_reply(id,"Media authorization or linked recovery is unavailable; inspect the protected operation history")))
+}
 fn exchange_mutation_helper(
     id: i64,
     operation: &str,
@@ -344,12 +352,24 @@ fn relay_authenticated(
 }
 fn relay_authenticated_models(
     client: UnixStream,
+    native: UnixStream,
+    apply: &mut impl FnMut(i64, &WallpaperChange) -> io::Result<Vec<u8>>,
+    models: &mut impl FnMut(
+        i64,
+        &crate::ryogami_models_protocol::ModelReferenceIntent,
+    ) -> io::Result<Vec<u8>>,
+) -> io::Result<()> {
+    relay_authenticated_providers(client, native, apply, models, &mut media_via_helper)
+}
+fn relay_authenticated_providers(
+    client: UnixStream,
     mut native: UnixStream,
     apply: &mut impl FnMut(i64, &WallpaperChange) -> io::Result<Vec<u8>>,
     models: &mut impl FnMut(
         i64,
         &crate::ryogami_models_protocol::ModelReferenceIntent,
     ) -> io::Result<Vec<u8>>,
+    media: &mut impl FnMut(i64, &crate::ryogami_media_protocol::MediaIntent) -> io::Result<Vec<u8>>,
 ) -> io::Result<()> {
     let output = Mutex::new(client.try_clone()?);
     let closed = AtomicBool::new(false);
@@ -419,6 +439,10 @@ fn relay_authenticated_models(
                     }
                     Ok(PublicRequest::Audio { id, action }) => {
                         let reply = mutation_reply(id, apply(id, &WallpaperChange::Audio(action)))?;
+                        write_public(&output, &reply)?;
+                    }
+                    Ok(PublicRequest::Media { id, action }) => {
+                        let reply = mutation_reply(id, media(id, &action))?;
                         write_public(&output, &reply)?;
                     }
                     Ok(PublicRequest::ModelReference { id, action }) => {
@@ -596,6 +620,65 @@ mod tests {
     use super::*;
     use crate::wallpaper_protocol::WallpaperApply;
     use std::{collections::BTreeMap, io::Read, sync::atomic::AtomicUsize};
+
+    #[test]
+    fn media_frames_use_typed_helper_and_never_native_query_authority() {
+        use crate::ryogami_media_protocol::MediaIntent;
+        let (mut client, proxy) = UnixStream::pair().unwrap();
+        client.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let (native, mut backend) = UnixStream::pair().unwrap();
+        backend.set_read_timeout(Some(Duration::from_millis(50))).unwrap();
+        let calls = AtomicUsize::new(0);
+        let receipt = format!("{}.{}", "a".repeat(64), "b".repeat(64));
+        std::thread::scope(|scope| {
+            let worker = scope.spawn(|| {
+                relay_authenticated_providers(
+                    proxy,
+                    native,
+                    &mut |_, _| panic!("media reached wallpaper helper"),
+                    &mut |_, _| panic!("media reached model helper"),
+                    &mut |id, action| {
+                        calls.fetch_add(1, Ordering::Relaxed);
+                        match action {
+                            MediaIntent::Delete { key } => assert_eq!(key, "fixture"),
+                            MediaIntent::Restore { receipt: actual } => {
+                                assert_eq!(actual, &receipt)
+                            }
+                        };
+                        Ok(format!("{{\"id\":{id},\"result\":{{\"ok\":true}}}}\n").into_bytes())
+                    },
+                )
+            });
+            let mut reader = BufReader::new(client.try_clone().unwrap());
+            for (method, params) in [
+                ("wall.delete", serde_json::json!({"key":"fixture"})),
+                ("wall.restore", serde_json::json!({"receipt":receipt})),
+            ] {
+                let mut frame = serde_json::to_vec(
+                    &serde_json::json!({"id":7,"method":method,"params":params}),
+                )
+                .unwrap();
+                frame.push(b'\n');
+                client.write_all(&frame).unwrap();
+                let mut reply = String::new();
+                reader.read_line(&mut reply).unwrap();
+                assert!(
+                    serde_json::from_str::<serde_json::Value>(&reply)
+                        .unwrap()
+                        .get("result")
+                        .is_some()
+                );
+            }
+            for frame in [b"{\"id\":8,\"method\":\"wall.delete\",\"params\":{\"key\":\"fixture\",\"path\":\"/tmp/file\"}}\n".as_slice(),b"{\"id\":9,\"method\":\"broker.media-catalog\",\"params\":{}}\n"] {
+                client.write_all(frame).unwrap();let mut reply=String::new();reader.read_line(&mut reply).unwrap();assert!(serde_json::from_str::<serde_json::Value>(&reply).unwrap().get("error").is_some());
+            }
+            assert_eq!(calls.load(Ordering::Relaxed), 2);
+            assert!(backend.read(&mut [0]).is_err());
+            client.shutdown(std::net::Shutdown::Both).unwrap();
+            backend.shutdown(std::net::Shutdown::Both).unwrap();
+            worker.join().unwrap().unwrap();
+        });
+    }
 
     #[test]
     fn model_reference_frames_use_typed_helper_and_never_reuse_native_query_authority() {

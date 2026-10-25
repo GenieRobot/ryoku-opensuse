@@ -1,11 +1,11 @@
 --- a/ryoku/shell/ryogami/daemon/daemon.go
 +++ b/ryoku/shell/ryogami/daemon/daemon.go
-@@ -260,16 +260,21 @@
+@@ -260,16 +260,26 @@
  		return
  	}
  	var req request
 -	if json.Unmarshal(permit.Frame, &req) != nil || (req.Method != "wall.apply" && req.Method != "wall.set_audio" && req.Method != "broker.workspace" && req.Method != "wall.pause") {
-+	if json.Unmarshal(permit.Frame, &req) != nil || (req.Method != "wall.apply" && req.Method != "wall.set_audio" && req.Method != "broker.workspace" && req.Method != "wall.pause" && req.Method != "broker.model-references") {
++	if json.Unmarshal(permit.Frame, &req) != nil || (req.Method != "wall.apply" && req.Method != "wall.set_audio" && req.Method != "broker.workspace" && req.Method != "wall.pause" && req.Method != "broker.model-references" && req.Method != "broker.media-catalog") {
  		return
  	}
  	var action brokerAction
@@ -13,10 +13,15 @@
  	var workspace brokerWorkspace
  	var pause brokerPause
 +	var modelReferences brokerModelReferences
++	var catalog brokerCatalogCommit
  	decoder = json.NewDecoder(strings.NewReader(string(req.Params)))
  	decoder.DisallowUnknownFields()
 -	if req.Method == "wall.apply" {
-+	if req.Method == "broker.model-references" {
++	if req.Method == "broker.media-catalog" {
++		if decoder.Decode(&catalog) != nil || !catalog.valid() {
++			return
++		}
++	} else if req.Method == "broker.model-references" {
 +		if decoder.Decode(&modelReferences) != nil || !modelReferences.valid() {
 +			return
 +		}
@@ -24,10 +29,20 @@
  		if decoder.Decode(&action) != nil || (action.Type != "static" && action.Type != "video") {
  			return
  		}
-@@ -314,6 +319,16 @@
+@@ -314,6 +324,26 @@
  		return
  	}
  	if len(permit.PlayerPins) != 0 {
++		return
++	}
++	if req.Method == "broker.media-catalog" {
++		result, err := d.brokerCatalogApply(catalog)
++		response := ok(req.ID, result)
++		if err != nil {
++			response = errResp(req.ID, -32019, err.Error())
++		}
++		reply, _ := json.Marshal(response)
++		fmt.Fprintf(conn, "%s\n", reply)
 +		return
 +	}
 +	if req.Method == "broker.model-references" {
@@ -647,4 +662,576 @@
 +	if err := os.WriteFile(filepath.Join(path, ".fixture-reply.json"), append(bytes, '\n'), 0600); err != nil {
 +		t.Fatal(err)
 +	}
++}
+--- /dev/null
++++ b/ryoku/shell/ryogami/daemon/broker_catalog.go
+@@ -0,0 +1,196 @@
++package main
++
++// The Rust provider owns exact media paths and recoverable moves. This private
++// actor only commits one reviewed catalog row after its linked permit; it never
++// accepts a public row, path, filesystem command or recovery assertion.
++import (
++	"bytes"
++	"crypto/sha256"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"io"
++	"os"
++	"path/filepath"
++	"reflect"
++	"syscall"
++)
++
++const brokerCatalogLimit = 16 * 1024 * 1024
++
++type brokerCatalogMutation struct {
++	Action string          `json:"action"`
++	Key    string          `json:"key"`
++	Entry  json.RawMessage `json:"entry,omitempty"`
++}
++type brokerCatalogCommit struct {
++	ExpectedCatalog string                `json:"expected_catalog"`
++	StagingToken    string                `json:"staging_token"`
++	Mutation        brokerCatalogMutation `json:"mutation"`
++}
++
++func (c brokerCatalogCommit) valid() bool {
++	if !brokerModelDigest(c.ExpectedCatalog) || !brokerModelDigest(c.StagingToken) || len(c.Mutation.Key) == 0 || len(c.Mutation.Key) > 512 {
++		return false
++	}
++	for _, ch := range c.Mutation.Key {
++		if ch < 32 || ch == 127 {
++			return false
++		}
++	}
++	switch c.Mutation.Action {
++	case "remove":
++		return len(c.Mutation.Entry) == 0
++	case "insert":
++		var row Entry
++		return len(c.Mutation.Entry) <= 32768 && json.Unmarshal(c.Mutation.Entry, &row) == nil && row.Key == c.Mutation.Key && (row.Type == "static" || row.Type == "video")
++	default:
++		return false
++	}
++}
++func brokerCatalogRead(parent *os.File) (*os.File, []byte, *syscall.Stat_t, error) {
++	file, err := brokerModelOpen(parent, "index.json", false)
++	if err != nil {
++		return nil, nil, nil, err
++	}
++	st, err := brokerModelOwned(file, false)
++	if err != nil || st.Size < 0 || st.Size > brokerCatalogLimit {
++		file.Close()
++		return nil, nil, nil, errors.New("catalog capacity")
++	}
++	data, err := io.ReadAll(io.LimitReader(file, brokerCatalogLimit+1))
++	after, afterErr := brokerModelOwned(file, false)
++	if err != nil || afterErr != nil || len(data) > brokerCatalogLimit || int64(len(data)) != st.Size || !brokerModelSameInode(st, after) {
++		file.Close()
++		return nil, nil, nil, errors.New("catalog changed")
++	}
++	return file, data, st, nil
++}
++func brokerPersistCatalog(root *os.File, commit brokerCatalogCommit, expected map[string]Entry) (map[string]Entry, Entry, error) {
++	fail := func() (map[string]Entry, Entry, error) {
++		return nil, Entry{}, errors.New("catalog transaction failed; use linked recovery")
++	}
++	if !commit.valid() {
++		return fail()
++	}
++	rootStat, err := brokerModelOwned(root, true)
++	if err != nil {
++		return fail()
++	}
++	parent := root
++	opened := []*os.File{}
++	defer func() {
++		for _, file := range opened {
++			file.Close()
++		}
++	}()
++	for _, component := range []string{".cache", "ryogami", "wallpaper"} {
++		next, err := brokerModelOpen(parent, component, true)
++		if err != nil {
++			return fail()
++		}
++		opened = append(opened, next)
++		st, err := brokerModelOwned(next, true)
++		if err != nil || st.Dev != rootStat.Dev {
++			return fail()
++		}
++		parent = next
++	}
++	source, original, st, err := brokerCatalogRead(parent)
++	if err != nil {
++		return fail()
++	}
++	defer source.Close()
++	if st.Dev != rootStat.Dev || fmt.Sprintf("%x", sha256.Sum256(original)) != commit.ExpectedCatalog {
++		return fail()
++	}
++	var rows map[string]json.RawMessage
++	var before map[string]Entry
++	if json.Unmarshal(original, &rows) != nil || rows == nil || json.Unmarshal(resolvedJSON(original), &before) != nil || !reflect.DeepEqual(before, expected) {
++		return fail()
++	}
++	var event Entry
++	if commit.Mutation.Action == "remove" {
++		var exists bool
++		event, exists = before[commit.Mutation.Key]
++		if !exists || event.Key != commit.Mutation.Key || (event.Type != "static" && event.Type != "video") {
++			return fail()
++		}
++		delete(rows, commit.Mutation.Key)
++	} else {
++		if _, exists := rows[commit.Mutation.Key]; exists {
++			return fail()
++		}
++		rows[commit.Mutation.Key] = commit.Mutation.Entry
++		if json.Unmarshal(resolvedJSON(commit.Mutation.Entry), &event) != nil {
++			return fail()
++		}
++	}
++	data, err := json.Marshal(rows)
++	if err != nil || len(data) > brokerCatalogLimit {
++		return fail()
++	}
++	name := ".ryoku-catalog-" + commit.StagingToken + ".part"
++	fd, err := syscall.Openat(int(root.Fd()), name, syscall.O_CREAT|syscall.O_EXCL|syscall.O_RDWR|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0600)
++	if err != nil {
++		return fail()
++	}
++	stage := os.NewFile(uintptr(fd), "catalog stage")
++	defer stage.Close()
++	if _, err = stage.Write(data); err != nil {
++		return fail()
++	}
++	if stage.Chmod(os.FileMode(st.Mode&0777)) != nil || brokerModelAttributes(source, stage) != nil || stage.Sync() != nil || root.Sync() != nil {
++		return fail()
++	}
++	current, check, after, err := brokerCatalogRead(parent)
++	if err != nil {
++		return fail()
++	}
++	current.Close()
++	if !brokerModelSameInode(st, after) || !bytes.Equal(original, check) {
++		return fail()
++	}
++	if syscall.Renameat(int(root.Fd()), name, int(parent.Fd()), "index.json") != nil || parent.Sync() != nil || root.Sync() != nil {
++		return fail()
++	}
++	current, check, _, err = brokerCatalogRead(parent)
++	if err != nil {
++		return fail()
++	}
++	current.Close()
++	if !bytes.Equal(check, data) {
++		return fail()
++	}
++	var entries map[string]Entry
++	if json.Unmarshal(resolvedJSON(data), &entries) != nil {
++		return fail()
++	}
++	return entries, event, nil
++}
++func (d *daemon) brokerCatalogApply(commit brokerCatalogCommit) (interface{}, error) {
++	if d.store == nil || filepath.Clean(d.store.dir) != filepath.Join(home(), ".cache", "ryogami", "wallpaper") {
++		return nil, errors.New("catalog account binding changed")
++	}
++	d.store.mu.Lock()
++	root, err := os.Open(home())
++	if err != nil {
++		d.store.mu.Unlock()
++		return nil, errors.New("catalog account unavailable")
++	}
++	entries, event, err := brokerPersistCatalog(root, commit, d.store.entries)
++	root.Close()
++	if err == nil {
++		d.store.entries = entries
++	}
++	d.store.mu.Unlock()
++	if err != nil {
++		return nil, err
++	}
++	if commit.Mutation.Action == "remove" {
++		d.broadcast("ryogami.wall.file_removed", map[string]interface{}{"key": event.Key, "name": event.Name, "type": event.Type})
++	} else {
++		d.broadcast("ryogami.wall.cached", event)
++	}
++	return map[string]interface{}{"committed": true, "key": commit.Mutation.Key, "action": commit.Mutation.Action}, nil
++}
+--- /dev/null
++++ b/ryoku/shell/ryogami/daemon/broker_catalog_test.go
+@@ -0,0 +1,182 @@
++package main
++
++import (
++	"bytes"
++	"crypto/sha256"
++	"encoding/json"
++	"fmt"
++	"os"
++	"path/filepath"
++	"strings"
++	"syscall"
++	"testing"
++)
++
++func catalogFixture(t *testing.T) (*os.File, string, []byte, brokerCatalogCommit, map[string]Entry) {
++	t.Helper()
++	path := t.TempDir()
++	t.Setenv("HOME", path)
++	if err := os.Chmod(path, 0700); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.MkdirAll(filepath.Join(path, ".cache/ryogami/wallpaper"), 0700); err != nil {
++		t.Fatal(err)
++	}
++	original := []byte(`{"fixture":{"key":"fixture","name":"sample.png","type":"static","path":"~/Pictures/sample.png","future":9007199254740993},"private":{"key":"private","name":"private.png","type":"static","future":9007199254740995}}`)
++	if err := os.WriteFile(filepath.Join(path, ".cache/ryogami/wallpaper/index.json"), original, 0640); err != nil {
++		t.Fatal(err)
++	}
++	root, err := os.Open(path)
++	if err != nil {
++		t.Fatal(err)
++	}
++	t.Cleanup(func() { root.Close() })
++	var entries map[string]Entry
++	if err := json.Unmarshal(resolvedJSON(original), &entries); err != nil {
++		t.Fatal(err)
++	}
++	commit := brokerCatalogCommit{ExpectedCatalog: fmt.Sprintf("%x", sha256.Sum256(original)), StagingToken: strings.Repeat("c", 64), Mutation: brokerCatalogMutation{Action: "remove", Key: "fixture"}}
++	return root, path, original, commit, entries
++}
++func TestBrokerCatalogDeleteRestorePersistReopenAndPreserveUnrelatedRows(t *testing.T) {
++	root, path, original, commit, expected := catalogFixture(t)
++	entries, event, err := brokerPersistCatalog(root, commit, expected)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(entries) != 1 || event.Key != "fixture" {
++		t.Fatal("wrong deletion")
++	}
++	catalog := filepath.Join(path, ".cache/ryogami/wallpaper/index.json")
++	data, err := os.ReadFile(catalog)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if !bytes.Contains(data, []byte("9007199254740995")) {
++		t.Fatal("unrelated exact number lost")
++	}
++	info, err := os.Stat(catalog)
++	if err != nil || info.Mode().Perm() != 0640 {
++		t.Fatal("metadata lost")
++	}
++	if _, err := os.Stat(filepath.Join(path, ".ryoku-catalog-"+commit.StagingToken+".part")); !os.IsNotExist(err) {
++		t.Fatal("stage remains")
++	}
++	if got := openStore(filepath.Join(path, ".cache/ryogami")); len(got.entries) != 1 {
++		t.Fatal("reopen lost catalog")
++	}
++	if _, _, err := brokerPersistCatalog(root, commit, expected); err == nil {
++		t.Fatal("stale commit repeated")
++	}
++	var rows map[string]json.RawMessage
++	if err := json.Unmarshal(original, &rows); err != nil {
++		t.Fatal(err)
++	}
++	restore := brokerCatalogCommit{ExpectedCatalog: fmt.Sprintf("%x", sha256.Sum256(data)), StagingToken: strings.Repeat("d", 64), Mutation: brokerCatalogMutation{Action: "insert", Key: "fixture", Entry: rows["fixture"]}}
++	entries, event, err = brokerPersistCatalog(root, restore, entries)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(entries) != 2 || event.Path != filepath.Join(path, "Pictures/sample.png") {
++		t.Fatal("restore row not resolved")
++	}
++	data, err = os.ReadFile(catalog)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if !bytes.Contains(data, []byte("9007199254740993")) || !bytes.Contains(data, []byte("9007199254740995")) {
++		t.Fatal("row metadata changed")
++	}
++}
++func TestBrokerCatalogRefusesStaleMemoryCollisionLinksAndUnsupportedMetadata(t *testing.T) {
++	for _, fault := range []string{"stale", "memory", "collision", "link", "metadata"} {
++		t.Run(fault, func(t *testing.T) {
++			root, path, original, commit, entries := catalogFixture(t)
++			catalog := filepath.Join(path, ".cache/ryogami/wallpaper/index.json")
++			stage := filepath.Join(path, ".ryoku-catalog-"+commit.StagingToken+".part")
++			switch fault {
++			case "stale":
++				commit.ExpectedCatalog = strings.Repeat("0", 64)
++			case "memory":
++				delete(entries, "private")
++			case "collision":
++				if err := os.WriteFile(stage, []byte("retain"), 0600); err != nil {
++					t.Fatal(err)
++				}
++			case "link":
++				if err := os.Rename(catalog, catalog+".private"); err != nil {
++					t.Fatal(err)
++				}
++				if err := os.Symlink("index.json.private", catalog); err != nil {
++					t.Fatal(err)
++				}
++			case "metadata":
++				if err := syscall.Setxattr(catalog, "user.fixture", []byte("unsupported"), 0); err != nil {
++					t.Fatal(err)
++				}
++			}
++			if _, _, err := brokerPersistCatalog(root, commit, entries); err == nil {
++				t.Fatal("unsafe commit succeeded")
++			}
++			actual, err := os.ReadFile(catalog)
++			if err != nil || !bytes.Equal(actual, original) {
++				t.Fatal("failed commit changed catalog")
++			}
++			if fault == "metadata" {
++				if _, err := os.Stat(stage); err != nil {
++					t.Fatal("partial stage not retained")
++				}
++			}
++			if fault == "collision" {
++				data, _ := os.ReadFile(stage)
++				if string(data) != "retain" {
++					t.Fatal("stage overwritten")
++				}
++			}
++		})
++	}
++}
++
++func TestBrokerCatalogRustProviderFixture(t *testing.T) {
++	path := os.Getenv("RYOKU_MEDIA_PROVIDER_FIXTURE")
++	if path == "" {
++		t.Skip("requires explicit local Rust media provider fixture")
++	}
++	t.Setenv("HOME", path)
++	frame, err := os.ReadFile(filepath.Join(path, ".fixture-media-commit.json"))
++	if err != nil || len(frame) > 65536 {
++		t.Fatal("invalid fixture frame")
++	}
++	var request struct {
++		Method string              `json:"method"`
++		Params brokerCatalogCommit `json:"params"`
++		ID     int                 `json:"id"`
++	}
++	if json.Unmarshal(frame, &request) != nil || request.Method != "broker.media-catalog" || !request.Params.valid() {
++		t.Fatal("invalid Rust catalog commit")
++	}
++	d := &daemon{store: openStore(filepath.Join(path, ".cache/ryogami")), events: newEventHub()}
++	events := d.events.subscribe()
++	defer d.events.unsubscribe(events)
++	result, err := d.brokerCatalogApply(request.Params)
++	reply := map[string]interface{}{"id": request.ID}
++	if err != nil {
++		reply["error"] = "fixture catalog transaction refused"
++	} else {
++		reply["result"] = result
++	}
++	data, err := json.Marshal(reply)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join(path, ".fixture-media-reply.json"), append(data, '\n'), 0600); err != nil {
++		t.Fatal(err)
++	}
++	select {
++	case event := <-events:
++		if err := os.WriteFile(filepath.Join(path, ".fixture-media-event.json"), []byte(event), 0600); err != nil {
++			t.Fatal(err)
++		}
++	default:
++	}
++}
+--- a/ryoku/shell/ryogami/picker/qml/PickerState.qml
++++ b/ryoku/shell/ryogami/picker/qml/PickerState.qml
+@@ -4,6 +4,15 @@
+ 
+ QtObject {
+     id: state
++
++    property MediaTrashState mediaTrash: MediaTrashState {
++        transport: Daemon
++        onFailed: function(message) {
++            state.toast(message || I18n.tr("The media operation could not be completed. Review recovery history before retrying."), "error")
++        }
++        onDeleted: state.toast(I18n.tr("Wallpaper moved to recoverable trash."), "success")
++        onRestored: state.toast(I18n.tr("Wallpaper restored."), "success")
++    }
+ 
+     property LibraryView view
+     property CardField field
+--- /dev/null
++++ b/ryoku/shell/ryogami/picker/qml/MediaTrashState.qml
+@@ -0,0 +1,47 @@
++import QtQuick
++
++// Only opaque protected receipts live here; paths and catalog rows stay in the helper.
++QtObject {
++    id: trash
++    required property var transport
++    property var receipts: []
++    property bool busy: false
++    readonly property bool canDelete: !busy && receipts.length < 64
++    readonly property bool canRestore: !busy && receipts.length > 0
++    signal failed(string message)
++    signal deleted()
++    signal restored()
++
++    function deleteKey(key) {
++        if (!canDelete || !key)
++            return
++        busy = true
++        transport.call("wall.delete", { key: key }, function(result, error) {
++            trash.busy = false
++            if (error || !result || result.ok !== true
++                    || typeof result.trash_receipt !== "string"
++                    || !/^[0-9a-f]{64}\.[0-9a-f]{64}$/.test(result.trash_receipt)) {
++                trash.failed(error && error.message ? error.message : "")
++                return
++            }
++            trash.receipts = trash.receipts.concat([result.trash_receipt])
++            trash.deleted()
++        })
++    }
++
++    function restoreLast() {
++        if (!canRestore)
++            return
++        const receipt = receipts[receipts.length - 1]
++        busy = true
++        transport.call("wall.restore", { receipt: receipt }, function(result, error) {
++            trash.busy = false
++            if (error || !result || result.ok !== true || result.restored !== true) {
++                trash.failed(error && error.message ? error.message : "")
++                return
++            }
++            trash.receipts = trash.receipts.slice(0, -1)
++            trash.restored()
++        })
++    }
++}
+--- a/ryoku/shell/ryogami/picker/qml/chrome/CardBackPanel.qml
++++ b/ryoku/shell/ryogami/picker/qml/chrome/CardBackPanel.qml
+@@ -264,12 +264,10 @@
+                     FolioDestructiveAction {
+                         visible: back.isWallpaper && !back.isWe
+                         label: I18n.tr("Delete")
++                        enabled: back.state.mediaTrash.canDelete
+                         confirm: true
+                         onTriggered: {
+-                            Daemon.call("wall.delete", { key: back.cardKey }, function(result, error) {
+-                                if (error)
+-                                    back.state.toast(error.message || I18n.tr("This wallpaper could not be deleted."), "error")
+-                            })
++                            back.state.mediaTrash.deleteKey(back.cardKey)
+                             if (back.field)
+                                 back.field.unflip()
+                         }
+--- a/ryoku/shell/ryogami/picker/qml/chrome/ToastLayer.qml
++++ b/ryoku/shell/ryogami/picker/qml/chrome/ToastLayer.qml
+@@ -6,11 +6,22 @@
+ 
+     required property PickerState state
+ 
++    FolioAction {
++        id: undo
++        anchors.horizontalCenter: parent.horizontalCenter
++        anchors.bottom: parent.bottom
++        anchors.bottomMargin: 24 * Theme.scale
++        visible: layer.state.mediaTrash.receipts.length > 0
++        enabled: layer.state.mediaTrash.canRestore
++        label: I18n.tr("Undo last deletion")
++        onTriggered: layer.state.mediaTrash.restoreLast()
++    }
++
+     Toast {
+         id: toast
+         anchors.horizontalCenter: parent.horizontalCenter
+         anchors.bottom: parent.bottom
+-        anchors.bottomMargin: 24 * Theme.scale
++        anchors.bottomMargin: undo.visible ? 64 * Theme.scale : 24 * Theme.scale
+     }
+ 
+     function show(message, kind) {
+--- /dev/null
++++ b/ryoku/shell/ryogami/picker/tests/tst_MediaTrashState.qml
+@@ -0,0 +1,74 @@
++import QtQuick
++import QtTest
++import "../qml" as Picker
++
++TestCase {
++    name: "MediaTrashState"
++    QtObject {
++        id: rpc
++        property var pending: null
++        property string method: ""
++        property var params: null
++        property int calls: 0
++        function call(method, params, callback) {
++            rpc.method = method
++            rpc.params = params
++            rpc.pending = callback
++            ++rpc.calls
++        }
++    }
++    Picker.MediaTrashState { id: trash; transport: rpc }
++    SignalSpy { id: errors; target: trash; signalName: "failed" }
++    SignalSpy { id: deletions; target: trash; signalName: "deleted" }
++    SignalSpy { id: restores; target: trash; signalName: "restored" }
++    readonly property string receipt: "a".repeat(64) + "." + "b".repeat(64)
++    function init() {
++        trash.receipts = []
++        trash.busy = false
++        rpc.pending = null
++        rpc.calls = 0
++        errors.clear(); deletions.clear(); restores.clear()
++    }
++    function test_delete_restore_and_retry() {
++        trash.deleteKey("fixture")
++        compare(rpc.method, "wall.delete")
++        compare(JSON.stringify(rpc.params), '{"key":"fixture"}')
++        verify(trash.busy)
++        trash.deleteKey("second")
++        compare(rpc.calls, 1)
++        rpc.pending({ok: true, trash_receipt: receipt}, null)
++        compare(deletions.count, 1)
++        verify(trash.canRestore)
++        trash.restoreLast()
++        compare(rpc.method, "wall.restore")
++        compare(JSON.stringify(rpc.params), JSON.stringify({receipt: receipt}))
++        rpc.pending(null, {message: "checkpoint unavailable"})
++        compare(errors.count, 1)
++        compare(trash.receipts.length, 1)
++        verify(trash.canRestore)
++        trash.restoreLast()
++        rpc.pending({ok: true, restored: true}, null)
++        compare(restores.count, 1)
++        compare(trash.receipts.length, 0)
++        verify(!trash.canRestore)
++    }
++    function test_failed_and_malformed_delete_has_no_undo() {
++        for (const result of [null, {ok: true}, {ok: true, trash_receipt: "/tmp/file"}, {ok: false, trash_receipt: receipt}]) {
++            trash.deleteKey("fixture")
++            rpc.pending(result, null)
++            compare(trash.receipts.length, 0)
++            verify(!trash.busy)
++        }
++        compare(errors.count, 4)
++    }
++    function test_receipt_capacity_never_discards_older_deletion() {
++        trash.receipts = Array(64).fill(receipt)
++        verify(!trash.canDelete)
++        trash.deleteKey("fixture")
++        compare(rpc.calls, 0)
++        trash.restoreLast()
++        rpc.pending({ok: true, restored: true}, null)
++        compare(trash.receipts.length, 63)
++        verify(trash.canDelete)
++    }
 +}

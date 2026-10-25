@@ -677,3 +677,38 @@ mod combined;
 
 #[path = "tree_restore_tests.rs"]
 mod trees;
+
+#[test]
+fn media_trash_catalog_stage_and_exact_cache_files_restore_and_reopen() {
+    for (namespace, relative) in [
+        (AssetNamespace::MediaTrash, format!(".ryoku-media-trash-{}-1", "a".repeat(64))),
+        (AssetNamespace::CatalogStage, format!(".ryoku-catalog-{}.part", "a".repeat(64))),
+        (AssetNamespace::WallpaperCache, "thumbs/fixture.jpg".into()),
+    ] {
+        let f = Fixture::new();
+        let path = AssetPath::new(namespace, RelativePath::new(relative).unwrap()).unwrap();
+        f.write(&path, b"source bytes");
+        let source = f.capture(1, std::slice::from_ref(&path));
+        f.write(&path, b"changed bytes");
+        let intent =
+            FileRestoreIntent::new(Identifier::new("media-file-restore").unwrap(), &source, &path)
+                .unwrap();
+        let checkpoint = f.capture(2, intent.scope().unwrap().paths());
+        let plan =
+            FileRestorePlan::prepare(&intent, &source, &checkpoint, &f.home, &f.account).unwrap();
+        let receipt =
+            plan.apply(&source, &checkpoint, &f.home, &f.account, &f.journal, || true).unwrap();
+        assert_eq!(std::fs::read(f.file(&path)).unwrap(), b"source bytes");
+        let reopened = FileRestorePlan::reopen(
+            &receipt,
+            &source,
+            &checkpoint,
+            &f.home,
+            &f.account,
+            &f.journal,
+        )
+        .unwrap();
+        assert!(reopened.restored(&f.home, &f.account).unwrap());
+        assert!(!f.file(intent.staging()).exists());
+    }
+}

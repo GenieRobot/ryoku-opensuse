@@ -1,0 +1,96 @@
+schema_version = 1
+issue = 175
+status = "partial-authenticated-media-delete-restore-native-and-persistent-trash-ui-pending"
+branch = "codex/issue175-ryogami-library-providers"
+previous_checkpoint = "32768114aeb35a00c5cf49fa8c66b401efda673d"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+
+[storage]
+worktree_filesystem = "/dev/sdd"
+cargo_target_filesystem = "/dev/sdd"
+go_cache_filesystem = "/dev/sdd"
+fixture_filesystem = "tmpfs"
+provider_endpoint_calls = 0
+media_downloads = 0
+model_downloads = 0
+native_snapper_launches = 0
+
+[implementation]
+public_delete_intent = "wall.delete: catalog key only"
+public_restore_intent = "wall.restore: opaque operation-token plus protected-receipt SHA-256 only"
+helper_authorizes_before_account_lookup = true
+native_runner_pre_post_history_integration = true
+catalog_entry_bound_to_exact_owned_library_and_cache_files = true
+catalog_and_generated_staging_covered = true
+maximum_moved_files = 4
+source_and_destination_parent_inodes_rechecked = true
+protected_write_ahead_receipt_before_first_move = true
+atomic_no_replace_move_and_parent_fsync = true
+restore_requires_completed_linked_delete_history = true
+catalog_actor_preserves_unrelated_rows_unknown_fields_large_integers_and_metadata = true
+catalog_actor_persists_and_verifies_before_original_catalog_event = true
+fixed_preference_inventory_unchanged = true
+workshop_delete_still_uses_separate_workshop_contract = true
+picker_undo_session_receipt_limit = 64
+picker_failed_restore_retains_receipt = true
+
+[validation]
+focused_recovery_media_tests_passed = 6
+focused_service_tests_passed = 7
+rust_to_real_go_integration_tests_passed = 2
+rust_to_go_media_scenarios_passed = 4
+rust_to_go_media_scenarios = ["delete plus catalog event", "protected receipt reopen and restore plus catalog event", "stale actor catalog retains moved files and incomplete receipt", "catalog stage collision retains moved files and incomplete receipt"]
+rust_to_go_model_regression_scenarios_passed = 5
+go_catalog_models_audio_top_level_tests_passed = 10
+go_explicit_drivers_default_skipped = 2
+go_driver_skips_separately_exercised_by_rust = true
+patch_reproduction = "pass; #18 then #25 then #175 with zero fuzz; all ten changed Go/QML files byte-equal to tested source"
+qml_javascript_state_tests_passed = 3
+qml_shipped_control_bindings = "pass; delete and undo invoke tested state methods"
+qml_state_strict_lint = "pass using cached Qt 6.11.2 qmllint"
+qml_changed_files_syntax = "pass; all five QML files parse with cached qmlformat"
+native_qt_test = "unavailable: cached SDK lacks libQt6QuickTest.so.6; no download attempted; QtTest fixture retained for native gate"
+workspace_all_features_offline_locked = "pass on final frozen-source default-concurrency run"
+recovery_tests_passed = 308
+recovery_tests_existing_ignored = 6
+console_tests_passed = 26
+service_tests_passed = 185
+service_tests_ignored = 3
+service_ignored_detail = "one existing native gate; two explicitly run pinned-Go integration fixtures"
+vm_lab_tests_passed = 90
+strict_clippy_all_targets_all_features = "pass"
+formatting = "pass"
+whitespace = "pass"
+go_formatting = "pass"
+dependency_advisories = "pass-cached-offline"
+dependency_bans = "pass-cached-offline"
+dependency_licenses = "pass-cached-offline"
+dependency_sources = "pass-cached-offline"
+corrections = [
+  "new parser test frames corrected to include required newline, including forged negative frames",
+  "existing public parser expectation updated: wall.delete now has typed intent validation and remains excluded from native query authority",
+  "test-only protected-directory helper renamed to avoid local variable shadowing"
+]
+first_full_writer_failure = "unchanged approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement: read_task at writer_freeze.rs:1983 returned ESRCH; isolated rerun passed and subsequent full runs passed"
+second_full_writer_failure = "unchanged wrapper_death_at_publication_boundary_retracts_the_generation: acquire at writer_protocol_tests.rs:67 returned UnexpectedEof; isolated rerun and final full suite passed"
+writer_failure_attribution = "not reproduced in isolation; final full default-concurrency suite passed; no writer code or fix claimed; complete local logs retained"
+
+[acceptance]
+public_media_delete_restore_route_implemented = true
+session_undo_control_implemented = true
+installed_helper_actor_snapper_native_test = false
+native_picker_interaction_test = false
+restart_visible_trash_browser = false
+custom_cache_and_external_owned_roots = false
+all_provider_library_operations_complete = false
+issue_complete = false
+remaining = [
+  "distinct policy/account-bound exact output and absent-parent recovery declaration API for issue176",
+  "restart-visible protected trash receipt listing and selection in picker",
+  "selected/orphan-clearing model callback transaction with issue176",
+  "model import/install/delete and exact model/runtime dependencies",
+  "all retained source/Steam search/download/preview/cancel operations",
+  "library maintenance/transforms/progress and cumulative quota policy",
+  "configured cache and external owned-root enrollment preserving full feature parity",
+  "native Tumbleweed/RPM/QtTest/picker/Snapper acceptance"
+]

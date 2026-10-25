@@ -114,11 +114,18 @@ impl FileRestoreIntent {
         }
         let identity = serde_json::to_vec(&(&operation, &reference, path))
             .map_err(|_| RestoreError::InvalidBinding)?;
-        let leaf = if path.namespace() == crate::ryogami_assets::AssetNamespace::ModelReferenceStage
-        {
-            format!(".ryoku-model-{:x}.part", Hash::digest(identity))
-        } else {
-            format!(".part-{:x}", Hash::digest(identity))
+        use crate::ryogami_assets::AssetNamespace;
+        let leaf = match path.namespace() {
+            AssetNamespace::ModelReferenceStage => {
+                format!(".ryoku-model-{:x}.part", Hash::digest(identity))
+            }
+            AssetNamespace::CatalogStage => {
+                format!(".ryoku-catalog-{:x}.part", Hash::digest(identity))
+            }
+            AssetNamespace::MediaTrash => {
+                format!(".ryoku-media-trash-{:x}-0", Hash::digest(identity))
+            }
+            _ => format!(".part-{:x}", Hash::digest(identity)),
         };
         let relative = path
             .relative()

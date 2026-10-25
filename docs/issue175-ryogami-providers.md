@@ -106,7 +106,7 @@ Every configured path still needs exact owned-path resolution in the provider.
 | Model import/install | `settings.action` → `lens_models.go::actionImportSemanticModel` | `skwd-lens --install-pack <source> --models-dir <data>/ryogami/lens/models --runtime <runtime>`; settings model list and selected manifest; runtime/model manifest reads | Typed import candidate path, no executable/runtime/destination client fields. Pack validator, exact extraction/import writes and settings transaction open. |
 | Add/forget model reference | `actionAddSemanticModel`, `actionRemoveSemanticModel` | read supplied manifest ID; update `semantic.models`; reconcile selected model in `ryogami.json` | Typed bounded preparation, authenticated helper/proxy routing and private actor persistence/restore-stage fixtures pass for add and inactive forget. Selected/orphan-clearing removal remains the #176 callback seam; installed native acceptance is pending. |
 | Delete indexed/active model | `actionDeleteSemanticModel`, `actionDeleteActiveSemanticModel`, `deleteModelFiles` | managed `--remove-pack` with component or unmanaged `--remove-manifest`; settings selection/enablement writes | Typed active/index selection; recoverable content trash tested. Exact manifest file-set validation and complete model/config restore remain open; never pass the unmanaged arbitrary delete path through. |
-| Delete wallpaper | `rpc.go::wall.delete` → `apply.go::deleteWallpaper` | resolves store entry; deletes source, catalog record, thumbnails and animated clip; Steam entries explicitly managed by Workshop | Typed catalog key; real owned-content trash/restore fixtures. Catalog-to-exact-path binding, all affected entries and UI event integration remain open. |
+| Delete wallpaper | `rpc.go::wall.delete` → `apply.go::deleteWallpaper` | resolves store entry; deletes source, catalog record, thumbnails and animated clip; Steam entries explicitly managed by Workshop | Typed authenticated catalog key → exact owned source/thumbnail/clip trash, protected receipt and linked pre/post history; Go catalog persistence/events and session undo are locally exercised. `wall.restore` validates receipt/account/history and moves originals back without replacement. Restart-visible trash browsing, configured cache/external roots and native acceptance remain open. |
 | Library cache rebuild / clear | `wall.cache_rebuild`, `library_actions.go::actionClearCache`, `library_videocache.go::actionClearVideoCache`, `daemon.go::resetCache` | async rescan; cache removal/recreation; catalog and thumbnail writes; converters may launch | Closed maintenance intents. Exact complete job set, native process containment and linked results remain open. |
 | Recompute colors / Workshop thumbnails | `actionRecomputeColors`, `actionCaptureWeThumbnails` | catalog color fields; `skwd-wall-still`, `ffmpeg`, `magick`; temporary first frame/RGBA/WebP files; small thumbnail and catalog updates | Closed maintenance intents. Native pin/arguments/output and async completion accounting remain open. |
 | Optimize images / convert videos | `library_optimize.go::actionOptimizeImages`, `library_actions.go::actionConvertVideos` | optimizer jobs replace image/video outputs; originals via `library_trash.go::trashOriginal`; manifest at `<data>/ryogami/trash/manifest.json`; ffmpeg/ImageMagick dependencies | Closed action and exact converter options; storage trash is tested separately. Full transforms, progress, job cancellation and rollback mapping remain open. |
@@ -436,6 +436,46 @@ import/install/delete and other complete-tree actions remain gated until the
 journaled tree restore path and its interruption/trash recovery are implemented.
 No new picker action, native Snapper operation or download is enabled by this
 capture checkpoint.
+
+## Authenticated media delete and restore checkpoint
+
+The existing `wall.delete` picker action now routes through a closed Rust intent,
+root-peer helper, authenticated account resolver and native mutation runner.
+The selected catalog row binds one source plus at most three exact cache files;
+Workshop entries retain their separate workflow. The helper never accepts a
+client destination, catalog row, checkpoint, executable or prepared commit.
+Before the first move it publishes a protected receipt bound to the verified
+pre-generation. Every move checks owned parent inodes and exact content, uses
+no-replace rename, and synchronizes both parents. A private Go actor then
+atomically persists the catalog, preserving unrelated rows, unknown metadata,
+large integer values, mode and supported attributes before broadcasting the
+original removal event. Post-health independently checks the catalog and moves.
+
+`wall.restore` accepts an opaque token and receipt digest. Restore requires the
+matching account and successful protected linked delete history, checks current
+absence and retained file identities, moves originals back, and inserts the
+original row through the same durable actor. Partial failure retains recovery
+state and cannot return a successful receipt. Exact linked file restoration
+covers the media trash, catalog stage and bounded wallpaper-cache namespaces.
+The #25 fixed preference inventory and cache-location guard remain unchanged.
+
+The picker offers **Undo last deletion** while its state object retains the
+receipt. It keeps failed restore receipts, prevents overlapping actions, and
+stops accepting deletions at 64 outstanding session receipts rather than
+discarding older ones. Protected receipts and linked generations persist outside
+the picker; restart-visible trash listing/selection is still an acceptance gap.
+No automatic purge or irreversible deletion is introduced.
+
+Local evidence: recovery media fixtures 6/6, focused service fixtures 7/7,
+real Rust-to-Go media/model integration 2/2 (four media and five model scenarios),
+Go catalog/model/audio regression tests 10/10, and three tests executing the
+shipped QML JavaScript state methods. All five changed QML files parse and the
+new state component passes strict qmllint. Native QtTest could not start because
+the cached SDK lacks `libQt6QuickTest.so.6`; its fixture remains included and no
+download was attempted. Final full offline all-feature workspace, strict Clippy,
+formatting and cached dependency checks pass. Earlier unrelated writer-process
+failures and successful isolated/full reruns are recorded without claiming a
+writer fix in the [media receipt](../upstream/evidence/ryoku-v1.0/issue175-local-media-provider-20261025.toml).
 
 ## Remaining acceptance gates
 

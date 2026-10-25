@@ -105,11 +105,12 @@ impl NativeActor {
     ) -> io::Result<crate::writer_freeze::ActorExecution> {
         self.identity()?;
         let (_, action) = parse_native_change(&call.frame).map_err(io::Error::other)?;
-        let programs: &[&str] = if matches!(action, NativeChange::ModelReferences(_)) {
-            &[]
-        } else {
-            &["/usr/bin/ryogami-live", "/usr/bin/ffmpeg", "/usr/bin/ffprobe"]
-        };
+        let programs: &[&str] =
+            if matches!(action, NativeChange::ModelReferences(_) | NativeChange::MediaCatalog(_)) {
+                &[]
+            } else {
+                &["/usr/bin/ryogami-live", "/usr/bin/ffmpeg", "/usr/bin/ffprobe"]
+            };
         let executables = programs
             .iter()
             .map(|path| {
