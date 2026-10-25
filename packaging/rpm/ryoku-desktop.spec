@@ -70,6 +70,15 @@ Requires:       glibc
 Requires:       /usr/bin/curl
 Requires:       /usr/bin/getent
 Requires:       /usr/bin/iconv
+# Fixed ACP namespace/bootstrap helpers; no shell command is constructed.
+Requires:       /usr/bin/unshare
+Requires:       /usr/bin/mount
+Requires:       /usr/bin/setpriv
+Requires:       /usr/bin/chroot
+Requires:       /usr/bin/prlimit
+# unshare --map-auto uses the installed subordinate-ID mapping helpers.
+Requires:       /usr/bin/newuidmap
+Requires:       /usr/bin/newgidmap
 # These qmldir modules are private to the shell's import root under /usr/share.
 # Tumbleweed's generator recognizes provides only below /qt6/qml/, while its
 # requires scanner also sees these private module imports. Keep all scanning

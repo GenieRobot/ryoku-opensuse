@@ -17,6 +17,10 @@ const MAX_RESPONSE: u64 = 1024 * 1024;
 pub enum Provider {
     /// A deterministic, network-free, retrieval provider for packaged acceptance.
     Local {},
+    Acp {
+        config: crate::acp::Config,
+        models: Vec<String>,
+    },
     /// Explicit, bounded acceptance provider. It performs no network I/O and
     /// is labeled as a fixture in every provider description and usage record.
     Fixture {
@@ -44,7 +48,12 @@ pub enum Provider {
     /// Captured worker-only credentials. Never accepted or stored through JSON.
     #[doc(hidden)]
     #[serde(skip)]
-    ProwlResolved { port: u16, token: String, models: Vec<String>, streaming: bool },
+    ProwlResolved {
+        port: u16,
+        token: String,
+        models: Vec<String>,
+        streaming: bool,
+    },
 }
 
 /// Explicit network-free catalog fixture; cached/offered sets model server
@@ -101,6 +110,8 @@ pub struct Completion {
     pub stop_reason: Option<String>,
     #[serde(default)]
     pub actual_model: Option<String>,
+    #[serde(skip)]
+    pub handoff_reason: Option<String>,
 }
 
 impl Provider {
@@ -156,7 +167,13 @@ impl Provider {
                 model_name(model)?;
             }
         }
-        if let Self::ProwlGateway { models, .. } | Self::ProwlResolved { models, .. } = self {
+        if let Self::Acp { config, .. } = self {
+            config.validate()?;
+        }
+        if let Self::ProwlGateway { models, .. }
+        | Self::ProwlResolved { models, .. }
+        | Self::Acp { models, .. } = self
+        {
             if models.len() > 128 {
                 return Err(Error::Limit);
             }
@@ -187,7 +204,26 @@ impl Provider {
         matches!(self, Self::ProwlGateway { .. } | Self::ProwlResolved { .. })
     }
 
+    pub(crate) fn is_tool_provider(&self) -> bool {
+        self.is_prowl() || matches!(self, Self::Acp { .. })
+    }
+
     pub fn edited(&self, edit: ProviderEdit) -> Result<Self> {
+        if let Self::Acp { config, models } = self {
+            if edit.endpoint.is_some()
+                || edit.api_key.is_some()
+                || edit.streaming.is_some()
+                || edit.models.is_none()
+            {
+                return Err(Error::InvalidRequest);
+            }
+            let next = Self::Acp {
+                config: config.clone(),
+                models: edit.models.unwrap_or_else(|| models.clone()),
+            };
+            next.validate()?;
+            return Ok(next);
+        }
         if let Self::ProwlGateway { models, streaming } = self {
             if edit.endpoint.is_some()
                 || edit.api_key.is_some()
@@ -231,14 +267,16 @@ impl Provider {
                 .unwrap_or_else(|| vec!["fixture-v1".into()]),
             Self::OpenAiCompatible { models, .. }
             | Self::ProwlGateway { models, .. }
-            | Self::ProwlResolved { models, .. } => models.clone(),
+            | Self::ProwlResolved { models, .. }
+            | Self::Acp { models, .. } => models.clone(),
         }
     }
 
     pub(crate) fn with_catalog(mut self, models: Vec<String>) -> Result<Self> {
         match &mut self {
             Self::OpenAiCompatible { models: cached, .. }
-            | Self::ProwlGateway { models: cached, .. } => *cached = models,
+            | Self::ProwlGateway { models: cached, .. }
+            | Self::Acp { models: cached, .. } => *cached = models,
             Self::Fixture { catalog: Some(catalog), .. } => catalog.cached = models,
             Self::Local {} if models == ["local-retrieval-v1"] => {}
             Self::Fixture { catalog: None, .. } if models == ["fixture-v1"] => {}
@@ -254,6 +292,11 @@ impl Provider {
         }
         match self {
             Self::Local {} => Ok(self.models()),
+            Self::Acp { config, .. } => crate::acp::bridge::catalog(
+                config,
+                &std::env::current_exe().map_err(|_| Error::ProviderUnavailable)?,
+                cancelled,
+            ),
             Self::Fixture { delay_millis, catalog, .. } => {
                 let until = std::time::Instant::now()
                     + std::time::Duration::from_millis(u64::from(*delay_millis));
@@ -288,6 +331,9 @@ impl Provider {
 
     pub fn describe(&self, id: &str) -> serde_json::Value {
         match self {
+            Self::Acp { config, .. } => {
+                json!({"id":id,"kind":"acp","models":self.models(),"artifact_sha256":config.fingerprint(),"network":config.network_enabled(),"isolated":true})
+            }
             Self::Local {} => {
                 json!({"id":id,"kind":"local","models":self.models(),"requires_credentials":false})
             }
@@ -346,6 +392,18 @@ impl Provider {
             return Err(Error::Cancelled);
         }
         match self {
+            Self::Acp { config, .. } => crate::acp::bridge::complete(
+                config,
+                model,
+                messages,
+                cancelled,
+                &crate::prowl::ReadTools::default(),
+                &mut crate::prowl::activity::Callbacks { text: emit, tool: &mut |_| Ok(()) },
+                crate::acp::bridge::Options {
+                    runner: &std::env::current_exe().map_err(|_| Error::ProviderUnavailable)?,
+                    ask: true,
+                },
+            ),
             Self::Fixture { delay_millis, outcome, .. } => {
                 if let FixtureOutcome::Stream { chunks, fail } = outcome {
                     let mut answer = String::new();
@@ -383,6 +441,7 @@ impl Provider {
                         estimated: true,
                         stop_reason: None,
                         actual_model: Some(model.into()),
+                        handoff_reason: None,
                     });
                 }
                 let deadline = std::time::Instant::now()
@@ -407,6 +466,7 @@ impl Provider {
                         estimated: true,
                         stop_reason: None,
                         actual_model: Some(model.into()),
+                        handoff_reason: None,
                     }),
                     FixtureOutcome::Failure => Err(Error::ProviderFailed),
                     FixtureOutcome::Stream { .. } => {
@@ -448,6 +508,7 @@ impl Provider {
                     estimated: true,
                     stop_reason: None,
                     actual_model: Some(model.into()),
+                    handoff_reason: None,
                 })
             }
             Self::ProwlGateway { .. } => Err(Error::ProviderUnavailable),
@@ -581,6 +642,7 @@ pub(crate) fn parse_json_completion_allow_empty(
             })
             .map(str::to_owned),
         actual_model,
+        handoff_reason: None,
     })
 }
 

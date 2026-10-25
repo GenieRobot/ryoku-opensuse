@@ -332,6 +332,7 @@ pub struct Engine {
     usage_collection: Mutex<()>,
     scheduler_started: AtomicBool,
     evidence_previews: Mutex<BTreeMap<String, EvidencePreview>>,
+    adapter_runner: std::path::PathBuf,
 }
 
 struct ProviderPermit(Arc<AtomicUsize>);
@@ -343,6 +344,21 @@ impl Drop for ProviderPermit {
 
 impl Engine {
     pub fn open(store: Store) -> Result<Arc<Self>> {
+        Self::open_with_adapter_runner(
+            store,
+            std::env::current_exe().map_err(|_| Error::ProviderUnavailable)?,
+        )
+    }
+    /// Native embedding supplies its trusted installed bootstrap executable;
+    /// this path is never accepted from an assistant or JSON client.
+    pub fn open_with_adapter_runner(
+        store: Store,
+        adapter_runner: std::path::PathBuf,
+    ) -> Result<Arc<Self>> {
+        if !adapter_runner.is_absolute() {
+            return Err(Error::InvalidRequest);
+        }
+
         let mut state: State = match store.read()? {
             Some(bytes) => serde_json::from_slice(&bytes).map_err(|_| Error::Integrity)?,
             None => State::default(),
@@ -389,13 +405,13 @@ impl Engine {
         if state
             .read_only_tools
             .iter()
-            .any(|id| state.providers.get(id).is_none_or(|p| !p.is_prowl()))
+            .any(|id| state.providers.get(id).is_none_or(|p| !p.is_tool_provider()))
         {
             return Err(Error::Integrity);
         }
         if state.read_roots.len() > 32
             || state.read_roots.iter().any(|(provider, roots)| {
-                state.providers.get(provider).is_none_or(|p| !p.is_prowl())
+                state.providers.get(provider).is_none_or(|p| !p.is_tool_provider())
                     || roots.len() > 8
                     || roots.iter().map(|r| &r.id).collect::<BTreeSet<_>>().len() != roots.len()
             })
@@ -447,6 +463,7 @@ impl Engine {
             usage_collection: Mutex::new(()),
             scheduler_started: AtomicBool::new(false),
             evidence_previews: Mutex::new(BTreeMap::new()),
+            adapter_runner,
         }))
     }
 
@@ -535,7 +552,7 @@ impl Engine {
             }),
             Request::ReadRoots { provider } => {
                 let state = self.state.lock().map_err(|_| Error::Storage)?;
-                if !state.providers.get(&provider).ok_or(Error::NotFound)?.is_prowl() {
+                if !state.providers.get(&provider).ok_or(Error::NotFound)?.is_tool_provider() {
                     return Err(Error::InvalidRequest);
                 }
                 let protected = self.store.identity()?;
@@ -550,7 +567,7 @@ impl Engine {
                     self.store.identity()?,
                 )?;
                 self.transaction(|state| {
-                    if !state.providers.get(&provider).ok_or(Error::NotFound)?.is_prowl() {
+                    if !state.providers.get(&provider).ok_or(Error::NotFound)?.is_tool_provider() {
                         return Err(Error::InvalidRequest);
                     }
                     let roots = state.read_roots.entry(provider.clone()).or_default();
@@ -582,7 +599,7 @@ impl Engine {
                 Ok(json!({"provider":provider,"disabled":id}))
             }),
             Request::SetReadOnlyTools { provider, enabled } => self.transaction(|state| {
-                if !state.providers.get(&provider).ok_or(Error::NotFound)?.is_prowl() {
+                if !state.providers.get(&provider).ok_or(Error::NotFound)?.is_tool_provider() {
                     return Err(Error::InvalidRequest);
                 }
                 if enabled {
@@ -927,8 +944,18 @@ impl Engine {
                     },
                 )
             }
+            Request::EnrollAcpProvider {id,path,models,arguments,network}=>{
+                identifier(&id)?;if id=="local" {return Err(Error::Conflict);}
+                let provider=Provider::Acp {config:crate::acp::Config::enroll(path,arguments,network)?,models};provider.validate()?;
+                self.transaction(|state| {
+                    if !state.providers.contains_key(&id) && state.providers.len()>=32 {return Err(Error::Limit);}
+                    bump_provider(state,&id)?;
+                    state.read_only_tools.remove(&id);state.read_roots.remove(&id);state.public_web.remove(&id);state.code_search_roots.remove(&id);
+                    let description=provider.describe(&id);state.providers.insert(id,provider);Ok(description)
+                })
+            }
             Request::PutProvider { id, provider } => {
-                if matches!(provider, Provider::ProwlResolved { .. }) {
+                if matches!(provider, Provider::ProwlResolved { .. } | Provider::Acp {..}) {
                     return Err(Error::InvalidRequest);
                 }
                 identifier(&id)?;
@@ -1220,7 +1247,8 @@ impl Engine {
         Ok((
             state.configuration_revision,
             json!({"provider":provider.describe(&route.provider),"model":route.model}),
-            matches!(provider, Provider::OpenAiCompatible { .. } | Provider::ProwlResolved { .. }),
+            matches!(provider, Provider::OpenAiCompatible { .. } | Provider::ProwlResolved { .. })
+                || matches!(&provider,Provider::Acp{config,..} if config.network_enabled()),
         ))
     }
 
@@ -1290,7 +1318,8 @@ impl Engine {
             match result {
                 Ok(mut completion) => {
                     if job.lane == Lane::Ask {
-                        job.needs_agent_reason = crate::ask::reason(&mut completion.text);
+                        job.needs_agent_reason =
+                            crate::ask::reason(&mut completion.text).or(completion.handoff_reason);
                         job.needs_agent = job.needs_agent_reason.is_some();
                     }
                     if let Some(session) = &job.session {
@@ -1566,7 +1595,14 @@ impl Engine {
                 .spawn(move || {
                     let _permit = permit;
                     if let Some(revision) = catalog_revision {
-                        let result = provider.fetch_models(&cancelled);
+                        let result = match &provider {
+                            Provider::Acp { config, .. } => crate::acp::bridge::catalog(
+                                config,
+                                &engine.adapter_runner,
+                                &cancelled,
+                            ),
+                            _ => provider.fetch_models(&cancelled),
+                        };
                         engine.publish_catalog(&job_id, generation, revision, result);
                         engine.finish_active(&job_id, generation);
                         return;
@@ -1593,7 +1629,23 @@ impl Engine {
                     };
                     let mut emit_tool =
                         |event| engine.record_tool_event(&job_id, generation, event);
-                    let result = if read_only_tools.enabled() {
+                    let result = if let Provider::Acp { config, .. } = &provider {
+                        crate::acp::bridge::complete(
+                            config,
+                            &model,
+                            &messages,
+                            &cancelled,
+                            &read_only_tools,
+                            &mut crate::prowl::activity::Callbacks {
+                                text: &mut emit,
+                                tool: &mut emit_tool,
+                            },
+                            crate::acp::bridge::Options {
+                                runner: &engine.adapter_runner,
+                                ask: lane == Lane::Ask,
+                            },
+                        )
+                    } else if read_only_tools.enabled() {
                         provider.complete_with_read_tools(
                             &model,
                             &messages,
@@ -2106,6 +2158,7 @@ mod evidence_tests {
                     "activity-quota",
                     generation,
                     Ok(Completion {
+                        handoff_reason: None,
                         text: "retained answer".into(),
                         input_tokens: 1,
                         output_tokens: 2,
@@ -2199,6 +2252,7 @@ mod evidence_tests {
             "reused",
             old_generation,
             Ok(Completion {
+                handoff_reason: None,
                 text: "STALE_ANSWER".into(),
                 input_tokens: 1,
                 output_tokens: 1,

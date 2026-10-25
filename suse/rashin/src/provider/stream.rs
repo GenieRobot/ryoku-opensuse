@@ -138,6 +138,7 @@ impl Decoder {
             text(&self.answer, 128 * 1024).map_err(|_| Error::ProviderFailed)?;
         }
         Ok(Completion {
+            handoff_reason: None,
             text: self.answer,
             input_tokens: self.input.unwrap_or_default(),
             output_tokens: self.output.unwrap_or_default(),

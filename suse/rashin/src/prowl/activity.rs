@@ -34,6 +34,7 @@ impl Record {
                     | "search_code"
                     | "fetch_url"
                     | "unknown_tool"
+                    | "acp_tool"
             )
         {
             return Err(Error::Integrity);

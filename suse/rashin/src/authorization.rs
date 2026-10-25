@@ -48,7 +48,8 @@ impl Request {
             | Self::Prompt { .. }
             | Self::ForgetJob { .. }
             | Self::DeleteSession { .. } => Action::Conversation,
-            Self::PutProvider { .. }
+            Self::EnrollAcpProvider { .. }
+            | Self::PutProvider { .. }
             | Self::RefreshModels { .. }
             | Self::UpdateProvider { .. }
             | Self::RemoveProvider { .. }

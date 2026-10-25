@@ -275,6 +275,78 @@ impl Captured {
         }
         Ok(json!({"text":text,"truncated":truncated,"root":self.grant.id}))
     }
+    fn read_text_window(
+        &self,
+        path: &str,
+        line: Option<u64>,
+        limit: Option<u64>,
+        cancelled: &AtomicBool,
+        deadline: Instant,
+    ) -> Result<String> {
+        let first = line.unwrap_or(1);
+        if first == 0 || first > 1_000_000 || limit.is_some_and(|limit| limit == 0 || limit > 4096)
+        {
+            return Err(Error::InvalidRequest);
+        }
+        let relative = self.relative(path)?;
+        let mut file = self.open(&relative)?;
+        let before = fs::fstat(&file).map_err(|_| Error::Storage)?;
+        if FileType::from_raw_mode(before.st_mode) != FileType::RegularFile || before.st_nlink != 1
+        {
+            return Err(Error::UnsafeState);
+        }
+        let ranged = line.is_some() || limit.is_some();
+        let scan = if ranged { 1024 * 1024 } else { MAX_FILE };
+        check(cancelled, deadline)?;
+        let mut bytes = Vec::new();
+        file.by_ref()
+            .take((scan + 1) as u64)
+            .read_to_end(&mut bytes)
+            .map_err(|_| Error::Storage)?;
+        check(cancelled, deadline)?;
+        let after = fs::fstat(&file).map_err(|_| Error::Storage)?;
+        let current = fs::fstat(&self.open(&relative)?).map_err(|_| Error::Storage)?;
+        if !same(&before, &after) || !same(&after, &current) {
+            return Err(Error::Integrity);
+        }
+        let complete = bytes.len() <= scan;
+        if !complete {
+            if !ranged {
+                return Err(Error::Limit);
+            }
+            bytes.truncate(scan);
+            let end = bytes
+                .iter()
+                .rposition(|byte| *byte == b'\n')
+                .map(|index| index + 1)
+                .ok_or(Error::Limit)?;
+            bytes.truncate(end);
+        }
+        if bytes.contains(&0) {
+            return Err(Error::InvalidRequest);
+        }
+        let text = std::str::from_utf8(&bytes).map_err(|_| Error::InvalidRequest)?;
+        if !ranged {
+            return Ok(text.to_owned());
+        }
+        let lines = text.split_inclusive('\n').collect::<Vec<_>>();
+        if !complete
+            && (limit.is_none()
+                || first.saturating_sub(1).saturating_add(limit.unwrap_or_default())
+                    > lines.len() as u64)
+        {
+            return Err(Error::Limit);
+        }
+        let result = lines
+            .into_iter()
+            .skip((first - 1) as usize)
+            .take(limit.map(|limit| limit as usize).unwrap_or(usize::MAX))
+            .collect::<String>();
+        if result.len() > MAX_FILE {
+            return Err(Error::Limit);
+        }
+        Ok(result)
+    }
     fn list(&self, path: &str, cancelled: &AtomicBool, deadline: Instant) -> Result<Value> {
         let relative = self.relative(path)?;
         let directory = self.open(&relative)?;
@@ -354,6 +426,21 @@ fn check(cancelled: &AtomicBool, deadline: Instant) -> Result<()> {
 #[serde(deny_unknown_fields)]
 struct Arguments {
     path: String,
+}
+pub(crate) fn read_text_window(
+    roots: &[Captured],
+    path: &str,
+    line: Option<u64>,
+    limit: Option<u64>,
+    cancelled: &AtomicBool,
+    deadline: Instant,
+) -> Result<String> {
+    let mut matches = roots.iter().filter(|root| root.relative(path).is_ok());
+    let root = matches.next().ok_or(Error::Unauthorized)?;
+    if matches.next().is_some() {
+        return Err(Error::Conflict);
+    }
+    root.read_text_window(path, line, limit, cancelled, deadline)
 }
 pub(crate) fn execute(
     roots: &[Captured],

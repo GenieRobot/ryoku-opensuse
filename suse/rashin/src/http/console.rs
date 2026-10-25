@@ -222,6 +222,35 @@ pub(super) fn submit(engine: &Arc<Engine>, body: &[u8]) -> Result<String> {
             })?;
             Ok("/console".into())
         }
+        "enroll_acp_provider" => {
+            if fields.get("confirm").map(String::as_str) != Some("yes") {
+                return Err(Error::InvalidRequest);
+            }
+            let arguments = match value(&fields, "arguments")? {
+                "stdio" => crate::acp::Arguments::Stdio,
+                "acp" => crate::acp::Arguments::Acp,
+                "experimental_acp" => crate::acp::Arguments::ExperimentalAcp,
+                _ => return Err(Error::InvalidRequest),
+            };
+            engine.dispatch(Request::EnrollAcpProvider {
+                id: value(&fields, "provider")?.into(),
+                path: value(&fields, "path")?.into(),
+                models: models(value(&fields, "models")?),
+                arguments,
+                network: fields.contains_key("network"),
+            })?;
+            Ok("/console".into())
+        }
+        "update_acp_models" => {
+            engine.dispatch(Request::UpdateProvider {
+                id: value(&fields, "provider")?.into(),
+                changes: ProviderEdit {
+                    models: Some(models(value(&fields, "models")?)),
+                    ..ProviderEdit::default()
+                },
+            })?;
+            Ok("/console".into())
+        }
         "connect_prowl_provider" => {
             engine.dispatch(Request::ConnectProwlProvider {
                 id: value(&fields, "provider")?.into(),
@@ -451,6 +480,50 @@ pub(super) fn home(engine: &Arc<Engine>) -> Result<String> {
             body += &provider_fields(provider, false);
             body += "<button>Save provider changes</button></form>";
         }
+        if provider["kind"] == "acp" {
+            body += &format!(
+                "<p>Captured ACP executable · network access {} · artifact {}</p>",
+                provider["network"],
+                escape(text(provider, "artifact_sha256"))
+            );
+            body += &begin("update_acp_models");
+            body += &hidden("provider", id);
+            let offered = provider["models"]
+                .as_array()
+                .ok_or(Error::Integrity)?
+                .iter()
+                .filter_map(Value::as_str)
+                .collect::<Vec<_>>()
+                .join("\n");
+            body += &format!(
+                "<label>Offered model IDs<textarea name=\"models\">{}</textarea></label><button>Save adapter model picks</button></form>",
+                escape(&offered)
+            );
+            let roots = engine.dispatch(Request::ReadRoots { provider: id.into() })?;
+            body += "<h4>Enrolled ACP file read roots</h4>";
+            for root in roots["roots"].as_array().ok_or(Error::Integrity)? {
+                let root_id = text(root, "id");
+                body += &format!(
+                    "<p>{}: {} · available {}</p>",
+                    escape(root_id),
+                    escape(text(root, "path")),
+                    root["available"]
+                );
+                body += &begin("disable_read_root");
+                body += &hidden("provider", id);
+                body += &hidden("root_id", root_id);
+                body += "<button>Disable file root</button></form>";
+            }
+            body += &begin("enroll_read_root");
+            body += &hidden("provider", id);
+            body += "<label>Root ID<input name=\"root_id\" required maxlength=\"64\"></label><label>Absolute directory<input name=\"path\" required maxlength=\"4096\"></label><label><input name=\"confirm\" type=\"checkbox\" value=\"yes\" required>Allow this adapter to receive ordinary text from this root through the file broker. Secret and credential Store paths remain blocked.</label><button>Enroll ACP file root</button></form>";
+            body += &begin("set_read_only_tools");
+            body += &hidden("provider", id);
+            body += &format!(
+                "<label><input name=\"enabled\" type=\"checkbox\" value=\"true\"{}>Allow fixed read-only kernel command permission</label><button>Save adapter permission</button></form>",
+                if provider["read_only_tools_enabled"] == true { " checked" } else { "" }
+            );
+        }
         if provider["kind"] == "prowl_gateway" {
             body += &format!(
                 "<p>Gateway connection configured: {}. <a href=\"/prowl\">Manage private gateway connection</a></p>",
@@ -521,7 +594,9 @@ pub(super) fn home(engine: &Arc<Engine>) -> Result<String> {
     body += &begin("put_provider");
     body += "<label>Provider name<input name=\"provider\" required maxlength=\"64\" pattern=\"[A-Za-z0-9_-]+\"></label>";
     body += &provider_fields(&Value::Null, true);
-    body += "<button>Add provider</button></form><h2>Recent work</h2><ul>";
+    body += "<button>Add provider</button></form><h3>Enroll installed ACP adapter</h3>";
+    body += &begin("enroll_acp_provider");
+    body += "<label>Provider name<input name=\"provider\" required maxlength=\"64\"></label><label>Absolute installed ACP executable<input name=\"path\" required maxlength=\"4096\"></label><label>Model IDs (one per line)<textarea name=\"models\">adapter-default</textarea></label><label>Adapter command mode<select name=\"arguments\"><option value=\"stdio\">Direct stdio adapter</option><option value=\"acp\">acp subcommand</option><option value=\"experimental_acp\">Experimental ACP option</option></select></label><label><input name=\"network\" type=\"checkbox\" value=\"true\">Allow this adapter network access for configured providers</label><label><input name=\"confirm\" type=\"checkbox\" value=\"yes\" required>Run this chosen executable with private conversations in a restricted process. Re-enrollment replaces its identity and clears file/tool grants.</label><button>Enroll ACP adapter</button></form><h2>Recent work</h2><ul>";
     for job in jobs["jobs"].as_array().ok_or(Error::Integrity)? {
         body += &format!(
             "<li><a href=\"{}\">{} · {}</a> {}</li>",

@@ -1,4 +1,5 @@
 [package]
+default-run = "ryoku-rashin"
 name = "ryoku-rashin"
 description = "Private typed Rashin assistant runtime for openSUSE"
 version.workspace = true

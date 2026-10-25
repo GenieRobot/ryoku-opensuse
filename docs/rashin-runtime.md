@@ -362,15 +362,15 @@ No row in the original inventory is removed by this slice.
 
 | Retained upstream capability | Implemented and host-tested in this runtime | Still required for full #183 acceptance |
 | --- | --- | --- |
-| Ask/recent/cancel/handoff | Asynchronous local/fixture/HTTPS/Prowl Ask, bounded live SSE progress, actual model/usage, cancellation/restart, canonical recorded/manual/unfinished handoff, typed NEEDS_AGENT reasons and atomic Agent Run cancelling Ask | Original launcher/shell/Hub entrypoints and shared history, TOOLS_REQUIRED isolated Ask fallback, ACP cancellation and complete WebSocket-v3 replay |
-| Agent/plain Chat | Independent persistent sessions/turns, load/read/delete, saved routes and explicit model picks; both JSON/SSE gateway completions | Actual ACP initialize/session/prompt/notifications/load/resume, replay, all retained harnesses, approvals/diffs/images/thinking/terminal |
+| Ask/recent/cancel/handoff | Asynchronous local/fixture/HTTPS/Prowl Ask, bounded live SSE progress, actual model/usage, cancellation/restart, canonical recorded/manual/unfinished handoff, typed NEEDS_AGENT reasons, restricted configured ACP text completion and atomic Agent Run cancelling Ask | Original launcher/shell/Hub entrypoints and shared history, TOOLS_REQUIRED isolated Ask fallback, ACP cancellation and complete WebSocket-v3 replay |
+| Agent/plain Chat | Independent persistent sessions/turns, load/read/delete, saved routes and explicit model picks; both JSON/SSE gateway completions | Persistent/shared ACP session and replay integration, all retained harnesses and config modes, approvals/diffs/images/thinking/terminal |
 | Fix doctor/tip/app | Typed investigation, bounded native user-unit/journal/RPM evidence, external destination/finding preview, expiring single-use exact-action consent, replay safety; tools disabled to preserve reviewed evidence | Complete upstream app/coredump/package-change context and native entrypoints, transient unit/terminal harness, actual authorized repair providers with linked recovery |
 | Agent wire/unwire | Effective owner-controlled built-in Agent instructions, separate Ask/Chat, private persistence and scoped denial | Exact external marker/skill/MCP wiring, unrelated config preservation, native harness readiness/default/model operations and protected writer enrollment |
 | Index/vault/memory/wiki/skills | Verified uploaded document retrieval, all8 exact retained Wiki sources plus Tumbleweed views, browser/API navigation and confirmed per-document merge preserving uploads | Native machine/package/desktop/user/habits maps, registered projects, vault/memory/journal/skills enrollment and source mirror/index build/report lifecycle |
 | Fast-lane read-only tools | All5 execute through real model/tool-result rounds: system_query, read_file, list_dir, search_code, fetch_url; four rounds then final no-tools, explicit owner grants, path/Store/DNS guards, cancellation, bounded actual native/network fixtures and live/saved tool status in job API/browser | Complete retained activity details/diff/approval UI, escalation semantics, native default root discovery and full ACP tool/permission/process integration |
 | Provider/model/network | Private key CRUD/retention, opaque IDs, explicit saved/unavailable lane picks, async generation-bound catalog refresh, HTTPS and real authenticated Prowl Ask/Agent/Chat; four typed management reads (profiles/active/profile-models/presets) | Remaining retained Prowl provider/profile CRUD and selection, sign-in/OAuth/device flows, fallback/cache/network/project/harness/skill operations, all adapter model/config options and full native settings UI; actual packaged endpoint/provider acceptance |
 | Usage | Completion activity plus enrolled Claude/Codex/opencode JSON/SQLite activity, committed WAL snapshots, costs/cache/reset/soft caps, opencode model/session-component rows, local/UTC windows, one five-minute daemon schedule and labeled source failures | Real OAuth/RPC/session-limit quota, remaining provider/model/session detail, original separate timer/cache/shell UI and service integration |
-| ACP/process/harness | Source contract retained; live HTTP Ask-only capability delegation and action policy provide the restricted bridge seam | Actual adapter stdio/JSON-RPC lifecycle, initialize/capabilities/shared sessions/model options/prompts/notifications/cancel/replay, process isolation, all harnesses, tools/approvals/images/thinking/terminal; no ACP parity claim yet |
+| ACP/process/harness | Configured captured ELF adapter→real isolated stdio lifecycle, initialize/new/load/model/prompt/text notifications/cancel and bounded replay contract tested; actual API/browser jobs, descriptor-granted file read broker and permission denial/approved jailed kernel probe | Full native/shared sessions/load/replay and model/config options, all retained harness/interpreter/runtime and sign-in support, tools/approvals/images/thinking/full terminal/UI integration; no full ACP parity claim |
 | Web/native app/API | Owner Unix/HTTP API, scoped Ask bridge, cookie-free Basic/exact-Origin browser, real Ask/Agent/Chat/provider/model/job/handoff/Fix/usage/Wiki/root/tool permission forms | Retained Svelte/native app routes/sheets, theme/vitals/system/vault content, launcher/shell/Hub bridges, isolated credential delivery and real WebKit/native browser behavior |
 | Terminal | Typed request/logs CLI and bounded fixed native read probes | Upstream proposed-command tiers, command-buffer confirmation, continuation/run feedback/recipes, terminal sessions and shell integrations |
 | Service/lifecycle | Optional explicitly started development daemon/web process, private state lease/atomic persistence, interrupted restart handling, cancellation and source/provider failure states | Packaged install/remove and native launch, enable-now/login/linger/disable choices, real Prowl start/stop/health/recovery/version inventory, service failure/recovery/removal/KDE tests and registered writer coordination |
@@ -883,7 +883,7 @@ through `job.tool_activity` and the authenticated `/job/ID` browser page.
 
 Each generation has at most32 ordered records (four rounds of eight calls).
 Records contain `ordinal`, a SHA-256 `call_hash`, one of the five fixed tool
-names (or `unknown_tool`), `phase` and an optional typed `error`. Raw model call
+names, `acp_tool` (or `unknown_tool`), `phase` and an optional typed `error`. Raw model call
 IDs, unknown names, arguments, URLs, filesystem paths and tool input/output are
 never copied to this status metadata. Original wire IDs/results still reach the
 model in the existing bounded request; status logging does not change tools or
@@ -947,3 +947,89 @@ ACP lane (`askserve.go:88–107,152–220`) remains required, together with comp
 ACP/approvals/diffs/replay/native UI and all other acceptance-map rows. Explicit
 Agent continuation implements the retained change-request branch; it does not
 substitute for the isolated Ask fallback.
+
+
+## Configured ACP adapter process
+
+The owner can enroll an installed ACP ELF executable from the browser or with
+`enroll_acp_provider` (`id`, absolute `path`, explicit `models`, one fixed
+`arguments` mode: `stdio`, `acp`, or `experimental_acp`, and optional `network`).
+Enrollment captures device/inode/size/SHA256 after a no-symlink bounded read;
+each launch revalidates the artifact. Re-enrollment clears prior file/tool grants.
+The provider inventory reports its fingerprint and network choice and keeps
+saved model picks explicit. Owner model edits retain the artifact; real async
+catalog refresh negotiates an adapter session and preserves unavailable saved
+picks. Standard existing lane selectors route Ask, Agent and separate Chat to
+this provider. The deterministic `ryoku-rashin-acp-fixture` executable exercises
+this actual production path without model downloads or a model service.
+
+The installed runtime requires exact executable capabilities for
+`/usr/bin/unshare`, `/usr/bin/mount`, `/usr/bin/setpriv`, `/usr/bin/chroot` and
+`/usr/bin/prlimit`, plus the `--map-auto` mapping helpers
+`/usr/bin/newuidmap` and `/usr/bin/newgidmap`. The observed Tumbleweed providers are
+`util-linux-2.42.1-1.2.x86_64` (four helpers) and
+`coreutils-9.11-4.2.x86_64` (chroot) and
+`shadow-pw-mgmt-4.19.4-2.2.x86_64` (mapping helpers); immutable file digests are in this slice's
+receipt. This is host package ownership evidence; complete native/RPM closure
+and packaged VM acceptance remain separate gates. Missing helpers fail
+unavailable; there is no shell fallback or automatic installation.
+
+Before executing the adapter, the Rust bootstrap creates fresh user, mount, PID,
+IPC and UTS namespaces, plus a fresh network namespace by default. An explicit
+owner network grant shares the configured host network. Only nonrecursive,
+read-only `/usr/bin` and `/usr/lib64` runtime binds and exact null/random devices
+enter a private256MiB tmpfs root. It does not recursively bind `/usr`, which can
+contain locked WSL/C submounts. Private/home/state paths stay absent. The adapter
+runs as a distinct mapped UID/GID65534 with no effective/permitted capabilities
+and no-new-privs. Root/runtime writes, mount/signal/proc-parent/symlink escapes
+and inherited descriptor leaks are refused; only stdio is inherited. Its own
+home/tmp writes are ephemeral and bounded. Resource caps cover address space,
+CPU, processes, descriptors and file size. The parent kills/waits the manager;
+PID namespace death terminates descendants. Capability or subordinate-UID setup
+failure is an explicit unavailable state, never a weakened launch.
+
+Bootstrap configuration travels over stdin with exact-length raw reads, so it
+cannot consume the queued ACP initialize frame. Bootstrap writes are nonblocking
+with a three-second bound. The ACP1 NDJSON client uses nonblocking pipes, bounded
+frames/total input/event count/deadlines and typed errors without raw provider
+error bodies. It negotiates initialize capabilities, new/load sessions, explicit
+model selection, prompt text, session-bound notifications and cancellation.
+Wrong-session/wrong-ID/malformed/oversized responses fail. Current-model updates
+record the actual model separately from the saved choice. Counts are estimated
+when the protocol response provides no turn token counts.
+
+The runtime's file broker uses the existing owner-enrolled held roots and Store,
+secret/link/mount guards. Whole-file reads preserve exact UTF-8/LF/CRLF/trailing-newline bytes up to32KiB.
+Explicit validated ranges preserve original line endings, cap output at32KiB and
+scan at most1MiB; requests beyond the scan/output bound fail explicitly. Invalid
+UTF-8 is refused rather than silently replaced. Permissions are selected from the adapter's
+actual options: enrolled read access or the explicitly enabled fixed kernel
+probe can be allowed once; broader operations remain denied until their native
+writer/approval integration exists. The adapter can run its permitted internal
+probe inside the jail. Host file writes and the separate ACP client-terminal
+capability are not advertised. This slice does not claim full terminal,
+approval, diff or protected native mutation implementation. Ask denials produce
+a typed Agent-needed reason while preserving the answer; Agent/Chat stay separate.
+Bounded `acp_tool` status uses fingerprints and typed errors, with no raw paths,
+URLs, inputs or outputs in activity metadata.
+
+Network-enabled ACP Fix uses the existing exact finding/configuration-bound,
+expiring, single-use review contract. Tools are disabled for Fix. An independent
+loopback observer proves zero adapter calls before consent, one authorized call,
+and no extra traffic on token replay or identical accepted-ID retry; no external
+network is used in this proof. Actual browser enrollment/confirmation, reads and
+secret denial, independent Agent/Chat jobs, model updates/catalog, cancellation,
+re-enrollment grant clearing and restart are tested through the real engine.
+
+The pinned source contract remains `backend/acp.go:610–707,834–883,995–1106,
+1188–1242,1246–1290` and its `acp_test.go`, `acp_tail_test.go`, `acptools_test.go`
+at the retained1.0 commit. Runtime completion currently opens a fresh isolated
+session per job and supplies the explicit conversation context. The real client
+load/replay contract is tested, but runtime shared/persistent native ACP session
+resume still requires integration. All original harnesses, interpreter/runtime
+closure, authentication/config options, image/thinking/plan/tool details, full
+terminal and approval/diff/replay UI remain required. Automatic `TOOLS_REQUIRED`
+or unavailable-fast-lane fallback into isolated Ask ACP is still required.
+NSS/default state, installed inventory/writer leases and linked recovery for
+covered effects, remaining Prowl/provider/usage workflows, native app/shell/Hub,
+full package closure and Tumbleweed acceptance remain in the full issue scope.

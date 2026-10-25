@@ -55,6 +55,15 @@ pub enum Request {
     RevokeAskClient {
         id: String,
     },
+    EnrollAcpProvider {
+        id: String,
+        path: String,
+        models: Vec<String>,
+        #[serde(default)]
+        arguments: crate::acp::Arguments,
+        #[serde(default)]
+        network: bool,
+    },
     PutProvider {
         id: String,
         provider: Provider,

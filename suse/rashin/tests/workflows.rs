@@ -769,6 +769,13 @@ fn external_client_runtime_dependency_is_declared_for_tumbleweed() {
         "/usr/bin/curl",
         "/usr/bin/getent",
         "/usr/bin/iconv",
+        "/usr/bin/unshare",
+        "/usr/bin/mount",
+        "/usr/bin/setpriv",
+        "/usr/bin/chroot",
+        "/usr/bin/prlimit",
+        "/usr/bin/newuidmap",
+        "/usr/bin/newgidmap",
     ] {
         assert!(
             runtime

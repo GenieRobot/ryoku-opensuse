@@ -13,6 +13,9 @@ use std::{
 
 fn run() -> Result<()> {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
+    if args.len() == 1 && args[0] == "acp-worker" {
+        return ryoku_rashin::acp::worker();
+    }
     if args.len() != 2 {
         return Err(Error::InvalidRequest);
     }

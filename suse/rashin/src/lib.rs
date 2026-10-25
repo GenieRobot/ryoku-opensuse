@@ -1,5 +1,6 @@
 //! Rashin's account-private assistant runtime. Transport authenticates the
 //! kernel peer before deserializing any action. No action executes shell text.
+pub mod acp;
 pub mod api;
 mod ask;
 pub mod authorization;
