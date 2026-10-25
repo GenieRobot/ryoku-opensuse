@@ -7,6 +7,9 @@ const TARGET: &str = "ryoku-desktop-session.target";
 const SHELL: &str = "ryoku-desktop-shell.service";
 const SERVICE: &str = "ryoku-service.service";
 const UNITS: &[&str] = &[TARGET, SHELL, SERVICE];
+const LOCK: &str = "ryoku-session-lock.service";
+const LOGOUT: &str = "ryoku-session-logout.service";
+const FALLBACK_UNITS: &[&str] = &[TARGET, SHELL, SERVICE, LOCK, LOGOUT];
 const GRAPHICAL_ENV: &[&str] = &[
     "WAYLAND_DISPLAY",
     "DISPLAY",
@@ -83,7 +86,7 @@ fn user_command(uid: u32, request: UserQuery<'_>) -> Result<Command> {
         .args(["/usr/bin/systemctl", "--user", "--no-pager", "--no-ask-password"]);
     match request {
         UserQuery::Unit(unit) => {
-            require(UNITS.contains(&unit), "unsupported inspected unit")?;
+            require(FALLBACK_UNITS.contains(&unit), "unsupported inspected unit")?;
             command.args(["show", unit, "--property=Id,LoadState,ActiveState,SubState,MainPID,ControlGroup,FragmentPath,PartOf"]);
         }
         UserQuery::Environment => {
@@ -148,6 +151,9 @@ fn unit_ready(values: &BTreeMap<String, String>, unit: &str, uid: u32) -> bool {
 
 fn unit_stopped(values: &BTreeMap<String, String>, unit: &str) -> bool {
     matches(values, &[("Id", unit), ("LoadState", "loaded")])
+        && values
+            .get("FragmentPath")
+            .is_some_and(|path| path == &format!("/usr/lib/systemd/user/{unit}"))
         && if unit == TARGET {
             values.get("MainPID").is_none_or(|pid| pid == "0")
         } else {
@@ -155,6 +161,74 @@ fn unit_stopped(values: &BTreeMap<String, String>, unit: &str) -> bool {
         }
         && matches!(values.get("ActiveState").map(String::as_str), Some("inactive" | "failed"))
         && matches!(values.get("SubState").map(String::as_str), Some("dead" | "failed"))
+}
+
+fn group_unpopulated(source: &str) -> Result<bool> {
+    let mut populated = None;
+    for line in source.lines() {
+        let fields: Vec<_> = line.split_whitespace().collect();
+        require(fields.len() == 2, "malformed cgroup event state")?;
+        if fields[0] == "populated" {
+            require(populated.is_none(), "duplicate cgroup populated state")?;
+            populated = Some(match fields[1] {
+                "0" => true,
+                "1" => false,
+                _ => return Err("invalid cgroup populated state".into()),
+            });
+        }
+    }
+    populated.ok_or_else(|| "cgroup populated state missing".into())
+}
+
+fn unit_cgroup_empty(
+    root: &fs::File,
+    values: &BTreeMap<String, String>,
+    unit: &str,
+    uid: u32,
+) -> Result<()> {
+    if unit == TARGET {
+        return Ok(());
+    }
+    require(FALLBACK_UNITS.contains(&unit), "unsupported lifecycle unit")?;
+    let group = values.get("ControlGroup").ok_or("unit control group state missing")?;
+    if group.is_empty() {
+        return Ok(());
+    }
+    require(
+        user_group(group, uid)
+            && group.ends_with(&format!("/{unit}"))
+            && Path::new(group).components().all(|part| {
+                matches!(part, std::path::Component::RootDir | std::path::Component::Normal(_))
+            })
+            && !group.contains("//"),
+        "unit control group outside authenticated user unit",
+    )?;
+    let relative = Path::new(group).strip_prefix("/")?;
+    let flags = rustix::fs::ResolveFlags::BENEATH | rustix::fs::ResolveFlags::NO_SYMLINKS;
+    let directory = match rustix::fs::openat2(
+        root,
+        relative,
+        rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::DIRECTORY | rustix::fs::OFlags::CLOEXEC,
+        rustix::fs::Mode::empty(),
+        flags,
+    ) {
+        Ok(fd) => fd,
+        Err(rustix::io::Errno::NOENT) => return Ok(()),
+        Err(error) => return Err(std::io::Error::from(error).into()),
+    };
+    let events = fs::File::from(rustix::fs::openat2(
+        &directory,
+        "cgroup.events",
+        rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC,
+        rustix::fs::Mode::empty(),
+        flags,
+    )?);
+    let mut bytes = Vec::new();
+    events.take(4097).read_to_end(&mut bytes)?;
+    require(
+        bytes.len() <= 4096 && group_unpopulated(std::str::from_utf8(&bytes)?)?,
+        "unit cgroup still contains tasks; wait for native lifecycle cleanup",
+    )
 }
 
 fn ryoku_entry(source: &str) -> Result<bool> {
@@ -344,6 +418,8 @@ fn inspect_ryoku(mode: InspectionMode, stage: &mut &'static str) -> Result<()> {
         ("/usr/lib/systemd/user/ryoku-desktop-shell.service", "ryoku-session"),
         ("/usr/lib/systemd/user/ryoku-service.service", "ryoku-helper"),
         ("/usr/lib/systemd/user/ryoku-service.service.d/25-session.conf", "ryoku-session"),
+        ("/usr/lib/systemd/user/ryoku-session-lock.service", "ryoku-session"),
+        ("/usr/lib/systemd/user/ryoku-session-logout.service", "ryoku-session"),
         ("/usr/libexec/ryoku/quickshell/qs", "ryoku-desktop-runtime"),
     ] {
         rpm_intact(Path::new(path), owner)?;
@@ -374,18 +450,23 @@ fn inspect_ryoku(mode: InspectionMode, stage: &mut &'static str) -> Result<()> {
                 manager.get("ActiveState").is_some_and(|s| s == "active"),
                 "user manager cleanup in progress or failed",
             )?;
-            let units: Vec<_> =
-                UNITS.iter().map(|unit| unit_properties(uid, unit)).collect::<Result<_>>()?;
-            for (unit, values) in UNITS.iter().zip(&units) {
+            let units: Vec<_> = FALLBACK_UNITS
+                .iter()
+                .map(|unit| unit_properties(uid, unit))
+                .collect::<Result<_>>()?;
+            let cgroups = fs::File::open("/sys/fs/cgroup")?;
+            for (unit, values) in FALLBACK_UNITS.iter().zip(&units) {
                 require(unit_stopped(values, unit), "Ryoku unit still active during fallback")?;
+                unit_cgroup_empty(&cgroups, values, unit, uid)?;
             }
             let env = manager_environment(&user_query(uid, UserQuery::Environment)?)?;
             require(
                 GRAPHICAL_ENV.iter().all(|key| !env.contains_key(*key)),
                 "graphical environment remains after logout",
             )?;
-            for (unit, before) in UNITS.iter().zip(&units) {
+            for (unit, before) in FALLBACK_UNITS.iter().zip(&units) {
                 require(unit_properties(uid, unit)? == *before, "unit changed during fallback")?;
+                unit_cgroup_empty(&cgroups, before, unit, uid)?;
             }
             require(
                 manager_environment(&user_query(uid, UserQuery::Environment)?)? == env,
@@ -554,7 +635,7 @@ mod tests {
 
     #[test]
     fn user_manager_queries_cannot_start_stop_or_select_arbitrary_units() {
-        for unit in UNITS {
+        for unit in FALLBACK_UNITS {
             let command = user_command(1001, UserQuery::Unit(unit)).unwrap();
             assert_eq!(command.get_program(), "/usr/sbin/runuser");
             let args: Vec<_> = command.get_args().map(|s| s.to_str().unwrap()).collect();
@@ -577,6 +658,84 @@ mod tests {
         assert!(user_command(1001, UserQuery::Unit("other.service")).is_err());
         let command = user_command(1001, UserQuery::Environment).unwrap();
         assert_eq!(command.get_args().last().unwrap(), "show-environment");
+    }
+
+    #[test]
+    fn fallback_lifecycle_and_descendant_population_do_not_change_startup_requirements() {
+        assert_eq!(UNITS, &[TARGET, SHELL, SERVICE]);
+        assert!(FALLBACK_UNITS.contains(&LOCK) && FALLBACK_UNITS.contains(&LOGOUT));
+        assert!(!UNITS.contains(&LOCK) && !UNITS.contains(&LOGOUT));
+        for unit in [LOCK, LOGOUT] {
+            let source = format!(
+                "Id={unit}\nLoadState=loaded\nActiveState=inactive\nSubState=dead\nMainPID=0\nFragmentPath=/usr/lib/systemd/user/{unit}\nControlGroup=\n"
+            );
+            assert!(unit_stopped(&properties(&source).unwrap(), unit));
+            assert!(!unit_stopped(
+                &properties(&source.replace("ActiveState=inactive", "ActiveState=active")).unwrap(),
+                unit
+            ));
+            assert!(!unit_stopped(
+                &properties(&source.replace("MainPID=0", "MainPID=42")).unwrap(),
+                unit
+            ));
+            assert!(!unit_stopped(
+                &properties(&source.replace("/usr/lib/systemd", "/etc/systemd")).unwrap(),
+                unit
+            ));
+        }
+        assert!(group_unpopulated("populated 0\nfrozen 0\n").unwrap());
+        assert!(!group_unpopulated("populated 1\nfrozen 0\n").unwrap());
+        for source in
+            ["", "frozen 0\n", "populated 0\npopulated 1\n", "populated 2\n", "populated 0 extra\n"]
+        {
+            assert!(group_unpopulated(source).is_err());
+        }
+    }
+
+    #[test]
+    fn fallback_cgroup_read_is_bounded_confined_and_checks_descendant_population() {
+        struct Cleanup(PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+        let root = std::env::temp_dir().join(format!("issue25-cgroup-{}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        let _cleanup = Cleanup(root.clone());
+        let directory = fs::File::open(&root).unwrap();
+        let group = format!("/user.slice/user-1001.slice/user@1001.service/session.slice/{SHELL}");
+        let mut values = BTreeMap::from([("ControlGroup".into(), group.clone())]);
+        let path = root.join(group.strip_prefix('/').unwrap());
+        // An already removed inactive cgroup is empty; no service is started.
+        assert!(unit_cgroup_empty(&directory, &values, SHELL, 1001).is_ok());
+        fs::create_dir_all(&path).unwrap();
+        let events = path.join("cgroup.events");
+        fs::write(&events, "populated 0\nfrozen 0\n").unwrap();
+        assert!(unit_cgroup_empty(&directory, &values, SHELL, 1001).is_ok());
+        // Empty direct membership does not certify empty descendant groups.
+        fs::write(path.join("cgroup.procs"), "").unwrap();
+        fs::write(&events, "populated 1\nfrozen 0\n").unwrap();
+        assert!(unit_cgroup_empty(&directory, &values, SHELL, 1001).is_err());
+        fs::write(&events, "x".repeat(4097)).unwrap();
+        assert!(unit_cgroup_empty(&directory, &values, SHELL, 1001).is_err());
+        fs::remove_file(&events).unwrap();
+        std::os::unix::fs::symlink(root.join("outside-events"), &events).unwrap();
+        fs::write(root.join("outside-events"), "populated 0\n").unwrap();
+        assert!(unit_cgroup_empty(&directory, &values, SHELL, 1001).is_err());
+        assert!(unit_cgroup_empty(&directory, &values, SHELL, 1002).is_err());
+        for invalid in [
+            group.replace("user-1001.slice", "user-0.slice"),
+            group.replace("session.slice/", "../"),
+            group.replace(SHELL, "other.service"),
+        ] {
+            values.insert("ControlGroup".into(), invalid);
+            assert!(unit_cgroup_empty(&directory, &values, SHELL, 1001).is_err());
+        }
+        values.insert("ControlGroup".into(), String::new());
+        assert!(unit_cgroup_empty(&directory, &values, SHELL, 1001).is_ok());
+        values.clear();
+        assert!(unit_cgroup_empty(&directory, &values, SHELL, 1001).is_err());
     }
 
     #[test]
@@ -773,7 +932,7 @@ mod tests {
         }
         for state in ["inactive", "failed"] {
             let stopped = properties(&format!(
-                "Id={SHELL}\nLoadState=loaded\nActiveState={state}\nSubState={}\nMainPID=0\n",
+                "Id={SHELL}\nLoadState=loaded\nActiveState={state}\nSubState={}\nMainPID=0\nFragmentPath=/usr/lib/systemd/user/{SHELL}\n",
                 if state == "failed" { "failed" } else { "dead" }
             ))
             .unwrap();
@@ -781,7 +940,7 @@ mod tests {
             assert!(!unit_stopped(&stopped, SERVICE));
         }
         let target = properties(&format!(
-            "Id={TARGET}\nLoadState=loaded\nActiveState=inactive\nSubState=dead\n"
+            "Id={TARGET}\nLoadState=loaded\nActiveState=inactive\nSubState=dead\nFragmentPath=/usr/lib/systemd/user/{TARGET}\n"
         ))
         .unwrap();
         assert!(unit_stopped(&target, TARGET));

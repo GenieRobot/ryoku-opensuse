@@ -1,0 +1,53 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+branch_parent = "7c5c5675b00526b989b5625fc92d90e5578ac235"
+scope = "Read-only fallback lifecycle-unit and descendant-cgroup cleanup evidence"
+native_acceptance = false
+native_build = false
+package_build = false
+vm_access = false
+qmp_access = false
+downloads = false
+real_cgroup_writes = false
+
+[contract]
+login_units_unchanged = ["ryoku-desktop-session.target", "ryoku-desktop-shell.service", "ryoku-service.service"]
+fallback_units = ["ryoku-desktop-session.target", "ryoku-desktop-shell.service", "ryoku-service.service", "ryoku-session-lock.service", "ryoku-session-logout.service"]
+lifecycle = "Inspect lock/logout only during fallback; keep logout outside stopped target and do not add startup requirements or start a unit/manager"
+metadata = "Require exact installed unit fragment plus inactive/failed, dead/failed and service MainPID0; verify lifecycle unit files remain RPM-owned/intact"
+cgroup = "When a service reports ControlGroup, accept empty or already removed group; otherwise require bounded cgroup.events populated0, which covers descendant population, not just empty direct cgroup.procs"
+confinement = "Require authenticated UID user-manager prefix, exact fixed unit suffix and safe path components; openat2 BENEATH/NO_SYMLINKS from cgroup root and then unit directory; reject wrong owner path, traversal and linked events"
+bounds = "Retain at most4097 bytes and refuse anything over4096; malformed/missing/duplicate populated state refuses; no truncation success"
+revalidation = "Repeat cgroup check after exact unit-property snapshot revalidation; absent-manager branch remains separately guarded and does not start it"
+features = "No product feature/UI/provider/authorization mutation or other issue scope change"
+
+[tests]
+focused_command = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo test --offline --locked -p ryoku-automation --bin vm-lab desktop::ryoku::tests::"
+focused_passed = 13
+focused_failed = 0
+new = ["desktop::ryoku::tests::fallback_lifecycle_and_descendant_population_do_not_change_startup_requirements", "desktop::ryoku::tests::fallback_cgroup_read_is_bounded_confined_and_checks_descendant_population"]
+matrix = "Lock/logout inactive accepted but active/nonzero MainPID/noninstalled fragment refused; core startup list unchanged; empty/removed/populated cgroup including empty direct procs but populated descendants; malformed/duplicate/missing/oversize events; wrong UID/unit/path and symlink refused"
+workspace = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo test --workspace --all-features --offline --locked"
+workspace_passed = true
+vm_lab_passed = 94
+recovery_passed = 246
+recovery_existing_ignored = 6
+service_passed = 140
+service_existing_ignored = 1
+clippy = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo clippy --workspace --all-targets --all-features --offline --locked -- -D warnings"
+clippy_passed = true
+format = "cargo fmt --all --check"
+whitespace = "git diff --check"
+fixture = "Newly owned temporary ordinary directory/files simulate cgroup events; no real kernel cgroup or manager is read/modified by these tests. Full workspace additionally uses existing owned socket/ptrace fixtures"
+
+[storage_privacy]
+paths = "Same existing /dev/sdd target/cache/toolchain; temporary files/private logs on /tmp tmpfs; no duplicate target or C-mounted output"
+guard = "C remains below10GiB native guard; no native/package/VM action"
+public_data = "Fixed test names, source contracts and counts only; raw host paths/account/process/log data remain private"
+
+[remaining]
+issue_open = true
+pr_draft = true
+native = "Fresh combined #173 source/vendor/spec/RPM tuple and storage/builder clearance before native package phase and actual SDDM/login/reboot/failure/KDE/player/workflow/device evidence"
+separate = "This does not certify portals, screen-sharing streams, device behavior, locked-crash/PAM guarantees or #176 real wallpaper-theme accounting"

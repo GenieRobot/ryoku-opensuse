@@ -106,6 +106,15 @@ manager and absent runtime endpoints without starting it. The existing
 `guest-login-inspect` remains the separate Plasma runtime inspection. A selectable
 KDE entry alone does not establish KDE usability, and a greeter inspection alone
 does not establish which preceding failure/logout caused it.
+Fallback checks also include the independent lock/logout units without adding
+either to the login readiness gate. A reported inactive/failed unit must still
+use its installed fragment, and any reported cgroup must be absent or report
+`populated 0` through a bounded no-follow read of `cgroup.events`; an empty
+direct `cgroup.procs` file is not enough to rule out descendant tasks. These
+checks repeat after the unit snapshot is revalidated. The
+[lifecycle/cgroup receipt](../infra/tumbleweed-lab/evidence/issue25-lifecycle-cgroup-20261025.toml)
+records synthetic filesystem tests; no actual service or kernel cgroup was
+changed, and portal/device/native fallback acceptance remains separate.
 The process-image scan also recognizes procfs's exact ` (deleted)` suffix:
 unlinking a still-running or stopped player's executable cannot turn it into
 completed cleanup. The [deleted-image regression receipt](../infra/tumbleweed-lab/evidence/issue25-deleted-actor-inspection-20261025.toml)
