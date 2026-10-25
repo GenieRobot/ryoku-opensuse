@@ -120,11 +120,9 @@ impl FileRestoreIntent {
             .as_str()
             .rsplit_once('/')
             .map_or_else(|| leaf.clone(), |(parent, _)| format!("{parent}/{leaf}"));
-        let stage = AssetPath::new(
-            path.namespace(),
-            RelativePath::new(relative).map_err(|_| RestoreError::InvalidBinding)?,
-        )
-        .map_err(|_| RestoreError::InvalidBinding)?;
+        let stage = path
+            .with_relative(RelativePath::new(relative).map_err(|_| RestoreError::InvalidBinding)?)
+            .map_err(|_| RestoreError::InvalidBinding)?;
         if stage == *path {
             return Err(RestoreError::InvalidBinding);
         }

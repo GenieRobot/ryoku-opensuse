@@ -316,3 +316,48 @@ fn reviewed_asset_scope_refuses_invalid_bounds_duplicate_and_oversized_current_s
     assert!(parsed.validate().is_err());
     assert!(parsed.capture(&fixture.home, &fixture.account).is_err());
 }
+
+#[test]
+fn library_binding_rejects_credential_roots_and_duplicate_physical_paths() {
+    let fixture = Fixture::new();
+    for root in [".ssh", ".gnupg/keys", ".config", ".local/state", ".aws", ".codex"] {
+        assert!(
+            AssetPath::for_library(
+                RelativePath::new(root).unwrap(),
+                RelativePath::new("file.png").unwrap()
+            )
+            .is_err()
+        );
+    }
+    assert!(
+        AssetPath::new(AssetNamespace::ConfiguredLibrary, RelativePath::new("file.png").unwrap())
+            .is_err()
+    );
+    let path = AssetPath::for_library(
+        RelativePath::new("Pictures/Wallpapers").unwrap(),
+        RelativePath::new("file.png").unwrap(),
+    )
+    .unwrap();
+    let alias = AssetPath::for_library(
+        RelativePath::new("Pictures").unwrap(),
+        RelativePath::new("Wallpapers/file.png").unwrap(),
+    )
+    .unwrap();
+    fixture.write(&path, b"local fixture");
+    assert!(
+        capture_assets(&fixture.home, &fixture.account, &[path, alias], MAX_CAPTURE_LIMITS)
+            .is_err()
+    );
+}
+
+#[test]
+fn historical_fixed_asset_encoding_is_unchanged_and_rejects_root_injection() {
+    let path = path(AssetNamespace::SemanticModels, "model.onnx");
+    let original = serde_json::to_string(&path).unwrap();
+    assert_eq!(original, r#"{"namespace":"semantic_models","relative":"model.onnx"}"#);
+    let mut forged = serde_json::to_value(&path).unwrap();
+    forged["library_root"] = "Pictures".into();
+    let parsed: AssetPath = serde_json::from_value(forged).unwrap();
+    assert!(parsed.home_relative().is_err());
+    assert_eq!(serde_json::from_str::<AssetPath>(&original).unwrap(), path);
+}

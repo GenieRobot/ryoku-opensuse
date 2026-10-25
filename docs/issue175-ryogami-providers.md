@@ -68,9 +68,16 @@ capture, and source metadata allocation remains capped at 64 MiB even when
 asset content limits are larger.
 
 The old preference-only planner and stage explicitly refuse asset-bearing
-manifests instead of silently skipping media. General directory creation and
-metadata recovery, configured image/video roots, complete provider write sets
-and installed routing remain open. No current helper request has
+manifests instead of silently skipping media. Server-side image/video roots now resolve from the fixed owned settings file
+and the helper-inspected actor Pictures location, preserving localized/English
+fallback and livewall selection. Explicit library asset bindings preserve the
+chosen owned root through capture, staging and restore, reject protected
+credential namespaces and physical aliases, and leave configuration unchanged.
+General directory creation and metadata recovery, complete provider write sets
+and installed routing remain open. The fixed #25 inventory still refuses a
+relocated `paths.cache`; that guard is unchanged until the #175 capture contract
+can enroll the complete relocated catalog/state. Configured writable libraries
+outside the authenticated home require separate owned-root enrollment. No current helper request has
 been changed to forward an unprotected operation. No upstream component,
 picker control, daemon feature, package path or language has been removed or
 rewritten by this checkpoint.
@@ -172,6 +179,21 @@ fingerprint/bounds tests and six journaled destination tests). The focused
 All fixtures remain local synthetic data. Native provider authorization,
 Snapper execution, general tree recovery and installed picker actions have not
 been exercised by these storage tests.
+
+The configured-root checkpoint adds seven local tests: four resolver/privacy
+cases, two recovery binding/legacy-encoding cases, and one configured-library
+live restore/stage/reopen case. The resolver does not create directories, scan
+file contents, contact providers, or return credentials. Root construction is
+server-side; provider requests still cannot supply a privileged destination.
+Exact item/catalog membership validation remains the provider's responsibility.
+
+| Configured-root boundary | Evidence |
+| --- | --- |
+| Upstream location behavior | English default, localized Pictures, English fallback, `livewalls`, configured image/video folders and custom hidden media folders resolve without writes |
+| Ownership/privacy | Foreign account, group/world-write path, symlink, external/traversal/credential root and malformed settings refuse; config/credential/unrelated sentinels remain unchanged |
+| Exact capture and restore | Configured root survives generated staging derivation, linked capture, restored bytes and protected-record restart inspection |
+| Historical schema-3 encoding | Fixed namespaces still serialize without a new root field; root injection and two logical names for one physical path refuse |
+| Cache prerequisite | Nonstandard cache is identified but receives no exception to #25's committed inventory validator |
 
 ## Remaining acceptance gates
 

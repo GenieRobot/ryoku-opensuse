@@ -15,6 +15,8 @@ pub mod native_mutation;
 pub mod protected_state;
 pub mod runtime;
 mod runtime_paths;
+#[cfg(target_os = "linux")]
+pub mod ryogami_paths;
 pub mod ryogami_protocol;
 pub mod ryogami_staging;
 pub mod wallpaper;

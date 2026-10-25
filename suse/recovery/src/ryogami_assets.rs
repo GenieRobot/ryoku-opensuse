@@ -33,6 +33,7 @@ pub enum AssetNamespace {
     RemotePreviews,
     RemoteThumbnails,
     WorkshopContent,
+    ConfiguredLibrary,
 }
 impl AssetNamespace {
     pub fn home_prefix(self) -> &'static str {
@@ -42,6 +43,7 @@ impl AssetNamespace {
             Self::RemotePreviews => ".cache/ryogami/remote-preview",
             Self::RemoteThumbnails => ".cache/ryogami/remote",
             Self::WorkshopContent => ".local/share/ryogami/workshop",
+            Self::ConfiguredLibrary => "",
         }
     }
 }
@@ -51,14 +53,42 @@ impl AssetNamespace {
 pub struct AssetPath {
     namespace: AssetNamespace,
     relative: RelativePath,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    library_root: Option<RelativePath>,
 }
 impl AssetPath {
     pub fn new(namespace: AssetNamespace, relative: RelativePath) -> Result<Self, AssetError> {
-        let path = Self { namespace, relative };
+        let path = Self { namespace, relative, library_root: None };
+        path.validate()?;
+        Ok(path)
+    }
+    /// Trusted provider construction only: root comes from the authenticated
+    /// account's inspected settings/session, never from a request field. The
+    /// provider must verify exact library membership before enrolling a file.
+    pub fn for_library(root: RelativePath, relative: RelativePath) -> Result<Self, AssetError> {
+        let path = Self {
+            namespace: AssetNamespace::ConfiguredLibrary,
+            relative,
+            library_root: Some(root),
+        };
+        path.validate()?;
+        Ok(path)
+    }
+    /// Preserve the verified namespace/root when deriving an exact staging name.
+    pub fn with_relative(&self, relative: RelativePath) -> Result<Self, AssetError> {
+        let path = Self { relative, ..self.clone() };
         path.validate()?;
         Ok(path)
     }
     fn validate(&self) -> Result<(), AssetError> {
+        match (self.namespace, &self.library_root) {
+            (AssetNamespace::ConfiguredLibrary, Some(root))
+                if library_root_allowed(root)
+                    && root.as_str().len() <= 1024
+                    && root.as_str().split('/').count() <= 16 => {}
+            (AssetNamespace::ConfiguredLibrary, _) | (_, Some(_)) => return Err(AssetError::Path),
+            (_, None) => {}
+        }
         if self.relative.as_str().len() > 1024 || self.relative.as_str().split('/').count() > 16 {
             return Err(AssetError::Path);
         }
@@ -80,9 +110,46 @@ impl AssetPath {
     }
     pub fn home_relative(&self) -> Result<RelativePath, AssetError> {
         self.validate()?;
-        RelativePath::new(format!("{}/{}", self.namespace.home_prefix(), self.relative.as_str()))
+        let prefix = self
+            .library_root
+            .as_ref()
+            .map(RelativePath::as_str)
+            .unwrap_or_else(|| self.namespace.home_prefix());
+        RelativePath::new(format!("{}/{}", prefix, self.relative.as_str()))
             .map_err(|_| AssetError::Path)
     }
+}
+
+fn library_root_allowed(root: &RelativePath) -> bool {
+    let value = root.as_str();
+    if value == ".local/share/backgrounds"
+        || value.starts_with(".local/share/backgrounds/")
+        || value == ".local/share/wallpapers"
+        || value.starts_with(".local/share/wallpapers/")
+    {
+        return true;
+    }
+    ![
+        ".ssh",
+        ".gnupg",
+        ".aws",
+        ".azure",
+        ".config",
+        ".cache",
+        ".local",
+        ".codex",
+        ".mozilla",
+        ".pki",
+        ".password-store",
+        ".kube",
+        ".docker",
+        ".npm",
+        ".cargo",
+        ".rustup",
+        ".steam",
+        ".var",
+    ]
+    .contains(&value.split('/').next().unwrap_or_default())
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -122,10 +189,13 @@ impl AssetInventory {
             return Err(AssetError::Bounds);
         }
         let mut paths = BTreeSet::new();
+        let mut home_paths = BTreeSet::new();
         let mut total = 0u64;
         for record in &self.entries {
             record.path.validate()?;
-            if !paths.insert(record.path.clone()) {
+            if !paths.insert(record.path.clone())
+                || !home_paths.insert(record.path.home_relative()?)
+            {
                 return Err(AssetError::Path);
             }
             let metadata = match &record.kind {

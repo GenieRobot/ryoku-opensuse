@@ -392,3 +392,49 @@ fn corrupt_or_missing_protected_record_never_authorizes_restart() {
         .is_err()
     );
 }
+
+#[test]
+fn configured_library_restore_keeps_its_exact_bound_root_across_staging_and_reopen() {
+    let fixture = Fixture::new();
+    let path = AssetPath::for_library(
+        RelativePath::new("Pictures/Personal library").unwrap(),
+        RelativePath::new("nested/photo.png").unwrap(),
+    )
+    .unwrap();
+    fixture.write(&path, b"original image fixture");
+    let source = fixture.capture(1, std::slice::from_ref(&path));
+    fixture.write(&path, b"changed image fixture");
+    let intent =
+        FileRestoreIntent::new(Identifier::new("library-restore").unwrap(), &source, &path)
+            .unwrap();
+    assert!(
+        intent
+            .staging()
+            .home_relative()
+            .unwrap()
+            .as_str()
+            .starts_with("Pictures/Personal library/nested/.part-")
+    );
+    let checkpoint = fixture.capture(2, intent.scope().unwrap().paths());
+    let plan =
+        FileRestorePlan::prepare(&intent, &source, &checkpoint, &fixture.home, &fixture.account)
+            .unwrap();
+    let receipt = plan
+        .apply(&source, &checkpoint, &fixture.home, &fixture.account, &fixture.journal, || true)
+        .unwrap();
+    assert_eq!(std::fs::read(fixture.file(&path)).unwrap(), b"original image fixture");
+    assert_eq!(
+        FileRestorePlan::reopen(
+            &receipt,
+            &source,
+            &checkpoint,
+            &fixture.home,
+            &fixture.account,
+            &fixture.journal
+        )
+        .unwrap()
+        .observe(&fixture.home, &fixture.account)
+        .unwrap(),
+        RestoreObservation::Restored
+    );
+}
