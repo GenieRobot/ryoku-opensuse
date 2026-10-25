@@ -12,6 +12,8 @@ pub mod account_principal;
 pub mod asset_restore;
 #[cfg(target_os = "linux")]
 pub mod capture;
+#[cfg(target_os = "linux")]
+pub mod combined_restore;
 pub use account_principal::AccountPrincipal;
 #[cfg(target_os = "linux")]
 pub mod capture_session;

@@ -1,0 +1,67 @@
+schema_version = 1
+issue = 175
+status = "partial-combined-storage-coordinator-not-installed-acceptance"
+branch = "codex/issue175-ryogami-library-providers"
+previous_checkpoint = "8d5d016005e706888873732ddd27f91da3a9d919"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+
+[storage]
+worktree_filesystem = "/dev/sdd"
+cargo_target_filesystem = "/dev/sdd"
+cargo_cache_filesystem = "/dev/sdd"
+fixture_filesystem = "tmpfs"
+provider_endpoint_calls = 0
+media_downloads = 0
+model_downloads = 0
+native_tool_launches = 0
+
+[implementation]
+combined_fixed_preferences_and_exact_asset_scope = true
+private_preference_subset_not_exposed = true
+legacy_asset_restore_refusal_preserved = true
+protected_combined_and_per_asset_receipts = true
+phase_deferred_until_both_families_verify = true
+real_configuration_and_model_bytes_restored = true
+partial_asset_requires_fresh_checkpoint_cleanup = true
+completed_asset_reopen_verifies_original_record = true
+unchanged_original_replay_requires_protected_record = true
+
+[validation]
+formatting = "pass"
+strict_clippy_workspace_all_targets_all_features = "pass"
+workspace_tests_offline_locked_all_features = "pass"
+recovery_tests_passed = 280
+recovery_tests_existing_ignored = 6
+service_tests_passed = 173
+service_tests_existing_ignored = 1
+vm_lab_tests_passed = 90
+new_combined_tests_passed = 5
+combined_preparation = "pass; coverage, account, native partner, legacy refusal, stale asset"
+combined_application = "pass; actual ryogami.json and model contents plus unrelated sentinel"
+combined_either_family_failure = "pass; ConfigurationRestored withheld; preference retry verifies completed asset"
+combined_partial_asset = "pass; no blind replay; fresh captured cleanup then exact recorded retry"
+combined_post_asset_interruption = "pass; phase withheld; protected reopen completes preferences"
+combined_corrupt_record = "pass; refusal"
+dependency_advisories = "pass-cached-offline"
+dependency_bans = "pass-cached-offline"
+dependency_licenses = "pass-cached-offline"
+dependency_sources = "pass-cached-offline"
+whitespace = "pass"
+initial_fixture_corrections = "mutation-ready checkpoint with an allowed fixed preference; test result alias kept private"
+
+[acceptance]
+installed_helper_provider_dispatch = false
+picker_provider_integration = false
+installed_combined_restore_dispatch = false
+general_tree_restore = false
+native_snapper_proof = false
+installed_native_ui_test = false
+issue_complete = false
+remaining = [
+  "native combined recovery dispatch and incomplete-preparation cleanup/reopen before enabling actions",
+  "directory creation and general model/library tree recovery",
+  "authenticated helper/provider/UI operations with complete linked pre/post outcomes",
+  "#176 selected-model stop/reindex callback transaction with full effects",
+  "source/Steam/media operations, credentials, process containment and resume",
+  "native combined-candidate acceptance"
+]

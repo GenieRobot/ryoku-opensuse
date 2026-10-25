@@ -133,6 +133,19 @@ pub fn stage_configuration(
     if manifest.assets().is_some() {
         return Err(StageError::AssetRestoreRequired);
     }
+    stage_preference_subset(generation, plan)
+}
+
+/// Private subset staging for the combined #175 coordinator. The caller never
+/// exposes this as a standalone stage or credits it as an asset restore.
+pub(crate) fn stage_preference_subset(
+    generation: &VerifiedGeneration,
+    plan: &RestorePlan,
+) -> Result<StagedConfiguration, StageError> {
+    if plan.scope == RestoreScope::SystemOnly {
+        return Err(StageError::SystemOnlyScope);
+    }
+    let manifest = generation.manifest();
     if manifest.manifest_sha256.as_ref() != Some(&plan.source_manifest_sha256)
         || plan.transaction_id != manifest.transaction_id
         || plan.generation_id != manifest.generation_id

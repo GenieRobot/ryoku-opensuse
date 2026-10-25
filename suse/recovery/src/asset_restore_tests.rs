@@ -1,8 +1,7 @@
 use super::*;
 use crate::{
-    FileRecord, OperationReason, RecoveryManifest, SnapshotLink, StateRoot, VerificationStatus,
-    generation::{GenerationStore, Payloads},
-    ryogami_assets::AssetNamespace,
+    OperationReason, RecoveryManifest, SnapshotLink, StateRoot, VerificationStatus,
+    generation::GenerationStore, ryogami_assets::AssetNamespace,
 };
 use std::{
     os::unix::fs::PermissionsExt,
@@ -60,6 +59,14 @@ impl Fixture {
         std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o600)).unwrap();
     }
     fn capture(&self, number: u64, paths: &[AssetPath]) -> VerifiedGeneration {
+        self.capture_preferences(number, paths, true)
+    }
+    fn capture_preferences(
+        &self,
+        number: u64,
+        paths: &[AssetPath],
+        include_preferences: bool,
+    ) -> VerifiedGeneration {
         let assets = capture_assets(&self.home, &self.account, paths, MAX_CAPTURE_LIMITS).unwrap();
         let link = SnapshotLink::new(
             Identifier::new("root").unwrap(),
@@ -80,16 +87,29 @@ impl Fixture {
         .unwrap();
         manifest.attach_root_snapshot_receipt(receipt).unwrap();
         manifest.attach_account_principal(self.account.principal.clone());
-        manifest
-            .add_file(
-                FileRecord::new(
-                    StateRoot::UserHome,
-                    RelativePath::new(".local/state/ryoku/flags.json").unwrap(),
-                    EntryKind::Absent,
-                )
-                .unwrap(),
-            )
-            .unwrap();
+        let preference = RelativePath::new(if include_preferences {
+            ".config/ryoku/ryogami.json"
+        } else {
+            ".local/state/ryoku/flags.json"
+        })
+        .unwrap();
+        let captured = crate::capture::capture_inventory(
+            &self.home,
+            StateRoot::UserHome,
+            std::slice::from_ref(&preference),
+            Default::default(),
+        )
+        .unwrap();
+        let mut payloads = captured.metadata_payloads;
+        for record in captured.records {
+            if let EntryKind::RegularFile { sha256, .. } = &record.kind {
+                payloads.insert(
+                    sha256.clone(),
+                    std::fs::read(self.path.join("home").join(record.path.as_str())).unwrap(),
+                );
+            }
+            manifest.add_file(record).unwrap();
+        }
         manifest.set_verification(
             VerificationStatus::Verified,
             VerificationStatus::Verified,
@@ -98,7 +118,7 @@ impl Fixture {
         manifest.seal().unwrap();
         let manifest = self
             .store
-            .publish_with_assets(manifest, &Payloads::new(), &assets, &self.home, || true)
+            .publish_with_assets(manifest, &payloads, &assets, &self.home, || true)
             .unwrap();
         self.store.open_verified_transaction(&manifest.transaction_id).unwrap()
     }
@@ -485,3 +505,135 @@ fn interrupted_model_reference_stage_is_exactly_enrolled_and_recoverable_without
         );
     }
 }
+
+#[test]
+fn combined_restore_preparation_keeps_preferences_and_every_asset_bound_to_fresh_checkpoint() {
+    use crate::combined_restore::{
+        CombinedPreparation, CombinedRestoreIntent, PreparedCombinedRestore,
+    };
+    use crate::restore::{
+        ArtifactStatus, CompatibilityStatus, PreflightEvidence, RestoreScope, SystemSnapshotStatus,
+    };
+    let fixture = Fixture::new();
+    let model = AssetPath::new(
+        AssetNamespace::SemanticModels,
+        RelativePath::new("fixture/model.onnx").unwrap(),
+    )
+    .unwrap();
+    let stage = AssetPath::new(
+        AssetNamespace::ModelReferenceStage,
+        RelativePath::new(format!(".ryoku-model-{}.part", "b".repeat(64))).unwrap(),
+    )
+    .unwrap();
+    fixture.write(&model, b"original model");
+    let source = fixture.capture(1, &[model.clone(), stage.clone()]);
+    let make_intent = || {
+        CombinedRestoreIntent::new(Identifier::new("combined-fixture").unwrap(), &source).unwrap()
+    };
+    let intent = make_intent();
+    assert_eq!(intent.scope().paths().len(), 4);
+    fixture.write(&model, b"changed model");
+    fixture.write(&stage, b"interrupted model settings");
+    let checkpoint = fixture.capture(2, intent.scope().paths());
+    let facts = PreflightEvidence {
+        generation: ArtifactStatus::Verified,
+        archive: ArtifactStatus::Verified,
+        current_state_checkpoint: ArtifactStatus::Verified,
+        system_snapshot: SystemSnapshotStatus::Available {
+            snapper_config: source.manifest().snapper_config.clone(),
+            snapshot_id: source.manifest().snapper_snapshot_id.clone(),
+            filesystem_uuid: source.manifest().filesystem_uuid.clone(),
+        },
+        system_compatibility: CompatibilityStatus::Compatible,
+        configuration_compatibility: CompatibilityStatus::Compatible,
+    };
+    let prepare = |intent, checkpoint, scope, facts: &PreflightEvidence, account| {
+        PreparedCombinedRestore::prepare(
+            intent,
+            CombinedPreparation {
+                source: &source,
+                checkpoint,
+                home: &fixture.home,
+                account,
+                scope,
+                evidence: facts,
+            },
+        )
+    };
+    let combined =
+        prepare(intent, &checkpoint, RestoreScope::CompleteLinked, &facts, &fixture.account)
+            .unwrap();
+    assert_eq!(combined.preference_entries(), 1);
+    assert_eq!(combined.asset_entries(), 2);
+    assert_eq!(combined.source_manifest(), source.manifest().manifest_sha256.as_ref().unwrap());
+    assert_eq!(
+        combined.checkpoint_manifest(),
+        checkpoint.manifest().manifest_sha256.as_ref().unwrap()
+    );
+    for scope in
+        [RestoreScope::ConfigurationOnly, RestoreScope::CompleteLinked, RestoreScope::SystemOnly]
+    {
+        assert_eq!(
+            crate::restore::plan_restore(source.manifest(), scope, &facts),
+            Err(crate::restore::PreflightError::AssetRestoreRequired)
+        );
+    }
+    assert!(
+        prepare(make_intent(), &checkpoint, RestoreScope::SystemOnly, &facts, &fixture.account)
+            .is_err()
+    );
+    let incomplete_assets = fixture.capture(3, &[model.clone(), stage.clone()]);
+    assert!(
+        prepare(
+            make_intent(),
+            &incomplete_assets,
+            RestoreScope::CompleteLinked,
+            &facts,
+            &fixture.account
+        )
+        .is_err()
+    );
+    let incomplete_preferences =
+        fixture.capture_preferences(4, make_intent().scope().paths(), false);
+    assert!(
+        prepare(
+            make_intent(),
+            &incomplete_preferences,
+            RestoreScope::CompleteLinked,
+            &facts,
+            &fixture.account
+        )
+        .is_err()
+    );
+    let mut no_checkpoint = facts.clone();
+    no_checkpoint.current_state_checkpoint = ArtifactStatus::Missing;
+    assert!(
+        prepare(
+            make_intent(),
+            &checkpoint,
+            RestoreScope::CompleteLinked,
+            &no_checkpoint,
+            &fixture.account
+        )
+        .is_err()
+    );
+    let mut wrong = fixture.account.clone();
+    wrong.principal =
+        AccountPrincipal::from_account(wrong.uid, wrong.gid, "another", "/home/another").unwrap();
+    assert!(
+        prepare(make_intent(), &checkpoint, RestoreScope::CompleteLinked, &facts, &wrong).is_err()
+    );
+    fixture.write(&model, b"changed after fresh checkpoint");
+    assert!(
+        prepare(make_intent(), &checkpoint, RestoreScope::CompleteLinked, &facts, &fixture.account)
+            .is_err()
+    );
+    assert_eq!(
+        std::fs::read_dir(fixture.path.join("journal")).unwrap().count(),
+        0,
+        "preparation cannot write a journal or target"
+    );
+}
+
+#[path = "combined_restore_tests.rs"]
+mod combined;

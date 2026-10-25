@@ -242,6 +242,56 @@ vendored dependencies and passes eight top-level tests. No provider endpoint,
 wallpaper/model download, Steam/lens process, RPM installation or native desktop
 acceptance was exercised.
 
+## Combined preference/asset restore checkpoint
+
+The private combined plan now binds every fixed preference and exact regular or
+absent asset to one immutable source and a distinct current-state native-linked
+generation. Its asset scope includes every generated restore stage before that
+current-state capture. Asset/preference coverage, account identity, snapshot
+identity, compatibility, parent identities and original target state are checked
+before preparation. All three legacy restore scopes still refuse asset-bearing
+manifests. The bounded preference subset is never exposed as a standalone stage.
+
+The coordinator persists a combined record containing the source plan,
+current-state generation/digest, principal and each exact asset write-ahead
+receipt. It retains the existing writer-stop/root-rollback phase gates. After
+streamed asset restoration it applies the fixed preferences with their final
+journal transition deferred; only complete readback of both families advances
+`ConfigurationRestored`. This phase is not native health, startup admission or
+operation success. Reopen reads the protected combined and per-asset records,
+revalidates their immutable generation bindings and verifies completed items.
+An unchanged original target with no stage may resume its exact recorded plan;
+a partial stage requires a separately authorized fresh-checkpoint cleanup first.
+
+| Combined boundary | Deterministic local evidence |
+| --- | --- |
+| Preparation | Complete fixed preference plus all target/stage coverage; missing preference or stage, wrong account, same/missing partner and stale live asset refuse without writes |
+| Real two-family application | Actual `ryogami.json` and model bytes restore, private configuration values and unrelated sentinel survive, and protected restart readback succeeds |
+| Either-family failure | Changed model stops before preference writes; unsafe preference parent after asset restoration leaves `WritersStopped`, and correcting it permits verified-item reuse and complete preference restore |
+| Partial asset | Interruption retains the stage and unchanged preferences; reopen cannot blindly replay it; a fresh captured cleanup removes only that stage before the original exact plan resumes |
+| Post-asset interruption | Restored model plus unchanged configuration remains `WritersStopped`; reopen verifies the completed asset and finishes preferences; corrupted combined record cannot reopen |
+| Legacy behavior | Existing configuration apply/stage/restore tests run in the full workspace; old APIs still reject schema-3 asset manifests rather than omit assets |
+
+The five combined fixtures and full offline workspace pass: recovery 280/6
+existing ignored, service 173/1 existing ignored, VM 90. Formatting, strict
+all-target/all-feature Clippy and cached dependency review pass. Initial test-only
+fixtures were corrected to use a mutation-ready checkpoint and an existing fixed
+preference path; a private test result alias was corrected without widening the
+API. This is local storage/coordinator evidence, including configuration-only
+application; no native root rollback, installed recovery-command dispatch,
+provider helper, UI, directory-tree restore or selected-model callback acceptance
+is claimed. Recovery of incomplete preparation before a combined record exists
+still needs its installed coordinator path before actions can be enabled.
+
+Configured user-space wallpaper locations are legitimate retained functionality.
+The current unexposed resolver's path refusals describe incomplete exact-root
+capture/recovery enrollment, not a security finding against wallpaper paths or
+a decision to remove support. Final parity includes configured caches, external
+account-owned libraries and valid custom media locations. Their implementation
+must bind exact owned media/catalog entries without recursively capturing mixed
+configuration credentials, accepting arbitrary delete targets or forwarding
+reload commands. Any migration must preserve the retained feature and its data.
+
 ## Remaining acceptance gates
 
 1. Install asset-aware complete linked pre/post capture and offline restore,

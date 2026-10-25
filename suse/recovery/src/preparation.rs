@@ -856,7 +856,7 @@ fn capture_current_state(
     )
 }
 
-fn verify_live_checkpoint(
+pub(crate) fn verify_live_checkpoint(
     checkpoint: &RecoveryManifest,
     roots: &[DeclaredRoot<'_>],
 ) -> Result<(), PreparationError> {

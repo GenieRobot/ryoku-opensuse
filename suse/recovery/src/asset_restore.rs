@@ -269,6 +269,12 @@ impl FileRestorePlan {
         }
         Ok(plan)
     }
+    pub(crate) fn matches_intent(&self, intent: &FileRestoreIntent) -> bool {
+        self.record.operation == intent.operation
+            && self.record.source == intent.source
+            && self.record.target == intent.target
+            && self.record.stage == intent.stage
+    }
     pub fn receipt_identity(&self) -> Result<FileRestoreReceipt> {
         let bytes = serde_json::to_vec(&self.record).map_err(|_| RestoreError::InvalidBinding)?;
         Ok(FileRestoreReceipt {
@@ -407,6 +413,55 @@ impl FileRestorePlan {
         let receipt = self.receipt_identity()?;
         let journal_name = format!("asset-restore-{}.json", self.record.operation.as_str());
         write_record(journal, &journal_name, &bytes)?;
+        self.finish_apply(source, home, account, receipt, boundary)
+    }
+
+    /// The combined coordinator supplies the immutable, protected receipt from
+    /// its own durable record. Replay is permitted only before any stage exists
+    /// and while the exact original target/parent still matches its checkpoint.
+    pub(crate) fn resume_original(
+        &self,
+        source: &VerifiedGeneration,
+        checkpoint: &VerifiedGeneration,
+        home: &File,
+        account: &CaptureAccount,
+        journal: &File,
+        mut boundary: impl FnMut() -> bool,
+    ) -> Result<FileRestoreReceipt> {
+        if !boundary() {
+            return Err(RestoreError::Interrupted);
+        }
+        if Reference::from_generation(source)? != self.record.source
+            || Reference::from_generation(checkpoint)? != self.record.checkpoint
+            || self.observe(home, account)? != RestoreObservation::Original
+        {
+            return Err(RestoreError::Changed);
+        }
+        validate_journal(journal)?;
+        let receipt = self.receipt_identity()?;
+        let name = format!("asset-restore-{}.json", receipt.operation.as_str());
+        if digest(&read_record(journal, &name)?)? != receipt.record_sha256 {
+            return Err(RestoreError::Changed);
+        }
+        self.finish_apply(source, home, account, receipt, boundary)
+    }
+
+    pub(crate) fn restored(&self, home: &File, account: &CaptureAccount) -> Result<bool> {
+        Ok(match self.observe(home, account)? {
+            RestoreObservation::Restored => true,
+            RestoreObservation::Original => self.record.target == self.record.previous,
+            RestoreObservation::Staged => false,
+        })
+    }
+
+    fn finish_apply(
+        &self,
+        source: &VerifiedGeneration,
+        home: &File,
+        account: &CaptureAccount,
+        receipt: FileRestoreReceipt,
+        mut boundary: impl FnMut() -> bool,
+    ) -> Result<FileRestoreReceipt> {
         if !boundary() || self.observe(home, account)? != RestoreObservation::Original {
             return Err(RestoreError::Interrupted);
         }
