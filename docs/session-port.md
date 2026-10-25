@@ -80,6 +80,14 @@ compositor-exit path. The [offline partner-readiness receipt](../infra/tumblewee
 records the one-active/one-failed regressions. These checks establish unit-state
 control flow, not shell rendering, socket readiness, ordinary login or reboot.
 
+The [cross-file source contract receipt](../infra/tumbleweed-lab/evidence/issue25-session-contract-20261025.toml)
+binds the packaged DM entrypoint, exact required target services, independent
+Rust readiness commands and lifecycle ownership. It also checks that optional
+providers cannot add ordered boot work or automatic enablement and that the
+session package preserves KDE's independent desktop entry. The current full
+workspace/all-features and strict Clippy checks pass. This parses trusted
+metadata; it does not start a service manager or accept native login/reboot/KDE.
+
 The [offline deadline receipt](../infra/tumbleweed-lab/evidence/issue25-session-deadlines-20261025.toml)
 records Rust subprocess tests for each failure/timeout, missing payload,
 owned-descendant termination and unrelated-process isolation. These are host

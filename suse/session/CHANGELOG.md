@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Bind display-manager metadata, target services, Rust readiness and lifecycle
+  ownership with cross-file regressions; keep optional providers outside the
+  core boot gate and preserve the independent KDE entry.
+
 - Check both required session services independently; a healthy partner must
   not mask an inactive or timed-out service during activation. Preserve orderly
   environment cleanup and compositor exit on startup failure.

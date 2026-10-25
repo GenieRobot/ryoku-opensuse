@@ -27,6 +27,7 @@ const LOCK_UNIT: &str = "ryoku-session-lock.service";
 const LOGOUT_UNIT: &str = "ryoku-session-logout.service";
 const CONFIG: &str = "/usr/share/ryoku-opensuse/session/hyprland.conf";
 const TARGET: &str = "ryoku-desktop-session.target";
+const REQUIRED_SERVICES: &[&str] = &["ryoku-desktop-shell.service", "ryoku-service.service"];
 const GRAPHICAL: &str = "graphical-session.target";
 const SURFACE_MODULES: &[&str] =
     &["Ui", "FrameBars", "PluginKit", "Blobs", "Spatial3D", "Wm/Hyprland"];
@@ -284,7 +285,7 @@ fn start_session_target_using(
     execute(systemctl(&["start", TARGET]), START_TIMEOUT)?;
     // is-active with several units succeeds when *any* is active. Each
     // required partner must pass its own bounded readiness check.
-    for unit in ["ryoku-desktop-shell.service", "ryoku-service.service"] {
+    for unit in REQUIRED_SERVICES {
         execute(systemctl(&["is-active", "--quiet", unit]), CONTROL_TIMEOUT)?;
     }
     Ok(())
@@ -786,6 +787,160 @@ mod tests {
         unrelated.kill().unwrap();
         unrelated.wait().unwrap();
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    // Interpret the trusted metadata's whitespace lists, including systemd's
+    // empty-value reset, without starting or substituting a service manager.
+    fn metadata_words<'a>(text: &'a str, section: &str, key: &str) -> Vec<&'a str> {
+        let mut current = "";
+        let mut words = Vec::new();
+        for line in text.lines().map(str::trim) {
+            if line.is_empty() || line.starts_with('#') || line.starts_with(';') {
+                continue;
+            }
+            if let Some(name) = line.strip_prefix('[').and_then(|line| line.strip_suffix(']')) {
+                current = name;
+                continue;
+            }
+            if current == section
+                && let Some((name, value)) = line.split_once('=')
+                && name.trim() == key
+            {
+                if value.trim().is_empty() {
+                    words.clear();
+                } else {
+                    words.extend(value.split_whitespace());
+                }
+            }
+        }
+        words
+    }
+
+    #[test]
+    fn packaged_entrypoint_target_and_independent_readiness_checks_cannot_drift() {
+        let entry = include_str!("../../../packaging/rpm/wayland-sessions/ryoku-opensuse.desktop");
+        let target =
+            include_str!("../../../packaging/rpm/systemd/user/ryoku-desktop-session.target");
+        let shell = include_str!("../../../packaging/rpm/systemd/user/ryoku-desktop-shell.service");
+        let service = include_str!(
+            "../../../packaging/rpm/systemd/user/ryoku-service.service.d/25-session.conf"
+        );
+        let spec = include_str!("../../../packaging/rpm/ryoku-session.spec");
+        assert_eq!(
+            metadata_words(entry, "Desktop Entry", "Exec"),
+            ["/usr/bin/ryoku-session", "compositor"]
+        );
+        assert_eq!(metadata_words(entry, "Desktop Entry", "TryExec"), ["/usr/bin/ryoku-session"]);
+        assert_eq!(metadata_words(entry, "Desktop Entry", "Type"), ["Application"]);
+        assert_eq!(metadata_words(entry, "Desktop Entry", "DesktopNames"), ["Hyprland"]);
+        assert_eq!(parse(&args(&["compositor"])).unwrap(), Action::Compositor { software: false });
+        let required: std::collections::BTreeSet<_> =
+            metadata_words(target, "Unit", "Requires").into_iter().collect();
+        assert_eq!(required, REQUIRED_SERVICES.iter().copied().collect());
+        let after = metadata_words(target, "Unit", "After");
+        assert!(required.iter().all(|unit| after.contains(unit)));
+        assert_eq!(metadata_words(target, "Unit", "BindsTo"), [GRAPHICAL]);
+        assert_eq!(metadata_words(target, "Unit", "Before"), [GRAPHICAL]);
+        assert_eq!(metadata_words(shell, "Unit", "PartOf"), [TARGET]);
+        assert_eq!(metadata_words(service, "Unit", "PartOf"), [TARGET]);
+        assert_eq!(
+            metadata_words(shell, "Service", "ExecStart"),
+            ["/usr/bin/ryoku-session", "shell"]
+        );
+        assert_eq!(metadata_words(shell, "Unit", "ConditionEnvironment"), ["WAYLAND_DISPLAY"]);
+        assert_eq!(metadata_words(shell, "Service", "NoNewPrivileges"), ["yes"]);
+        assert_eq!(metadata_words(shell, "Service", "KillMode"), ["control-group"]);
+        let mut checked = Vec::new();
+        start_session_target_using(&mut |command, limit| {
+            assert_eq!(command.get_program(), "/usr/bin/systemctl");
+            let values: Vec<_> = command.get_args().map(|value| value.to_str().unwrap()).collect();
+            assert_eq!(&values[..2], ["--user", "--no-ask-password"]);
+            if values[2] == "start" {
+                assert_eq!(&values[3..], [TARGET]);
+                assert_eq!(limit, START_TIMEOUT);
+            } else {
+                assert_eq!(values[2], "is-active");
+                assert_eq!(values[3], "--quiet");
+                assert_eq!(values.len(), 5);
+                assert_eq!(limit, CONTROL_TIMEOUT);
+                checked.push(values[4].to_string());
+            }
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            checked.iter().map(String::as_str).collect::<std::collections::BTreeSet<_>>(),
+            required
+        );
+        assert_eq!(checked.len(), required.len());
+        assert!(spec.contains("%{_datadir}/wayland-sessions/ryoku-opensuse.desktop"));
+        assert!(
+            !spec.contains("wayland-sessions/plasma"),
+            "session RPM must preserve KDE's independent entry"
+        );
+    }
+
+    #[test]
+    fn lifecycle_unit_ownership_keeps_logout_alive_and_optional_features_off_the_boot_gate() {
+        let target =
+            include_str!("../../../packaging/rpm/systemd/user/ryoku-desktop-session.target");
+        let shell = include_str!("../../../packaging/rpm/systemd/user/ryoku-desktop-shell.service");
+        let logout =
+            include_str!("../../../packaging/rpm/systemd/user/ryoku-session-logout.service");
+        let lock = include_str!("../../../packaging/rpm/systemd/user/ryoku-session-lock.service");
+        assert_eq!(
+            metadata_words(logout, "Service", "ExecStart"),
+            [format!("{SESSION_BIN}/ryoku-session-logout")]
+        );
+        assert_eq!(metadata_words(logout, "Service", "Type"), ["oneshot"]);
+        for relation in ["PartOf", "BindsTo", "Requires", "Wants"] {
+            assert!(
+                metadata_words(logout, "Unit", relation).is_empty(),
+                "logout worker must outlive desktop stop: {relation}"
+            );
+        }
+        assert_eq!(metadata_words(lock, "Unit", "PartOf"), [TARGET]);
+        assert_eq!(metadata_words(lock, "Unit", "After"), [TARGET]);
+        assert_eq!(metadata_words(lock, "Unit", "ConditionEnvironment"), ["WAYLAND_DISPLAY"]);
+        assert_eq!(
+            metadata_words(lock, "Service", "ExecStart"),
+            ["/usr/bin/hyprlock", "--config", "/usr/share/ryoku-opensuse/session/hyprlock.conf"]
+        );
+        assert!(
+            metadata_words(lock, "Service", "TimeoutStartSec").is_empty(),
+            "lock lifetime is not a short control deadline"
+        );
+        for unit in [target, shell, logout, lock] {
+            assert!(metadata_words(unit, "Install", "WantedBy").is_empty());
+            assert!(metadata_words(unit, "Install", "RequiredBy").is_empty());
+        }
+        let required = metadata_words(target, "Unit", "Requires");
+        assert_eq!(required.len(), 2);
+        assert!(
+            metadata_words(target, "Unit", "Wants").is_empty(),
+            "optional providers must not add ordered startup work to the core target"
+        );
+        for optional in [
+            LOCK_UNIT,
+            LOGOUT_UNIT,
+            "ryogami.service",
+            "rashin.service",
+            "voxtype.service",
+            "bluetooth.service",
+        ] {
+            assert!(!required.contains(&optional));
+            assert!(!metadata_words(target, "Unit", "Wants").contains(&optional));
+        }
+        // A metadata reset must not leave an earlier dependency in this test's
+        // parsed contract and accidentally certify a now-optional core unit.
+        assert_eq!(
+            metadata_words(
+                "[Unit]\nRequires=old.service\nRequires=\nRequires=new.service\n",
+                "Unit",
+                "Requires"
+            ),
+            ["new.service"]
+        );
     }
 
     #[test]
