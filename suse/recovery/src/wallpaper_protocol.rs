@@ -16,6 +16,7 @@ pub enum PublicRequest {
     Pause { id: i64, action: WallpaperPause },
     Workspace { id: i64, action: crate::workspace_protocol::WorkspaceRequest, plain: bool },
     Handoff { id: i64, action: AutomaticHandoff },
+    ModelReference { id: i64, action: crate::ryogami_models_protocol::ModelReferenceIntent },
 }
 
 /// Transport to issue176, not an executable permit or protected claim.
@@ -160,6 +161,16 @@ pub fn parse_public(bytes: &[u8]) -> Result<PublicRequest, WallpaperProtocolErro
         serde_json::from_slice(bytes).map_err(|_| WallpaperProtocolError::InvalidFrame)?;
     if request.id < 0 || !(request.params.is_object() || request.params.is_null()) {
         return Err(WallpaperProtocolError::InvalidFrame);
+    }
+    if request.method == "settings.action"
+        && request
+            .params
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|id| matches!(id, "AddSemanticModel" | "RemoveSemanticModel"))
+    {
+        let (id, action) = crate::ryogami_models_protocol::parse_public_intent(bytes)?;
+        return Ok(PublicRequest::ModelReference { id, action });
     }
     if request.method == "wall.pause" {
         let action: WallpaperPause = serde_json::from_value(request.params)

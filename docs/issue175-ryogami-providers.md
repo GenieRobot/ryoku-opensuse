@@ -104,7 +104,7 @@ Every configured path still needs exact owned-path resolution in the provider.
 | Source preview, thumbnail population and cancellation | `source_preview.go`, `source_thumbs.go`, `source_download.go::cancel`; picker `preview`/`cancelDownload` | `<cache>/remote-preview/<source>/<id>`, `<cache>/remote/<source>/<id>`; download cancellation maps; queued/terminal events | Typed preview/cancel; actual nonblocking timeout/cancel and cleanup fixtures. Account operation routing, UI progress and previews remain open. |
 | Steam search/download | `rpc_workshop.go::{workshopSearch,workshopDownload}`; `workshop_steamworks.go`; `workshop_steamcmd.go::steamcmdDownload` | native Steam helper or `steamcmd +login <configured-user> +workshop_download_item 431960 <id> +quit`; Steam account/cache/library and manifest writes; process-group cleanup, original six-hour/stall policy | Strict numeric Steam identity/filter intent; shared storage fixtures. No Steam process/network was run. Exact helper/account/staging/manifest and resumable protocol remain open. |
 | Model import/install | `settings.action` → `lens_models.go::actionImportSemanticModel` | `skwd-lens --install-pack <source> --models-dir <data>/ryogami/lens/models --runtime <runtime>`; settings model list and selected manifest; runtime/model manifest reads | Typed import candidate path, no executable/runtime/destination client fields. Pack validator, exact extraction/import writes and settings transaction open. |
-| Add/forget model reference | `actionAddSemanticModel`, `actionRemoveSemanticModel` | read supplied manifest ID; update `semantic.models`; reconcile selected model in `ryogami.json` | Typed bounded preparation and private actor persistence/restore-stage fixtures now pass. Installed helper/UI dispatch remains open; selected-removal callback seam is #176. |
+| Add/forget model reference | `actionAddSemanticModel`, `actionRemoveSemanticModel` | read supplied manifest ID; update `semantic.models`; reconcile selected model in `ryogami.json` | Typed bounded preparation, authenticated helper/proxy routing and private actor persistence/restore-stage fixtures pass for add and inactive forget. Selected/orphan-clearing removal remains the #176 callback seam; installed native acceptance is pending. |
 | Delete indexed/active model | `actionDeleteSemanticModel`, `actionDeleteActiveSemanticModel`, `deleteModelFiles` | managed `--remove-pack` with component or unmanaged `--remove-manifest`; settings selection/enablement writes | Typed active/index selection; recoverable content trash tested. Exact manifest file-set validation and complete model/config restore remain open; never pass the unmanaged arbitrary delete path through. |
 | Delete wallpaper | `rpc.go::wall.delete` → `apply.go::deleteWallpaper` | resolves store entry; deletes source, catalog record, thumbnails and animated clip; Steam entries explicitly managed by Workshop | Typed catalog key; real owned-content trash/restore fixtures. Catalog-to-exact-path binding, all affected entries and UI event integration remain open. |
 | Library cache rebuild / clear | `wall.cache_rebuild`, `library_actions.go::actionClearCache`, `library_videocache.go::actionClearVideoCache`, `daemon.go::resetCache` | async rescan; cache removal/recreation; catalog and thumbnail writes; converters may launch | Closed maintenance intents. Exact complete job set, native process containment and linked results remain open. |
@@ -342,6 +342,63 @@ successful run. The sanitized receipt is
 These tests use local synthetic bytes and a fake native backend. The installed
 console branches compile, but actual Snapper/Btrfs rollback, RPM integration and
 native desktop acceptance still require the combined native candidate.
+
+## Authenticated model-reference route checkpoint
+
+The existing picker `settings.action` AddSemanticModel and RemoveSemanticModel
+frames now parse into strict add/forget intents in the Rust proxy. Each frame is
+classified independently; neither a prior query nor a prepared
+`broker.model-references` frame grants a native channel. The authenticated helper
+accepts only that intent and RPC correlation ID. It resolves the operator's
+account and immutable profile/package association and invokes the same native
+mutation runner that owns the lock, writer lease, linked pre/post capture and
+protected operation journal.
+
+The model provider declares its exact server-generated `.ryoku-model-*.part`
+settings stage before review. The fixed settings file remains in #25's unchanged
+inventory. Its plan binds the intent, prepared list, original settings identity,
+optional bounded owned manifest identity, actor identity, packages and profile
+bundle. An explicitly selected manifest is read only for its display ID; an
+unreadable/non-owned/unsafe candidate retains the upstream parent-name fallback.
+Neither source contents nor unrelated credentials enter the plan or actor
+permit. The actor still performs synchronous Go persistence and retains the
+settings event followed by `semantic.models` callback ordering.
+
+Health readback verifies the exact model list, unchanged selection, unrelated
+settings including private values, owner/mode, matching actor result and absent
+stage. Only durable runner completion with a verified post-checkpoint produces
+the original picker response shape (`index` or `removed`). Selected or orphaned
+selection-clearing forget requests report the explicit pending semantic
+stop/reindex transaction before creating a checkpoint. This is a remaining #176
+integration dependency, not a decision to remove that functionality.
+
+| Model route boundary | Local evidence |
+| --- | --- |
+| Provider planning/readback | Five fixtures cover owned manifest ID/fallback, changed manifest/actor/stage, real settings readback, stale response, selection, private values, large integers, metadata and residual-stage refusal |
+| Public proxy | Local socket fixture sends add/forget and rejects injected fields/private commits without forwarding any mutation to the native query channel; existing wallpaper proxy suite remains green |
+| Helper authorization | Unauthorized caller stops before account lookup; prepared commit/checkpoint injection and invalid RPC ID refuse |
+| Rust → actual patched Go writer | One opt-in fixture runs five scenarios using Rust-prepared frames and production Go persistence: add, inactive forget, stale settings, stage collision, and an unsupported-xattr failure that retains the partial stage; Rust verifies durable bytes/reopen/failure afterward |
+| Native actor/callback regressions | Eight Go top-level tests pass: six model persistence/private-channel/callback/ACL cases and two existing wallpaper audio cases; zero-fuzz patch reproduction matches all three tested Go files |
+
+The cross-language fixture requires a locally built test binary from the pinned
+upstream plus the committed patches, so it is explicitly ignored in the default
+Rust workspace and was separately run successfully with
+`RYOKU_MODEL_ACTOR_TEST_BINARY=<local-test-binary> cargo test --offline --locked
+-p ryoku-service rust_provider_to_native_go -- --ignored --nocapture`.
+Build that binary using cached Go dependencies with `go test -mod=vendor -c` in
+the patched daemon directory. Its `TestBrokerModelsRustProviderFixture` driver
+has no production entry point and skips without the Rust fixture environment.
+No provider/network request or media/model download is involved.
+
+The full all-feature workspace passes: recovery 284/6 existing ignored,
+console 26, service 179/2 ignored (one existing and the separately passed
+cross-language fixture), VM 90. Strict Clippy, formatting, whitespace and cached
+dependency review pass. The receipt is
+[issue175-local-model-provider-20261025.toml](../upstream/evidence/ryoku-v1.0/issue175-local-model-provider-20261025.toml).
+Actual installed broker/helper/Snapper/session execution and picker interaction
+remain native acceptance gates. General model trees, import/delete, all retained
+source/Steam/library actions and configured external/cache enrollment remain
+required; this route does not complete #175.
 
 ## Remaining acceptance gates
 

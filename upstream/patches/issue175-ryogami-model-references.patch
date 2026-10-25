@@ -356,7 +356,7 @@
 +}
 --- /dev/null
 +++ b/ryoku/shell/ryogami/daemon/broker_models_test.go
-@@ -0,0 +1,251 @@
+@@ -0,0 +1,291 @@
 +package main
 +
 +import (
@@ -606,5 +606,45 @@
 +	}
 +	if string(unchanged) == string(original) {
 +		t.Fatal("successful prior commit rolled back unexpectedly")
++	}
++}
++
++// Opt-in cross-language fixture. Rust supplies its actual prepared commit and
++// checks the actual Go writer's durable bytes and failure artifacts afterward.
++func TestBrokerModelsRustProviderFixture(t *testing.T) {
++	path := os.Getenv("RYOKU_MODEL_PROVIDER_FIXTURE")
++	if path == "" {
++		t.Skip("requires explicit local Rust provider fixture")
++	}
++	frame, err := os.ReadFile(filepath.Join(path, ".fixture-commit.json"))
++	if err != nil || len(frame) > 65536 {
++		t.Fatal("invalid fixture frame")
++	}
++	var request struct {
++		Method string                `json:"method"`
++		Params brokerModelReferences `json:"params"`
++		ID     int                   `json:"id"`
++	}
++	if json.Unmarshal(frame, &request) != nil || request.Method != "broker.model-references" || !request.Params.valid() {
++		t.Fatal("invalid Rust commit")
++	}
++	root, err := os.Open(path)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer root.Close()
++	_, err = brokerPersistModelReferences(root, request.Params)
++	reply := map[string]interface{}{"id": request.ID}
++	if err != nil {
++		reply["error"] = "fixture transaction refused"
++	} else {
++		reply["result"] = map[string]interface{}{"committed": true, "models": len(request.Params.Models)}
++	}
++	bytes, err := json.Marshal(reply)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join(path, ".fixture-reply.json"), append(bytes, '\n'), 0600); err != nil {
++		t.Fatal(err)
 +	}
 +}

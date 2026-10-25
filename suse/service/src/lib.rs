@@ -4,7 +4,8 @@
 //! Callers cannot supply executables, shell text, plans or checkpoint proofs.
 //! The typed wallpaper runner accepts a bounded source path, independently
 //! authorizes and plans it, and requires verified linked pre/post captures.
-//! Other mutation families remain unsupported at the helper boundary.
+//! Model-reference intents use the same authenticated linked-recovery runner;
+//! other mutation families remain unsupported at the helper boundary.
 
 pub mod account_state;
 pub mod helper_protocol;
@@ -16,6 +17,7 @@ pub mod protected_state;
 pub mod runtime;
 mod runtime_paths;
 pub mod ryogami_model_references;
+pub mod ryogami_models;
 #[cfg(target_os = "linux")]
 pub mod ryogami_paths;
 pub mod ryogami_protocol;
@@ -215,6 +217,8 @@ pub enum ManagedActionKind {
     PauseWallpaper,
     AssignWorkspace,
     UnassignWorkspace,
+    AddModelReference,
+    ForgetModelReference,
 }
 
 impl From<&ManagedAction> for ManagedActionKind {
@@ -350,6 +354,10 @@ pub fn read_envelope(reader: &mut impl BufRead) -> Result<Envelope, ProtocolErro
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HelperRequest {
+    ChangeModelReferences {
+        action: ryoku_recovery::ryogami_models_protocol::ModelReferenceIntent,
+        rpc_id: i64,
+    },
     ChangeWorkspaceWallpaper {
         action: ryoku_recovery::workspace_protocol::WorkspaceRequest,
         rpc_id: i64,
@@ -390,6 +398,12 @@ pub enum HelperRequest {
 impl HelperRequest {
     pub fn validate(&self) -> Result<(), ProtocolError> {
         let (transaction, manifest) = match self {
+            Self::ChangeModelReferences { action, rpc_id } => {
+                if *rpc_id < 0 || action.validate().is_err() {
+                    return Err(ProtocolError::Malformed("invalid model reference action"));
+                }
+                return Ok(());
+            }
             Self::ApplyWallpaper { action, rpc_id } => {
                 if *rpc_id < 0 || action.validate().is_err() {
                     return Err(ProtocolError::Malformed("invalid wallpaper action"));
