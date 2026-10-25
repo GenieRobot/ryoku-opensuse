@@ -178,3 +178,29 @@ This validates static embedding for the original `8985d22` candidate only.
 The corrected RPM still needs rebuilding and auditing, and shader loading,
 rendering, native ABI/solver and full desktop acceptance remain open. No
 candidate executable or plugin was launched by this check.
+
+## Original native ELF payload verification
+
+[native-original-elf-static-proof.json](../upstream/evidence/ryoku-v1.0/native-original-elf-static-proof.json)
+records independent checks of all eleven original runtime ELFs (99,944,639
+bytes). Exact selected regular-file payloads were streamed from the cached RPM
+into tmpfs. Every size and SHA-256 matches both its RPM header and native build
+receipt; readelf rechecks ELF64/x86-64, DT_NEEDED and RPATH/RUNPATH. The three
+Blobs, Spatial3D and Ryogami picker plugins each need their backing library's
+actual SONAME, have exactly `$ORIGIN` as RUNPATH, and share RPM/directory ownership
+with that backing library. Backing libraries and executables have no RPATH.
+The four upstream Go payloads have no dynamic dependencies in these headers.
+
+The actual livewall ELF needs `libavformat.so.63`, `libavcodec.so.63`,
+`libavutil.so.61` and `libswscale.so.10`, confirming the candidate's FFmpeg 9
+link contract independently of the CLI version. This does not replace Qt
+Multimedia's distinct FFmpeg 8 dependencies. Actual Spatial3D links
+`libQt6Quick3D.so.6` and `libQt6Concurrent.so.6` plus its other recorded direct
+libraries. These measurements supersede the earlier source-only unknowns for
+this exact original candidate.
+
+No candidate was executed, installed or loaded. Same-directory SONAME and
+RUNPATH integrity do not prove external/transitive providers, symbol-version
+compatibility, QML registration, ABI loading, rendering, codecs or full Ryoku
+functionality. The corrected candidate rebuild and its production audit remain
+required, together with all open runtime/feature-owner acceptance gates.
