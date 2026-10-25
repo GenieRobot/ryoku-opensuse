@@ -1,0 +1,27 @@
+issue = 176
+status = "local-diagnostic-proof-awaiting-exact-hosted-syscall"
+parent = "d672f43514482db041d5577a71b8ce433f2f731f"
+parent_ci = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40215623045"
+parent_ci_result = "failure: formatting and strict lints passed; five staged hook cases failed with EACCES; no hosted acceptance claimed"
+production_security_policy_changed = false
+ci_or_apparmor_policy_changed = false
+vm_or_download = false
+
+[diagnostics]
+implementation = "Pre-exec child reports a fixed six-byte step/errno message using nonblocking send; Rust parent renders the exact failed syscall and actionable namespace refusal after spawn failure. No heap/string formatting is introduced after fork."
+local_app_armor = "Kernel parameter enabled=N; exact Ubuntu AppArmor restriction cannot be reproduced on this host without prohibited VM/kernel changes."
+local_reproduction = "Isolated integration test subprocess uses kernel seccomp to deny only one exact unshare flags value with EACCES; independently covers user namespace and mount/network namespace creation. No global setting changes, fallback or ignored/xfail tests."
+local_observation_user = "unshare(CLONE_NEWUSER): errno=13; no hook executed or output committed"
+local_observation_mount_net = "unshare(CLONE_NEWNS|CLONE_NEWNET): errno=13; no hook executed or output committed"
+hosted_requirement = "Run this diagnostic change under exact Ubuntu24.04 CI before identifying actual denied syscall or changing test harness permissions."
+apparmor_reference = "https://documentation.ubuntu.com/release-notes/24.04/#unprivileged-user-namespace-restrictions"
+
+[checks]
+focused = "session23526 exit0:16 recovery hook tests plus3 isolated subprocess passes"
+focused_log_sha256 = "95ba86d793f027f54cb2b514532356d64bc0d5e6a105f5b0dbb5b4347fe3ac4d"
+workspace = "session68655 exit0:708 top-level passed, 27 isolated passes, 8 existing ignored, zero failures"
+workspace_log_sha256 = "b8936f09a4352357fca5db77648ad0a15da7cd1f9df0431ac34b99d483c6134b"
+clippy = "full workspace/all-targets/all-features strict offline:exit0"
+clippy_log_sha256 = "6bcb17c16e7a637cc2b3058409e6ad54f1b302e972a158833c8eaa4aafb9e46c"
+formatting_and_whitespace = "cargo fmt --all -- --check and git diff --check:exit0"
+remaining = "Exact hosted failure syscall, scoped harness correction if justified, green exact CI, full theme/per-hook effects and native lifecycle acceptance remain open."

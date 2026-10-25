@@ -207,7 +207,10 @@ pub(crate) fn run(
             sandbox.enforce(staged_root)
         });
     }
-    let mut child = command.spawn()?;
+    let mut child = command.spawn().map_err(|error| match &staged {
+        Some(stage) => stage.launch_error(error),
+        None => error,
+    })?;
     let deadline =
         Instant::now() + Duration::from_secs(call.policy.approval.timeout_seconds.into());
     let mut failure = None;

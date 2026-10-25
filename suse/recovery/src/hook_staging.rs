@@ -187,6 +187,45 @@ impl HookStage {
     pub(crate) fn namespace(&self) -> NamespacePlan {
         self.plan.clone()
     }
+    pub(crate) fn launch_error(&self, error: io::Error) -> io::Error {
+        let mut bytes = [0_u8; 6];
+        let received =
+            rustix::net::recv(&self.receiver, &mut bytes, rustix::net::RecvFlags::DONTWAIT);
+        let step = if matches!(received, Ok((6, _))) && bytes[0] == b'E' {
+            match bytes[1] {
+                1 => "unshare(CLONE_NEWUSER)",
+                2 => "write(/proc/self/setgroups)",
+                3 => "write(/proc/self/uid_map)",
+                4 => "write(/proc/self/gid_map)",
+                5 => "unshare(CLONE_NEWNS|CLONE_NEWNET)",
+                6 => "mount(MS_PRIVATE|MS_REC)",
+                7 => "mount_setattr(MOUNT_ATTR_RDONLY|AT_RECURSIVE)",
+                8 => "mount(tmpfs,noexec|nosuid|nodev)",
+                9 => "open(private tmpfs root)",
+                10 => "mkdirat(declared private parent)",
+                11 => "openat(declared private seed)",
+                12 => "write(private seed)",
+                13 => "fchmod/futimens(private seed)",
+                14 => "mount(HOME,MS_BIND|MS_REC)",
+                15 => "chdir(private HOME)",
+                16 => "sendmsg(private stage descriptor)",
+                _ => "unknown namespace setup operation",
+            }
+        } else {
+            "sandbox installation or approved exec after namespace setup"
+        };
+        let errno = if bytes[0] == b'E' {
+            i32::from_le_bytes(bytes[2..].try_into().expect("fixed errno bytes"))
+        } else {
+            error.raw_os_error().unwrap_or(libc::EIO)
+        };
+        io::Error::new(
+            error.kind(),
+            format!(
+                "staged hook unavailable at {step}: errno={errno} ({error}); verify namespace permission for the authenticated launcher; no hook executed or output committed"
+            ),
+        )
+    }
     pub(crate) fn commit(&self) -> io::Result<()> {
         let staged = self.receive_root()?;
         let mut expected = BTreeSet::new();
@@ -433,18 +472,37 @@ struct MountAttr {
     userns: u64,
 }
 impl NamespacePlan {
+    // Fixed-size, nonblocking diagnostics use only stack data and send(2).
+    // No strings are formatted or heap buffers allocated in the fork child.
+    unsafe fn failure(&self, step: u8, error: io::Error) -> io::Error {
+        let mut bytes = [b'E', step, 0, 0, 0, 0];
+        bytes[2..].copy_from_slice(&error.raw_os_error().unwrap_or(libc::EIO).to_le_bytes());
+        // SAFETY: socket and initialized fixed-size buffer are retained until send returns.
+        unsafe {
+            libc::send(
+                self.sender,
+                bytes.as_ptr().cast(),
+                bytes.len(),
+                libc::MSG_NOSIGNAL | libc::MSG_DONTWAIT,
+            );
+        }
+        error
+    }
     /// Only prebuilt buffers and async-signal-safe syscalls are used after fork.
     pub(crate) unsafe fn install(&self) -> io::Result<i32> {
         // SAFETY: this method executes only in the fork child before its first exec.
         unsafe {
             if libc::unshare(libc::CLONE_NEWUSER) != 0 {
-                return Err(io::Error::last_os_error());
+                return Err(self.failure(1, io::Error::last_os_error()));
             }
-            write_control(c"/proc/self/setgroups", b"deny")?;
-            write_control(c"/proc/self/uid_map", self.uid_map.as_bytes())?;
-            write_control(c"/proc/self/gid_map", self.gid_map.as_bytes())?;
+            write_control(c"/proc/self/setgroups", b"deny")
+                .map_err(|error| self.failure(2, error))?;
+            write_control(c"/proc/self/uid_map", self.uid_map.as_bytes())
+                .map_err(|error| self.failure(3, error))?;
+            write_control(c"/proc/self/gid_map", self.gid_map.as_bytes())
+                .map_err(|error| self.failure(4, error))?;
             if libc::unshare(libc::CLONE_NEWNS | libc::CLONE_NEWNET) != 0 {
-                return Err(io::Error::last_os_error());
+                return Err(self.failure(5, io::Error::last_os_error()));
             }
             if libc::mount(
                 std::ptr::null(),
@@ -454,7 +512,7 @@ impl NamespacePlan {
                 std::ptr::null(),
             ) != 0
             {
-                return Err(io::Error::last_os_error());
+                return Err(self.failure(6, io::Error::last_os_error()));
             }
             let attr = MountAttr { set: 1, clear: 0, propagation: 0, userns: 0 };
             if libc::syscall(
@@ -466,7 +524,7 @@ impl NamespacePlan {
                 std::mem::size_of::<MountAttr>(),
             ) != 0
             {
-                return Err(io::Error::last_os_error());
+                return Err(self.failure(7, io::Error::last_os_error()));
             }
             if libc::mount(
                 c"tmpfs".as_ptr(),
@@ -476,18 +534,18 @@ impl NamespacePlan {
                 self.mount_options.as_ptr().cast(),
             ) != 0
             {
-                return Err(io::Error::last_os_error());
+                return Err(self.failure(8, io::Error::last_os_error()));
             }
             let root = libc::open(
                 self.stage.as_ptr(),
                 libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC,
             );
             if root < 0 {
-                return Err(io::Error::last_os_error());
+                return Err(self.failure(9, io::Error::last_os_error()));
             }
             for directory in &self.directories {
                 if libc::mkdirat(root, directory.as_ptr(), 0o700) != 0 {
-                    return Err(io::Error::last_os_error());
+                    return Err(self.failure(10, io::Error::last_os_error()));
                 }
             }
             for seed in &self.seeds {
@@ -502,13 +560,13 @@ impl NamespacePlan {
                     0o600,
                 );
                 if fd < 0 {
-                    return Err(io::Error::last_os_error());
+                    return Err(self.failure(11, io::Error::last_os_error()));
                 }
-                write_bytes(fd, &seed.bytes)?;
+                write_bytes(fd, &seed.bytes).map_err(|error| self.failure(12, error))?;
                 let timestamp = libc::timespec { tv_sec: seed.seconds, tv_nsec: seed.nanos };
                 let times = [timestamp, timestamp];
                 if libc::fchmod(fd, seed.mode) != 0 || libc::futimens(fd, times.as_ptr()) != 0 {
-                    return Err(io::Error::last_os_error());
+                    return Err(self.failure(13, io::Error::last_os_error()));
                 }
                 libc::close(fd);
             }
@@ -519,11 +577,13 @@ impl NamespacePlan {
                 libc::MS_BIND | libc::MS_REC,
                 std::ptr::null(),
             ) != 0
-                || libc::chdir(self.home.as_ptr()) != 0
             {
-                return Err(io::Error::last_os_error());
+                return Err(self.failure(14, io::Error::last_os_error()));
             }
-            send_root(self.sender, root)?;
+            if libc::chdir(self.home.as_ptr()) != 0 {
+                return Err(self.failure(15, io::Error::last_os_error()));
+            }
+            send_root(self.sender, root).map_err(|error| self.failure(16, error))?;
             Ok(root)
         }
     }

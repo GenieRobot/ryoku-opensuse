@@ -309,6 +309,59 @@ fn staged_inode_quota_stops_creation_and_undeclared_names_prevent_commit() {
     assert!(!Path::new(&format!("{}/extra-0", fixture.home)).exists());
 }
 #[test]
+fn staged_namespace_denial_reports_the_exact_syscall_and_errno_without_launch() {
+    const TEST: &str = "hook_supervisor::tests::staged_namespace_denial_reports_the_exact_syscall_and_errno_without_launch";
+    const ROLE: &str = "RYOKU_HOOK_NAMESPACE_DENIAL";
+    if let Ok(operation) = std::env::var(ROLE) {
+        let mut fixture = Fixture::new("printf should-never-run > .config/kitty/user.conf");
+        fixture.staged();
+        let error = run(&fixture.call, &fixture.home, || false).unwrap_err();
+        eprintln!("isolated namespace policy denial: {error}");
+        let expected = match operation.as_str() {
+            "user" => "unshare(CLONE_NEWUSER)",
+            "mount-net" => "unshare(CLONE_NEWNS|CLONE_NEWNET)",
+            _ => panic!("unknown isolated denial"),
+        };
+        assert!(error.to_string().contains(expected), "{error}");
+        assert!(error.to_string().contains("errno=13"), "{error}");
+        assert_eq!(fixture.output(), b"before");
+        return;
+    }
+    for (name, flags) in
+        [("user", libc::CLONE_NEWUSER), ("mount-net", libc::CLONE_NEWNS | libc::CLONE_NEWNET)]
+    {
+        let statement = |code, k| libc::sock_filter { code, jt: 0, jf: 0, k };
+        let jump = |k, jt, jf| libc::sock_filter { code: 0x15, k, jt, jf };
+        let filter = [
+            statement(0x20, 0),
+            jump(libc::SYS_unshare as u32, 0, 3),
+            statement(0x20, 16),
+            jump(flags as u32, 0, 1),
+            statement(0x06, 0x0005_0000 | libc::EACCES as u32),
+            statement(0x06, 0x7fff_0000),
+        ];
+        let mut child = Command::new(std::env::current_exe().unwrap());
+        child.args(["--exact", TEST, "--nocapture"]).env(ROLE, name);
+        // SAFETY: this process-scoped kernel denial is installed only in an
+        // isolated fixture subprocess. Production sandbox policy is unchanged.
+        unsafe {
+            child.pre_exec(move || {
+                let program = libc::sock_fprog {
+                    len: filter.len() as u16,
+                    filter: filter.as_ptr().cast_mut(),
+                };
+                if libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0
+                    || libc::prctl(libc::PR_SET_SECCOMP, 2, &program) != 0
+                {
+                    return Err(io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+        assert!(child.status().unwrap().success());
+    }
+}
+#[test]
 fn held_writers_stay_frozen_across_success_and_exec_refusal() {
     const TEST: &str =
         "hook_supervisor::tests::held_writers_stay_frozen_across_success_and_exec_refusal";
