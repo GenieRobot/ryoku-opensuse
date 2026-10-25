@@ -1,0 +1,67 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+port_source = "f5db89f57ab336776e2797b50d5b5ed44ee3ab4b"
+scope = "Retained upstream clipboard fake-Wayland/FD/history/restore fixture evidence; no implementation change"
+source_changes = false
+native_acceptance = false
+keeper_rpm_acceptance = false
+native_build = false
+package_build = false
+vm_access = false
+qmp_access = false
+downloads = false
+real_clipboard_access = false
+
+[source]
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+source3_archive = "ryoku-writers-a59d051.tar.xz"
+source3_sha256 = "387d829860ba844ad32ecdd5982678707665f3251e41bbb43c6fd6f87dc7eee0"
+source3_bytes = 34625504
+selected_files_matched = 6
+verification = "Rehash canonical cached archive and compare selected clipboard source/test bytes directly with prepared module; no extraction/download"
+module = "ryoku/shell/ipc (ryoku-shell), retained existing #25 prepared source context"
+scope_limit = "Selected six source/test files match canonical Source3; this does not identify a fresh combined port binary/RPM, loaded plugin, complete native module environment or current signed target"
+keeper_invocation = "Source keepSelection runs wl-clip-persist --clipboard regular, matching the Rust session alias; no compatibility change needed"
+
+[selected_sha256]
+"clipboard.go" = "a373b57b898af8c53c8e7a5da1e756d7e84d8f3a8d882226d7b249540e113f3f"
+"clipboard_test.go" = "257f6051dca511c877a59b75f4bd5ed14c0abb827656bce06142476e1e74d03c"
+"clipboard_restore.go" = "1cf88f2c4af904a8dda9c5d0595672e76341e456efa47c755e4ac7a55821721a"
+"clipboard_restore_test.go" = "61376470892c62959c06d53a6fcd582184e8744a0395eb4d635c0d7b632edf2d"
+"clipwatch.go" = "db28540bd55b33dca3c486c3f0cb5110aa562b2e6adbefe7f603f44aa81efe9b"
+"clipwatch_test.go" = "ba4a269a8980f39e7aed2edbd25531e0ca591b88fba492dcf0f65d380a313dbb"
+
+[execution]
+go_version = "go1.26.9 linux/amd64"
+environment = "GOENV=off TMPDIR=/tmp GOCACHE=<existing-tmpfs-go-cache> GOTMPDIR=/tmp GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOVCS=*:off GOFLAGS=-buildvcs=false"
+command = "go test -mod=vendor -count=1 -json -run '^(TestClipHistoryRules|TestClipPromote|TestClassifyClip|TestPickBestMime|TestClipIngestSizeRules|TestClipCopyFileKeepsCompleteOversizedSelection|TestClipLoadDropsCapLengthImage|TestTruncateRunes|TestClipPersistence|TestClipStarPersistence|TestClipStarDuplicatePreserved|TestClipStarToggleAndUnknown|TestClipClearPreservesStarred|TestClipOverflowSpareStarred|TestClipStats|TestClipAutoPrune|TestClipSweepsOrphanThumbnails|TestIsClipPersistCmdline|TestShouldRestoreSelection|TestClipWatcherCapturesOffersInOrder|TestClipWatcherFallsBackToWlrDataControl|TestClipWatcherStopsWithoutDataControl|TestIsLegacyClipWatcherCmdline)$' ."
+exit = 0
+top_level_passed = 23
+all_test_pass_events = 23
+failed = 0
+skipped = 0
+package_elapsed_seconds = 0.249
+cache = "Existing cached Go SDK/module roots resolve to /dev/sdd; GOCACHE/GOTMPDIR/temp fixtures resolve to /tmp tmpfs; GOCACHEPROG empty; verified via go env and mount table before execution"
+network = "Vendored dependencies only; proxy/sumdb/VCS/toolchain fetch disabled; selected tests use synthetic local Unix sockets/FDs and owned temporary files/command fixtures"
+
+[coverage]
+offers = "Synthetic text/image MIME selection, real Unix FD delivery/order, ext-data-control then wlr fallback, sensitive-hint/primary/unsupported offer filtering and clean no-control termination"
+history = "Dedup/promote/classification/size rules, persistence and star state, clear/overflow preserving starred entries, stats/prune/orphan-thumbnail cleanup"
+copy = "Complete oversized copyFile byte length/SHA through a temporary wl-copy command fixture without storing oversized history; synthetic MIME payload does not establish image decoding/display"
+restore = "Same-session and empty-selection decision preserves live owner; new session, first daemon, no Wayland session and empty history never request overwrite"
+limits = "No real compositor/data-control advertisement, installed private keeper, native image/GUI rendering, actual source-owner exit retention, privileged authorization or linked-checkpoint acceptance"
+
+[native_ready_run]
+inputs = "Exact combined #173/#25 port/Source0/vendor/lock/Source2/canonicalSource3/spec/RPM/SRPM hashes and signatures plus fresh signed target/toolchain/repository tuple"
+packages = "After shared-builder and storage clearance, sequential offline BuildRequires-enabled private keeper0.5.0-1 and session0.1.0-3 builds; exact cached keeper archives are already verified in the separate prerequisite receipt"
+session = "Ordinary password SDDM Wayland login with actual installed packages; verify daemon/keeper identity and bounded clipboard shortcut, no interactive manual activation/autologin/PAM bypass"
+retention = "Use only synthetic text and valid image bytes with an explicitly owned foreground selection client; close that owner, compare native paste bytes/digest and visible history/thumbnail; test complete oversized copy versus documented history/keeper bounds without silent truncation"
+ui = "Actual history/star/toggle/clear/prune and daemon disconnect/reconnect; same-session restore only when unowned, new compositor/session must not overwrite selection; keep public logs free of clipboard contents"
+acceptance = "Record failures/unavailable/simulated/physical separately; do not infer these outcomes from protocol/history fixtures"
+
+[privacy_remaining]
+public_data = "Fixed test names, hashes and outcomes only; raw JSON/logs/host/account/temp paths remain outside public repository"
+issue_open = true
+pr_draft = true
+dependencies = "10GiB storage guard/shared builder/current combined candidate still gate native phase; #176 real wallpaper-theme accounting and other owner gates remain open"
