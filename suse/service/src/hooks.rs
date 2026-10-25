@@ -141,7 +141,7 @@ fn change(peer: &PeerIdentity, gid: u32, intent: Intent) -> Result<CompletedHook
 fn hook_error(error: GateError) -> ServiceError {
     match error {
         GateError::InvalidPlan | GateError::PlanChanged | GateError::PreflightFailed => ServiceError::Malformed(
-            "hook_policy_unavailable_or_changed: review ryoku-hook authorize; existing captured outputs and exact current command are required".into()),
+            "hook_policy_unavailable_or_changed: review ryoku-hook inspect/inspect-template and authorize; exact current command/template digests and existing captured outputs are required".into()),
         _ => ServiceError::RecoveryUnavailable,
     }
 }
@@ -236,6 +236,10 @@ impl HookProvider<'_> {
             {
                 return Err(GateError::InvalidPlan);
             }
+        }
+        for input in &approval.templates {
+            ryoku_recovery::hook_protocol::verify_template_input(&home, input, self.account.uid())
+                .map_err(|_| GateError::PlanChanged)?;
         }
         let record = ApprovalRecord {
             operation_id,

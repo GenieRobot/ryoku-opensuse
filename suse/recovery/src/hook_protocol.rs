@@ -26,6 +26,21 @@ pub struct HookApprovalRequest {
     pub allow_restore: bool,
     #[serde(default)]
     pub execution: HookExecutionPolicy,
+    #[serde(default)]
+    pub templates: Vec<HookTemplateInput>,
+}
+/// An exact read input, never a write or restore grant for its parent tree.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HookTemplateInput {
+    pub path: crate::RelativePath,
+    pub sha256: crate::Sha256,
+}
+impl HookTemplateInput {
+    pub fn validate(&self) -> bool {
+        self.path.as_str().starts_with(".config/matugen/templates/")
+            && self.path.as_str().len() <= 512
+    }
 }
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -42,7 +57,90 @@ impl HookApprovalRequest {
             && (1..=30).contains(&self.timeout_seconds)
             && self.outputs.len() <= 2
             && (self.outputs.len() != 2 || self.outputs[0] != self.outputs[1])
+            && self.templates.len() <= 32
+            && (self.templates.is_empty() || self.execution == HookExecutionPolicy::StagedOutputs)
+            && self.templates.iter().all(HookTemplateInput::validate)
+            && self
+                .templates
+                .iter()
+                .map(|input| input.path.as_str())
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+                == self.templates.len()
     }
+}
+
+pub(crate) struct TemplateSnapshot {
+    pub bytes: Vec<u8>,
+    pub metadata: std::fs::Metadata,
+}
+fn read_template(
+    home: &std::fs::File,
+    path: &crate::RelativePath,
+    uid: u32,
+) -> std::io::Result<TemplateSnapshot> {
+    use std::{
+        io::{self, Read},
+        os::unix::fs::MetadataExt,
+    };
+    if !path.as_str().starts_with(".config/matugen/templates/") || path.as_str().len() > 512 {
+        return Err(io::Error::other(
+            "template input must be an exact path under .config/matugen/templates",
+        ));
+    }
+    let file = std::fs::File::from(rustix::fs::openat2(
+        home,
+        path.as_str(),
+        rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC | rustix::fs::OFlags::NONBLOCK,
+        rustix::fs::Mode::empty(),
+        rustix::fs::ResolveFlags::BENEATH
+            | rustix::fs::ResolveFlags::NO_SYMLINKS
+            | rustix::fs::ResolveFlags::NO_XDEV,
+    )?);
+    let metadata = file.metadata()?;
+    if !metadata.is_file()
+        || metadata.uid() != uid
+        || metadata.nlink() != 1
+        || metadata.mode() & 0o6022 != 0
+        || metadata.len() > 64 * 1024
+    {
+        return Err(io::Error::other(
+            "template must be a bounded private account-owned regular input",
+        ));
+    }
+    let mut bytes = Vec::new();
+    file.take(64 * 1024 + 1).read_to_end(&mut bytes)?;
+    if bytes.len() > 64 * 1024 {
+        return Err(io::Error::other("template input grew beyond its bound"));
+    }
+    Ok(TemplateSnapshot { bytes, metadata })
+}
+pub(crate) fn template_snapshot(
+    home: &std::fs::File,
+    input: &HookTemplateInput,
+    uid: u32,
+) -> std::io::Result<TemplateSnapshot> {
+    let snapshot = read_template(home, &input.path, uid)?;
+    if crate::wallpaper_protocol::digest(&snapshot.bytes) != input.sha256.as_str() {
+        return Err(std::io::Error::other(
+            "template input changed; inspect and explicitly authorize its current digest",
+        ));
+    }
+    Ok(snapshot)
+}
+pub fn verify_template_input(
+    home: &std::fs::File,
+    input: &HookTemplateInput,
+    uid: u32,
+) -> std::io::Result<()> {
+    template_snapshot(home, input, uid).map(|_| ())
+}
+pub fn template_digest(
+    home: &std::fs::File,
+    path: &crate::RelativePath,
+    uid: u32,
+) -> std::io::Result<String> {
+    Ok(crate::wallpaper_protocol::digest(&read_template(home, path, uid)?.bytes))
 }
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

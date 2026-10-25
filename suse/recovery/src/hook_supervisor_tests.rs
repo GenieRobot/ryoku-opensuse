@@ -49,6 +49,7 @@ impl Fixture {
                     timeout_seconds: 1,
                     allow_restore: false,
                     execution: crate::hook_protocol::HookExecutionPolicy::DirectWriteOnly,
+                    templates: vec![],
                 },
                 configuration_sha256: digest(&config),
                 shell_sha256: shell_digest().unwrap(),
@@ -96,6 +97,17 @@ impl Fixture {
             &self.call.policy.approval.outputs,
         )
         .unwrap();
+    }
+    fn add_template(&mut self) -> String {
+        let relative = ".config/matugen/templates/example.conf";
+        let path = format!("{}/{relative}", self.home);
+        std::fs::create_dir_all(Path::new(&path).parent().unwrap()).unwrap();
+        std::fs::write(&path, b"template before\n").unwrap();
+        self.call.policy.approval.templates.push(crate::hook_protocol::HookTemplateInput {
+            path: crate::RelativePath::new(relative).unwrap(),
+            sha256: crate::Sha256::new(digest(b"template before\n")).unwrap(),
+        });
+        path
     }
 }
 impl Drop for Fixture {
@@ -276,6 +288,113 @@ fn staged_changed_preimage_refuses_publication_without_clobbering_the_change() {
         assert!(result.unwrap_err().to_string().contains("during staging"));
         assert!(calls >= 2);
         assert_eq!(fixture.output(), b"concurrent");
+    }
+}
+#[test]
+fn staged_exact_template_input_is_readable_and_preserved_without_sibling_exposure() {
+    let mut fixture = Fixture::new(
+        "IFS= read -r text < .config/matugen/templates/example.conf; printf '%s' \"$text\" > .config/kitty/user.conf",
+    );
+    fixture.staged();
+    let template = fixture.add_template();
+    let sibling = Path::new(&template).with_file_name("unapproved.conf");
+    std::fs::write(&sibling, b"unapproved sibling").unwrap();
+    let metadata = std::fs::metadata(&template).unwrap();
+    run(&fixture.call, &fixture.home, || false).unwrap();
+    assert_eq!(fixture.output(), b"template before");
+    assert_eq!(std::fs::read(&template).unwrap(), b"template before\n");
+    assert_eq!(std::fs::metadata(&template).unwrap().ino(), metadata.ino());
+    assert_eq!(std::fs::read(sibling).unwrap(), b"unapproved sibling");
+}
+#[test]
+fn staged_template_modified_digest_links_escape_oversize_or_write_refuse() {
+    for case in 0..8 {
+        let command = if case == 5 {
+            "printf changed > .config/matugen/templates/example.conf"
+        } else if case == 6 {
+            "IFS= read -r text < .config/matugen/templates/unapproved.conf"
+        } else {
+            "printf changed > .config/kitty/user.conf"
+        };
+        let mut fixture = Fixture::new(command);
+        fixture.staged();
+        let template = fixture.add_template();
+        match case {
+            0 => std::fs::write(&template, b"modified").unwrap(),
+            1 => {
+                std::fs::remove_file(&template).unwrap();
+                symlink(format!("{}/sentinel", fixture.home), &template).unwrap();
+            }
+            2 => {
+                std::fs::remove_file(&template).unwrap();
+                std::fs::hard_link(format!("{}/sentinel", fixture.home), &template).unwrap();
+            }
+            3 => std::fs::write(&template, vec![b'x'; 65537]).unwrap(),
+            4 => {
+                fixture.call.policy.approval.templates[0].path =
+                    crate::RelativePath::new("sentinel").unwrap()
+            }
+            6 => {
+                std::fs::write(
+                    Path::new(&template).with_file_name("unapproved.conf"),
+                    b"unapproved",
+                )
+                .unwrap();
+            }
+            7 => {
+                fixture.call.policy.approval.execution =
+                    crate::hook_protocol::HookExecutionPolicy::DirectWriteOnly
+            }
+            _ => {}
+        }
+        assert!(run(&fixture.call, &fixture.home, || false).is_err(), "case {case}");
+        assert_eq!(fixture.output(), b"before");
+        assert_eq!(std::fs::read(format!("{}/sentinel", fixture.home)).unwrap(), b"unrelated");
+        if case == 5 {
+            assert_eq!(std::fs::read(&template).unwrap(), b"template before\n");
+        }
+    }
+}
+#[test]
+fn staged_template_change_during_computation_refuses_output_publication() {
+    for replace in [false, true] {
+        let mut fixture = Fixture::new(
+            "printf changed > .config/kitty/user.conf; for ((i=0;i<20000;i++)); do :; done",
+        );
+        fixture.staged();
+        let template = fixture.add_template();
+        let mut ticks = 0;
+        let error = run(&fixture.call, &fixture.home, || {
+            ticks += 1;
+            if ticks == 2 {
+                if replace {
+                    let replacement = format!("{}/replacement", fixture.home);
+                    std::fs::write(&replacement, b"template before\n").unwrap();
+                    std::fs::rename(replacement, &template).unwrap();
+                } else {
+                    std::fs::write(&template, b"concurrent template").unwrap();
+                }
+            }
+            false
+        })
+        .unwrap_err();
+        assert!(
+            error.to_string().contains(if replace {
+                "template input was replaced"
+            } else {
+                "template input changed"
+            }),
+            "{error}"
+        );
+        assert_eq!(fixture.output(), b"before");
+        assert_eq!(
+            std::fs::read(&template).unwrap(),
+            if replace {
+                b"template before\n".as_slice()
+            } else {
+                b"concurrent template".as_slice()
+            }
+        );
     }
 }
 #[test]

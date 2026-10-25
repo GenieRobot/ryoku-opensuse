@@ -5,6 +5,9 @@ These are byte-exact upstream v1.0 matugen template maps from
   `2a96283074df8116fe6c602c1ef5064759002fbc`.
 - `apps.toml`: `ryoku/shell/matugen/apps.toml`, Git blob
   `595b2f1c38f5602b24d4b191c4a476c5a4b17ba5`.
+- `ensure-dirs.go.txt`: byte-exact `matugenEnsureDirs` function (through its
+  following blank line) from `ryoku/shell/ipc/matugen.go`; full source SHA-256
+  `27cade9d60daafe320d627fc239ce34f7531e681dc7af8a2a6f95bbde128b76e`.
 
 The SHA-256 values are pinned in the issue176 theme-effects ledger. The
 upstream LICENSE and NOTICE are byte-identical to the retained copies in

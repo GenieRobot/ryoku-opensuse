@@ -1,5 +1,5 @@
 issue = 176
-status = "local-diagnostic-proof-awaiting-exact-hosted-syscall"
+status = "hosted-staged-success-under-exact-scoped-harness-profile-proven"
 parent = "d672f43514482db041d5577a71b8ce433f2f731f"
 parent_ci = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40215623045"
 parent_ci_result = "failure: formatting and strict lints passed; five staged hook cases failed with EACCES; no hosted acceptance claimed"
@@ -36,3 +36,16 @@ local_limit = "AppArmor disabled on local kernel; profile activation itself is t
 local_suite = "session60629 exit0:708 top-level passes, 27 isolated passes, 8 existing ignored; strict all-features Clippy, formatting and diff check passed."
 workspace_log_sha256 = "25673cce1aa943c65d975c6463d8fbf8940197ab652236dac0ce918a20935853"
 clippy_log_sha256 = "0af3f7a3cbc6252e4549c0f0b722de50ffae93149b6000f471dcf01275bc4493"
+
+[hosted_profile_proof]
+commit = "3509fdc1bf3fad5a805b24f9f280a05ca5dafbe8"
+ci = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40217136511"
+job = 121240616729
+result = "success; formatting, strict lints, focused active-profile proof, complete all-features tests, dependency review and always-run profile removal passed; main-only GTK artifact skipped"
+profile_loaded_utc = "2026-10-25T17:35:08.2750834Z"
+exact_binary_observation_utc = "2026-10-25T17:36:19.5410702Z"
+exact_binary_label = "ryoku-hook-ci-userns (unconfined)"
+focused_success_utc = "2026-10-25T17:36:19.8138951Z"
+full_suite_success_fixture_utc = "2026-10-25T17:37:26.2904661Z"
+cleanup = "apparmor_parser --remove ran at17:39:52 UTC and its always-run step succeeded"
+remaining_acceptance = "Full retained hook/theme effects, combined dynamic output/recovery enrollment, logical GSettings/reload actors and native Tumbleweed lifecycle remain open."

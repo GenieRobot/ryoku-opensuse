@@ -7,6 +7,7 @@ use std::collections::BTreeSet;
 const LEDGER: &str = include_str!("../../upstream/evidence/ryoku-v1.0/issue176-theme-effects.json");
 const CORE: &str = include_str!("fixtures/issue176/config.toml");
 const APPS: &str = include_str!("fixtures/issue176/apps.toml");
+const ENSURE_DIRS: &str = include_str!("fixtures/issue176/ensure-dirs.go.txt");
 
 #[test]
 fn theme_ledger_remains_bound_to_the_active_pin_and_selected_source_blobs() {
@@ -105,6 +106,7 @@ fn theme_ledger_keeps_indirect_generation_and_logical_reload_effects_in_scope() 
     assert_eq!(
         ids("direct_effects"),
         [
+            "parent-directories",
             "tone",
             "palette",
             "carrier",
@@ -158,5 +160,75 @@ fn theme_ledger_keeps_indirect_generation_and_logical_reload_effects_in_scope() 
             .as_str()
             .unwrap()
             .contains("regular asset restore must keep refusing")
+    );
+}
+
+#[test]
+fn disabled_templates_still_require_exact_unconditional_parent_creation_enrollment() {
+    let ledger: Value = serde_json::from_str(LEDGER).unwrap();
+    let row = ledger["direct_effects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["id"] == "parent-directories")
+        .unwrap();
+    let paths = row["paths"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|path| path.as_str().unwrap())
+        .collect::<BTreeSet<_>>();
+    assert_eq!(paths.len(), 23);
+    assert!(paths.contains(".config/vesktop/themes"));
+    assert!(paths.contains(".config/gtk-3.0"));
+    assert!(paths.contains(".local/share/TelegramDesktop/tdata"));
+    assert_eq!(
+        row["conditional_paths"],
+        serde_json::json!([".steam/steam/steamui/skins/Material-Theme/css/main/colors"])
+    );
+    assert!(row["behavior"].as_str().unwrap().contains("before roster/app-suite filtering"));
+    assert_eq!(
+        format!("{:x}", Sha256::digest(ENSURE_DIRS.as_bytes())),
+        ledger["fixture_sha256"]["ensure_dirs"]
+    );
+    let mut unconditional = BTreeSet::new();
+    let mut conditional = BTreeSet::new();
+    let mut steam = false;
+    for line in ENSURE_DIRS.lines() {
+        steam |= line.contains("if steamThemeReady()");
+        if let Some((_, args)) = line.split_once("filepath.Join(") {
+            let args =
+                args.split_once(')').unwrap().0.split(',').map(str::trim).collect::<Vec<_>>();
+            let root = match args[0] {
+                "cfg" => ".config",
+                "cache" => ".cache",
+                "data" => ".local/share",
+                "home" => "",
+                other => panic!("new unresolved output root {other}"),
+            };
+            let components = args[1..]
+                .iter()
+                .map(|arg| arg.strip_prefix('"').unwrap().strip_suffix('"').unwrap());
+            let path = std::iter::once(root)
+                .filter(|part| !part.is_empty())
+                .chain(components)
+                .collect::<Vec<_>>()
+                .join("/");
+            if steam {
+                conditional.insert(path);
+            } else {
+                unconditional.insert(path);
+            }
+        }
+    }
+    assert_eq!(unconditional, paths.into_iter().map(String::from).collect());
+    assert_eq!(
+        conditional,
+        row["conditional_paths"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|path| path.as_str().unwrap().to_string())
+            .collect()
     );
 }

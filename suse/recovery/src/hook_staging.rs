@@ -5,7 +5,7 @@ use crate::{
     EntryKind, RelativePath, StateRoot,
     capture::{CaptureLimits, capture_inventory},
     configuration_stage::StagedEntry,
-    hook_protocol::{HookCall, HookFileIdentity},
+    hook_protocol::{HookCall, HookFileIdentity, HookTemplateInput, template_snapshot},
     inode_metadata::prepare_inode_metadata,
 };
 use std::{
@@ -40,6 +40,7 @@ pub(crate) struct HookStage {
     source: File,
     entries: Vec<StagedEntry>,
     identities: Vec<HookFileIdentity>,
+    templates: Vec<(HookTemplateInput, u64, u64)>,
 }
 struct StageDirectory {
     path: PathBuf,
@@ -113,6 +114,7 @@ impl HookStage {
         let mut directories = BTreeSet::new();
         let mut entries = Vec::new();
         let mut seeds = Vec::new();
+        let mut templates = Vec::new();
         for record in inventory.records {
             let mut file = open_file(home, record.path.as_str())?;
             let metadata = file.metadata()?;
@@ -157,6 +159,22 @@ impl HookStage {
                     .map_err(io::Error::other)?,
             );
         }
+        for input in &call.policy.approval.templates {
+            let snapshot = template_snapshot(home, input, call.policy.uid)?;
+            for parent in Path::new(input.path.as_str()).ancestors().skip(1) {
+                if !parent.as_os_str().is_empty() {
+                    directories.insert(parent.to_string_lossy().into_owned());
+                }
+            }
+            seeds.push(Seed {
+                path: CString::new(input.path.as_str())?,
+                bytes: Arc::from(snapshot.bytes),
+                mode: 0o400,
+                seconds: snapshot.metadata.mtime(),
+                nanos: snapshot.metadata.mtime_nsec(),
+            });
+            templates.push((input.clone(), snapshot.metadata.dev(), snapshot.metadata.ino()));
+        }
         let uid = rustix::process::geteuid().as_raw();
         let gid = rustix::process::getegid().as_raw();
         let plan = NamespacePlan {
@@ -182,6 +200,7 @@ impl HookStage {
             source: home.try_clone()?,
             entries,
             identities: call.output_identities.clone(),
+            templates,
         })
     }
     pub(crate) fn namespace(&self) -> NamespacePlan {
@@ -241,6 +260,15 @@ impl HookStage {
                 }
             }
         }
+        for (input, _, _) in &self.templates {
+            let path = Path::new(input.path.as_str());
+            expected.insert(path.to_path_buf());
+            for parent in path.ancestors().skip(1) {
+                if !parent.as_os_str().is_empty() {
+                    expected.insert(parent.to_path_buf());
+                }
+            }
+        }
         let mut actual = BTreeSet::new();
         inspect_tree(&staged, Path::new(""), &mut actual)?;
         if actual != expected {
@@ -249,6 +277,11 @@ impl HookStage {
             ));
         }
         self.revalidate_sources()?;
+        for (input, _, _) in &self.templates {
+            // Private seed content is also immutable: computation never gets a
+            // way to silently change the approved template before rendering.
+            template_snapshot(&staged, input, rustix::process::geteuid().as_raw())?;
+        }
         let mut prepared = Vec::new();
         for entry in &self.entries {
             let path = entry.record().path.as_str();
@@ -279,6 +312,13 @@ impl HookStage {
         publish_all(&self.source, &self.entries, &prepared)
     }
     fn revalidate_sources(&self) -> io::Result<()> {
+        for (input, device, inode) in &self.templates {
+            let current =
+                template_snapshot(&self.source, input, rustix::process::geteuid().as_raw())?;
+            if (current.metadata.dev(), current.metadata.ino()) != (*device, *inode) {
+                return Err(io::Error::other("template input was replaced during staging"));
+            }
+        }
         for entry in &self.entries {
             let file = open_file(&self.source, entry.record().path.as_str())?;
             let metadata = file.metadata()?;

@@ -96,7 +96,7 @@ route independently reads saved output selection and requires both the UI's
 After reviewing those bytes, an operator explicitly invokes:
 
 ```text
-ryoku-hook authorize INDEX COMMAND_SHA256 SECONDS apply|restore [kitty_user] [fish_user] [staged]
+ryoku-hook authorize INDEX COMMAND_SHA256 SECONDS apply|restore [kitty_user] [fish_user] [staged] [template:SHA256:RELATIVE_PATH ...]
 ```
 
 `kitty_user` means the existing `.config/kitty/user.conf`; `fish_user` means the
@@ -151,8 +151,9 @@ operational authorization metadata, not user-editable configuration.
 The optional `staged` policy is separately bound into approval and the plan;
 existing direct approvals cannot acquire it implicitly. It preserves literal
 HOME, cwd, UID, EUID and primary GID while computing against a private HOME
-mounted at that same absolute path. Only the exact declared preimages seed the
-private home; unrelated home content and inherited environment are not exposed.
+mounted at that same absolute path. Only exact declared output preimages and
+separately approved template inputs seed the private home; unrelated home content
+and inherited environment are not exposed.
 The rest of the mount namespace is recursively read-only, networking has a
 private namespace, and the noexec tmpfs is limited to 64 MiB and 256 inodes.
 The same root-pinned Bash/runtime and seccomp policy apply. A second exec of
@@ -171,14 +172,33 @@ commit and refreeze verification. Tests cover a real second-rename failure and
 exact content/metadata compensation. Namespace denial is actionable failure,
 never fallback to an unconstrained launcher.
 
-This staging class currently supports the two existing captured output files
-and pinned Bash only. It does not yet admit matugen, dynamic template outputs,
-input trees, optional parent creation, symlinks, logical GSettings changes or
+`ryoku-hook inspect-template .config/matugen/templates/NAME` prints the exact
+bounded regular input's digest. Up to 32 unique `template:SHA256:RELATIVE_PATH`
+arguments may be added to a `staged` approval. Each input is at most 64 KiB,
+account-owned, singly linked, privately writable and resolved without symlinks or
+mount traversal. The helper verifies the read set during policy review; the
+wrapper copies precisely those bytes at the same path with mode 0400. Real source
+identity/content and private input content are checked before output publication.
+A changed template requires explicit authorization of its new digest. Input
+declarations convey no write, restore or parent-tree authority. Tests prove exact
+template consumption, sibling isolation and changed/linked/oversized/write refusals.
+
+This staging class currently supports the two existing captured output files,
+the explicit bounded template read set and pinned Bash only. It does not yet
+admit matugen, dynamic template outputs, input trees, optional parent creation,
+symlinks, logical GSettings changes or
 reload actors. The local environment has no installed/cached matugen binary;
 real package execution and native lifecycle proof remain open. Secondary group
 semantics and broader environment/input needs require their own reviewed policy.
 The retained wallpaper → scheduleTheme → paintWorker path remains in scope,
 with its complete effect ledger; this staging checkpoint does not prove it.
+
+Template output enrollment must also include `matugenEnsureDirs`: it creates 23
+directory leaves before roster/app-suite filtering, including disabled apps,
+plus a conditional Steam parent. These exact leaves and any absent ancestors
+need independent creation/restore records; selected template output ancestors
+alone are incomplete. Existing directory metadata and unrelated siblings remain
+protected, and relocated XDG roots require exact resolved declarations.
 
 Unsupported external executables, children, file creation/replacement, custom
 roots and network effects receive real policy/refusal errors. They retain their

@@ -40,7 +40,7 @@ fn exchange_stream(
     let outcome = &reply["outcome"];
     if outcome["result"] == "rejected" {
         return Err(io::Error::other(format!(
-            "hook refused: {}; use ryoku-hook authorize for the current command and existing captured outputs; inspect linked operation history for capture/apply failure",
+            "hook refused: {}; inspect the current command/template digests and use ryoku-hook authorize for exact staged inputs and existing captured outputs; inspect linked operation history for capture/apply failure",
             outcome["error"]
         )));
     }

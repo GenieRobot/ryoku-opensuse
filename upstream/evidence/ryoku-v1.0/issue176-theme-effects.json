@@ -18,7 +18,8 @@
   },
   "fixture_sha256": {
     "core": "93efb9be71cc899a5c8c0d0a3955df0fde77221608154ebbb067d4a735a9e6ef",
-    "apps": "7e9ca67777c336434dccb01f22d9d36c9b1792f07743e5b944b40b702227aaac"
+    "apps": "7e9ca67777c336434dccb01f22d9d36c9b1792f07743e5b944b40b702227aaac",
+    "ensure_dirs": "ee72b941ab1fb34f64f618849fe9e1b36b6cf9f55e91fc1db20a21670f3e71c2"
   },
   "path_policy": {
     "root": "authenticated-account-home-descriptor",
@@ -64,6 +65,7 @@
     {"config":"apps","key":"starship","group":"starship","input":"starship-colors.toml","output":".config/starship/ryoku-colors.toml","post_hook":"ryoku-hub starship refresh"}
   ],
   "direct_effects": [
+    {"id":"parent-directories","source":"matugen.go::matugenEnsureDirs","kind":"exact-directory-or-absent","paths":[".cache/ryoku",".cache/matugen",".config/kitty",".config/btop/themes",".config/qt6ct/colors",".config/gtk-3.0",".config/gtk-4.0",".config/vesktop/themes",".config/equibop/themes",".config/obs-studio/themes",".config/zed/themes",".config/heroic/store/styles",".config/cava",".config/fish/conf.d",".config/yazi",".config/ghostty",".config/micro/colorschemes",".config/matugen/generated",".config/zathura",".config/alacritty",".config/tmux",".config/ryotunes/skins/matugen",".local/share/TelegramDesktop/tdata"],"conditional_paths":[".steam/steam/steamui/skins/Material-Theme/css/main/colors"],"behavior":"23 unconditional MkdirAll leaves before roster/app-suite filtering, including disabled apps; Steam leaf only when steamui exists; enroll exact missing ancestors and creation mode0755 subject to approved umask; retain existing directory metadata and unrelated siblings; XDG relocations require exact resolved root declarations"},
     {"id":"tone","source":"walltone.go::writeWallpaperTone","kind":"regular-or-absent","paths":[".cache/ryoku/wallpaper-tone.json"],"behavior":"atomic JSON replacement after image/video sampling; previous map retained on failed decode"},
     {"id":"palette","source":"matugen.go::matugenApply/matugenApplyStatic","kind":"regular-or-absent","paths":[".cache/ryoku/colors.json",".cache/ryoku/tones.json"],"behavior":"atomic JSON; named theme removes tonal ramps; dynamic writes ramps when present"},
     {"id":"carrier","source":"matugen.go::matugenRenderTemplates","kind":"regular-or-absent","paths":[".cache/ryoku/matugen-carrier.json",".cache/ryoku/active-config.toml",".cache/ryoku/active-apps.toml",".cache/ryoku/active-matugen.toml"],"behavior":"atomic carrier plus filtered configs; preserve approved roster, core/apps/palette-bridge config and post-hook distinctions"},
