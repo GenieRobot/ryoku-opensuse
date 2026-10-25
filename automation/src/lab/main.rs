@@ -39,7 +39,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             guest::issue19_rollback_setup()
         }
         Some("guest-login-prepare") if args.len() == 2 => desktop::prepare(),
-        Some("guest-login-inspect") if args.len() == 2 => desktop::inspect(),
+        Some(command) if desktop::InspectionMode::parse(command).is_some() && args.len() == 2 => {
+            desktop::inspect_mode(desktop::InspectionMode::parse(command).unwrap())
+        }
         Some("guest-ui-install") if args.len() == 2 => guest::install_ui_runtime(),
         Some("guest-ui-launch") if args.len() == 3 => desktop::launch_ui(args[2].as_str()),
         Some("guest-ui-stop") if args.len() == 2 => desktop::stop_ui(),

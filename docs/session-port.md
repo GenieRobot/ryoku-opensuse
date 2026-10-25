@@ -88,6 +88,37 @@ session package preserves KDE's independent desktop entry. The current full
 workspace/all-features and strict Clippy checks pass. This parses trusted
 metadata; it does not start a service manager or accept native login/reboot/KDE.
 
+The guarded lab now has separate read-only installed-session inspections:
+`vm-lab guest-ryoku-login-inspect` checks the ordinary fixture user's native
+SDDM/PAM Hyprland login, RPM-owned session metadata, independently ready target
+partners, exact process images/starts/cgroups, imported environment and the
+Hyprland-owned Wayland socket. It rechecks observations before publishing static
+results. The shell daemon's inherited environment is inspected because Hyprland
+creates its display variables after exec; its initial `/proc` environment need
+not contain them. The Quickshell alias and actual executable are checked against
+their separate runtime and Quickshell RPM owners.
+
+`vm-lab guest-ryoku-fallback-inspect` checks return to the native greeter, no
+remaining fixture login or Ryoku process (including stopped players), stopped
+target partners and cleared imported graphical environment. If logind has
+already terminated the user manager, it instead verifies the exact inactive
+manager and absent runtime endpoints without starting it. The existing
+`guest-login-inspect` remains the separate Plasma runtime inspection. A selectable
+KDE entry alone does not establish KDE usability, and a greeter inspection alone
+does not establish which preceding failure/logout caused it.
+
+These commands neither install packages nor start/stop services, change PAM,
+enter credentials, use QMP or reboot. They require the existing explicitly
+seeded QEMU fixture, enforcing SELinux, fixture root, recorded ordinary account,
+RPM-intact native SDDM/PAM and no autologin. Their unit/parser tests and public
+evidence restrictions are recorded in the
+[inspection receipt](../infra/tumbleweed-lab/evidence/issue25-ryoku-inspection-20261025.toml).
+No native inspection was executed for that receipt. Before use, the coordinator
+must bind the complete current #173 candidate and approve the exact lab guard,
+storage and install plan. Visible frames, real C-player display, login after
+reboot, KDE application use, device workflows and #176 theme accounting remain
+separate acceptance gates.
+
 The [offline deadline receipt](../infra/tumbleweed-lab/evidence/issue25-session-deadlines-20261025.toml)
 records Rust subprocess tests for each failure/timeout, missing payload,
 owned-descendant termination and unrelated-process isolation. These are host

@@ -25,7 +25,7 @@ sha2 = "0.10.9"
 toml = "1.1.8"
 quick-xml = "0.41.0"
 zstd = "0.13.3"
-rustix = { version = "1.1.5", features = ["fs", "process"] }
+rustix = { version = "1.1.5", features = ["fs", "net", "process"] }
 
 [[bin]]
 name = "vm-lab"

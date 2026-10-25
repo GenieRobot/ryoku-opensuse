@@ -1,9 +1,12 @@
 //! Native SDDM/PAM login acceptance in the explicitly disposable guest.
 //! Credentials arrive only on stdin; GUI input is supplied by the owning host.
+mod ryoku;
+
 use crate::{
     guest::fixture_only,
     support::{Result, require},
 };
+pub use ryoku::{InspectionMode, inspect_mode};
 use std::{
     collections::BTreeMap,
     fs,

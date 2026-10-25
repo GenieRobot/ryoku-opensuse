@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add separate guarded read-only Ryoku login and post-failure cleanup inspection
+  modes while preserving the KDE inspector; verify installed unit/process and
+  environment identities without starting a manager or claiming visual results.
+
 - Bind display-manager metadata, target services, Rust readiness and lifecycle
   ownership with cross-file regressions; keep optional providers outside the
   core boot gate and preserve the independent KDE entry.

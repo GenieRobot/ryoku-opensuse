@@ -40,6 +40,11 @@ installed hashes, environment, sanitized startup logs and actual screenshots
 where relevant. Identify virtual devices, loopback simulation, absent devices
 and physical tests separately. Use synthetic notification and clipboard data;
 raw private session logs and clipboard contents do not belong in this repository.
+The guarded `guest-ryoku-login-inspect` and `guest-ryoku-fallback-inspect` modes
+now collect scoped installed-session and cleanup observations; see
+[session inspection](session-port.md). The existing `guest-login-inspect`
+remains Plasma-specific. All three require the approved exact combined candidate
+for native evidence; host parser tests do not turn the pending rows into passes.
 Record SDDM/PAM and password/autologin configuration hashes before install and
 after both session logins; the port does not install the upstream greeter,
 guard, `sddm/setup`, Wayland wrapper or qylock. Keep optional Voxtype absent
