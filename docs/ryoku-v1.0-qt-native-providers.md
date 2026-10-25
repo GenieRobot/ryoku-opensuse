@@ -110,8 +110,8 @@ audit tests and the explicit native spec-parser test pass using cached locked
 Rust dependencies; this does not rebuild an RPM or run a module.
 
 This tightens the acceptance gate without changing runtime features, payloads,
-spec dependencies or archives. The unversioned capability spellings follow the
-existing native generator contract and scanner module names. Generated v1.0 RPM
+archives. The native candidate correction below preserves Spatial3D major 1
+in the generator capability rather than assuming a bare URI. Generated v1.0 RPM
 metadata, versioned capability constraints, recursive signed-snapshot solver
 closure, plugin loading and native session/recovery tests remain required; a
 passing synthetic metadata test does not satisfy them.
@@ -159,3 +159,22 @@ This is source and recipe evidence. A corrected native RPM must be rebuilt and
 hashed before rerunning the production audit. The original failing RPM/audit
 remain evidence; source regressions do not establish native solver, ABI loading,
 phone, editor or full Ryoku acceptance. No feature is removed by this correction.
+
+## Static Blobs shader proof from the first native build
+
+[blobs-shader-native-static-proof.json](../upstream/evidence/ryoku-v1.0/blobs-shader-native-static-proof.json)
+binds the original runtime RPM, its packaged Blobs backing ELF, generated RCC
+source, all four QSBs and five pinned Source2 source blobs. Streamed extraction
+of only that library matches the build hash. All three complete RCC arrays
+(data, names and structure) occur in the packaged ELF. The 32,033-byte data
+array contains exactly four length-delimited shader payloads; every generated
+QSB name, length and SHA-256 matches, with no trailing resource bytes. RCC order
+is checked by its own names, independently of filesystem enumeration order.
+
+The initial diagnostic collector mistook the `.qsb` directory for a shader
+file. Its failure is retained separately; corrected regular-file selection and
+this independent resource proof establish exactly four generated shaders.
+This validates static embedding for the original `8985d22` candidate only.
+The corrected RPM still needs rebuilding and auditing, and shader loading,
+rendering, native ABI/solver and full desktop acceptance remain open. No
+candidate executable or plugin was launched by this check.
