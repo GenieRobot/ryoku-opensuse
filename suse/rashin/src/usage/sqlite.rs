@@ -120,6 +120,35 @@ impl Drop for SharedLock<'_> {
         let _ = record_lock(self.file, libc::F_UNLCK, SHARED_FIRST, SHARED_BYTES);
     }
 }
+
+/// Unix WAL-index locks, https://sqlite.org/walformat.html#wal_locks.
+/// Shared checkpoint/read-mark locks (121/124) prevent backfill and WAL
+/// rewind. Byte 128 is the Unix VFS dead-man switch, outside the eight
+/// WAL-index locks; its shared lease prevents first-client truncation.
+/// No SHM data or read mark is written.
+pub(super) struct WalLock<'a> {
+    file: &'a File,
+    held: usize,
+    _single_thread: PhantomData<Rc<()>>,
+}
+impl<'a> WalLock<'a> {
+    const OFFSETS: [i64; 3] = [128, 121, 124];
+    pub(super) fn acquire(file: &'a File) -> Result<Self> {
+        let mut lease = Self { file, held: 0, _single_thread: PhantomData };
+        for offset in Self::OFFSETS {
+            record_lock(file, libc::F_RDLCK, offset, 1)?;
+            lease.held += 1;
+        }
+        Ok(lease)
+    }
+}
+impl Drop for WalLock<'_> {
+    fn drop(&mut self) {
+        for offset in Self::OFFSETS[..self.held].iter().rev() {
+            let _ = record_lock(self.file, libc::F_UNLCK, *offset, 1);
+        }
+    }
+}
 fn record_lock(file: &File, kind: c_int, start: i64, length: i64) -> Result<()> {
     // SAFETY: zero is valid for all libc::flock fields; the synchronous syscall
     // borrows this live descriptor/stack struct and retains neither pointer.
@@ -485,6 +514,13 @@ pub(in crate::usage) mod testing {
         ) -> *mut u8;
         fn sqlite3_free(pointer: *mut c_void);
         fn sqlite3_db_cacheflush(db: *mut Db) -> c_int;
+        fn sqlite3_wal_checkpoint_v2(
+            db: *mut Db,
+            database: *const c_char,
+            mode: c_int,
+            log: *mut c_int,
+            checkpointed: *mut c_int,
+        ) -> c_int;
     }
     pub(in crate::usage) struct Writer {
         db: NonNull<Db>,
@@ -536,6 +572,18 @@ pub(in crate::usage) mod testing {
                 sqlite3_free(bytes.cast());
             }
             result
+        }
+        pub(in crate::usage) fn checkpoint(&self) -> c_int {
+            // SAFETY: test-only native checkpoint request on a live fixture.
+            unsafe {
+                sqlite3_wal_checkpoint_v2(
+                    self.db.as_ptr(),
+                    c"main".as_ptr(),
+                    2,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                )
+            }
         }
     }
     impl Drop for Writer {

@@ -168,6 +168,7 @@ fn fix_investigates_with_the_agent_route_without_executing_findings() {
     rpc(
         &engine,
         Request::Fix {
+            native_evidence_consent: None,
             id: "fix1".into(),
             kind: FixKind::App,
             component: "example-app".into(),
@@ -182,6 +183,7 @@ fn fix_investigates_with_the_agent_route_without_executing_findings() {
     assert!(rpc(&engine, Request::Recent {})["asks"].as_array().unwrap().is_empty());
     assert_eq!(
         engine.dispatch(Request::Fix {
+            native_evidence_consent: None,
             id: "bad".into(),
             kind: FixKind::Doctor,
             component: "a;rm -rf /".into(),
@@ -573,6 +575,7 @@ fn per_action_policy_prevents_ask_clients_from_configuring_or_reading_agent_stat
     rpc(
         &engine,
         Request::Fix {
+            native_evidence_consent: None,
             id: "private-fix".into(),
             kind: FixKind::Doctor,
             component: "systemd".into(),
@@ -775,6 +778,7 @@ fn fix_includes_native_evidence_and_keeps_idempotency_across_recollection() {
     let fixture = Fixture::new();
     let engine = fixture.engine();
     let request = || Request::Fix {
+        native_evidence_consent: None,
         id: "native-fix".into(),
         kind: FixKind::App,
         component: "rashin-synthetic-test.service".into(),

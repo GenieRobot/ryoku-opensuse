@@ -11,8 +11,16 @@ capabilities remain separate required work.
 
 Source reads stay in safe Rust. The collector opens exact DB/WAL/journal names
 relative to the pinned enrollment, refuses unsafe objects and changed identities,
-and acquires Linux OFD shared locks over SQLite's reader range. An exclusive
-writer is refused without waiting. Main DB and WAL are copied only within the
+and acquires Linux OFD shared locks over SQLite's main-DB reader range. For an
+existing Unix WAL-index it additionally holds shared CKPT (121), READ_LOCK(1)
+(124), and Unix VFS dead-man switch (128) bytes. Byte 128 is outside the eight
+WAL-index locks. These leases prevent backfill/recovery, WAL reset and first-client
+SHM truncation while copying. The native-endian WAL-index version must be
+3007000 with a 32 KiB block layout. No read mark or index data is changed.
+An exclusive writer or conflicting checkpoint/reset is refused without waiting.
+A missing SHM must remain absent through revalidation; the held main-DB reader
+lease prevents cooperative SQLite cleanup/deletion during capture. See the
+[SQLite WAL-index and Unix locking contract](https://sqlite.org/walformat.html). Main DB and WAL are copied only within the
 existing 64 MiB and two-second budget; sizes/identities/mtime/ctime and sidecar
 presence are revalidated. Hot or unrecognized rollback journals are refused;
 the collector performs no recovery or checkpoint on application files.
@@ -66,7 +74,9 @@ inferred from host tests alone.
 Tests create synthetic databases through the installed library, cover both
 schemas and all blob/role/time aliases, and exercise the real collector/API.
 Real subprocesses hold live WAL/uncommitted/reset states and exclusive locks.
-Tests also cover both checksum byte orders, malformed header/frame/salt/CRC,
+Installed-library regression tests show a RESTART checkpoint returns BUSY during
+the copy lease and succeeds immediately after release; SHM birth during capture
+is refused even without source timestamp changes. Tests also cover both checksum byte orders, malformed header/frame/salt/CRC,
 truncation, interior page corruption, a commit during copy, source/sidecar byte
 equality, query/attachment/file-authority denials, limits and last-good stale
 reports. Test-only writers are excluded from production builds. Evidence tracks

@@ -38,7 +38,17 @@ impl Fixture {
         Enrollment::enroll(tool, &self.0).unwrap()
     }
     fn engine(&self) -> std::sync::Arc<Engine> {
-        Engine::open(Store::open(&self.0).unwrap()).unwrap()
+        // Concurrent subprocess fixture tests can briefly inherit a CLOEXEC
+        // lease between fork and exec. Wait for exec to close it, never bypass
+        // a live daemon lease.
+        for _ in 0..50 {
+            match Store::open(&self.0) {
+                Ok(store) => return Engine::open(store).unwrap(),
+                Err(Error::Busy) => std::thread::sleep(std::time::Duration::from_millis(2)),
+                Err(error) => panic!("private fixture store: {error}"),
+            }
+        }
+        panic!("private fixture lease did not release")
     }
     fn path(&self) -> String {
         self.0.to_str().unwrap().into()

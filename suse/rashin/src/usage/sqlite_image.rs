@@ -94,8 +94,22 @@ fn capture_inner(
         return Err(Error::Limit);
     }
     let db = Source::open(root, "opencode.db")?.ok_or(Error::ProviderUnavailable)?;
-    let _lock = super::sqlite::SharedLock::acquire(&db.file)?;
+    let lock = super::sqlite::SharedLock::acquire(&db.file)?;
     let mut wal = Source::open(root, "opencode.db-wal")?;
+    let shm = Source::open(root, "opencode.db-shm")?;
+    let wal_lock =
+        shm.as_ref().map(|source| super::sqlite::WalLock::acquire(&source.file)).transpose()?;
+    if let Some(source) = &shm {
+        let stat = fs::fstat(&source.file).map_err(|_| Error::Storage)?;
+        let mut version = [0; 4];
+        (&source.file).read_exact(&mut version).map_err(|_| Error::Integrity)?;
+        if stat.st_size < 32768
+            || stat.st_size % 32768 != 0
+            || u32::from_ne_bytes(version) != 3_007_000
+        {
+            return Err(Error::Integrity);
+        }
+    }
     let mut journal = Source::open(root, "opencode.db-journal")?;
     if let Some(journal) = &mut journal {
         let mut header = [0; 8];
@@ -111,11 +125,16 @@ fn capture_inner(
     after_copy();
     db.unchanged(root)?;
     unchanged(root, "opencode.db-wal", wal.as_ref())?;
+    unchanged(root, "opencode.db-shm", shm.as_ref())?;
     unchanged(root, "opencode.db-journal", journal.as_ref())?;
     if Instant::now() >= deadline {
         return Err(Error::Limit);
     }
     let source_bytes = (bytes.len() + wal_bytes.len()) as u64;
+    // Bytes are now private and stable. Release source read leases before the
+    // potentially longer in-memory validation/query, so writers can progress.
+    drop(wal_lock);
+    drop(lock);
     let bytes = replay(bytes, &wal_bytes, deadline)?;
     Ok(Image { bytes, source_bytes, files: 1 + usize::from(wal.is_some()) })
 }
@@ -333,5 +352,29 @@ mod tests {
         let image = capture(&directory.root(), 64 * 1024 * 1024, deadline()).unwrap();
         let reader = Reader::new(image.bytes, deadline()).unwrap();
         assert!(matches!(reader.rows(0, |_, _, _| Ok(true)), Err(Error::ProviderUnavailable)));
+    }
+
+    #[test]
+    fn wal_checkpoint_is_blocked_during_copy_and_succeeds_after_lease_release() {
+        let directory = Directory::new();
+        let writer = directory.old();
+        writer.execute("PRAGMA journal_mode=WAL;PRAGMA wal_autocheckpoint=0;INSERT INTO message VALUES('s',1,1,'{}')");
+        let image = capture_inner(&directory.root(), 64 * 1024 * 1024, deadline(), || {
+            assert_eq!(writer.checkpoint(), 5)
+        })
+        .unwrap();
+        assert!(!image.bytes.is_empty());
+        assert_eq!(writer.checkpoint(), 0);
+    }
+    #[test]
+    fn birth_of_a_wal_index_during_capture_is_refused_even_without_timestamp_changes() {
+        let directory = Directory::new();
+        let writer = directory.old();
+        writer.execute("INSERT INTO message VALUES('s',1,1,'{}')");
+        drop(writer);
+        let result = capture_inner(&directory.root(), 64 * 1024 * 1024, deadline(), || {
+            std::fs::write(directory.0.join("opencode.db-shm"), [0; 4]).unwrap();
+        });
+        assert!(matches!(result, Err(Error::Busy)));
     }
 }

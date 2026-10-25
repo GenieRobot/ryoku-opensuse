@@ -72,7 +72,7 @@ a restrictive CSP; the console requires no JavaScript.
 | Credentials | `put_provider`, `remove_provider` | Owner configures/removes an explicit provider; keys remain only in private state and provider stdin |
 | Route/model | `set_route` | Owner selects a provider and one of its configured model IDs for an explicit lane |
 | Index | `index` | Owner replaces a bounded set of explicitly uploaded UTF-8 documents; every SHA-256 is verified before publication |
-| Fix | `fix` | Owner supplies a typed doctor/tip/app finding; collects bounded user-unit/journal/RPM observations and creates an Agent investigation request with Tumbleweed ownership/recovery instructions |
+| Fix | `fix_preview`, `fix` | Owner supplies a typed doctor/tip/app finding; external native-evidence egress requires a reviewed destination-bound preview; creates an Agent investigation request with Tumbleweed ownership/recovery instructions |
 | Local agent instructions | `wire`, `unwire` | Owner installs/removes instructions for the built-in Agent lane; Ask/Chat are unaffected |
 | Local usage sources | `enroll_usage_source`, `collect_usage`, `disable_usage_source` | Owner explicitly enrolls a private tool data root, collects local activity or removes enrollment/cache; restricted Ask clients cannot use these actions |
 
@@ -82,7 +82,11 @@ or inspect/cancel an Agent job. Neither HTTP nor Unix requests accept a claimed
 role. Current installed transports are not extended by this branch; the
 standalone owner transports deliberately grant the authenticated account owner
 its runtime actions. A future shell/model transport must assign its role on the
-trusted side instead of forwarding an owner credential to a model.
+trusted side instead of forwarding an owner credential to a model. The production
+HTTP/Unix handlers currently dispatch as Owner: restricted AskClient assignment
+has **no live bridge enforcement** yet. Same-UID clients are not separate
+identities. An authenticated restricted shell/assistant bridge is an explicit
+remaining integration and acceptance gate.
 
 `fix` performs investigation only: findings never become a shell command or a
 package/service mutation. `wire` currently affects the built-in Agent's real
@@ -96,7 +100,22 @@ directory, a 500 ms deadline and 32 KiB output bound per probe. Stalled/oversize
 children are killed and reaped. Fix includes UTF-8-safe, explicitly labeled
 512-byte excerpts from each observation; the explicit logs action supplies the
 full bounded evidence. Findings retain request idempotency even if recollected
-native state changes. The runtime package requires `systemd` and `rpm >= 4.19`.
+native state changes. For an external Agent route, first call
+`{"action":"fix_preview","component":"example.service"}`. Review its exact
+`native_evidence` and destination (provider ID, endpoint and model); the disclosure
+also identifies the supplied finding, indexed context and configured instructions
+sent with the investigation. To approve, send the returned
+`native_evidence_consent` token in the `fix` request alongside `id`, `kind`,
+`component` and `evidence`. Missing/expired/unknown confirmation returns
+`evidence_consent_required` before any provider dispatch. The token is owner-only,
+in-memory, valid for five minutes, bound to that component and provider/route
+configuration revision, and is not persisted or inserted into the prompt. Fix
+sends the reviewed native summary without recollecting it. Changing any provider
+credentials/configuration or route invalidates previews, and the revision is
+checked again atomically when the provider is captured. Restart discards previews.
+Successful request retries remain idempotent without sending evidence again.
+Local/fixture Fix requires no external-evidence confirmation.
+The runtime package requires `systemd` and `rpm >= 4.19`.
 
 ## Provider and model configuration
 
@@ -131,8 +150,9 @@ does not silently overwrite an unavailable saved model/route. A new request then
 reports unavailable until the owner explicitly chooses an available route.
 There is no automatic fallback to a different external provider.
 Choosing an external route sends that lane's prompt, indexed evidence and its
-conversation context, including Fix's native evidence excerpts, to the
-explicitly configured endpoint. Provider keys are
+conversation context to the explicitly configured endpoint. Fix's automatic
+native excerpts additionally require the preview confirmation described above.
+Provider keys are
 not inserted into assistant context.
 
 Usage records preserve provider/model, input/output tokens, timestamp and
@@ -184,7 +204,7 @@ No row in the original inventory is removed by this slice.
 | Index/vault/memory/wiki/skills | SHA-256-verified uploaded local document retrieval | System/package/desktop/source/user/habits maps, bounded source mirrors, registered projects, vault/memory/journal enrollment and complete offline skills/wiki |
 | Provider/model/network | Local/fixture and configured HTTPS completion, private keys, catalog selection, unavailable-pick retention | Every individual Prowl provider/sign-in/model/profile/fallback/cache/network/project/harness/skill operation, adapter/source integrity and full settings UI |
 | Usage | Completion activity plus enrolled Claude/Codex/opencode JSON/SQLite activity, committed WAL snapshots, costs/soft caps, local/UTC days, five-minute scheduling and source failure statuses | Live OAuth/RPC/session-limit quota, complete model/session rows, separate timer and original shell/cache UI |
-| Web/app/API | Tested authenticated Rust HTTP/Unix boundary and basic browser console | Retained upstream Svelte console/native app and all source routes/sheets, theme/vitals/system/vault content and shell/Hub bridges |
+| Web/app/API | Tested authenticated owner Rust HTTP/Unix boundary and basic browser console; AskClient is library policy only | Retained upstream Svelte console/native app and all source routes/sheets, theme/vitals/system/vault content and shell/Hub bridges; authenticated restricted role assignment on the live assistant bridge |
 | Terminal | Typed JSON CLI, no arbitrary command execution | Upstream proposed-command tiers, command buffer confirmation, continuation/run feedback/recipes and shell integrations |
 | Lifecycle | Explicit optional standalone process, restart and stale socket recovery | Optional RPM install/remove, enable-now/login/linger/disable choices, Prowl lifecycle, no implicit reinstallation and registered writer coordination |
 | Protected mutations/recovery | No system/service/package/external-harness mutation exposed | #25's authenticated typed dispatch to #20 native coordinator; complete state enrollment, writer leasing, verified pre/post linked generations, authorization/revalidation and offline restore proof |

@@ -56,11 +56,17 @@ pub enum Request {
         session: String,
         prompt: String,
     },
+    FixPreview {
+        component: String,
+    },
     Fix {
         id: String,
         kind: FixKind,
         component: String,
         evidence: String,
+        /// Echo the owner-reviewed preview token for external native evidence.
+        #[serde(default)]
+        native_evidence_consent: Option<String>,
     },
     Wire {
         instructions: String,

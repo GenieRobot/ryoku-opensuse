@@ -25,6 +25,7 @@ pub enum Error {
     NotFound,
     Conflict,
     Integrity,
+    EvidenceConsentRequired,
     ProviderUnavailable,
     ProviderFailed,
     Cancelled,

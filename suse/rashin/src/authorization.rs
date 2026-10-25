@@ -43,7 +43,7 @@ impl Request {
             Self::PutProvider { .. } | Self::RemoveProvider { .. } => Action::ProviderCredentials,
             Self::SetRoute { .. } => Action::Route,
             Self::Index { .. } => Action::Index,
-            Self::Fix { .. } => Action::Fix,
+            Self::Fix { .. } | Self::FixPreview { .. } => Action::Fix,
             Self::Wire { .. } | Self::Unwire {} => Action::AgentInstructions,
             Self::EnrollUsageSource { .. } | Self::DisableUsageSource { .. } => Action::UsageSource,
             Self::CollectUsage { .. } => Action::UsageCollect,
