@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Check both required session services independently; a healthy partner must
+  not mask an inactive or timed-out service during activation. Preserve orderly
+  environment cleanup and compositor exit on startup failure.
+
 - Add a separately selectable SDDM session with Rust lifecycle cleanup and
   native user units. Use the packaged upstream daemon through the existing
   Rust writer coordinator and preserve the independent KDE session.

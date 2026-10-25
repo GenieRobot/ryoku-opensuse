@@ -72,6 +72,14 @@ one second for reaping before continuing cleanup. The logout path reserves a
 stalled stop still reaches both environment cleanups and the compositor-exit
 attempt. The compositor and lock retain their full running lifetimes.
 
+Activation checks each required shell/service unit independently after the target
+start. A grouped `systemctl is-active` call succeeds when any listed unit is
+active, so it cannot prove both partners started. A failed or timed-out check
+retains the startup failure and follows the same stop → environment cleanup →
+compositor-exit path. The [offline partner-readiness receipt](../infra/tumbleweed-lab/evidence/issue25-session-partners-20261025.toml)
+records the one-active/one-failed regressions. These checks establish unit-state
+control flow, not shell rendering, socket readiness, ordinary login or reboot.
+
 The [offline deadline receipt](../infra/tumbleweed-lab/evidence/issue25-session-deadlines-20261025.toml)
 records Rust subprocess tests for each failure/timeout, missing payload,
 owned-descendant termination and unrelated-process isolation. These are host

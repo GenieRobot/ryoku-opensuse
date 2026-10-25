@@ -282,15 +282,12 @@ fn start_session_target_using(
 ) -> Result<()> {
     // A fresh manager need not have loaded this unit: retain its burst limits.
     execute(systemctl(&["start", TARGET]), START_TIMEOUT)?;
-    execute(
-        systemctl(&[
-            "is-active",
-            "--quiet",
-            "ryoku-desktop-shell.service",
-            "ryoku-service.service",
-        ]),
-        CONTROL_TIMEOUT,
-    )
+    // is-active with several units succeeds when *any* is active. Each
+    // required partner must pass its own bounded readiness check.
+    for unit in ["ryoku-desktop-shell.service", "ryoku-service.service"] {
+        execute(systemctl(&["is-active", "--quiet", unit]), CONTROL_TIMEOUT)?;
+    }
+    Ok(())
 }
 
 fn clear_bus_environment_command() -> Command {
@@ -579,7 +576,15 @@ mod tests {
                     "stop" => "stop",
                     "unset-environment" => "clear-manager",
                     "start" => "start",
-                    "is-active" => "check",
+                    "is-active" => {
+                        assert_eq!(arguments.len(), 5);
+                        assert_eq!(arguments[3], "--quiet");
+                        match arguments[4] {
+                            "ryoku-desktop-shell.service" => "check-shell",
+                            "ryoku-service.service" => "check-service",
+                            _ => panic!("unreviewed required session unit"),
+                        }
+                    }
                     _ => panic!("unknown control command"),
                 }
             }
@@ -624,7 +629,8 @@ mod tests {
 
     #[test]
     fn activation_failure_never_skips_shutdown_or_exit_and_missing_payload_never_starts() {
-        let startup = ["clear-bus", "clear-manager", "import", "start", "check"];
+        let startup =
+            ["clear-bus", "clear-manager", "import", "start", "check-shell", "check-service"];
         for failed in startup {
             let mut observed = Vec::new();
             let mut failed_once = false;
@@ -647,8 +653,9 @@ mod tests {
                 &observed[observed.len() - 4..],
                 ["stop", "clear-bus", "clear-manager", "exit"]
             );
-            if failed != "check" {
-                assert!(!observed.contains(&"check"));
+            if !failed.starts_with("check-") {
+                assert!(!observed.contains(&"check-shell"));
+                assert!(!observed.contains(&"check-service"));
             }
         }
         let mut observed = Vec::new();
@@ -676,8 +683,79 @@ mod tests {
             || Ok(()),
         )
         .unwrap();
-        assert_eq!(observed, ["clear-bus", "clear-manager", "import", "start", "check"]);
+        assert_eq!(
+            observed,
+            ["clear-bus", "clear-manager", "import", "start", "check-shell", "check-service"]
+        );
         assert!(checked_control(fixture_command("signal"), Duration::from_secs(2)).is_err());
+    }
+
+    #[test]
+    fn startup_requires_every_partner_and_one_active_unit_never_masks_the_other() {
+        let units = ["ryoku-desktop-shell.service", "ryoku-service.service"];
+        for active in [[true, true], [true, false], [false, true], [false, false]] {
+            for timeout in [false, true] {
+                let mut observed = Vec::new();
+                let mut queries = Vec::new();
+                let result = activate_using(
+                    &mut |command, limit| {
+                        let arguments: Vec<_> =
+                            command.get_args().map(|value| value.to_str().unwrap()).collect();
+                        let query = command.get_program() == "/usr/bin/systemctl"
+                            && arguments.get(2) == Some(&"is-active");
+                        let role = if query {
+                            assert_eq!(limit, CONTROL_TIMEOUT);
+                            // Emulate the real systemctl any-unit exit contract.
+                            // A grouped query would falsely succeed for either
+                            // one-active case; the production fix must split it.
+                            let requested = arguments[4..].to_vec();
+                            let any_active = requested.iter().any(|unit| {
+                                active[units.iter().position(|known| known == unit).unwrap()]
+                            });
+                            queries
+                                .push(requested.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+                            observed.push("check");
+                            if any_active {
+                                "success"
+                            } else if timeout {
+                                "blocked"
+                            } else {
+                                "failure"
+                            }
+                        } else {
+                            observed.push(control_step(&command));
+                            "success"
+                        };
+                        checked_control(
+                            fixture_command(role),
+                            if role == "blocked" {
+                                Duration::from_millis(40)
+                            } else {
+                                Duration::from_secs(2)
+                            },
+                        )
+                    },
+                    || Ok(()),
+                );
+                assert_eq!(
+                    result.is_ok(),
+                    active.iter().all(|value| *value),
+                    "active={active:?}, timeout={timeout}, queries={queries:?}"
+                );
+                assert!(queries.iter().all(|requested| requested.len() == 1));
+                if active == [true, true] {
+                    assert_eq!(queries, units.map(|unit| vec![unit.to_string()]));
+                    assert!(!observed.contains(&"exit"));
+                } else {
+                    assert_eq!(
+                        &observed[observed.len() - 4..],
+                        ["stop", "clear-bus", "clear-manager", "exit"]
+                    );
+                    let error = result.unwrap_err().to_string();
+                    assert!(error.contains(if timeout { "deadline" } else { "23" }));
+                }
+            }
+        }
     }
 
     #[test]
