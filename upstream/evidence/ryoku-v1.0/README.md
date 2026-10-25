@@ -200,3 +200,11 @@ binding. The [review](../../../docs/ryoku-v1.0-installer-release-review.md)
 separates checksum equality from publisher authority and maps install, package,
 promotion and retention operations to #24/#27–29/#42–45/#49 without importing
 or executing foreign platform mechanisms. Full semantic/native gates stay open.
+
+`apps-system-disposition.tsv` and `apps-system-boundary.json` pin 370 path
+identities, 45 anchored API/provenance sources, all system rule/policy bytes,
+38 raw service rows and the exact moved boot image. The [review](../../../docs/ryoku-v1.0-apps-system-review.md)
+distinguishes retained app/VM/remote/palette/Redux/device features from current
+selection and required native typed authorization/capture, including custom
+renderer execution and the current-not-installed DNS basename-policy gap.
+No application, helper, device, model, remote endpoint or installer is run.
