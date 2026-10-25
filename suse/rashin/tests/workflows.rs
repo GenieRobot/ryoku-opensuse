@@ -3550,13 +3550,16 @@ fn tool_gateway_with_hook<F: FnMut(&Value) + Send + 'static>(
                 serde_json::from_slice(&bytes).unwrap()
             };
             assert!(!String::from_utf8(bytes).unwrap().contains("PRIVATE_TOOL_GATEWAY_KEY"));
-            tx.send(body.clone()).unwrap();
-            hook(&body);
             let Some(response) = response else {
                 stream.write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n").unwrap();
                 let data = "data: {\"choices\":[{\"delta\":{\"content\":\"waiting\"}}]}\n\n";
                 write!(stream, "{:x}\r\n{}\r\n", data.len(), data).unwrap();
                 stream.flush().unwrap();
+                // Cancellation fixtures announce readiness only after the
+                // nonterminal bytes are flushed. Otherwise a valid client
+                // cancellation can reset the socket during this write.
+                tx.send(body.clone()).unwrap();
+                hook(&body);
                 stream.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
                 let mut byte = [0];
                 match stream.read(&mut byte) {
@@ -3566,6 +3569,8 @@ fn tool_gateway_with_hook<F: FnMut(&Value) + Send + 'static>(
                 };
                 continue;
             };
+            tx.send(body.clone()).unwrap();
+            hook(&body);
             let output = if body["stream"] == true {
                 let message = &response["choices"][0]["message"];
                 let mut delta = json!({"content":message["content"]});
