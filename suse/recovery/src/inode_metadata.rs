@@ -242,10 +242,33 @@ pub fn prepare_symlink_metadata(
     let EntryKind::Symlink { metadata, target } = &entry.record().kind else {
         return Err(InodeMetadataError::UnsupportedKind);
     };
+    apply_verified_symlink_metadata(
+        parent,
+        leaf,
+        metadata,
+        target,
+        entry.acl(),
+        entry.xattrs().collect(),
+    )
+}
+
+/// Private asset-restore companion; the caller binds these metadata bytes to a
+/// verified generation and exclusively owns the exact staging link.
+pub(crate) fn apply_verified_symlink_metadata(
+    parent: &File,
+    leaf: &RelativePath,
+    metadata: &EntryMetadata,
+    target: &str,
+    acl: Option<&AclPayload>,
+    attributes: Vec<(XattrName, &[u8])>,
+) -> Result<(), InodeMetadataError> {
+    if leaf.as_str().contains('/') {
+        return Err(InodeMetadataError::InvalidMetadata);
+    }
     if metadata.mode != 0o777
         || metadata.uid == u32::MAX
         || metadata.gid == u32::MAX
-        || entry.acl().is_some()
+        || acl.is_some()
     {
         return Err(InodeMetadataError::InvalidMetadata);
     }
@@ -273,7 +296,6 @@ pub fn prepare_symlink_metadata(
     // The parent descriptor is pinned and the single leaf is exclusively
     // owned by this staging operation. Linux l*xattr never follows the leaf.
     let path = format!("/proc/self/fd/{}/{}", parent.as_raw_fd(), leaf.as_str());
-    let attributes: Vec<_> = entry.xattrs().collect();
     let label = attributes
         .iter()
         .find_map(|(name, value)| (*name == XattrName::SelinuxLabel).then_some(*value));

@@ -39,6 +39,8 @@ pub enum AssetNamespace {
     MediaTrash,
     CatalogStage,
     WallpaperCache,
+    DeclaredOutput,
+    OutputStage,
 }
 impl AssetNamespace {
     pub fn home_prefix(self) -> &'static str {
@@ -52,7 +54,9 @@ impl AssetNamespace {
             | Self::ModelReferenceStage
             | Self::TreeStage
             | Self::MediaTrash
-            | Self::CatalogStage => "",
+            | Self::CatalogStage
+            | Self::DeclaredOutput
+            | Self::OutputStage => "",
             Self::WallpaperCache => ".cache/ryogami/wallpaper",
         }
     }
@@ -65,10 +69,12 @@ pub struct AssetPath {
     relative: RelativePath,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     library_root: Option<RelativePath>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    output_binding: Option<Sha256>,
 }
 impl AssetPath {
     pub fn new(namespace: AssetNamespace, relative: RelativePath) -> Result<Self, AssetError> {
-        let path = Self { namespace, relative, library_root: None };
+        let path = Self { namespace, relative, library_root: None, output_binding: None };
         path.validate()?;
         Ok(path)
     }
@@ -80,9 +86,26 @@ impl AssetPath {
             namespace: AssetNamespace::ConfiguredLibrary,
             relative,
             library_root: Some(root),
+            output_binding: None,
         };
         path.validate()?;
         Ok(path)
+    }
+    pub(crate) fn for_declared_output(
+        binding: Sha256,
+        relative: RelativePath,
+    ) -> Result<Self, AssetError> {
+        let path = Self {
+            namespace: AssetNamespace::DeclaredOutput,
+            relative,
+            library_root: None,
+            output_binding: Some(binding),
+        };
+        path.validate()?;
+        Ok(path)
+    }
+    pub(crate) fn output_binding(&self) -> Option<&Sha256> {
+        self.output_binding.as_ref()
     }
     /// Preserve the verified namespace/root when deriving an exact staging name.
     pub fn with_relative(&self, relative: RelativePath) -> Result<Self, AssetError> {
@@ -91,6 +114,9 @@ impl AssetPath {
         Ok(path)
     }
     fn validate(&self) -> Result<(), AssetError> {
+        if (self.namespace == AssetNamespace::DeclaredOutput) != self.output_binding.is_some() {
+            return Err(AssetError::Path);
+        }
         match (self.namespace, &self.library_root) {
             (AssetNamespace::ConfiguredLibrary, Some(root))
                 if library_root_allowed(root)
@@ -101,6 +127,28 @@ impl AssetPath {
         }
         if self.relative.as_str().len() > 1024 || self.relative.as_str().split('/').count() > 16 {
             return Err(AssetError::Path);
+        }
+        if self.namespace == AssetNamespace::OutputStage {
+            let (root, leaf) = self
+                .relative
+                .as_str()
+                .split_once('/')
+                .map_or((self.relative.as_str(), None), |(root, leaf)| (root, Some(leaf)));
+            let token = root
+                .strip_prefix(".ryoku-output-stage-")
+                .or_else(|| root.strip_prefix(".ryoku-output-trash-"))
+                .ok_or(AssetError::Path)?;
+            Sha256::new(token).map_err(|_| AssetError::Path)?;
+            if let Some(leaf) = leaf {
+                let (kind, index) = leaf.split_once('-').ok_or(AssetError::Path)?;
+                let number: usize = index.parse().map_err(|_| AssetError::Path)?;
+                if !matches!(kind, "d" | "f")
+                    || number >= MAX_CAPTURE_LIMITS.max_paths
+                    || index != number.to_string()
+                {
+                    return Err(AssetError::Path);
+                }
+            }
         }
         if self.namespace == AssetNamespace::CatalogStage {
             let token = self
@@ -235,8 +283,13 @@ pub struct AssetInventory {
     entries: Vec<AssetRecord>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     trees: Vec<AssetPath>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    outputs: Option<crate::declared_outputs::OutputDeclaration>,
 }
 impl AssetInventory {
+    pub fn output_declaration(&self) -> Option<&crate::declared_outputs::OutputDeclaration> {
+        self.outputs.as_ref()
+    }
     pub fn trees(&self) -> &[AssetPath] {
         &self.trees
     }
@@ -247,7 +300,14 @@ impl AssetInventory {
         &self.entries
     }
     pub fn validate(&self) -> Result<(), AssetError> {
-        if self.schema_version != if self.trees.is_empty() { 1 } else { 2 }
+        if self.schema_version
+            != if self.outputs.is_some() {
+                3
+            } else if self.trees.is_empty() {
+                1
+            } else {
+                2
+            }
             || self.uid == 0
             || self.uid == u32::MAX
             || self.gid == u32::MAX
@@ -255,6 +315,17 @@ impl AssetInventory {
             || self.entries.len() > MAX_CAPTURE_LIMITS.max_paths
         {
             return Err(AssetError::Bounds);
+        }
+        crate::declared_outputs::validate_scope(
+            self.outputs.as_ref(),
+            &self.entries.iter().map(|record| record.path.clone()).collect::<Vec<_>>(),
+        )?;
+        if let Some(outputs) = &self.outputs {
+            outputs.require_account(&CaptureAccount {
+                uid: self.uid,
+                gid: self.gid,
+                principal: self.principal.clone(),
+            })?;
         }
         let mut paths = BTreeSet::new();
         let mut home_paths = BTreeSet::new();
@@ -266,6 +337,9 @@ impl AssetInventory {
             {
                 return Err(AssetError::Path);
             }
+            if record.path.namespace() == AssetNamespace::DeclaredOutput {
+                self.outputs.as_ref().ok_or(AssetError::Path)?.validate_record(record)?;
+            }
             let metadata = match &record.kind {
                 EntryKind::Absent => continue,
                 EntryKind::Directory { metadata } => metadata,
@@ -276,12 +350,22 @@ impl AssetInventory {
                     total = total.checked_add(*size).ok_or(AssetError::Bounds)?;
                     metadata
                 }
+                EntryKind::Symlink { metadata, target }
+                    if record.path.namespace() == AssetNamespace::DeclaredOutput
+                        || (record.path.namespace() == AssetNamespace::OutputStage
+                            && self
+                                .outputs
+                                .as_ref()
+                                .is_some_and(|outputs| outputs.allows_link_target(target))) =>
+                {
+                    metadata
+                }
                 EntryKind::Symlink { .. } => return Err(AssetError::Ownership),
             };
             if metadata.uid != self.uid
                 || metadata.gid != self.gid
                 || metadata.mode & !0o777 != 0
-                || metadata.mode & 0o022 != 0
+                || (!matches!(record.kind, EntryKind::Symlink { .. }) && metadata.mode & 0o022 != 0)
             {
                 return Err(AssetError::Ownership);
             }
@@ -293,6 +377,9 @@ impl AssetInventory {
             || self.entries.windows(2).any(|e| e[0].path >= e[1].path)
         {
             return Err(AssetError::Bounds);
+        }
+        if let Some(outputs) = &self.outputs {
+            outputs.validate_topology(&self.entries)?;
         }
         crate::ryogami_trees::validate_inventory(self)?;
         Ok(())
@@ -323,15 +410,28 @@ pub struct AssetScope {
     max_total_bytes: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     trees: Vec<AssetPath>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    outputs: Option<crate::declared_outputs::OutputDeclaration>,
 }
 impl AssetScope {
+    pub fn output_declaration(&self) -> Option<&crate::declared_outputs::OutputDeclaration> {
+        self.outputs.as_ref()
+    }
     pub fn new(
-        mut paths: Vec<AssetPath>,
+        paths: Vec<AssetPath>,
         max_file_bytes: u64,
         max_total_bytes: u64,
     ) -> Result<Self, AssetError> {
+        Self::new_with_outputs(paths, max_file_bytes, max_total_bytes, None)
+    }
+    pub(crate) fn new_with_outputs(
+        mut paths: Vec<AssetPath>,
+        max_file_bytes: u64,
+        max_total_bytes: u64,
+        outputs: Option<crate::declared_outputs::OutputDeclaration>,
+    ) -> Result<Self, AssetError> {
         paths.sort();
-        let scope = Self { paths, max_file_bytes, max_total_bytes, trees: vec![] };
+        let scope = Self { paths, max_file_bytes, max_total_bytes, trees: vec![], outputs };
         scope.validate()?;
         Ok(scope)
     }
@@ -349,6 +449,7 @@ impl AssetScope {
         for path in &self.paths {
             path.validate()?;
         }
+        crate::declared_outputs::validate_scope(self.outputs.as_ref(), &self.paths)?;
         crate::ryogami_trees::validate_roots(&self.trees, &self.paths)?;
         Ok(())
     }
@@ -363,10 +464,11 @@ impl AssetScope {
     }
     pub(crate) fn from_inventory(inventory: &AssetInventory) -> Result<Self, AssetError> {
         inventory.validate()?;
-        Self::new(
+        Self::new_with_outputs(
             inventory.entries().iter().map(|entry| entry.path.clone()).collect(),
             MAX_CAPTURE_LIMITS.max_file_bytes,
             MAX_CAPTURE_LIMITS.max_total_bytes,
+            inventory.outputs.clone(),
         )?
         .with_trees(inventory.trees.clone())
     }
@@ -387,11 +489,25 @@ impl AssetScope {
     ) -> Result<CapturedAssets, AssetError> {
         self.validate()?;
         crate::ryogami_trees::verify_declared(home, account, self)?;
-        let mut captured = capture_assets(home, account, &self.paths, self.limits())?;
+        crate::declared_outputs::verify_stage_membership(home, account, &self.paths)?;
+        let mut captured = capture_assets_with_outputs(
+            home,
+            account,
+            &self.paths,
+            self.limits(),
+            self.outputs.clone(),
+        )?;
         captured.inventory.trees = self.trees.clone();
-        captured.inventory.schema_version = if self.trees.is_empty() { 1 } else { 2 };
+        captured.inventory.schema_version = if self.outputs.is_some() {
+            3
+        } else if self.trees.is_empty() {
+            1
+        } else {
+            2
+        };
         captured.inventory.validate()?;
         crate::ryogami_trees::verify_inventory(home, account, &captured.inventory)?;
+        crate::declared_outputs::verify_stage_membership(home, account, &self.paths)?;
         Ok(captured)
     }
     pub fn bind_fingerprint(
@@ -403,6 +519,7 @@ impl AssetScope {
         assets.validate()?;
         if assets.entries().iter().map(|entry| &entry.path).ne(self.paths.iter())
             || assets.trees() != self.trees()
+            || assets.outputs != self.outputs
         {
             return Err(AssetError::Path);
         }
@@ -521,6 +638,19 @@ pub fn capture_assets(
     declarations: &[AssetPath],
     limits: CaptureLimits,
 ) -> Result<CapturedAssets, AssetError> {
+    capture_assets_with_outputs(home, account, declarations, limits, None)
+}
+fn capture_assets_with_outputs(
+    home: &File,
+    account: &CaptureAccount,
+    declarations: &[AssetPath],
+    limits: CaptureLimits,
+    outputs: Option<crate::declared_outputs::OutputDeclaration>,
+) -> Result<CapturedAssets, AssetError> {
+    crate::declared_outputs::validate_scope(outputs.as_ref(), declarations)?;
+    if let Some(outputs) = &outputs {
+        outputs.require_account(account)?;
+    }
     check_home(home, account)?;
     if declarations.is_empty() || declarations.len() > MAX_CAPTURE_LIMITS.max_paths {
         return Err(AssetError::Bounds);
@@ -552,12 +682,13 @@ pub fn capture_assets(
         entries.push(AssetRecord { path, kind });
     }
     let inventory = AssetInventory {
-        schema_version: 1,
+        schema_version: if outputs.is_some() { 3 } else { 1 },
         principal: account.principal.clone(),
         uid: account.uid,
         gid: account.gid,
         entries,
         trees: vec![],
+        outputs,
     };
     inventory.require_account(account)?;
     Ok(CapturedAssets { inventory, metadata: before.metadata_payloads })

@@ -6,6 +6,7 @@ use crate::{
     AccountPrincipal, EntryKind, Identifier, Sha256,
     asset_restore::{FileRestoreIntent, FileRestorePlan, RestoreError},
     configuration_stage::{StageError, StagedConfiguration, stage_preference_subset},
+    declared_output_restore::{OutputRestoreIntent, OutputRestorePlan},
     generation::VerifiedGeneration,
     installed_capture::CaptureAccount,
     restore::{
@@ -67,6 +68,7 @@ pub struct CombinedRestoreIntent {
     account: AccountPrincipal,
     assets: Vec<FileRestoreIntent>,
     trees: Vec<TreeRestoreIntent>,
+    outputs: Option<OutputRestoreIntent>,
     scope: AssetScope,
 }
 impl CombinedRestoreIntent {
@@ -116,6 +118,18 @@ impl CombinedRestoreIntent {
         let mut assets = Vec::new();
         let mut trees = Vec::new();
         let mut roots = Vec::new();
+        let outputs = if inventory.output_declaration().is_some() {
+            let item = Identifier::new(format!(
+                "outputs-{}",
+                &crate::wallpaper_protocol::digest(operation.as_str().as_bytes())[..32]
+            ))
+            .map_err(|_| CombinedError::Binding)?;
+            let intent = OutputRestoreIntent::new(item, source).map_err(CombinedError::Restore)?;
+            paths.extend(intent.scope().paths().iter().cloned());
+            Some(intent)
+        } else {
+            None
+        };
         for (index, root) in inventory.trees().iter().enumerate() {
             let item = Identifier::new(format!(
                 "tree-{}-{index}",
@@ -128,6 +142,13 @@ impl CombinedRestoreIntent {
             trees.push(intent);
         }
         for (index, entry) in inventory.entries().iter().enumerate() {
+            if matches!(
+                entry.path.namespace(),
+                crate::ryogami_assets::AssetNamespace::DeclaredOutput
+                    | crate::ryogami_assets::AssetNamespace::OutputStage
+            ) {
+                continue;
+            }
             if inventory.trees().iter().any(|root| is_under(&entry.path, root)) {
                 continue;
             }
@@ -147,10 +168,11 @@ impl CombinedRestoreIntent {
             paths.extend(intent.scope().map_err(CombinedError::Restore)?.paths().iter().cloned());
             assets.push(intent);
         }
-        let scope = AssetScope::new(
+        let scope = AssetScope::new_with_outputs(
             paths.into_iter().collect(),
             MAX_CAPTURE_LIMITS.max_file_bytes,
             MAX_CAPTURE_LIMITS.max_total_bytes,
+            inventory.output_declaration().cloned(),
         )
         .and_then(|scope| scope.with_trees(roots))
         .map_err(CombinedError::Asset)?;
@@ -160,6 +182,7 @@ impl CombinedRestoreIntent {
             account,
             assets,
             trees,
+            outputs,
             scope,
         })
     }
@@ -186,6 +209,7 @@ pub struct PreparedCombinedRestore {
     preferences: StagedConfiguration,
     assets: Vec<FileRestorePlan>,
     trees: Vec<TreeRestorePlan>,
+    outputs: Option<OutputRestorePlan>,
 }
 impl PreparedCombinedRestore {
     pub fn prepare(
@@ -270,6 +294,20 @@ impl PreparedCombinedRestore {
                 .map_err(CombinedError::Restore)
             })
             .collect::<Result<Vec<_>>>()?;
+        let outputs = intent
+            .outputs
+            .as_ref()
+            .map(|output| {
+                OutputRestorePlan::prepare(
+                    output,
+                    request.source,
+                    request.checkpoint,
+                    request.home,
+                    request.account,
+                )
+                .map_err(CombinedError::Restore)
+            })
+            .transpose()?;
         Ok(Self {
             intent,
             checkpoint_manifest: checkpoint
@@ -279,6 +317,7 @@ impl PreparedCombinedRestore {
             preferences,
             assets,
             trees,
+            outputs,
         })
     }
     pub fn operation(&self) -> &Identifier {
@@ -288,7 +327,7 @@ impl PreparedCombinedRestore {
         self.preferences.entries().len()
     }
     pub fn asset_entries(&self) -> usize {
-        self.assets.len() + self.trees.len()
+        self.assets.len() + self.trees.len() + usize::from(self.outputs.is_some())
     }
     pub fn source_manifest(&self) -> &Sha256 {
         &self.intent.source_manifest

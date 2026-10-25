@@ -9,15 +9,16 @@ use rustix::{
 };
 use std::fs::File;
 #[derive(Clone, Copy)]
-pub(crate) enum Kind {
+pub(crate) enum Kind<'a> {
     File,
     Directory,
+    Symlink(&'a str),
 }
 pub(crate) fn create(
     parent: &File,
     leaf: &str,
     account: &CaptureAccount,
-    kind: Kind,
+    kind: Kind<'_>,
 ) -> Result<File, Errno> {
     if account.uid == 0
         || leaf.is_empty()
@@ -27,6 +28,9 @@ pub(crate) fn create(
         || leaf.as_bytes().contains(&0)
     {
         return Err(Errno::INVAL);
+    }
+    if let Kind::Symlink(target) = kind {
+        crate::RelativePath::new(target).map_err(|_| Errno::INVAL)?;
     }
     let before = fs::fstat(parent)?;
     if FileType::from_raw_mode(before.st_mode) != FileType::Directory
@@ -68,6 +72,15 @@ pub(crate) fn create(
                             | OFlags::CLOEXEC,
                         Mode::from_raw_mode(0o600),
                     )?),
+                    Kind::Symlink(target) => {
+                        fs::symlinkat(target, parent, leaf)?;
+                        File::from(fs::openat(
+                            parent,
+                            leaf,
+                            OFlags::PATH | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+                            Mode::empty(),
+                        )?)
+                    }
                     Kind::Directory => {
                         fs::mkdirat(parent, leaf, Mode::from_raw_mode(0o700))?;
                         File::from(fs::openat2(
@@ -84,8 +97,11 @@ pub(crate) fn create(
                 let mode = match kind {
                     Kind::File => 0o600,
                     Kind::Directory => 0o700,
+                    Kind::Symlink(_) => 0o777,
                 };
-                fs::fchmod(&file, Mode::from_raw_mode(mode))?;
+                if !matches!(kind, Kind::Symlink(_)) {
+                    fs::fchmod(&file, Mode::from_raw_mode(mode))?;
+                }
                 fs::fsync(parent)?;
                 let actual = fs::fstat(&file)?;
                 if actual.st_uid != account.uid

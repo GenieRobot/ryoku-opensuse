@@ -301,6 +301,52 @@ impl VerifiedGeneration {
         Ok(())
     }
 
+    /// Prepare an exact approved link without following or reading its target.
+    pub(crate) fn prepare_asset_symlink_metadata(
+        &self,
+        path: &crate::ryogami_assets::AssetPath,
+        account: &crate::installed_capture::CaptureAccount,
+        parent: &File,
+        leaf: &crate::RelativePath,
+    ) -> Result<(), GenerationError> {
+        let assets = self.manifest.assets().ok_or(GenerationError::PayloadMismatch)?;
+        assets.require_account(account).map_err(|_| GenerationError::PayloadMismatch)?;
+        let record = assets
+            .entries()
+            .iter()
+            .find(|record| record.path == *path)
+            .ok_or(GenerationError::PayloadMismatch)?;
+        let EntryKind::Symlink { metadata, target } = &record.kind else {
+            return Err(GenerationError::InvalidEntryType);
+        };
+        let stat =
+            rustix::fs::statat(parent, leaf.as_str(), rustix::fs::AtFlags::SYMLINK_NOFOLLOW)?;
+        if stat.st_uid != account.uid || stat.st_gid != account.gid {
+            return Err(GenerationError::InvalidEntryType);
+        }
+        let acl = metadata
+            .acl_sha256
+            .as_ref()
+            .map(|digest| {
+                crate::metadata::AclPayload::decode(&self.read_payload(digest)?)
+                    .map_err(|_| GenerationError::PayloadMismatch)
+            })
+            .transpose()?;
+        let mut xattrs = BTreeMap::new();
+        for (name, digest) in &metadata.extended.values {
+            xattrs.insert(*name, self.read_payload(digest)?);
+        }
+        crate::inode_metadata::apply_verified_symlink_metadata(
+            parent,
+            leaf,
+            metadata,
+            target,
+            acl.as_ref(),
+            xattrs.iter().map(|(name, value)| (*name, value.as_slice())).collect(),
+        )
+        .map_err(GenerationError::InodeMetadata)
+    }
+
     /// Restore metadata on an already-created owned tree directory after its
     /// children are complete. The caller retains its protected tree journal.
     pub(crate) fn prepare_asset_directory_metadata(

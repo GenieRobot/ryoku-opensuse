@@ -361,3 +361,221 @@ fn historical_fixed_asset_encoding_is_unchanged_and_rejects_root_injection() {
     assert!(parsed.home_relative().is_err());
     assert_eq!(serde_json::from_str::<AssetPath>(&original).unwrap(), path);
 }
+
+fn output(
+    path: &str,
+    kind: crate::declared_outputs::OutputKind,
+) -> crate::declared_outputs::OutputEntry {
+    crate::declared_outputs::OutputEntry { path: RelativePath::new(path).unwrap(), kind }
+}
+fn output_declaration(
+    fixture: &Fixture,
+    entries: Vec<crate::declared_outputs::OutputEntry>,
+) -> crate::declared_outputs::OutputDeclaration {
+    crate::declared_outputs::OutputDeclaration::new(
+        &fixture.account,
+        Sha256::new("a".repeat(64)).unwrap(),
+        entries,
+    )
+    .unwrap()
+}
+#[test]
+fn declared_outputs_capture_missing_parents_and_independent_directory_effects_without_siblings() {
+    use crate::declared_outputs::OutputKind;
+    let fixture = Fixture::new();
+    std::fs::create_dir_all(fixture.path.join(".config/app")).unwrap();
+    std::fs::write(fixture.path.join(".config/app/credentials"), b"unrelated-private-sentinel")
+        .unwrap();
+    std::fs::write(fixture.path.join(".config/app/theme.css"), b"old-theme").unwrap();
+    let declaration = output_declaration(
+        &fixture,
+        vec![
+            output(".config/app/theme.css", OutputKind::RegularFile),
+            output(".config/new/colors/theme.css", OutputKind::RegularFile),
+            output(".config/disabled/themes", OutputKind::Directory),
+        ],
+    );
+    let scope = declaration.scope(1024, 8192).unwrap();
+    let before = scope.capture(&fixture.home, &fixture.account).unwrap();
+    assert_eq!(before.inventory.entries().len(), 8);
+    assert!(
+        before
+            .inventory
+            .entries()
+            .iter()
+            .any(|r| r.path.relative().as_str() == ".config/new" && r.kind == EntryKind::Absent)
+    );
+    let encoded = serde_json::to_string(&before.inventory).unwrap();
+    assert!(!encoded.contains("credentials") && !encoded.contains("unrelated-private-sentinel"));
+    assert_eq!(serde_json::from_str::<AssetInventory>(&encoded).unwrap(), before.inventory);
+    std::fs::create_dir_all(fixture.path.join(".config/new/colors")).unwrap();
+    std::fs::create_dir_all(fixture.path.join(".config/disabled/themes")).unwrap();
+    std::fs::write(fixture.path.join(".config/new/colors/theme.css"), b"new-theme").unwrap();
+    let after = scope.capture(&fixture.home, &fixture.account).unwrap();
+    assert!(
+        after
+            .inventory
+            .entries()
+            .iter()
+            .any(|r| r.path.relative().as_str() == ".config/disabled/themes"
+                && matches!(r.kind, EntryKind::Directory { .. }))
+    );
+    assert_ne!(before.inventory.fingerprint().unwrap(), after.inventory.fingerprint().unwrap());
+    assert!(before.revalidate(&fixture.home).is_err());
+    assert_eq!(
+        std::fs::read(fixture.path.join(".config/app/credentials")).unwrap(),
+        b"unrelated-private-sentinel"
+    );
+}
+#[test]
+fn declared_outputs_bind_account_policy_exact_set_and_kind_and_refuse_legacy_enrollment() {
+    use crate::declared_outputs::OutputKind;
+    let fixture = Fixture::new();
+    let declaration = output_declaration(
+        &fixture,
+        vec![output(".config/app/theme.css", OutputKind::RegularFile)],
+    );
+    let scope = declaration.scope(1024, 8192).unwrap();
+    let captured = scope.capture(&fixture.home, &fixture.account).unwrap();
+    let mut account = fixture.account.clone();
+    account.gid += 1;
+    assert!(scope.capture(&fixture.home, &account).is_err());
+    let other = crate::declared_outputs::OutputDeclaration::new(
+        &fixture.account,
+        Sha256::new("b".repeat(64)).unwrap(),
+        vec![output(".config/app/theme.css", OutputKind::RegularFile)],
+    )
+    .unwrap();
+    assert_ne!(declaration.fingerprint().unwrap(), other.fingerprint().unwrap());
+    assert!(
+        other
+            .scope(1024, 8192)
+            .unwrap()
+            .bind_fingerprint(&Sha256::new("c".repeat(64)).unwrap(), &captured.inventory)
+            .is_err()
+    );
+    assert!(AssetScope::new(scope.paths.clone(), 1024, 8192).is_err());
+    assert!(capture_assets(&fixture.home, &fixture.account, &scope.paths, scope.limits()).is_err());
+    let value = serde_json::to_value(&captured.inventory).unwrap();
+    for field in ["policy_sha256", "uid"] {
+        let mut forged = value.clone();
+        forged["outputs"][field] = if field == "uid" {
+            serde_json::json!(fixture.account.uid + 1)
+        } else {
+            serde_json::json!("b".repeat(64))
+        };
+        assert!(serde_json::from_value::<AssetInventory>(forged).unwrap().validate().is_err());
+    }
+    let mut downgraded = value.clone();
+    downgraded["schema_version"] = 1.into();
+    assert!(serde_json::from_value::<AssetInventory>(downgraded).unwrap().validate().is_err());
+    let mut forged = value;
+    forged.as_object_mut().unwrap().remove("outputs");
+    assert!(serde_json::from_value::<AssetInventory>(forged).unwrap().validate().is_err());
+    assert!(
+        crate::declared_outputs::OutputDeclaration::new(
+            &fixture.account,
+            Sha256::new("a".repeat(64)).unwrap(),
+            vec![output(".config/ryoku/ryogami.json", OutputKind::RegularFile)]
+        )
+        .is_err()
+    );
+    assert!(
+        crate::declared_outputs::OutputDeclaration::new(
+            &fixture.account,
+            Sha256::new("a".repeat(64)).unwrap(),
+            vec![
+                output(".config/app", OutputKind::RegularFile),
+                output(".config/app/theme.css", OutputKind::RegularFile)
+            ]
+        )
+        .is_err()
+    );
+}
+#[test]
+fn declared_outputs_allow_only_exact_internal_link_text_and_do_not_read_link_targets() {
+    use crate::declared_outputs::OutputKind;
+    let fixture = Fixture::new();
+    std::fs::create_dir_all(fixture.path.join(".cache/app")).unwrap();
+    std::fs::write(fixture.path.join(".cache/app/theme.css"), b"target-not-enrolled").unwrap();
+    std::os::unix::fs::symlink("theme.css", fixture.path.join(".cache/app/current")).unwrap();
+    let declaration = output_declaration(
+        &fixture,
+        vec![output(
+            ".cache/app/current",
+            OutputKind::InternalSymlink { targets: vec![RelativePath::new("theme.css").unwrap()] },
+        )],
+    );
+    let scope = declaration.scope(1024, 8192).unwrap();
+    let captured = scope.capture(&fixture.home, &fixture.account).unwrap();
+    assert!(
+        captured
+            .inventory
+            .entries()
+            .iter()
+            .any(|r| matches!(&r.kind,EntryKind::Symlink {target,..} if target=="theme.css"))
+    );
+    assert!(captured.open_payloads(&fixture.home).unwrap().is_empty());
+    assert!(!serde_json::to_string(&captured.inventory).unwrap().contains("target-not-enrolled"));
+    for target in ["other.css", "../escape", "/tmp/escape"] {
+        std::fs::remove_file(fixture.path.join(".cache/app/current")).unwrap();
+        std::os::unix::fs::symlink(target, fixture.path.join(".cache/app/current")).unwrap();
+        assert!(scope.capture(&fixture.home, &fixture.account).is_err());
+    }
+    std::fs::remove_file(fixture.path.join(".cache/app/current")).unwrap();
+    std::fs::write(fixture.path.join(".cache/app/current"), b"wrong kind").unwrap();
+    assert!(scope.capture(&fixture.home, &fixture.account).is_err());
+}
+#[test]
+fn declared_outputs_refuse_shared_parents_oversized_content_and_aliases_without_writes() {
+    use crate::declared_outputs::OutputKind;
+    let fixture = Fixture::new();
+    std::fs::create_dir_all(fixture.path.join(".config/app")).unwrap();
+    std::fs::write(fixture.path.join(".config/app/theme.css"), b"more-than-bound").unwrap();
+    let declaration = output_declaration(
+        &fixture,
+        vec![output(".config/app/theme.css", OutputKind::RegularFile)],
+    );
+    assert!(declaration.scope(4, 16).unwrap().capture(&fixture.home, &fixture.account).is_err());
+    let scope = declaration.scope(1024, 8192).unwrap();
+    std::fs::set_permissions(
+        fixture.path.join(".config/app"),
+        std::fs::Permissions::from_mode(0o777),
+    )
+    .unwrap();
+    assert!(scope.capture(&fixture.home, &fixture.account).is_err());
+    std::fs::set_permissions(
+        fixture.path.join(".config/app"),
+        std::fs::Permissions::from_mode(0o700),
+    )
+    .unwrap();
+    std::fs::rename(fixture.path.join(".config/app"), fixture.path.join(".config/other")).unwrap();
+    std::os::unix::fs::symlink("other", fixture.path.join(".config/app")).unwrap();
+    assert!(scope.capture(&fixture.home, &fixture.account).is_err());
+    assert_eq!(
+        std::fs::read(fixture.path.join(".config/other/theme.css")).unwrap(),
+        b"more-than-bound"
+    );
+}
+
+#[test]
+fn declared_outputs_enforce_declaration_bound_and_preserve_legacy_inventory_encoding() {
+    use crate::declared_outputs::{OutputDeclaration, OutputKind};
+    let fixture = Fixture::new();
+    let entries = (0..MAX_CAPTURE_LIMITS.max_paths)
+        .map(|index| output(&format!(".config/app/file-{index}"), OutputKind::RegularFile))
+        .collect();
+    assert!(
+        OutputDeclaration::new(&fixture.account, Sha256::new("a".repeat(64)).unwrap(), entries)
+            .is_err()
+    );
+    let legacy =
+        AssetScope::new(vec![path(AssetNamespace::SemanticModels, "model.onnx")], 1024, 8192)
+            .unwrap();
+    assert!(!serde_json::to_string(&legacy).unwrap().contains("outputs"));
+    let captured = legacy.capture(&fixture.home, &fixture.account).unwrap();
+    let encoded = serde_json::to_value(captured.inventory()).unwrap();
+    assert_eq!(encoded["schema_version"], 1);
+    assert!(encoded.get("outputs").is_none());
+    assert!(captured.inventory().output_declaration().is_none());
+}

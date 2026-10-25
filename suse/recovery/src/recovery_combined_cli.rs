@@ -581,7 +581,13 @@ fn cleanup_live(context: Replay<'_>, parts: Parts) -> Result<String, String> {
     ))
     .map_err(|error| format!("{error:?}"))?;
     let cleanup = prepared
-        .partial_cleanup(operation.clone(), context.checkpoint, &parts.account.home, &parts.capture)
+        .partial_cleanup(
+            operation.clone(),
+            context.checkpoint,
+            &parts.account.home,
+            &parts.capture,
+            context.state,
+        )
         .map_err(|error| error.to_string())?;
     // Capture before deletion, then explicitly pin the recoverable partials.
     // This uses the catalog's existing operator-checkpoint retention policy.

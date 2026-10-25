@@ -4,6 +4,7 @@ use super::*;
 use crate::{
     asset_restore::{FileRestoreReceipt, RestoreObservation},
     configuration_apply::{ApplyControl, ConfigurationDestination, apply_subset},
+    declared_output_restore::OutputRestoreIdentity,
     disk_stage::DiskStageStore,
     generation_capture::DeclaredRoot,
     restore::{RestoreJournal, RestoreJournalStore, RestorePhase, RestorePlan},
@@ -43,6 +44,8 @@ struct Record {
     assets: Vec<FileRestoreReceipt>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     trees: Vec<TreeRestoreReceipt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    outputs: Option<OutputRestoreIdentity>,
 }
 fn record_name(operation: &Identifier) -> String {
     format!("combined-restore-{}.json", operation.as_str())
@@ -91,7 +94,14 @@ fn read_record(directory: &File, operation: &Identifier) -> Result<Record> {
         return Err(CombinedError::Record);
     }
     let record: Record = serde_json::from_slice(&bytes).map_err(|_| CombinedError::Record)?;
-    if record.schema != if record.trees.is_empty() { 1 } else { 2 }
+    if record.schema
+        != if record.outputs.is_some() {
+            3
+        } else if record.trees.is_empty() {
+            1
+        } else {
+            2
+        }
         || record.operation != *operation
     {
         return Err(CombinedError::Record);
@@ -146,7 +156,13 @@ impl PreparedCombinedRestore {
             return Err(CombinedError::Binding);
         }
         Ok(Record {
-            schema: if self.trees.is_empty() { 1 } else { 2 },
+            schema: if self.outputs.is_some() {
+                3
+            } else if self.trees.is_empty() {
+                1
+            } else {
+                2
+            },
             operation: self.intent.operation.clone(),
             account: self.intent.account.clone(),
             plan: self.preferences.plan().clone(),
@@ -157,6 +173,12 @@ impl PreparedCombinedRestore {
                 .iter()
                 .map(FileRestorePlan::receipt_identity)
                 .collect::<std::result::Result<_, _>>()
+                .map_err(CombinedError::Restore)?,
+            outputs: self
+                .outputs
+                .as_ref()
+                .map(OutputRestorePlan::receipt_identity)
+                .transpose()
                 .map_err(CombinedError::Restore)?,
             trees: self
                 .trees
@@ -205,6 +227,7 @@ impl PreparedCombinedRestore {
             || record.checkpoint_generation != request.checkpoint.manifest().generation_id
             || record.assets.len() != intent.assets.len()
             || record.trees.len() != intent.trees.len()
+            || record.outputs.is_some() != intent.outputs.is_some()
             || request.scope == RestoreScope::SystemOnly
             || request.evidence.current_state_checkpoint != ArtifactStatus::Verified
         {
@@ -298,12 +321,45 @@ impl PreparedCombinedRestore {
                 Ok(plan)
             })
             .collect::<Result<Vec<_>>>()?;
+        let outputs = match (&intent.outputs, &record.outputs) {
+            (Some(item), Some(receipt)) => {
+                let plan = if OutputRestorePlan::record_exists(stores.assets, receipt)
+                    .map_err(CombinedError::Restore)?
+                {
+                    OutputRestorePlan::reopen(
+                        &receipt.operation,
+                        request.source,
+                        request.checkpoint,
+                        request.account,
+                        stores.assets,
+                    )
+                } else {
+                    OutputRestorePlan::prepare(
+                        item,
+                        request.source,
+                        request.checkpoint,
+                        request.home,
+                        request.account,
+                    )
+                }
+                .map_err(CombinedError::Restore)?;
+                if !plan.matches_intent(item)
+                    || plan.receipt_identity().map_err(CombinedError::Restore)? != *receipt
+                {
+                    return Err(CombinedError::Record);
+                }
+                Some(plan)
+            }
+            (None, None) => None,
+            _ => return Err(CombinedError::Record),
+        };
         Ok(Self {
             intent,
             checkpoint_manifest: record.checkpoint_manifest,
             preferences,
             assets,
             trees,
+            outputs,
         })
     }
 
@@ -343,6 +399,11 @@ impl PreparedCombinedRestore {
             if !tree.ready(execution.home, execution.account).map_err(CombinedError::Restore)? {
                 return Err(CombinedError::Binding);
             }
+        }
+        if let Some(outputs) = &self.outputs {
+            outputs
+                .original_ready(execution.home, execution.account)
+                .map_err(CombinedError::Restore)?;
         }
         let record = self.record(execution.checkpoint)?;
         let mut journal = RestoreJournal::new(
@@ -420,6 +481,19 @@ impl PreparedCombinedRestore {
             {
                 return Err(CombinedError::Binding);
             }
+        }
+        if let Some(outputs) = &self.outputs {
+            if OutputRestorePlan::record_exists(
+                stores.assets,
+                &outputs.receipt_identity().map_err(CombinedError::Restore)?,
+            )
+            .map_err(CombinedError::Restore)?
+            {
+                return Err(CombinedError::Binding);
+            }
+            outputs
+                .original_ready(execution.home, execution.account)
+                .map_err(CombinedError::Restore)?;
         }
         Ok((record, journal))
     }
@@ -716,6 +790,38 @@ impl PreparedCombinedRestore {
                 return Err(CombinedError::Record);
             }
         }
+        if let Some(outputs) = &self.outputs {
+            if !boundary() {
+                return Err(CombinedError::Interrupted);
+            }
+            if !outputs
+                .completed(
+                    execution.source,
+                    execution.checkpoint,
+                    execution.home,
+                    execution.account,
+                    stores.assets,
+                )
+                .map_err(CombinedError::Restore)?
+            {
+                if matches!(
+                    journal.phase,
+                    RestorePhase::ConfigurationRestored | RestorePhase::HealthChecked
+                ) {
+                    return Err(CombinedError::Binding);
+                }
+                outputs
+                    .apply_or_resume(
+                        execution.source,
+                        execution.checkpoint,
+                        execution.home,
+                        execution.account,
+                        stores.assets,
+                        &mut boundary,
+                    )
+                    .map_err(CombinedError::Restore)?;
+            }
+        }
         apply_subset(
             &self.preferences,
             stores.stages,
@@ -737,6 +843,19 @@ impl PreparedCombinedRestore {
             {
                 return Err(CombinedError::Binding);
             }
+        }
+        if let Some(outputs) = &self.outputs
+            && !outputs
+                .completed(
+                    execution.source,
+                    execution.checkpoint,
+                    execution.home,
+                    execution.account,
+                    stores.assets,
+                )
+                .map_err(CombinedError::Restore)?
+        {
+            return Err(CombinedError::Binding);
         }
         if !boundary() {
             return Err(CombinedError::Interrupted);
@@ -763,6 +882,7 @@ pub struct CombinedCleanupIntent {
     account: AccountPrincipal,
     intents: Vec<FileRestoreIntent>,
     trees: Vec<TreeRestoreIntent>,
+    outputs: Option<OutputRestoreIntent>,
     scope: AssetScope,
 }
 impl PreparedCombinedRestore {
@@ -772,6 +892,7 @@ impl PreparedCombinedRestore {
         checkpoint: &VerifiedGeneration,
         home: &File,
         account: &CaptureAccount,
+        journal: &File,
     ) -> Result<CombinedCleanupIntent> {
         if checkpoint.manifest().manifest_sha256.as_ref() != Some(&self.checkpoint_manifest)
             || operation == self.intent.operation
@@ -817,13 +938,28 @@ impl PreparedCombinedRestore {
                 trees.push(intent);
             }
         }
-        if intents.is_empty() && trees.is_empty() {
+        let outputs = if let Some(plan) = &self.outputs {
+            let id = Identifier::new(format!(
+                "cleanup-outputs-{}",
+                &crate::wallpaper_protocol::digest(operation.as_str().as_bytes())[..32]
+            ))
+            .map_err(|_| CombinedError::Binding)?;
+            plan.partial_cleanup(id, checkpoint, home, account, journal)
+                .map_err(CombinedError::Restore)?
+        } else {
+            None
+        };
+        if let Some(outputs) = &outputs {
+            paths.extend(outputs.scope().paths().iter().cloned());
+        }
+        if intents.is_empty() && trees.is_empty() && outputs.is_none() {
             return Err(CombinedError::Binding);
         }
-        let scope = AssetScope::new(
+        let scope = AssetScope::new_with_outputs(
             paths.into_iter().collect(),
             MAX_CAPTURE_LIMITS.max_file_bytes,
             MAX_CAPTURE_LIMITS.max_total_bytes,
+            outputs.as_ref().and_then(|output| output.scope().output_declaration().cloned()),
         )
         .and_then(|scope| scope.with_trees(roots))
         .map_err(CombinedError::Asset)?;
@@ -834,6 +970,7 @@ impl PreparedCombinedRestore {
             account: self.intent.account.clone(),
             intents,
             trees,
+            outputs,
             scope,
         })
     }
@@ -878,6 +1015,14 @@ impl CombinedCleanupIntent {
                     .map_err(CombinedError::Restore)
             })
             .collect::<Result<Vec<_>>>()?;
+        let outputs = self
+            .outputs
+            .as_ref()
+            .map(|intent| {
+                OutputRestorePlan::prepare(intent, source, checkpoint, home, account)
+                    .map_err(CombinedError::Restore)
+            })
+            .transpose()?;
         #[derive(Serialize)]
         struct CleanupRecord<'a> {
             schema: u16,
@@ -890,9 +1035,17 @@ impl CombinedCleanupIntent {
             receipts: Vec<FileRestoreReceipt>,
             #[serde(skip_serializing_if = "Vec::is_empty")]
             trees: Vec<TreeRestoreReceipt>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            outputs: Option<OutputRestoreIdentity>,
         }
         let record = CleanupRecord {
-            schema: if trees.is_empty() { 1 } else { 2 },
+            schema: if outputs.is_some() {
+                3
+            } else if trees.is_empty() {
+                1
+            } else {
+                2
+            },
             operation: &self.operation,
             restore_operation: &self.restore_operation,
             source_manifest: &self.source_manifest,
@@ -912,6 +1065,11 @@ impl CombinedCleanupIntent {
                 .iter()
                 .map(TreeRestorePlan::receipt_identity)
                 .collect::<std::result::Result<_, _>>()
+                .map_err(CombinedError::Restore)?,
+            outputs: outputs
+                .as_ref()
+                .map(OutputRestorePlan::receipt_identity)
+                .transpose()
                 .map_err(CombinedError::Restore)?,
         };
         let bytes = serde_json::to_vec(&record).map_err(|_| CombinedError::Record)?;
@@ -947,6 +1105,11 @@ impl CombinedCleanupIntent {
             tree.apply(source, checkpoint, home, account, journal, &mut boundary)
                 .map_err(CombinedError::Restore)?;
         }
-        Ok(plans.len() + trees.len())
+        if let Some(output) = &outputs {
+            output
+                .apply_or_resume(source, checkpoint, home, account, journal, &mut boundary)
+                .map_err(CombinedError::Restore)?;
+        }
+        Ok(plans.len() + trees.len() + usize::from(outputs.is_some()))
     }
 }

@@ -712,3 +712,532 @@ fn media_trash_catalog_stage_and_exact_cache_files_restore_and_reopen() {
         assert!(!f.file(intent.staging()).exists());
     }
 }
+
+#[test]
+fn declared_outputs_publish_and_reopen_linked_inventory_with_policy_and_no_legacy_restore_bypass() {
+    use crate::declared_outputs::{OutputDeclaration, OutputEntry, OutputKind};
+    let f = Fixture::new();
+    std::fs::create_dir_all(f.path.join("home/.config/app")).unwrap();
+    std::fs::write(f.path.join("home/.config/app/theme.css"), b"approved-theme-fixture").unwrap();
+    std::fs::write(f.path.join("home/.config/app/credentials"), b"private-not-enrolled").unwrap();
+    let outputs = OutputDeclaration::new(
+        &f.account,
+        Sha256::new("d".repeat(64)).unwrap(),
+        vec![
+            OutputEntry {
+                path: RelativePath::new(".config/app/theme.css").unwrap(),
+                kind: OutputKind::RegularFile,
+            },
+            OutputEntry {
+                path: RelativePath::new(".config/disabled/themes").unwrap(),
+                kind: OutputKind::Directory,
+            },
+        ],
+    )
+    .unwrap();
+    let scope = outputs.scope(1024, 8192).unwrap();
+    let source = f.capture_scope(80, &scope);
+    assert_eq!(source.manifest().schema_version, 3);
+    let reopened = f.store.open_verified_transaction(&source.manifest().transaction_id).unwrap();
+    assert_eq!(reopened.manifest(), source.manifest());
+    let inventory = reopened.manifest().assets().unwrap();
+    assert_eq!(
+        inventory.fingerprint().unwrap(),
+        scope.capture(&f.home, &f.account).unwrap().inventory().fingerprint().unwrap()
+    );
+    let encoded = serde_json::to_string(reopened.manifest()).unwrap();
+    assert!(!encoded.contains("credentials") && !encoded.contains("private-not-enrolled"));
+    assert!(
+        crate::combined_restore::CombinedRestoreIntent::new(
+            Identifier::new("declared-unready").unwrap(),
+            &reopened
+        )
+        .is_ok()
+    );
+    let file =
+        scope.paths().iter().find(|p| p.relative().as_str() == ".config/app/theme.css").unwrap();
+    let old_intent =
+        FileRestoreIntent::new(Identifier::new("declared-file-unready").unwrap(), &reopened, file)
+            .unwrap();
+    assert!(old_intent.scope().is_err());
+    assert!(std::fs::read_dir(f.path.join("journal")).unwrap().next().is_none());
+    assert_eq!(
+        std::fs::read(f.path.join("home/.config/app/credentials")).unwrap(),
+        b"private-not-enrolled"
+    );
+}
+
+fn declared_stage_fixture(f: &Fixture) -> AssetScope {
+    use crate::declared_outputs::{OutputDeclaration, OutputEntry, OutputKind};
+    for directory in [".config/app", ".config/new/colors"] {
+        std::fs::create_dir_all(f.path.join("home").join(directory)).unwrap();
+    }
+    std::fs::write(f.path.join("home/.config/app/theme.css"), b"original-theme").unwrap();
+    std::fs::write(f.path.join("home/.config/app/secret"), b"unrelated-credential").unwrap();
+    std::fs::write(f.path.join("home/.config/new/colors/theme.css"), b"missing-parent-theme")
+        .unwrap();
+    std::os::unix::fs::symlink("theme.css", f.path.join("home/.config/app/current")).unwrap();
+    OutputDeclaration::new(
+        &f.account,
+        Sha256::new("e".repeat(64)).unwrap(),
+        vec![
+            OutputEntry {
+                path: RelativePath::new(".config/app/theme.css").unwrap(),
+                kind: OutputKind::RegularFile,
+            },
+            OutputEntry {
+                path: RelativePath::new(".config/new/colors/theme.css").unwrap(),
+                kind: OutputKind::RegularFile,
+            },
+            OutputEntry {
+                path: RelativePath::new(".config/app/current").unwrap(),
+                kind: OutputKind::InternalSymlink {
+                    targets: vec![
+                        RelativePath::new("other.css").unwrap(),
+                        RelativePath::new("theme.css").unwrap(),
+                    ],
+                },
+            },
+        ],
+    )
+    .unwrap()
+    .scope(1024, 8192)
+    .unwrap()
+}
+#[test]
+fn declared_output_restore_stages_owned_files_links_and_missing_parents_then_reopens_inode_receipt()
+{
+    use crate::declared_output_restore::{
+        OutputRestoreIntent, OutputRestorePlan, PreparedOutputRestore,
+    };
+    let f = Fixture::new();
+    let scope = declared_stage_fixture(&f);
+    let source = f.capture_scope(90, &scope);
+    std::fs::write(f.path.join("home/.config/app/theme.css"), b"current-theme").unwrap();
+    std::fs::remove_dir_all(f.path.join("home/.config/new")).unwrap();
+    let operation = Identifier::new("declared-stage").unwrap();
+    let intent = OutputRestoreIntent::new(operation.clone(), &source).unwrap();
+    let checkpoint = f.capture_scope(91, intent.scope());
+    let plan =
+        OutputRestorePlan::prepare(&intent, &source, &checkpoint, &f.home, &f.account).unwrap();
+    let prepared =
+        plan.stage(&source, &checkpoint, &f.home, &f.account, &f.journal, || true).unwrap();
+    prepared.verify_unpublished(&f.home, &f.account).unwrap();
+    let reopened = PreparedOutputRestore::reopen(
+        &source,
+        &checkpoint,
+        &f.account,
+        &f.journal,
+        prepared.receipt(),
+    )
+    .unwrap();
+    reopened.verify_unpublished(&f.home, &f.account).unwrap();
+    let recovered =
+        OutputRestorePlan::reopen(&operation, &source, &checkpoint, &f.account, &f.journal)
+            .unwrap()
+            .reopen_staged(&source, &checkpoint, &f.account, &f.journal)
+            .unwrap();
+    assert_eq!(recovered.receipt(), prepared.receipt());
+    assert_eq!(std::fs::read(f.path.join("home/.config/app/theme.css")).unwrap(), b"current-theme");
+    assert!(!f.path.join("home/.config/new").exists());
+    assert_eq!(
+        std::fs::read(f.path.join("home/.config/app/secret")).unwrap(),
+        b"unrelated-credential"
+    );
+    let stage = intent
+        .scope()
+        .paths()
+        .iter()
+        .find(|path| {
+            path.namespace() == AssetNamespace::OutputStage
+                && path.relative().as_str().starts_with(".ryoku-output-stage-")
+                && !path.relative().as_str().contains('/')
+        })
+        .unwrap();
+    std::fs::write(f.file(stage).join("injected"), b"unrelated-stage-file").unwrap();
+    assert!(reopened.verify_unpublished(&f.home, &f.account).is_err());
+    assert_eq!(std::fs::read(f.file(stage).join("injected")).unwrap(), b"unrelated-stage-file");
+}
+#[test]
+fn declared_output_restore_stage_interruption_never_changes_live_outputs_or_adopts_partial_stage() {
+    use crate::declared_output_restore::{OutputRestoreIntent, OutputRestorePlan};
+    let mut interrupted = 0;
+    for stop in 1..=24 {
+        let f = Fixture::new();
+        let scope = declared_stage_fixture(&f);
+        let source = f.capture_scope(92, &scope);
+        std::fs::write(f.path.join("home/.config/app/theme.css"), b"current-theme").unwrap();
+        std::fs::remove_dir_all(f.path.join("home/.config/new")).unwrap();
+        let operation = Identifier::new(format!("declared-stage-{stop}")).unwrap();
+        let intent = OutputRestoreIntent::new(operation.clone(), &source).unwrap();
+        let checkpoint = f.capture_scope(93, intent.scope());
+        let plan =
+            OutputRestorePlan::prepare(&intent, &source, &checkpoint, &f.home, &f.account).unwrap();
+        let mut steps = 0;
+        let result = plan.stage(&source, &checkpoint, &f.home, &f.account, &f.journal, || {
+            steps += 1;
+            steps != stop
+        });
+        match result {
+            Ok(prepared) => prepared.verify_unpublished(&f.home, &f.account).unwrap(),
+            Err(_) => interrupted += 1,
+        }
+        assert_eq!(
+            std::fs::read(f.path.join("home/.config/app/theme.css")).unwrap(),
+            b"current-theme"
+        );
+        assert!(!f.path.join("home/.config/new").exists());
+        assert_eq!(
+            std::fs::read(f.path.join("home/.config/app/secret")).unwrap(),
+            b"unrelated-credential"
+        );
+        if let Ok(reopened) =
+            OutputRestorePlan::reopen(&operation, &source, &checkpoint, &f.account, &f.journal)
+        {
+            if let Ok(ready) = reopened.reopen_staged(&source, &checkpoint, &f.account, &f.journal)
+            {
+                ready.verify_unpublished(&f.home, &f.account).unwrap();
+            }
+            let has_stage = intent.scope().paths().iter().any(|path| {
+                path.namespace() == AssetNamespace::OutputStage
+                    && std::fs::symlink_metadata(f.file(path)).is_ok()
+            });
+            let retry =
+                reopened.stage(&source, &checkpoint, &f.home, &f.account, &f.journal, || true);
+            if has_stage {
+                assert!(retry.is_err());
+            } else {
+                retry.unwrap().verify_unpublished(&f.home, &f.account).unwrap();
+            }
+        }
+    }
+    assert!(interrupted >= 12);
+}
+
+#[test]
+fn declared_output_restore_live_apply_recreates_parents_replaces_links_and_retains_originals() {
+    use crate::declared_output_restore::{
+        OutputRestoreIntent, OutputRestorePlan, PreparedOutputRestore,
+    };
+    let f = Fixture::new();
+    let scope = declared_stage_fixture(&f);
+    let source = f.capture_scope(94, &scope);
+    std::fs::write(f.path.join("home/.config/app/theme.css"), b"current-theme").unwrap();
+    std::fs::remove_file(f.path.join("home/.config/app/current")).unwrap();
+    std::os::unix::fs::symlink("other.css", f.path.join("home/.config/app/current")).unwrap();
+    std::fs::remove_dir_all(f.path.join("home/.config/new")).unwrap();
+    let intent =
+        OutputRestoreIntent::new(Identifier::new("declared-live").unwrap(), &source).unwrap();
+    let checkpoint = f.capture_scope(95, intent.scope());
+    let plan =
+        OutputRestorePlan::prepare(&intent, &source, &checkpoint, &f.home, &f.account).unwrap();
+    let prepared =
+        plan.stage(&source, &checkpoint, &f.home, &f.account, &f.journal, || true).unwrap();
+    let receipt =
+        prepared.apply(&source, &checkpoint, &f.home, &f.account, &f.journal, || true).unwrap();
+    let reopened =
+        PreparedOutputRestore::reopen(&source, &checkpoint, &f.account, &f.journal, &receipt)
+            .unwrap();
+    assert!(reopened.restored(&f.home, &f.account).unwrap());
+    reopened.apply(&source, &checkpoint, &f.home, &f.account, &f.journal, || true).unwrap();
+    assert_eq!(
+        std::fs::read(f.path.join("home/.config/app/theme.css")).unwrap(),
+        b"original-theme"
+    );
+    assert_eq!(
+        std::fs::read(f.path.join("home/.config/new/colors/theme.css")).unwrap(),
+        b"missing-parent-theme"
+    );
+    assert_eq!(
+        std::fs::read_link(f.path.join("home/.config/app/current")).unwrap(),
+        PathBuf::from("theme.css")
+    );
+    assert_eq!(
+        std::fs::read(f.path.join("home/.config/app/secret")).unwrap(),
+        b"unrelated-credential"
+    );
+    let retained = intent
+        .scope()
+        .paths()
+        .iter()
+        .filter(|path| {
+            path.namespace() == AssetNamespace::OutputStage
+                && path.relative().as_str().starts_with(".ryoku-output-trash-")
+        })
+        .filter_map(|path| std::fs::read(f.file(path)).ok())
+        .collect::<Vec<_>>();
+    assert!(retained.contains(&b"current-theme".to_vec()));
+}
+#[test]
+fn declared_output_restore_live_interruptions_reopen_through_created_parents_and_exchanged_files() {
+    use crate::declared_output_restore::{
+        OutputRestoreIntent, OutputRestorePlan, PreparedOutputRestore,
+    };
+    let mut interrupted = 0;
+    for stop in 1..=30 {
+        let f = Fixture::new();
+        let scope = declared_stage_fixture(&f);
+        let source = f.capture_scope(96, &scope);
+        std::fs::write(f.path.join("home/.config/app/theme.css"), b"current-theme").unwrap();
+        std::fs::remove_dir_all(f.path.join("home/.config/new")).unwrap();
+        let intent = OutputRestoreIntent::new(
+            Identifier::new(format!("declared-live-{stop}")).unwrap(),
+            &source,
+        )
+        .unwrap();
+        let checkpoint = f.capture_scope(97, intent.scope());
+        let prepared =
+            OutputRestorePlan::prepare(&intent, &source, &checkpoint, &f.home, &f.account)
+                .unwrap()
+                .stage(&source, &checkpoint, &f.home, &f.account, &f.journal, || true)
+                .unwrap();
+        let mut steps = 0;
+        if prepared
+            .apply(&source, &checkpoint, &f.home, &f.account, &f.journal, || {
+                steps += 1;
+                steps != stop
+            })
+            .is_err()
+        {
+            interrupted += 1;
+        }
+        let reopened = PreparedOutputRestore::reopen(
+            &source,
+            &checkpoint,
+            &f.account,
+            &f.journal,
+            prepared.receipt(),
+        )
+        .unwrap();
+        reopened.apply(&source, &checkpoint, &f.home, &f.account, &f.journal, || true).unwrap();
+        assert!(reopened.restored(&f.home, &f.account).unwrap());
+        assert_eq!(
+            std::fs::read(f.path.join("home/.config/app/secret")).unwrap(),
+            b"unrelated-credential"
+        );
+    }
+    assert!(interrupted >= 12);
+}
+#[test]
+fn declared_output_restore_removes_only_declared_new_directories_and_refuses_unrelated_children() {
+    use crate::declared_output_restore::{OutputRestoreIntent, OutputRestorePlan};
+    for unexpected in [false, true] {
+        let f = Fixture::new();
+        let scope = declared_stage_fixture(&f);
+        std::fs::remove_dir_all(f.path.join("home/.config/new")).unwrap();
+        let source = f.capture_scope(98, &scope);
+        std::fs::create_dir_all(f.path.join("home/.config/new/colors")).unwrap();
+        std::fs::write(f.path.join("home/.config/new/colors/theme.css"), b"created-theme").unwrap();
+        if unexpected {
+            std::fs::write(f.path.join("home/.config/new/secret"), b"unrelated-new-sentinel")
+                .unwrap();
+        }
+        let intent =
+            OutputRestoreIntent::new(Identifier::new("declared-remove-parents").unwrap(), &source)
+                .unwrap();
+        let checkpoint = f.capture_scope(99, intent.scope());
+        let plan = OutputRestorePlan::prepare(&intent, &source, &checkpoint, &f.home, &f.account);
+        if unexpected {
+            assert!(plan.is_err());
+            assert!(std::fs::read_dir(f.path.join("journal")).unwrap().next().is_none());
+            assert_eq!(
+                std::fs::read(f.path.join("home/.config/new/secret")).unwrap(),
+                b"unrelated-new-sentinel"
+            );
+            assert_eq!(
+                std::fs::read(f.path.join("home/.config/new/colors/theme.css")).unwrap(),
+                b"created-theme"
+            );
+        } else {
+            let prepared = plan
+                .unwrap()
+                .stage(&source, &checkpoint, &f.home, &f.account, &f.journal, || true)
+                .unwrap();
+            prepared.apply(&source, &checkpoint, &f.home, &f.account, &f.journal, || true).unwrap();
+            assert!(prepared.restored(&f.home, &f.account).unwrap());
+            assert!(!f.path.join("home/.config/new").exists());
+        }
+    }
+}
+
+#[test]
+fn declared_output_restore_changed_parent_or_omitted_ready_inode_refuses_without_live_changes() {
+    use crate::declared_output_restore::{
+        OutputRestoreIntent, OutputRestorePlan, PreparedOutputRestore,
+    };
+    for changed_parent in [false, true] {
+        let f = Fixture::new();
+        let scope = declared_stage_fixture(&f);
+        let source = f.capture_scope(100, &scope);
+        std::fs::write(f.path.join("home/.config/app/theme.css"), b"current-theme").unwrap();
+        let operation = Identifier::new("declared-ready-refusal").unwrap();
+        let intent = OutputRestoreIntent::new(operation.clone(), &source).unwrap();
+        let checkpoint = f.capture_scope(101, intent.scope());
+        let plan =
+            OutputRestorePlan::prepare(&intent, &source, &checkpoint, &f.home, &f.account).unwrap();
+        let prepared =
+            plan.stage(&source, &checkpoint, &f.home, &f.account, &f.journal, || true).unwrap();
+        let mut wrong = f.account.clone();
+        wrong.gid += 1;
+        assert!(
+            PreparedOutputRestore::reopen(
+                &source,
+                &checkpoint,
+                &wrong,
+                &f.journal,
+                prepared.receipt()
+            )
+            .is_err()
+        );
+        if changed_parent {
+            std::fs::rename(
+                f.path.join("home/.config/app"),
+                f.path.join("home/.config/retained-app"),
+            )
+            .unwrap();
+            std::fs::create_dir(f.path.join("home/.config/app")).unwrap();
+            std::fs::write(
+                f.path.join("home/.config/app/theme.css"),
+                b"replacement-parent-sentinel",
+            )
+            .unwrap();
+            assert!(
+                prepared
+                    .apply(&source, &checkpoint, &f.home, &f.account, &f.journal, || true)
+                    .is_err()
+            );
+            assert_eq!(
+                std::fs::read(f.path.join("home/.config/app/theme.css")).unwrap(),
+                b"replacement-parent-sentinel"
+            );
+            assert_eq!(
+                std::fs::read(f.path.join("home/.config/retained-app/theme.css")).unwrap(),
+                b"current-theme"
+            );
+        } else {
+            let path = f.path.join("journal/output-restore-declared-ready-refusal-ready.json");
+            let mut ready: serde_json::Value =
+                serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+            ready["staged"].as_array_mut().unwrap().pop();
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+            std::fs::write(&path, serde_json::to_vec(&ready).unwrap()).unwrap();
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o400)).unwrap();
+            assert!(
+                PreparedOutputRestore::reopen(
+                    &source,
+                    &checkpoint,
+                    &f.account,
+                    &f.journal,
+                    prepared.receipt()
+                )
+                .is_err()
+            );
+            assert!(plan.reopen_staged(&source, &checkpoint, &f.account, &f.journal).is_err());
+            assert!(
+                prepared
+                    .apply(&source, &checkpoint, &f.home, &f.account, &f.journal, || true)
+                    .is_err()
+            );
+            assert_eq!(
+                std::fs::read(f.path.join("home/.config/app/theme.css")).unwrap(),
+                b"current-theme"
+            );
+        }
+    }
+}
+#[test]
+fn declared_output_restore_directory_removal_interruptions_reopen_without_unrelated_losses() {
+    use crate::declared_output_restore::{
+        OutputRestoreIntent, OutputRestorePlan, PreparedOutputRestore,
+    };
+    let mut interrupted = 0;
+    for stop in 1..=24 {
+        let f = Fixture::new();
+        let scope = declared_stage_fixture(&f);
+        std::fs::remove_dir_all(f.path.join("home/.config/new")).unwrap();
+        let source = f.capture_scope(102, &scope);
+        std::fs::create_dir_all(f.path.join("home/.config/new/colors")).unwrap();
+        std::fs::write(f.path.join("home/.config/new/colors/theme.css"), b"created-theme").unwrap();
+        let intent = OutputRestoreIntent::new(
+            Identifier::new(format!("declared-remove-{stop}")).unwrap(),
+            &source,
+        )
+        .unwrap();
+        let checkpoint = f.capture_scope(103, intent.scope());
+        let prepared =
+            OutputRestorePlan::prepare(&intent, &source, &checkpoint, &f.home, &f.account)
+                .unwrap()
+                .stage(&source, &checkpoint, &f.home, &f.account, &f.journal, || true)
+                .unwrap();
+        let mut steps = 0;
+        if prepared
+            .apply(&source, &checkpoint, &f.home, &f.account, &f.journal, || {
+                steps += 1;
+                steps != stop
+            })
+            .is_err()
+        {
+            interrupted += 1;
+        }
+        let reopened = PreparedOutputRestore::reopen(
+            &source,
+            &checkpoint,
+            &f.account,
+            &f.journal,
+            prepared.receipt(),
+        )
+        .unwrap();
+        reopened.apply(&source, &checkpoint, &f.home, &f.account, &f.journal, || true).unwrap();
+        assert!(reopened.restored(&f.home, &f.account).unwrap());
+        assert!(!f.path.join("home/.config/new").exists());
+        assert_eq!(
+            std::fs::read(f.path.join("home/.config/app/secret")).unwrap(),
+            b"unrelated-credential"
+        );
+    }
+    assert!(interrupted >= 12);
+}
+
+#[test]
+fn declared_output_restore_preserves_and_restores_prior_generated_stage_and_trash_entries() {
+    use crate::declared_output_restore::{OutputRestoreIntent, OutputRestorePlan};
+    let f = Fixture::new();
+    let scope = declared_stage_fixture(&f);
+    let source = f.capture_scope(104, &scope);
+    std::fs::write(f.path.join("home/.config/app/theme.css"), b"retained-original").unwrap();
+    let first =
+        OutputRestoreIntent::new(Identifier::new("declared-first").unwrap(), &source).unwrap();
+    let checkpoint = f.capture_scope(105, first.scope());
+    let prepared = OutputRestorePlan::prepare(&first, &source, &checkpoint, &f.home, &f.account)
+        .unwrap()
+        .stage(&source, &checkpoint, &f.home, &f.account, &f.journal, || true)
+        .unwrap();
+    prepared.apply(&source, &checkpoint, &f.home, &f.account, &f.journal, || true).unwrap();
+    let post = f.capture_scope(106, first.scope());
+    let retained = first
+        .scope()
+        .paths()
+        .iter()
+        .find(|path| {
+            path.namespace() == AssetNamespace::OutputStage
+                && path.relative().as_str().starts_with(".ryoku-output-trash-")
+                && std::fs::read(f.file(path)).is_ok_and(|bytes| bytes == b"retained-original")
+        })
+        .unwrap();
+    std::fs::write(f.file(retained), b"changed-retained").unwrap();
+    std::fs::write(f.path.join("home/.config/app/theme.css"), b"changed-theme").unwrap();
+    let second =
+        OutputRestoreIntent::new(Identifier::new("declared-second").unwrap(), &post).unwrap();
+    let checkpoint = f.capture_scope(107, second.scope());
+    let prepared = OutputRestorePlan::prepare(&second, &post, &checkpoint, &f.home, &f.account)
+        .unwrap()
+        .stage(&post, &checkpoint, &f.home, &f.account, &f.journal, || true)
+        .unwrap();
+    prepared.apply(&post, &checkpoint, &f.home, &f.account, &f.journal, || true).unwrap();
+    assert!(prepared.restored(&f.home, &f.account).unwrap());
+    assert_eq!(std::fs::read(f.file(retained)).unwrap(), b"retained-original");
+    assert_eq!(
+        std::fs::read(f.path.join("home/.config/app/theme.css")).unwrap(),
+        b"original-theme"
+    );
+}

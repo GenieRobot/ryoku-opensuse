@@ -22,6 +22,8 @@ pub mod capture_session;
 pub mod configuration_apply;
 #[cfg(target_os = "linux")]
 pub mod configuration_stage;
+pub mod declared_output_restore;
+pub mod declared_outputs;
 #[cfg(target_os = "linux")]
 pub mod disk_stage;
 #[cfg(target_os = "linux")]

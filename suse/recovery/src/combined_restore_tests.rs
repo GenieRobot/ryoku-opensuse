@@ -29,6 +29,12 @@ impl CombinedFixture {
         Self::with_tree(false)
     }
     fn with_tree(tree: bool) -> Self {
+        Self::with_families(tree, false)
+    }
+    fn with_outputs() -> Self {
+        Self::with_families(true, true)
+    }
+    fn with_families(tree: bool, outputs: bool) -> Self {
         let fixture = Fixture::new();
         let model = AssetPath::new(
             AssetNamespace::SemanticModels,
@@ -40,10 +46,10 @@ impl CombinedFixture {
         std::fs::create_dir_all(config.parent().unwrap()).unwrap();
         std::fs::write(&config, ORIGINAL).unwrap();
         std::fs::set_permissions(&config, std::fs::Permissions::from_mode(0o600)).unwrap();
-        let source = if tree {
+        let mut source_scope = if tree {
             let root = model.with_relative(RelativePath::new("fixture").unwrap()).unwrap();
             fixture.write(&cover(), b"original cover");
-            let scope = crate::ryogami_trees::inspect_scope(
+            crate::ryogami_trees::inspect_scope(
                 &fixture.home,
                 &fixture.account,
                 root,
@@ -52,14 +58,38 @@ impl CombinedFixture {
                 MAX_CAPTURE_LIMITS.max_total_bytes,
                 || true,
             )
-            .unwrap();
-            fixture.capture_scope(1, &scope)
+            .unwrap()
         } else {
-            fixture.capture(1, std::slice::from_ref(&model))
+            AssetScope::new(
+                vec![model.clone()],
+                MAX_CAPTURE_LIMITS.max_file_bytes,
+                MAX_CAPTURE_LIMITS.max_total_bytes,
+            )
+            .unwrap()
         };
+        if outputs {
+            let declarations = declared_stage_fixture(&fixture);
+            let mut paths = source_scope.paths().to_vec();
+            paths.extend(declarations.paths().iter().cloned());
+            source_scope = AssetScope::new_with_outputs(
+                paths,
+                MAX_CAPTURE_LIMITS.max_file_bytes,
+                MAX_CAPTURE_LIMITS.max_total_bytes,
+                declarations.output_declaration().cloned(),
+            )
+            .unwrap()
+            .with_trees(source_scope.trees().to_vec())
+            .unwrap();
+        }
+        let source = fixture.capture_scope(1, &source_scope);
         fixture.write(&model, b"changed model");
         if tree {
             fixture.write(&cover(), b"changed cover");
+        }
+        if outputs {
+            std::fs::write(fixture.path.join("home/.config/app/theme.css"), b"changed-theme")
+                .unwrap();
+            std::fs::remove_dir_all(fixture.path.join("home/.config/new")).unwrap();
         }
         std::fs::write(&config, CURRENT).unwrap();
         let intent = CombinedRestoreIntent::discover(
@@ -295,6 +325,7 @@ fn combined_partial_asset_requires_fresh_checkpointed_cleanup_then_reopens_origi
             &f.checkpoint,
             &f.fixture.home,
             &f.fixture.account,
+            &f.fixture.journal,
         )
         .unwrap();
     assert_eq!(cleanup.scope().paths().len(), 2);
@@ -633,6 +664,7 @@ fn combined_tree_interruption_cleanup_and_reopen_hold_completion_until_all_famil
             &f.checkpoint,
             &f.fixture.home,
             &f.fixture.account,
+            &f.fixture.journal,
         ) {
             partials += 1;
             assert!(f.apply(&reopened, || true).is_err());
@@ -775,4 +807,393 @@ fn combined_tree_receipt_downgrade_or_omission_cannot_authorize_replay() {
     assert_eq!(record["schema"], 1);
     assert!(record.get("trees").is_none());
     f.reopen();
+}
+
+#[test]
+fn combined_declared_outputs_restore_all_four_families_before_completion_and_reopen() {
+    let f = CombinedFixture::with_outputs();
+    let prepared = f.begin();
+    assert_eq!(f.apply(&prepared, || true).unwrap().phase, RestorePhase::ConfigurationRestored);
+    assert_eq!(std::fs::read(f.config()).unwrap(), ORIGINAL);
+    assert_eq!(std::fs::read(f.fixture.file(&f.model)).unwrap(), b"original model");
+    assert_eq!(std::fs::read(f.fixture.file(&cover())).unwrap(), b"original cover");
+    assert_eq!(
+        std::fs::read(f.fixture.path.join("home/.config/app/theme.css")).unwrap(),
+        b"original-theme"
+    );
+    assert_eq!(
+        std::fs::read(f.fixture.path.join("home/.config/new/colors/theme.css")).unwrap(),
+        b"missing-parent-theme"
+    );
+    assert_eq!(
+        std::fs::read(f.fixture.path.join("home/.config/app/secret")).unwrap(),
+        b"unrelated-credential"
+    );
+    assert_eq!(f.apply(&f.reopen(), || true).unwrap().phase, RestorePhase::ConfigurationRestored);
+    let record: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(f.fixture.path.join("journal/combined-restore-combined-operation.json"))
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(record["schema"], 3);
+    assert!(record["outputs"].is_object());
+    assert_eq!(record["assets"].as_array().unwrap().len(), 1);
+    assert_eq!(record["trees"].as_array().unwrap().len(), 1);
+}
+#[test]
+fn combined_declared_outputs_interrupted_live_replay_withholds_completion_until_preferences_verify()
+{
+    let mut interrupted = 0;
+    for stop in 1..=30 {
+        let f = CombinedFixture::with_outputs();
+        let prepared = f.begin();
+        let mut calls = 0;
+        let result = f.apply(&prepared, || {
+            let ready =
+                std::fs::read_dir(f.fixture.path.join("journal")).unwrap().flatten().any(|entry| {
+                    entry.file_name().to_str().is_some_and(|name| {
+                        name.starts_with("output-restore-") && name.ends_with("-ready.json")
+                    })
+                });
+            if ready {
+                calls += 1;
+                calls != stop
+            } else {
+                true
+            }
+        });
+        if result.is_err() {
+            interrupted += 1;
+            assert_eq!(f.phase(), RestorePhase::WritersStopped);
+        }
+        assert_eq!(
+            f.apply(&f.reopen(), || true).unwrap().phase,
+            RestorePhase::ConfigurationRestored
+        );
+        assert_eq!(std::fs::read(f.config()).unwrap(), ORIGINAL);
+        assert_eq!(
+            std::fs::read(f.fixture.path.join("home/.config/app/secret")).unwrap(),
+            b"unrelated-credential"
+        );
+    }
+    assert!(interrupted >= 12);
+}
+#[test]
+fn combined_declared_outputs_failure_or_receipt_omission_cannot_complete_configuration() {
+    for failure in ["output", "preference", "receipt"] {
+        let f = CombinedFixture::with_outputs();
+        let prepared = f.begin();
+        if failure == "output" {
+            std::fs::write(f.fixture.path.join("home/.config/app/theme.css"), b"unexpected-output")
+                .unwrap();
+            assert!(f.apply(&prepared, || true).is_err());
+            assert_eq!(f.phase(), RestorePhase::WritersStopped);
+            assert_eq!(std::fs::read(f.config()).unwrap(), CURRENT);
+        } else if failure == "preference" {
+            let bad = f.fixture.path.join("bad-home");
+            std::fs::create_dir(&bad).unwrap();
+            let bad = File::open(bad).unwrap();
+            f.with_execution(|execution| {
+                let destinations =
+                    [ConfigurationDestination { root: StateRoot::UserHome, directory: &bad }];
+                let bad_execution = CombinedExecution { destinations: &destinations, ..*execution };
+                assert!(
+                    prepared
+                        .apply_owned(&f.stores(), &bad_execution, || true, f.fixture.account.uid)
+                        .is_err()
+                );
+            });
+            assert_eq!(f.phase(), RestorePhase::WritersStopped);
+            assert_eq!(std::fs::read(f.config()).unwrap(), CURRENT);
+            assert_eq!(
+                std::fs::read(f.fixture.path.join("home/.config/app/theme.css")).unwrap(),
+                b"original-theme"
+            );
+            assert_eq!(
+                f.apply(&f.reopen(), || true).unwrap().phase,
+                RestorePhase::ConfigurationRestored
+            );
+        } else {
+            let path = f.fixture.path.join("journal/combined-restore-combined-operation.json");
+            let mut value: serde_json::Value =
+                serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+            value.as_object_mut().unwrap().remove("outputs");
+            value["schema"] = 2.into();
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+            std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o400)).unwrap();
+            assert!(
+                PreparedCombinedRestore::reopen(
+                    Identifier::new("combined-operation").unwrap(),
+                    &f.stores(),
+                    f.request()
+                )
+                .is_err()
+            );
+            assert!(f.apply(&prepared, || true).is_err());
+            assert_eq!(f.phase(), RestorePhase::WritersStopped);
+        }
+    }
+}
+
+#[test]
+fn combined_declared_outputs_partial_cleanup_requires_fresh_checkpoint_and_preserves_live_inodes() {
+    use std::os::unix::fs::MetadataExt;
+    let f = CombinedFixture::with_outputs();
+    let prepared = f.begin();
+    let stage = f
+        .intent()
+        .scope()
+        .paths()
+        .iter()
+        .find(|path| {
+            path.namespace() == AssetNamespace::OutputStage
+                && path.relative().as_str().starts_with(".ryoku-output-stage-")
+                && !path.relative().as_str().contains('/')
+        })
+        .unwrap()
+        .clone();
+    let live = f.fixture.path.join("home/.config/app/theme.css");
+    let live_inode = std::fs::symlink_metadata(&live).unwrap().ino();
+    let parent = live.parent().unwrap();
+    let parent_inode = std::fs::symlink_metadata(parent).unwrap().ino();
+    let partial_exists = || {
+        std::fs::read_dir(f.fixture.file(&stage)).is_ok_and(|entries| {
+            entries
+                .filter_map(std::result::Result::ok)
+                .any(|entry| entry.file_type().is_ok_and(|kind| kind.is_file()))
+        })
+    };
+    assert!(f.apply(&prepared, || !partial_exists()).is_err());
+    assert!(partial_exists());
+    assert_eq!(f.phase(), RestorePhase::WritersStopped);
+    let reopened = f.reopen();
+    assert!(f.apply(&reopened, || true).is_err());
+    let cleanup = reopened
+        .partial_cleanup(
+            Identifier::new("fresh-output-cleanup").unwrap(),
+            &f.checkpoint,
+            &f.fixture.home,
+            &f.fixture.account,
+            &f.fixture.journal,
+        )
+        .unwrap();
+    let fresh = f.fixture.publish_assets(
+        3,
+        cleanup.scope().capture(&f.fixture.home, &f.fixture.account).unwrap(),
+        true,
+        "fresh-output-cleanup",
+    );
+    for (source, checkpoint) in [(&f.source, &fresh), (&f.checkpoint, &f.checkpoint)] {
+        assert!(
+            cleanup
+                .apply(
+                    source,
+                    checkpoint,
+                    &f.fixture.home,
+                    &f.fixture.account,
+                    &f.fixture.journal,
+                    || true
+                )
+                .is_err()
+        );
+    }
+    assert!(
+        cleanup
+            .apply(
+                &f.checkpoint,
+                &fresh,
+                &f.fixture.home,
+                &f.fixture.account,
+                &f.fixture.journal,
+                || false
+            )
+            .is_err()
+    );
+    assert_eq!(
+        cleanup
+            .apply(
+                &f.checkpoint,
+                &fresh,
+                &f.fixture.home,
+                &f.fixture.account,
+                &f.fixture.journal,
+                || true
+            )
+            .unwrap(),
+        1
+    );
+    assert!(!f.fixture.file(&stage).exists());
+    assert_eq!(std::fs::symlink_metadata(&live).unwrap().ino(), live_inode);
+    assert_eq!(std::fs::symlink_metadata(parent).unwrap().ino(), parent_inode);
+    assert_eq!(std::fs::read(&live).unwrap(), b"changed-theme");
+    assert_eq!(std::fs::read(f.config()).unwrap(), CURRENT);
+    assert_eq!(f.phase(), RestorePhase::WritersStopped);
+    let record: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(f.fixture.path.join("journal/combined-cleanup-fresh-output-cleanup.json"))
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(record["schema"], 3);
+    assert!(record["outputs"]["intent"].is_string());
+    // The protected original intent survives cleanup, and the original restore
+    // can safely create a new stage without replacing unchanged live entries.
+    assert_eq!(f.apply(&f.reopen(), || true).unwrap().phase, RestorePhase::ConfigurationRestored);
+    assert_eq!(std::fs::read(f.config()).unwrap(), ORIGINAL);
+    assert_eq!(std::fs::read(live).unwrap(), b"original-theme");
+}
+
+#[test]
+fn combined_declared_outputs_cleanup_interruption_retains_bytes_and_allows_fresh_retry() {
+    use std::os::unix::fs::MetadataExt;
+    let mut interruptions = 0;
+    for stop in 1..35 {
+        let f = CombinedFixture::with_outputs();
+        let prepared = f.begin();
+        let stage = f
+            .intent()
+            .scope()
+            .paths()
+            .iter()
+            .find(|path| {
+                path.namespace() == AssetNamespace::OutputStage
+                    && path.relative().as_str().starts_with(".ryoku-output-stage-")
+                    && !path.relative().as_str().contains('/')
+            })
+            .unwrap()
+            .clone();
+        assert!(
+            f.apply(&prepared, || !std::fs::read_dir(f.fixture.file(&stage)).is_ok_and(
+                |entries| {
+                    entries
+                        .filter_map(std::result::Result::ok)
+                        .any(|entry| entry.file_type().is_ok_and(|kind| kind.is_file()))
+                }
+            ))
+            .is_err()
+        );
+        let live = f.fixture.path.join("home/.config/app/theme.css");
+        let inode = std::fs::symlink_metadata(&live).unwrap().ino();
+        let cleanup = f
+            .reopen()
+            .partial_cleanup(
+                Identifier::new("cleanup-interrupted").unwrap(),
+                &f.checkpoint,
+                &f.fixture.home,
+                &f.fixture.account,
+                &f.fixture.journal,
+            )
+            .unwrap();
+        let fresh = f.fixture.publish_assets(
+            3,
+            cleanup.scope().capture(&f.fixture.home, &f.fixture.account).unwrap(),
+            true,
+            "cleanup-interrupted",
+        );
+        let mut steps = 0;
+        let result = cleanup.apply(
+            &f.checkpoint,
+            &fresh,
+            &f.fixture.home,
+            &f.fixture.account,
+            &f.fixture.journal,
+            || {
+                steps += 1;
+                steps != stop
+            },
+        );
+        if result.is_err() {
+            interruptions += 1;
+        }
+        assert_eq!(f.phase(), RestorePhase::WritersStopped);
+        assert_eq!(std::fs::symlink_metadata(&live).unwrap().ino(), inode);
+        assert_eq!(std::fs::read(&live).unwrap(), b"changed-theme");
+        if f.fixture.file(&stage).exists() {
+            let retry = f
+                .reopen()
+                .partial_cleanup(
+                    Identifier::new("cleanup-fresh-retry").unwrap(),
+                    &f.checkpoint,
+                    &f.fixture.home,
+                    &f.fixture.account,
+                    &f.fixture.journal,
+                )
+                .unwrap();
+            let retry_checkpoint = f.fixture.publish_assets(
+                4,
+                retry.scope().capture(&f.fixture.home, &f.fixture.account).unwrap(),
+                true,
+                "cleanup-fresh-retry",
+            );
+            retry
+                .apply(
+                    &f.checkpoint,
+                    &retry_checkpoint,
+                    &f.fixture.home,
+                    &f.fixture.account,
+                    &f.fixture.journal,
+                    || true,
+                )
+                .unwrap();
+        }
+        // Every captured partial remains in the verified fresh generation even
+        // when its live inode has already moved to a private retained directory.
+        let reopened_fresh =
+            f.fixture.store.open_verified_transaction(&fresh.manifest().transaction_id).unwrap();
+        assert_eq!(reopened_fresh.manifest(), fresh.manifest());
+        assert_eq!(
+            f.apply(&f.reopen(), || true).unwrap().phase,
+            RestorePhase::ConfigurationRestored
+        );
+    }
+    assert!(interruptions >= 12);
+}
+
+#[test]
+fn combined_declared_outputs_cleanup_refuses_changed_parent_unknown_stage_child_and_ready_receipt()
+{
+    for case in ["parent", "child", "ready"] {
+        let f = CombinedFixture::with_outputs();
+        let prepared = f.begin();
+        let stage = f
+            .intent()
+            .scope()
+            .paths()
+            .iter()
+            .find(|path| {
+                path.namespace() == AssetNamespace::OutputStage
+                    && path.relative().as_str().starts_with(".ryoku-output-stage-")
+                    && !path.relative().as_str().contains('/')
+            })
+            .unwrap()
+            .clone();
+        if case == "ready" {
+            f.apply(&prepared, || true).unwrap();
+        } else {
+            assert!(f.apply(&prepared, || !f.fixture.file(&stage).exists()).is_err());
+            if case == "parent" {
+                let parent = f.fixture.path.join("home/.config/app");
+                std::fs::rename(&parent, parent.with_file_name("kept-app")).unwrap();
+                std::fs::create_dir(&parent).unwrap();
+                std::fs::set_permissions(&parent, std::fs::Permissions::from_mode(0o700)).unwrap();
+            } else {
+                std::fs::write(f.fixture.file(&stage).join("unrelated"), b"private sibling")
+                    .unwrap();
+            }
+        }
+        assert!(
+            f.reopen()
+                .partial_cleanup(
+                    Identifier::new("refused-output-cleanup").unwrap(),
+                    &f.checkpoint,
+                    &f.fixture.home,
+                    &f.fixture.account,
+                    &f.fixture.journal
+                )
+                .is_err()
+        );
+        assert!(
+            !f.fixture.path.join("journal/combined-cleanup-refused-output-cleanup.json").exists()
+        );
+    }
 }
