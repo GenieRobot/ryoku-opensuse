@@ -37,6 +37,9 @@ use ryoku_recovery::{
 };
 use ryoku_snapper::{ConfigName, LayoutCapability, SnapshotId, TransactionId};
 
+#[path = "../recovery_combined_cli.rs"]
+mod recovery_combined_cli;
+
 const USAGE: &str = "Usage:\n  ryoku-recovery admit-session\n  ryoku-recovery layout\n  ryoku-recovery list\n  ryoku-recovery pending\n  ryoku-recovery inspect TRANSACTION_ID\n  ryoku-recovery verify TRANSACTION_ID\n  ryoku-recovery verify-linked TRANSACTION_ID\n  ryoku-recovery plan TRANSACTION_ID configuration-only|system-only|complete-linked\n  sudo ryoku-recovery manual-checkpoint TRANSACTION_ID USERNAME\n  sudo ryoku-recovery prepare-configuration RESTORE_ID SOURCE_TRANSACTION_ID\n  sudo ryoku-recovery discard-incomplete-stage RESTORE_ID\n  sudo ryoku-recovery prepare-system RESTORE_ID SOURCE_TRANSACTION_ID\n  sudo ryoku-recovery rollback-system RESTORE_ID\n  sudo ryoku-recovery prepare-linked RESTORE_ID SOURCE_TRANSACTION_ID\n  sudo ryoku-recovery rollback-linked RESTORE_ID\n  sudo ryoku-recovery confirm-rollback RESTORE_ID\n  sudo ryoku-recovery restore-configuration RESTORE_ID\n  sudo ryoku-recovery complete-system RESTORE_ID\n";
 
 fn main() -> ExitCode {
@@ -466,6 +469,13 @@ fn discard_incomplete_stage_on_host(restore_id: &Identifier) -> Result<String, S
         .map_err(|error| error.to_string())?;
     let journals =
         RestoreJournalStore::open_existing_state_mount().map_err(|error| error.to_string())?;
+    let journal = journals.load(restore_id).map_err(|error| error.to_string())?;
+    let source = generations
+        .open_verified_transaction(&journal.plan.transaction_id)
+        .map_err(|error| error.to_string())?;
+    if source.manifest().assets().is_some() {
+        return recovery_combined_cli::discard(&root, &state, &generations, &journals, restore_id);
+    }
     let stages = DiskStageStore::open(&staging).map_err(|error| error.to_string())?;
     let stores =
         PreparationStores { generations: &generations, journals: &journals, stages: &stages };
@@ -610,6 +620,19 @@ fn restore_configuration_on_host(restore_id: &Identifier) -> Result<String, Stri
         &journal.restore_id,
         &journal.current_state_generation,
     )?;
+    if source.manifest().assets().is_some() {
+        return recovery_combined_cli::restore(recovery_combined_cli::Replay {
+            root: &root,
+            state: &state,
+            generations: &generations,
+            reader: &reader,
+            journals: &journals,
+            source: &source,
+            checkpoint: &checkpoint,
+            journal: &journal,
+            compatibility: &compatibility,
+        });
+    }
     let checkpoint_snapshot = &checkpoint_status;
     let staging = File::from(
         openat2(
@@ -1095,6 +1118,19 @@ fn rollback_linked_on_host(restore_id: &Identifier) -> Result<String, String> {
             paths: &item.paths,
         })
         .collect();
+    if source.manifest().assets().is_some() {
+        return recovery_combined_cli::rollback(recovery_combined_cli::Replay {
+            root: &root,
+            state: &state,
+            generations: &generations,
+            reader: &reader,
+            journals: &journals,
+            source: &source,
+            checkpoint: &checkpoint,
+            journal: &journal,
+            compatibility: &compatibility,
+        });
+    }
     let staging = File::from(
         openat2(
             &state,
@@ -1402,6 +1438,23 @@ fn prepare_configuration_scope_on_host(
                 return Err("source personal profile failed schema validation".into());
             }
         }
+    }
+
+    if source.manifest().assets().is_some() {
+        return recovery_combined_cli::prepare(recovery_combined_cli::Prepare {
+            root: &root,
+            state: &state,
+            generations: &generations,
+            reader: &reader,
+            journals: &journals,
+            source: &source,
+            account: &local_account,
+            restore_id,
+            scope,
+            compatibility,
+            installed: &installed,
+            existing: existing_journal,
+        });
     }
 
     if let Some(journal) = existing_journal {

@@ -61,7 +61,10 @@ impl CombinedRestoreIntent {
     pub fn new(operation: Identifier, source: &VerifiedGeneration) -> Result<Self> {
         let manifest = source.manifest();
         let inventory = manifest.assets().ok_or(CombinedError::Binding)?;
-        if manifest.root_snapshot_receipt().is_none() || inventory.entries().is_empty() {
+        if manifest.root_snapshot_receipt().is_none()
+            || inventory.entries().is_empty()
+            || operation == manifest.transaction_id
+        {
             return Err(CombinedError::Binding);
         }
         let account = manifest.account_principal().cloned().ok_or(CombinedError::Binding)?;
@@ -136,6 +139,7 @@ impl PreparedCombinedRestore {
             || request.account.principal != intent.account
             || checkpoint.account_principal() != Some(&intent.account)
             || checkpoint.root_snapshot_receipt().is_none()
+            || checkpoint.transaction_id != intent.operation
             || checkpoint.transaction_id == source.transaction_id
             || checkpoint.generation_id == source.generation_id
             || checkpoint.snapper_config != source.snapper_config
@@ -202,6 +206,9 @@ impl PreparedCombinedRestore {
             assets,
         })
     }
+    pub fn operation(&self) -> &Identifier {
+        &self.intent.operation
+    }
     pub fn preference_entries(&self) -> usize {
         self.preferences.entries().len()
     }
@@ -218,4 +225,4 @@ impl PreparedCombinedRestore {
 
 #[path = "combined_restore_apply.rs"]
 mod apply;
-pub use apply::{CombinedExecution, CombinedStores};
+pub use apply::{CombinedCleanupIntent, CombinedExecution, CombinedStores};

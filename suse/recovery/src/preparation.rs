@@ -336,6 +336,32 @@ impl PreparationStores<'_> {
         )
     }
 
+    /// Asset-aware counterpart; the combined coordinator's private subset is
+    /// never converted into a preference-only PreparedConfigurationRestore.
+    /// The caller reopens its protected combined record and verifies both
+    /// native partners while retaining the same exclusive mutation guard.
+    pub fn execute_combined_root_rollback<G>(
+        &self,
+        prepared: &crate::combined_restore::PreparedCombinedRestore,
+        stop_writers: impl FnOnce() -> Result<G, String>,
+        backend: &mut impl RootRollbackBackend,
+    ) -> Result<RootRollbackHandoff<G>, RestoreExecutionError> {
+        let mut journal =
+            self.journals.load(prepared.operation()).map_err(RestoreExecutionError::Journal)?;
+        if &journal.plan.source_manifest_sha256 != prepared.source_manifest()
+            || &journal.current_state_manifest_sha256 != prepared.checkpoint_manifest()
+            || journal.plan.scope != RestoreScope::CompleteLinked
+        {
+            return Err(RestoreExecutionError::WrongScopeOrPhase);
+        }
+        self.execute_root_rollback(
+            &mut journal,
+            RestoreScope::CompleteLinked,
+            stop_writers,
+            backend,
+        )
+    }
+
     fn execute_root_rollback<G>(
         &self,
         journal: &mut RestoreJournal,

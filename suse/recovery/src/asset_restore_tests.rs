@@ -67,6 +67,23 @@ impl Fixture {
         paths: &[AssetPath],
         include_preferences: bool,
     ) -> VerifiedGeneration {
+        self.capture_preferences_named(number, paths, include_preferences, &format!("tx-{number}"))
+    }
+    fn capture_named(
+        &self,
+        number: u64,
+        paths: &[AssetPath],
+        transaction: &str,
+    ) -> VerifiedGeneration {
+        self.capture_preferences_named(number, paths, true, transaction)
+    }
+    fn capture_preferences_named(
+        &self,
+        number: u64,
+        paths: &[AssetPath],
+        include_preferences: bool,
+        transaction: &str,
+    ) -> VerifiedGeneration {
         let assets = capture_assets(&self.home, &self.account, paths, MAX_CAPTURE_LIMITS).unwrap();
         let link = SnapshotLink::new(
             Identifier::new("root").unwrap(),
@@ -77,7 +94,7 @@ impl Fixture {
         let receipt = serde_json::from_value(serde_json::json!({"schema":1,"link":link,"subvolume_id":300+number,
             "subvolume_uuid": format!("22222222-2222-2222-2222-{:012}",number),"origin_root_uuid":"33333333-3333-3333-3333-333333333333"})).unwrap();
         let mut manifest = RecoveryManifest::new(
-            Identifier::new(format!("tx-{number}")).unwrap(),
+            Identifier::new(transaction).unwrap(),
             Identifier::new(format!("generation-{number}")).unwrap(),
             None,
             link,
@@ -527,9 +544,8 @@ fn combined_restore_preparation_keeps_preferences_and_every_asset_bound_to_fresh
     .unwrap();
     fixture.write(&model, b"original model");
     let source = fixture.capture(1, &[model.clone(), stage.clone()]);
-    let make_intent = || {
-        CombinedRestoreIntent::new(Identifier::new("combined-fixture").unwrap(), &source).unwrap()
-    };
+    let make_intent =
+        || CombinedRestoreIntent::new(Identifier::new("tx-2").unwrap(), &source).unwrap();
     let intent = make_intent();
     assert_eq!(intent.scope().paths().len(), 4);
     fixture.write(&model, b"changed model");
@@ -583,28 +599,40 @@ fn combined_restore_preparation_keeps_preferences_and_every_asset_bound_to_fresh
             .is_err()
     );
     let incomplete_assets = fixture.capture(3, &[model.clone(), stage.clone()]);
-    assert!(
+    assert!(matches!(
         prepare(
-            make_intent(),
+            CombinedRestoreIntent::new(Identifier::new("tx-3").unwrap(), &source).unwrap(),
             &incomplete_assets,
             RestoreScope::CompleteLinked,
             &facts,
             &fixture.account
-        )
-        .is_err()
-    );
-    let incomplete_preferences =
-        fixture.capture_preferences(4, make_intent().scope().paths(), false);
-    assert!(
+        ),
+        Err(crate::combined_restore::CombinedError::Coverage)
+    ));
+    let fourth = CombinedRestoreIntent::new(Identifier::new("tx-4").unwrap(), &source).unwrap();
+    let incomplete_preferences = fixture.capture_preferences(4, fourth.scope().paths(), false);
+    assert!(matches!(
         prepare(
-            make_intent(),
+            fourth,
             &incomplete_preferences,
             RestoreScope::CompleteLinked,
             &facts,
             &fixture.account
-        )
-        .is_err()
-    );
+        ),
+        Err(crate::combined_restore::CombinedError::Coverage)
+    ));
+    assert!(CombinedRestoreIntent::new(source.manifest().transaction_id.clone(), &source).is_err());
+    assert!(matches!(
+        prepare(
+            CombinedRestoreIntent::new(Identifier::new("wrong-restore-id").unwrap(), &source)
+                .unwrap(),
+            &checkpoint,
+            RestoreScope::CompleteLinked,
+            &facts,
+            &fixture.account
+        ),
+        Err(crate::combined_restore::CombinedError::Binding)
+    ));
     let mut no_checkpoint = facts.clone();
     no_checkpoint.current_state_checkpoint = ArtifactStatus::Missing;
     assert!(

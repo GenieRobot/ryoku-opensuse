@@ -292,6 +292,57 @@ must bind exact owned media/catalog entries without recursively capturing mixed
 configuration credentials, accepting arbitrary delete targets or forwarding
 reload commands. Any migration must preserve the retained feature and its data.
 
+## Combined console dispatch and interrupted cleanup checkpoint
+
+Asset-bearing generations now route through the installed offline recovery
+console's existing root authorization, verified state mount, exclusive mutation
+lock, account resolution, writer stop and native-partner checks. Preparation
+captures fixed preferences plus the exact asset/restore-stage union using the
+installed profile bundle. Its checkpoint transaction must equal the restore ID.
+The legacy schema-1/2 console path and #25 fixed inventory remain unchanged.
+
+`prepare-configuration` / `prepare-linked` durably resume each preparation
+boundary. Complete private stages and records are verified and reused; partial
+artifacts require explicit `discard-incomplete-stage`. Cleanup refuses unknown
+entries, links, unrelated bytes, complete records and later phases. It can remove
+only a known incomplete preference stage or an exact canonical prefix of the
+expected private combined record; live settings and assets remain intact.
+
+After interrupted asset application, that same discard command derives a typed
+cleanup intent from protected plans and observed partial stages. It captures a
+fresh native-linked generation containing those exact stages and the derived
+cleanup-stage absences, catalogs it and marks it as an operator-retained
+checkpoint before deletion. A protected cleanup record binds both operation IDs,
+source/current digests, account and exact receipts. Cleanup does not advance the
+original restore phase; `restore-configuration` reopens the original protected
+plans and verifies completed assets before finishing the preferences. A failure
+retains the partials and/or the pinned checkpoint; it never reports full restore
+success. Each retry derives a new cleanup operation for remaining partials.
+
+`rollback-linked` uses the existing journaled native handoff; its receipt alone
+cannot authorize configuration or asset application. Independent boot proof is
+still required. `restore-configuration` withholds `ConfigurationRestored` until
+both families verify, then retains the existing health and known-working gates.
+No source/model helper or picker action is enabled by this checkpoint.
+
+| Console/recovery boundary | Deterministic local evidence |
+| --- | --- |
+| Interrupted preparation | Five durable boundaries resume without changing live preferences/model bytes |
+| Private incomplete cleanup | Known incomplete stage/prefix cleans explicitly; unknown files/bytes, complete records and post-stage phases refuse |
+| Typed live cleanup | Exact partial-stage scope excludes the model target; wrong source/checkpoint and cancellation refuse; protected receipt omits private configuration values; resumed main restore completes |
+| Native handoff | Fake backend verifies exact root/source/rollback tag; writer failure makes no call; native failure remains pending; success persists receipt/guard but cannot apply before boot proof or repeat rollback |
+| Console regression | All 26 console tests pass, including six malformed-ID/path-override refusal fixtures |
+
+The eight combined fixtures and full offline all-feature workspace pass:
+recovery 283/6 existing ignored, service 173/1 existing ignored, VM 90.
+Formatting, strict all-target/all-feature Clippy, whitespace and cached offline
+dependency review pass. One needless-borrow lint was corrected before the full
+successful run. The sanitized receipt is
+[issue175-local-console-cleanup-20261025.toml](../upstream/evidence/ryoku-v1.0/issue175-local-console-cleanup-20261025.toml).
+These tests use local synthetic bytes and a fake native backend. The installed
+console branches compile, but actual Snapper/Btrfs rollback, RPM integration and
+native desktop acceptance still require the combined native candidate.
+
 ## Remaining acceptance gates
 
 1. Install asset-aware complete linked pre/post capture and offline restore,

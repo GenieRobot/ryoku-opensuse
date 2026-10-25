@@ -1,0 +1,74 @@
+schema_version = 1
+issue = 175
+status = "partial-native-console-dispatch-local-fixtures-not-native-acceptance"
+branch = "codex/issue175-ryogami-library-providers"
+previous_checkpoint = "ff0d40a5393280ccc8897d0c686d7a1a64bb4c76"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+
+[storage]
+worktree_filesystem = "/dev/sdd"
+cargo_target_filesystem = "/dev/sdd"
+cargo_cache_filesystem = "/dev/sdd"
+fixture_filesystem = "tmpfs"
+provider_endpoint_calls = 0
+media_downloads = 0
+model_downloads = 0
+native_tool_launches = 0
+
+[implementation]
+combined_console_prepare_restore_rollback_dispatch = true
+existing_root_offline_mount_lock_account_gates_preserved = true
+restore_id_equals_checkpoint_transaction = true
+fixed_inventory_and_legacy_restore_behavior_preserved = true
+preparation_durable_boundary_resume = true
+explicit_known_incomplete_private_stage_record_cleanup = true
+typed_exact_partial_asset_cleanup_scope = true
+fresh_native_linked_cleanup_checkpoint_required = true
+existing_catalog_manual_pin_before_live_cleanup = true
+protected_cleanup_binding_receipt_before_deletion = true
+main_restore_phase_unchanged_by_cleanup = true
+configuration_restored_deferred_until_both_families_verify = true
+native_rollback_receipt_requires_independent_boot_confirmation = true
+
+[validation]
+formatting = "pass"
+strict_clippy_workspace_all_targets_all_features = "pass"
+workspace_tests_offline_locked_all_features = "pass"
+recovery_tests_passed = 283
+recovery_tests_existing_ignored = 6
+console_tests_passed = 26
+console_malformed_id_focused_passed = 6
+service_tests_passed = 173
+service_tests_existing_ignored = 1
+vm_lab_tests_passed = 90
+combined_tests_passed = 8
+preparation_restart = "pass; all five post-journal durable interruption boundaries resume without live writes"
+private_cleanup = "pass; known partials only; unknown bytes/files, complete records and ContentStaged refuse"
+live_cleanup = "pass; target excluded; wrong source/current IDs and cancellation refuse; fresh capture plus protected receipt; original restore resumes"
+privacy = "pass; unrelated sentinel retained; private configuration values absent from cleanup receipt"
+native_handoff = "pass-fake-backend; writer refusal, native failure, exact receipt binding, no repeat and no unbooted apply"
+legacy_console = "pass; full 26 console regressions"
+dependency_advisories = "pass-cached-offline"
+dependency_bans = "pass-cached-offline"
+dependency_licenses = "pass-cached-offline"
+dependency_sources = "pass-cached-offline"
+whitespace = "pass"
+corrections = "one needless-borrow strict lint corrected before the successful full run"
+
+[acceptance]
+installed_helper_provider_dispatch = false
+picker_provider_integration = false
+installed_combined_restore_dispatch_implemented = true
+installed_combined_restore_native_test = false
+general_tree_restore = false
+native_snapper_proof = false
+installed_native_ui_test = false
+issue_complete = false
+remaining = [
+  "directory creation and general model/library tree recovery",
+  "authenticated helper/provider/UI operations with complete linked pre/post outcomes",
+  "#176 selected-model stop/reindex callback transaction with full effects",
+  "source/Steam/media operations, credentials, process containment and resume",
+  "configured cache and external owned-root enrollment preserving feature parity",
+  "native combined-candidate console/provider acceptance"
+]

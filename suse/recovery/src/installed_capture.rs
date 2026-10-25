@@ -500,6 +500,32 @@ pub fn capture_with_installed_profile_bundle(
     )
 }
 
+/// Offline-console counterpart of NativeCaptureSession::capture_with_assets.
+/// The authorized caller holds the state-mount mutation lock and has stopped
+/// the account writers. The fixed inventory and profile rules remain intact.
+pub fn capture_with_installed_profile_bundle_assets(
+    store: &GenerationStore,
+    inventory: &InstalledInventory,
+    roots: InstalledRoots<'_>,
+    request: InstalledCaptureRequest,
+    bundle: &crate::installed_profiles::VerifiedProfileBundle,
+    scope: &crate::ryogami_assets::AssetScope,
+) -> Result<RecoveryManifest, GenerationCaptureError> {
+    scope.validate().map_err(|_| GenerationCaptureError::CoordinationLost)?;
+    capture_installed_configuration_with_sources_checked(
+        store,
+        inventory,
+        roots,
+        request,
+        capture_inventory,
+        InstalledCaptureSources {
+            bundle: Some(bundle),
+            assets: Some((scope.paths(), scope.limits())),
+        },
+        || Ok(()),
+    )
+}
+
 fn capture_installed_configuration_using(
     store: &GenerationStore,
     inventory: &InstalledInventory,

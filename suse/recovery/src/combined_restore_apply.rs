@@ -167,7 +167,8 @@ impl PreparedCombinedRestore {
     ) -> Result<Self> {
         let record = read_record(stores.assets, &operation)?;
         let intent = CombinedRestoreIntent::new(operation, request.source)?;
-        if record.account != request.account.principal
+        if record.operation != request.checkpoint.manifest().transaction_id
+            || record.account != request.account.principal
             || record.account != intent.account
             || record.checkpoint_manifest
                 != request
@@ -249,6 +250,18 @@ impl PreparedCombinedRestore {
         stores: &CombinedStores<'_>,
         execution: &CombinedExecution<'_>,
     ) -> Result<RestoreJournal> {
+        self.begin_with_boundary(stores, execution, || true)
+    }
+
+    pub fn begin_with_boundary(
+        &self,
+        stores: &CombinedStores<'_>,
+        execution: &CombinedExecution<'_>,
+        mut boundary: impl FnMut() -> bool,
+    ) -> Result<RestoreJournal> {
+        if !boundary() {
+            return Err(CombinedError::Interrupted);
+        }
         self.check_execution(execution)?;
         crate::preparation::verify_live_checkpoint(
             execution.checkpoint.manifest(),
@@ -270,18 +283,200 @@ impl PreparedCombinedRestore {
             record.checkpoint_manifest.clone(),
         );
         stores.journals.create(&journal).map_err(|_| CombinedError::Record)?;
+        if !boundary() {
+            return Err(CombinedError::Interrupted);
+        }
         stores
             .journals
             .advance(&mut journal, RestorePhase::CheckpointVerified)
             .map_err(|_| CombinedError::Record)?;
+        if !boundary() {
+            return Err(CombinedError::Interrupted);
+        }
         stores.stages.create(&self.preferences).map_err(|_| CombinedError::Record)?;
+        if !boundary() {
+            return Err(CombinedError::Interrupted);
+        }
         write_record(stores.assets, &record)?;
+        if !boundary() {
+            return Err(CombinedError::Interrupted);
+        }
         stores
             .journals
             .advance(&mut journal, RestorePhase::ContentStaged)
             .map_err(|_| CombinedError::Record)?;
+        if !boundary() {
+            return Err(CombinedError::Interrupted);
+        }
         Ok(journal)
     }
+    fn check_preparation(
+        &self,
+        stores: &CombinedStores<'_>,
+        execution: &CombinedExecution<'_>,
+    ) -> Result<(Record, RestoreJournal)> {
+        self.check_execution(execution)?;
+        let record = self.record(execution.checkpoint)?;
+        let journal = stores.journals.load(&record.operation).map_err(|_| CombinedError::Record)?;
+        if journal.plan != record.plan
+            || journal.current_state_generation != record.checkpoint_generation
+            || journal.current_state_manifest_sha256 != record.checkpoint_manifest
+            || !matches!(
+                journal.phase,
+                RestorePhase::Planned
+                    | RestorePhase::CheckpointVerified
+                    | RestorePhase::ContentStaged
+            )
+        {
+            return Err(CombinedError::Binding);
+        }
+        crate::preparation::verify_live_checkpoint(
+            execution.checkpoint.manifest(),
+            execution.checkpoint_roots,
+        )
+        .map_err(|_| CombinedError::Coverage)?;
+        for (asset, receipt) in self.assets.iter().zip(&record.assets) {
+            if asset_record_exists(stores.assets, receipt)?
+                || asset
+                    .observe(execution.home, execution.account)
+                    .map_err(CombinedError::Restore)?
+                    != RestoreObservation::Original
+            {
+                return Err(CombinedError::Binding);
+            }
+        }
+        Ok((record, journal))
+    }
+
+    /// Resume only before any live apply. Complete immutable stages are reused;
+    /// an interrupted or unknown stage is never overwritten. The explicit
+    /// cleanup method below handles only verified incomplete private artifacts.
+    pub fn resume_preparation(
+        &self,
+        stores: &CombinedStores<'_>,
+        execution: &CombinedExecution<'_>,
+    ) -> Result<RestoreJournal> {
+        let (record, mut journal) = self.check_preparation(stores, execution)?;
+        if journal.phase == RestorePhase::Planned {
+            stores
+                .journals
+                .advance(&mut journal, RestorePhase::CheckpointVerified)
+                .map_err(|_| CombinedError::Record)?;
+        }
+        if stores.stages.open_verified(&self.preferences).is_err() {
+            if journal.phase == RestorePhase::ContentStaged {
+                return Err(CombinedError::Record);
+            }
+            stores.stages.create(&self.preferences).map_err(|_| CombinedError::Record)?;
+        }
+        private_directory(stores.assets)?;
+        let exists = match fs::statat(
+            stores.assets,
+            record_name(&record.operation).as_str(),
+            AtFlags::SYMLINK_NOFOLLOW,
+        ) {
+            Ok(_) => true,
+            Err(rustix::io::Errno::NOENT) => false,
+            Err(_) => return Err(CombinedError::Record),
+        };
+        if exists {
+            if read_record(stores.assets, &record.operation)? != record {
+                return Err(CombinedError::Record);
+            }
+        } else {
+            if journal.phase == RestorePhase::ContentStaged {
+                return Err(CombinedError::Record);
+            }
+            write_record(stores.assets, &record)?;
+        }
+        if journal.phase == RestorePhase::CheckpointVerified {
+            stores
+                .journals
+                .advance(&mut journal, RestorePhase::ContentStaged)
+                .map_err(|_| CombinedError::Record)?;
+        }
+        Ok(journal)
+    }
+
+    /// Remove only a known incomplete protected stage or a partial combined
+    /// record matching the exact expected canonical prefix. A complete record,
+    /// unknown bytes, links or any post-preparation phase refuse before cleanup.
+    /// Live preferences/assets and the retained checkpoint are never deleted.
+    pub fn discard_incomplete_preparation(
+        &self,
+        stores: &CombinedStores<'_>,
+        execution: &CombinedExecution<'_>,
+    ) -> Result<()> {
+        let (record, journal) = self.check_preparation(stores, execution)?;
+        if journal.phase == RestorePhase::ContentStaged {
+            return Err(CombinedError::Binding);
+        }
+        private_directory(stores.assets)?;
+        let name = record_name(&record.operation);
+        let partial = match fs::openat2(
+            stores.assets,
+            name.as_str(),
+            OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NONBLOCK,
+            Mode::empty(),
+            ResolveFlags::BENEATH
+                | ResolveFlags::NO_SYMLINKS
+                | ResolveFlags::NO_MAGICLINKS
+                | ResolveFlags::NO_XDEV,
+        ) {
+            Ok(fd) => Some(File::from(fd)),
+            Err(rustix::io::Errno::NOENT) => None,
+            Err(_) => return Err(CombinedError::Record),
+        };
+        if let Some(mut file) = partial.as_ref() {
+            let expected = serde_json::to_vec(&record).map_err(|_| CombinedError::Record)?;
+            let stat = fs::fstat(file).map_err(|_| CombinedError::Record)?;
+            if FileType::from_raw_mode(stat.st_mode) != FileType::RegularFile
+                || stat.st_nlink != 1
+                || stat.st_uid != rustix::process::geteuid().as_raw()
+                || stat.st_mode & 0o7777 != 0o600
+                || stat.st_size < 0
+                || stat.st_size as usize > expected.len()
+                || expected.len() > MAX_RECORD
+            {
+                return Err(CombinedError::Record);
+            }
+            let mut bytes = Vec::new();
+            Read::by_ref(&mut file)
+                .take((MAX_RECORD + 1) as u64)
+                .read_to_end(&mut bytes)
+                .map_err(|_| CombinedError::Record)?;
+            if bytes.len() != stat.st_size as usize || !expected.starts_with(&bytes) {
+                return Err(CombinedError::Record);
+            }
+        }
+        let complete_stage = stores.stages.open_verified(&self.preferences).is_ok();
+        if complete_stage && partial.is_none() {
+            return Err(CombinedError::Record);
+        }
+        if !complete_stage {
+            stores
+                .stages
+                .discard_incomplete(&self.preferences)
+                .map_err(|_| CombinedError::Record)?;
+        }
+        if let Some(file) = partial {
+            let before = fs::fstat(&file).map_err(|_| CombinedError::Record)?;
+            let current = fs::statat(stores.assets, name.as_str(), AtFlags::SYMLINK_NOFOLLOW)
+                .map_err(|_| CombinedError::Record)?;
+            if before.st_dev != current.st_dev
+                || before.st_ino != current.st_ino
+                || before.st_ctime != current.st_ctime
+                || before.st_ctime_nsec != current.st_ctime_nsec
+            {
+                return Err(CombinedError::Record);
+            }
+            fs::unlinkat(stores.assets, name.as_str(), AtFlags::empty())
+                .map_err(|_| CombinedError::Record)?;
+            fs::fsync(stores.assets).map_err(|_| CombinedError::Record)?;
+        }
+        Ok(())
+    }
+
     /// All asset writes remain behind the durable writer/root-rollback phases.
     /// An interrupted partial stage requires a fresh captured cleanup; it is
     /// never silently reused. Completed items are read back after restart.
@@ -415,5 +610,161 @@ impl PreparedCombinedRestore {
                 .map_err(|_| CombinedError::Record)?;
         }
         Ok(journal)
+    }
+}
+
+/// Derived only from verified partial-stage observations. No arbitrary deletion
+/// target or client path can be inserted into this cleanup scope.
+pub struct CombinedCleanupIntent {
+    operation: Identifier,
+    restore_operation: Identifier,
+    source_manifest: Sha256,
+    account: AccountPrincipal,
+    intents: Vec<FileRestoreIntent>,
+    scope: AssetScope,
+}
+impl PreparedCombinedRestore {
+    pub fn partial_cleanup(
+        &self,
+        operation: Identifier,
+        checkpoint: &VerifiedGeneration,
+        home: &File,
+        account: &CaptureAccount,
+    ) -> Result<CombinedCleanupIntent> {
+        if checkpoint.manifest().manifest_sha256.as_ref() != Some(&self.checkpoint_manifest)
+            || operation == self.intent.operation
+            || account.principal != self.intent.account
+        {
+            return Err(CombinedError::Binding);
+        }
+        let mut intents = Vec::new();
+        let mut paths = BTreeSet::new();
+        for (index, (plan, original)) in self.assets.iter().zip(&self.intent.assets).enumerate() {
+            if plan.observe(home, account).map_err(CombinedError::Restore)?
+                == RestoreObservation::Staged
+            {
+                let id = Identifier::new(format!(
+                    "cleanup-{}-{index}",
+                    &crate::wallpaper_protocol::digest(operation.as_str().as_bytes())[..32]
+                ))
+                .map_err(|_| CombinedError::Binding)?;
+                let intent = FileRestoreIntent::new(id, checkpoint, original.staging())
+                    .map_err(CombinedError::Restore)?;
+                paths.extend(
+                    intent.scope().map_err(CombinedError::Restore)?.paths().iter().cloned(),
+                );
+                intents.push(intent);
+            }
+        }
+        if intents.is_empty() {
+            return Err(CombinedError::Binding);
+        }
+        let scope = AssetScope::new(
+            paths.into_iter().collect(),
+            MAX_CAPTURE_LIMITS.max_file_bytes,
+            MAX_CAPTURE_LIMITS.max_total_bytes,
+        )
+        .map_err(CombinedError::Asset)?;
+        Ok(CombinedCleanupIntent {
+            operation,
+            restore_operation: self.intent.operation.clone(),
+            source_manifest: self.checkpoint_manifest.clone(),
+            account: self.intent.account.clone(),
+            intents,
+            scope,
+        })
+    }
+}
+impl CombinedCleanupIntent {
+    pub fn operation(&self) -> &Identifier {
+        &self.operation
+    }
+    pub fn scope(&self) -> &AssetScope {
+        &self.scope
+    }
+    /// The authorized console verifies and pins the fresh native partner before
+    /// calling this method. The original restore phase remains unchanged.
+    pub fn apply(
+        &self,
+        source: &VerifiedGeneration,
+        checkpoint: &VerifiedGeneration,
+        home: &File,
+        account: &CaptureAccount,
+        journal: &File,
+        mut boundary: impl FnMut() -> bool,
+    ) -> Result<usize> {
+        if source.manifest().manifest_sha256.as_ref() != Some(&self.source_manifest)
+            || checkpoint.manifest().transaction_id != self.operation
+            || account.principal != self.account
+        {
+            return Err(CombinedError::Binding);
+        }
+        let plans = self
+            .intents
+            .iter()
+            .map(|intent| {
+                FileRestorePlan::prepare(intent, source, checkpoint, home, account)
+                    .map_err(CombinedError::Restore)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        #[derive(Serialize)]
+        struct CleanupRecord<'a> {
+            schema: u16,
+            operation: &'a Identifier,
+            restore_operation: &'a Identifier,
+            source_manifest: &'a Sha256,
+            checkpoint_transaction: &'a Identifier,
+            checkpoint_manifest: &'a Sha256,
+            account: &'a AccountPrincipal,
+            receipts: Vec<FileRestoreReceipt>,
+        }
+        let record = CleanupRecord {
+            schema: 1,
+            operation: &self.operation,
+            restore_operation: &self.restore_operation,
+            source_manifest: &self.source_manifest,
+            checkpoint_transaction: &checkpoint.manifest().transaction_id,
+            checkpoint_manifest: checkpoint
+                .manifest()
+                .manifest_sha256
+                .as_ref()
+                .ok_or(CombinedError::Binding)?,
+            account: &self.account,
+            receipts: plans
+                .iter()
+                .map(FileRestorePlan::receipt_identity)
+                .collect::<std::result::Result<_, _>>()
+                .map_err(CombinedError::Restore)?,
+        };
+        let bytes = serde_json::to_vec(&record).map_err(|_| CombinedError::Record)?;
+        if bytes.len() > MAX_RECORD || !boundary() {
+            return Err(CombinedError::Interrupted);
+        }
+        private_directory(journal)?;
+        let name = format!("combined-cleanup-{}.json", self.operation.as_str());
+        let mut file = File::from(
+            fs::openat(
+                journal,
+                name.as_str(),
+                OFlags::RDWR | OFlags::CREATE | OFlags::EXCL | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+                Mode::from_raw_mode(0o600),
+            )
+            .map_err(|_| CombinedError::Record)?,
+        );
+        file.write_all(&bytes).map_err(|_| CombinedError::Record)?;
+        fs::fchmod(&file, Mode::from_raw_mode(0o400)).map_err(|_| CombinedError::Record)?;
+        file.sync_all().map_err(|_| CombinedError::Record)?;
+        fs::fsync(journal).map_err(|_| CombinedError::Record)?;
+        use std::os::unix::fs::FileExt;
+        let mut check = vec![0; bytes.len()];
+        file.read_exact_at(&mut check, 0).map_err(|_| CombinedError::Record)?;
+        if check != bytes {
+            return Err(CombinedError::Record);
+        }
+        for plan in &plans {
+            plan.apply(source, checkpoint, home, account, journal, &mut boundary)
+                .map_err(CombinedError::Restore)?;
+        }
+        Ok(plans.len())
     }
 }
