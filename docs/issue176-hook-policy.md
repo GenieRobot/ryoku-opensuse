@@ -51,7 +51,7 @@ patch preserves these as typed requests to their independent Rust owner.
 static branch calls `matugenApplyStatic`; the dynamic branch checks Match
 wallpaper, samples video as needed and calls `matugenApply`. `ipc/matugen.go`
 uses the configured template map, its generated active config and template
-`post_hook` commands; it writes palette/tones, GTK CSS, KDE globals, font config,
+`post_hook` commands; it writes palette/tones, GTK CSS, KDE globals,
 application templates, optional Obsidian links and Steam Material theme paths.
 `liveFrame` generates a per-video PNG with ffmpeg, atomically repoints the
 stable poster symlink and prunes old frames. Success reloads compositor config,
@@ -60,6 +60,20 @@ reapplies border colours, restores a live Hub preview via a temporary JSON file
 `ryoku-hub lighting accent`. These paths, custom templates and hardware effects
 are not all enrolled by #25's fixed wallpaper inventory. No theme execution
 permission follows from a wallpaper user operation or configured shell hook.
+The deeper source/effect ledger additionally traces folder/cursor icon-tree
+generation, Nomarchy publication and the exact GSettings keys. Font configuration
+writes come from the adjacent `settings.go -> applyFont` callback, not from
+`paintWorker`; their separate trigger must not inflate a wallpaper plan.
+
+The machine-readable contract is
+[`issue176-theme-effects.json`](../upstream/evidence/ryoku-v1.0/issue176-theme-effects.json).
+Rust automation checks every shipped core/apps template input, output,
+post-hook and roster group against byte-exact pinned source fixtures. Its
+declaration requirements were sent to #175 for the shared exact-output capture
+and restore seam; hook/template/reload selection and execution remain #176.
+Logical GSettings keys need their own capture/restore actor: replacing the entire
+`.config/dconf/user` database would overwrite unrelated preferences. Exact
+symlink, absent-target and new-parent ownership declarations remain required.
 
 The first slice's deliberately narrow execution policy is an initial supported
 policy class, not permanent removal of commands, children, custom roots or

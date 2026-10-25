@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "upstream": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "status": "source-contract-required-implementation-not-execution-authority",
+  "trigger": "consumeRyogamiFrames source change -> scheduleTheme -> paintWorker; issue25 typed shell.wallpaper.theme handoff",
+  "source_blobs": {
+    "ryoku/shell/ipc/ryogami.go": "316de02aabe5ff7e1d69db598719220eeabc0122",
+    "ryoku/shell/ipc/theming.go": "c085539d6c7026a875453ed4064ed58f280f2ef9",
+    "ryoku/shell/ipc/matugen.go": "c3eabdd2a0594f7a21a8f6d4a6bce38cf6991fe4",
+    "ryoku/shell/ipc/walltone.go": "075c23b4c3145e0d821baaf42151bc12c30e8bb4",
+    "ryoku/shell/matugen/config.toml": "2a96283074df8116fe6c602c1ef5064759002fbc",
+    "ryoku/shell/matugen/apps.toml": "595b2f1c38f5602b24d4b191c4a476c5a4b17ba5",
+    "ryoku/shell/scripts/ryoku-cmd-folders": "55d47cf6fa6ec07125699e5a44b9f9632fe1a872",
+    "release/packages/ryoku-cursor-material/ryoku-cursor-material-recolor": "6f93952aaaff0ba4fb211ae7ca401bc77393b1ec",
+    "ryoku/shell/nomarchy/bin/omarchy-theme-set": "bd06e1a1af228bc54ddc273ca9149b0b3305b53f",
+    "ryoku/hub/backend/starship.go": "d0642de5acc2af4a549d34e10c6b400859e0bddd",
+    "ryoku/shell/ryogami/daemon/matugen_outputs.go": "99783ce1dec3c46b669ce54d7c7f46ad61580147"
+  },
+  "fixture_sha256": {
+    "core": "93efb9be71cc899a5c8c0d0a3955df0fde77221608154ebbb067d4a735a9e6ef",
+    "apps": "7e9ca67777c336434dccb01f22d9d36c9b1792f07743e5b944b40b702227aaac"
+  },
+  "path_policy": {
+    "root": "authenticated-account-home-descriptor",
+    "standard_xdg": true,
+    "templates": "exact approved configuration/template bytes and roster; no arbitrary prefix enrollment",
+    "outputs": "exact file or absent entry; exact new parents; atomic replacements staged then Rust-committed; unrelated siblings preserved",
+    "custom_outputs": "same explicit declaration requirement; config/cache namespaces need distinct hook declaration, not for_library",
+    "symlinks": "distinct typed policy for exact owned links and bounded approved targets; regular asset restore must keep refusing links",
+    "trees": "complete membership only for dedicated icon/cursor/Nomarchy/video output roots; no recursive mixed app-directory write permission",
+    "logical_settings": "exact key-level capture/restore and receipt; never restore entire dconf user database over unrelated preferences",
+    "external_effects": "separate typed approved reload/IPC/signal/hardware effect; local rollback cannot undo remote effects"
+  },
+  "templates": [
+    {"config":"core","key":"kitty","group":"kitty","input":"kitty-colors.conf","output":".config/kitty/current-theme.conf"},
+    {"config":"core","key":"hypr","group":"hyprland","input":"hypr-colors.lua","output":".cache/ryoku/hypr-colors.lua"},
+    {"config":"core","key":"btop","group":"btop","input":"btop.theme","output":".config/btop/themes/ryoku.theme"},
+    {"config":"core","key":"fastfetch","group":"fastfetch","input":"fastfetch-colors.json","output":".config/fastfetch/ryoku-colors.json"},
+    {"config":"core","key":"sharepicker","group":"sharepicker","input":"share-picker.css","output":".cache/ryoku/share-picker.css"},
+    {"config":"core","key":"qt6ct","group":"qt","input":"qt6ct-colors.conf","output":".config/qt6ct/colors/ryoku.conf","post_hook":"command -v ryoku-cursor-material-recolor >/dev/null && ryoku-cursor-material-recolor; true"},
+    {"config":"core","key":"kde","group":"qt","input":"kdeglobals","output":".cache/ryoku/kdeglobals-colors.conf"},
+    {"config":"core","key":"nomarchy","group":"nomarchy","input":"nomarchy-colors.toml","output":".cache/ryoku/nomarchy-colors.toml","condition":"dynamic branch only"},
+    {"config":"apps","key":"gtk3","group":"gtk","input":"gtk3-colors.css","output":".config/gtk-3.0/gtk.css"},
+    {"config":"apps","key":"gtk4","group":"gtk","input":"gtk4-colors.css","output":".config/gtk-4.0/gtk.css"},
+    {"config":"apps","key":"vesktop","group":"discord","input":"discord.css","output":".config/vesktop/themes/matugen.css"},
+    {"config":"apps","key":"equibop","group":"discord","input":"discord.css","output":".config/equibop/themes/matugen.css"},
+    {"config":"apps","key":"obs","group":"obs","input":"obs.theme","output":".config/obs-studio/themes/matugen.theme"},
+    {"config":"apps","key":"zed","group":"zed","input":"zed.json","output":".config/zed/themes/matugen.json"},
+    {"config":"apps","key":"heroic","group":"heroic","input":"heroic.css","output":".config/heroic/store/styles/matugen.css"},
+    {"config":"apps","key":"telegram","group":"telegram","input":"telegram.tdesktop-theme","output":".local/share/TelegramDesktop/tdata/matugen.tdesktop-theme"},
+    {"config":"apps","key":"steam","group":"steam","input":"steam.css","output":".steam/steam/steamui/skins/Material-Theme/css/main/colors/matugen.css","condition":"Steam theme root exists"},
+    {"config":"apps","key":"cava","group":"cava","input":"cava.ini","output":".config/cava/config"},
+    {"config":"apps","key":"ghostty","group":"ghostty","input":"ghostty.conf","output":".config/ghostty/ryoku-colors"},
+    {"config":"apps","key":"micro","group":"micro","input":"micro.micro","output":".config/micro/colorschemes/matugen.micro"},
+    {"config":"apps","key":"papirus","group":"papirus","input":"papirus-color","output":".cache/matugen/papirus-color","post_hook":"which papirus-folders >/dev/null 2>&1 && papirus-folders -c $(cat ~/.cache/matugen/papirus-color) || true"},
+    {"config":"apps","key":"fish","group":"fish","input":"colors.fish","output":".config/fish/conf.d/ryoku-colors.fish"},
+    {"config":"apps","key":"yazi","group":"yazi","input":"yazi.toml","output":".config/yazi/theme.toml"},
+    {"config":"apps","key":"obsidian","group":"obsidian","input":"obsidian.css","output":".config/matugen/generated/obsidian.css"},
+    {"config":"apps","key":"zathura","group":"zathura","input":"zathura","output":".config/zathura/zathurarc"},
+    {"config":"apps","key":"alacritty","group":"alacritty","input":"alacritty.toml","output":".config/alacritty/colors.toml"},
+    {"config":"apps","key":"tmux","group":"tmux","input":"tmux.conf","output":".config/tmux/ryoku-colors.conf"},
+    {"config":"apps","key":"sidra","group":"sidra","input":"sidra.css","output":".config/Sidra/custom.css"},
+    {"config":"apps","key":"ryotunes","group":"ryotunes","input":"ryotunes.json","output":".config/ryotunes/skins/matugen/skin.json"},
+    {"config":"apps","key":"starship","group":"starship","input":"starship-colors.toml","output":".config/starship/ryoku-colors.toml","post_hook":"ryoku-hub starship refresh"}
+  ],
+  "direct_effects": [
+    {"id":"tone","source":"walltone.go::writeWallpaperTone","kind":"regular-or-absent","paths":[".cache/ryoku/wallpaper-tone.json"],"behavior":"atomic JSON replacement after image/video sampling; previous map retained on failed decode"},
+    {"id":"palette","source":"matugen.go::matugenApply/matugenApplyStatic","kind":"regular-or-absent","paths":[".cache/ryoku/colors.json",".cache/ryoku/tones.json"],"behavior":"atomic JSON; named theme removes tonal ramps; dynamic writes ramps when present"},
+    {"id":"carrier","source":"matugen.go::matugenRenderTemplates","kind":"regular-or-absent","paths":[".cache/ryoku/matugen-carrier.json",".cache/ryoku/active-config.toml",".cache/ryoku/active-apps.toml",".cache/ryoku/active-matugen.toml"],"behavior":"atomic carrier plus filtered configs; preserve approved roster, core/apps/palette-bridge config and post-hook distinctions"},
+    {"id":"gtk-off","source":"theming.go::blankGtk","kind":"regular-or-absent","paths":[".config/gtk-3.0/gtk.css",".config/gtk-4.0/gtk.css"],"behavior":"writes explicit stock-colour marker even while app templates are disabled"},
+    {"id":"kde-merge","source":"matugen.go::applyKdeColors","kind":"regular-or-absent","paths":[".config/kdeglobals"],"behavior":"atomic merge of Colors:*, ColorEffects:* and WM groups; preserve fonts/style/dialog/user groups; then KGlobalSettings signal"},
+    {"id":"video-stills","source":"theming.go::liveFrame/pruneLiveFrames","kind":"dedicated-tree","paths":[".local/state/ryoku-live-frames"],"behavior":"ffmpeg sample named by video basename/mtime/frame offset; temporary PNG renamed; keep24 except pinned poster target; remove older entries"},
+    {"id":"video-poster","source":"walltone.go::writeWallpaperTone; theming.go::publishLivePoster","kind":"exact-owned-symlink-or-absent","paths":[".local/state/ryoku-live-frame.png"],"behavior":"atomic symlink to sampled frame; static wallpaper removes it"},
+    {"id":"obsidian-snippets","source":"matugen.go::nudgeObsidian","kind":"dynamic-exact-owned-symlink","paths":["<approved-vault>/.obsidian/snippets/ryoku.css"],"behavior":"read .config/obsidian/obsidian.json; replace only existing symlink with approved generated CSS target; preserve regular user file; temp link renamed"},
+    {"id":"preview","source":"theming.go::reassertPreview/readLivePreview","kind":"regular-or-absent","paths":[".config/ryoku/.desktop-preview.json"],"behavior":"remove malformed/dead-Hub marker; live marker goes to bounded temp JSON and WM Preview; PID reuse must be independently addressed"},
+    {"id":"configured-integrations","source":"daemon/matugen_outputs.go::renderMatugenIntegrations","kind":"dynamic-exact-file-set","paths":[".cache/ryogami/matugen-config.toml","<approved-integration-output>"],"behavior":"separate daemon afterApply branch; command argv from externalMatugenCommand; integration template/output/reload policy distinct from shell worker and configured postProcessing"}
+  ],
+  "indirect_effects": [
+    {"id":"folder-icons","source":"matugen.go::refreshFolderIcons -> ryoku-cmd-folders","kind":"dedicated-tree-and-links","paths":[".local/share/icons/.ryoku-folders",".local/share/icons/ryoku-folders",".local/share/icons/ryoku-folders-<digits>"],"behavior":"create generation/temp icon tree and internal folder aliases; optional icon cache; atomically replace live link; retain current/previous; delete older/dead/legacy generated trees; preserve other icon themes; runtime lock"},
+    {"id":"cursor","source":"matugen.go::matugenApply plus core qt6ct post_hook -> ryoku-cursor-material-recolor","kind":"dedicated-tree","paths":[".local/share/icons/Bibata-Material-Ryoku",".cache/ryoku/cursor-material.lock"],"behavior":"conditional Material/DYNAMIC cursor; compile SVG/bitmap with versioned Bibata source; replace hyprcursors/manifest/index then detached X11 cursors pass; full parent/child containment and one linked generation required"},
+    {"id":"nomarchy","source":"matugen.go::refreshNomarchyWallpaperTheme -> omarchy-theme-set ryoku","kind":"dedicated-tree-and-files","paths":[".local/state/omarchy/current",".config/omarchy/current-theme"],"behavior":"dynamic-only current Wallpaper/Ryoku or empty selection; stage/copy rendered palette and shell templates; swap current/next/previous tree; write choice files; send omarchy-shell IPC; alternate OMARCHY_PATH requires exact source declaration"},
+    {"id":"starship","source":"apps starship post_hook -> Hub starship refresh","kind":"exact-file","paths":[".config/starship.toml"],"behavior":"compose existing selected layout with palette; refresh uses persist=false and does not write .config/ryoku/starship.json"},
+    {"id":"papirus","source":"apps papirus post_hook -> papirus-folders","kind":"provider-defined-required","paths":[],"behavior":"resolved executable/source tree and complete mutable icon targets must be reviewed before policy enables this retained hook; empty list is not a zero-write assertion"}
+  ],
+  "reload_effects": [
+    {"id":"gsettings","kind":"logical-key-set","schema":"org.gnome.desktop.interface","keys":["color-scheme","accent-color","gtk-theme","icon-theme"],"behavior":"color scheme; conditional nearest accent; gtk theme placeholder then chosen variant unless system; conditional folder-icon adoption; key-level dconf persistence and notification"},
+    {"id":"kde-notify","kind":"session-bus-signal","identity":"/KGlobalSettings org.kde.KGlobalSettings.notifyChange(0,0)"},
+    {"id":"kitty","kind":"signal-exact-owned-processes","identity":"SIGUSR1; original pkill -USR1 -x kitty must become account/image/start/pidfd-bound owned set"},
+    {"id":"shell-palette","kind":"exact-ipc","identity":"shell theme reload; asynchronous original call must finish or be accounted before refreeze"},
+    {"id":"wm","kind":"typed-compositor-actions","identity":"config-only reload, palette borders, cursor reassert/set and approved live preview; exact compositor/process/session/args must be bound"},
+    {"id":"lighting","kind":"typed-hardware-provider","identity":"LED worker ryoku-hub lighting accent; no device work when lighting off/unadopted; exact device policy remains #180 dependency"}
+  ],
+  "adjacent_not_wallpaper_trigger": {
+    "source":"settings.go -> applyFont; not paintWorker",
+    "files":[".config/qt6ct/qt6ct.conf",".config/kitty/current-font.conf"],
+    "keys":["font-name","document-font-name","monospace-font-name"],
+    "reason":"Keep font preference effects separate instead of inflating the wallpaper write set with a sibling callback"
+  },
+  "required_tests": [
+    "every shipped enabled template output/input/post_hook exactly represented; additions/changes refuse stale policy",
+    "core/apps/roster/named-dynamic/Steam/palette-bridge predicates preserve upstream behavior",
+    "all output absences/new parents/atomic replacements captured and restored; unrelated siblings remain byte-identical",
+    "outside-home/unsafe/symlink/hardlink/overlapping or stale declaration refuses before real mutation",
+    "staging cannot mutate the real home or arbitrary app directory; only declared validated outputs may commit",
+    "video sample/poster/prune; static poster/ramp deletion; correct symlink restoration",
+    "KDE merge preserves unrelated groups; dconf restore preserves unrelated keys; owned signal/IPC identity and bounds",
+    "folder/cursor/Nomarchy generation membership/deletion, detached children, cancellation/refreeze and failed post-capture",
+    "actual wallpaper selection -> typed root handoff -> real worker -> templates/reloads -> linked post-state and native lifecycle"
+  ]
+}
