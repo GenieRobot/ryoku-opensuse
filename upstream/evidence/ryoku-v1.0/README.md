@@ -184,3 +184,11 @@ separates #177/#178/#25 ownership from current selection, including parallel
 PAM/proof/session state, SDDM/user writes, agent auto-confirm, destructive bond
 repair and the absolute Qt compatibility link. Full capabilities remain target
 requirements; native policy, per-action coverage and asset rights stay open.
+
+`void-nix-disposition.tsv` pins 152 Void and 37 Nix/flake entries;
+`void-nix-reference.json` preserves 72 recipe identities/declaration sites,
+30 anchored source interfaces, 27 raw init translations, package-table counts
+and the complete pinned flake lock. The [review](../../../docs/ryoku-v1.0-void-nix-reference.md)
+records current nonselection separately from the retained feature target and
+Tumbleweed owners. No edition script, expression, installer or fetcher is run;
+upstream accepted-loss notes are not accepted port behavior.
