@@ -579,6 +579,28 @@ pub fn parse_change(bytes: &[u8]) -> Result<(i64, WallpaperChange), WallpaperPro
     Ok((request.id, WallpaperChange::Audio(request.params.normalized())))
 }
 
+/// Helper-only native actor changes. Public model requests are separately
+/// decoded as add/forget intents; a prepared commit cannot enter that route.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeChange {
+    Wallpaper(WallpaperChange),
+    ModelReferences(Box<crate::ryogami_models_protocol::ModelReferenceCommit>),
+}
+impl NativeChange {
+    pub fn frame(&self, id: i64) -> Result<Vec<u8>, WallpaperProtocolError> {
+        match self {
+            Self::Wallpaper(action) => action.frame(id),
+            Self::ModelReferences(action) => action.frame(id),
+        }
+    }
+}
+pub fn parse_native_change(bytes: &[u8]) -> Result<(i64, NativeChange), WallpaperProtocolError> {
+    if let Ok((id, action)) = crate::ryogami_models_protocol::parse_commit(bytes) {
+        return Ok((id, NativeChange::ModelReferences(Box::new(action))));
+    }
+    parse_change(bytes).map(|(id, action)| (id, NativeChange::Wallpaper(action)))
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ActorIdentity {
@@ -626,19 +648,23 @@ impl ActorCall {
         {
             return Err(WallpaperProtocolError::InvalidPermit);
         }
-        let (id, action) = parse_change(&self.frame)?;
+        let (id, action) = parse_native_change(&self.frame)?;
         if self.player_pins.len() > 64
             || self
                 .player_pins
                 .iter()
                 .any(|pin| pin.pid == 0 || pin.pid == self.actor.pid || pin.start_time == 0)
             || self.player_pins.windows(2).any(|pair| pair[0].pid >= pair[1].pid)
-            || !matches!(action, WallpaperChange::Pause(_)) && !self.player_pins.is_empty()
+            || !matches!(action, NativeChange::Wallpaper(WallpaperChange::Pause(_)))
+                && !self.player_pins.is_empty()
         {
             return Err(WallpaperProtocolError::InvalidPermit);
         }
         if self.inherit_manual_pause
-            && !matches!(action, WallpaperChange::Apply(_) | WallpaperChange::Workspace(_))
+            && !matches!(
+                action,
+                NativeChange::Wallpaper(WallpaperChange::Apply(_) | WallpaperChange::Workspace(_))
+            )
         {
             return Err(WallpaperProtocolError::InvalidPermit);
         }

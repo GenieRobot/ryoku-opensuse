@@ -1,0 +1,610 @@
+--- a/ryoku/shell/ryogami/daemon/daemon.go
++++ b/ryoku/shell/ryogami/daemon/daemon.go
+@@ -260,16 +260,21 @@
+ 		return
+ 	}
+ 	var req request
+-	if json.Unmarshal(permit.Frame, &req) != nil || (req.Method != "wall.apply" && req.Method != "wall.set_audio" && req.Method != "broker.workspace" && req.Method != "wall.pause") {
++	if json.Unmarshal(permit.Frame, &req) != nil || (req.Method != "wall.apply" && req.Method != "wall.set_audio" && req.Method != "broker.workspace" && req.Method != "wall.pause" && req.Method != "broker.model-references") {
+ 		return
+ 	}
+ 	var action brokerAction
+ 	var audio brokerAudio
+ 	var workspace brokerWorkspace
+ 	var pause brokerPause
++	var modelReferences brokerModelReferences
+ 	decoder = json.NewDecoder(strings.NewReader(string(req.Params)))
+ 	decoder.DisallowUnknownFields()
+-	if req.Method == "wall.apply" {
++	if req.Method == "broker.model-references" {
++		if decoder.Decode(&modelReferences) != nil || !modelReferences.valid() {
++			return
++		}
++	} else if req.Method == "wall.apply" {
+ 		if decoder.Decode(&action) != nil || (action.Type != "static" && action.Type != "video") {
+ 			return
+ 		}
+@@ -314,6 +319,16 @@
+ 		return
+ 	}
+ 	if len(permit.PlayerPins) != 0 {
++		return
++	}
++	if req.Method == "broker.model-references" {
++		result, err := d.brokerModelReferencesApply(modelReferences)
++		response := ok(req.ID, result)
++		if err != nil {
++			response = errResp(req.ID, -32018, err.Error())
++		}
++		reply, _ := json.Marshal(response)
++		fmt.Fprintf(conn, "%s\n", reply)
+ 		return
+ 	}
+ 	if req.Method == "broker.workspace" {
+--- /dev/null
++++ b/ryoku/shell/ryogami/daemon/broker_models.go
+@@ -0,0 +1,310 @@
++package main
++
++// Model list commits are prepared by the Rust provider and arrive only through
++// its one-use, linked-checkpoint actor permit. No general settings map, path or
++// command is accepted here. Selection-changing callbacks use a separate
++// transaction owned by the automatic-effects integration.
++import (
++	"bytes"
++	"crypto/sha256"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"io"
++	"os"
++	"strings"
++	"syscall"
++)
++
++const brokerModelSettingsLimit = 4 * 1024 * 1024
++
++type brokerModelReference struct {
++	Name       string  `json:"name"`
++	Manifest   string  `json:"manifest"`
++	Managed    bool    `json:"managed,omitempty"`
++	ID         *string `json:"id,omitempty"`
++	Version    *string `json:"version,omitempty"`
++	Dimensions *uint32 `json:"dimensions,omitempty"`
++	Bytes      *uint64 `json:"bytes,omitempty"`
++}
++type brokerModelReferences struct {
++	ExpectedConfig   *string                `json:"expected_config"`
++	StagingToken     string                 `json:"staging_token"`
++	Models           []brokerModelReference `json:"models"`
++	ExpectedSelected string                 `json:"expected_selected"`
++}
++
++func brokerModelDigest(value string) bool {
++	if len(value) != 64 {
++		return false
++	}
++	for _, c := range value {
++		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
++			return false
++		}
++	}
++	return true
++}
++func (c brokerModelReferences) valid() bool {
++	if c.ExpectedConfig != nil && !brokerModelDigest(*c.ExpectedConfig) || !brokerModelDigest(c.StagingToken) || c.Models == nil || len(c.Models) > 256 {
++		return false
++	}
++	if len(c.ExpectedSelected) > 4096 {
++		return false
++	}
++	for _, model := range c.Models {
++		if len(model.Name) > 256 || len(model.Manifest) > 4096 || model.Managed && model.ID == nil {
++			return false
++		}
++	}
++	return true
++}
++func brokerModelOwned(file *os.File, directory bool) (*syscall.Stat_t, error) {
++	var st syscall.Stat_t
++	if err := syscall.Fstat(int(file.Fd()), &st); err != nil {
++		return nil, err
++	}
++	kind := uint32(syscall.S_IFREG)
++	if directory {
++		kind = syscall.S_IFDIR
++	}
++	if st.Mode&syscall.S_IFMT != kind || st.Uid != uint32(os.Geteuid()) || st.Gid != uint32(os.Getegid()) || st.Mode&07022 != 0 || !directory && st.Nlink != 1 {
++		return nil, errors.New("unsafe model settings inode")
++	}
++	return &st, nil
++}
++func brokerModelOpen(parent *os.File, name string, directory bool) (*os.File, error) {
++	flags := syscall.O_RDONLY | syscall.O_NOFOLLOW | syscall.O_CLOEXEC | syscall.O_NONBLOCK
++	if directory {
++		flags |= syscall.O_DIRECTORY
++	}
++	fd, err := syscall.Openat(int(parent.Fd()), name, flags, 0)
++	if err != nil {
++		return nil, err
++	}
++	file := os.NewFile(uintptr(fd), "model settings")
++	if _, err := brokerModelOwned(file, directory); err != nil {
++		file.Close()
++		return nil, err
++	}
++	return file, nil
++}
++func brokerModelSameInode(a, b *syscall.Stat_t) bool {
++	return a.Dev == b.Dev && a.Ino == b.Ino && a.Mode == b.Mode && a.Nlink == b.Nlink && a.Uid == b.Uid && a.Gid == b.Gid && a.Size == b.Size && a.Mtim == b.Mtim && a.Ctim == b.Ctim
++}
++func brokerModelRead(parent *os.File) (*os.File, []byte, *syscall.Stat_t, error) {
++	file, err := brokerModelOpen(parent, "ryogami.json", false)
++	if err != nil {
++		return nil, nil, nil, err
++	}
++	st, err := brokerModelOwned(file, false)
++	if err != nil || st.Size < 0 || st.Size > brokerModelSettingsLimit {
++		file.Close()
++		return nil, nil, nil, errors.New("model settings capacity")
++	}
++	data, err := io.ReadAll(io.LimitReader(file, brokerModelSettingsLimit+1))
++	after, afterErr := brokerModelOwned(file, false)
++	if err != nil || afterErr != nil || len(data) > brokerModelSettingsLimit || int64(len(data)) != st.Size || !brokerModelSameInode(st, after) {
++		file.Close()
++		return nil, nil, nil, errors.New("model settings changed")
++	}
++	return file, data, st, nil
++}
++func brokerModelAttributes(source, destination *os.File) error {
++	// /proc/self/fd pins the opened regular inode; no supplied pathname is used.
++	from := fmt.Sprintf("/proc/self/fd/%d", source.Fd())
++	to := fmt.Sprintf("/proc/self/fd/%d", destination.Fd())
++	names := make([]byte, 65536)
++	count, err := syscall.Listxattr(from, names)
++	if err != nil {
++		return err
++	}
++	values := map[string][]byte{}
++	for _, name := range strings.Split(string(names[:count]), "\x00") {
++		if name == "" {
++			continue
++		}
++		if name != "system.posix_acl_access" && name != "security.selinux" {
++			return errors.New("unenrolled model settings metadata")
++		}
++		value := make([]byte, 65536)
++		size, err := syscall.Getxattr(from, name, value)
++		if err != nil {
++			return err
++		}
++		values[name] = value[:size]
++	}
++	for _, name := range []string{"system.posix_acl_access", "security.selinux"} {
++		value, present := values[name]
++		current := make([]byte, 65536)
++		n, err := syscall.Getxattr(to, name, current)
++		if err != nil && err != syscall.ENODATA {
++			return err
++		}
++		if present {
++			if err != nil || !bytes.Equal(current[:n], value) {
++				if err := syscall.Setxattr(to, name, value, 0); err != nil {
++					return err
++				}
++			}
++		} else if err == nil {
++			if err := syscall.Removexattr(to, name); err != nil {
++				return err
++			}
++		}
++		n, err = syscall.Getxattr(to, name, current)
++		if present && (err != nil || !bytes.Equal(current[:n], value)) || !present && err != syscall.ENODATA {
++			return errors.New("model settings metadata readback changed")
++		}
++	}
++	return nil
++}
++
++// A failure leaves its exact enrolled stage for the Rust journal/recovery path.
++// The original target remains intact until the final same-device rename.
++func brokerPersistModelReferences(root *os.File, commit brokerModelReferences) (map[string]interface{}, error) {
++	if !commit.valid() || commit.ExpectedConfig == nil {
++		return nil, errors.New("model settings must already exist")
++	}
++	if _, err := brokerModelOwned(root, true); err != nil {
++		return nil, err
++	}
++	config, err := brokerModelOpen(root, ".config", true)
++	if err != nil {
++		return nil, err
++	}
++	defer config.Close()
++	parent, err := brokerModelOpen(config, "ryoku", true)
++	if err != nil {
++		return nil, err
++	}
++	defer parent.Close()
++	source, original, st, err := brokerModelRead(parent)
++	if err != nil {
++		return nil, err
++	}
++	defer source.Close()
++	parentStat, err := brokerModelOwned(parent, true)
++	if err != nil {
++		return nil, err
++	}
++	rootStat, err := brokerModelOwned(root, true)
++	if err != nil {
++		return nil, err
++	}
++	if st.Dev != rootStat.Dev || parentStat.Dev != rootStat.Dev || fmt.Sprintf("%x", sha256.Sum256(original)) != *commit.ExpectedConfig {
++		return nil, errors.New("model settings changed")
++	}
++	var tree map[string]interface{}
++	decoder := json.NewDecoder(bytes.NewReader(original))
++	decoder.UseNumber()
++	if decoder.Decode(&tree) != nil || tree == nil {
++		return nil, errors.New("invalid model settings")
++	}
++	if decoder.Decode(new(interface{})) != io.EOF {
++		return nil, errors.New("invalid model settings suffix")
++	}
++	semantic, ok := tree["semantic"].(map[string]interface{})
++	if !ok {
++		if tree["semantic"] != nil {
++			return nil, errors.New("invalid semantic settings")
++		}
++		semantic = map[string]interface{}{}
++		tree["semantic"] = semantic
++	}
++	selected := ""
++	if semantic["manifest"] != nil {
++		var ok bool
++		selected, ok = semantic["manifest"].(string)
++		if !ok {
++			return nil, errors.New("invalid model selection")
++		}
++	}
++	if selected != commit.ExpectedSelected {
++		return nil, errors.New("model selection changed")
++	}
++	// No semantic.manifest or semantic.enabled modification is permitted.
++	semantic["models"] = commit.Models
++	data, err := json.MarshalIndent(tree, "", "  ")
++	if err != nil || len(data) > brokerModelSettingsLimit {
++		return nil, errors.New("model settings capacity")
++	}
++	name := ".ryoku-model-" + commit.StagingToken + ".part"
++	fd, err := syscall.Openat(int(root.Fd()), name, syscall.O_CREAT|syscall.O_EXCL|syscall.O_RDWR|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0600)
++	if err != nil {
++		return nil, errors.New("model settings stage unavailable")
++	}
++	stage := os.NewFile(uintptr(fd), "model settings stage")
++	defer stage.Close()
++	if _, err := stage.Write(data); err != nil {
++		return nil, err
++	}
++	if err := stage.Chmod(os.FileMode(st.Mode & 0777)); err != nil {
++		return nil, err
++	}
++	if err := brokerModelAttributes(source, stage); err != nil {
++		return nil, err
++	}
++	if err := stage.Sync(); err != nil {
++		return nil, err
++	}
++	if err := root.Sync(); err != nil {
++		return nil, err
++	}
++	current, check, after, err := brokerModelRead(parent)
++	if err != nil {
++		return nil, err
++	}
++	current.Close()
++	if !brokerModelSameInode(st, after) || !bytes.Equal(original, check) {
++		return nil, errors.New("model settings changed before publication")
++	}
++	if err := syscall.Renameat(int(root.Fd()), name, int(parent.Fd()), "ryogami.json"); err != nil {
++		return nil, err
++	}
++	if err := parent.Sync(); err != nil {
++		return nil, err
++	}
++	if err := root.Sync(); err != nil {
++		return nil, err
++	}
++	checkFile, check, _, err := brokerModelRead(parent)
++	if err != nil {
++		return nil, err
++	}
++	checkFile.Close()
++	if !bytes.Equal(data, check) {
++		return nil, errors.New("model settings readback changed")
++	}
++	return tree, nil
++}
++func (d *daemon) brokerModelReferencesApply(commit brokerModelReferences) (interface{}, error) {
++	settingsMu.Lock()
++	if len(settingsPending) != 0 {
++		settingsMu.Unlock()
++		return nil, errors.New("pending settings must finish before model transaction")
++	}
++	root, err := os.Open(home())
++	if err != nil {
++		settingsMu.Unlock()
++		return nil, err
++	}
++	tree, err := brokerPersistModelReferences(root, commit)
++	root.Close()
++	settingsMu.Unlock()
++	if err != nil {
++		return nil, errors.New("model reference transaction failed; use linked recovery")
++	}
++	setSettingsBaseline(flattenSettings(tree))
++	d.reloadConfig()
++	// Retain the upstream setting event then callback order after synchronous
++	// durable persistence. No selected-model callback is suppressed or forged.
++	models := make([]interface{}, len(commit.Models))
++	for i, model := range commit.Models {
++		b, _ := json.Marshal(model)
++		_ = json.Unmarshal(b, &models[i])
++	}
++	d.broadcast("ryogami.settings.changed", map[string]interface{}{"values": map[string]interface{}{"semantic.models": models}})
++	d.notifySetting("semantic.models", models)
++	return map[string]interface{}{"committed": true, "models": len(models)}, nil
++}
+--- /dev/null
++++ b/ryoku/shell/ryogami/daemon/broker_models_test.go
+@@ -0,0 +1,251 @@
++package main
++
++import (
++	"crypto/sha256"
++	"encoding/binary"
++	"encoding/json"
++	"fmt"
++	"os"
++	"path/filepath"
++	"strings"
++	"syscall"
++	"testing"
++)
++
++func modelFixture(t *testing.T) (*os.File, string, []byte, brokerModelReferences) {
++	t.Helper()
++	path := t.TempDir()
++	if err := os.Chmod(path, 0700); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.MkdirAll(filepath.Join(path, ".config/ryoku"), 0700); err != nil {
++		t.Fatal(err)
++	}
++	original := []byte(`{"secret":"fixture-only-private","large":9007199254740993,"semantic":{"enabled":true,"manifest":"/models/a/manifest.json","models":[{"name":"A","manifest":"/models/a/manifest.json"}]}}`)
++	if err := os.WriteFile(filepath.Join(path, ".config/ryoku/ryogami.json"), original, 0640); err != nil {
++		t.Fatal(err)
++	}
++	root, err := os.Open(path)
++	if err != nil {
++		t.Fatal(err)
++	}
++	t.Cleanup(func() { root.Close() })
++	hash := fmt.Sprintf("%x", sha256.Sum256(original))
++	commit := brokerModelReferences{ExpectedConfig: &hash, StagingToken: strings.Repeat("a", 64), ExpectedSelected: "/models/a/manifest.json", Models: []brokerModelReference{{Name: "A", Manifest: "/models/a/manifest.json"}, {Name: "B", Manifest: "/models/b/manifest.json"}}}
++	return root, path, original, commit
++}
++func TestBrokerModelsDurableWritePreservesSecretsNumbersModeSelectionAndUnrelatedFiles(t *testing.T) {
++	root, path, _, commit := modelFixture(t)
++	sentinel := filepath.Join(path, "unrelated-secret")
++	if err := os.WriteFile(sentinel, []byte("do-not-read-or-write"), 0600); err != nil {
++		t.Fatal(err)
++	}
++	tree, err := brokerPersistModelReferences(root, commit)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if tree["large"].(json.Number).String() != "9007199254740993" || tree["secret"] != "fixture-only-private" {
++		t.Fatal("unrelated settings changed")
++	}
++	data, err := os.ReadFile(filepath.Join(path, ".config/ryoku/ryogami.json"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	var actual map[string]interface{}
++	if err := json.Unmarshal(data, &actual); err != nil {
++		t.Fatal(err)
++	}
++	semantic := actual["semantic"].(map[string]interface{})
++	if semantic["manifest"] != commit.ExpectedSelected || semantic["enabled"] != true || len(semantic["models"].([]interface{})) != 2 {
++		t.Fatal("wrong model result")
++	}
++	info, _ := os.Stat(filepath.Join(path, ".config/ryoku/ryogami.json"))
++	if info.Mode().Perm() != 0640 {
++		t.Fatal("mode lost")
++	}
++	if _, err := os.Stat(filepath.Join(path, ".ryoku-model-"+commit.StagingToken+".part")); !os.IsNotExist(err) {
++		t.Fatal("published stage remained")
++	}
++	secret, _ := os.ReadFile(sentinel)
++	if string(secret) != "do-not-read-or-write" {
++		t.Fatal("unrelated file changed")
++	}
++	if _, err := brokerPersistModelReferences(root, commit); err == nil {
++		t.Fatal("stale commit repeated")
++	}
++}
++func TestBrokerModelsStaleSelectionDigestAndStageCollisionRefuseBeforeTargetWrite(t *testing.T) {
++	for _, kind := range []string{"selection", "digest", "collision", "missing", "link", "hardlink", "oversized"} {
++		t.Run(kind, func(t *testing.T) {
++			root, path, original, commit := modelFixture(t)
++			target := filepath.Join(path, ".config/ryoku/ryogami.json")
++			switch kind {
++			case "selection":
++				commit.ExpectedSelected = "/models/other/manifest.json"
++			case "digest":
++				bad := strings.Repeat("b", 64)
++				commit.ExpectedConfig = &bad
++			case "collision":
++				os.WriteFile(filepath.Join(path, ".ryoku-model-"+commit.StagingToken+".part"), []byte("recovery-stage"), 0600)
++			case "missing":
++				commit.ExpectedConfig = nil
++			case "link":
++				os.Rename(target, filepath.Join(path, "private-target"))
++				os.Symlink(filepath.Join(path, "private-target"), target)
++			case "hardlink":
++				os.Link(target, filepath.Join(path, "private-target"))
++			case "oversized":
++				original = []byte(strings.Repeat("x", brokerModelSettingsLimit+1))
++				os.WriteFile(target, original, 0640)
++			}
++			if _, err := brokerPersistModelReferences(root, commit); err == nil {
++				t.Fatal("unsafe commit accepted")
++			}
++			after, err := os.ReadFile(target)
++			if err != nil || string(after) != string(original) {
++				t.Fatal("refusal changed target")
++			}
++		})
++	}
++}
++
++func TestBrokerModelsCallbacksObservePersistedListAfterEventAndNeverSelectionMutation(t *testing.T) {
++	_, path, _, commit := modelFixture(t)
++	t.Setenv("HOME", path)
++	t.Setenv("XDG_CONFIG_HOME", filepath.Join(path, ".config"))
++	resetSettingsState()
++	t.Cleanup(resetSettingsState)
++	d := &daemon{events: newEventHub()}
++	event := d.events.subscribe()
++	defer d.events.unsubscribe(event)
++	previous := settingWatchers
++	t.Cleanup(func() { settingWatchers = previous })
++	calls := []string{}
++	settingWatchers = []settingWatcher{{prefix: "semantic.", fn: func(_ *daemon, key string, value interface{}) {
++		calls = append(calls, key)
++		select {
++		case line := <-event:
++			if !strings.Contains(line, "semantic.models") {
++				t.Fatal("incorrect preceding event")
++			}
++		default:
++			t.Fatal("callback ran before event")
++		}
++		actual := readJSONFile(t, filepath.Join(path, ".config/ryoku/ryogami.json"))
++		if len(actual["semantic"].(map[string]interface{})["models"].([]interface{})) != 2 {
++			t.Fatal("callback ran before durable file replacement")
++		}
++	}}}
++	result, err := d.brokerModelReferencesApply(commit)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if result.(map[string]interface{})["committed"] != true || len(calls) != 1 || calls[0] != "semantic.models" {
++		t.Fatal("wrong callback or result")
++	}
++	if len(settingsPending) != 0 {
++		t.Fatal("model write was deferred past reply")
++	}
++}
++func TestBrokerModelsPendingSettingsRefuseWithoutFileOrCallbackChanges(t *testing.T) {
++	_, path, original, commit := modelFixture(t)
++	t.Setenv("HOME", path)
++	t.Setenv("XDG_CONFIG_HOME", filepath.Join(path, ".config"))
++	resetSettingsState()
++	t.Cleanup(resetSettingsState)
++	settingsPending["general.randomInterval"] = 42
++	d := &daemon{events: newEventHub()}
++	if _, err := d.brokerModelReferencesApply(commit); err == nil {
++		t.Fatal("pending settings admitted")
++	}
++	actual, _ := os.ReadFile(filepath.Join(path, ".config/ryoku/ryogami.json"))
++	if string(actual) != string(original) {
++		t.Fatal("target changed")
++	}
++}
++
++func TestE2EBrokerModelsPrivateActorChannelAndQueryRefusal(t *testing.T) {
++	d := startDaemon(t)
++	resetSettingsState()
++	t.Cleanup(resetSettingsState)
++	if err := os.MkdirAll(filepath.Join(d.root, ".config/ryoku"), 0700); err != nil {
++		t.Fatal(err)
++	}
++	original := []byte(`{"semantic":{"enabled":false,"models":[]}}`)
++	target := filepath.Join(d.root, ".config/ryoku/ryogami.json")
++	if err := os.WriteFile(target, original, 0600); err != nil {
++		t.Fatal(err)
++	}
++	hash := fmt.Sprintf("%x", sha256.Sum256(original))
++	commit := brokerModelReferences{ExpectedConfig: &hash, StagingToken: strings.Repeat("c", 64), Models: []brokerModelReference{{Name: "Fixture", Manifest: "/models/fixture/manifest.json"}}}
++	public := d.send(`{"id":73,"method":"settings.action","params":{"id":"AddSemanticModel","args":{}}}`)
++	if !strings.Contains(public, `"error"`) {
++		t.Fatal("unapproved model action accepted")
++	}
++	public = d.send(`{"id":74,"method":"broker.model-references","params":{}}`)
++	if !strings.Contains(public, `"error"`) {
++		t.Fatal("public prepared commit accepted")
++	}
++	unchanged, _ := os.ReadFile(target)
++	if string(unchanged) != string(original) {
++		t.Fatal("public query mutated settings")
++	}
++	reply := d.approvedAction(75, "broker.model-references", commit)
++	if !strings.Contains(reply, `"committed":true`) {
++		t.Fatal(reply)
++	}
++	actual := readJSONFile(t, target)
++	if len(actual["semantic"].(map[string]interface{})["models"].([]interface{})) != 1 {
++		t.Fatal("actor did not persist model list")
++	}
++	repeat := d.approvedAction(76, "broker.model-references", commit)
++	if !strings.Contains(repeat, `"error"`) {
++		t.Fatal("stale commit accepted twice")
++	}
++}
++
++func TestBrokerModelsPreservesPosixACLAndRetainsFailedStageForRecovery(t *testing.T) {
++	root, path, original, commit := modelFixture(t)
++	target := filepath.Join(path, ".config/ryoku/ryogami.json")
++	acl := make([]byte, 4+5*8)
++	binary.LittleEndian.PutUint32(acl, 2)
++	entries := [][3]uint32{{1, 6, 0xffffffff}, {2, 4, uint32(os.Geteuid() + 1)}, {4, 4, 0xffffffff}, {16, 4, 0xffffffff}, {32, 0, 0xffffffff}}
++	for i, entry := range entries {
++		at := 4 + i*8
++		binary.LittleEndian.PutUint16(acl[at:], uint16(entry[0]))
++		binary.LittleEndian.PutUint16(acl[at+2:], uint16(entry[1]))
++		binary.LittleEndian.PutUint32(acl[at+4:], entry[2])
++	}
++	if err := syscall.Setxattr(target, "system.posix_acl_access", acl, 0); err != nil {
++		t.Fatal(err)
++	}
++	if _, err := brokerPersistModelReferences(root, commit); err != nil {
++		t.Fatal(err)
++	}
++	actual := make([]byte, 65536)
++	n, err := syscall.Getxattr(target, "system.posix_acl_access", actual)
++	if err != nil || string(actual[:n]) != string(acl) {
++		t.Fatal("ACL lost")
++	}
++	data, _ := os.ReadFile(target)
++	hash := fmt.Sprintf("%x", sha256.Sum256(data))
++	commit.ExpectedConfig = &hash
++	commit.StagingToken = strings.Repeat("d", 64)
++	if err := syscall.Setxattr(target, "user.fixture", []byte("unsupported"), 0); err != nil {
++		t.Fatal(err)
++	}
++	if _, err := brokerPersistModelReferences(root, commit); err == nil {
++		t.Fatal("unenrolled xattr silently lost")
++	}
++	unchanged, _ := os.ReadFile(target)
++	if string(unchanged) != string(data) {
++		t.Fatal("failed stage changed target")
++	}
++	stage, err := os.ReadFile(filepath.Join(path, ".ryoku-model-"+commit.StagingToken+".part"))
++	if err != nil || len(stage) == 0 {
++		t.Fatal("failed stage not retained")
++	}
++	if string(unchanged) == string(original) {
++		t.Fatal("successful prior commit rolled back unexpectedly")
++	}
++}

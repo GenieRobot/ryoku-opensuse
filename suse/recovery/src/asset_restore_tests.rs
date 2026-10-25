@@ -438,3 +438,50 @@ fn configured_library_restore_keeps_its_exact_bound_root_across_staging_and_reop
         RestoreObservation::Restored
     );
 }
+
+#[test]
+fn interrupted_model_reference_stage_is_exactly_enrolled_and_recoverable_without_home_scan() {
+    let fixture = Fixture::new();
+    let path = AssetPath::new(
+        AssetNamespace::ModelReferenceStage,
+        RelativePath::new(format!(".ryoku-model-{}.part", "a".repeat(64))).unwrap(),
+    )
+    .unwrap();
+    let source = fixture.capture(1, std::slice::from_ref(&path));
+    fixture.write(&path, b"partial private model configuration");
+    std::fs::write(fixture.path.join("home/unrelated"), b"private sentinel").unwrap();
+    let intent =
+        FileRestoreIntent::new(Identifier::new("cleanup-model-reference").unwrap(), &source, &path)
+            .unwrap();
+    assert_eq!(intent.staging().namespace(), AssetNamespace::ModelReferenceStage);
+    let current = fixture.capture(2, intent.scope().unwrap().paths());
+    let plan =
+        FileRestorePlan::prepare(&intent, &source, &current, &fixture.home, &fixture.account)
+            .unwrap();
+    let receipt = plan
+        .apply(&source, &current, &fixture.home, &fixture.account, &fixture.journal, || true)
+        .unwrap();
+    assert!(!fixture.file(&path).exists());
+    assert_eq!(std::fs::read(fixture.path.join("home/unrelated")).unwrap(), b"private sentinel");
+    let reopened = FileRestorePlan::reopen(
+        &receipt,
+        &source,
+        &current,
+        &fixture.home,
+        &fixture.account,
+        &fixture.journal,
+    )
+    .unwrap();
+    assert_eq!(
+        reopened.observe(&fixture.home, &fixture.account).unwrap(),
+        RestoreObservation::Restored
+    );
+    for name in
+        [".ssh/id_rsa", ".config/ryoku/ryogami.json", ".ryoku-model-private.part", "unrelated"]
+    {
+        assert!(
+            AssetPath::new(AssetNamespace::ModelReferenceStage, RelativePath::new(name).unwrap())
+                .is_err()
+        );
+    }
+}

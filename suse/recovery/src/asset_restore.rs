@@ -114,7 +114,12 @@ impl FileRestoreIntent {
         }
         let identity = serde_json::to_vec(&(&operation, &reference, path))
             .map_err(|_| RestoreError::InvalidBinding)?;
-        let leaf = format!(".part-{:x}", Hash::digest(identity));
+        let leaf = if path.namespace() == crate::ryogami_assets::AssetNamespace::ModelReferenceStage
+        {
+            format!(".ryoku-model-{:x}.part", Hash::digest(identity))
+        } else {
+            format!(".part-{:x}", Hash::digest(identity))
+        };
         let relative = path
             .relative()
             .as_str()
@@ -558,9 +563,17 @@ fn read_record(parent: &File, name: &str) -> Result<Vec<u8>> {
 
 fn parent(home: &File, path: &AssetPath, account: &CaptureAccount) -> Result<(File, String)> {
     let relative = path.home_relative().map_err(|_| RestoreError::InvalidBinding)?;
-    let (parents, leaf) = relative.as_str().rsplit_once('/').ok_or(RestoreError::InvalidBinding)?;
+    let (parents, leaf) = relative.as_str().rsplit_once('/').unwrap_or(("", relative.as_str()));
     let mut current = home.try_clone()?;
-    for component in parents.split('/') {
+    let root = fs::fstat(&current)?;
+    if FileType::from_raw_mode(root.st_mode) != FileType::Directory
+        || root.st_uid != account.uid
+        || root.st_gid != account.gid
+        || root.st_mode & 0o7022 != 0
+    {
+        return Err(RestoreError::InvalidBinding);
+    }
+    for component in parents.split('/').filter(|component| !component.is_empty()) {
         current = File::from(fs::openat2(
             &current,
             component,

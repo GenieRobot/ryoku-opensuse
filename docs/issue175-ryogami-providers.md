@@ -104,7 +104,7 @@ Every configured path still needs exact owned-path resolution in the provider.
 | Source preview, thumbnail population and cancellation | `source_preview.go`, `source_thumbs.go`, `source_download.go::cancel`; picker `preview`/`cancelDownload` | `<cache>/remote-preview/<source>/<id>`, `<cache>/remote/<source>/<id>`; download cancellation maps; queued/terminal events | Typed preview/cancel; actual nonblocking timeout/cancel and cleanup fixtures. Account operation routing, UI progress and previews remain open. |
 | Steam search/download | `rpc_workshop.go::{workshopSearch,workshopDownload}`; `workshop_steamworks.go`; `workshop_steamcmd.go::steamcmdDownload` | native Steam helper or `steamcmd +login <configured-user> +workshop_download_item 431960 <id> +quit`; Steam account/cache/library and manifest writes; process-group cleanup, original six-hour/stall policy | Strict numeric Steam identity/filter intent; shared storage fixtures. No Steam process/network was run. Exact helper/account/staging/manifest and resumable protocol remain open. |
 | Model import/install | `settings.action` → `lens_models.go::actionImportSemanticModel` | `skwd-lens --install-pack <source> --models-dir <data>/ryogami/lens/models --runtime <runtime>`; settings model list and selected manifest; runtime/model manifest reads | Typed import candidate path, no executable/runtime/destination client fields. Pack validator, exact extraction/import writes and settings transaction open. |
-| Add/forget model reference | `actionAddSemanticModel`, `actionRemoveSemanticModel` | read supplied manifest ID; update `semantic.models`; reconcile selected model in `ryogami.json` | Typed optional read-only path and bounded index; persistent settings plan remains open. |
+| Add/forget model reference | `actionAddSemanticModel`, `actionRemoveSemanticModel` | read supplied manifest ID; update `semantic.models`; reconcile selected model in `ryogami.json` | Typed bounded preparation and private actor persistence/restore-stage fixtures now pass. Installed helper/UI dispatch remains open; selected-removal callback seam is #176. |
 | Delete indexed/active model | `actionDeleteSemanticModel`, `actionDeleteActiveSemanticModel`, `deleteModelFiles` | managed `--remove-pack` with component or unmanaged `--remove-manifest`; settings selection/enablement writes | Typed active/index selection; recoverable content trash tested. Exact manifest file-set validation and complete model/config restore remain open; never pass the unmanaged arbitrary delete path through. |
 | Delete wallpaper | `rpc.go::wall.delete` → `apply.go::deleteWallpaper` | resolves store entry; deletes source, catalog record, thumbnails and animated clip; Steam entries explicitly managed by Workshop | Typed catalog key; real owned-content trash/restore fixtures. Catalog-to-exact-path binding, all affected entries and UI event integration remain open. |
 | Library cache rebuild / clear | `wall.cache_rebuild`, `library_actions.go::actionClearCache`, `library_videocache.go::actionClearVideoCache`, `daemon.go::resetCache` | async rescan; cache removal/recreation; catalog and thumbnail writes; converters may launch | Closed maintenance intents. Exact complete job set, native process containment and linked results remain open. |
@@ -119,8 +119,7 @@ or the core appearance provider into #175.
 
 ## Local fixture evidence
 
-Focused `cargo test --offline --locked -p ryoku-service ryogami_` currently
-contains 26 tests. Small deterministic bytes and local anonymous Unix sockets
+The initial primitives checkpoint ran 26 focused service tests. Small deterministic bytes and local anonymous Unix sockets
 exercise storage behavior. No wallpaper/model fetch, provider/network request,
 Steam/yt-dlp/lens/converter process, VM, package installation or native UI test
 is part of this evidence.
@@ -194,6 +193,54 @@ Exact item/catalog membership validation remains the provider's responsibility.
 | Exact capture and restore | Configured root survives generated staging derivation, linked capture, restored bytes and protected-record restart inspection |
 | Historical schema-3 encoding | Fixed namespaces still serialize without a new root field; root injection and two logical names for one physical path refuse |
 | Cache prerequisite | Nonstandard cache is identified but receives no exception to #25's committed inventory validator |
+
+## Model reference actor checkpoint
+
+The closed add/forget preparation preserves existing typed model metadata and
+selection. The actor accepts a helper-prepared list only on its existing private
+one-use channel; ordinary settings actions and prepared frames on query channels
+remain refused. It synchronously checks the original configuration digest,
+writes an exact exclusive account-owned stage, preserves mode/ACL/SELinux
+metadata and unrelated JSON values (including large integers), fsyncs, renames,
+fsyncs both parents and reads the result back. The fixed #25 inventory and loaded
+cache checks remain unchanged. Missing configuration/parents and pending settings
+refuse before mutation; initial file/directory creation remains an acceptance gate.
+
+The only additional asset namespace admits `.ryoku-model-<sha256>.part` directly
+under the authenticated home. It admits no general home path. Linked capture
+records the exact stage's absence or contents, and the journaled restore fixture
+captures a fresh operation before cleaning an interrupted stage. This does not
+yet provide combined preference-plus-asset live restore or public operation dispatch.
+
+The native shim preserves `semantic.models` event then callback ordering, after
+synchronous persistence. It never edits `semantic.manifest` or `semantic.enabled`.
+Upstream `reconcileSelectedModel` clears selection when no remaining list entry
+matches it; that includes an already-orphaned selection even when forgetting an
+inactive row. Those removals refuse during preparation with
+`SelectionCallbackRequired`. Duplicate selected references remain supportable.
+The exact #176 dependency is an authenticated, linked transaction seam for
+`semantic.manifest` changes: retain stop-service and reindex callback ordering,
+enroll every model/index/state side effect, await its durable outcome before
+postcapture, and preserve failure/restart evidence. No callback owner files were
+modified and no missing callback effect is represented as success.
+
+| Model boundary | Local evidence |
+| --- | --- |
+| Strict preparation | Three Rust tests cover blank/named add, inactive/duplicate forget, selected/orphan callback refusal, stale index, capacity, malformed legacy metadata and credential omission |
+| Private transport | Three Rust protocol tests bind frame/home/actor and reject public commits, player pins and manual-pause authority; eight existing wallpaper protocol tests still pass |
+| Native persistence | Six pinned-source Go tests cover atomic readback, large-number/credential/mode preservation, stale/unsafe/colliding/oversized refusal, event/callback order, pending settings, private actor/query separation and exact ACL readback |
+| Interrupted stage | Go failure retains the stage and leaves target bytes intact; Rust captures absence, restores cleanup under a fresh linked journal and reopens the receipt without an unrelated home scan |
+| Wallpaper regression | Two existing pinned Go broker-audio tests pass, including existing external/link refusal cases |
+| Reproducible integration | Minimal daemon shim patch applies after #18/#25 with zero fuzz and reproduces tested Go files exactly; RPM preparation includes the patch |
+
+The full Rust workspace passes (recovery 275/6 existing ignored, service 173/1
+existing ignored, VM 90), formatting/strict lints/cached dependency checks pass.
+An initial broad upstream Go baseline run hit the sandbox's local HTTP fixture
+listen restriction (and unavailable ImageMagick); it is not an acceptance result.
+The focused Go fixture run uses only local files and anonymous Unix sockets with
+vendored dependencies and passes eight top-level tests. No provider endpoint,
+wallpaper/model download, Steam/lens process, RPM installation or native desktop
+acceptance was exercised.
 
 ## Remaining acceptance gates
 

@@ -1,0 +1,71 @@
+schema_version = 1
+issue = 175
+status = "partial-model-reference-actor-not-installed-acceptance"
+branch = "codex/issue175-ryogami-library-providers"
+previous_checkpoint = "be5cc3a313bb2281911e84f187ad546907b7e384"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+
+[storage]
+worktree_filesystem = "/dev/sdd"
+cargo_target_filesystem = "/dev/sdd"
+cargo_cache_filesystem = "/dev/sdd"
+go_cache_filesystem = "/dev/sdd"
+fixture_filesystem = "tmpfs"
+provider_endpoint_calls = 0
+media_downloads = 0
+model_downloads = 0
+steam_or_lens_processes = 0
+
+[implementation]
+bounded_add_and_inactive_forget_preparation = true
+private_prepared_actor_commit = true
+synchronous_staged_write_fsync_and_readback = true
+configuration_mode_acl_and_selinux_preservation = true
+credential_and_large_integer_preservation = true
+exact_owned_stage_capture_cleanup_and_reopen = true
+existing_wallpaper_protocol_behavior_preserved = true
+issue25_inventory_validator_unchanged = true
+semantic_callback_owner_files_unchanged = true
+
+[validation]
+formatting = "pass"
+strict_clippy_workspace_all_targets_all_features = "pass"
+workspace_tests_offline_locked_all_features = "pass"
+recovery_tests_passed = 275
+recovery_tests_existing_ignored = 6
+service_tests_passed = 173
+service_tests_existing_ignored = 1
+vm_lab_tests_passed = 90
+new_rust_tests = 7
+model_preparation_tests_passed = 3
+model_protocol_and_actor_permit_tests_passed = 3
+exact_model_stage_restore_test_passed = 1
+existing_wallpaper_protocol_tests_passed = 8
+pinned_go_model_tests_passed = 6
+existing_pinned_go_broker_audio_tests_passed = 2
+pinned_go_fixture_selection = "^Test(BrokerModels|E2EBroker)"
+pinned_go_toolchain = "go1.26.9 linux/amd64; cached SDK; vendored modules; GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local"
+pinned_go_patch_reproduces_tested_files = "pass-zero-fuzz"
+dependency_advisories = "pass-cached-offline"
+dependency_bans = "pass-cached-offline"
+dependency_licenses = "pass-cached-offline"
+dependency_sources = "pass-cached-offline"
+whitespace = "pass"
+initial_test_correction = "new restore fixture argument ordering corrected; focused and full workspace passed"
+broad_upstream_go_baseline = "not-acceptance; sandbox denied local httptest listener; ImageMagick unavailable"
+
+[acceptance]
+installed_helper_provider_dispatch = false
+picker_provider_integration = false
+combined_preference_asset_live_restore = false
+general_tree_restore = false
+native_snapper_proof = false
+installed_native_ui_test = false
+issue_complete = false
+remaining = [
+  "authenticated helper and UI dispatch with linked pre/post recovery and protected outcome",
+  "combined preference and asset live restore; absent configuration/parent creation",
+  "#176 selected-model stop/reindex callback transaction preserving ordering and full effects",
+  "provider/source/Steam/model-content/library/media-delete operations and process containment",
+  "native combined-candidate acceptance"
+]

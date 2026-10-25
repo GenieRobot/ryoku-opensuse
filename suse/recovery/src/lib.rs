@@ -46,6 +46,7 @@ pub mod restore;
 pub mod rpm_defaults;
 #[cfg(target_os = "linux")]
 pub mod ryogami_assets;
+pub mod ryogami_models_protocol;
 #[cfg(target_os = "linux")]
 pub mod session_admission;
 pub mod snapper_catalog;

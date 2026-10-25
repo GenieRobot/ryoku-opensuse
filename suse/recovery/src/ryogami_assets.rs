@@ -34,6 +34,7 @@ pub enum AssetNamespace {
     RemoteThumbnails,
     WorkshopContent,
     ConfiguredLibrary,
+    ModelReferenceStage,
 }
 impl AssetNamespace {
     pub fn home_prefix(self) -> &'static str {
@@ -43,7 +44,7 @@ impl AssetNamespace {
             Self::RemotePreviews => ".cache/ryogami/remote-preview",
             Self::RemoteThumbnails => ".cache/ryogami/remote",
             Self::WorkshopContent => ".local/share/ryogami/workshop",
-            Self::ConfiguredLibrary => "",
+            Self::ConfiguredLibrary | Self::ModelReferenceStage => "",
         }
     }
 }
@@ -92,6 +93,15 @@ impl AssetPath {
         if self.relative.as_str().len() > 1024 || self.relative.as_str().split('/').count() > 16 {
             return Err(AssetError::Path);
         }
+        if self.namespace == AssetNamespace::ModelReferenceStage {
+            let digest = self
+                .relative
+                .as_str()
+                .strip_prefix(".ryoku-model-")
+                .and_then(|name| name.strip_suffix(".part"))
+                .ok_or(AssetError::Path)?;
+            Sha256::new(digest).map_err(|_| AssetError::Path)?;
+        }
         if self.namespace == AssetNamespace::ProviderContent {
             let name = self.relative.as_str();
             let digest = [".part-", ".trash-", ".receipt-"]
@@ -115,6 +125,9 @@ impl AssetPath {
             .as_ref()
             .map(RelativePath::as_str)
             .unwrap_or_else(|| self.namespace.home_prefix());
+        if prefix.is_empty() {
+            return Ok(self.relative.clone());
+        }
         RelativePath::new(format!("{}/{}", prefix, self.relative.as_str()))
             .map_err(|_| AssetError::Path)
     }
