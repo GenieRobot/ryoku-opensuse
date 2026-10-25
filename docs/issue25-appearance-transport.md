@@ -15,7 +15,7 @@ query allowlist and bounds replies; a UI never receives a native descriptor.
 The native daemon starts only with the Rust parent's inherited control fd and
 has no named listener/fallback. SCM_RIGHTS transfers one R or A connection at a
 time. R also checks the native query allowlist; A accepts exactly one canonical
-`wall.apply`, `wall.set_audio` or root-prepared `broker.workspace` frame/permit
+`wall.apply`, `wall.set_audio`, `wall.pause` or root-prepared `broker.workspace` frame/permit
 and EOF, returns one reply and closes. Labels alone
 confer no public authority.
 
@@ -115,6 +115,54 @@ and hardlink no-write/sentinel checks followed by successful valid operations;
 an exclusive-temp sentinel/mode check covers the atomic primitive. These are
 local protocol/state proofs, not installed audio-device or full VM acceptance.
 See the [audio receipt](../infra/tumbleweed-lab/evidence/issue25-wallpaper-audio-20261025.toml).
+
+## Manual native and in-shell playback pause/resume
+
+`wall.pause` retains its original boolean/default-pause and output selection
+contract. Its strict public/helper language accepts no PID, player list, command
+or resume token. A separate root `PauseWallpaper` action uses the same
+machine-lock, authorization, Applying, linked pre/post and durable completion
+path. The frozen writer lease supplies the exact installed native-player
+PID/start set; that set joins the revalidated plan and private permit. The
+writer checks it again against the authenticated actor's exact installed image,
+account and descendant identities before dispatch and after refreeze.
+
+Only already-stopped `/usr/bin/ryogami-live` descendants of that pinned actor can
+receive a private preserved-stop registration. It binds the actor and player
+start times, UID, installed image descriptor and pidfd. Unknown, unrelated or
+stale stopped processes retain the existing refusal. Ordinary apply/audio/manual
+assignment grants no resume: registered players remain ptrace-held during the
+actor call, then receive a real pidfd STOP before detach. A subsequent capture
+recognizes the same stop without losing the user's playback choice.
+
+The native manual handler validates its owned `os.Process` identities and start
+set before signalling; it never uses raw negative/reusable process-group PIDs.
+It preserves the upstream manual-output/global effective-pause behavior, changes
+only transient manual/frame/player state and publishes no theme/hook request.
+An explicit root-authorized `paused=false` plus a validated effective-unpaused
+receipt can release only that lease's exact player pins. A SIGCONT while held
+cannot bypass refreeze/post-capture; resume happens at authorized lease release.
+A still-effective pause caused by another manual selection stays stopped.
+
+Playback intent is transient, as in upstream; no new persistent state file or
+package actuator is invented. Linked checkpoints still cover the existing
+account inventory, not restoration of process memory or playback position. A
+failure after dispatch remains Applying/MayHaveMutated with its pre-checkpoint
+and no invented successful post-checkpoint. Fresh wallpaper frames now inherit
+the effective pause bit so an ordinary new selection does not silently clear
+in-shell pause. External `paper.pause` retains its source/UI and requires #175's
+provider contract; automatic pause/theme/hook routes remain #176.
+
+The real ptrace/pidfd regression covers two capture→ordinary actor call→detach→
+re-capture cycles, stale identity, unauthorized resume, pause intent refusing
+resume, actual SIGCONT while held, and explicit post-refreeze release. Native
+inherited-channel fixtures cover stale player rejection, query-channel denied
+pause/resume, owned child stop/resume, audio and another-output apply while
+paused, and no-native-player in-shell controls. They use temporary owned sleep
+children to test signal semantics; installed C-player display/device acceptance
+and replacement/start behavior on the full 1.0 candidate remain native gates.
+See the [pause receipt](../infra/tumbleweed-lab/evidence/issue25-wallpaper-pause-20261025.toml)
+and [failed/corrected evidence](../infra/tumbleweed-lab/evidence/issue25-pause-regression-20261025.log).
 
 ## Manual workspace assignment and unassignment
 
@@ -234,7 +282,7 @@ claim the real theme worker or its template/reload effects protected or accepted
 | Settings actions, post-process, theme/palette/stage/depth and shell hooks | Retained, own typed write/executable envelope; no automatic arbitrary shell | #176 |
 | User wallpaper mute/volume (`wall.set_audio`) | Root-authenticated single-use audio action with outputs/workspace capture and post-state receipt | #25; WE audio needs #175 |
 | Manual workspace assign/unassign | Root-resolved single-use action; captured-state binding, repaint/compensation and post-state checks | #25; automatic playback/theme effects remain #176 |
-| User pause controls | Retained, unavailable pending exact core appearance plan/state contract | #25 with #176 for automatic effects |
+| User native/in-shell pause/resume | Root-authorized exact player-set permit; preserved stops and explicit resume after verified refreeze | #25; external paper #175 and automatic effects #176 |
 | Lighting hardware state/control | Retained, unavailable pending the typed preference/provider contract | #180 after #25/#173/#175/#176; preserve the full lighting affordance |
 
 The method-by-method ledger below inventories the pinned dispatchers. An
@@ -261,7 +309,7 @@ exec-stop and signal-delivery semantics.
 Helper tests preserve Rejected wire shape and verify success fields/caller denial.
 Bundle tests reject missing/ambiguous/stale/account-mismatched provenance.
 
-The native daemon suite is **357 passing test/subtest cases, 7 declared missing
+The native daemon suite is **359 passing test/subtest cases, 7 declared missing
 ImageMagick skips, 9 exact cross-issue exclusions**, with no blanket E2E filter.
 Four initially excluded #25 fixtures were rewritten to anonymous native query/A
 channels and now pass:

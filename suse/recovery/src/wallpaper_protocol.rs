@@ -13,6 +13,7 @@ pub enum PublicRequest {
     Query { id: Option<i64>, frame: Vec<u8> },
     Apply { id: i64, action: WallpaperApply, plain: bool },
     Audio { id: i64, action: WallpaperAudio },
+    Pause { id: i64, action: WallpaperPause },
     Workspace { id: i64, action: crate::workspace_protocol::WorkspaceRequest, plain: bool },
     Handoff { id: i64, action: AutomaticHandoff },
 }
@@ -159,6 +160,12 @@ pub fn parse_public(bytes: &[u8]) -> Result<PublicRequest, WallpaperProtocolErro
         serde_json::from_slice(bytes).map_err(|_| WallpaperProtocolError::InvalidFrame)?;
     if request.id < 0 || !(request.params.is_object() || request.params.is_null()) {
         return Err(WallpaperProtocolError::InvalidFrame);
+    }
+    if request.method == "wall.pause" {
+        let action: WallpaperPause = serde_json::from_value(request.params)
+            .map_err(|_| WallpaperProtocolError::InvalidAction)?;
+        action.validate()?;
+        return Ok(PublicRequest::Pause { id: request.id, action: action.normalized() });
     }
     if request.method == "wall.apply" {
         let action: WallpaperApply = serde_json::from_value(request.params)
@@ -407,6 +414,53 @@ pub fn parse_apply(bytes: &[u8]) -> Result<(i64, WallpaperApply), WallpaperProto
     Ok((request.id, request.params))
 }
 
+/// Manual playback intent only. No player PID, command or automatic trigger
+/// can be supplied by a public client; the owned actor resolves its players.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WallpaperPause {
+    #[serde(default)]
+    pub outputs: Vec<String>,
+    #[serde(default = "default_paused")]
+    pub paused: bool,
+}
+fn default_paused() -> bool {
+    true
+}
+impl WallpaperPause {
+    pub fn validate(&self) -> Result<(), WallpaperProtocolError> {
+        WallpaperAudio { outputs: self.outputs.clone(), mute: Some(true), volume: None }.validate()
+    }
+    pub fn normalized(&self) -> Self {
+        Self {
+            outputs: if self.outputs == ["*"] { vec![] } else { self.outputs.clone() },
+            paused: self.paused,
+        }
+    }
+    pub fn frame(&self, id: i64) -> Result<Vec<u8>, WallpaperProtocolError> {
+        self.validate()?;
+        if id < 0 {
+            return Err(WallpaperProtocolError::InvalidFrame);
+        }
+        let mut frame = serde_json::to_vec(&RpcPause {
+            method: "wall.pause".into(),
+            params: self.normalized(),
+            id,
+        })
+        .map_err(|_| WallpaperProtocolError::InvalidFrame)?;
+        frame.push(b'\n');
+        bounded_line(&frame, MAX_REQUEST_BYTES)?;
+        Ok(frame)
+    }
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RpcPause {
+    method: String,
+    params: WallpaperPause,
+    id: i64,
+}
+
 /// Exact retained wallpaper audio controls. No path, command, provider or
 /// automatic trigger can be supplied through this action.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -469,6 +523,7 @@ struct RpcAudio {
 pub enum WallpaperChange {
     Apply(WallpaperApply),
     Audio(WallpaperAudio),
+    Pause(WallpaperPause),
     Workspace(Box<crate::workspace_protocol::WorkspaceChange>),
 }
 impl WallpaperChange {
@@ -476,6 +531,7 @@ impl WallpaperChange {
         match self {
             Self::Apply(a) => a.validate(),
             Self::Audio(a) => a.validate(),
+            Self::Pause(a) => a.validate(),
             Self::Workspace(a) => a.validate(),
         }
     }
@@ -483,6 +539,7 @@ impl WallpaperChange {
         match self {
             Self::Apply(a) => a.frame(id),
             Self::Audio(a) => a.frame(id),
+            Self::Pause(a) => a.frame(id),
             Self::Workspace(a) => a.frame(id),
         }
     }
@@ -490,6 +547,7 @@ impl WallpaperChange {
         match self {
             Self::Apply(_) => "wallpaper-apply-v1",
             Self::Audio(_) => "wallpaper-audio-v1",
+            Self::Pause(_) => "wallpaper-pause-v1",
             Self::Workspace(a) => match a.request.operation {
                 crate::workspace_protocol::WorkspaceOperation::Assign => "workspace-assign-v1",
                 crate::workspace_protocol::WorkspaceOperation::Unassign => "workspace-unassign-v1",
@@ -504,6 +562,13 @@ pub fn parse_change(bytes: &[u8]) -> Result<(i64, WallpaperChange), WallpaperPro
     }
     if let Ok((id, action)) = crate::workspace_protocol::parse_frame(bytes) {
         return Ok((id, WallpaperChange::Workspace(Box::new(action))));
+    }
+    if let Ok(request) = serde_json::from_slice::<RpcPause>(bytes)
+        && request.method == "wall.pause"
+        && request.id >= 0
+    {
+        request.params.validate()?;
+        return Ok((request.id, WallpaperChange::Pause(request.params.normalized())));
     }
     let request: RpcAudio =
         serde_json::from_slice(bytes).map_err(|_| WallpaperProtocolError::InvalidFrame)?;
@@ -533,6 +598,8 @@ pub struct ActorCall {
     pub plan_sha256: String,
     pub frame: Vec<u8>,
     pub frame_sha256: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub player_pins: Vec<ActorIdentity>,
 }
 
 impl ActorCall {
@@ -558,6 +625,16 @@ impl ActorCall {
             return Err(WallpaperProtocolError::InvalidPermit);
         }
         let (id, action) = parse_change(&self.frame)?;
+        if self.player_pins.len() > 64
+            || self
+                .player_pins
+                .iter()
+                .any(|pin| pin.pid == 0 || pin.pid == self.actor.pid || pin.start_time == 0)
+            || self.player_pins.windows(2).any(|pair| pair[0].pid >= pair[1].pid)
+            || !matches!(action, WallpaperChange::Pause(_)) && !self.player_pins.is_empty()
+        {
+            return Err(WallpaperProtocolError::InvalidPermit);
+        }
         if action.frame(id)? != self.frame {
             return Err(WallpaperProtocolError::InvalidPermit);
         }
@@ -592,6 +669,45 @@ impl std::error::Error for WallpaperProtocolError {}
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn manual_pause_intent_has_no_player_pid_or_resume_authority_and_permits_bind_the_exact_set() {
+        let request = br#"{"id":8,"method":"wall.pause","params":{"outputs":["*"]}}"#;
+        let PublicRequest::Pause { id, action } =
+            parse_public(&[request.as_slice(), b"\n"].concat()).unwrap()
+        else {
+            panic!("wrong route")
+        };
+        assert_eq!(id, 8);
+        assert!(action.paused);
+        assert!(action.outputs.is_empty());
+        let frame = action.frame(8).unwrap();
+        assert_eq!(parse_change(&frame).unwrap(), (8, WallpaperChange::Pause(action)));
+        for bad in [
+            br#"{"id":8,"method":"wall.pause","params":{"pid":1,"paused":false}}"#.as_slice(),
+            br#"{"id":8,"method":"wall.pause","params":{"player_pins":[],"paused":false}}"#,
+            br#"{"id":8,"method":"wall.pause","params":{"paused":"false"}}"#,
+            br#"{"id":8,"method":"wall.pause","params":{"outputs":["DP-1","DP-1"]}}"#,
+        ] {
+            assert!(parse_public(&[bad, b"\n"].concat()).is_err());
+        }
+        let actor = ActorIdentity { pid: 2, start_time: 3 };
+        let mut permit = ActorCall {
+            actor: actor.clone(),
+            account_home_sha256: digest(b"/home/fixture"),
+            plan_sha256: "11".repeat(32),
+            frame_sha256: digest(&frame),
+            frame,
+            player_pins: vec![ActorIdentity { pid: 4, start_time: 5 }],
+        };
+        assert!(permit.validate(&actor).is_ok());
+        permit.player_pins.push(ActorIdentity { pid: 4, start_time: 6 });
+        assert!(permit.validate(&actor).is_err());
+        permit.player_pins = vec![actor.clone()];
+        assert!(permit.validate(&actor).is_err());
+        permit.player_pins = vec![ActorIdentity { pid: 4, start_time: 0 }];
+        assert!(permit.validate(&actor).is_err());
+    }
+
     use super::*;
 
     #[test]
@@ -607,6 +723,7 @@ mod tests {
         assert!(matches!(parse_public(&frame), Ok(PublicRequest::Audio { .. })));
         let actor = ActorIdentity { pid: 17, start_time: 42 };
         let call = ActorCall {
+            player_pins: vec![],
             actor: actor.clone(),
             account_home_sha256: digest(b"/home/fixture"),
             plan_sha256: "ab".repeat(32),
@@ -699,6 +816,7 @@ mod tests {
         let actor = ActorIdentity { pid: 17, start_time: 42 };
         let frame = action().frame(1).unwrap();
         let call = ActorCall {
+            player_pins: vec![],
             actor: actor.clone(),
             account_home_sha256: digest(b"/home/fixture"),
             plan_sha256: "ab".repeat(32),

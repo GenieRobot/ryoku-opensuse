@@ -266,6 +266,7 @@ mod tests {
         assert!(crate::wallpaper_protocol::parse_public(&frame).is_err());
         let actor = crate::wallpaper_protocol::ActorIdentity { pid: 17, start_time: 42 };
         let call = crate::wallpaper_protocol::ActorCall {
+            player_pins: vec![],
             actor: actor.clone(),
             account_home_sha256: crate::wallpaper_protocol::digest(b"/home/fixture"),
             plan_sha256: "cd".repeat(32),

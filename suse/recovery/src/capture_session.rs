@@ -74,6 +74,12 @@ impl NativeCaptureSession {
         self.freezer.wallpaper_actor()
     }
 
+    /// Exact installed native-player identities in the still-frozen actor lease.
+    pub fn wallpaper_players(&self) -> Result<Vec<crate::wallpaper_protocol::ActorIdentity>> {
+        self.revalidate()?;
+        self.freezer.wallpaper_players()
+    }
+
     /// Trusted helper integration only: call after authorization, durable
     /// Applying and complete linked-proof revalidation. The machine lock and
     /// every unrelated writer remain held; return requires a full refreeze.

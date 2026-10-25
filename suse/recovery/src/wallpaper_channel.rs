@@ -49,7 +49,41 @@ impl NativeActor {
         Ok(self.identity.clone())
     }
 
-    pub(crate) fn execution(&self) -> io::Result<crate::writer_freeze::ActorExecution> {
+    pub(crate) fn player_identities(&self) -> io::Result<Vec<ActorIdentity>> {
+        self.identity()?;
+        let image = crate::writer_freeze::ExecutablePin::open(std::path::Path::new(
+            "/usr/bin/ryogami-live",
+        ))
+        .map_err(io::Error::other)?;
+        let mut players = Vec::new();
+        for pid in crate::writer_freeze::owned_child_processes(self.identity.pid as i32)
+            .map_err(io::Error::other)?
+        {
+            if image.matches(pid).map_err(io::Error::other)? {
+                players.push(process_identity(pid as u32, self.identity.pid, self.uid)?);
+            }
+        }
+        if players.len() > 64 {
+            return Err(io::Error::other("wallpaper player capacity"));
+        }
+        self.identity()?;
+        Ok(players)
+    }
+
+    pub(crate) fn preserved_player_stops(
+        &self,
+    ) -> io::Result<Vec<crate::writer_freeze::PreservedPlayerStop>> {
+        self.identity()?;
+        let stops = crate::writer_freeze::stopped_actor_players(self.identity.pid as i32, self.uid)
+            .map_err(io::Error::other)?;
+        self.identity()?;
+        Ok(stops)
+    }
+
+    pub(crate) fn execution(
+        &self,
+        call: &ActorCall,
+    ) -> io::Result<crate::writer_freeze::ActorExecution> {
         self.identity()?;
         let executables = ["/usr/bin/ryogami-live", "/usr/bin/ffmpeg", "/usr/bin/ffprobe"]
             .into_iter()
@@ -58,7 +92,17 @@ impl NativeActor {
                     .map_err(io::Error::other)
             })
             .collect::<io::Result<Vec<_>>>()?;
+        let (_, action) = parse_change(&call.frame).map_err(io::Error::other)?;
+        let playback = if let crate::wallpaper_protocol::WallpaperChange::Pause(action) = action {
+            Some(crate::writer_freeze::PlaybackExecution {
+                players: call.player_pins.clone(),
+                requested_paused: action.paused,
+            })
+        } else {
+            None
+        };
         Ok(crate::writer_freeze::ActorExecution {
+            playback,
             actor_pid: self.identity.pid as i32,
             executables,
         })

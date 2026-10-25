@@ -22,6 +22,7 @@ use ryoku_recovery::{
     native_checkpoint::verify_historical_root_checkpoint,
     wallpaper_protocol::{
         self as wire, ActorCall, WallpaperApply, WallpaperAudio, WallpaperChange, WallpaperKind,
+        WallpaperPause,
     },
 };
 use serde::Serialize;
@@ -61,6 +62,14 @@ pub fn set_audio(
     rpc_id: i64,
 ) -> Result<CompletedWallpaper, ServiceError> {
     change(peer, operator_gid, WallpaperChange::Audio(action.normalized()), rpc_id)
+}
+pub fn pause(
+    peer: &PeerIdentity,
+    operator_gid: u32,
+    action: WallpaperPause,
+    rpc_id: i64,
+) -> Result<CompletedWallpaper, ServiceError> {
+    change(peer, operator_gid, WallpaperChange::Pause(action.normalized()), rpc_id)
 }
 pub fn workspace(
     peer: &PeerIdentity,
@@ -130,6 +139,7 @@ fn change(
     let action_kind = match &action {
         WallpaperChange::Apply(_) => ManagedActionKind::ApplyWallpaper,
         WallpaperChange::Audio(_) => ManagedActionKind::SetWallpaperAudio,
+        WallpaperChange::Pause(_) => ManagedActionKind::PauseWallpaper,
         WallpaperChange::Workspace(action) => match action.request.operation {
             ryoku_recovery::workspace_protocol::WorkspaceOperation::Assign => {
                 ManagedActionKind::AssignWorkspace
@@ -149,6 +159,7 @@ fn change(
         packages: packages.clone(),
         actor_layout_changed: false,
         last_plan: None,
+        player_pins: vec![],
     };
     let planned = review_operator_plan(peer, operator_gid, &mut provider).map_err(gate_error)?;
     let result = run_operator_mutation(
@@ -217,6 +228,11 @@ fn validate_actor_reply(
     }
     match action {
         WallpaperChange::Apply(_) if value["result"]["applied"].as_str().is_some() => (),
+        WallpaperChange::Pause(action)
+            if value["result"]["paused"].as_bool() == Some(action.paused)
+                && value["result"]["effective_paused"].as_bool().is_some()
+                && (!action.paused || value["result"]["effective_paused"] == true)
+                && value["result"]["player_pins"].is_array() => {}
         WallpaperChange::Audio(_) => {
             audio_receipt(&value["result"]).map_err(|_| ActorReplyError::Failed)?;
         }
@@ -272,6 +288,7 @@ struct WallpaperProvider<'a> {
     packages: Vec<PackageRevision>,
     actor_layout_changed: bool,
     last_plan: Option<PlannedChange>,
+    player_pins: Vec<wire::ActorIdentity>,
 }
 impl NativeMutationProvider for WallpaperProvider<'_> {
     type Output = Vec<u8>;
@@ -330,7 +347,7 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
                 source_identity(&home, self.account.uid(), &action.path, action.kind)
                     .map_err(|_| GateError::PlanChanged)?,
             ),
-            WallpaperChange::Audio(_) => None,
+            WallpaperChange::Audio(_) | WallpaperChange::Pause(_) => None,
             WallpaperChange::Workspace(action) => action
                 .prepared
                 .as_ref()
@@ -344,7 +361,12 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
                 .map_err(|_| GateError::PlanChanged)?,
         };
         let actor = session.wallpaper_actor().map_err(|_| GateError::PlanChanged)?;
-        let plan = wallpaper_plan(
+        self.player_pins = if matches!(self.action, WallpaperChange::Pause(_)) {
+            session.wallpaper_players().map_err(|_| GateError::PlanChanged)?
+        } else {
+            vec![]
+        };
+        let mut plan = wallpaper_plan(
             &self.action,
             self.rpc_id,
             source.as_ref(),
@@ -352,6 +374,12 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
             self.bundle.id(),
             &self.packages,
         )?;
+        if matches!(self.action, WallpaperChange::Pause(_)) {
+            plan.plan_fingerprint = wire::digest(
+                &serde_json::to_vec(&(&plan.plan_fingerprint, &self.player_pins))
+                    .map_err(|_| GateError::InvalidPlan)?,
+            );
+        }
         self.last_plan = Some(plan.clone());
         Ok(plan)
     }
@@ -387,6 +415,7 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
         let home_path = std::fs::read_link(format!("/proc/self/fd/{}", home.as_raw_fd()))
             .map_err(|_| GateError::PlanChanged)?;
         let call = ActorCall {
+            player_pins: self.player_pins.clone(),
             account_home_sha256: wire::digest(home_path.as_os_str().as_encoded_bytes()),
             actor: session.wallpaper_actor().map_err(|_| GateError::PlanChanged)?,
             plan_sha256,
@@ -407,6 +436,19 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
     fn health_check(&mut self, reply: &Vec<u8>) -> Result<(), GateError> {
         self.account.revalidate().map_err(|_| GateError::PostChangeFailed)?;
         let home = self.account.capture_home().map_err(|_| GateError::PostChangeFailed)?;
+        if let WallpaperChange::Pause(_) = &self.action {
+            validate_actor_reply(reply, self.rpc_id, &self.action)
+                .map_err(|_| GateError::PostChangeFailed)?;
+            let value: serde_json::Value =
+                serde_json::from_slice(reply).map_err(|_| GateError::PostChangeFailed)?;
+            let players: Vec<wire::ActorIdentity> =
+                serde_json::from_value(value["result"]["player_pins"].clone())
+                    .map_err(|_| GateError::PostChangeFailed)?;
+            if players != self.player_pins {
+                return Err(GateError::PostChangeFailed);
+            }
+            return Ok(());
+        }
         if let WallpaperChange::Workspace(action) = &self.action {
             let prepared = action.prepared.as_ref().ok_or(GateError::PostChangeFailed)?;
             let bytes = match read_home(&home, ".cache/ryogami/workspaces.json", 16 * 1024 * 1024) {

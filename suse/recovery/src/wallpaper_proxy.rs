@@ -181,6 +181,9 @@ fn apply_via_helper(id: i64, action: &WallpaperChange) -> io::Result<Vec<u8>> {
         WallpaperChange::Apply(action) => {
             ("apply_wallpaper", "wallpaper_applied", serde_json::to_value(action))
         }
+        WallpaperChange::Pause(action) => {
+            ("pause_wallpaper", "wallpaper_paused", serde_json::to_value(action))
+        }
         WallpaperChange::Audio(action) => {
             ("set_wallpaper_audio", "wallpaper_audio_set", serde_json::to_value(action))
         }
@@ -353,6 +356,10 @@ fn relay_authenticated(
                         } else {
                             reply
                         };
+                        write_public(&output, &reply)?;
+                    }
+                    Ok(PublicRequest::Pause { id, action }) => {
+                        let reply = mutation_reply(id, apply(id, &WallpaperChange::Pause(action)))?;
                         write_public(&output, &reply)?;
                     }
                     Ok(PublicRequest::Audio { id, action }) => {
@@ -585,6 +592,46 @@ mod tests {
             worker.join().unwrap().unwrap();
         });
     }
+    #[test]
+    fn direct_pause_and_resume_use_only_typed_helper_and_cannot_supply_player_pins() {
+        let (mut client, proxy) = UnixStream::pair().unwrap();
+        let (native, mut backend) = UnixStream::pair().unwrap();
+        std::thread::scope(|scope| {
+            let worker = scope.spawn(|| relay_authenticated(proxy, native, &mut |id, change| {
+                let WallpaperChange::Pause(action) = change else { panic!("wrong action") };
+                assert!(action.outputs.is_empty());
+                if !action.paused { return Err(io::Error::new(io::ErrorKind::PermissionDenied,"resume denied")); }
+                Ok(format!("{{\"id\":{id},\"result\":{{\"paused\":true,\"effective_paused\":true,\"player_pins\":[]}}}}\n").into_bytes())
+            }));
+            let mut reader = BufReader::new(client.try_clone().unwrap());
+            for (id, paused) in [(1, true), (2, false)] {
+                client
+                    .write_all(
+                        &wire::WallpaperPause { outputs: vec!["*".into()], paused }
+                            .frame(id)
+                            .unwrap(),
+                    )
+                    .unwrap();
+                let mut reply = String::new();
+                reader.read_line(&mut reply).unwrap();
+                let value: serde_json::Value = serde_json::from_str(&reply).unwrap();
+                assert_eq!(value["id"], id);
+                assert_eq!(value.get("result").is_some(), paused);
+            }
+            client.write_all(b"{\"id\":3,\"method\":\"wall.pause\",\"params\":{\"paused\":false,\"player_pins\":[]}}\n").unwrap();
+            let mut reply = String::new();
+            reader.read_line(&mut reply).unwrap();
+            assert!(
+                serde_json::from_str::<serde_json::Value>(&reply).unwrap().get("error").is_some()
+            );
+            backend.set_read_timeout(Some(Duration::from_millis(100))).unwrap();
+            assert!(backend.read(&mut [0]).is_err());
+            client.shutdown(std::net::Shutdown::Both).unwrap();
+            backend.shutdown(std::net::Shutdown::Both).unwrap();
+            worker.join().unwrap().unwrap();
+        });
+    }
+
     #[test]
     fn direct_audio_frames_require_the_typed_helper_and_never_reach_query_actor() {
         let (mut client, proxy) = UnixStream::pair().unwrap();

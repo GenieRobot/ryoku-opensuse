@@ -44,10 +44,10 @@ index 316de02..9ace19c 100644
  	}
  }
 diff --git a/ryoku/shell/ryogami/daemon/apply.go b/ryoku/shell/ryogami/daemon/apply.go
-index 3d23bef..7c6ca79 100644
+index 3d23bef..4582589 100644
 --- a/ryoku/shell/ryogami/daemon/apply.go
 +++ b/ryoku/shell/ryogami/daemon/apply.go
-@@ -1,13 +1,18 @@
+@@ -1,13 +1,19 @@
  package main
  
  import (
@@ -59,6 +59,7 @@ index 3d23bef..7c6ca79 100644
  	"path/filepath"
 +	"reflect"
  	"sort"
++	"strconv"
  	"strings"
 +	"syscall"
  	"time"
@@ -66,7 +67,7 @@ index 3d23bef..7c6ca79 100644
  )
  
  // The apply path: publish the frame the shell QML renders, persist the
-@@ -18,12 +23,26 @@ import (
+@@ -18,12 +24,26 @@ import (
  // video_engine knob: "ryogami" (the C player + READY handshake, default) or
  // "in_shell" (the clip publishes as videoPath and the shell decodes it).
  func (d *daemon) applyWallpaperReasonRecord(reason, wpType, path, mode string, outputs []string, mute map[string]bool, volume map[string]int, record bool) error {
@@ -93,7 +94,7 @@ index 3d23bef..7c6ca79 100644
  	// An empty caller set means every output; a named set a guard emptied leaves nothing to paint.
  	req := &applyRequest{Type: wpType, Path: path, Outputs: outputs, Reason: reason}
  	pickOnly := false
-@@ -59,7 +78,7 @@ func (d *daemon) applyWallpaperReasonRecord(reason, wpType, path, mode string, o
+@@ -59,7 +79,7 @@ func (d *daemon) applyWallpaperReasonRecord(reason, wpType, path, mode string, o
  	paint := path
  	prefs := wallPrefs()
  	// Stop any Wallpaper Engine scene on these outputs so the two renderers do not overdraw.
@@ -102,7 +103,7 @@ index 3d23bef..7c6ca79 100644
  		_ = d.paper.stop(stopTargets(outputs))
  	}
  	// A switch away from a live clip must drop any transcode still in flight
-@@ -313,7 +332,7 @@ func defaultWallpaperFrom(state map[string]map[string]interface{}) string {
+@@ -313,7 +333,7 @@ func defaultWallpaperFrom(state map[string]map[string]interface{}) string {
  func syncWallState(state map[string]map[string]interface{}) {
  	dir := stateHome()
  	_ = os.MkdirAll(dir, 0o755)
@@ -111,7 +112,7 @@ index 3d23bef..7c6ca79 100644
  }
  
  // legacyWallStatePath: the shell's own choice from before Ryogami owned the
-@@ -912,3 +931,428 @@ func (d *daemon) wallpaperStillExpected(path string, targetOutputs []string, wor
+@@ -912,3 +932,532 @@ func (d *daemon) wallpaperStillExpected(path string, targetOutputs []string, wor
  	}
  	return true
  }
@@ -540,6 +541,110 @@ index 3d23bef..7c6ca79 100644
 +	}
 +	return result, nil
 +}
++
++// Manual playback has its own permit. Automatic rules and external paper
++// providers retain their independently owned authorization routes.
++func (d *daemon) brokerManualPause(p brokerPause, pins []brokerPlayerPin) (map[string]interface{}, error) {
++	if pins == nil {
++		pins = []brokerPlayerPin{}
++	}
++	if !p.valid() || len(pins) > 64 {
++		return nil, fmt.Errorf("invalid manual playback action")
++	}
++	if d.paper != nil && d.paper.running() {
++		return nil, fmt.Errorf("external wallpaper pause requires issue175 provider authorization")
++	}
++	expected := map[int]uint64{}
++	for _, pin := range pins {
++		if pin.PID <= 0 || pin.Start == 0 || expected[pin.PID] != 0 {
++			return nil, fmt.Errorf("invalid linked player identity")
++		}
++		expected[pin.PID] = pin.Start
++	}
++	processes := map[int]*os.Process{}
++	if d.video != nil {
++		d.video.mu.Lock()
++		for _, player := range d.video.procs {
++			if player.cmd == nil || player.cmd.Process == nil {
++				continue
++			}
++			process := player.cmd.Process
++			start, err := brokerPlayerStart(process.Pid)
++			if err != nil || expected[process.Pid] != start || process.Signal(syscall.Signal(0)) != nil {
++				d.video.mu.Unlock()
++				return nil, fmt.Errorf("native player identity changed before playback control")
++			}
++			processes[process.Pid] = process
++		}
++		d.video.mu.Unlock()
++	}
++	if len(processes) != len(expected) {
++		return nil, fmt.Errorf("linked native player set changed")
++	}
++	pauseState.mu.Lock()
++	pauseLocked := true
++	defer func() {
++		if pauseLocked {
++			pauseState.mu.Unlock()
++		}
++	}()
++	manual := map[string]bool{}
++	for key, value := range pauseState.manual {
++		manual[key] = value
++	}
++	if len(p.Outputs) == 0 || contains(p.Outputs, "*") {
++		manual = map[string]bool{}
++		if *p.Paused {
++			manual["*"] = true
++		}
++	} else {
++		for _, output := range p.Outputs {
++			if *p.Paused {
++				manual[output] = true
++			} else {
++				delete(manual, output)
++			}
++		}
++	}
++	effective := pauseState.active || len(manual) != 0
++	if effective != pauseState.applied {
++		signal := syscall.SIGCONT
++		if effective {
++			signal = syscall.SIGSTOP
++		}
++		// os.Process retains the process identity acquired by Go's Linux
++		// spawn/pidfd support. Never signal a raw negative/reusable group PID.
++		for _, process := range processes {
++			if err := process.Signal(signal); err != nil {
++				return nil, fmt.Errorf("native player signal failed; linked action remains failed: %w", err)
++			}
++		}
++	}
++	pauseState.manual = manual
++	pauseState.applied = effective
++	pauseState.mu.Unlock()
++	pauseLocked = false
++	if d.surface != nil {
++		d.surface.setPaused(effective)
++	}
++	d.broadcastPlaybackStatus(effective, nil)
++	return map[string]interface{}{"paused": *p.Paused, "effective_paused": effective, "player_pins": pins}, nil
++}
++func brokerPlayerStart(pid int) (uint64, error) {
++	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
++	if err != nil {
++		return 0, err
++	}
++	end := strings.LastIndex(string(data), ") ")
++	if end < 0 {
++		return 0, fmt.Errorf("invalid native player stat")
++	}
++	fields := strings.Fields(string(data)[end+2:])
++	if len(fields) < 20 {
++		return 0, fmt.Errorf("missing native player identity")
++	}
++	return strconv.ParseUint(fields[19], 10, 64)
++}
 diff --git a/ryoku/shell/ryogami/daemon/apply_test.go b/ryoku/shell/ryogami/daemon/apply_test.go
 index a38ea4c..7ac1c20 100644
 --- a/ryoku/shell/ryogami/daemon/apply_test.go
@@ -556,7 +661,7 @@ index a38ea4c..7ac1c20 100644
  	// Seed the poisoned state: both webps recorded as video with a transcode.
  	d.store.entries["still.webp"] = Entry{Key: "still.webp", Name: "still.webp", Type: "video", VideoFile: "anim/still.mp4"}
 diff --git a/ryoku/shell/ryogami/daemon/daemon.go b/ryoku/shell/ryogami/daemon/daemon.go
-index 9b7e35f..a8daeb1 100644
+index 9b7e35f..4ba2a20 100644
 --- a/ryoku/shell/ryogami/daemon/daemon.go
 +++ b/ryoku/shell/ryogami/daemon/daemon.go
 @@ -2,16 +2,21 @@ package main
@@ -581,7 +686,7 @@ index 9b7e35f..a8daeb1 100644
  )
  
  const (
-@@ -22,6 +27,276 @@ const (
+@@ -22,6 +27,309 @@ const (
  
  var connectionSequence atomic.Uint64
  
@@ -633,15 +738,30 @@ index 9b7e35f..a8daeb1 100644
 +	Mute    *bool    `json:"mute,omitempty"`
 +	Volume  *int     `json:"volume,omitempty"`
 +}
++type brokerPlayerPin struct {
++	PID   int    `json:"pid"`
++	Start uint64 `json:"start_time"`
++}
++type brokerPause struct {
++	Outputs []string `json:"outputs"`
++	Paused  *bool    `json:"paused"`
++}
++
++func (p brokerPause) valid() bool {
++	yes := true
++	return p.Paused != nil && (brokerAudio{Outputs: p.Outputs, Mute: &yes}).valid()
++}
++
 +type brokerPermit struct {
 +	Actor struct {
 +		PID   int    `json:"pid"`
 +		Start uint64 `json:"start_time"`
 +	} `json:"actor"`
-+	HomeSHA string `json:"account_home_sha256"`
-+	Plan    string `json:"plan_sha256"`
-+	Frame   []byte `json:"frame"`
-+	Hash    string `json:"frame_sha256"`
++	HomeSHA    string            `json:"account_home_sha256"`
++	Plan       string            `json:"plan_sha256"`
++	Frame      []byte            `json:"frame"`
++	Hash       string            `json:"frame_sha256"`
++	PlayerPins []brokerPlayerPin `json:"player_pins,omitempty"`
 +}
 +
 +var brokerApply struct {
@@ -802,16 +922,21 @@ index 9b7e35f..a8daeb1 100644
 +		return
 +	}
 +	var req request
-+	if json.Unmarshal(permit.Frame, &req) != nil || (req.Method != "wall.apply" && req.Method != "wall.set_audio" && req.Method != "broker.workspace") {
++	if json.Unmarshal(permit.Frame, &req) != nil || (req.Method != "wall.apply" && req.Method != "wall.set_audio" && req.Method != "broker.workspace" && req.Method != "wall.pause") {
 +		return
 +	}
 +	var action brokerAction
 +	var audio brokerAudio
 +	var workspace brokerWorkspace
++	var pause brokerPause
 +	decoder = json.NewDecoder(strings.NewReader(string(req.Params)))
 +	decoder.DisallowUnknownFields()
 +	if req.Method == "wall.apply" {
 +		if decoder.Decode(&action) != nil || (action.Type != "static" && action.Type != "video") {
++			return
++		}
++	} else if req.Method == "wall.pause" {
++		if decoder.Decode(&pause) != nil || !pause.valid() {
 +			return
 +		}
 +	} else if req.Method == "broker.workspace" {
@@ -826,6 +951,19 @@ index 9b7e35f..a8daeb1 100644
 +	if !d.brokerLayoutMatches(permit.HomeSHA) {
 +		reply, _ := json.Marshal(errResp(req.ID, -32012, "loaded wallpaper state roots differ from enrolled restore-point locations; restart the service with an enrolled configuration"))
 +		fmt.Fprintf(conn, "%s\n", reply)
++		return
++	}
++	if req.Method == "wall.pause" {
++		result, err := d.brokerManualPause(pause, permit.PlayerPins)
++		response := ok(req.ID, result)
++		if err != nil {
++			response = errResp(req.ID, -32016, err.Error())
++		}
++		reply, _ := json.Marshal(response)
++		fmt.Fprintf(conn, "%s\n", reply)
++		return
++	}
++	if len(permit.PlayerPins) != 0 {
 +		return
 +	}
 +	if req.Method == "broker.workspace" {
@@ -858,7 +996,7 @@ index 9b7e35f..a8daeb1 100644
  // daemon wires the pieces: the wallpaper surface (rendered by the shell QML),
  // the catalog store (served to the picker), the event hub, and the managed
  // picker process. One unix socket serves everything.
-@@ -107,35 +382,13 @@ func (d *daemon) broadcast(name string, data interface{}) {
+@@ -107,35 +415,13 @@ func (d *daemon) broadcast(name string, data interface{}) {
  	d.events.publish(string(b))
  }
  
@@ -897,7 +1035,7 @@ index 9b7e35f..a8daeb1 100644
  	d := &daemon{
  		cfg:            cfg,
  		surface:        newWallSurface(),
-@@ -152,7 +405,9 @@ func runDaemon() error {
+@@ -152,7 +438,9 @@ func runDaemon() error {
  	d.sources = newSources(d)
  	d.paper = newPaperClient(d)
  	d.workshop = newWorkshopLib(d)
@@ -908,7 +1046,7 @@ index 9b7e35f..a8daeb1 100644
  	cfg = d.config()
  	// A finished pipeline replaced sources on disk, so the catalog rescans;
  	// every pipeline event also reaches subscribed clients untouched.
-@@ -178,7 +433,7 @@ func runDaemon() error {
+@@ -178,7 +466,7 @@ func runDaemon() error {
  
  	// livewall children must not outlive the daemon, and a previous daemon's
  	// orphans must not play under a fresh restore.
@@ -917,7 +1055,7 @@ index 9b7e35f..a8daeb1 100644
  	go func() {
  		sig := make(chan os.Signal, 1)
  		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-@@ -197,44 +452,83 @@ func runDaemon() error {
+@@ -197,44 +485,83 @@ func runDaemon() error {
  	// Publish the empty snapshot so a subscriber before the first set sees a
  	// defined frame, then restore the last wallpaper and rescan the catalog.
  	d.surface.publishCurrent()
@@ -1033,7 +1171,7 @@ index 9b7e35f..a8daeb1 100644
  	}
  }
  
-@@ -585,6 +879,9 @@ func (d *daemon) resetCache() {
+@@ -585,6 +912,9 @@ func (d *daemon) resetCache() {
  // nothing extra today (thumbs are mtime-gated), it only bypasses the
  // one-at-a-time gate's early return so an explicit rebuild always runs.
  func (d *daemon) rescan(force bool) {
@@ -1066,10 +1204,10 @@ index 0d34a34..d3a9a3d 100644
  // live on the socket, never steal it: the interloper restores the saved
  // wallpaper over the running one and dies with the terminal, leaving the
 diff --git a/ryoku/shell/ryogami/daemon/e2e_test.go b/ryoku/shell/ryogami/daemon/e2e_test.go
-index d7a968a..2383416 100644
+index d7a968a..1963142 100644
 --- a/ryoku/shell/ryogami/daemon/e2e_test.go
 +++ b/ryoku/shell/ryogami/daemon/e2e_test.go
-@@ -1,86 +1,150 @@
+@@ -1,86 +1,155 @@
  package main
  
 -// Wiring proof against the real binary, ported from the Rust daemon's e2e
@@ -1091,7 +1229,7 @@ index d7a968a..2383416 100644
 +	"io"
  	"net"
  	"os"
--	"os/exec"
+ 	"os/exec"
  	"path/filepath"
 +	"strconv"
  	"strings"
@@ -1167,11 +1305,11 @@ index d7a968a..2383416 100644
 +	t.Setenv("RYOKU_WALLPAPER_BROKER_FD", "")
 +	if err := runDaemon(); err == nil {
 +		t.Fatal("standalone daemon bypassed the Rust owner")
-+	}
+ 	}
 +	sock := filepath.Join(runtime, "ryogami.sock")
 +	if _, err := os.Lstat(sock); !os.IsNotExist(err) {
 +		t.Fatalf("native listener exists: %v", err)
- 	}
++	}
 +	var cfg config
 +	cfg.Paths.Cache = cache
 +	cfg.Paths.Wallpaper = filepath.Join(root, "Pictures", "Wallpapers")
@@ -1233,6 +1371,9 @@ index d7a968a..2383416 100644
 +	return d.approvedAction(id, "wall.apply", action)
 +}
 +func (d *testDaemon) approvedAction(id int, method string, params interface{}) string {
++	return d.approvedPlayers(id, method, params, nil)
++}
++func (d *testDaemon) approvedPlayers(id int, method string, params interface{}, players []brokerPlayerPin) string {
 +	d.t.Helper()
 +	frame, err := json.Marshal(map[string]interface{}{"id": id, "method": method, "params": params})
 +	if err != nil {
@@ -1240,6 +1381,7 @@ index d7a968a..2383416 100644
  	}
 +	frame = append(frame, '\n')
 +	var permit brokerPermit
++	permit.PlayerPins = players
 +	permit.Actor.PID = os.Getpid()
 +	stat, err := os.ReadFile("/proc/self/stat")
 +	if err != nil {
@@ -1270,7 +1412,7 @@ index d7a968a..2383416 100644
  }
  
  func (d *testDaemon) send(line string) string {
-@@ -135,7 +199,7 @@ func TestE2EWallpaperTopicPublishesFrameOnSet(t *testing.T) {
+@@ -135,7 +204,7 @@ func TestE2EWallpaperTopicPublishesFrameOnSet(t *testing.T) {
  
  	img := filepath.Join(d.root, "wall.png")
  	writeE2EPNG(t, img)
@@ -1279,7 +1421,7 @@ index d7a968a..2383416 100644
  		t.Fatalf("set reply: %s", got)
  	}
  	frame := readJSONLine(t, r)
-@@ -247,8 +311,7 @@ func TestE2EWallApplyPublishesTopicFrame(t *testing.T) {
+@@ -247,8 +316,7 @@ func TestE2EWallApplyPublishesTopicFrame(t *testing.T) {
  	r := bufio.NewReader(sub)
  	readJSONLine(t, r) // retained empty frame
  
@@ -1289,7 +1431,7 @@ index d7a968a..2383416 100644
  	if !strings.Contains(reply, `"applied"`) {
  		t.Fatalf("apply replied: %s", reply)
  	}
-@@ -455,11 +518,91 @@ func TestE2EWallDeleteRequiresSubfolderCatalogKey(t *testing.T) {
+@@ -455,11 +523,91 @@ func TestE2EWallDeleteRequiresSubfolderCatalogKey(t *testing.T) {
  // A `wall.apply` must write that legacy state file with the applied path, or
  // those readers see a stale wallpaper (a saved rice grabs the wrong wall).
  func TestE2EWallApplyWritesLegacyState(t *testing.T) {
@@ -1382,7 +1524,7 @@ index d7a968a..2383416 100644
  	if !strings.Contains(reply, `"applied"`) {
  		t.Fatalf("apply replied: %s", reply)
  	}
-@@ -480,4 +623,498 @@ func TestE2EWallApplyWritesLegacyState(t *testing.T) {
+@@ -480,4 +628,621 @@ func TestE2EWallApplyWritesLegacyState(t *testing.T) {
  	if got != img {
  		t.Fatalf("state file = %q, want %q", got, img)
  	}
@@ -1880,6 +2022,129 @@ index d7a968a..2383416 100644
 +			}
 +		})
 +	}
++}
++
++func resetManualPauseFixture(t *testing.T) {
++	t.Helper()
++	pauseState.mu.Lock()
++	oldManual, oldActive, oldApplied := pauseState.manual, pauseState.active, pauseState.applied
++	pauseState.manual, pauseState.active, pauseState.applied = nil, false, false
++	pauseState.mu.Unlock()
++	t.Cleanup(func() {
++		pauseState.mu.Lock()
++		pauseState.manual, pauseState.active, pauseState.applied = oldManual, oldActive, oldApplied
++		pauseState.mu.Unlock()
++	})
++}
++func pauseFixtureState(t *testing.T, pid int, stopped bool) {
++	t.Helper()
++	until := time.Now().Add(2 * time.Second)
++	for {
++		data, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
++		if err != nil {
++			t.Fatal(err)
++		}
++		state := strings.Fields(string(data)[strings.LastIndex(string(data), ") ")+2:])[0]
++		if (state == "T") == stopped {
++			return
++		}
++		if time.Now().After(until) {
++			t.Fatalf("player state=%s want stopped=%v", state, stopped)
++		}
++		time.Sleep(time.Millisecond)
++	}
++}
++func TestE2EManualPauseResumeKeepsPlayerIdentityAndOtherWallpaperWorkflows(t *testing.T) {
++	d := startDaemon(t)
++	resetManualPauseFixture(t)
++	image := filepath.Join(d.root, "manual-pause.png")
++	writeE2EPNG(t, image)
++	if reply := d.apply(200, image); !strings.Contains(reply, `"applied"`) {
++		t.Fatal(reply)
++	}
++	// This temporary owned child tests signal identity/behavior. Installed C
++	// player image admission and root linked proof are independently Rust-tested.
++	cmd := exec.Command("/usr/bin/sleep", "30")
++	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
++	if err := cmd.Start(); err != nil {
++		t.Fatal(err)
++	}
++	defer func() { _ = cmd.Process.Kill(); _ = cmd.Wait() }()
++	start, err := brokerPlayerStart(cmd.Process.Pid)
++	if err != nil {
++		t.Fatal(err)
++	}
++	pins := []brokerPlayerPin{{PID: cmd.Process.Pid, Start: start}}
++	d.native.video.mu.Lock()
++	d.native.video.procs["DP-1"] = &liveProc{cmd: cmd, output: "DP-1"}
++	d.native.video.mu.Unlock()
++	pause := brokerPause{Outputs: []string{}, Paused: boolPtrForAudio(true)}
++	if reply := d.send(`{"id":201,"method":"wall.pause","params":{"paused":true}}`); !strings.Contains(reply, `"error"`) {
++		t.Fatalf("query channel granted pause: %s", reply)
++	}
++	pauseFixtureState(t, cmd.Process.Pid, false)
++	stale := []brokerPlayerPin{{PID: cmd.Process.Pid, Start: start + 1}}
++	if reply := d.approvedPlayers(202, "wall.pause", pause, stale); !strings.Contains(reply, `"error"`) {
++		t.Fatal(reply)
++	}
++	pauseFixtureState(t, cmd.Process.Pid, false)
++	if reply := d.approvedPlayers(203, "wall.pause", pause, pins); !strings.Contains(reply, `"effective_paused":true`) {
++		t.Fatal(reply)
++	}
++	pauseFixtureState(t, cmd.Process.Pid, true)
++	if !d.native.surface.snapshot().Default.Paused {
++		t.Fatal("pause did not reach shell frame")
++	}
++	if reply := d.send(`{"id":204,"method":"wall.pause","params":{"paused":false}}`); !strings.Contains(reply, `"error"`) {
++		t.Fatalf("query channel granted resume: %s", reply)
++	}
++	pauseFixtureState(t, cmd.Process.Pid, true)
++	resume := brokerPause{Outputs: []string{}, Paused: boolPtrForAudio(false)}
++	if reply := d.approvedPlayers(205, "wall.pause", resume, pins); !strings.Contains(reply, `"effective_paused":false`) {
++		t.Fatal(reply)
++	}
++	pauseFixtureState(t, cmd.Process.Pid, false)
++	if reply := d.approvedPlayers(206, "wall.pause", pause, pins); !strings.Contains(reply, `"effective_paused":true`) {
++		t.Fatal(reply)
++	}
++	audio := brokerAudio{Outputs: []string{}, Mute: boolPtrForAudio(false), Volume: intPtrForAudio(35)}
++	if reply := d.approvedAction(207, "wall.set_audio", audio); !strings.Contains(reply, `"audio_written"`) {
++		t.Fatal(reply)
++	}
++	pauseFixtureState(t, cmd.Process.Pid, true)
++	action := brokerAction{Type: "static", Path: image, Outputs: []string{"HDMI-A-1"}, Mute: map[string]bool{}, Volume: map[string]int{}}
++	if reply := d.applyAction(208, action); !strings.Contains(reply, `"applied"`) {
++		t.Fatal(reply)
++	}
++	pauseFixtureState(t, cmd.Process.Pid, true)
++	if !d.native.surface.snapshot().Outputs["HDMI-A-1"].Paused {
++		t.Fatal("fresh wallpaper lost manual pause state")
++	}
++}
++func TestE2EManualPauseWithoutNativePlayersRetainsInShellControls(t *testing.T) {
++	d := startDaemon(t)
++	resetManualPauseFixture(t)
++	image := filepath.Join(d.root, "shell-pause.png")
++	writeE2EPNG(t, image)
++	if reply := d.apply(220, image); !strings.Contains(reply, `"applied"`) {
++		t.Fatal(reply)
++	}
++	for i, paused := range []bool{true, false} {
++		reply := d.approvedAction(221+i, "wall.pause", brokerPause{Outputs: []string{}, Paused: boolPtrForAudio(paused)})
++		var response struct {
++			Result struct {
++				Paused    bool              `json:"paused"`
++				Effective bool              `json:"effective_paused"`
++				Pins      []brokerPlayerPin `json:"player_pins"`
++			} `json:"result"`
++		}
++		if json.Unmarshal([]byte(reply), &response) != nil || strings.Contains(reply, `"error"`) || response.Result.Paused != paused || response.Result.Effective != paused || response.Result.Pins == nil || len(response.Result.Pins) != 0 {
++			t.Fatal(reply)
++		}
++		if d.native.surface.snapshot().Default.Paused != paused {
++			t.Fatal("in-shell pause frame mismatch")
++		}
++	}
  }
 diff --git a/ryoku/shell/ryogami/daemon/hooks.go b/ryoku/shell/ryogami/daemon/hooks.go
 index 909b91c..eb5e808 100644
@@ -2127,6 +2392,24 @@ index b917e99..e8996a6 100644
  
  func (s *store) saveLocked() {
  	saveJSON(filepath.Join(s.dir, "index.json"), s.entries)
+diff --git a/ryoku/shell/ryogami/daemon/surface.go b/ryoku/shell/ryogami/daemon/surface.go
+index ced8568..947e7fa 100644
+--- a/ryoku/shell/ryogami/daemon/surface.go
++++ b/ryoku/shell/ryogami/daemon/surface.go
+@@ -77,7 +77,12 @@ func (w *wallSurface) publishCurrent() {
+ func fresh(rev int64, pic, fit string, tr interface{}) frameEntry {
+ 	// A fresh wallpaper needs a fresh cutout; the shell daemon's depth worker
+ 	// regenerates it and hands it back over `depth set`.
+-	return frameEntry{Path: pic, Revision: rev, Fit: fit, Transition: tr}
++	// New wallpaper frames retain the user's current playback intent.
++	// Both manual and automatic pause are global in the pinned daemon.
++	pauseState.mu.Lock()
++	paused := pauseState.active || len(pauseState.manual) > 0
++	pauseState.mu.Unlock()
++	return frameEntry{Path: pic, Revision: rev, Fit: fit, Transition: tr, Paused: paused}
+ }
+ 
+ // videoClip is the in-shell video part of a frame: the clip path plus the audio
 diff --git a/ryoku/shell/ryogami/daemon/verbs.go b/ryoku/shell/ryogami/daemon/verbs.go
 index 4a7747e..64711b5 100644
 --- a/ryoku/shell/ryogami/daemon/verbs.go

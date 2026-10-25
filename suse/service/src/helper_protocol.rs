@@ -82,6 +82,7 @@ pub enum HelperOutcome {
     Rejected(ServiceError),
     WallpaperApplied { operation_id: crate::OperationId, reply: Vec<u8> },
     WallpaperAudioSet { operation_id: crate::OperationId, reply: Vec<u8> },
+    WallpaperPaused { operation_id: crate::OperationId, reply: Vec<u8> },
     WorkspaceWallpaperChanged { operation_id: crate::OperationId, reply: Vec<u8> },
 }
 
@@ -91,12 +92,16 @@ enum HelperOutcomeWire {
     Rejected { error: ServiceError },
     WallpaperApplied { operation_id: crate::OperationId, reply: Vec<u8> },
     WallpaperAudioSet { operation_id: crate::OperationId, reply: Vec<u8> },
+    WallpaperPaused { operation_id: crate::OperationId, reply: Vec<u8> },
     WorkspaceWallpaperChanged { operation_id: crate::OperationId, reply: Vec<u8> },
 }
 impl From<HelperOutcome> for HelperOutcomeWire {
     fn from(value: HelperOutcome) -> Self {
         match value {
             HelperOutcome::Rejected(error) => Self::Rejected { error },
+            HelperOutcome::WallpaperPaused { operation_id, reply } => {
+                Self::WallpaperPaused { operation_id, reply }
+            }
             HelperOutcome::WallpaperAudioSet { operation_id, reply } => {
                 Self::WallpaperAudioSet { operation_id, reply }
             }
@@ -113,6 +118,9 @@ impl From<HelperOutcomeWire> for HelperOutcome {
     fn from(value: HelperOutcomeWire) -> Self {
         match value {
             HelperOutcomeWire::Rejected { error } => Self::Rejected(error),
+            HelperOutcomeWire::WallpaperPaused { operation_id, reply } => {
+                Self::WallpaperPaused { operation_id, reply }
+            }
             HelperOutcomeWire::WallpaperAudioSet { operation_id, reply } => {
                 Self::WallpaperAudioSet { operation_id, reply }
             }
@@ -182,6 +190,15 @@ pub fn dispatch_operator_request(
             HelperRequest::ApplyWallpaper { action, rpc_id } => {
                 match crate::wallpaper::apply(&peer, operator_gid, action, rpc_id) {
                     Ok(completed) => HelperOutcome::WallpaperApplied {
+                        operation_id: completed.operation_id,
+                        reply: completed.reply,
+                    },
+                    Err(error) => HelperOutcome::Rejected(error),
+                }
+            }
+            HelperRequest::PauseWallpaper { action, rpc_id } => {
+                match crate::wallpaper::pause(&peer, operator_gid, action, rpc_id) {
+                    Ok(completed) => HelperOutcome::WallpaperPaused {
                         operation_id: completed.operation_id,
                         reply: completed.reply,
                     },
@@ -413,6 +430,7 @@ pub(crate) fn check_action_availability_until(
             HelperOutcome::Rejected(error) => Ok(error),
             HelperOutcome::WallpaperApplied { .. }
             | HelperOutcome::WallpaperAudioSet { .. }
+            | HelperOutcome::WallpaperPaused { .. }
             | HelperOutcome::WorkspaceWallpaperChanged { .. } => {
                 Err(ProtocolError::Malformed("unexpected mutation response to availability probe"))
             }
@@ -639,6 +657,38 @@ mod tests {
         assert_eq!(serde_json::from_value::<HelperOutcome>(wire).unwrap(), success);
         assert!(serde_json::from_value::<HelperRequest>(serde_json::json!({"operation":"change_workspace_wallpaper","rpc_id":4,"action":{"operation":"assign","workspace":{"output":"DP-1"},"wallpaper":null,"prepared":{"active":true}}})).is_err());
     }
+    #[test]
+    fn pause_wire_and_dispatch_refuse_client_player_identity_and_unauthorized_resume() {
+        for paused in [true, false] {
+            let action =
+                ryoku_recovery::wallpaper_protocol::WallpaperPause { outputs: vec![], paused };
+            let envelope = valid_envelope(HelperRequest::PauseWallpaper { action, rpc_id: 7 });
+            envelope.validate().unwrap();
+            let response = dispatch_operator_request(
+                PeerIdentity { uid: 1000, gid: 1000, supplementary_gids: vec![], pid: None },
+                4242,
+                envelope,
+            )
+            .unwrap();
+            assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
+        }
+        assert!(
+            serde_json::from_value::<HelperRequest>(serde_json::json!({
+                "operation":"pause_wallpaper","rpc_id":7,"action":{"paused":false,"player_pins":[]}
+            }))
+            .is_err()
+        );
+        let success = HelperOutcome::WallpaperPaused {
+            operation_id: crate::OperationId::new("pause-wire").unwrap(),
+            reply: b"reply".to_vec(),
+        };
+        let wire = serde_json::to_value(&success).unwrap();
+        assert_eq!(wire["result"], "wallpaper_paused");
+        assert!(wire.get("reply").is_some());
+        assert!(wire.get("error").is_none());
+        assert_eq!(serde_json::from_value::<HelperOutcome>(wire).unwrap(), success);
+    }
+
     #[test]
     fn audio_wire_and_dispatch_keep_action_authority_separate() {
         let action = ryoku_recovery::wallpaper_protocol::WallpaperAudio {

@@ -379,6 +379,15 @@ impl CaptureWriterLease {
         self.check()?;
         Ok(identity)
     }
+    pub(crate) fn wallpaper_players(
+        &self,
+    ) -> Result<Vec<crate::wallpaper_protocol::ActorIdentity>> {
+        let mut stream = self.wallpaper_stream()?;
+        stream.write_all(b"J")?;
+        let players = read_actor_wire(&mut stream)?;
+        self.check()?;
+        Ok(players)
+    }
     pub(crate) fn apply_wallpaper(
         &self,
         call: &crate::wallpaper_protocol::ActorCall,
@@ -477,7 +486,9 @@ impl Endpoint {
             .map(|(_, pid)| *pid)
             .filter(|pid| *pid != std::process::id() as i32)
             .collect();
-        let mut freeze = crate::writer_freeze::WriterFreeze::for_children(&home, excluded)?;
+        let stops =
+            actor.map(|actor| actor.preserved_player_stops()).transpose()?.unwrap_or_default();
+        let mut freeze = crate::writer_freeze::WriterFreeze::for_children(&home, excluded, stops)?;
         fs::flock(lock, FlockOperation::Unlock)?;
         // Even a failed acknowledgement must reacquire shared ownership before
         // releasing child stops, so a concurrent capture cannot be bypassed.
@@ -502,6 +513,11 @@ impl Endpoint {
                         let actor = actor.ok_or(Error::Unsupported)?;
                         write_actor_wire(&mut stream, &actor.identity()?)?;
                     }
+                    Ok(1) if request == *b"J" => {
+                        freeze.check()?;
+                        let actor = actor.ok_or(Error::Unsupported)?;
+                        write_actor_wire(&mut stream, &actor.player_identities()?)?;
+                    }
                     Ok(1) if request == *b"A" => {
                         if actor_used {
                             return Err(Error::Unsupported);
@@ -514,7 +530,14 @@ impl Endpoint {
                             .map_err(|_| Error::Unsupported)?;
                         freeze.check()?;
                         self.namespace.check_lock(lock)?;
-                        let execution = actor.execution()?;
+                        let (_, action) = crate::wallpaper_protocol::parse_change(&call.frame)
+                            .map_err(|_| Error::Unsupported)?;
+                        if matches!(action, crate::wallpaper_protocol::WallpaperChange::Pause(_))
+                            && actor.player_identities()? != call.player_pins
+                        {
+                            return Err(Error::WriterUnavailable);
+                        }
+                        let execution = actor.execution(&call)?;
                         // This lease accepts exactly one approved native call;
                         // it cannot be replayed even if the application fails.
                         actor_used = true;
@@ -527,7 +550,29 @@ impl Endpoint {
                         freeze.check()?;
                         actor.identity()?;
                         self.namespace.check_lock(lock)?;
-                        write_actor_wire(&mut stream, &applied?)?;
+                        let applied = applied?;
+                        if let crate::wallpaper_protocol::WallpaperChange::Pause(pause) = action {
+                            if actor.player_identities()? != call.player_pins {
+                                return Err(Error::WriterUnavailable);
+                            }
+                            let value: serde_json::Value =
+                                serde_json::from_slice(&applied).map_err(|_| Error::Unsupported)?;
+                            if value.get("error").is_none() {
+                                let effective = value["result"]["effective_paused"]
+                                    .as_bool()
+                                    .ok_or(Error::Unsupported)?;
+                                let pins: Vec<crate::wallpaper_protocol::ActorIdentity> =
+                                    serde_json::from_value(value["result"]["player_pins"].clone())
+                                        .map_err(|_| Error::Unsupported)?;
+                                if pins != call.player_pins
+                                    || value["result"]["paused"].as_bool() != Some(pause.paused)
+                                {
+                                    return Err(Error::Unsupported);
+                                }
+                                freeze.playback_disposition(pins, effective)?;
+                            }
+                        }
+                        write_actor_wire(&mut stream, &applied)?;
                         stream.set_read_timeout(Some(Duration::from_millis(100)))?;
                     }
                     Ok(_) => return Err(Error::Unsupported),

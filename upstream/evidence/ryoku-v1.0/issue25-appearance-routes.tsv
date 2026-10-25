@@ -81,7 +81,7 @@ wall.cache_rebuild	rpc.go	retained-guarded-unavailable	#175
 wall.delete	rpc.go	retained-guarded-unavailable	#175
 wall.list	daemon.go,rpc.go	bounded-query	#25
 wall.outputs	daemon.go,rpc.go	bounded-query	#25
-wall.pause	rpc.go	retained-guarded-unavailable	#25 core state contract; #176 automatic effects
+wall.pause	rpc.go	root-authorized-linked-playback	#25 exact native/in-shell pause/resume; #175 paper; #176 automatic effects
 wall.random_start	rpc.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
 wall.rotation_status	daemon.go,rpc.go	bounded-query	#25
 wall.rotation_stop	rpc.go	retained-guarded-unavailable	#176 automatic/theme/settings effects
