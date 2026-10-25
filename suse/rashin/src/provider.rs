@@ -321,12 +321,12 @@ impl Provider {
         messages: &[Message],
         cancelled: &AtomicBool,
         context: &crate::prowl::ReadTools,
-        emit: &mut impl FnMut(&str) -> Result<()>,
+        callbacks: &mut crate::prowl::activity::Callbacks<'_>,
     ) -> Result<Completion> {
         match self {
             Self::ProwlResolved { port, token, streaming, .. } => {
                 crate::prowl::Connection { port: *port, token: token.clone() }
-                    .complete_with_tools(model, messages, *streaming, cancelled, context, emit)
+                    .complete_with_tools(model, messages, *streaming, cancelled, context, callbacks)
             }
             _ => Err(Error::InvalidRequest),
         }

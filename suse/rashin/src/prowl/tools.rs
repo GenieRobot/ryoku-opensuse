@@ -1,6 +1,10 @@
 //! Retained fast lane: at most four tool rounds, then one no-tools answer round.
 //! One deadline covers all HTTP requests and fixed native probes.
-use super::{Connection, completion, read_roots, system_query, tool_calls};
+use super::{
+    Connection,
+    activity::{Callbacks, Phase, Record},
+    completion, read_roots, system_query, tool_calls,
+};
 use crate::{
     Error, Result,
     provider::{Completion, Message},
@@ -96,7 +100,7 @@ pub(super) fn complete(
     streaming: bool,
     cancelled: &AtomicBool,
     context: &Context,
-    emit: &mut impl FnMut(&str) -> Result<()>,
+    callbacks: &mut Callbacks<'_>,
 ) -> Result<Completion> {
     let deadline = Instant::now() + Duration::from_secs(45);
     let mut messages = messages
@@ -107,6 +111,7 @@ pub(super) fn complete(
     let mut input = 0u64;
     let mut output = 0u64;
     let mut estimated = false;
+    let mut sequence = 0u8;
     for index in 0..=4 {
         if cancelled.load(Ordering::Acquire) {
             return Err(Error::Cancelled);
@@ -120,7 +125,7 @@ pub(super) fn complete(
             &messages,
             RoundOptions { streaming, tools: index < 4, deadline, schema: schema(context) },
             cancelled,
-            emit,
+            &mut |text| (callbacks.text)(text),
         )?;
         input = input.checked_add(result.completion.input_tokens).ok_or(Error::Limit)?;
         output = output.checked_add(result.completion.output_tokens).ok_or(Error::Limit)?;
@@ -138,52 +143,83 @@ pub(super) fn complete(
             if cancelled.load(Ordering::Acquire) {
                 return Err(Error::Cancelled);
             }
-            let result = if call.function.name == "system_query" && context.system_queries {
-                match system_query::execute(&call.function.arguments, cancelled, deadline) {
-                    Ok(value) => value,
-                    Err(Error::Cancelled) => return Err(Error::Cancelled),
-                    Err(error) => json!({"error":format!("{error}")}).to_string(),
-                }
+            if sequence >= 32 {
+                return Err(Error::Limit);
+            }
+            let mut event = Record {
+                ordinal: sequence,
+                call_hash: crate::digest(call.id.as_bytes()),
+                name: match call.function.name.as_str() {
+                    "system_query" | "read_file" | "list_dir" | "search_code" | "fetch_url" => {
+                        call.function.name.clone()
+                    }
+                    _ => "unknown_tool".into(),
+                },
+                phase: Phase::Running,
+                error: None,
+            };
+            sequence += 1;
+            (callbacks.tool)(event.clone())?;
+            let output = if call.function.name == "system_query" && context.system_queries {
+                Some(system_query::execute(&call.function.arguments, cancelled, deadline))
             } else if call.function.name == "fetch_url" && context.public_web {
-                match super::public_web::execute(&call.function.arguments, cancelled, deadline) {
-                    Ok(value) => value,
-                    Err(Error::Cancelled) => return Err(Error::Cancelled),
-                    Err(error) => json!({"error":format!("{error}")}).to_string(),
-                }
+                Some(super::public_web::execute(&call.function.arguments, cancelled, deadline))
             } else if call.function.name == "search_code" && context.code_root.is_some() {
-                let root = context
-                    .roots
-                    .iter()
-                    .find(|root| Some(root.id()) == context.code_root.as_deref())
-                    .ok_or(Error::Integrity)?;
-                match super::code_search::execute(
-                    connection,
-                    root,
-                    &call.function.arguments,
-                    cancelled,
-                    deadline,
-                ) {
-                    Ok(value) => value,
-                    Err(Error::Cancelled) => return Err(Error::Cancelled),
-                    Err(error) => json!({"error":format!("{error}")}).to_string(),
-                }
+                Some(
+                    context
+                        .roots
+                        .iter()
+                        .find(|root| Some(root.id()) == context.code_root.as_deref())
+                        .ok_or(Error::Integrity)
+                        .and_then(|root| {
+                            super::code_search::execute(
+                                connection,
+                                root,
+                                &call.function.arguments,
+                                cancelled,
+                                deadline,
+                            )
+                        }),
+                )
             } else if matches!(call.function.name.as_str(), "read_file" | "list_dir")
                 && !context.roots.is_empty()
             {
-                match read_roots::execute(
-                    &context.roots,
-                    &call.function.name,
-                    &call.function.arguments,
-                    cancelled,
-                    deadline,
-                ) {
-                    Ok(value) => value.to_string(),
-                    Err(Error::Cancelled) => return Err(Error::Cancelled),
-                    Err(error) => json!({"error":format!("{error}")}).to_string(),
-                }
+                Some(
+                    read_roots::execute(
+                        &context.roots,
+                        &call.function.name,
+                        &call.function.arguments,
+                        cancelled,
+                        deadline,
+                    )
+                    .map(|v| v.to_string()),
+                )
             } else {
-                json!({"error":"unknown_tool"}).to_string()
+                None
             };
+            let result = match output {
+                Some(Ok(text)) => {
+                    event.phase = Phase::Completed;
+                    text
+                }
+                Some(Err(Error::Cancelled)) => {
+                    event.phase = Phase::Cancelled;
+                    event.error = Some(Error::Cancelled);
+                    (callbacks.tool)(event)?;
+                    return Err(Error::Cancelled);
+                }
+                Some(Err(error)) => {
+                    event.phase = Phase::Failed;
+                    event.error = Some(error);
+                    json!({"error":format!("{error}")}).to_string()
+                }
+                None => {
+                    event.phase = Phase::Failed;
+                    event.error = Some(Error::InvalidRequest);
+                    json!({"error":"unknown_tool"}).to_string()
+                }
+            };
+            (callbacks.tool)(event)?;
             messages.push(json!({"role":"tool","tool_call_id":call.id,"content":result}));
         }
     }

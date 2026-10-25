@@ -320,9 +320,24 @@ fn restarted_daemon_marks_inflight_work_interrupted_and_does_not_replay_it() {
     let mut state: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     state["jobs"]["crashed"]["status"] = json!("running");
     state["jobs"]["crashed"]["answer"] = Value::Null;
+    assert!(
+        state["jobs"]["crashed"].get("tool_activity").is_none(),
+        "legacy jobs omit empty metadata"
+    );
+    state["jobs"]["crashed"]["tool_activity"] = json!([{"ordinal":0,"call_hash":"a".repeat(64),"name":"read_file","phase":"running","error":null}]);
     fs::write(&path, serde_json::to_vec(&state).unwrap()).unwrap();
     let engine = fixture.reopen();
-    assert_eq!(rpc(&engine, Request::Job { id: "crashed".into() })["job"]["status"], "interrupted");
+    let interrupted = rpc(&engine, Request::Job { id: "crashed".into() });
+    assert_eq!(interrupted["job"]["status"], "interrupted");
+    assert_eq!(interrupted["job"]["tool_activity"][0]["phase"], "interrupted");
+    let gateway = ryoku_rashin::http::Gateway::new(
+        engine.clone(),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    let html = http(&gateway, "GET", "/job/crashed", BROWSER_AUTH, "");
+    assert!(html.contains("<td>interrupted</td>"));
     assert_eq!(
         rpc(&engine, Request::Ask { id: "crashed".into(), prompt: "hello".into() })["status"],
         "interrupted"
@@ -3732,7 +3747,7 @@ fn tool_round_gateway_bounds_four_rounds_then_disables_tools_and_handles_unknown
         let fixture = Fixture::new();
         let engine = fixture.engine();
         let mut responses = vec![
-            Some(tool_round_response("unknown_tool", "{}", "unknown")),
+            Some(tool_round_response("PRIVATE_UNKNOWN_FUNCTION", "{}", "unknown")),
             Some(tool_round_response("system_query", "not json", "malformed")),
             Some(tool_round_response("system_query", r#"{"topic":"shell"}"#, "invalid-topic")),
             Some(tool_round_response("system_query", r#"{"topic":"kernel"}"#, "real-kernel")),
@@ -3768,6 +3783,12 @@ fn tool_round_gateway_bounds_four_rounds_then_disables_tools_and_handles_unknown
             .map(|m| serde_json::from_str::<Value>(m["content"].as_str().unwrap()).unwrap())
             .collect::<Vec<_>>();
         assert_eq!(results.len(), 4);
+        let activity = job["tool_activity"].as_array().unwrap();
+        assert_eq!(activity.len(), 4);
+        assert_eq!(activity[0]["name"], "unknown_tool");
+        assert!(!serde_json::to_string(activity).unwrap().contains("PRIVATE_UNKNOWN_FUNCTION"));
+        assert!(activity[..3].iter().all(|row| row["phase"] == "failed"));
+        assert_eq!(activity[3]["phase"], "completed");
         assert_eq!(results[0]["error"], "unknown_tool");
         assert_eq!(results[1]["error"], "InvalidRequest");
         assert_eq!(results[2]["error"], "InvalidRequest");
@@ -4630,4 +4651,117 @@ fn prowl_fix_requires_bound_consent_before_gateway_egress_and_disconnected_route
         engine.dispatch(Request::Usage {}).unwrap()["activity"].as_array().unwrap().len(),
         1
     );
+}
+
+#[test]
+fn tool_activity_live_gateway_browser_privacy_terminal_history_and_cancel_are_consistent() {
+    use std::sync::mpsc;
+    for phase in ["completed", "failed", "cancelled"] {
+        let fixture = Fixture::new();
+        let engine = fixture.engine();
+        let source = Fixture::new();
+        fs::write(source.path.join("main.rs"), "ordinary").unwrap();
+        let (release_tx, release_rx) = mpsc::channel();
+        let call_id = "https://private.invalid/PRIVATE_CALL_DATA";
+        let initial =
+            tool_round_response("search_code", r#"{"query":"PRIVATE_SEARCH_QUERY"}"#, call_id);
+        let responses = if phase == "cancelled" {
+            vec![Some(initial), None]
+        } else {
+            vec![
+                Some(initial),
+                Some(if phase == "failed" {
+                    json!({"malformed":"PRIVATE_RESULT"})
+                } else {
+                    json!([{ "file":"main.rs", "start_line":1,"snippet":"PRIVATE_SOURCE_SNIPPET" }])
+                }),
+                Some(tool_answer()),
+            ]
+        };
+        let is_cancel = phase == "cancelled";
+        let (port, requests, server) = tool_gateway_with_hook(responses, move |request| {
+            if !is_cancel && request["method"] == "GET" {
+                release_rx.recv_timeout(Duration::from_secs(3)).unwrap();
+            }
+        });
+        connect_tool_gateway(&engine, port, false);
+        engine
+            .dispatch(Request::EnrollReadRoot {
+                provider: "tool-gateway".into(),
+                id: "source".into(),
+                path: source.path.to_str().unwrap().into(),
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::SetCodeSearch {
+                provider: "tool-gateway".into(),
+                root_id: Some("source".into()),
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::Ask { id: "activity".into(), prompt: "Search source".into() })
+            .unwrap();
+        requests.recv_timeout(Duration::from_secs(3)).unwrap();
+        assert_eq!(requests.recv_timeout(Duration::from_secs(3)).unwrap()["method"], "GET");
+        let live = rpc(&engine, Request::Job { id: "activity".into() });
+        let records = &live["job"]["tool_activity"];
+        assert_eq!(records[0]["phase"], "running");
+        assert_eq!(records[0]["name"], "search_code");
+        assert_eq!(records[0]["call_hash"], format!("{:x}", Sha256::digest(call_id.as_bytes())));
+        let metadata = records.to_string();
+        for secret in [
+            "PRIVATE_CALL_DATA",
+            "PRIVATE_SEARCH_QUERY",
+            "PRIVATE_SOURCE_SNIPPET",
+            "private.invalid",
+            source.path.to_str().unwrap(),
+        ] {
+            assert!(!metadata.contains(secret));
+        }
+        assert!(records[0].get("arguments").is_none());
+        assert!(records[0].get("result").is_none());
+        assert!(records[0].get("call_id").is_none());
+        let gateway = ryoku_rashin::http::Gateway::new(
+            engine.clone(),
+            "1".repeat(64),
+            "http://127.0.0.1:51321".into(),
+        )
+        .unwrap();
+        let headers = BROWSER_AUTH;
+        let html = http(&gateway, "GET", "/job/activity", headers, "");
+        assert!(html.contains("Tool activity"));
+        assert!(html.contains("search_code"));
+        assert!(html.contains("<td>running</td>"));
+        assert!(!html.contains("PRIVATE_SEARCH_QUERY"));
+        if is_cancel {
+            engine.dispatch(Request::Cancel { id: "activity".into() }).unwrap();
+        } else {
+            release_tx.send(()).unwrap();
+        }
+        let terminal = done(&engine, "activity");
+        assert_eq!(terminal["status"], if is_cancel { "cancelled" } else { "completed" });
+        assert_eq!(terminal["tool_activity"][0]["phase"], phase);
+        if phase == "failed" {
+            assert_eq!(terminal["tool_activity"][0]["error"], "provider_failed");
+        }
+        let html = http(&gateway, "GET", "/job/activity", headers, "");
+        assert!(html.contains(&format!("<td>{phase}</td>")));
+        server.join().unwrap();
+        if is_cancel {
+            assert!(
+                engine.dispatch(Request::Usage {}).unwrap()["activity"]
+                    .as_array()
+                    .unwrap()
+                    .is_empty()
+            );
+            assert!(terminal["answer"].is_null());
+        }
+        drop(gateway);
+        drop(engine);
+        let engine = fixture.reopen();
+        assert_eq!(
+            rpc(&engine, Request::Job { id: "activity".into() })["job"]["tool_activity"],
+            terminal["tool_activity"]
+        );
+    }
 }

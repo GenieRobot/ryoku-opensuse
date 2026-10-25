@@ -5,6 +5,7 @@
 use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+pub(crate) mod activity;
 mod code_search;
 mod completion;
 mod public_web;
@@ -266,10 +267,10 @@ impl Connection {
         streaming: bool,
         cancelled: &std::sync::atomic::AtomicBool,
         context: &ReadTools,
-        emit: &mut impl FnMut(&str) -> Result<()>,
+        callbacks: &mut activity::Callbacks<'_>,
     ) -> Result<crate::provider::Completion> {
         self.validate()?;
-        tools::complete(self, model, messages, streaming, cancelled, context, emit)
+        tools::complete(self, model, messages, streaming, cancelled, context, callbacks)
     }
     pub(crate) fn models(&self, cancelled: &std::sync::atomic::AtomicBool) -> Result<Vec<String>> {
         self.validate()?;

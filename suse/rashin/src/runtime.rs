@@ -121,6 +121,10 @@ struct Job {
     stop_reason: Option<String>,
     #[serde(default)]
     actual_model: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    tool_activity: Vec<crate::prowl::activity::Record>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    tool_activity_truncated: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -280,10 +284,36 @@ fn canonical_handoff(state: &State, ask_id: &str) -> Result<Handoff> {
     Ok(handoff)
 }
 
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
+// Optional activity never displaces an accepted answer or terminal error.
+fn state_payload(state: &State) -> Result<Vec<u8>> {
+    let bytes = serde_json::to_vec(state).map_err(|_| Error::Storage)?;
+    let reserve =
+        state.jobs.values().filter(|job| job.status == JobStatus::Running).count() as u64 * 128;
+    if bytes.len() as u64 > crate::store::MAX_STATE_BYTES.saturating_sub(reserve) {
+        return Err(Error::Limit);
+    }
+    Ok(bytes)
+}
+fn fit_tool_activity(state: &mut State, id: &str) -> Result<()> {
+    if state.jobs.get(id).is_some_and(|job| !job.tool_activity.is_empty())
+        && state_payload(state) == Err(Error::Limit)
+    {
+        let job = state.jobs.get_mut(id).ok_or(Error::NotFound)?;
+        job.tool_activity.clear();
+        job.tool_activity_truncated = true;
+    }
+    Ok(())
+}
+
 struct ActiveJob {
     generation: u64,
     cancelled: Arc<AtomicBool>,
     text: String,
+    tools: Vec<crate::prowl::activity::Record>,
 }
 
 pub struct Engine {
@@ -327,6 +357,15 @@ impl Engine {
             context.validate()?;
         }
         for job in state.jobs.values() {
+            if job.tool_activity.len() > 32 {
+                return Err(Error::Integrity);
+            }
+            for (index, record) in job.tool_activity.iter().enumerate() {
+                record.validate()?;
+                if record.ordinal as usize != index {
+                    return Err(Error::Integrity);
+                }
+            }
             if let Some(context) = &job.handoff {
                 context.validate()?;
             }
@@ -375,6 +414,11 @@ impl Engine {
                 job.status = JobStatus::Interrupted;
                 job.error = Some(Error::ProviderUnavailable);
             }
+            job.tool_activity = crate::prowl::activity::terminal(
+                std::mem::take(&mut job.tool_activity),
+                crate::prowl::activity::Phase::Interrupted,
+                Some(Error::ProviderUnavailable),
+            );
         }
         store.save(&serde_json::to_vec(&state).map_err(|_| Error::Storage)?)?;
         Ok(Arc::new(Self {
@@ -395,14 +439,7 @@ impl Engine {
         let mut guard = self.state.lock().map_err(|_| Error::Storage)?;
         let mut next = guard.clone();
         let result = update(&mut next)?;
-        let bytes = serde_json::to_vec(&next).map_err(|_| Error::Storage)?;
-        // Keep enough room for every accepted worker to publish its bounded
-        // terminal error even when owner configuration fills the state quota.
-        let failure_reserve =
-            next.jobs.values().filter(|job| job.status == JobStatus::Running).count() as u64 * 128;
-        if bytes.len() as u64 > crate::store::MAX_STATE_BYTES.saturating_sub(failure_reserve) {
-            return Err(Error::Limit);
-        }
+        let bytes = state_payload(&next)?;
         self.store.save(&bytes).inspect_err(|_| self.healthy.store(false, Ordering::Release))?;
         *guard = next;
         Ok(result)
@@ -850,9 +887,12 @@ impl Engine {
                     {
                         active.cancelled.store(true, Ordering::Release);
                         active.text.clear();
+                        job.tool_activity = crate::prowl::activity::terminal(active.tools.clone(), crate::prowl::activity::Phase::Cancelled, Some(Error::Cancelled));
                     }
                 }
-                Ok(json!({"id":id,"status":job.status}))
+                let status=job.status;
+                fit_tool_activity(state, &id)?;
+                Ok(json!({"id":id,"status":status}))
             }),
             Request::RefreshModels { id, provider } => {
                 identifier(&provider)?;
@@ -1025,17 +1065,12 @@ impl Engine {
                     ),
                     Request::Job { id } => {
                         let job = state.jobs.get(&id).ok_or(Error::NotFound)?;
-                        let progress = if job.status == JobStatus::Running {
-                            self.in_flight
-                                .lock()
-                                .map_err(|_| Error::Storage)?
-                                .get(&id)
-                                .filter(|active| active.generation == job.generation)
-                                .map(|active| active.text.clone())
-                        } else {
-                            None
-                        };
-                        Ok(json!({"id":id,"job":job,"progress":progress}))
+                        let live = self.in_flight.lock().map_err(|_| Error::Storage)?;
+                        let active = live.get(&id).filter(|active| job.status == JobStatus::Running && active.generation == job.generation);
+                        let progress = active.map(|active| active.text.clone());
+                        let mut view = serde_json::to_value(job).map_err(|_|Error::Storage)?;
+                        view["tool_activity"] = serde_json::to_value(active.map(|active| &active.tools).unwrap_or(&job.tool_activity)).map_err(|_|Error::Storage)?;
+                        Ok(json!({"id":id,"job":view,"progress":progress}))
                     }
                     Request::Jobs {} => {
                         let mut jobs = state.jobs.iter().collect::<Vec<_>>();
@@ -1172,6 +1207,24 @@ impl Engine {
         ))
     }
 
+    fn record_tool_event(
+        &self,
+        id: &str,
+        generation: u64,
+        event: crate::prowl::activity::Record,
+    ) -> Result<()> {
+        let mut active = self.in_flight.lock().map_err(|_| Error::Storage)?;
+        let worker = active
+            .get_mut(id)
+            .filter(|worker| worker.generation == generation)
+            .ok_or(Error::Cancelled)?;
+        if worker.cancelled.load(Ordering::Acquire)
+            && event.phase == crate::prowl::activity::Phase::Running
+        {
+            return Err(Error::Cancelled);
+        }
+        crate::prowl::activity::apply(&mut worker.tools, event)
+    }
     fn finish_active(&self, id: &str, generation: u64) {
         if let Ok(mut active) = self.in_flight.lock()
             && active.get(id).is_some_and(|job| job.generation == generation)
@@ -1186,11 +1239,32 @@ impl Engine {
         result: Result<Completion>,
         fixture: bool,
     ) {
+        let tools = self
+            .in_flight
+            .lock()
+            .ok()
+            .and_then(|active| {
+                active
+                    .get(job_id)
+                    .filter(|worker| worker.generation == generation)
+                    .map(|worker| worker.tools.clone())
+            })
+            .unwrap_or_default();
+        let (phase, error) = match &result {
+            Ok(_) => (crate::prowl::activity::Phase::Interrupted, Some(Error::ProviderUnavailable)),
+            Err(Error::Cancelled) => {
+                (crate::prowl::activity::Phase::Cancelled, Some(Error::Cancelled))
+            }
+            Err(error) => (crate::prowl::activity::Phase::Failed, Some(*error)),
+        };
+        let tools = crate::prowl::activity::terminal(tools, phase, error);
+        let had_tools = !tools.is_empty();
         let publication = self.transaction(|state| {
             let job = state.jobs.get_mut(job_id).ok_or(Error::NotFound)?;
             if job.generation != generation || job.status != JobStatus::Running {
                 return Ok(Value::Null);
             }
+            job.tool_activity = tools;
             match result {
                 Ok(completion) => {
                     if let Some(session) = &job.session {
@@ -1228,6 +1302,7 @@ impl Engine {
                     job.error = Some(error);
                 }
             }
+            fit_tool_activity(state, job_id)?;
             Ok(Value::Null)
         });
         if publication == Err(Error::Limit) {
@@ -1239,6 +1314,7 @@ impl Engine {
                 if job.generation == generation && job.status == JobStatus::Running {
                     job.status = JobStatus::Failed;
                     job.error = Some(Error::Limit);
+                    job.tool_activity_truncated = had_tools;
                 }
                 Ok(Value::Null)
             });
@@ -1400,7 +1476,7 @@ impl Engine {
                 messages.extend(conversation.messages.clone());
             }
             messages.push(Message { role: Role::User, content: prompt.clone() });
-            state.jobs.insert(id.clone(), Job { operation:if catalog_revision.is_some() {JobOperation::CatalogRefresh} else {JobOperation::Completion},catalog_count:None, fingerprint, lane, session, prompt, status: JobStatus::Running, answer: None, error: None, provider: route.provider, model: route.model.clone(), started: now(), generation, handoff: handoff.clone(), stop_reason: None, actual_model: None });
+            state.jobs.insert(id.clone(), Job { operation:if catalog_revision.is_some() {JobOperation::CatalogRefresh} else {JobOperation::Completion},catalog_count:None, fingerprint, lane, session, prompt, status: JobStatus::Running, answer: None, error: None, provider: route.provider, model: route.model.clone(), started: now(), generation, handoff: handoff.clone(), stop_reason: None, actual_model: None, tool_activity:Vec::new(), tool_activity_truncated:false });
             self.active.try_update(Ordering::AcqRel, Ordering::Acquire, |active| (active < 4).then_some(active + 1)).map_err(|_| Error::Busy)?;
             let permit = ProviderPermit(Arc::clone(&self.active));
             if let Some(token) = options.evidence_approval.and_then(|approval| approval.token) {
@@ -1418,15 +1494,17 @@ impl Engine {
                     if job.lane==Lane::Ask && job.status==JobStatus::Running {
                         job.status=JobStatus::Cancelled;job.error=Some(Error::Cancelled);
                         if let Some(worker)=active.get(ask_id).filter(|worker|worker.generation==job.generation) {
+                            job.tool_activity = crate::prowl::activity::terminal(worker.tools.clone(), crate::prowl::activity::Phase::Cancelled, Some(Error::Cancelled));
                             cancelled_asks.push((ask_id.clone(),job.generation,Arc::clone(&worker.cancelled)));
                         }
                     }
                 }
             }
+            for (ask_id, _, _) in &cancelled_asks { fit_tool_activity(state, ask_id)?; }
             // Install cancellation/progress before publishing Running under
             // the state lock: Cancel can never observe an accepted job without
             // its flag, even if it arrives before the worker thread starts.
-            if let Some(old)=self.in_flight.lock().map_err(|_|Error::Storage)?.insert(id.clone(),ActiveJob {generation,cancelled:Arc::clone(&cancelled),text:String::new()}) {
+            if let Some(old)=self.in_flight.lock().map_err(|_|Error::Storage)?.insert(id.clone(),ActiveJob {generation,cancelled:Arc::clone(&cancelled),text:String::new(),tools:Vec::new()}) {
                 old.cancelled.store(true,Ordering::Release);
             }
             registered=true;
@@ -1482,13 +1560,18 @@ impl Engine {
                         progress.text.push_str(delta);
                         Ok(())
                     };
+                    let mut emit_tool =
+                        |event| engine.record_tool_event(&job_id, generation, event);
                     let result = if read_only_tools.enabled() {
                         provider.complete_with_read_tools(
                             &model,
                             &messages,
                             &cancelled,
                             &read_only_tools,
-                            &mut emit,
+                            &mut crate::prowl::activity::Callbacks {
+                                text: &mut emit,
+                                tool: &mut emit_tool,
+                            },
                         )
                     } else {
                         provider.complete_with_progress(&model, &messages, &cancelled, &mut emit)
@@ -1938,6 +2021,102 @@ mod evidence_tests {
             std::thread::sleep(Duration::from_millis(5));
         }
     }
+    fn activity_record(ordinal: u8) -> crate::prowl::activity::Record {
+        crate::prowl::activity::Record {
+            ordinal,
+            call_hash: digest(format!("call-{ordinal}").as_bytes()),
+            name: "search_code".into(),
+            phase: crate::prowl::activity::Phase::Running,
+            error: None,
+        }
+    }
+    #[test]
+    fn optional_tool_activity_never_displaces_cancellation_or_final_answer_at_state_limit() {
+        for cancel in [true, false] {
+            let fixture = Fixture::new();
+            let engine = fixture.engine();
+            engine
+                .dispatch(Request::PutProvider {
+                    id: "slow".into(),
+                    provider: Provider::Fixture {
+                        catalog: None,
+                        delay_millis: 1000,
+                        outcome: crate::provider::FixtureOutcome::Answer("late".into()),
+                    },
+                })
+                .unwrap();
+            engine
+                .dispatch(Request::SetRoute {
+                    lane: Lane::Ask,
+                    provider: "slow".into(),
+                    model: "fixture-v1".into(),
+                })
+                .unwrap();
+            engine
+                .dispatch(Request::Ask { id: "activity-quota".into(), prompt: "p".into() })
+                .unwrap();
+            let generation = engine.state.lock().unwrap().jobs["activity-quota"].generation;
+            engine.in_flight.lock().unwrap().get_mut("activity-quota").unwrap().tools =
+                (0..32).map(activity_record).collect();
+            engine
+                .transaction(|state| {
+                    state.instructions = Some(String::new());
+                    let size = serde_json::to_vec(state).unwrap().len();
+                    let target =
+                        crate::store::MAX_STATE_BYTES as usize - if cancel { 128 } else { 2000 };
+                    state.instructions = Some("x".repeat(target - size));
+                    Ok(Value::Null)
+                })
+                .unwrap();
+            if cancel {
+                engine.dispatch(Request::Cancel { id: "activity-quota".into() }).unwrap();
+            } else {
+                engine.publish_completion(
+                    "activity-quota",
+                    generation,
+                    Ok(Completion {
+                        text: "retained answer".into(),
+                        input_tokens: 1,
+                        output_tokens: 2,
+                        estimated: false,
+                        stop_reason: None,
+                        actual_model: None,
+                    }),
+                    false,
+                );
+            }
+            let state = engine.state.lock().unwrap();
+            let job = &state.jobs["activity-quota"];
+            assert_eq!(
+                job.status,
+                if cancel { JobStatus::Cancelled } else { JobStatus::Completed }
+            );
+            assert!(job.tool_activity.is_empty());
+            assert!(job.tool_activity_truncated);
+            if !cancel {
+                assert_eq!(job.answer.as_deref(), Some("retained answer"));
+                assert_eq!(state.usage.len(), 1);
+            }
+            drop(state);
+            let until = std::time::Instant::now() + Duration::from_secs(3);
+            while engine.active.load(Ordering::Acquire) != 0 {
+                assert!(std::time::Instant::now() < until);
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            drop(engine);
+            let until = std::time::Instant::now() + Duration::from_secs(3);
+            let reopened = loop {
+                match Store::open(&fixture.0) {
+                    Ok(store) => break Engine::open(store).unwrap(),
+                    Err(Error::Busy) if std::time::Instant::now() < until => {
+                        std::thread::sleep(Duration::from_millis(5))
+                    }
+                    Err(error) => panic!("activity state reopen: {error:?}"),
+                }
+            };
+            assert!(reopened.state.lock().unwrap().jobs["activity-quota"].tool_activity_truncated);
+        }
+    }
     #[test]
     fn stale_worker_cannot_publish_or_remove_a_reused_request_id() {
         let fixture = Fixture::new();
@@ -1966,12 +2145,22 @@ mod evidence_tests {
         engine.dispatch(request()).unwrap();
         let old_generation = engine.state.lock().unwrap().jobs["reused"].generation;
         let old_flag = Arc::clone(&engine.in_flight.lock().unwrap()["reused"].cancelled);
+        engine.record_tool_event("reused", old_generation, activity_record(0)).unwrap();
         engine.dispatch(Request::Cancel { id: "reused".into() }).unwrap();
         assert!(old_flag.load(Ordering::Acquire));
+        assert_eq!(
+            engine.state.lock().unwrap().jobs["reused"].tool_activity[0].phase,
+            crate::prowl::activity::Phase::Cancelled
+        );
         engine.dispatch(Request::ForgetJob { id: "reused".into() }).unwrap();
         engine.dispatch(request()).unwrap();
         let generation = engine.state.lock().unwrap().jobs["reused"].generation;
         assert_ne!(generation, old_generation);
+        assert_eq!(
+            engine.record_tool_event("reused", old_generation, activity_record(0)),
+            Err(Error::Cancelled)
+        );
+        assert!(engine.in_flight.lock().unwrap()["reused"].tools.is_empty());
         let new_flag = Arc::clone(&engine.in_flight.lock().unwrap()["reused"].cancelled);
         engine.finish_active("reused", old_generation);
         assert_eq!(engine.in_flight.lock().unwrap()["reused"].generation, generation);

@@ -367,7 +367,7 @@ No row in the original inventory is removed by this slice.
 | Fix doctor/tip/app | Typed investigation, bounded native user-unit/journal/RPM evidence, external destination/finding preview, expiring single-use exact-action consent, replay safety; tools disabled to preserve reviewed evidence | Complete upstream app/coredump/package-change context and native entrypoints, transient unit/terminal harness, actual authorized repair providers with linked recovery |
 | Agent wire/unwire | Effective owner-controlled built-in Agent instructions, separate Ask/Chat, private persistence and scoped denial | Exact external marker/skill/MCP wiring, unrelated config preservation, native harness readiness/default/model operations and protected writer enrollment |
 | Index/vault/memory/wiki/skills | Verified uploaded document retrieval, all8 exact retained Wiki sources plus Tumbleweed views, browser/API navigation and confirmed per-document merge preserving uploads | Native machine/package/desktop/user/habits maps, registered projects, vault/memory/journal/skills enrollment and source mirror/index build/report lifecycle |
-| Fast-lane read-only tools | All5 execute through real model/tool-result rounds: system_query, read_file, list_dir, search_code, fetch_url; four rounds then final no-tools, explicit owner grants, path/Store/DNS guards, cancellation and bounded actual native/network fixtures | Original activity/diff/approval UI, escalation semantics, native default root discovery and full ACP tool/permission/process integration |
+| Fast-lane read-only tools | All5 execute through real model/tool-result rounds: system_query, read_file, list_dir, search_code, fetch_url; four rounds then final no-tools, explicit owner grants, path/Store/DNS guards, cancellation, bounded actual native/network fixtures and live/saved tool status in job API/browser | Complete retained activity details/diff/approval UI, escalation semantics, native default root discovery and full ACP tool/permission/process integration |
 | Provider/model/network | Private key CRUD/retention, opaque IDs, explicit saved/unavailable lane picks, async generation-bound catalog refresh, HTTPS and real authenticated Prowl Ask/Agent/Chat; four typed management reads (profiles/active/profile-models/presets) | Remaining retained Prowl provider/profile CRUD and selection, sign-in/OAuth/device flows, fallback/cache/network/project/harness/skill operations, all adapter model/config options and full native settings UI; actual packaged endpoint/provider acceptance |
 | Usage | Completion activity plus enrolled Claude/Codex/opencode JSON/SQLite activity, committed WAL snapshots, costs/cache/reset/soft caps, opencode model/session-component rows, local/UTC windows, one five-minute daemon schedule and labeled source failures | Real OAuth/RPC/session-limit quota, remaining provider/model/session detail, original separate timer/cache/shell UI and service integration |
 | ACP/process/harness | Source contract retained; live HTTP Ask-only capability delegation and action policy provide the restricted bridge seam | Actual adapter stdio/JSON-RPC lifecycle, initialize/capabilities/shared sessions/model options/prompts/notifications/cancel/replay, process isolation, all harnesses, tools/approvals/images/thinking/terminal; no ACP parity claim yet |
@@ -871,3 +871,41 @@ denial, restart/disable/Fix boundaries and cancellation without partial usage.
 These namespace proofs are distinct from portable CI prerequisites. Tool activity,
 escalation, ACP/harness/process/terminal, Prowl/index/native/writer/recovery,
 complete UI/package closure and packaged Tumbleweed acceptance stay required.
+
+
+## Tool activity in jobs
+
+The pinned `ryoku/rashin/backend/quick.go:419–425` publishes tool start/finish
+around real execution; `quick_test.go:270`, `ws_test.go:48–64`,
+`acptools.go:15–39` and `web/src/lib/pages/chat/ToolItem.svelte:20–75` retain the
+status, replay and UI contract. The Rust fast lane now reports real execution
+through `job.tool_activity` and the authenticated `/job/ID` browser page.
+
+Each generation has at most32 ordered records (four rounds of eight calls).
+Records contain `ordinal`, a SHA-256 `call_hash`, one of the five fixed tool
+names (or `unknown_tool`), `phase` and an optional typed `error`. Raw model call
+IDs, unknown names, arguments, URLs, filesystem paths and tool input/output are
+never copied to this status metadata. Original wire IDs/results still reach the
+model in the existing bounded request; status logging does not change tools or
+grants. Every update checks the accepted job generation, so an old worker cannot
+append to a reused request ID.
+
+Live `running` rows stay in bounded worker memory. Terminal `completed`,
+`failed` or `cancelled` rows are saved with the job result in the same private
+atomic state transaction; finished rows remain finished if a later tool is
+cancelled. The no-JavaScript page refreshes while work runs and renders all
+statuses and typed errors with escaped text. Older jobs without these optional
+fields still load. Restart labels any retained unfinished row `interrupted`;
+an abrupt crash before terminal publication can lose ephemeral activity, and
+this status view does not claim a durable event journal or full WebSocket-v3
+replay. Pending ACP tool detail/output/diffs and approvals remain required.
+
+Activity retention is optional under the existing8MiB state quota. If rows would
+displace the final answer, usage or a cancellation, the rows are omitted and
+`tool_activity_truncated:true` labels the omission in API/browser. The reserved
+terminal-error allowance and cancellation/generation checks remain in force.
+No activity callback writes files, emits logs, invokes a shell or widens access.
+Actual gateway fixtures hold a native search request while API/browser show
+`running`, then prove success/failure/cancellation, privacy and saved restart
+history. Separate tests cover interrupted restart, stale generation, all32 rows
+and answer/cancellation retention at the state limit.

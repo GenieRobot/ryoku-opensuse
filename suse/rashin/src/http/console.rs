@@ -622,6 +622,21 @@ pub(super) fn job(engine: &Arc<Engine>, id: &str) -> Result<String> {
     if let Some(progress) = value["progress"].as_str().filter(|text| !text.is_empty()) {
         body += &format!("<h3>Receiving response</h3><pre>{}</pre>", escape(progress));
     }
+    if let Some(records) = job["tool_activity"].as_array().filter(|rows| !rows.is_empty()) {
+        body += "<h3>Tool activity</h3><table><thead><tr><th>Tool</th><th>Status</th><th>Error</th></tr></thead><tbody>";
+        for record in records {
+            body += &format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td></tr>",
+                escape(text(record, "name")),
+                escape(text(record, "phase")),
+                escape(text(record, "error"))
+            );
+        }
+        body += "</tbody></table>";
+    }
+    if job["tool_activity_truncated"] == true {
+        body += "<p>Tool activity was omitted to preserve space for the final result.</p>";
+    }
     if let Some(answer) = job["answer"].as_str() {
         body += &format!("<h3>Answer</h3><pre>{}</pre>", escape(answer));
     }
