@@ -222,3 +222,9 @@ raw signed-primary records are in `qt-native-primary-records.json`. The
 [review](../../../docs/ryoku-v1.0-qt-native-providers.md) binds generated
 Spatial3D/Concurrent, static UPower and the distinct Qt FFmpeg8 versus candidate
 CLI/livewall FFmpeg9 contracts; no plugin/tool is run and native gates stay open.
+
+`acceptance-gates-validation.json` checks the [fresh acceptance-note contract](../../../docs/ryoku-v1.0-acceptance-gates.md)
+against current pins/archives/specs and exact historical receipts. Its scope is
+document/reference consistency, not native acceptance or runtime enforcement.
+The contract prevents old #23/#24 results from satisfying refreshed #25/#26
+and M2 claims; those issues remain open for their actual native evidence.

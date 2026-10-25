@@ -67,7 +67,13 @@ The [2026-10-21 native acceptance receipt](../../infra/tumbleweed-lab/evidence/i
 records the exact six-spec source closure, ten-package manifests and signed
 fresh Snapshot20261016 dependency, install and reinstall checks. The linked
 logs include native Qt6 scanning, first sysusers group creation and strict
-override preservation. Its fixture signing key is not a release key.
+override preservation. Its fixture signing key is not a release key. That receipt covers its recorded
+port 0.1.0-5 / Quickshell 0.3.2-2 input tuple; it does not certify the current
+Ryoku 1.0 candidate. #24 Run10 also retains its explicit 0.75.5 / port
+0.1.0-7 label. Follow the [fresh #173/#25/#26 acceptance contract](../../docs/ryoku-v1.0-acceptance-gates.md)
+before closing the refreshed desktop or first-sprint gates. Source/hosted CI
+and reused SDK artifacts do not substitute for the required fresh native
+package, session, fallback and linked offline recovery evidence.
 
 ## Defaults and mutable overrides
 

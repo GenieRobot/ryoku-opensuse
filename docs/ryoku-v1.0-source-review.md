@@ -379,3 +379,13 @@ The retained Stage/iNiR shape license files were also checked directly at
 the pinned Git blob `261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64`: both are
 Apache-2.0. The runtime license metadata now includes that verified license;
 the broader native/license acceptance gate remains open.
+
+## Refreshed desktop and first-sprint evidence gate
+
+The [#173/#25/#26 acceptance contract](ryoku-v1.0-acceptance-gates.md) binds
+the 1.0 source/archive identities to a freshly measured combined port/package/
+platform tuple and required native/session/linked offline recovery results.
+It preserves #23 and #24 receipts under their exact original versions. This
+closes only the acceptance-note/roadmap documentation task once those public
+notes are linked; no native, provider, rights or full-feature gate is supplied
+by documentation or hosted checks.
