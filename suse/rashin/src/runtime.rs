@@ -115,8 +115,19 @@ impl Default for State {
 struct EvidencePreview {
     component: String,
     revision: u64,
+    finding: String,
     summary: String,
     created: std::time::Instant,
+}
+
+struct FixApproval {
+    revision: u64,
+    token: Option<String>,
+}
+fn fix_finding(kind: crate::api::FixKind, component: &str, evidence: &str) -> Result<String> {
+    Ok(digest(
+        &serde_json::to_vec(&(kind, component, evidence)).map_err(|_| Error::InvalidRequest)?,
+    ))
 }
 
 pub struct Engine {
@@ -285,8 +296,10 @@ impl Engine {
                 text(&prompt, 16 * 1024)?;
                 self.start(id, Some(session), prompt, lane, None, None)
             }
-            Request::FixPreview { component } => {
+            Request::FixPreview { kind, component, evidence } => {
                 crate::inspection::component_name(&component)?;
+                text(&evidence, 16 * 1024)?;
+                let finding = fix_finding(kind, &component, &evidence)?;
                 let (revision, destination, _) = self.fix_destination()?;
                 let summary = crate::inspection::collect(&component)?.prompt_summary();
                 let mut random = [0; 32];
@@ -304,13 +317,16 @@ impl Engine {
                     EvidencePreview {
                         component: component.clone(),
                         revision,
+                        finding,
                         summary: summary.clone(),
                         created: std::time::Instant::now(),
                     },
                 );
-                Ok(json!({"component":component,"destination":destination,
+                Ok(
+                    json!({"kind":kind,"component":component,"evidence":evidence,"destination":destination,
                     "native_evidence":summary,"native_evidence_consent":token,
-                    "expires_in_seconds":300,"disclosure":"Fix sends this bounded native unit, user-journal and RPM evidence, your supplied finding, configured instructions and indexed context to the selected Agent provider. Review it before confirming."}))
+                    "expires_in_seconds":300,"disclosure":"Fix sends this bounded native unit, user-journal and RPM evidence, your supplied finding, configured instructions and indexed context to the selected Agent provider. Review it before confirming."}),
+                )
             }
             Request::Fix { id, kind, component, evidence, native_evidence_consent } => {
                 crate::inspection::component_name(&component)?;
@@ -334,17 +350,21 @@ impl Engine {
                     }
                 }
                 let (revision, _, external) = self.fix_destination()?;
+                let mut approval = FixApproval { revision, token: None };
                 let native = if external {
                     let token = native_evidence_consent.ok_or(Error::EvidenceConsentRequired)?;
                     let previews = self.evidence_previews.lock().map_err(|_| Error::Storage)?;
                     let preview = previews.get(&token).ok_or(Error::EvidenceConsentRequired)?;
-                    if preview.component != component
+                    if preview.finding != fix_finding(kind, &component, &evidence)?
+                        || preview.component != component
                         || preview.revision != revision
                         || preview.created.elapsed() >= Duration::from_secs(300)
                     {
                         return Err(Error::EvidenceConsentRequired);
                     }
-                    preview.summary.clone()
+                    let summary = preview.summary.clone();
+                    approval.token = Some(token);
+                    summary
                 } else {
                     crate::inspection::collect(&component)?.prompt_summary()
                 };
@@ -353,7 +373,7 @@ impl Engine {
                 );
                 // The configuration revision is rechecked inside the same
                 // transaction that captures the provider, closing routing races.
-                self.start(id, None, prompt, Lane::Agent, Some(fingerprint), Some(revision))
+                self.start(id, None, prompt, Lane::Agent, Some(fingerprint), Some(approval))
             }
             Request::Cancel { id } => {
                 let result = self.transaction(|state| {
@@ -595,7 +615,7 @@ impl Engine {
         prompt: String,
         lane: Lane,
         fingerprint_override: Option<String>,
-        evidence_revision: Option<u64>,
+        evidence_approval: Option<FixApproval>,
     ) -> Result<Value> {
         identifier(&id)?;
         text(&prompt, 32 * 1024)?;
@@ -612,7 +632,7 @@ impl Engine {
             if state.jobs.len() >= 128 { return Err(Error::Limit); }
             if let Some(session) = &session
                 && state.jobs.values().any(|job| job.session.as_ref() == Some(session) && job.status == JobStatus::Running) { return Err(Error::Busy); }
-            if evidence_revision.is_some_and(|revision| revision != state.configuration_revision) { return Err(Error::EvidenceConsentRequired); }
+            if evidence_approval.as_ref().is_some_and(|approval| approval.revision != state.configuration_revision) { return Err(Error::EvidenceConsentRequired); }
             let route = state.routes.get(&lane).ok_or(Error::NotFound)?.clone();
             let provider = state.providers.get(&route.provider).ok_or(Error::ProviderUnavailable)?.clone();
             if !provider.models().contains(&route.model) { return Err(Error::ProviderUnavailable); }
@@ -630,7 +650,16 @@ impl Engine {
             messages.push(Message { role: Role::User, content: prompt.clone() });
             state.jobs.insert(id.clone(), Job { fingerprint, lane, session, prompt, status: JobStatus::Running, answer: None, error: None, provider: route.provider, model: route.model.clone(), started: now() });
             self.active.try_update(Ordering::AcqRel, Ordering::Acquire, |active| (active < 4).then_some(active + 1)).map_err(|_| Error::Busy)?;
-            task = Some((provider, route.model, messages, ProviderPermit(Arc::clone(&self.active))));
+            let permit = ProviderPermit(Arc::clone(&self.active));
+            if let Some(token) = evidence_approval.and_then(|approval| approval.token) {
+                // The state transaction serializes provider capture and token
+                // consumption across distinct request IDs. A failed storage
+                // publication consumes the token safely without any egress.
+                let mut previews = self.evidence_previews.lock().map_err(|_| Error::Storage)?;
+                let preview = previews.remove(&token).ok_or(Error::EvidenceConsentRequired)?;
+                if preview.created.elapsed() >= Duration::from_secs(300) { return Err(Error::EvidenceConsentRequired); }
+            }
+            task = Some((provider, route.model, messages, permit));
             Ok(json!({"id":id,"status":"running"}))
         })?;
         if let Some((provider, model, messages, permit)) = task {
@@ -831,6 +860,12 @@ mod evidence_tests {
             EvidencePreview {
                 component: "synthetic.service".into(),
                 revision,
+                finding: fix_finding(
+                    crate::api::FixKind::App,
+                    "synthetic.service",
+                    "synthetic finding",
+                )
+                .unwrap(),
                 summary: "EXACT_REVIEWED_NATIVE_EVIDENCE".into(),
                 created: std::time::Instant::now() - age,
             },
@@ -846,7 +881,11 @@ mod evidence_tests {
         assert_eq!(
             engine.dispatch_as(
                 crate::authorization::Access::AskClient,
-                Request::FixPreview { component: "synthetic.service".into() }
+                Request::FixPreview {
+                    kind: crate::api::FixKind::App,
+                    component: "synthetic.service".into(),
+                    evidence: "synthetic finding".into()
+                }
             ),
             Err(Error::Unauthorized)
         );
@@ -891,7 +930,7 @@ mod evidence_tests {
                 "native evidence".into(),
                 Lane::Agent,
                 None,
-                Some(revision)
+                Some(FixApproval { revision, token: None })
             ),
             Err(Error::EvidenceConsentRequired)
         );
@@ -902,8 +941,13 @@ mod evidence_tests {
         let fixture = Fixture::new();
         let engine = fixture.engine();
         external(&engine);
-        let value =
-            engine.dispatch(Request::FixPreview { component: "synthetic.service".into() }).unwrap();
+        let value = engine
+            .dispatch(Request::FixPreview {
+                kind: crate::api::FixKind::App,
+                component: "synthetic.service".into(),
+                evidence: "synthetic finding".into(),
+            })
+            .unwrap();
         assert_eq!(value["destination"]["provider"]["endpoint"], "https://example.invalid/v1");
         assert!(!value.to_string().contains("PRIVATE_TEST_KEY"));
         let token = value["native_evidence_consent"].as_str().unwrap();
@@ -912,5 +956,83 @@ mod evidence_tests {
         assert_eq!(previews[token].summary, value["native_evidence"].as_str().unwrap());
         assert!(previews[token].summary.contains("user_journal"));
         assert_eq!(value["expires_in_seconds"], 300);
+        assert_eq!(value["kind"], "app");
+        assert_eq!(value["evidence"], "synthetic finding");
+    }
+    #[test]
+    fn external_fix_confirmation_rejects_kind_or_finding_changes() {
+        let fixture = Fixture::new();
+        let engine = fixture.engine();
+        external(&engine);
+        preview(&engine, Duration::ZERO);
+        let request = |kind, evidence: &str| Request::Fix {
+            id: "changed-finding".into(),
+            kind,
+            component: "synthetic.service".into(),
+            evidence: evidence.into(),
+            native_evidence_consent: Some("reviewed".into()),
+        };
+        assert_eq!(
+            engine.dispatch(request(crate::api::FixKind::Doctor, "synthetic finding")),
+            Err(Error::EvidenceConsentRequired)
+        );
+        assert_eq!(
+            engine.dispatch(request(crate::api::FixKind::App, "different finding")),
+            Err(Error::EvidenceConsentRequired)
+        );
+        assert!(engine.state.lock().unwrap().jobs.is_empty());
+        assert!(engine.evidence_previews.lock().unwrap().contains_key("reviewed"));
+    }
+    #[test]
+    fn confirmation_consumption_is_single_use_but_accepted_id_retry_is_idempotent() {
+        let fixture = Fixture::new();
+        let engine = fixture.engine();
+        preview(&engine, Duration::ZERO);
+        let revision = engine.state.lock().unwrap().configuration_revision;
+        let approval = || Some(FixApproval { revision, token: Some("reviewed".into()) });
+        // Exercise the actual capture/consumption transaction with the local
+        // provider, so the offline test never starts an external API process.
+        engine
+            .start(
+                "accepted".into(),
+                None,
+                "reviewed investigation".into(),
+                Lane::Agent,
+                None,
+                approval(),
+            )
+            .unwrap();
+        assert!(!engine.evidence_previews.lock().unwrap().contains_key("reviewed"));
+        assert_eq!(
+            engine.start(
+                "replay".into(),
+                None,
+                "reviewed investigation".into(),
+                Lane::Agent,
+                None,
+                approval()
+            ),
+            Err(Error::EvidenceConsentRequired)
+        );
+        assert!(
+            engine
+                .start(
+                    "accepted".into(),
+                    None,
+                    "reviewed investigation".into(),
+                    Lane::Agent,
+                    None,
+                    approval()
+                )
+                .is_ok()
+        );
+        assert_eq!(engine.state.lock().unwrap().jobs.len(), 1);
+        for _ in 0..100 {
+            if engine.state.lock().unwrap().jobs["accepted"].status != JobStatus::Running {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        panic!("local fixture did not complete");
     }
 }

@@ -101,18 +101,21 @@ children are killed and reaped. Fix includes UTF-8-safe, explicitly labeled
 512-byte excerpts from each observation; the explicit logs action supplies the
 full bounded evidence. Findings retain request idempotency even if recollected
 native state changes. For an external Agent route, first call
-`{"action":"fix_preview","component":"example.service"}`. Review its exact
-`native_evidence` and destination (provider ID, endpoint and model); the disclosure
+`{"action":"fix_preview","kind":"app","component":"example.service","evidence":"The reviewed finding"}`. Review its exact
+`kind`, `evidence`, `native_evidence` and destination (provider ID, endpoint and model); the disclosure
 also identifies the supplied finding, indexed context and configured instructions
 sent with the investigation. To approve, send the returned
 `native_evidence_consent` token in the `fix` request alongside `id`, `kind`,
 `component` and `evidence`. Missing/expired/unknown confirmation returns
 `evidence_consent_required` before any provider dispatch. The token is owner-only,
-in-memory, valid for five minutes, bound to that component and provider/route
+in-memory, valid for five minutes, bound to that kind/finding/component and provider/route
 configuration revision, and is not persisted or inserted into the prompt. Fix
 sends the reviewed native summary without recollecting it. Changing any provider
 credentials/configuration or route invalidates previews, and the revision is
-checked again atomically when the provider is captured. Restart discards previews.
+checked again atomically when the provider is captured. The same transaction
+consumes the token once: another request ID cannot reuse it. A failed storage
+publication consumes it without dispatching, requiring a fresh preview. Restart
+discards previews.
 Successful request retries remain idempotent without sending evidence again.
 Local/fixture Fix requires no external-evidence confirmation.
 The runtime package requires `systemd` and `rpm >= 4.19`.

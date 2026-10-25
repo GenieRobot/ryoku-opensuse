@@ -57,7 +57,9 @@ pub enum Request {
         prompt: String,
     },
     FixPreview {
+        kind: FixKind,
         component: String,
+        evidence: String,
     },
     Fix {
         id: String,
