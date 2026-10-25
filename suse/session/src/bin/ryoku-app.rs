@@ -86,7 +86,9 @@ fn desktop_id(output: &[u8]) -> Result<&str> {
         || !value.ends_with(".desktop")
         || value == ".desktop"
         || value.starts_with('-')
-        || value.chars().any(|c| c.is_control() || c.is_whitespace() || c == '/' || c == '\\')
+        || value
+            .chars()
+            .any(|c| c.is_control() || (c.is_whitespace() && c != ' ') || c == '/' || c == '\\')
     {
         return Err(invalid.into());
     }
@@ -270,6 +272,11 @@ mod tests {
         ]);
         operands.push(OsString::from_vec(b"./non-utf8-\xff".to_vec()));
         for role in [DesktopRole::Browser, DesktopRole::Files] {
+            let selected = if role == DesktopRole::Browser {
+                "Example Browser.desktop"
+            } else {
+                "org.example.Native.desktop"
+            };
             let mut queries = 0;
             let mut launches = 0;
             desktop_using(
@@ -290,18 +297,14 @@ mod tests {
                             role.mime()
                         ])
                     );
-                    Ok(b"org.example.Native.desktop\n".to_vec())
+                    Ok(format!("{selected}\n").into_bytes())
                 },
                 &mut |command, timeout| {
                     launches += 1;
                     assert_eq!(timeout, Duration::from_secs(30));
                     assert_eq!(command.get_program(), "/usr/bin/setpriv");
-                    let mut expected = args(&[
-                        "--no-new-privs",
-                        "/usr/bin/gtk-launch",
-                        "--",
-                        "org.example.Native.desktop",
-                    ]);
+                    let mut expected =
+                        args(&["--no-new-privs", "/usr/bin/gtk-launch", "--", selected]);
                     expected.extend_from_slice(&operands);
                     assert_eq!(command.get_args().collect::<Vec<_>>(), expected);
                     assert_eq!(command.get_current_dir(), Some(Path::new("/tmp")));
@@ -341,7 +344,7 @@ mod tests {
             b"a\\b.desktop".to_vec(),
             b"a.desktop\nb.desktop\n".to_vec(),
             b"-option.desktop".to_vec(),
-            b"a b.desktop".to_vec(),
+            b"a\tb.desktop".to_vec(),
             b"\xff.desktop".to_vec(),
         ];
         invalid.push([vec![b'a'; 4096], b".desktop".to_vec()].concat());

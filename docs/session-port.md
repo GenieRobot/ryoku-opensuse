@@ -48,7 +48,7 @@ shell IPC. `Super+,` asks the wrapped daemon to open the original Hub. The
 `ryoku-app terminal` compatibility command uses native Konsole with literal
 argv. `ryoku-app browser` and `ryoku-app files` resolve the native desktop default
 for `x-scheme-handler/http` and `inode/directory` using `xdg-mime query default`,
-then hand the validated desktop-file ID and literal target operands to
+then hand the validated desktop-file ID (including ordinary spaces) and literal target operands to
 `gtk-launch --`. Optional target arguments, with an optional leading `--`, stay
 separate OS arguments; GLib owns desktop-file execution, D-Bus activation and
 file/URI conversion. Rust does not parse `Exec` or run role command strings.
