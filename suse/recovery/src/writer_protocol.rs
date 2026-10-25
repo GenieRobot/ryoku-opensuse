@@ -379,6 +379,13 @@ impl CaptureWriterLease {
         self.check()?;
         Ok(identity)
     }
+    pub(crate) fn wallpaper_manual_paused(&self) -> Result<bool> {
+        let mut stream = self.wallpaper_stream()?;
+        stream.write_all(b"K")?;
+        let paused = read_actor_wire(&mut stream)?;
+        self.check()?;
+        Ok(paused)
+    }
     pub(crate) fn wallpaper_players(
         &self,
     ) -> Result<Vec<crate::wallpaper_protocol::ActorIdentity>> {
@@ -513,6 +520,11 @@ impl Endpoint {
                         let actor = actor.ok_or(Error::Unsupported)?;
                         write_actor_wire(&mut stream, &actor.identity()?)?;
                     }
+                    Ok(1) if request == *b"K" => {
+                        freeze.check()?;
+                        let actor = actor.ok_or(Error::Unsupported)?;
+                        write_actor_wire(&mut stream, &actor.manual_paused()?)?;
+                    }
                     Ok(1) if request == *b"J" => {
                         freeze.check()?;
                         let actor = actor.ok_or(Error::Unsupported)?;
@@ -534,6 +546,14 @@ impl Endpoint {
                             .map_err(|_| Error::Unsupported)?;
                         if matches!(action, crate::wallpaper_protocol::WallpaperChange::Pause(_))
                             && actor.player_identities()? != call.player_pins
+                        {
+                            return Err(Error::WriterUnavailable);
+                        }
+                        if matches!(
+                            action,
+                            crate::wallpaper_protocol::WallpaperChange::Apply(_)
+                                | crate::wallpaper_protocol::WallpaperChange::Workspace(_)
+                        ) && call.inherit_manual_pause != actor.manual_paused()?
                         {
                             return Err(Error::WriterUnavailable);
                         }
@@ -569,7 +589,14 @@ impl Endpoint {
                                 {
                                     return Err(Error::Unsupported);
                                 }
+                                let manual = value["result"]["manual_paused"]
+                                    .as_bool()
+                                    .ok_or(Error::Unsupported)?;
+                                if pause.paused && !manual {
+                                    return Err(Error::Unsupported);
+                                }
                                 freeze.playback_disposition(pins, effective)?;
+                                actor.record_manual_pause(manual)?;
                             }
                         }
                         write_actor_wire(&mut stream, &applied)?;

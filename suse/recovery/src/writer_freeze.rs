@@ -52,6 +52,7 @@ pub(crate) struct PlaybackExecution {
 }
 pub(crate) struct ActorExecution {
     pub(crate) playback: Option<PlaybackExecution>,
+    pub(crate) pause_new_image: Option<ExecutablePin>,
     pub(crate) actor_pid: i32,
     pub(crate) executables: Vec<ExecutablePin>,
 }
@@ -87,6 +88,15 @@ impl ExecutablePin {
             ino: metadata.ino(),
             size: metadata.size(),
             changed: (metadata.ctime(), metadata.ctime_nsec()),
+        })
+    }
+    fn duplicate(&self) -> Result<Self> {
+        Ok(Self {
+            file: self.file.try_clone()?,
+            dev: self.dev,
+            ino: self.ino,
+            size: self.size,
+            changed: self.changed,
         })
     }
     pub(crate) fn matches(&self, pid: i32) -> Result<bool> {
@@ -691,6 +701,7 @@ impl TraceOwner {
             thread::sleep(Duration::from_millis(2));
         }
         self.pin_actor_processes()?;
+        self.preserve_new_players(execution)?;
         self.cleanup_required = true;
         for (&tid, held) in &mut self.tasks {
             if !held.actor_owned || self.preserved_stops.contains_key(&held.tgid) {
@@ -740,6 +751,51 @@ impl TraceOwner {
             })
         {
             return Err(Error::WriterUnavailable);
+        }
+        Ok(())
+    }
+
+    fn preserve_new_players(&mut self, execution: &ActorExecution) -> Result<()> {
+        let Some(image) = &execution.pause_new_image else { return Ok(()) };
+        let actor = read_task(execution.actor_pid)?.ok_or(Error::WriterUnavailable)?;
+        // EXEC is still held before its first CONT. Only real event-enrolled
+        // descendants matching the fixed player image inherit the prior choice;
+        // decoders/other helpers and every unrelated writer keep their policy.
+        for (&pid, held) in &self.tasks {
+            if !held.actor_owned
+                || !held.exec
+                || !held.stopped
+                || held.tgid != pid
+                || pid == execution.actor_pid
+                || self.preserved_stops.contains_key(&pid)
+            {
+                continue;
+            }
+            if !image.matches(pid)? {
+                continue;
+            }
+            let task = read_task(pid)?.ok_or(Error::WriterUnavailable)?;
+            if task.start != held.start
+                || task.tracer != self.tracer
+                || task.uids != actor.uids
+                || !child_processes(execution.actor_pid, &[])?.contains(&pid)
+            {
+                return Err(Error::WriterUnavailable);
+            }
+            let process =
+                self.actor_processes.get(&pid).ok_or(Error::WriterUnavailable)?.try_clone()?;
+            self.preserved_stops.insert(
+                pid,
+                PreservedPlayerStop {
+                    actor: execution.actor_pid,
+                    actor_start: actor.start,
+                    pid,
+                    start: task.start,
+                    uid: task.uids[0],
+                    process,
+                    executable: image.duplicate()?,
+                },
+            );
         }
         Ok(())
     }
@@ -845,6 +901,8 @@ impl TraceOwner {
             // a transient de-thread race may have failed the preceding tick.
             if let Some(execution) = execution {
                 self.validate_actor(execution)?;
+                self.pin_actor_processes()?;
+                self.preserve_new_players(execution)?;
             }
             if self.check().is_ok() {
                 return Ok(());
@@ -1451,6 +1509,111 @@ mod tests {
     }
 
     #[test]
+    fn inherited_manual_pause_holds_new_player_before_first_instruction_until_explicit_resume() {
+        const CASE: &str = "writer_freeze::tests::inherited_manual_pause_holds_new_player_before_first_instruction_until_explicit_resume";
+        if std::env::var(ROLE).as_deref() != Ok("new-player-scenario") {
+            let status = Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", CASE, "--nocapture", "--test-threads=1"])
+                .env(ROLE, "new-player-scenario")
+                .status()
+                .unwrap();
+            assert!(status.success());
+            return;
+        }
+        let mut actor = Fixture::new();
+        let actor_pid = actor.spawn("marker-parent");
+        actor.wait("ready");
+        let uid = rustix::process::geteuid().as_raw();
+        let target = || Target::Children {
+            parent: std::process::id() as i32,
+            uid,
+            home: std::env::var("HOME").unwrap(),
+            excluded: vec![],
+        };
+        let mut guard = WriterFreeze::start(target()).unwrap();
+        std::fs::write(actor.path.join("spawn-now"), "1").unwrap();
+        guard
+            .run_actor(ActorExecution {
+                actor_pid,
+                playback: None,
+                executables: vec![
+                    ExecutablePin::open(std::path::Path::new("/usr/bin/touch")).unwrap(),
+                ],
+                // Synthetic installed-player image. Production fixes this descriptor
+                // to /usr/bin/ryogami-live; no request may choose an executable.
+                pause_new_image: Some(
+                    ExecutablePin::open(std::path::Path::new("/usr/bin/touch")).unwrap(),
+                ),
+            })
+            .unwrap();
+        actor.wait("player-pid");
+        let player: i32 =
+            std::fs::read_to_string(actor.path.join("player-pid")).unwrap().parse().unwrap();
+        thread::sleep(Duration::from_millis(20));
+        assert!(!actor.path.join("first-player-instruction").exists());
+        assert_eq!(read_task(player).unwrap().unwrap().state, 't');
+        guard.refreeze().unwrap();
+        guard.check().unwrap();
+        guard.release().unwrap();
+        let deadline = Instant::now() + TIMEOUT;
+        while read_task(player).unwrap().unwrap().state != 'T' {
+            assert!(Instant::now() < deadline, "new player lost inherited pause");
+            thread::sleep(Duration::from_millis(2));
+        }
+        assert!(!actor.path.join("first-player-instruction").exists());
+        // An ordinary second capture/call may not release this newly born stop.
+        let pin = PreservedPlayerStop::pin(
+            actor_pid,
+            player,
+            uid,
+            ExecutablePin::open(std::path::Path::new("/usr/bin/touch")).unwrap(),
+        )
+        .unwrap();
+        let mut guard = WriterFreeze::start_with_stops(target(), vec![pin]).unwrap();
+        guard
+            .run_actor(ActorExecution {
+                actor_pid,
+                playback: None,
+                pause_new_image: None,
+                executables: vec![],
+            })
+            .unwrap();
+        guard.refreeze().unwrap();
+        guard.release().unwrap();
+        assert!(!actor.path.join("first-player-instruction").exists());
+        let identity = crate::wallpaper_protocol::ActorIdentity {
+            pid: player as u32,
+            start_time: read_task(player).unwrap().unwrap().start,
+        };
+        let pin = PreservedPlayerStop::pin(
+            actor_pid,
+            player,
+            uid,
+            ExecutablePin::open(std::path::Path::new("/usr/bin/touch")).unwrap(),
+        )
+        .unwrap();
+        let mut guard = WriterFreeze::start_with_stops(target(), vec![pin]).unwrap();
+        guard
+            .run_actor(ActorExecution {
+                actor_pid,
+                executables: vec![],
+                pause_new_image: None,
+                playback: Some(PlaybackExecution {
+                    players: vec![identity.clone()],
+                    requested_paused: false,
+                }),
+            })
+            .unwrap();
+        guard.refreeze().unwrap();
+        assert!(!actor.path.join("first-player-instruction").exists());
+        guard.playback_disposition(vec![identity], false).unwrap();
+        guard.release().unwrap();
+        actor.wait("first-player-instruction");
+        actor.wait("writer-ended");
+        actor.reap_last();
+    }
+
+    #[test]
     fn preserved_player_stop_survives_actor_call_detach_and_recapture() {
         const CASE: &str =
             "writer_freeze::tests::preserved_player_stop_survives_actor_call_detach_and_recapture";
@@ -1515,7 +1678,12 @@ mod tests {
             let mut guard = WriterFreeze::start_with_stops(target(), vec![pin]).unwrap();
             let previous = std::fs::read(actor.path.join("parent-counter")).unwrap();
             guard
-                .run_actor(ActorExecution { playback: None, actor_pid, executables: vec![] })
+                .run_actor(ActorExecution {
+                    pause_new_image: None,
+                    playback: None,
+                    actor_pid,
+                    executables: vec![],
+                })
                 .unwrap();
             // Even an out-of-band same-UID SIGCONT must not bypass the
             // captured intentional stop while an ordinary actor call runs.
@@ -1553,6 +1721,7 @@ mod tests {
         assert!(guard.playback_disposition(vec![identity.clone()], false).is_err());
         guard
             .run_actor(ActorExecution {
+                pause_new_image: None,
                 actor_pid,
                 executables: vec![],
                 playback: Some(PlaybackExecution {
@@ -1572,6 +1741,7 @@ mod tests {
         let mut guard = WriterFreeze::start_with_stops(target(), vec![pin]).unwrap();
         guard
             .run_actor(ActorExecution {
+                pause_new_image: None,
                 actor_pid,
                 executables: vec![],
                 playback: Some(PlaybackExecution {
@@ -1631,7 +1801,12 @@ mod tests {
             let actor_before = actor.counters();
             let sibling_before = sibling.counters();
             guard
-                .run_actor(ActorExecution { playback: None, actor_pid, executables: vec![] })
+                .run_actor(ActorExecution {
+                    pause_new_image: None,
+                    playback: None,
+                    actor_pid,
+                    executables: vec![],
+                })
                 .unwrap();
             actor.resumed(&actor_before);
             assert_eq!(sibling.counters(), sibling_before);
@@ -1655,6 +1830,7 @@ mod tests {
             std::fs::write(forking.path.join("fork-now"), "1").unwrap();
             guard
                 .run_actor(ActorExecution {
+                    pause_new_image: None,
                     playback: None,
                     actor_pid: forking_pid,
                     executables: vec![
@@ -1727,7 +1903,12 @@ mod tests {
             for held in owner.tasks.values_mut() {
                 held.actor_owned = held.tgid == actor_pid;
             }
-            let execution = ActorExecution { playback: None, actor_pid, executables: vec![] };
+            let execution = ActorExecution {
+                pause_new_image: None,
+                playback: None,
+                actor_pid,
+                executables: vec![],
+            };
             let before = actor.counters();
             owner.run_tick(&execution).unwrap();
             actor.resumed(&before);
@@ -1761,6 +1942,7 @@ mod tests {
             assert!(
                 owner
                     .begin_actor(&ActorExecution {
+                        pause_new_image: None,
                         playback: None,
                         actor_pid: early_pid,
                         executables: vec![]
@@ -1791,6 +1973,7 @@ mod tests {
             // the actor's other threads. Both timings must satisfy the same
             // observed-death, poison and sibling-stop assertions below.
             let started = guard.run_actor(ActorExecution {
+                pause_new_image: None,
                 playback: None,
                 actor_pid: replacement_pid,
                 executables: vec![],
@@ -1836,6 +2019,19 @@ mod tests {
         if let Ok(role) = std::env::var(ROLE) {
             let path = PathBuf::from(std::env::var_os(PATH).unwrap());
             match role.as_str() {
+                "marker-parent" => {
+                    std::fs::write(path.join("ready"), "1").unwrap();
+                    while !path.join("spawn-now").exists() {
+                        thread::sleep(Duration::from_millis(2));
+                    }
+                    let mut child = Command::new("/usr/bin/touch")
+                        .arg(path.join("first-player-instruction"))
+                        .spawn()
+                        .unwrap();
+                    std::fs::write(path.join("player-pid"), child.id().to_string()).unwrap();
+                    assert!(child.wait().unwrap().success());
+                    std::fs::write(path.join("writer-ended"), "1").unwrap();
+                }
                 "player-parent" => {
                     let player = path.join("player");
                     std::fs::create_dir(&player).unwrap();

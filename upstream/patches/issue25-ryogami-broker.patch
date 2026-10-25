@@ -44,7 +44,7 @@ index 316de02..9ace19c 100644
  	}
  }
 diff --git a/ryoku/shell/ryogami/daemon/apply.go b/ryoku/shell/ryogami/daemon/apply.go
-index 3d23bef..4582589 100644
+index 3d23bef..b0717fd 100644
 --- a/ryoku/shell/ryogami/daemon/apply.go
 +++ b/ryoku/shell/ryogami/daemon/apply.go
 @@ -1,13 +1,19 @@
@@ -628,7 +628,7 @@ index 3d23bef..4582589 100644
 +		d.surface.setPaused(effective)
 +	}
 +	d.broadcastPlaybackStatus(effective, nil)
-+	return map[string]interface{}{"paused": *p.Paused, "effective_paused": effective, "player_pins": pins}, nil
++	return map[string]interface{}{"paused": *p.Paused, "effective_paused": effective, "manual_paused": len(manual) != 0, "player_pins": pins}, nil
 +}
 +func brokerPlayerStart(pid int) (uint64, error) {
 +	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
@@ -661,7 +661,7 @@ index a38ea4c..7ac1c20 100644
  	// Seed the poisoned state: both webps recorded as video with a transcode.
  	d.store.entries["still.webp"] = Entry{Key: "still.webp", Name: "still.webp", Type: "video", VideoFile: "anim/still.mp4"}
 diff --git a/ryoku/shell/ryogami/daemon/daemon.go b/ryoku/shell/ryogami/daemon/daemon.go
-index 9b7e35f..4ba2a20 100644
+index 9b7e35f..0bf77eb 100644
 --- a/ryoku/shell/ryogami/daemon/daemon.go
 +++ b/ryoku/shell/ryogami/daemon/daemon.go
 @@ -2,16 +2,21 @@ package main
@@ -686,7 +686,7 @@ index 9b7e35f..4ba2a20 100644
  )
  
  const (
-@@ -22,6 +27,309 @@ const (
+@@ -22,6 +27,322 @@ const (
  
  var connectionSequence atomic.Uint64
  
@@ -757,11 +757,12 @@ index 9b7e35f..4ba2a20 100644
 +		PID   int    `json:"pid"`
 +		Start uint64 `json:"start_time"`
 +	} `json:"actor"`
-+	HomeSHA    string            `json:"account_home_sha256"`
-+	Plan       string            `json:"plan_sha256"`
-+	Frame      []byte            `json:"frame"`
-+	Hash       string            `json:"frame_sha256"`
-+	PlayerPins []brokerPlayerPin `json:"player_pins,omitempty"`
++	HomeSHA            string            `json:"account_home_sha256"`
++	Plan               string            `json:"plan_sha256"`
++	Frame              []byte            `json:"frame"`
++	Hash               string            `json:"frame_sha256"`
++	PlayerPins         []brokerPlayerPin `json:"player_pins,omitempty"`
++	InheritManualPause bool              `json:"inherit_manual_pause,omitempty"`
 +}
 +
 +var brokerApply struct {
@@ -948,6 +949,18 @@ index 9b7e35f..4ba2a20 100644
 +			return
 +		}
 +	}
++	if req.Method == "wall.apply" || req.Method == "broker.workspace" {
++		pauseState.mu.Lock()
++		manual := len(pauseState.manual) != 0
++		pauseState.mu.Unlock()
++		if permit.InheritManualPause != manual {
++			reply, _ := json.Marshal(errResp(req.ID, -32017, "manual playback choice changed since linked preparation"))
++			fmt.Fprintf(conn, "%s\n", reply)
++			return
++		}
++	} else if permit.InheritManualPause {
++		return
++	}
 +	if !d.brokerLayoutMatches(permit.HomeSHA) {
 +		reply, _ := json.Marshal(errResp(req.ID, -32012, "loaded wallpaper state roots differ from enrolled restore-point locations; restart the service with an enrolled configuration"))
 +		fmt.Fprintf(conn, "%s\n", reply)
@@ -996,7 +1009,7 @@ index 9b7e35f..4ba2a20 100644
  // daemon wires the pieces: the wallpaper surface (rendered by the shell QML),
  // the catalog store (served to the picker), the event hub, and the managed
  // picker process. One unix socket serves everything.
-@@ -107,35 +415,13 @@ func (d *daemon) broadcast(name string, data interface{}) {
+@@ -107,35 +428,13 @@ func (d *daemon) broadcast(name string, data interface{}) {
  	d.events.publish(string(b))
  }
  
@@ -1035,7 +1048,7 @@ index 9b7e35f..4ba2a20 100644
  	d := &daemon{
  		cfg:            cfg,
  		surface:        newWallSurface(),
-@@ -152,7 +438,9 @@ func runDaemon() error {
+@@ -152,7 +451,9 @@ func runDaemon() error {
  	d.sources = newSources(d)
  	d.paper = newPaperClient(d)
  	d.workshop = newWorkshopLib(d)
@@ -1046,7 +1059,7 @@ index 9b7e35f..4ba2a20 100644
  	cfg = d.config()
  	// A finished pipeline replaced sources on disk, so the catalog rescans;
  	// every pipeline event also reaches subscribed clients untouched.
-@@ -178,7 +466,7 @@ func runDaemon() error {
+@@ -178,7 +479,7 @@ func runDaemon() error {
  
  	// livewall children must not outlive the daemon, and a previous daemon's
  	// orphans must not play under a fresh restore.
@@ -1055,7 +1068,7 @@ index 9b7e35f..4ba2a20 100644
  	go func() {
  		sig := make(chan os.Signal, 1)
  		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-@@ -197,44 +485,83 @@ func runDaemon() error {
+@@ -197,44 +498,83 @@ func runDaemon() error {
  	// Publish the empty snapshot so a subscriber before the first set sees a
  	// defined frame, then restore the last wallpaper and rescan the catalog.
  	d.surface.publishCurrent()
@@ -1171,7 +1184,7 @@ index 9b7e35f..4ba2a20 100644
  	}
  }
  
-@@ -585,6 +912,9 @@ func (d *daemon) resetCache() {
+@@ -585,6 +925,9 @@ func (d *daemon) resetCache() {
  // nothing extra today (thumbs are mtime-gated), it only bypasses the
  // one-at-a-time gate's early return so an explicit rebuild always runs.
  func (d *daemon) rescan(force bool) {
@@ -1204,10 +1217,10 @@ index 0d34a34..d3a9a3d 100644
  // live on the socket, never steal it: the interloper restores the saved
  // wallpaper over the running one and dies with the terminal, leaving the
 diff --git a/ryoku/shell/ryogami/daemon/e2e_test.go b/ryoku/shell/ryogami/daemon/e2e_test.go
-index d7a968a..1963142 100644
+index d7a968a..81379eb 100644
 --- a/ryoku/shell/ryogami/daemon/e2e_test.go
 +++ b/ryoku/shell/ryogami/daemon/e2e_test.go
-@@ -1,86 +1,155 @@
+@@ -1,86 +1,166 @@
  package main
  
 -// Wiring proof against the real binary, ported from the Rust daemon's e2e
@@ -1305,11 +1318,11 @@ index d7a968a..1963142 100644
 +	t.Setenv("RYOKU_WALLPAPER_BROKER_FD", "")
 +	if err := runDaemon(); err == nil {
 +		t.Fatal("standalone daemon bypassed the Rust owner")
- 	}
++	}
 +	sock := filepath.Join(runtime, "ryogami.sock")
 +	if _, err := os.Lstat(sock); !os.IsNotExist(err) {
 +		t.Fatalf("native listener exists: %v", err)
-+	}
+ 	}
 +	var cfg config
 +	cfg.Paths.Cache = cache
 +	cfg.Paths.Wallpaper = filepath.Join(root, "Pictures", "Wallpapers")
@@ -1374,19 +1387,30 @@ index d7a968a..1963142 100644
 +	return d.approvedPlayers(id, method, params, nil)
 +}
 +func (d *testDaemon) approvedPlayers(id int, method string, params interface{}, players []brokerPlayerPin) string {
++	return d.approvedPlaybackChoice(id, method, params, players, nil)
++}
++func (d *testDaemon) approvedPlaybackChoice(id int, method string, params interface{}, players []brokerPlayerPin, choice *bool) string {
 +	d.t.Helper()
 +	frame, err := json.Marshal(map[string]interface{}{"id": id, "method": method, "params": params})
 +	if err != nil {
 +		d.t.Fatal(err)
- 	}
++	}
 +	frame = append(frame, '\n')
 +	var permit brokerPermit
 +	permit.PlayerPins = players
++	if method == "wall.apply" || method == "broker.workspace" {
++		pauseState.mu.Lock()
++		permit.InheritManualPause = len(pauseState.manual) != 0
++		pauseState.mu.Unlock()
++	}
++	if choice != nil {
++		permit.InheritManualPause = *choice
++	}
 +	permit.Actor.PID = os.Getpid()
 +	stat, err := os.ReadFile("/proc/self/stat")
 +	if err != nil {
 +		d.t.Fatal(err)
-+	}
+ 	}
 +	fields := strings.Fields(string(stat)[strings.LastIndex(string(stat), ") ")+2:])
 +	permit.Actor.Start, err = strconv.ParseUint(fields[19], 10, 64)
 +	if err != nil {
@@ -1412,7 +1436,7 @@ index d7a968a..1963142 100644
  }
  
  func (d *testDaemon) send(line string) string {
-@@ -135,7 +204,7 @@ func TestE2EWallpaperTopicPublishesFrameOnSet(t *testing.T) {
+@@ -135,7 +215,7 @@ func TestE2EWallpaperTopicPublishesFrameOnSet(t *testing.T) {
  
  	img := filepath.Join(d.root, "wall.png")
  	writeE2EPNG(t, img)
@@ -1421,7 +1445,7 @@ index d7a968a..1963142 100644
  		t.Fatalf("set reply: %s", got)
  	}
  	frame := readJSONLine(t, r)
-@@ -247,8 +316,7 @@ func TestE2EWallApplyPublishesTopicFrame(t *testing.T) {
+@@ -247,8 +327,7 @@ func TestE2EWallApplyPublishesTopicFrame(t *testing.T) {
  	r := bufio.NewReader(sub)
  	readJSONLine(t, r) // retained empty frame
  
@@ -1431,7 +1455,7 @@ index d7a968a..1963142 100644
  	if !strings.Contains(reply, `"applied"`) {
  		t.Fatalf("apply replied: %s", reply)
  	}
-@@ -455,11 +523,91 @@ func TestE2EWallDeleteRequiresSubfolderCatalogKey(t *testing.T) {
+@@ -455,11 +534,91 @@ func TestE2EWallDeleteRequiresSubfolderCatalogKey(t *testing.T) {
  // A `wall.apply` must write that legacy state file with the applied path, or
  // those readers see a stale wallpaper (a saved rice grabs the wrong wall).
  func TestE2EWallApplyWritesLegacyState(t *testing.T) {
@@ -1524,7 +1548,7 @@ index d7a968a..1963142 100644
  	if !strings.Contains(reply, `"applied"`) {
  		t.Fatalf("apply replied: %s", reply)
  	}
-@@ -480,4 +628,621 @@ func TestE2EWallApplyWritesLegacyState(t *testing.T) {
+@@ -480,4 +639,666 @@ func TestE2EWallApplyWritesLegacyState(t *testing.T) {
  	if got != img {
  		t.Fatalf("state file = %q, want %q", got, img)
  	}
@@ -2144,6 +2168,51 @@ index d7a968a..1963142 100644
 +		if d.native.surface.snapshot().Default.Paused != paused {
 +			t.Fatal("in-shell pause frame mismatch")
 +		}
++	}
++}
++
++func TestE2EManualPauseChoiceBindsLaterUserApplyAndClearsAfterResume(t *testing.T) {
++	d := startDaemon(t)
++	resetManualPauseFixture(t)
++	first, second := filepath.Join(d.root, "first.png"), filepath.Join(d.root, "second.png")
++	writeE2EPNG(t, first)
++	writeE2EPNG(t, second)
++	if reply := d.apply(240, first); !strings.Contains(reply, `"applied"`) {
++		t.Fatal(reply)
++	}
++	if reply := d.approvedAction(241, "wall.pause", brokerPause{Outputs: []string{}, Paused: boolPtrForAudio(true)}); !strings.Contains(reply, `"manual_paused":true`) {
++		t.Fatal(reply)
++	}
++	before, err := os.ReadFile(filepath.Join(d.native.cfg.cacheDir(), "outputs.json"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	action := brokerAction{Type: "static", Path: second, Outputs: []string{}, Mute: map[string]bool{}, Volume: map[string]int{}}
++	if reply := d.approvedPlaybackChoice(242, "wall.apply", action, nil, boolPtrForAudio(false)); !strings.Contains(reply, `"code":-32017`) {
++		t.Fatal(reply)
++	}
++	after, _ := os.ReadFile(filepath.Join(d.native.cfg.cacheDir(), "outputs.json"))
++	if string(before) != string(after) {
++		t.Fatal("stale playback choice changed persisted wallpaper")
++	}
++	if reply := d.apply(243, second); !strings.Contains(reply, `"applied"`) {
++		t.Fatal(reply)
++	}
++	if !d.native.surface.snapshot().Default.Paused {
++		t.Fatal("new user selection lost manual pause")
++	}
++	if reply := d.approvedAction(244, "wall.pause", brokerPause{Outputs: []string{}, Paused: boolPtrForAudio(false)}); !strings.Contains(reply, `"manual_paused":false`) {
++		t.Fatal(reply)
++	}
++	action.Path = first
++	if reply := d.approvedPlaybackChoice(245, "wall.apply", action, nil, boolPtrForAudio(true)); !strings.Contains(reply, `"code":-32017`) {
++		t.Fatal(reply)
++	}
++	if reply := d.apply(246, first); !strings.Contains(reply, `"applied"`) {
++		t.Fatal(reply)
++	}
++	if d.native.surface.snapshot().Default.Paused {
++		t.Fatal("explicit resume did not clear inherited choice")
 +	}
  }
 diff --git a/ryoku/shell/ryogami/daemon/hooks.go b/ryoku/shell/ryogami/daemon/hooks.go

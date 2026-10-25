@@ -164,6 +164,32 @@ and replacement/start behavior on the full 1.0 candidate remain native gates.
 See the [pause receipt](../infra/tumbleweed-lab/evidence/issue25-wallpaper-pause-20261025.toml)
 and [failed/corrected evidence](../infra/tumbleweed-lab/evidence/issue25-pause-regression-20261025.log).
 
+## New native players inherit a prior manual pause
+
+A verified manual pause receipt now records its explicit manual choice in the
+Rust broker, separately from automatic effective pause. The frozen root lease
+supplies that actor-bound choice to user apply/assignment planning. It joins the
+final revalidated fingerprint/private permit; public and helper inputs cannot
+supply it. The native receiver checks its actual manual map again before any
+wallpaper write, so a stale choice cannot silently clear or invent a pause.
+
+When a user-driven apply starts/replaces the native player under an inherited
+pause, only a real actor-owned fork/clone plus matching fixed-player EXEC stop
+can enroll it. The tracer pins that process and its installed image before the
+first continuation and keeps it stopped through final refreeze, detach and later
+ordinary capture. A later independently authorized resume uses the existing
+exact-player release path. Decoder helpers and unrelated writers do not acquire
+this policy. Background automatic respawn/restore still needs #176's own permit;
+no user apply permission is lent to that route.
+
+The [player-start receipt](../infra/tumbleweed-lab/evidence/issue25-player-start-20261025.toml)
+and [logs](../infra/tumbleweed-lab/evidence/issue25-player-start-20261025.log) record
+a real fork/exec first-marker fixture, five exact selected library repetitions,
+private-flag forgery checks and stale-choice no-write native cases. The marker
+fixture uses a synthetic installed image; real C-player READY/decode/display,
+installed package integration and the refreshed complete 1.0 VM/session/device
+checklist remain open. No VM/download was used for these source/control proofs.
+
 ## Manual workspace assignment and unassignment
 
 `wall.assign` and `wall.unassign`, including the existing plain `--workspace` and
@@ -309,7 +335,7 @@ exec-stop and signal-delivery semantics.
 Helper tests preserve Rejected wire shape and verify success fields/caller denial.
 Bundle tests reject missing/ambiguous/stale/account-mismatched provenance.
 
-The native daemon suite is **359 passing test/subtest cases, 7 declared missing
+The native daemon suite is **360 passing test/subtest cases, 7 declared missing
 ImageMagick skips, 9 exact cross-issue exclusions**, with no blanket E2E filter.
 Four initially excluded #25 fixtures were rewritten to anonymous native query/A
 channels and now pass:

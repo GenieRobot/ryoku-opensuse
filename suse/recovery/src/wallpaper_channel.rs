@@ -18,6 +18,7 @@ pub(crate) struct NativeActor {
     owner_pid: u32,
     uid: u32,
     executable: crate::writer_freeze::ExecutablePin,
+    manual_paused: std::sync::atomic::AtomicBool,
 }
 
 impl NativeActor {
@@ -37,7 +38,14 @@ impl NativeActor {
         if !executable.matches(child_pid as i32).map_err(io::Error::other)? {
             return Err(io::Error::other("native wallpaper image differs from installed actor"));
         }
-        Ok(Self { control: Mutex::new(control), identity, owner_pid, uid, executable })
+        Ok(Self {
+            control: Mutex::new(control),
+            identity,
+            owner_pid,
+            uid,
+            executable,
+            manual_paused: std::sync::atomic::AtomicBool::new(false),
+        })
     }
 
     pub(crate) fn identity(&self) -> io::Result<ActorIdentity> {
@@ -47,6 +55,16 @@ impl NativeActor {
             return Err(io::Error::other("native wallpaper actor identity changed"));
         }
         Ok(self.identity.clone())
+    }
+
+    pub(crate) fn manual_paused(&self) -> io::Result<bool> {
+        self.identity()?;
+        Ok(self.manual_paused.load(std::sync::atomic::Ordering::Acquire))
+    }
+    pub(crate) fn record_manual_pause(&self, paused: bool) -> io::Result<()> {
+        self.identity()?;
+        self.manual_paused.store(paused, std::sync::atomic::Ordering::Release);
+        Ok(())
     }
 
     pub(crate) fn player_identities(&self) -> io::Result<Vec<ActorIdentity>> {
@@ -101,8 +119,19 @@ impl NativeActor {
         } else {
             None
         };
+        let pause_new_image = if call.inherit_manual_pause {
+            Some(
+                crate::writer_freeze::ExecutablePin::open(std::path::Path::new(
+                    "/usr/bin/ryogami-live",
+                ))
+                .map_err(io::Error::other)?,
+            )
+        } else {
+            None
+        };
         Ok(crate::writer_freeze::ActorExecution {
             playback,
+            pause_new_image,
             actor_pid: self.identity.pid as i32,
             executables,
         })

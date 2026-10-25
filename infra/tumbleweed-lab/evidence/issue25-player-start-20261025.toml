@@ -1,0 +1,65 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+branch_parent = "5971e2564c0ae424b5dde7d3455c2a98a5e0c300"
+stack_base = "dd6ce61627103a71b1aec5ab4cbfa3aa2c36b83c"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+scope = "User-driven native player start/replacement inherits the prior authorized manual pause before first player-image continuation"
+native_acceptance = false
+vm_access = false
+downloads = false
+
+[contract]
+manual_choice = "Rust broker records manual_paused only after an authenticated typed pause request, verified native receipt and actor refreeze; cache is bound to the exact actor identity and starts false for a new actor"
+frozen_plan = "Private root-only lease K reads the recorded choice while frozen; apply/assignment plan fingerprint and private permit bind it. Public/helper request schemas accept no inherited flag or player image."
+native_revalidation = "Native A receiver independently compares the inherited bit to its actual current manual map before apply/assignment; mismatch returns correlated -32017 before any wallpaper writes"
+image_scope = "Only fixed installed /usr/bin/ryogami-live is eligible; no UI-supplied executable or PID. Other decoder/helper execs and unrelated writers keep existing behavior."
+first_instruction = "Real parent fork/clone event must enroll the actor-owned child; matching allowed EXEC event is held, process pidfd is pinned and exact player image duplicated before first CONT; same rule runs during final refreeze"
+later_operations = "New stop survives ordinary detach and re-capture; only separate explicitly authorized manual resume releases the exact retained player identity. User apply permit cannot authorize resume, external provider or automatic hook."
+receipt = "Native manual receipt carries explicit manual_paused separate from effective_paused, preserving other-output and automatic-effect distinctions; malformed/dropped manual choice cannot be helper success"
+runtime_scope = "Kernel fixture substitutes root-owned /usr/bin/touch as synthetic player image and asserts absence of its first marker until authorized release; production image is fixed to ryogami-live. This is not actual C decode/display proof."
+automatic_ownership = "Background/automatic respawn, restore and theme/hooks remain#176 and require their own typed contract; external paper remains#175. Full source/UI retained."
+
+[checks]
+format = "cargo fmt --all --check"
+clippy = "CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets --offline --locked -- -D warnings"
+rust = "CARGO_INCREMENTAL=0 cargo test --workspace --offline --locked"
+recovery_passed = 245
+recovery_existing_ignored = 6
+service_passed = 140
+service_existing_ignored = 1
+cli_passed = 26
+state_init_passed = 2
+writer_policy_passed = 1
+helper_policy_passed = 3
+rust_failed = 0
+native_passed_cases = 360
+native_missing_tool_skips = 7
+native_cross_issue_prerequisites = 9
+native_categories_disjoint = true
+native_missing_tool_tests = ["TestAutoOptimizeTouchesOnlyNewImages", "TestGradePreviewAndCommit", "TestOptimizeCancelStopsEarly", "TestOptimizeRunConvertsPNGs", "TestScanGeneratesThumb", "TestScanMergeMtimeChangeReprocesses", "TestScanSkipsFreshThumb"]
+native_excluded_prerequisite_tests = ["TestE2EDepthSetAndClearFoldIntoFrame", "TestE2EJSONRequestsAndEventsShareOneConnection", "TestE2EWallpaperNextAdvances", "TestE2EFavouriteSurvivesRescan", "TestE2ESetFavouriteBroadcastsCached", "TestE2EWallDeleteRequiresSubfolderCatalogKey", "TestEventsFlowWhileRequestRuns", "TestSlowSourceSearchDoesNotBlockStatusOnSameConnection", "TestClosingConnectionClearsSearchRegistry"]
+native_command = "GOFLAGS=-buildvcs=false GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -mod=vendor -skip '^(TestE2EDepthSetAndClearFoldIntoFrame|TestE2EJSONRequestsAndEventsShareOneConnection|TestE2EWallpaperNextAdvances|TestE2EFavouriteSurvivesRescan|TestE2ESetFavouriteBroadcastsCached|TestE2EWallDeleteRequiresSubfolderCatalogKey|TestEventsFlowWhileRequestRuns|TestSlowSourceSearchDoesNotBlockStatusOnSameConnection|TestClosingConnectionClearsSearchRegistry)$' -count=1 -json ./..."
+patch_replay = "17-file tracked appearance patch byte reproduction; zero-fuzz launch+appearance RPM prep from unchanged cached Source3"
+actor_outer_repetitions = 5
+failure_and_corrected_log = "issue25-player-start-20261025.log"
+native_patch_sha256 = "3c4b7a6e0e36e7ead17ca4e1ca50e75623f1e61bc4f7b1ca4519384099b0eb9c"
+focused_dispatch = "CARGO_INCREMENTAL=0 cargo test --lib --offline --locked -p ryoku-recovery writer_freeze::tests::inherited_manual_pause_holds_new_player_before_first_instruction_until_explicit_resume -- --exact --nocapture"
+focused_dispatch_passed = 1
+actor_repetition_seconds = [0.16, 0.16, 0.16, 0.16, 0.18]
+repetition_filter = "Each --lib --exact invocation runs1 selected library test;250 filtered are the other library definitions, not an exclusion of the selected behavior. No unrelated binary/integration zero-test targets included."
+
+[sources]
+runtime_sha256 = "8aeff20645c14af76f3d341e5d4e7c31923fd249f6671caa704c8b23a6c84e65"
+writers_tested_sha256 = "7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be"
+combined_candidate_gate = "Current #173 completion tuple requires Source3 387d829860ba844ad32ecdd5982678707665f3251e41bbb43c6fd6f87dc7eee0; this historical cached-source prep proof cannot replace its refreshed combined native acceptance"
+
+[redaction]
+rule = "Actual worktree/account-home/temporary absolute paths replaced with <worktree>/, <account-home>/ and <tmp>/; fixed system interfaces and synthetic test identifiers retained"
+scan = "No actual account/host paths, username, credential-token formats, authorization headers or credential-bearing URLs in new public log/receipt/contract"
+raw_logs = "Retained outside the public repository only"
+
+[remaining]
+issue_open = true
+pr_draft = true
+required = ["Fresh combined#173 current Source0/Source2/Source3/vendor/spec/RPM/toolchain and signed native candidate", "Installed real C-player decode/display, READY handshake, pause/new selection/replacement/resume workflow with actual supported VM graphics", "#25 current1.0 SDDM/login/reboot/logout/KDE/device/portal/clipboard/notification/authentication checklist", "#176 automatic player lifecycle/theme/restore/hook accounting; user permit cannot be borrowed", "#175 complete external/provider/library/custom-root parity", "Combined#26 recovery and separately owned#177/#180 acceptance"]

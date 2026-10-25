@@ -600,6 +600,8 @@ pub struct ActorCall {
     pub frame_sha256: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub player_pins: Vec<ActorIdentity>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub inherit_manual_pause: bool,
 }
 
 impl ActorCall {
@@ -632,6 +634,11 @@ impl ActorCall {
                 .any(|pin| pin.pid == 0 || pin.pid == self.actor.pid || pin.start_time == 0)
             || self.player_pins.windows(2).any(|pair| pair[0].pid >= pair[1].pid)
             || !matches!(action, WallpaperChange::Pause(_)) && !self.player_pins.is_empty()
+        {
+            return Err(WallpaperProtocolError::InvalidPermit);
+        }
+        if self.inherit_manual_pause
+            && !matches!(action, WallpaperChange::Apply(_) | WallpaperChange::Workspace(_))
         {
             return Err(WallpaperProtocolError::InvalidPermit);
         }
@@ -670,6 +677,49 @@ impl std::error::Error for WallpaperProtocolError {}
 #[cfg(test)]
 mod tests {
     #[test]
+    fn inherited_manual_choice_is_private_and_cannot_authorize_audio_or_pause() {
+        for value in [
+            serde_json::json!({"id":1,"method":"wall.apply","params":{"type":"static","path":"/home/fixture/x.png","inherit_manual_pause":true}}),
+            serde_json::json!({"id":1,"method":"wall.assign","params":{"id":"1","output":"DP-1","type":"static","path":"/home/fixture/x.png","inherit_manual_pause":true}}),
+            serde_json::json!({"id":1,"method":"wall.pause","params":{"paused":true,"inherit_manual_pause":true}}),
+        ] {
+            let mut frame = serde_json::to_vec(&value).unwrap();
+            frame.push(b'\n');
+            assert!(parse_public(&frame).is_err());
+        }
+        let actor = ActorIdentity { pid: 2, start_time: 3 };
+        let action = WallpaperApply {
+            kind: WallpaperKind::Static,
+            path: "/home/fixture/x.png".into(),
+            outputs: vec![],
+            mute: BTreeMap::new(),
+            volume: BTreeMap::new(),
+        };
+        let frame = action.frame(1).unwrap();
+        let mut call = ActorCall {
+            actor: actor.clone(),
+            account_home_sha256: digest(b"/home/fixture"),
+            plan_sha256: "11".repeat(32),
+            frame_sha256: digest(&frame),
+            frame,
+            player_pins: vec![],
+            inherit_manual_pause: true,
+        };
+        assert!(call.validate(&actor).is_ok());
+        for frame in [
+            WallpaperAudio { outputs: vec![], mute: Some(true), volume: None }.frame(1).unwrap(),
+            WallpaperPause { outputs: vec![], paused: false }.frame(1).unwrap(),
+        ] {
+            call.frame_sha256 = digest(&frame);
+            call.frame = frame;
+            assert!(call.validate(&actor).is_err());
+            call.inherit_manual_pause = false;
+            assert!(call.validate(&actor).is_ok());
+            call.inherit_manual_pause = true;
+        }
+    }
+
+    #[test]
     fn manual_pause_intent_has_no_player_pid_or_resume_authority_and_permits_bind_the_exact_set() {
         let request = br#"{"id":8,"method":"wall.pause","params":{"outputs":["*"]}}"#;
         let PublicRequest::Pause { id, action } =
@@ -697,6 +747,7 @@ mod tests {
             plan_sha256: "11".repeat(32),
             frame_sha256: digest(&frame),
             frame,
+            inherit_manual_pause: false,
             player_pins: vec![ActorIdentity { pid: 4, start_time: 5 }],
         };
         assert!(permit.validate(&actor).is_ok());
@@ -723,6 +774,7 @@ mod tests {
         assert!(matches!(parse_public(&frame), Ok(PublicRequest::Audio { .. })));
         let actor = ActorIdentity { pid: 17, start_time: 42 };
         let call = ActorCall {
+            inherit_manual_pause: false,
             player_pins: vec![],
             actor: actor.clone(),
             account_home_sha256: digest(b"/home/fixture"),
@@ -816,6 +868,7 @@ mod tests {
         let actor = ActorIdentity { pid: 17, start_time: 42 };
         let frame = action().frame(1).unwrap();
         let call = ActorCall {
+            inherit_manual_pause: false,
             player_pins: vec![],
             actor: actor.clone(),
             account_home_sha256: digest(b"/home/fixture"),

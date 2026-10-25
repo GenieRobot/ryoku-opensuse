@@ -160,6 +160,7 @@ fn change(
         actor_layout_changed: false,
         last_plan: None,
         player_pins: vec![],
+        inherit_manual_pause: false,
     };
     let planned = review_operator_plan(peer, operator_gid, &mut provider).map_err(gate_error)?;
     let result = run_operator_mutation(
@@ -231,7 +232,10 @@ fn validate_actor_reply(
         WallpaperChange::Pause(action)
             if value["result"]["paused"].as_bool() == Some(action.paused)
                 && value["result"]["effective_paused"].as_bool().is_some()
-                && (!action.paused || value["result"]["effective_paused"] == true)
+                && value["result"]["manual_paused"].as_bool().is_some()
+                && (!action.paused
+                    || value["result"]["effective_paused"] == true
+                        && value["result"]["manual_paused"] == true)
                 && value["result"]["player_pins"].is_array() => {}
         WallpaperChange::Audio(_) => {
             audio_receipt(&value["result"]).map_err(|_| ActorReplyError::Failed)?;
@@ -289,6 +293,7 @@ struct WallpaperProvider<'a> {
     actor_layout_changed: bool,
     last_plan: Option<PlannedChange>,
     player_pins: Vec<wire::ActorIdentity>,
+    inherit_manual_pause: bool,
 }
 impl NativeMutationProvider for WallpaperProvider<'_> {
     type Output = Vec<u8>;
@@ -366,6 +371,12 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
         } else {
             vec![]
         };
+        self.inherit_manual_pause =
+            if matches!(self.action, WallpaperChange::Apply(_) | WallpaperChange::Workspace(_)) {
+                session.wallpaper_manual_paused().map_err(|_| GateError::PlanChanged)?
+            } else {
+                false
+            };
         let mut plan = wallpaper_plan(
             &self.action,
             self.rpc_id,
@@ -377,6 +388,12 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
         if matches!(self.action, WallpaperChange::Pause(_)) {
             plan.plan_fingerprint = wire::digest(
                 &serde_json::to_vec(&(&plan.plan_fingerprint, &self.player_pins))
+                    .map_err(|_| GateError::InvalidPlan)?,
+            );
+        }
+        if matches!(self.action, WallpaperChange::Apply(_) | WallpaperChange::Workspace(_)) {
+            plan.plan_fingerprint = wire::digest(
+                &serde_json::to_vec(&(&plan.plan_fingerprint, self.inherit_manual_pause))
                     .map_err(|_| GateError::InvalidPlan)?,
             );
         }
@@ -416,6 +433,7 @@ impl NativeMutationProvider for WallpaperProvider<'_> {
             .map_err(|_| GateError::PlanChanged)?;
         let call = ActorCall {
             player_pins: self.player_pins.clone(),
+            inherit_manual_pause: self.inherit_manual_pause,
             account_home_sha256: wire::digest(home_path.as_os_str().as_encoded_bytes()),
             actor: session.wallpaper_actor().map_err(|_| GateError::PlanChanged)?,
             plan_sha256,
@@ -862,6 +880,22 @@ fn gate_error(error: GateError) -> ServiceError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn manual_choice_receipt_is_explicit_and_cannot_hide_a_dropped_pause() {
+        let action = WallpaperChange::Pause(WallpaperPause { outputs: vec![], paused: true });
+        let frame =
+            |result| serde_json::to_vec(&serde_json::json!({"id":8,"result":result})).unwrap();
+        let good = serde_json::json!({"paused":true,"effective_paused":true,"manual_paused":true,"player_pins":[]});
+        assert_eq!(validate_actor_reply(&frame(good.clone()), 8, &action), Ok(()));
+        for changed in
+            [serde_json::Value::Null, serde_json::Value::Bool(false), serde_json::json!("true")]
+        {
+            let mut bad = good.clone();
+            bad["manual_paused"] = changed;
+            assert_eq!(validate_actor_reply(&frame(bad), 8, &action), Err(ActorReplyError::Failed));
+        }
+    }
+
     #[test]
     fn final_dispatch_refuses_changed_focus_state_or_source_before_emitting_a_frame() {
         use ryoku_recovery::workspace_protocol::{PreparedWorkspace, WorkspaceChange};

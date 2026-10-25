@@ -74,6 +74,12 @@ impl NativeCaptureSession {
         self.freezer.wallpaper_actor()
     }
 
+    /// Prior manual choice recorded only from a verified typed actor receipt.
+    pub fn wallpaper_manual_paused(&self) -> Result<bool> {
+        self.revalidate()?;
+        self.freezer.wallpaper_manual_paused()
+    }
+
     /// Exact installed native-player identities in the still-frozen actor lease.
     pub fn wallpaper_players(&self) -> Result<Vec<crate::wallpaper_protocol::ActorIdentity>> {
         self.revalidate()?;
