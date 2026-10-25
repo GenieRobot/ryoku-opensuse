@@ -544,6 +544,22 @@ impl Engine {
                     Ok(description)
                 })
             }
+            Request::UpdateProvider { id, changes } => {
+                identifier(&id)?;
+                if id == "local" {
+                    return Err(Error::Conflict);
+                }
+                self.transaction(|state| {
+                    let provider =
+                        state.providers.get(&id).ok_or(Error::NotFound)?.edited(changes)?;
+                    let description = provider.describe(&id);
+                    state.configuration_revision =
+                        state.configuration_revision.checked_add(1).ok_or(Error::Limit)?;
+                    state.providers.insert(id, provider);
+                    // Picks remain explicit, including ones no longer offered.
+                    Ok(description)
+                })
+            }
             Request::RemoveProvider { id } => self.transaction(|state| {
                 if id == "local"
                     || state
@@ -1147,6 +1163,17 @@ mod evidence_tests {
         // Even a credential replacement with the same public destination
         // invalidates existing confirmation, without hashing/exposing the key.
         external(&engine);
+        assert_eq!(engine.dispatch(fix(Some("reviewed"))), Err(Error::EvidenceConsentRequired));
+        preview(&engine, Duration::ZERO);
+        engine
+            .dispatch(Request::UpdateProvider {
+                id: "external".into(),
+                changes: crate::provider::ProviderEdit {
+                    streaming: Some(false),
+                    ..crate::provider::ProviderEdit::default()
+                },
+            })
+            .unwrap();
         assert_eq!(engine.dispatch(fix(Some("reviewed"))), Err(Error::EvidenceConsentRequired));
         preview(&engine, Duration::ZERO);
         engine.active.store(4, Ordering::Release);

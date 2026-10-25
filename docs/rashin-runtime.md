@@ -69,7 +69,7 @@ a restrictive CSP; the console requires no JavaScript.
 | Inspect | `status`, `providers`, `get_index`, `recent`, `sessions`, `session`, `job`, `usage`, `logs` | Account-private reads; provider inventory never returns keys; logs run only fixed bounded native readers |
 | Ask | `ask`, `cancel` | Read-only provider lane, private independent history, bounded asynchronous execution and cancellation |
 | Conversation | `new_session`, `prompt`, `forget_job`, `delete_session` | Persistent independent Agent/Chat transcripts; deletion removes associated jobs and usage records |
-| Credentials | `put_provider`, `remove_provider`, `issue_ask_client`, `ask_clients`, `revoke_ask_client` | Owner configures/removes an explicit provider; keys remain only in private state and provider stdin |
+| Credentials | `put_provider`, `update_provider`, `remove_provider`, `issue_ask_client`, `ask_clients`, `revoke_ask_client` | Owner configures/removes an explicit provider; keys remain only in private state and provider stdin |
 | Route/model | `set_route` | Owner selects a provider and one of its configured model IDs for an explicit lane |
 | Index | `index` | Owner replaces a bounded set of explicitly uploaded UTF-8 documents; every SHA-256 is verified before publication |
 | Fix | `fix_preview`, `fix` | Owner supplies a typed doctor/tip/app finding; external native-evidence egress requires a reviewed destination-bound preview; creates an Agent investigation request with Tumbleweed ownership/recovery instructions |
@@ -193,6 +193,26 @@ shell command containing a real key:
 ```json
 {"action":"put_provider","id":"example","provider":{"kind":"open_ai_compatible","endpoint":"https://provider.example/v1","api_key":"USER_SUPPLIED_PRIVATE_KEY","models":["model-1"]}}
 ```
+
+`update_provider` accepts `id` and a typed `changes` object with optional
+`endpoint`, `api_key`, `models` and `streaming`. Omitted fields retain their
+existing private values. The owner can update models/streaming/endpoint without
+revealing or re-entering the stored key. A supplied key rotates it privately;
+responses and inventory remain redacted. Empty or invalid patches publish no
+state change. The protected local provider cannot be edited, and scoped Ask
+credentials cannot perform edits. Any successful edit invalidates native Fix
+previews through the same configuration revision as full replacement.
+
+```json
+{"action":"update_provider","id":"example","changes":{"models":["provider/模型@profile#fast"],"streaming":true}}
+```
+
+Model IDs are bounded opaque UTF-8 strings: Unicode and punctuation stay exact,
+control characters are refused, and requests must use an ID in the configured
+catalog. IDs are JSON values; they never become command arguments, executable
+syntax, URL paths or filesystem paths. This retains the pinned ACP model
+contract (`SetModel` passes `modelID`/config-option values directly) and avoids
+turning catalog identifiers into an edition-specific alphabet.
 
 Select it with `set_route` fields `lane`, `provider`, `model`. Ask, Agent and Chat
 have explicit independent routes in this slice. Removing or updating a provider

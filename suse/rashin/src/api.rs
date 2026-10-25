@@ -21,6 +21,10 @@ pub enum Request {
         id: String,
         provider: Provider,
     },
+    UpdateProvider {
+        id: String,
+        changes: crate::provider::ProviderEdit,
+    },
     RemoveProvider {
         id: String,
     },

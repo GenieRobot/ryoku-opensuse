@@ -29,6 +29,17 @@ pub enum Provider {
     },
 }
 
+/// Optional owner edits preserve existing credential contents when no new key
+/// is supplied. Descriptions never serialize the retained secret.
+#[derive(Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProviderEdit {
+    pub endpoint: Option<String>,
+    pub api_key: Option<String>,
+    pub models: Option<Vec<String>>,
+    pub streaming: Option<bool>,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "text", rename_all = "snake_case", deny_unknown_fields)]
 pub enum FixtureOutcome {
@@ -109,6 +120,27 @@ impl Provider {
             }
         }
         Ok(())
+    }
+
+    pub fn edited(&self, edit: ProviderEdit) -> Result<Self> {
+        let Self::OpenAiCompatible { endpoint, api_key, models, streaming } = self else {
+            return Err(Error::InvalidRequest);
+        };
+        if edit.endpoint.is_none()
+            && edit.api_key.is_none()
+            && edit.models.is_none()
+            && edit.streaming.is_none()
+        {
+            return Err(Error::InvalidRequest);
+        }
+        let next = Self::OpenAiCompatible {
+            endpoint: edit.endpoint.unwrap_or_else(|| endpoint.clone()),
+            api_key: edit.api_key.unwrap_or_else(|| api_key.clone()),
+            models: edit.models.unwrap_or_else(|| models.clone()),
+            streaming: edit.streaming.unwrap_or(*streaming),
+        };
+        next.validate()?;
+        Ok(next)
     }
 
     pub fn models(&self) -> Vec<String> {
@@ -381,7 +413,9 @@ impl Provider {
 
 pub fn model_name(model: &str) -> Result<()> {
     text(model, 128)?;
-    if !model.bytes().all(|b| b.is_ascii_alphanumeric() || b"/_.:-".contains(&b)) {
+    // Model IDs are opaque JSON values chosen from the configured allowlist.
+    // They never become a URL, command argument, path or executable syntax.
+    if model.chars().any(char::is_control) {
         return Err(Error::InvalidRequest);
     }
     Ok(())

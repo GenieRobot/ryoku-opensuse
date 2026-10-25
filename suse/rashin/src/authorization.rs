@@ -43,6 +43,7 @@ impl Request {
             | Self::ForgetJob { .. }
             | Self::DeleteSession { .. } => Action::Conversation,
             Self::PutProvider { .. }
+            | Self::UpdateProvider { .. }
             | Self::RemoveProvider { .. }
             | Self::IssueAskClient { .. }
             | Self::AskClients {}

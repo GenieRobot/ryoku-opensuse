@@ -1156,6 +1156,7 @@ fn scoped_http_bearer_enforces_ask_role_and_cannot_inherit_owner_cookie_authorit
         r#"{"action":"issue_ask_client"}"#,
         r#"{"action":"ask_clients"}"#,
         r#"{"action":"put_provider","id":"forbidden","provider":{"kind":"local"}}"#,
+        r#"{"action":"update_provider","id":"forbidden","changes":{"streaming":true}}"#,
         r#"{"action":"new_session","id":"forbidden","lane":"agent"}"#,
         r#"{"action":"set_route","lane":"agent","provider":"local","model":"local-retrieval-v1"}"#,
         r#"{"action":"index","documents":[]}"#,
@@ -1313,4 +1314,151 @@ fn built_daemon_assigns_scoped_http_role_and_restart_invalidates_delegation() {
     let (status, recent) = daemon.request(&daemon.token, r#"{"action":"recent"}"#);
     assert!(status.contains("200"));
     assert_eq!(recent["data"]["asks"][0]["id"], "scoped-live");
+}
+
+#[test]
+fn partial_provider_edits_retain_private_key_opaque_ids_and_explicit_unavailable_picks() {
+    use ryoku_rashin::provider::ProviderEdit;
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let secret = "PRIVATE_RETAINED_PROVIDER_KEY";
+    rpc(
+        &engine,
+        Request::PutProvider {
+            id: "editable".into(),
+            provider: Provider::OpenAiCompatible {
+                endpoint: "https://example.invalid/v1".into(),
+                api_key: secret.into(),
+                models: vec!["original".into()],
+                streaming: false,
+            },
+        },
+    );
+    rpc(
+        &engine,
+        Request::SetRoute {
+            lane: Lane::Ask,
+            provider: "editable".into(),
+            model: "original".into(),
+        },
+    );
+    let opaque = "π/模型@2026#fast?profile=one&label=\"quoted\"";
+    let description = rpc(
+        &engine,
+        Request::UpdateProvider {
+            id: "editable".into(),
+            changes: ProviderEdit {
+                models: Some(vec![opaque.into()]),
+                streaming: Some(true),
+                ..ProviderEdit::default()
+            },
+        },
+    );
+    assert_eq!(description["models"][0], opaque);
+    assert_eq!(description["streaming"], true);
+    assert!(!description.to_string().contains(secret));
+    let state: Value =
+        serde_json::from_slice(&fs::read(fixture.path.join("state.json")).unwrap()).unwrap();
+    assert_eq!(state["providers"]["editable"]["api_key"], secret);
+    assert_eq!(state["providers"]["editable"]["endpoint"], "https://example.invalid/v1");
+    assert_eq!(rpc(&engine, Request::Status {})["routes"]["ask"]["model"], "original");
+    assert_eq!(
+        engine.dispatch(Request::Ask {
+            id: "unavailable-pick".into(),
+            prompt: "do not route elsewhere".into()
+        }),
+        Err(Error::ProviderUnavailable)
+    );
+    rpc(
+        &engine,
+        Request::SetRoute { lane: Lane::Ask, provider: "editable".into(), model: opaque.into() },
+    );
+    rpc(
+        &engine,
+        Request::UpdateProvider {
+            id: "editable".into(),
+            changes: ProviderEdit {
+                endpoint: Some("https://replacement.invalid/v1".into()),
+                ..ProviderEdit::default()
+            },
+        },
+    );
+    let state: Value =
+        serde_json::from_slice(&fs::read(fixture.path.join("state.json")).unwrap()).unwrap();
+    assert_eq!(state["providers"]["editable"]["api_key"], secret);
+    assert_eq!(state["providers"]["editable"]["models"][0], opaque);
+    assert_eq!(state["routes"]["ask"]["model"], opaque);
+    assert_eq!(state["routes"]["agent"]["provider"], "local");
+    drop(engine);
+    let engine = fixture.reopen();
+    assert_eq!(rpc(&engine, Request::Status {})["routes"]["ask"]["model"], opaque);
+    assert!(!rpc(&engine, Request::Providers {}).to_string().contains(secret));
+}
+
+#[test]
+fn invalid_partial_provider_edits_roll_back_without_secret_loss_or_role_escalation() {
+    use ryoku_rashin::provider::ProviderEdit;
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    rpc(
+        &engine,
+        Request::PutProvider {
+            id: "editable".into(),
+            provider: Provider::OpenAiCompatible {
+                endpoint: "https://example.invalid/v1".into(),
+                api_key: "PRIVATE_KEY".into(),
+                models: vec!["model".into()],
+                streaming: false,
+            },
+        },
+    );
+    let before = fs::read(fixture.path.join("state.json")).unwrap();
+    let bad = [
+        ProviderEdit::default(),
+        ProviderEdit { api_key: Some(String::new()), ..ProviderEdit::default() },
+        ProviderEdit {
+            endpoint: Some("http://insecure.invalid".into()),
+            ..ProviderEdit::default()
+        },
+        ProviderEdit { models: Some(vec![]), ..ProviderEdit::default() },
+        ProviderEdit { models: Some(vec!["control\nmodel".into()]), ..ProviderEdit::default() },
+    ];
+    for changes in bad {
+        assert_eq!(
+            engine.dispatch(Request::UpdateProvider { id: "editable".into(), changes }),
+            Err(Error::InvalidRequest)
+        );
+        assert_eq!(fs::read(fixture.path.join("state.json")).unwrap(), before);
+    }
+    assert_eq!(
+        engine.dispatch(Request::UpdateProvider {
+            id: "local".into(),
+            changes: ProviderEdit { streaming: Some(true), ..ProviderEdit::default() }
+        }),
+        Err(Error::Conflict)
+    );
+    assert_eq!(
+        engine.dispatch_as(
+            ryoku_rashin::authorization::Access::AskClient,
+            Request::UpdateProvider {
+                id: "editable".into(),
+                changes: ProviderEdit { streaming: Some(true), ..ProviderEdit::default() }
+            }
+        ),
+        Err(Error::Unauthorized)
+    );
+    let changed = rpc(
+        &engine,
+        Request::UpdateProvider {
+            id: "editable".into(),
+            changes: ProviderEdit {
+                api_key: Some("ROTATED_PRIVATE_KEY".into()),
+                ..ProviderEdit::default()
+            },
+        },
+    );
+    assert!(!changed.to_string().contains("ROTATED_PRIVATE_KEY"));
+    let state: Value =
+        serde_json::from_slice(&fs::read(fixture.path.join("state.json")).unwrap()).unwrap();
+    assert_eq!(state["providers"]["editable"]["api_key"], "ROTATED_PRIVATE_KEY");
 }
