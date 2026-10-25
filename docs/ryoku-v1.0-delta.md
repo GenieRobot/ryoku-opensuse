@@ -125,3 +125,9 @@ pins 370 current/prior paths and exact renderer, remote/VM, palette, Redux and
 host policy/service boundaries. It records user-code activation, trust/model
 inputs and privileged helper identity separately from full target ownership;
 complete operation/native acceptance remains open.
+
+The [Qt/native provider unit](ryoku-v1.0-qt-native-providers.md) records six
+plugin payload/capability mappings, seven signed RPMs, ten direct SONAMEs and
+49 raw signed metadata records. Generated Spatial3D and static UPower remain
+separate from distribution imports; FFmpeg8/9 ABI and actual native solver/
+build/load acceptance remain explicit open contracts.

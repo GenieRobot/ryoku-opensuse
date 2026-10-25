@@ -215,3 +215,10 @@ The [runtime-provider review](../../../docs/ryoku-v1.0-runtime-providers.md)
 explains the cava/upower Requires and preserves the unresolved PowerProfiles
 service choice and protected wiring under its owners. Native package/import/
 ELF/service acceptance and full feature-owner work remain open.
+
+`qt-native-provider-proof.json` maps six signed Qt plugin payloads/direct ELF
+requirements separately from the declarative QML capability helper. The 49
+raw signed-primary records are in `qt-native-primary-records.json`. The
+[review](../../../docs/ryoku-v1.0-qt-native-providers.md) binds generated
+Spatial3D/Concurrent, static UPower and the distinct Qt FFmpeg8 versus candidate
+CLI/livewall FFmpeg9 contracts; no plugin/tool is run and native gates stay open.
