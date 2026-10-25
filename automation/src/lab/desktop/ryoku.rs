@@ -791,6 +791,58 @@ mod tests {
         }
     }
 
+    fn retry_owned_image_busy<T>(
+        limit: Duration,
+        mut spawn: impl FnMut() -> std::io::Result<T>,
+    ) -> std::io::Result<T> {
+        let deadline = Instant::now() + limit;
+        let mut retries = 0;
+        loop {
+            match spawn() {
+                Err(error)
+                    if error.raw_os_error() == Some(rustix::io::Errno::TXTBSY.raw_os_error())
+                        && Instant::now() < deadline
+                        && retries < 1000 =>
+                {
+                    retries += 1;
+                    thread::sleep(Duration::from_millis(1));
+                }
+                result => return result,
+            }
+        }
+    }
+
+    #[test]
+    fn owned_image_busy_retry_is_bounded_and_preserves_other_spawn_failures() {
+        let busy = || std::io::Error::from_raw_os_error(rustix::io::Errno::TXTBSY.raw_os_error());
+        let mut attempts = 0;
+        assert_eq!(
+            retry_owned_image_busy(Duration::from_secs(1), || {
+                attempts += 1;
+                if attempts == 1 { Err(busy()) } else { Ok("started") }
+            })
+            .unwrap(),
+            "started"
+        );
+        assert_eq!(attempts, 2);
+        assert_eq!(
+            retry_owned_image_busy::<()>(Duration::from_secs(1), || Err(
+                std::io::ErrorKind::PermissionDenied.into()
+            ))
+            .unwrap_err()
+            .kind(),
+            std::io::ErrorKind::PermissionDenied
+        );
+        let started = Instant::now();
+        assert_eq!(
+            retry_owned_image_busy::<()>(Duration::from_millis(5), || Err(busy()))
+                .unwrap_err()
+                .raw_os_error(),
+            Some(rustix::io::Errno::TXTBSY.raw_os_error())
+        );
+        assert!(started.elapsed() < Duration::from_secs(1));
+    }
+
     #[test]
     fn fallback_detects_owned_actor_after_its_running_image_is_unlinked() {
         const READY: &str = "RYOKU_ISSUE25_TEST_ACTOR_READY";
@@ -827,16 +879,18 @@ mod tests {
         fs::File::open(&image).unwrap().read_exact(&mut header).unwrap();
         assert_eq!(&header, b"\x7fELF");
         let ready = fixture.directory.join("ready");
-        fixture.child = Some(
-            Command::new(&image)
-                .args(["--exact", "desktop::ryoku::tests::fallback_detects_owned_actor_after_its_running_image_is_unlinked", "--nocapture"])
-                .env(READY, &ready)
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-                .unwrap(),
-        );
+        let mut command = Command::new(&image);
+        command
+            .args(["--exact", "desktop::ryoku::tests::fallback_detects_owned_actor_after_its_running_image_is_unlinked", "--nocapture"])
+            .env(READY, &ready)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        // A parallel fork can briefly inherit fs::copy's write FD before
+        // CLOEXEC closes it. Retry only ETXTBSY on this owned test image;
+        // no image-name/identity predicate or production admission is changed.
+        fixture.child =
+            Some(retry_owned_image_busy(Duration::from_secs(1), || command.spawn()).unwrap());
         let pid = fixture.child.as_ref().unwrap().id();
         let proc = PathBuf::from(format!("/proc/{pid}"));
         let uid = rustix::process::getuid().as_raw();

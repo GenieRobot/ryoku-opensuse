@@ -1,0 +1,78 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+branch_parent = "09dab11ed518cd690c7587dfae8dc6ae5939f634"
+scope = "Native default browser/file client dispatch with literal operands and bounded native tool clients"
+native_acceptance = false
+native_build = false
+package_build = false
+vm_access = false
+qmp_access = false
+downloads = false
+actual_gui_started = false
+
+[source_contract]
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+script_path = "ryoku/shell/scripts/ryoku-app"
+script_sha256 = "430d43ccc83820c97c32fc9e62b4208231c0c8c15077b5acda34de0f158b5131"
+script = "browser/files are no-argument role launches; terminal supports explicit -- PROGRAM argv; upstream reads desktop.json desktop.apps then legacy hypr.json apps"
+inir = "shell/quickshell/inir/services/AppLauncher.qml exposes ryoku-app browser as the system-browser choice"
+role_settings_owner = 180
+
+[implementation]
+browser_query = ["/usr/bin/setpriv", "--no-new-privs", "/usr/bin/xdg-mime", "query", "default", "x-scheme-handler/http"]
+files_query = ["/usr/bin/setpriv", "--no-new-privs", "/usr/bin/xdg-mime", "query", "default", "inode/directory"]
+launch = ["/usr/bin/setpriv", "--no-new-privs", "/usr/bin/gtk-launch", "--", "VALIDATED_DESKTOP_ID", "LITERAL_TARGET_OPERANDS"]
+query_timeout_seconds = 3
+query_stdout_limit_bytes = 4096
+launch_timeout_seconds = 30
+reap_budget_seconds = 1
+rpm_requires = ["/usr/bin/xdg-mime", "/usr/bin/gtk-launch"]
+identity = "Unchanged non-root matching real/effective IDs; no-new-privs; Quickshell crash variables removed; absolute working directory preserved"
+id = "One UTF-8 desktop-file ID, optional single final LF; nonempty .desktop stem; no path separators, leading option, control/whitespace, multiple lines or oversized output"
+argv = "No shell command string or Desktop Exec parser; optional -- followed by nonempty literal browser/files targets; existing terminal contract unchanged"
+uri = "Rust passes original encoded URI and filename OS arguments without splitting, interpolation or double percent-encoding. Actual GFile/GTK URI delivery remains a native acceptance gate"
+native_reference = "https://github.com/GNOME/gtk/blob/gtk-3-24/gtk/gtk-launch.c"
+native_reference_contract = "Native GDesktopAppInfo lookup; each target enters g_file_new_for_commandline_arg then g_app_info_launch. Native launcher may await a D-Bus startup ping"
+lifecycle = "Shared short-client runner retains previous navigation/lifecycle command deadlines. Nonblocking bounded query pipe, new owned process group, timeout SIGKILL before direct-child reaping and bounded reaper handoff"
+
+[checks]
+focused_command = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo test --offline --locked -p ryoku-session --bin ryoku-app --lib"
+launcher_passed = 6
+shared_client_passed = 2
+session_passed = 22
+vm_lab_passed = 95
+recovery_passed = 246
+recovery_existing_ignored = 6
+service_passed = 140
+service_existing_ignored = 1
+focused_failed = 0
+workspace_passed = true
+clippy_passed = true
+format_passed = true
+whitespace_passed = true
+new_tests = ["tests::desktop_roles_use_native_defaults_and_literal_targets_without_exec_parsing", "tests::invalid_missing_and_failed_handlers_never_dispatch_and_launch_errors_propagate", "client::tests::query_capture_is_bounded_and_propagates_failures", "client::tests::stalled_owned_client_group_is_reaped_without_stopping_an_independent_server"]
+argument_matrix = "Browser/files MIME selection; no-arg and optional-separator target forms; encoded URI, spaces, quotes, shell punctuation, leading option-like filename and non-UTF8 filename bytes preserved; crash environment stripped"
+handler_matrix = "Missing/multiline/non-UTF8/path/control/whitespace/leading-option/oversized ID refuses before launch; query failure prevents dispatch; missing/failed/stalled launcher outcomes propagate"
+real_owned_fixtures = "Existing printf/false executables verify successful output, exact 4096/4097 bound, failed/missing clients; disposable self-exec Rust fixture forks sleep in its own client group, times out, direct child is reaped, descendant is dead/zombie, independent sleep server survives and is explicitly reaped"
+workspace_command = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo test --workspace --all-features --offline --locked"
+clippy_command = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo clippy --workspace --all-targets --all-features --offline --locked -- -D warnings"
+
+[fixture_correction]
+first_parallel_failure = "First final rerun failed only the existing owned-image inspector fixture with ETXTBSY at child spawn (vm-lab93 pass/1 fail); first red log preserved privately"
+correction = "Test-only retry for this freshly copied disposable ELF, only ETXTBSY, at most1 second and1000 retries; all other spawn errors propagate. Concurrent inherited write FD is a possible cause, not proven by this failure log"
+production_unchanged = "No production image recognition, identity, process admission or native inspection behavior changed"
+regression = "owned_image_busy_retry_is_bounded_and_preserves_other_spawn_failures: transient busy succeeds, persistent busy remains failure within deadline, permission failure returns immediately"
+repetitions = "Five exact runs of fallback_detects_owned_actor_after_its_running_image_is_unlinked; each executes1 test, no test skipped or accidentally filtered out"
+lint_correction = "Strict Clippy initially rejected the stalled test child's missing wait; corrected the fixture to wait on its descendant while the owned group times out, no lint suppression"
+
+[environment_privacy]
+paths = "Existing Cargo target/cache/rustup all resolve to /dev/sdd ext4; temporary fixtures/logs use /tmp tmpfs; offline/locked, no C-mounted build paths"
+first_restricted_run = "Compiled, 21 session tests passed; existing native systemd-analyze assertion evaluator refused its credential socket in restricted sandbox, causing one environment failure; preserved separately from allowed rerun"
+privacy = "Only fixed source identities, relative paths, sanitized commands and counts published; raw logs remain private outside the repository"
+
+[remaining]
+issue_open = true
+pr_draft = true
+native = "Fresh combined #173 package/source tuple; native browser and file-manager window/default handling, literal URI delivery, session login/reboot/KDE/lock/device/workflow evidence remain pending; storage and shared builder clearance required"
+owners = "#180 owns custom role commands/preferences/additional roles, unchanged visible UI; #175/#176 library/hooks/theme ownership unchanged. No configuration writes or provider mutation routes added"

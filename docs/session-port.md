@@ -45,8 +45,24 @@ upstream daemon already owns that socket and clipboard topic.
 `Super+Space`, `Super+Escape`, `Super+V` and `Super+N` navigate the original
 launcher, quick settings, clipboard and notifications through the existing
 shell IPC. `Super+,` asks the wrapped daemon to open the original Hub. The
-terminal-only `ryoku-app` compatibility command uses native Konsole with literal
-argv. Other application roles return an error. The optional launcher Discover
+`ryoku-app terminal` compatibility command uses native Konsole with literal
+argv. `ryoku-app browser` and `ryoku-app files` resolve the native desktop default
+for `x-scheme-handler/http` and `inode/directory` using `xdg-mime query default`,
+then hand the validated desktop-file ID and literal target operands to
+`gtk-launch --`. Optional target arguments, with an optional leading `--`, stay
+separate OS arguments; GLib owns desktop-file execution, D-Bus activation and
+file/URI conversion. Rust does not parse `Exec` or run role command strings.
+A missing or invalid handler gives an actionable native Default Applications
+error. Query capture is capped at 4096 bytes and 3 seconds; the launch client has
+30 seconds for its native startup handshake, with owned-group kill/reap on a
+stall. Successful launch does not impose a GUI application lifetime deadline.
+The RPM requires both exact native tool paths. Hub `desktop.apps` and legacy
+`apps` custom commands, additional editor/notes roles and preference edits remain
+required under #180; this default-dispatch slice does not claim that parity.
+The [offline launcher receipt](../infra/tumbleweed-lab/evidence/issue25-app-defaults-20261025.toml)
+records argument, missing-handler, output-bound and owned-client lifecycle tests.
+Actual native browser/file windows and GTK/portal URI delivery remain pending
+on the combined candidate. The optional launcher Discover
 provider remains the existing `ryoku-tools-launcher-status` package; this RPM
 does not rewrite the user's launcher configuration.
 `Print` enters the existing coordinated Ryoshot writer through the Rust session

@@ -7,9 +7,10 @@ use std::{
     os::unix::process::CommandExt,
     path::Path,
     process::{Command, ExitCode, Stdio},
-    thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
+
+use ryoku_session::client::checked_control;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 const PAYLOAD: &str = "/usr/share/ryoku";
@@ -20,6 +21,7 @@ const QUICKSHELL_BIN: &str = "/usr/libexec/ryoku/quickshell/bin";
 const CONTROL_TIMEOUT: Duration = Duration::from_secs(3);
 const STOP_TIMEOUT: Duration = Duration::from_secs(20);
 const START_TIMEOUT: Duration = Duration::from_secs(20);
+#[cfg(test)]
 const CONTROL_REAP_TIMEOUT: Duration = Duration::from_secs(1);
 const SESSION_BIN: &str = "/usr/libexec/ryoku/session/bin";
 const CLIPBOARD_KEEPER: &str = "/usr/libexec/ryoku/session/upstream/wl-clip-persist";
@@ -161,64 +163,6 @@ fn checked(mut command: Command) -> Result<()> {
         return Err(format!("{} failed: {status}", program.to_string_lossy()).into());
     }
     Ok(())
-}
-
-// Bound only short control/IPC clients, never the compositor or lock lifetime.
-// A fresh process group keeps a timed-out client's descendants in the same
-// cleanup boundary; the direct child remains unreaped until its group is killed.
-fn checked_control(mut command: Command, timeout: Duration) -> Result<()> {
-    let program = command.get_program().to_owned();
-    let mut child = command.process_group(0).spawn()?;
-    let deadline = Instant::now() + timeout;
-    loop {
-        if let Some(status) = child.try_wait()? {
-            return if status.success() {
-                Ok(())
-            } else {
-                Err(format!("{} failed: {status}", program.to_string_lossy()).into())
-            };
-        }
-        if Instant::now() >= deadline {
-            let group = rustix::process::Pid::from_raw(child.id() as i32)
-                .ok_or("invalid control process identity")?;
-            // A zombie still reserves its PID until this owner reaps it, so
-            // this freshly created group cannot become an unrelated group.
-            let killed = rustix::process::kill_process_group(group, rustix::process::Signal::KILL);
-            let reaped_by = Instant::now() + CONTROL_REAP_TIMEOUT;
-            loop {
-                if child.try_wait()?.is_some() {
-                    break;
-                }
-                if Instant::now() >= reaped_by {
-                    // An uninterruptible kernel task must not consume the
-                    // reserved compositor-exit budget. SIGKILL remains pending;
-                    // a detached owner reaps it when the kernel permits exit.
-                    thread::Builder::new().name("ryoku-session-control-reaper".into()).spawn(
-                        move || {
-                            let _ = child.wait();
-                        },
-                    )?;
-                    break;
-                }
-                thread::sleep(Duration::from_millis(5));
-            }
-            if let Err(error) = killed
-                && error != rustix::io::Errno::SRCH
-            {
-                return Err(format!(
-                    "{} timed out; control group termination failed: {error}",
-                    program.to_string_lossy()
-                )
-                .into());
-            }
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::TimedOut,
-                format!("{} exceeded its control deadline", program.to_string_lossy()),
-            )
-            .into());
-        }
-        thread::sleep(Duration::from_millis(5));
-    }
 }
 
 fn systemctl(args: &[&str]) -> Command {
@@ -540,6 +484,7 @@ fn main() -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{thread, time::Instant};
 
     fn args(input: &[&str]) -> Vec<String> {
         input.iter().map(|s| s.to_string()).collect()

@@ -20,6 +20,8 @@ Requires:       xorg-x11-server
 Requires:       xf86-input-libinput
 Requires:       konsole
 Requires:       dolphin
+Requires:       /usr/bin/xdg-mime
+Requires:       /usr/bin/gtk-launch
 Requires:       util-linux
 Requires:       systemd
 Requires:       dbus-1-tools
