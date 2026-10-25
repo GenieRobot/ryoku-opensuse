@@ -153,6 +153,7 @@ pub(crate) fn open_journal(directory: &File) -> Result<OperationJournal> {
 /// lock. Holding this view serializes journal replay/repair against mutation.
 /// Root-only local access; never accept a caller-supplied path or state identity.
 pub struct ProtectedMutationHistory {
+    directory: File,
     _guard: mutation_gate::WriterGuard,
     journal: OperationJournal,
 }
@@ -172,7 +173,10 @@ impl ProtectedMutationHistory {
         )?;
         let guard = lock.acquire()?;
         let journal = open_journal(&directory)?;
-        Ok(Self { _guard: guard, journal })
+        Ok(Self { directory, _guard: guard, journal })
+    }
+    pub(crate) fn directory(&self) -> &File {
+        &self.directory
     }
     pub fn journal(&self) -> &OperationJournal {
         &self.journal

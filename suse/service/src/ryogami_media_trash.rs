@@ -60,8 +60,14 @@ impl VerifiedTrashReceipt {
         account: &CaptureAccount,
         history: &OperationJournal,
     ) -> Result<Self> {
+        let (record, sha256) = Self::read(directory, &identity.token)?;
+        if sha256 != identity.sha256 {
+            return Err(MediaError::Receipt);
+        }
+        Self::verify(record, account, history)
+    }
+    fn read(directory: &File, token: &Sha256) -> Result<(Receipt, Sha256)> {
         private(directory)?;
-        let token = &identity.token;
         let file = File::from(
             fs::openat2(
                 directory,
@@ -87,10 +93,7 @@ impl VerifiedTrashReceipt {
             .take(MAX_RECEIPT as u64 + 1)
             .read_to_end(&mut bytes)
             .map_err(|_| MediaError::Receipt)?;
-        if bytes.len() != stat.st_size as usize
-            || bytes.len() > MAX_RECEIPT
-            || digest(&bytes) != identity.sha256.as_str()
-        {
+        if bytes.len() != stat.st_size as usize || bytes.len() > MAX_RECEIPT {
             return Err(MediaError::Receipt);
         }
         let record: Receipt = serde_json::from_slice(&bytes).map_err(|_| MediaError::Receipt)?;
@@ -101,6 +104,14 @@ impl VerifiedTrashReceipt {
         {
             return Err(MediaError::Receipt);
         }
+        let sha256 = Sha256::new(digest(&bytes)).map_err(|_| MediaError::Receipt)?;
+        Ok((record, sha256))
+    }
+    fn verify(
+        record: Receipt,
+        account: &CaptureAccount,
+        history: &OperationJournal,
+    ) -> Result<Self> {
         record.inventory.require_account(account).map_err(|_| MediaError::Account)?;
         record.selection.validate().map_err(|_| MediaError::Receipt)?;
         let status = history.get(&record.operation).ok_or(MediaError::Receipt)?;
@@ -474,4 +485,150 @@ impl PreparedMedia {
         }
         Ok(())
     }
+}
+
+const PAGE_ENTRIES: usize = 32;
+const PAGE_RECEIPT_READS: usize = 64;
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MediaTrashEntry {
+    pub receipt: String,
+    pub label: String,
+    pub kind: String,
+    pub bytes: u64,
+    pub recovery_required: bool,
+}
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MediaTrashPage {
+    pub entries: Vec<MediaTrashEntry>,
+    pub next_cursor: Option<String>,
+}
+fn cursor(account: &CaptureAccount, operation: &OperationId) -> Result<String> {
+    Ok(digest(
+        &serde_json::to_vec(&(&account.principal, operation)).map_err(|_| MediaError::Receipt)?,
+    ))
+}
+/// The caller holds the protected journal lock and authenticates this exact
+/// account. Reads at most 64 bounded receipts and returns at most 32 summaries.
+/// Live catalog files, media payloads and unrelated account paths are never read.
+pub(super) fn list_owned(
+    directory: &File,
+    history: &OperationJournal,
+    home: &File,
+    account: &CaptureAccount,
+    query: &ryoku_recovery::ryogami_media_protocol::MediaTrashQuery,
+) -> Result<MediaTrashPage> {
+    query.validate().map_err(|_| MediaError::Input)?;
+    private(directory)?;
+    let home_stat = fs::fstat(home).map_err(|_| MediaError::Account)?;
+    if FileType::from_raw_mode(home_stat.st_mode) != FileType::Directory
+        || home_stat.st_uid != account.uid
+        || home_stat.st_gid != account.gid
+        || home_stat.st_mode & 0o7022 != 0
+    {
+        return Err(MediaError::Account);
+    }
+    let mut candidates = history
+        .statuses()
+        .filter(|status| {
+            status.action == crate::ManagedActionKind::DeleteMedia
+                && status.phase == OperationPhase::Succeeded
+                && status.error.is_none()
+        })
+        .peekable();
+    if let Some(after) = &query.cursor {
+        let mut found = false;
+        for status in candidates.by_ref() {
+            if cursor(account, &status.operation_id)? == *after {
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            return Err(MediaError::Input);
+        }
+    }
+    let mut entries = Vec::new();
+    let mut last = None;
+    for _ in 0..PAGE_RECEIPT_READS {
+        let Some(status) = candidates.next() else { break };
+        last = Some(cursor(account, &status.operation_id)?);
+        let token = Sha256::new(digest(status.operation_id.as_str().as_bytes()))
+            .map_err(|_| MediaError::Receipt)?;
+        let (record, sha256) = VerifiedTrashReceipt::read(directory, &token)?;
+        if record.inventory.principal() != &account.principal {
+            continue;
+        }
+        let receipt = VerifiedTrashReceipt::verify(record, account, history)?;
+        let mut expected = 0;
+        let mut present = 0;
+        let mut recovery_required = false;
+        let mut bytes = 0u64;
+        for item in &receipt.record.moves {
+            let entry = receipt
+                .record
+                .inventory
+                .entries()
+                .iter()
+                .find(|entry| entry.path == item.source)
+                .ok_or(MediaError::Receipt)?;
+            let EntryKind::RegularFile { size, metadata, .. } = &entry.kind else { continue };
+            expected += 1;
+            bytes = bytes.checked_add(*size).ok_or(MediaError::Receipt)?;
+            match fs::statat(home, item.trash.relative().as_str(), fs::AtFlags::SYMLINK_NOFOLLOW) {
+                Ok(stat) => {
+                    present += 1;
+                    recovery_required |= FileType::from_raw_mode(stat.st_mode)
+                        != FileType::RegularFile
+                        || stat.st_nlink != 1
+                        || stat.st_uid != account.uid
+                        || stat.st_gid != account.gid
+                        || stat.st_size < 0
+                        || stat.st_size as u64 != *size
+                        || stat.st_mode & 0o7777 != metadata.mode;
+                }
+                Err(rustix::io::Errno::NOENT) => {}
+                Err(_) => return Err(MediaError::Changed),
+            }
+        }
+        if present == 0 {
+            continue;
+        }
+        recovery_required |= present != expected;
+        let label = receipt
+            .record
+            .row
+            .get("name")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("Wallpaper")
+            .rsplit(['/', '\\'])
+            .next()
+            .unwrap_or("Wallpaper")
+            .chars()
+            .filter(|ch| !ch.is_control())
+            .take(128)
+            .collect::<String>();
+        let kind = receipt
+            .record
+            .row
+            .get("type")
+            .and_then(serde_json::Value::as_str)
+            .filter(|kind| matches!(*kind, "static" | "video"))
+            .ok_or(MediaError::Receipt)?;
+        entries.push(MediaTrashEntry {
+            receipt: TrashReceiptIdentity { token, sha256 }.encoded(),
+            label: if label.is_empty() { "Wallpaper".into() } else { label },
+            kind: kind.into(),
+            bytes,
+            recovery_required,
+        });
+        if entries.len() == PAGE_ENTRIES {
+            break;
+        }
+    }
+    Ok(MediaTrashPage {
+        entries,
+        next_cursor: if candidates.peek().is_some() { last } else { None },
+    })
 }

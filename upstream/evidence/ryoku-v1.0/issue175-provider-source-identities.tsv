@@ -49,6 +49,7 @@ ryoku/shell/ryogami/daemon/workshop_steamcmd.go	020b5e87e5d6da571fa7bf6c0ab6fa13
 ryoku/shell/ryogami/daemon/workshop_steamcmd_test.go	56e6354058d9489b8222707e529945c64585bc46	644
 ryoku/shell/ryogami/daemon/workshop_steamworks.go	22f8d466fa2508073182635e653934412b4e79a7	644
 ryoku/shell/ryogami/daemon/workshop_steamworks_test.go	a476d6478a81897f80f3722c0c7eb696f05702c0	644
+ryoku/shell/ryogami/picker/qml/SheetHost.qml	3afbb4abc68cb9f22b3755d431ee17b823fca702	644
 ryoku/shell/ryogami/picker/qml/folio/FolioActions.js	50e6628da5c90095fc6c0b056a463b358e8ac323	644
 ryoku/shell/ryogami/picker/qml/folio/tabs/FilterTab.qml	924d33af38a92de4527f884bdb987e0e20f9cde0	644
 ryoku/shell/ryogami/picker/qml/folio/tabs/LibraryTab.qml	ab324489ab42984f33af8478ad89c4db0a7e637f	644

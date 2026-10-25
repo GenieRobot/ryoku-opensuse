@@ -357,6 +357,10 @@ pub fn read_envelope(reader: &mut impl BufRead) -> Result<Envelope, ProtocolErro
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HelperRequest {
+    ListMediaTrash {
+        action: ryoku_recovery::ryogami_media_protocol::MediaTrashQuery,
+        rpc_id: i64,
+    },
     ChangeMedia {
         action: ryoku_recovery::ryogami_media_protocol::MediaIntent,
         rpc_id: i64,
@@ -405,6 +409,12 @@ pub enum HelperRequest {
 impl HelperRequest {
     pub fn validate(&self) -> Result<(), ProtocolError> {
         let (transaction, manifest) = match self {
+            Self::ListMediaTrash { action, rpc_id } => {
+                if *rpc_id < 0 || action.validate().is_err() {
+                    return Err(ProtocolError::Malformed("invalid media trash query"));
+                }
+                return Ok(());
+            }
             Self::ChangeMedia { action, rpc_id } => {
                 if *rpc_id < 0 || action.validate().is_err() {
                     return Err(ProtocolError::Malformed("invalid media action"));

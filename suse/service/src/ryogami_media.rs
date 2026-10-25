@@ -327,7 +327,7 @@ mod tests;
 
 #[path = "ryogami_media_trash.rs"]
 mod trash;
-pub use trash::{TrashReceiptIdentity, VerifiedTrashReceipt};
+pub use trash::{MediaTrashEntry, MediaTrashPage, TrashReceiptIdentity, VerifiedTrashReceipt};
 
 impl PreparedMedia {
     pub fn verify_catalog(
@@ -383,4 +383,4 @@ impl PreparedMedia {
 
 #[path = "ryogami_media_provider.rs"]
 mod provider;
-pub use provider::{CompletedMedia, change};
+pub use provider::{CompletedMedia, change, list};

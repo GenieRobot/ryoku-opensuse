@@ -5,7 +5,7 @@ This branch is stacked on the committed #25 interface at
 Ryoku `a59d051f0e8080052216f6c7b9eb7e5928935ce8` and the #173
 [Ryogami/Rashin source review](ryoku-v1.0-ryogami-rashin-review.md).
 The [source identities](../upstream/evidence/ryoku-v1.0/issue175-provider-source-identities.tsv)
-retain 57 exact selected path/blob/mode rows, including upstream test siblings.
+retain 58 exact selected path/blob/mode rows, including upstream test siblings.
 They are a dependency index, not a claim of complete transitive write coverage.
 
 ## Current implementation and limits
@@ -462,11 +462,10 @@ covers the media trash, catalog stage and bounded wallpaper-cache namespaces.
 The #25 fixed preference inventory and cache-location guard remain unchanged.
 
 The picker offers **Undo last deletion** while its state object retains the
-receipt. It keeps failed restore receipts, prevents overlapping actions, and
-stops accepting deletions at 64 outstanding session receipts rather than
-discarding older ones. Protected receipts and linked generations persist outside
-the picker; restart-visible trash listing/selection is still an acceptance gap.
-No automatic purge or irreversible deletion is introduced.
+receipt. It keeps failed restore receipts and prevents overlapping actions.
+The restart-visible trash checkpoint below now discovers older protected
+receipts independently of the bounded session Undo list. No automatic purge
+or irreversible deletion is introduced.
 
 Local evidence: recovery media fixtures 6/6, focused service fixtures 7/7,
 real Rust-to-Go media/model integration 2/2 (four media and five model scenarios),
@@ -537,7 +536,49 @@ The [local receipt](../upstream/evidence/ryoku-v1.0/issue175-declared-output-rec
 records exact commands and results. This checkpoint supplies the file-output
 recovery API needed by #176; it does not execute hooks or semantic callbacks.
 Source/Steam search/download, complete model import/install/remove, remaining
-library actions, restart-visible trash UI and native acceptance remain open.
+library actions and native acceptance remain open. Restart-visible trash is
+implemented in the following checkpoint and still needs native visual acceptance.
+
+## Restart-visible protected media trash checkpoint
+
+The closed read-only `wall.trash.list` route accepts only an optional opaque
+cursor. The proxy routes it to the authenticated helper, never the native query
+actor. Authorization precedes account lookup. The helper retains the existing
+protected mutation lock while replaying history and discovering receipts from
+successful, fully linked DeleteMedia operations. Listing does not start a writer
+actor or create a checkpoint; selected restore still uses the independent
+pre/post-verified mutation route.
+
+Each page reads at most 64 protected receipts of at most 256 KiB and returns at
+most 32 entries. The cursor is account-bound. Only that account's opaque receipt,
+sanitized basename label, media kind, retained byte count and recovery-required
+state are returned. No catalog row, path, URL or credential is returned. Listing
+reads protected receipts without opening live catalogs or media payloads.
+Changed/missing members are indicated for
+recovery; missing all retained members removes a restored item from the view.
+Every restore revalidates receipt, history, catalog, exact paths and contents.
+
+The picker refreshes when shown and provides a **Recoverable trash** sheet with
+Refresh, Previous, Next and selected Restore actions. Pages replace rather than
+accumulate entries; navigation history and session Undo are each bounded to 64.
+The session Undo bound no longer prevents further durable deletions. Failed or
+malformed responses preserve the current page and failed restore receipts;
+partial/changed entries explain that recovery is needed. Backend receipts and
+linked generations remain authoritative after the picker restarts.
+
+Local fixtures cover protected journal reopen, 99 deletions across accounts,
+empty paginated scans, stale/foreign cursors, pending histories, oversized or
+symlink receipts and retained FIFO detection without reading a payload. The real
+Go actor fixture now follows delete → protected list → selected receipt →
+restore and verifies the restored item disappears. Six tests execute the shipped
+QML JavaScript, including restart refresh, pagination, malformed results and
+failed selected restore. The updated #18/#25/#175 patch chain applies with zero
+fuzz and reproduces all 12 affected upstream files byte-for-byte.
+
+The [trash browser receipt](../upstream/evidence/ryoku-v1.0/issue175-restart-trash-20261025.toml)
+records final checks. Native QtTest remains unavailable in the cached SDK and
+native picker/Snapper validation remains pending. This completes the local
+restart-visible trash flow, not the retained source/Steam/model/library scope.
 
 ## Remaining acceptance gates
 

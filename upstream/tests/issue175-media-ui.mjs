@@ -14,7 +14,7 @@ function functions(file) {
 }
 const trash = vm.createContext({receipts: [], busy: false});
 Object.defineProperties(trash, {
-    canDelete: {get: () => !trash.busy && trash.receipts.length < 64},
+    canDelete: {get: () => !trash.busy},
     canRestore: {get: () => !trash.busy && trash.receipts.length > 0},
 });
 const spy = () => ({count: 0, clear() { this.count = 0; }});
@@ -40,7 +40,7 @@ let count = 0;
 for (const name of Object.keys(tests).filter(name => name.startsWith('test_'))) {
     tests.init(); tests[name](); ++count; console.log(`PASS ${name}`);
 }
-assert.equal(count, 3);
+assert.equal(count, 6);
 // These shipped controls call the tested state object, including retry visibility.
 const card = fs.readFileSync(path.join(picker, 'qml/chrome/CardBackPanel.qml'), 'utf8');
 const toast = fs.readFileSync(path.join(picker, 'qml/chrome/ToastLayer.qml'), 'utf8');
@@ -48,4 +48,13 @@ assert.ok(card.includes('back.state.mediaTrash.deleteKey(back.cardKey)'));
 assert.ok(card.includes('enabled: back.state.mediaTrash.canDelete'));
 assert.ok(toast.includes('onTriggered: layer.state.mediaTrash.restoreLast()'));
 assert.ok(toast.includes('enabled: layer.state.mediaTrash.canRestore'));
-console.log('PASS shipped delete and undo control bindings');
+const state = fs.readFileSync(path.join(picker, 'qml/PickerState.qml'), 'utf8');
+const host = fs.readFileSync(path.join(picker, 'qml/SheetHost.qml'), 'utf8');
+const sheet = fs.readFileSync(path.join(picker, 'qml/sheets/MediaTrashSheet.qml'), 'utf8');
+assert.ok(state.includes('state.mediaTrash.refresh()'));
+assert.ok(toast.includes('layer.state.openSheet("mediaTrash")'));
+assert.ok(host.includes('sheetName: "mediaTrash"'));
+assert.ok(sheet.includes('root.state.mediaTrash.restoreReceipt(modelData.receipt)'));
+assert.ok(sheet.includes('root.state.mediaTrash.previousPage()'));
+assert.ok(sheet.includes('root.state.mediaTrash.nextPage()'));
+console.log('PASS shipped delete, undo, refresh, paginated trash and selected restore bindings');

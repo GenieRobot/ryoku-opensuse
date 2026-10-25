@@ -204,6 +204,14 @@ fn media_via_helper(
     exchange_mutation_helper(id,"change_media","media_changed",serde_json::to_value(action).map_err(io::Error::other)?)
         .or_else(|_|Ok(error_reply(id,"Media authorization or linked recovery is unavailable; inspect the protected operation history")))
 }
+fn trash_via_helper(
+    id: i64,
+    query: &crate::ryogami_media_protocol::MediaTrashQuery,
+) -> io::Result<Vec<u8>> {
+    query.validate().map_err(io::Error::other)?;
+    exchange_mutation_helper(id, "list_media_trash", "media_trash_listed", serde_json::to_value(query).map_err(io::Error::other)?)
+        .or_else(|_| Ok(error_reply(id, "Trash authorization or protected recovery history is unavailable; retry or inspect recovery history")))
+}
 fn exchange_mutation_helper(
     id: i64,
     operation: &str,
@@ -363,6 +371,18 @@ fn relay_authenticated_models(
 }
 fn relay_authenticated_providers(
     client: UnixStream,
+    native: UnixStream,
+    apply: &mut impl FnMut(i64, &WallpaperChange) -> io::Result<Vec<u8>>,
+    models: &mut impl FnMut(
+        i64,
+        &crate::ryogami_models_protocol::ModelReferenceIntent,
+    ) -> io::Result<Vec<u8>>,
+    media: &mut impl FnMut(i64, &crate::ryogami_media_protocol::MediaIntent) -> io::Result<Vec<u8>>,
+) -> io::Result<()> {
+    relay_authenticated_trash(client, native, apply, models, media, &mut trash_via_helper)
+}
+fn relay_authenticated_trash(
+    client: UnixStream,
     mut native: UnixStream,
     apply: &mut impl FnMut(i64, &WallpaperChange) -> io::Result<Vec<u8>>,
     models: &mut impl FnMut(
@@ -370,6 +390,7 @@ fn relay_authenticated_providers(
         &crate::ryogami_models_protocol::ModelReferenceIntent,
     ) -> io::Result<Vec<u8>>,
     media: &mut impl FnMut(i64, &crate::ryogami_media_protocol::MediaIntent) -> io::Result<Vec<u8>>,
+    trash: &mut impl FnMut(i64, &crate::ryogami_media_protocol::MediaTrashQuery) -> io::Result<Vec<u8>>,
 ) -> io::Result<()> {
     let output = Mutex::new(client.try_clone()?);
     let closed = AtomicBool::new(false);
@@ -439,6 +460,10 @@ fn relay_authenticated_providers(
                     }
                     Ok(PublicRequest::Audio { id, action }) => {
                         let reply = mutation_reply(id, apply(id, &WallpaperChange::Audio(action)))?;
+                        write_public(&output, &reply)?;
+                    }
+                    Ok(PublicRequest::MediaTrash { id, query }) => {
+                        let reply = mutation_reply(id, trash(id, &query))?;
                         write_public(&output, &reply)?;
                     }
                     Ok(PublicRequest::Media { id, action }) => {
@@ -621,6 +646,55 @@ mod tests {
     use crate::wallpaper_protocol::WallpaperApply;
     use std::{collections::BTreeMap, io::Read, sync::atomic::AtomicUsize};
 
+    #[test]
+    fn media_trash_listing_routes_only_to_authenticated_helper_and_correlates_pages() {
+        let (mut client, proxy) = UnixStream::pair().unwrap();
+        client.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let (native, mut backend) = UnixStream::pair().unwrap();
+        backend.set_read_timeout(Some(Duration::from_millis(50))).unwrap();
+        let calls = AtomicUsize::new(0);
+        std::thread::scope(|scope| {
+            let worker = scope.spawn(|| {
+                relay_authenticated_trash(
+                    proxy,
+                    native,
+                    &mut |_, _| panic!("query reached wallpaper mutation"),
+                    &mut |_, _| panic!("query reached model mutation"),
+                    &mut |_, _| panic!("query reached media mutation"),
+                    &mut |id, query| {
+                        calls.fetch_add(1, Ordering::Relaxed);
+                        assert!(query.cursor.is_none());
+                        Ok(format!(
+                            "{{\"id\":{id},\"result\":{{\"entries\":[],\"next_cursor\":null}}}}\n"
+                        )
+                        .into_bytes())
+                    },
+                )
+            });
+            let mut reader = BufReader::new(client.try_clone().unwrap());
+            client.write_all(b"{\"id\":8,\"method\":\"wall.trash.list\",\"params\":{}}\n").unwrap();
+            let mut reply = String::new();
+            reader.read_line(&mut reply).unwrap();
+            let reply: serde_json::Value = serde_json::from_str(&reply).unwrap();
+            assert_eq!(reply["id"], 8);
+            assert_eq!(reply["result"]["entries"], serde_json::json!([]));
+            client
+                .write_all(
+                    b"{\"id\":9,\"method\":\"wall.trash.list\",\"params\":{\"path\":\"/tmp\"}}\n",
+                )
+                .unwrap();
+            let mut refusal = String::new();
+            reader.read_line(&mut refusal).unwrap();
+            assert!(
+                serde_json::from_str::<serde_json::Value>(&refusal).unwrap().get("error").is_some()
+            );
+            assert_eq!(calls.load(Ordering::Relaxed), 1);
+            assert!(backend.read(&mut [0]).is_err());
+            client.shutdown(std::net::Shutdown::Both).unwrap();
+            backend.shutdown(std::net::Shutdown::Both).unwrap();
+            worker.join().unwrap().unwrap();
+        });
+    }
     #[test]
     fn media_frames_use_typed_helper_and_never_native_query_authority() {
         use crate::ryogami_media_protocol::MediaIntent;

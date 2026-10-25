@@ -30,6 +30,39 @@ impl MediaIntent {
         }
     }
 }
+/// Read-only protected trash view. The opaque cursor selects a bounded page,
+/// never a filesystem path, account or deletion/restore authority.
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MediaTrashQuery {
+    #[serde(default)]
+    pub cursor: Option<String>,
+}
+impl MediaTrashQuery {
+    pub fn validate(&self) -> Result<()> {
+        if self.cursor.as_ref().is_some_and(|cursor| Sha256::new(cursor).is_err()) {
+            return Err(WallpaperProtocolError::InvalidFrame);
+        }
+        Ok(())
+    }
+}
+pub fn parse_trash_query(bytes: &[u8]) -> Result<(i64, MediaTrashQuery)> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Frame {
+        method: String,
+        params: MediaTrashQuery,
+        id: i64,
+    }
+    bounded_line(bytes, MAX_REQUEST_BYTES)?;
+    let frame: Frame =
+        serde_json::from_slice(bytes).map_err(|_| WallpaperProtocolError::InvalidFrame)?;
+    if frame.method != "wall.trash.list" || frame.id < 0 {
+        return Err(WallpaperProtocolError::InvalidFrame);
+    }
+    frame.params.validate()?;
+    Ok((frame.id, frame.params))
+}
 pub fn valid_key(key: &str) -> bool {
     !key.is_empty() && key.len() <= 512 && !key.chars().any(char::is_control)
 }
@@ -169,6 +202,34 @@ pub fn parse_public_intent(bytes: &[u8]) -> Result<(i64, MediaIntent)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn media_trash_query_is_closed_bounded_and_separate_from_native_queries() {
+        for params in [serde_json::json!({}), serde_json::json!({"cursor":"a".repeat(64)})] {
+            let mut frame = serde_json::to_vec(
+                &serde_json::json!({"id":8,"method":"wall.trash.list","params":params}),
+            )
+            .unwrap();
+            frame.push(b'\n');
+            assert!(matches!(
+                crate::wallpaper_protocol::parse_public(&frame).unwrap(),
+                crate::wallpaper_protocol::PublicRequest::MediaTrash { id: 8, .. }
+            ));
+        }
+        for params in [
+            serde_json::json!({"cursor":"../file"}),
+            serde_json::json!({"account":1000}),
+            serde_json::json!({"path":"/tmp"}),
+            serde_json::json!({"limit":999999}),
+            serde_json::json!({"cursor":"a".repeat(65)}),
+        ] {
+            let mut frame = serde_json::to_vec(
+                &serde_json::json!({"id":8,"method":"wall.trash.list","params":params}),
+            )
+            .unwrap();
+            frame.push(b'\n');
+            assert!(crate::wallpaper_protocol::parse_public(&frame).is_err());
+        }
+    }
     #[test]
     fn public_media_intents_cannot_supply_paths_catalog_or_recovery_authority() {
         fn line(value: &serde_json::Value) -> Vec<u8> {

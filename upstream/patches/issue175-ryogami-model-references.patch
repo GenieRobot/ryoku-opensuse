@@ -1065,9 +1065,17 @@
  
      property LibraryView view
      property CardField field
+@@ -270,6 +279,7 @@
+ 
+     onShownChanged: {
+         if (state.shown) {
++            state.mediaTrash.refresh()
+             state.filterBarToggled = false
+             state.applyStartPosition()
+         } else {
 --- /dev/null
 +++ b/ryoku/shell/ryogami/picker/qml/MediaTrashState.qml
-@@ -0,0 +1,47 @@
+@@ -0,0 +1,115 @@
 +import QtQuick
 +
 +// Only opaque protected receipts live here; paths and catalog rows stay in the helper.
@@ -1076,7 +1084,13 @@
 +    required property var transport
 +    property var receipts: []
 +    property bool busy: false
-+    readonly property bool canDelete: !busy && receipts.length < 64
++    property var entries: []
++    property string nextCursor: ""
++    property string currentCursor: ""
++    property var previousCursors: []
++    property bool loaded: false
++    property string errorMessage: ""
++    readonly property bool canDelete: !busy
 +    readonly property bool canRestore: !busy && receipts.length > 0
 +    signal failed(string message)
 +    signal deleted()
@@ -1094,24 +1108,86 @@
 +                trash.failed(error && error.message ? error.message : "")
 +                return
 +            }
-+            trash.receipts = trash.receipts.concat([result.trash_receipt])
++            trash.receipts = trash.receipts.concat([result.trash_receipt]).slice(-64)
 +            trash.deleted()
 +        })
 +    }
 +
 +    function restoreLast() {
-+        if (!canRestore)
++        if (canRestore)
++            restoreReceipt(receipts[receipts.length - 1])
++    }
++
++    function restoreReceipt(receipt) {
++        if (busy || typeof receipt !== "string")
 +            return
-+        const receipt = receipts[receipts.length - 1]
++        const entry = entries.find(item => item.receipt === receipt)
++        if ((!entry && receipts.indexOf(receipt) < 0) || (entry && entry.recovery_required))
++            return
 +        busy = true
++        errorMessage = ""
 +        transport.call("wall.restore", { receipt: receipt }, function(result, error) {
 +            trash.busy = false
 +            if (error || !result || result.ok !== true || result.restored !== true) {
-+                trash.failed(error && error.message ? error.message : "")
++                trash.errorMessage = error && error.message ? error.message : "Restore could not be verified. Review recovery history before retrying."
++                trash.failed(trash.errorMessage)
 +                return
 +            }
-+            trash.receipts = trash.receipts.slice(0, -1)
++            const index = trash.receipts.lastIndexOf(receipt)
++            if (index >= 0)
++                trash.receipts = trash.receipts.slice(0, index).concat(trash.receipts.slice(index + 1))
++            trash.entries = trash.entries.filter(item => item.receipt !== receipt)
 +            trash.restored()
++        })
++    }
++
++    function refresh() {
++        loadPage("", [])
++    }
++
++    function nextPage() {
++        if (nextCursor)
++            loadPage(nextCursor, previousCursors.concat([currentCursor]).slice(-64))
++    }
++
++    function previousPage() {
++        if (previousCursors.length)
++            loadPage(previousCursors[previousCursors.length - 1], previousCursors.slice(0, -1))
++    }
++
++    function loadPage(cursor, history) {
++        if (busy)
++            return
++        busy = true
++        errorMessage = ""
++        transport.call("wall.trash.list", { cursor: cursor || null }, function(result, error) {
++            trash.busy = false
++            let valid = !error && result && Array.isArray(result.entries) && result.entries.length <= 32
++                && (result.next_cursor === null || (typeof result.next_cursor === "string"
++                    && /^[0-9a-f]{64}$/.test(result.next_cursor) && result.next_cursor !== cursor))
++            const seen = ({})
++            if (valid) {
++                for (const item of result.entries) {
++                    if (!item || typeof item.receipt !== "string" || !/^[0-9a-f]{64}\.[0-9a-f]{64}$/.test(item.receipt)
++                            || seen[item.receipt] || typeof item.label !== "string" || item.label.length > 256
++                            || (item.kind !== "static" && item.kind !== "video") || typeof item.recovery_required !== "boolean"
++                            || !Number.isSafeInteger(item.bytes) || item.bytes < 0 || item.bytes > 34359738368) {
++                        valid = false
++                        break
++                    }
++                    seen[item.receipt] = true
++                }
++            }
++            if (!valid) {
++                trash.errorMessage = error && error.message ? error.message : "Trash history is unavailable. Retry or review recovery history."
++                trash.failed(trash.errorMessage)
++                return
++            }
++            trash.entries = result.entries
++            trash.nextCursor = result.next_cursor || ""
++            trash.currentCursor = cursor
++            trash.previousCursors = history
++            trash.loaded = true
 +        })
 +    }
 +}
@@ -1134,10 +1210,19 @@
                          }
 --- a/ryoku/shell/ryogami/picker/qml/chrome/ToastLayer.qml
 +++ b/ryoku/shell/ryogami/picker/qml/chrome/ToastLayer.qml
-@@ -6,11 +6,22 @@
+@@ -6,11 +6,31 @@
  
      required property PickerState state
  
++    FolioAction {
++        id: browseTrash
++        anchors.right: parent.right
++        anchors.bottom: parent.bottom
++        anchors.margins: 24 * Theme.scale
++        label: I18n.tr("Recoverable trash")
++        onTriggered: layer.state.openSheet("mediaTrash")
++    }
++
 +    FolioAction {
 +        id: undo
 +        anchors.horizontalCenter: parent.horizontalCenter
@@ -1160,7 +1245,7 @@
      function show(message, kind) {
 --- /dev/null
 +++ b/ryoku/shell/ryogami/picker/tests/tst_MediaTrashState.qml
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,136 @@
 +import QtQuick
 +import QtTest
 +import "../qml" as Picker
@@ -1186,6 +1271,12 @@
 +    SignalSpy { id: restores; target: trash; signalName: "restored" }
 +    readonly property string receipt: "a".repeat(64) + "." + "b".repeat(64)
 +    function init() {
++        trash.entries = []
++        trash.nextCursor = ""
++        trash.currentCursor = ""
++        trash.previousCursors = []
++        trash.loaded = false
++        trash.errorMessage = ""
 +        trash.receipts = []
 +        trash.busy = false
 +        rpc.pending = null
@@ -1224,14 +1315,211 @@
 +        }
 +        compare(errors.count, 4)
 +    }
-+    function test_receipt_capacity_never_discards_older_deletion() {
++    function test_bounded_session_undo_does_not_block_durable_deletions() {
 +        trash.receipts = Array(64).fill(receipt)
-+        verify(!trash.canDelete)
++        verify(trash.canDelete)
 +        trash.deleteKey("fixture")
-+        compare(rpc.calls, 0)
++        compare(rpc.calls, 1)
++        rpc.pending({ok: true, trash_receipt: receipt}, null)
++        compare(trash.receipts.length, 64)
 +        trash.restoreLast()
 +        rpc.pending({ok: true, restored: true}, null)
 +        compare(trash.receipts.length, 63)
 +        verify(trash.canDelete)
++    }
++    function entry(receiptValue, recovery) {
++        return {receipt: receiptValue, label: "Fixture", kind: "static", bytes: 48, recovery_required: recovery === true}
++    }
++    function test_restart_refresh_and_selected_restore_preserve_failure() {
++        trash.refresh()
++        compare(rpc.method, "wall.trash.list")
++        compare(JSON.stringify(rpc.params), '{"cursor":null}')
++        rpc.pending({entries: [entry(receipt)], next_cursor: null}, null)
++        verify(trash.loaded)
++        compare(trash.receipts.length, 0)
++        trash.restoreReceipt(receipt)
++        compare(rpc.method, "wall.restore")
++        rpc.pending(null, {message: "pre-checkpoint refused"})
++        compare(trash.entries.length, 1)
++        verify(trash.errorMessage.length > 0)
++        trash.restoreReceipt(receipt)
++        rpc.pending({ok: true, restored: true}, null)
++        compare(trash.entries.length, 0)
++        compare(restores.count, 1)
++    }
++    function test_pagination_and_failure_preserve_current_page() {
++        const cursor = "c".repeat(64)
++        trash.refresh()
++        rpc.pending({entries: [entry(receipt)], next_cursor: cursor}, null)
++        trash.nextPage()
++        compare(rpc.params.cursor, cursor)
++        rpc.pending(null, {message: "busy"})
++        compare(trash.currentCursor, "")
++        compare(trash.entries.length, 1)
++        trash.nextPage()
++        rpc.pending({entries: [], next_cursor: null}, null)
++        compare(trash.currentCursor, cursor)
++        compare(trash.previousCursors.length, 1)
++        trash.previousPage()
++        compare(rpc.params.cursor, null)
++        rpc.pending({entries: [entry(receipt)], next_cursor: cursor}, null)
++        compare(trash.previousCursors.length, 0)
++        compare(trash.entries.length, 1)
++    }
++    function test_invalid_pages_and_partial_receipts_never_dispatch_restore() {
++        trash.entries = [entry(receipt, true)]
++        trash.restoreReceipt(receipt)
++        trash.restoreReceipt("b".repeat(64) + "." + "c".repeat(64))
++        compare(rpc.calls, 0)
++        for (const result of [null, {entries: Array(33).fill(entry(receipt)), next_cursor: null},
++                {entries: [entry(receipt), entry(receipt)], next_cursor: null},
++                {entries: [entry("/tmp/file")], next_cursor: null}, {entries: [], next_cursor: "bad"}]) {
++            trash.refresh()
++            rpc.pending(result, null)
++            compare(trash.entries.length, 1)
++            verify(trash.entries[0].recovery_required)
++            verify(!trash.busy)
++        }
++    }
++}
+--- a/ryoku/shell/ryogami/picker/qml/SheetHost.qml
++++ b/ryoku/shell/ryogami/picker/qml/SheetHost.qml
+@@ -19,6 +19,7 @@
+         onLoaded: slot.item.shown = Qt.binding(() => slot.wanted)
+     }
+ 
++    SheetSlot { sheetName: "mediaTrash"; sourceComponent: cMediaTrash }
+     SheetSlot { sheetName: "settings"; sourceComponent: cSettings }
+     SheetSlot { sheetName: "browser"; sourceComponent: cBrowser }
+     SheetSlot { sheetName: "playlists"; sourceComponent: cPlaylists }
+@@ -29,6 +30,14 @@
+     SheetSlot { sheetName: "themeDesigner"; sourceComponent: cThemeDesigner }
+     SheetSlot { sheetName: "themeAudition"; sourceComponent: cThemeAudition }
+ 
++    Component {
++        id: cMediaTrash
++        MediaTrashSheet {
++            anchors.fill: parent
++            state: host.state
++            onCloseRequested: host.state.closeSheet()
++        }
++    }
+     Component {
+         id: cSettings
+         SettingsFolio {
+--- /dev/null
++++ b/ryoku/shell/ryogami/picker/qml/sheets/MediaTrashSheet.qml
+@@ -0,0 +1,113 @@
++import QtQuick
++import QtQuick.Layouts
++import Ryoku.Ui.Singletons
++
++Item {
++    id: root
++    required property PickerState state
++    property bool shown: false
++    signal closeRequested()
++    anchors.fill: parent
++    visible: shown
++    focus: shown
++    Keys.onEscapePressed: root.closeRequested()
++    onShownChanged: if (shown) state.mediaTrash.refresh()
++
++    FolioSheet {
++        id: sheet
++        onDismissed: root.closeRequested()
++        FolioMasthead {
++            parent: sheet.mastheadArea
++            anchors.fill: parent
++            breadcrumb: I18n.tr("Recoverable trash")
++            onCloseRequested: root.closeRequested()
++        }
++        Column {
++            parent: sheet.indexArea
++            anchors.fill: parent
++            anchors.margins: 20 * Theme.scale
++            spacing: 16 * Theme.scale
++            Text {
++                width: parent.width
++                text: I18n.tr("Deleted wallpapers remain recoverable here after restarting the picker.")
++                wrapMode: Text.WordWrap
++                color: Theme.surfaceText
++                font.family: Theme.sans
++                font.pixelSize: Theme.fontSmall
++            }
++            FolioAction {
++                label: I18n.tr("Refresh")
++                enabled: !root.state.mediaTrash.busy
++                onTriggered: root.state.mediaTrash.refresh()
++            }
++            FolioAction {
++                label: I18n.tr("Previous")
++                enabled: !root.state.mediaTrash.busy && root.state.mediaTrash.previousCursors.length > 0
++                onTriggered: root.state.mediaTrash.previousPage()
++            }
++            FolioAction {
++                label: I18n.tr("Next")
++                enabled: !root.state.mediaTrash.busy && root.state.mediaTrash.nextCursor.length > 0
++                onTriggered: root.state.mediaTrash.nextPage()
++            }
++        }
++        ColumnLayout {
++            parent: sheet.readingArea
++            anchors.fill: parent
++            anchors.margins: 20 * Theme.scale
++            spacing: 12 * Theme.scale
++            Text {
++                Layout.fillWidth: true
++                visible: root.state.mediaTrash.busy || root.state.mediaTrash.errorMessage.length > 0
++                    || root.state.mediaTrash.entries.length === 0
++                text: root.state.mediaTrash.busy ? I18n.tr("Loading or restoring…")
++                    : (root.state.mediaTrash.errorMessage || (root.state.mediaTrash.nextCursor
++                        ? I18n.tr("No retained items on this page. Continue to the next page.")
++                        : I18n.tr("No recoverable wallpapers on this page.")))
++                wrapMode: Text.WordWrap
++                color: Theme.surfaceText
++                font.family: Theme.sans
++                font.pixelSize: Theme.fontSmall
++            }
++            ListView {
++                Layout.fillWidth: true
++                Layout.fillHeight: true
++                clip: true
++                spacing: 12 * Theme.scale
++                model: root.state.mediaTrash.entries
++                delegate: RowLayout {
++                    required property var modelData
++                    width: ListView.view.width
++                    spacing: 12 * Theme.scale
++                    ColumnLayout {
++                        Layout.fillWidth: true
++                        Text {
++                            Layout.fillWidth: true
++                            text: modelData.label
++                            textFormat: Text.PlainText
++                            elide: Text.ElideRight
++                            color: Theme.surfaceText
++                            font.family: Theme.sans
++                            font.pixelSize: Theme.fontSmall
++                        }
++                        Text {
++                            Layout.fillWidth: true
++                            text: modelData.recovery_required
++                                ? I18n.tr("Partial or changed trash. Review recovery history before restoring.")
++                                : I18n.tr("%1 MiB retained").arg((modelData.bytes / 1048576).toFixed(2))
++                            wrapMode: Text.WordWrap
++                            color: Theme.surfaceText
++                            font.family: Theme.sans
++                            font.pixelSize: Theme.fontSmall
++                        }
++                    }
++                    FolioAction {
++                        label: I18n.tr("Restore")
++                        enabled: !root.state.mediaTrash.busy && !modelData.recovery_required
++                        onTriggered: root.state.mediaTrash.restoreReceipt(modelData.receipt)
++                    }
++                }
++            }
++        }
 +    }
 +}

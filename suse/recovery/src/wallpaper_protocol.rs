@@ -17,6 +17,7 @@ pub enum PublicRequest {
     Workspace { id: i64, action: crate::workspace_protocol::WorkspaceRequest, plain: bool },
     Handoff { id: i64, action: AutomaticHandoff },
     ModelReference { id: i64, action: crate::ryogami_models_protocol::ModelReferenceIntent },
+    MediaTrash { id: i64, query: crate::ryogami_media_protocol::MediaTrashQuery },
     Media { id: i64, action: crate::ryogami_media_protocol::MediaIntent },
 }
 
@@ -162,6 +163,10 @@ pub fn parse_public(bytes: &[u8]) -> Result<PublicRequest, WallpaperProtocolErro
         serde_json::from_slice(bytes).map_err(|_| WallpaperProtocolError::InvalidFrame)?;
     if request.id < 0 || !(request.params.is_object() || request.params.is_null()) {
         return Err(WallpaperProtocolError::InvalidFrame);
+    }
+    if request.method == "wall.trash.list" {
+        let (id, query) = crate::ryogami_media_protocol::parse_trash_query(bytes)?;
+        return Ok(PublicRequest::MediaTrash { id, query });
     }
     if matches!(request.method.as_str(), "wall.delete" | "wall.restore") {
         let (id, action) = crate::ryogami_media_protocol::parse_public_intent(bytes)?;

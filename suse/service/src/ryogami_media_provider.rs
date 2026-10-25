@@ -133,6 +133,33 @@ pub fn change(
     reply.push(b'\n');
     Ok(CompletedMedia { operation_id, reply })
 }
+/// Read-only authenticated discovery. It holds the existing protected mutation
+/// lock for a consistent history view, and never starts an actor or checkpoint.
+pub fn list(
+    peer: &PeerIdentity,
+    operator_gid: u32,
+    query: ryoku_recovery::ryogami_media_protocol::MediaTrashQuery,
+    rpc_id: i64,
+) -> std::result::Result<Vec<u8>, ServiceError> {
+    authorize_helper_operator(peer, operator_gid)?;
+    if rustix::process::geteuid().as_raw() != 0 || rpc_id < 0 || query.validate().is_err() {
+        return Err(ServiceError::Unauthorized);
+    }
+    let account = prepare_operator_account(peer, operator_gid)?;
+    let home = account.capture_home().map_err(|_| ServiceError::RecoveryUnavailable)?;
+    let capture = account.capture_account().map_err(|_| ServiceError::RecoveryUnavailable)?;
+    let history = ProtectedMutationHistory::open().map_err(gate)?;
+    let page = trash::list_owned(history.directory(), history.journal(), &home, &capture, &query)
+        .map_err(|_| ServiceError::RecoveryUnavailable)?;
+    account.revalidate().map_err(|_| ServiceError::StaleRequest)?;
+    let mut reply = serde_json::to_vec(&serde_json::json!({"id":rpc_id,"result":page}))
+        .map_err(|_| ServiceError::Failed)?;
+    reply.push(b'\n');
+    if reply.len() > ryoku_recovery::wallpaper_protocol::MAX_ACTOR_REPLY_BYTES {
+        return Err(ServiceError::Failed);
+    }
+    Ok(reply)
+}
 struct MediaProvider<'a> {
     account: AccountStateRoot,
     peer: &'a PeerIdentity,

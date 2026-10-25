@@ -195,8 +195,6 @@ fn media_history(
     operation: &crate::OperationId,
     complete: bool,
 ) -> crate::OperationJournal {
-    use crate::OperationPhase as P;
-    use crate::mutation_gate::{MutationContext, MutationStage as S, PlannedChange};
     let file = std::fs::OpenOptions::new()
         .create_new(true)
         .read(true)
@@ -204,6 +202,17 @@ fn media_history(
         .open(directory.join(if complete { "complete-history" } else { "partial-history" }))
         .unwrap();
     let mut journal = crate::OperationJournal::open(file.try_clone().unwrap()).unwrap();
+    append_media_history(&mut journal, operation, complete);
+    drop(journal);
+    crate::OperationJournal::open(file).unwrap()
+}
+fn append_media_history(
+    journal: &mut crate::OperationJournal,
+    operation: &crate::OperationId,
+    complete: bool,
+) {
+    use crate::OperationPhase as P;
+    use crate::mutation_gate::{MutationContext, MutationStage as S, PlannedChange};
     let stages = [
         (S::Preflight, P::Accepted),
         (S::StateChecking, P::Capturing),
@@ -244,8 +253,6 @@ fn media_history(
             )
             .unwrap();
     }
-    drop(journal);
-    crate::OperationJournal::open(file).unwrap()
 }
 fn protected_directory(f: &Fixture) -> File {
     let path = f.path.join("protected-fixture-state");
@@ -456,7 +463,18 @@ fn rust_media_provider_to_native_go_catalog_delete_restore_and_failure_retention
     assert_eq!(event["event"], "ryogami.wall.file_removed");
     assert_eq!(event["data"]["key"], "fixture");
     let history = media_history(&f.path.join("protected-fixture-state"), &operation, true);
-    let receipt = VerifiedTrashReceipt::load(&journal, &identity, &f.account, &history).unwrap();
+    let page = trash::list_owned(
+        &journal,
+        &history,
+        &f.home,
+        &f.account,
+        &ryoku_recovery::ryogami_media_protocol::MediaTrashQuery::default(),
+    )
+    .unwrap();
+    assert_eq!(page.entries.len(), 1);
+    let selected = TrashReceiptIdentity::parse(&page.entries[0].receipt).unwrap();
+    assert_eq!(selected, identity);
+    let receipt = VerifiedTrashReceipt::load(&journal, &selected, &f.account, &history).unwrap();
     let restore_operation = crate::OperationId::new("media-go-restore").unwrap();
     let restore = PreparedMedia::restore(
         &f.home,
@@ -486,6 +504,18 @@ fn rust_media_provider_to_native_go_catalog_delete_restore_and_failure_retention
     assert_eq!(
         std::fs::read(f.path.join("Pictures/Wallpapers/fixture.png")).unwrap(),
         b"synthetic media"
+    );
+    assert!(
+        trash::list_owned(
+            &journal,
+            &history,
+            &f.home,
+            &f.account,
+            &ryoku_recovery::ryogami_media_protocol::MediaTrashQuery::default()
+        )
+        .unwrap()
+        .entries
+        .is_empty()
     );
     for fault in ["catalog", "stage"] {
         let f = Fixture::new();
@@ -526,5 +556,185 @@ fn rust_media_provider_to_native_go_catalog_delete_restore_and_failure_retention
             std::fs::read(f.path.join(item.trash.home_relative().unwrap().as_str()))
                 .is_ok_and(|bytes| bytes == b"synthetic media")
         }));
+    }
+}
+
+fn delete_for_listing(
+    f: &Fixture,
+    journal: &File,
+    operation: &crate::OperationId,
+) -> TrashReceiptIdentity {
+    f.setup();
+    let token = Sha256::new(digest(operation.as_str().as_bytes())).unwrap();
+    let plan = PreparedMedia::delete(&f.home, &f.account, None, "fixture", token).unwrap();
+    plan.move_files(operation, &media_proof(operation, false), &f.home, &f.account, journal, || {
+        true
+    })
+    .unwrap()
+    .unwrap()
+}
+#[test]
+fn media_trash_listing_reopens_protected_receipts_filters_accounts_and_returns_no_paths_or_credentials()
+ {
+    use ryoku_recovery::ryogami_media_protocol::MediaTrashQuery;
+    let f = Fixture::new();
+    let journal = protected_directory(&f);
+    let operation = crate::OperationId::new("list-media-delete").unwrap();
+    let identity = delete_for_listing(&f, &journal, &operation);
+    let history_path = f.path.join("protected-fixture-state");
+    let history = media_history(&history_path, &operation, true);
+    drop(history);
+    let history = crate::OperationJournal::open(
+        std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(history_path.join("complete-history"))
+            .unwrap(),
+    )
+    .unwrap();
+    let page =
+        trash::list_owned(&journal, &history, &f.home, &f.account, &MediaTrashQuery::default())
+            .unwrap();
+    assert_eq!(page.entries.len(), 1);
+    assert_eq!(page.entries[0].receipt, identity.encoded());
+    assert_eq!(page.entries[0].label, "fixture.png");
+    assert_eq!(page.entries[0].bytes, 48);
+    assert!(!page.entries[0].recovery_required);
+    assert!(page.next_cursor.is_none());
+    let public = serde_json::to_string(&page).unwrap();
+    for private in ["private-fixture", "must preserve", "Pictures", "thumb", "future", "path"] {
+        assert!(!public.contains(private), "{private}");
+    }
+    let other = Fixture::new();
+    assert!(
+        trash::list_owned(
+            &journal,
+            &history,
+            &other.home,
+            &other.account,
+            &MediaTrashQuery::default()
+        )
+        .unwrap()
+        .entries
+        .is_empty()
+    );
+    assert!(
+        trash::list_owned(
+            &journal,
+            &history,
+            &f.home,
+            &f.account,
+            &MediaTrashQuery { cursor: Some("a".repeat(64)) }
+        )
+        .is_err()
+    );
+    // A partial previous restore is visible as recovery-required, not presented
+    // as an ordinary restorable item or silently dropped.
+    std::fs::remove_file(
+        f.path.join(format!(".ryoku-media-trash-{}-1", digest(operation.as_str().as_bytes()))),
+    )
+    .unwrap();
+    let page =
+        trash::list_owned(&journal, &history, &f.home, &f.account, &MediaTrashQuery::default())
+            .unwrap();
+    assert!(page.entries[0].recovery_required);
+}
+
+#[test]
+fn media_trash_listing_is_bounded_paginated_and_cursor_bound_to_account() {
+    use ryoku_recovery::ryogami_media_protocol::MediaTrashQuery;
+    let owner = Fixture::new();
+    let foreign = Fixture::new();
+    let directory = protected_directory(&owner);
+    let file = std::fs::OpenOptions::new()
+        .create_new(true)
+        .read(true)
+        .write(true)
+        .open(owner.path.join("protected-fixture-state/list-history"))
+        .unwrap();
+    let mut history = crate::OperationJournal::open(file).unwrap();
+    for number in 0..99 {
+        let operation = crate::OperationId::new(format!("listing-{number:03}")).unwrap();
+        delete_for_listing(if number < 64 { &foreign } else { &owner }, &directory, &operation);
+        append_media_history(&mut history, &operation, true);
+    }
+    let first = trash::list_owned(
+        &directory,
+        &history,
+        &owner.home,
+        &owner.account,
+        &MediaTrashQuery::default(),
+    )
+    .unwrap();
+    assert!(first.entries.is_empty());
+    let query = MediaTrashQuery { cursor: first.next_cursor };
+    assert!(query.cursor.is_some());
+    assert!(
+        trash::list_owned(&directory, &history, &foreign.home, &foreign.account, &query).is_err()
+    );
+    let second =
+        trash::list_owned(&directory, &history, &owner.home, &owner.account, &query).unwrap();
+    assert_eq!(second.entries.len(), 32);
+    assert!(second.next_cursor.is_some());
+    let third = trash::list_owned(
+        &directory,
+        &history,
+        &owner.home,
+        &owner.account,
+        &MediaTrashQuery { cursor: second.next_cursor },
+    )
+    .unwrap();
+    assert_eq!(third.entries.len(), 3);
+    assert!(third.next_cursor.is_none());
+    assert!(!second.entries.iter().any(|entry| third.entries.contains(entry)));
+}
+
+#[test]
+fn media_trash_listing_refuses_bad_receipts_and_never_reads_retained_media_payloads() {
+    use ryoku_recovery::ryogami_media_protocol::MediaTrashQuery;
+    for fault in ["pending", "symlink", "oversized", "fifo"] {
+        let f = Fixture::new();
+        let directory = protected_directory(&f);
+        let operation = crate::OperationId::new("listing-refusal").unwrap();
+        let identity = delete_for_listing(&f, &directory, &operation);
+        let token = identity.encoded().split('.').next().unwrap().to_string();
+        let history =
+            media_history(&f.path.join("protected-fixture-state"), &operation, fault != "pending");
+        let receipt = f.path.join(format!("protected-fixture-state/media-trash-{token}.json"));
+        match fault {
+            "symlink" => {
+                std::fs::rename(&receipt, receipt.with_extension("kept")).unwrap();
+                std::os::unix::fs::symlink(receipt.with_extension("kept"), &receipt).unwrap();
+            }
+            "oversized" => {
+                std::fs::set_permissions(&receipt, std::fs::Permissions::from_mode(0o600)).unwrap();
+                std::fs::OpenOptions::new()
+                    .write(true)
+                    .open(&receipt)
+                    .unwrap()
+                    .set_len(256 * 1024 + 1)
+                    .unwrap();
+                std::fs::set_permissions(&receipt, std::fs::Permissions::from_mode(0o400)).unwrap();
+            }
+            "fifo" => {
+                let name = format!(".ryoku-media-trash-{token}-0");
+                std::fs::remove_file(f.path.join(&name)).unwrap();
+                fs::mknodat(&f.home, name.as_str(), FileType::Fifo, Mode::from_raw_mode(0o600), 0)
+                    .unwrap();
+            }
+            _ => {}
+        }
+        let result = trash::list_owned(
+            &directory,
+            &history,
+            &f.home,
+            &f.account,
+            &MediaTrashQuery::default(),
+        );
+        match fault {
+            "pending" => assert!(result.unwrap().entries.is_empty()),
+            "fifo" => assert!(result.unwrap().entries[0].recovery_required),
+            _ => assert!(result.is_err()),
+        }
     }
 }
