@@ -1157,7 +1157,11 @@ impl Engine {
     fn fix_destination(&self) -> Result<(u64, Value, bool)> {
         let state = self.state.lock().map_err(|_| Error::Storage)?;
         let route = state.routes.get(&Lane::Agent).ok_or(Error::NotFound)?;
-        let provider = state.providers.get(&route.provider).ok_or(Error::ProviderUnavailable)?;
+        let provider = state
+            .providers
+            .get(&route.provider)
+            .ok_or(Error::ProviderUnavailable)?
+            .resolve(state.prowl.as_ref())?;
         if !provider.models().contains(&route.model) {
             return Err(Error::ProviderUnavailable);
         }

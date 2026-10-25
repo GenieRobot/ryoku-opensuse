@@ -644,7 +644,10 @@ or failed work publishes no partial turn/usage. Prowl's actual model and usage
 are recorded separately from the saved route/model pick. Ask, Agent and Chat
 keep their histories independent. A Prowl gateway can forward to external
 providers; native Fix therefore requires the same reviewed egress consent as a
-configured external completion provider. Full read-only tool loops, ACP/harness
+configured external completion provider. Fix destination classification resolves
+the stored Prowl credential reference first: a configured gateway requires
+reviewed consent, and a disconnected gateway is unavailable rather than local.
+Native tool activity/escalation, ACP/harness
 operations, Prowl server mutations/sign-ins/native lifecycle/protected recovery
 and complete packaged acceptance remain subsequent required functionality.
 

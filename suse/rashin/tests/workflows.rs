@@ -4541,3 +4541,93 @@ fn isolated_public_web_gateway_returns_real_redirect_text_and_cancels_without_pa
             .contains("UNPERSISTED_WEB_PREFIX")
     );
 }
+
+#[test]
+fn prowl_fix_requires_bound_consent_before_gateway_egress_and_disconnected_route_never_falls_back()
+{
+    use ryoku_rashin::api::FixKind;
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let (port, requests, server) = tool_gateway(vec![Some(tool_answer())]);
+    connect_tool_gateway(&engine, port, false);
+    let finding = "Prowl consent regression finding";
+    let fix = |id: &str, token: Option<String>| Request::Fix {
+        id: id.into(),
+        kind: FixKind::App,
+        component: "synthetic.service".into(),
+        evidence: finding.into(),
+        native_evidence_consent: token,
+    };
+    assert_eq!(engine.dispatch(fix("no-prowl-consent", None)), Err(Error::EvidenceConsentRequired));
+    assert_eq!(
+        engine.dispatch(Request::Job { id: "no-prowl-consent".into() }),
+        Err(Error::NotFound)
+    );
+    assert!(requests.try_recv().is_err());
+    let preview = engine
+        .dispatch(Request::FixPreview {
+            kind: FixKind::App,
+            component: "synthetic.service".into(),
+            evidence: finding.into(),
+        })
+        .unwrap();
+    assert_eq!(preview["destination"]["provider"]["kind"], "prowl_gateway");
+    assert_eq!(preview["destination"]["provider"]["credential_present"], true);
+    assert_eq!(
+        preview["destination"]["provider"]["egress"],
+        "configured_gateway_routes_may_be_external"
+    );
+    assert!(!preview.to_string().contains("PRIVATE_TOOL_GATEWAY_KEY"));
+    let old_token = preview["native_evidence_consent"].as_str().unwrap().to_owned();
+    engine.dispatch(Request::DisableProwl {}).unwrap();
+    assert_eq!(
+        engine.dispatch(fix("disconnected-prowl-fix", Some(old_token.clone()))),
+        Err(Error::ProviderUnavailable)
+    );
+    assert!(matches!(
+        engine.dispatch(Request::FixPreview {
+            kind: FixKind::App,
+            component: "synthetic.service".into(),
+            evidence: finding.into()
+        }),
+        Err(Error::ProviderUnavailable)
+    ));
+    assert!(requests.try_recv().is_err());
+    engine
+        .dispatch(Request::ConfigureProwl { port, token: Some("PRIVATE_TOOL_GATEWAY_KEY".into()) })
+        .unwrap();
+    assert_eq!(
+        engine.dispatch(fix("stale-prowl-consent", Some(old_token))),
+        Err(Error::EvidenceConsentRequired)
+    );
+    assert!(requests.try_recv().is_err());
+    let preview = engine
+        .dispatch(Request::FixPreview {
+            kind: FixKind::App,
+            component: "synthetic.service".into(),
+            evidence: finding.into(),
+        })
+        .unwrap();
+    let token = preview["native_evidence_consent"].as_str().unwrap().to_owned();
+    engine.dispatch(fix("approved-prowl-fix", Some(token.clone()))).unwrap();
+    assert_eq!(done(&engine, "approved-prowl-fix")["status"], "completed");
+    let body = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert!(body.get("tools").is_none());
+    assert!(
+        body["messages"].as_array().unwrap().last().unwrap()["content"]
+            .as_str()
+            .unwrap()
+            .contains(finding)
+    );
+    server.join().unwrap();
+    assert_eq!(
+        engine.dispatch(fix("replayed-prowl-consent", Some(token.clone()))),
+        Err(Error::EvidenceConsentRequired)
+    );
+    engine.dispatch(fix("approved-prowl-fix", Some(token))).unwrap();
+    assert!(requests.try_recv().is_err());
+    assert_eq!(
+        engine.dispatch(Request::Usage {}).unwrap()["activity"].as_array().unwrap().len(),
+        1
+    );
+}
