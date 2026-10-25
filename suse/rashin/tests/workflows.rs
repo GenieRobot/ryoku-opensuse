@@ -2179,3 +2179,353 @@ fn prowl_read_rejects_stale_configuration_and_transport_handles_chunked_bounded_
     assert!(engine.dispatch(Request::Jobs {}).unwrap()["jobs"].as_array().unwrap().is_empty());
     assert!(engine.dispatch(Request::Usage {}).unwrap()["activity"].as_array().unwrap().is_empty());
 }
+
+#[test]
+fn browser_handoff_stages_canonical_context_and_runs_only_in_selected_agent() {
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    engine.dispatch(Request::Index { documents: vec![document()] }).unwrap();
+    let gateway = ryoku_rashin::http::Gateway::new(
+        Arc::clone(&engine),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    assert!(
+        ui_submit(
+            &gateway,
+            &[
+                ("action", "ask"),
+                ("id", "browser-source"),
+                ("prompt", "Tumbleweed packages <question>")
+            ]
+        )
+        .contains("Location: /job/browser-source\r\n")
+    );
+    let source = done(&engine, "browser-source");
+    for (id, lane) in [("browser-agent", "agent"), ("browser-plain", "chat")] {
+        assert!(
+            ui_submit(&gateway, &[("action", "new_session"), ("id", id), ("lane", lane)])
+                .starts_with("HTTP/1.1 303")
+        );
+    }
+    let page = http(&gateway, "GET", "/job/browser-source", BROWSER_AUTH, "");
+    assert!(page.contains("Stage context for next Agent message"));
+    assert!(page.contains("value=\"browser-agent\""));
+    assert!(!page.contains("value=\"browser-plain\""));
+    assert!(
+        ui_submit(
+            &gateway,
+            &[
+                ("action", "handoff"),
+                ("ask_id", "browser-source"),
+                ("question", "FORGED_QUESTION"),
+                ("answer", "FORGED_ANSWER")
+            ]
+        )
+        .starts_with("HTTP/1.1 303")
+    );
+    let pending = engine.dispatch(Request::Sessions {}).unwrap()["pending_handoff"].clone();
+    assert_eq!(pending["question"], source["prompt"]);
+    assert_eq!(pending["answer"], source["answer"]);
+    let home = http(&gateway, "GET", "/console", BROWSER_AUTH, "");
+    assert!(home.contains("Pending Ask context for next Agent message"));
+    assert!(home.contains("&lt;question&gt;"));
+    assert!(!home.contains("FORGED_ANSWER"));
+    assert!(
+        ui_submit(
+            &gateway,
+            &[
+                ("action", "prompt"),
+                ("id", "browser-chat-turn"),
+                ("session", "browser-plain"),
+                ("prompt", "plain chat")
+            ]
+        )
+        .starts_with("HTTP/1.1 303")
+    );
+    assert!(done(&engine, "browser-chat-turn")["handoff"].is_null());
+    assert_eq!(
+        engine.dispatch(Request::Sessions {}).unwrap()["pending_handoff"]["ask_id"],
+        "browser-source"
+    );
+    assert!(
+        ui_submit(
+            &gateway,
+            &[
+                ("action", "prompt"),
+                ("id", "browser-agent-turn"),
+                ("session", "browser-agent"),
+                ("prompt", "continue")
+            ]
+        )
+        .starts_with("HTTP/1.1 303")
+    );
+    assert_eq!(done(&engine, "browser-agent-turn")["handoff"]["ask_id"], "browser-source");
+    assert!(engine.dispatch(Request::Sessions {}).unwrap()["pending_handoff"].is_null());
+    assert!(
+        ui_submit(&gateway, &[("action", "handoff"), ("ask_id", "browser-source")])
+            .starts_with("HTTP/1.1 303")
+    );
+    assert!(ui_submit(&gateway, &[("action", "clear_handoff")]).starts_with("HTTP/1.1 303"));
+    assert!(engine.dispatch(Request::Sessions {}).unwrap()["pending_handoff"].is_null());
+    let fields = [
+        ("action", "handoff_run"),
+        ("ask_id", "browser-source"),
+        ("id", "browser-immediate"),
+        ("session", "browser-agent"),
+    ];
+    assert!(ui_submit(&gateway, &fields).contains("Location: /job/browser-immediate\r\n"));
+    assert_eq!(done(&engine, "browser-immediate")["handoff"]["ask_id"], "browser-source");
+    assert!(ui_submit(&gateway, &fields).starts_with("HTTP/1.1 303"));
+    assert_eq!(engine.dispatch(Request::Session{id:"browser-agent".into()}).unwrap()["session"]["messages"].as_array().unwrap().len(),4);
+    assert!(
+        ui_submit(
+            &gateway,
+            &[
+                ("action", "handoff_run"),
+                ("ask_id", "browser-source"),
+                ("id", "wrong-chat"),
+                ("session", "browser-plain")
+            ]
+        )
+        .starts_with("HTTP/1.1 400")
+    );
+    assert!(engine.dispatch(Request::Sessions {}).unwrap()["pending_handoff"].is_null());
+}
+
+#[test]
+fn browser_local_usage_forms_enroll_collect_label_failures_and_clear_private_activity() {
+    let fixture = Fixture::new();
+    let source = Fixture::new();
+    let engine = fixture.engine();
+    let gateway = ryoku_rashin::http::Gateway::new(
+        Arc::clone(&engine),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    let source_path = source.path.to_str().unwrap();
+    fs::create_dir_all(source.path.join("projects/project")).unwrap();
+    let log = source.path.join("projects/project/session.jsonl");
+    fs::write(&log,json!({"timestamp":jiff::Timestamp::now().to_string(),"message":{"role":"assistant","model":"claude-browser","content":"PRIVATE_USAGE_TRANSCRIPT","usage":{"input_tokens":23}}}).to_string()).unwrap();
+    fs::write(source.path.join(".credentials.json"), "PRIVATE_USAGE_KEY").unwrap();
+    assert!(http(&gateway, "GET", "/usage", "", "").starts_with("HTTP/1.1 401"));
+    let enrollment =
+        ui_form(&[("action", "enroll_usage"), ("tool", "claude"), ("path", source_path)]);
+    assert!(
+        http(&gateway, "POST", "/console/action", BROWSER_AUTH, &enrollment)
+            .starts_with("HTTP/1.1 403")
+    );
+    assert!(engine.dispatch(Request::Usage {}).unwrap()["sources"].as_object().unwrap().is_empty());
+    assert!(
+        ui_submit(
+            &gateway,
+            &[("action", "enroll_usage"), ("tool", "claude"), ("path", source_path)]
+        )
+        .contains("Location: /usage\r\n")
+    );
+    assert!(http(&gateway, "GET", "/usage", BROWSER_AUTH, "").contains("Not yet collected."));
+    assert!(
+        ui_submit(&gateway, &[("action", "collect_usage"), ("tool", "claude")])
+            .starts_with("HTTP/1.1 303")
+    );
+    let page = http(&gateway, "GET", "/usage", BROWSER_AUTH, "");
+    assert!(page.contains("Source status: fresh"));
+    assert!(page.contains("Five-hour local tokens: 23"));
+    assert!(page.contains("Provider quota: unavailable"));
+    assert!(!page.contains("PRIVATE_USAGE_TRANSCRIPT"));
+    assert!(!page.contains("PRIVATE_USAGE_KEY"));
+    fs::write(&log, "malformed").unwrap();
+    assert!(
+        ui_submit(&gateway, &[("action", "collect_usage"), ("tool", "claude")])
+            .starts_with("HTTP/1.1 303")
+    );
+    let page = http(&gateway, "GET", "/usage", BROWSER_AUTH, "");
+    assert!(page.contains("Source status: stale"));
+    assert!(page.contains("Five-hour local tokens: 23"));
+    assert!(
+        ui_submit(&gateway, &[("action", "disable_usage"), ("tool", "claude")])
+            .starts_with("HTTP/1.1 303")
+    );
+    assert!(engine.dispatch(Request::Usage {}).unwrap()["sources"].as_object().unwrap().is_empty());
+    assert!(engine.dispatch(Request::Usage {}).unwrap()["tools"].as_object().unwrap().is_empty());
+    assert!(
+        ui_submit(
+            &gateway,
+            &[
+                ("action", "enroll_usage"),
+                ("tool", "opencode"),
+                ("path", source_path),
+                ("five_hour_limit", "123"),
+                ("seven_day_limit", "456")
+            ]
+        )
+        .starts_with("HTTP/1.1 303")
+    );
+    assert_eq!(
+        engine.dispatch(Request::Usage {}).unwrap()["sources"]["opencode"]["soft_caps"]["five_hour_limit"],
+        123
+    );
+    assert!(
+        ui_submit(
+            &gateway,
+            &[
+                ("action", "enroll_usage"),
+                ("tool", "opencode"),
+                ("path", source_path),
+                ("five_hour_limit", "5")
+            ]
+        )
+        .starts_with("HTTP/1.1 400")
+    );
+    assert_eq!(
+        engine.dispatch(Request::Usage {}).unwrap()["sources"]["opencode"]["soft_caps"]["five_hour_limit"],
+        123
+    );
+}
+
+#[test]
+fn browser_wiring_is_effective_and_fix_review_requires_explicit_bound_confirmation() {
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let gateway = ryoku_rashin::http::Gateway::new(
+        Arc::clone(&engine),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    assert!(
+        ui_submit(
+            &gateway,
+            &[
+                ("action", "wire"),
+                (
+                    "instructions",
+                    "SOURCE local-skill: Use the reviewed Tumbleweed package ownership workflow."
+                )
+            ]
+        )
+        .starts_with("HTTP/1.1 303")
+    );
+    assert!(
+        http(&gateway, "GET", "/console", BROWSER_AUTH, "")
+            .contains("Instructions are enabled for Agent messages")
+    );
+    ui_submit(&gateway, &[("action", "new_session"), ("id", "wired-ui"), ("lane", "agent")]);
+    ui_submit(
+        &gateway,
+        &[
+            ("action", "prompt"),
+            ("id", "wired-turn"),
+            ("session", "wired-ui"),
+            ("prompt", "Tumbleweed ownership"),
+        ],
+    );
+    assert!(done(&engine, "wired-turn")["answer"].as_str().unwrap().contains("local-skill"));
+    assert!(ui_submit(&gateway, &[("action", "unwire")]).starts_with("HTTP/1.1 303"));
+    assert_eq!(engine.dispatch(Request::Status {}).unwrap()["wired"], false);
+    ui_submit(
+        &gateway,
+        &[
+            ("action", "prompt"),
+            ("id", "unwired-turn"),
+            ("session", "wired-ui"),
+            ("prompt", "Tumbleweed ownership"),
+        ],
+    );
+    assert!(!done(&engine, "unwired-turn")["answer"].as_str().unwrap().contains("local-skill"));
+    assert!(http(&gateway, "GET", "/fix", "", "").starts_with("HTTP/1.1 401"));
+    let finding = [
+        ("kind", "doctor"),
+        ("component", "rashin-ui-fixture"),
+        ("evidence", "Browser <finding> fixture"),
+    ];
+    let body = ui_form(&finding);
+    assert!(
+        http(&gateway, "POST", "/console/fix-preview", BROWSER_AUTH, &body)
+            .starts_with("HTTP/1.1 403")
+    );
+    let headers = format!(
+        "{BROWSER_AUTH}Origin: http://127.0.0.1:51321\r\nContent-Type: application/x-www-form-urlencoded\r\n"
+    );
+    let preview = http(&gateway, "POST", "/console/fix-preview", &headers, &body);
+    assert!(preview.starts_with("HTTP/1.1 200"));
+    assert!(preview.contains("Browser &lt;finding&gt; fixture"));
+    assert!(preview.contains("Bounded native observations"));
+    assert!(preview.contains("Review it before confirming."));
+    assert!(!preview.contains("Set-Cookie:"));
+    let hidden = |name: &str| {
+        preview
+            .split(&format!("name=\"{name}\" value=\""))
+            .nth(1)
+            .unwrap()
+            .split('"')
+            .next()
+            .unwrap()
+            .to_string()
+    };
+    let consent = hidden("consent");
+    let id = hidden("id");
+    let mut fields = vec![
+        ("action", "fix"),
+        ("id", id.as_str()),
+        ("kind", "doctor"),
+        ("component", "rashin-ui-fixture"),
+        ("evidence", "Browser <finding> fixture"),
+        ("consent", consent.as_str()),
+    ];
+    assert!(ui_submit(&gateway, &fields).starts_with("HTTP/1.1 400"));
+    assert_eq!(engine.dispatch(Request::Jobs {}).unwrap()["jobs"].as_array().unwrap().len(), 2);
+    fields.push(("confirm", "yes"));
+    assert!(ui_submit(&gateway, &fields).contains(&format!("Location: /job/{id}\r\n")));
+    let fix = done(&engine, &id);
+    assert_eq!(fix["status"], "completed");
+    assert_eq!(fix["lane"], "agent");
+    assert!(fix["prompt"].as_str().unwrap().contains("Browser <finding> fixture"));
+    assert!(ui_submit(&gateway, &fields).starts_with("HTTP/1.1 303"));
+    engine
+        .dispatch(Request::PutProvider {
+            id: "external-fix-ui".into(),
+            provider: Provider::OpenAiCompatible {
+                endpoint: "https://provider.invalid/v1".into(),
+                api_key: "PRIVATE_EXTERNAL_FIX_UI_KEY".into(),
+                models: vec!["model".into()],
+                streaming: false,
+            },
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Agent,
+            provider: "external-fix-ui".into(),
+            model: "model".into(),
+        })
+        .unwrap();
+    let preview = http(&gateway, "POST", "/console/fix-preview", &headers, &body);
+    assert!(preview.contains("provider.invalid"));
+    assert!(!preview.contains("PRIVATE_EXTERNAL_FIX_UI_KEY"));
+    let consent = preview
+        .split("name=\"consent\" value=\"")
+        .nth(1)
+        .unwrap()
+        .split('"')
+        .next()
+        .unwrap()
+        .to_string();
+    let mismatch = [
+        ("action", "fix"),
+        ("id", "forbidden-egress"),
+        ("kind", "tip"),
+        ("component", "rashin-ui-fixture"),
+        ("evidence", "Browser <finding> fixture"),
+        ("consent", consent.as_str()),
+        ("confirm", "yes"),
+    ];
+    assert!(ui_submit(&gateway, &mismatch).contains("EvidenceConsentRequired"));
+    assert_eq!(
+        engine.dispatch(Request::Jobs {}).unwrap()["jobs"].as_array().unwrap().len(),
+        3,
+        "mismatched review starts no external provider job"
+    );
+}

@@ -3,7 +3,7 @@
 use super::{escape, form, page};
 use crate::{
     Error, Result,
-    api::{Lane, Request},
+    api::{FixKind, HandoffRun, Lane, Request},
     provider::{Provider, ProviderEdit},
     runtime::Engine,
 };
@@ -35,6 +35,22 @@ fn lane(value: &str) -> Result<Lane> {
         _ => Err(Error::InvalidRequest),
     }
 }
+fn fix_kind(value: &str) -> Result<FixKind> {
+    match value {
+        "doctor" => Ok(FixKind::Doctor),
+        "tip" => Ok(FixKind::Tip),
+        "app" => Ok(FixKind::App),
+        _ => Err(Error::InvalidRequest),
+    }
+}
+fn tool(value: &str) -> Result<crate::usage::Tool> {
+    match value {
+        "claude" => Ok(crate::usage::Tool::Claude),
+        "codex" => Ok(crate::usage::Tool::Codex),
+        "opencode" => Ok(crate::usage::Tool::Opencode),
+        _ => Err(Error::InvalidRequest),
+    }
+}
 fn models(value: &str) -> Vec<String> {
     value.lines().filter(|line| !line.is_empty()).map(str::to_owned).collect()
 }
@@ -55,6 +71,78 @@ struct Pick {
 pub(super) fn submit(engine: &Arc<Engine>, body: &[u8]) -> Result<String> {
     let fields = form(body)?;
     match value(&fields, "action")? {
+        "wire" => {
+            engine
+                .dispatch(Request::Wire { instructions: value(&fields, "instructions")?.into() })?;
+            Ok("/console".into())
+        }
+        "unwire" => {
+            engine.dispatch(Request::Unwire {})?;
+            Ok("/console".into())
+        }
+        "fix" => {
+            if value(&fields, "confirm")? != "yes" {
+                return Err(Error::InvalidRequest);
+            }
+            let id = value(&fields, "id")?.to_owned();
+            engine.dispatch(Request::Fix {
+                id: id.clone(),
+                kind: fix_kind(value(&fields, "kind")?)?,
+                component: value(&fields, "component")?.into(),
+                evidence: value(&fields, "evidence")?.into(),
+                native_evidence_consent: Some(value(&fields, "consent")?.into()),
+            })?;
+            id_path("job", &id)
+        }
+        "handoff" => {
+            engine.dispatch(Request::Handoff {
+                ask_id: value(&fields, "ask_id")?.into(),
+                run: None,
+            })?;
+            Ok("/console".into())
+        }
+        "handoff_run" => {
+            let id = value(&fields, "id")?.to_owned();
+            engine.dispatch(Request::Handoff {
+                ask_id: value(&fields, "ask_id")?.into(),
+                run: Some(HandoffRun {
+                    id: id.clone(),
+                    session: value(&fields, "session")?.into(),
+                }),
+            })?;
+            id_path("job", &id)
+        }
+        "clear_handoff" => {
+            engine.dispatch(Request::ClearHandoff {})?;
+            Ok("/console".into())
+        }
+        "enroll_usage" => {
+            let five = fields.get("five_hour_limit").filter(|value| !value.is_empty());
+            let seven = fields.get("seven_day_limit").filter(|value| !value.is_empty());
+            let soft_caps = match (five, seven) {
+                (None, None) => None,
+                (Some(five), Some(seven)) => Some(crate::usage::SoftCaps {
+                    five_hour_limit: five.parse().map_err(|_| Error::InvalidRequest)?,
+                    seven_day_limit: seven.parse().map_err(|_| Error::InvalidRequest)?,
+                }),
+                _ => return Err(Error::InvalidRequest),
+            };
+            engine.dispatch(Request::EnrollUsageSource {
+                tool: tool(value(&fields, "tool")?)?,
+                path: value(&fields, "path")?.into(),
+                soft_caps,
+            })?;
+            Ok("/usage".into())
+        }
+        "collect_usage" => {
+            engine.dispatch(Request::CollectUsage { tool: tool(value(&fields, "tool")?)? })?;
+            Ok("/usage".into())
+        }
+        "disable_usage" => {
+            engine
+                .dispatch(Request::DisableUsageSource { tool: tool(value(&fields, "tool")?)? })?;
+            Ok("/usage".into())
+        }
         "configure_prowl" => {
             engine.dispatch(Request::ConfigureProwl {
                 port: value(&fields, "port")?.parse().map_err(|_| Error::InvalidRequest)?,
@@ -160,7 +248,7 @@ pub(super) fn home(engine: &Arc<Engine>) -> Result<String> {
     let sessions = engine.dispatch(Request::Sessions {})?;
     let jobs = engine.dispatch(Request::Jobs {})?;
     let mut body = String::from(
-        "<p>Your private assistant workspace.</p><p><a href=\"/prowl\">Prowl gateway</a></p><h2>Ask</h2>",
+        "<p>Your private assistant workspace.</p><p><a href=\"/prowl\">Prowl gateway</a> · <a href=\"/usage\">Local tool usage</a> · <a href=\"/fix\">Fix investigation</a></p><h2>Ask</h2>",
     );
     body += &begin("ask");
     body += &hidden("id", &nonce()?);
@@ -178,7 +266,28 @@ pub(super) fn home(engine: &Arc<Engine>) -> Result<String> {
             session["messages"]
         );
     }
-    body += "</ul><h2>Models</h2>";
+    body += "</ul>";
+    if !sessions["pending_handoff"].is_null() {
+        let pending = &sessions["pending_handoff"];
+        body += &format!(
+            "<h2>Pending Ask context for next Agent message</h2><h3>Question</h3><pre>{}</pre><h3>Answer</h3><pre>{}</pre>",
+            escape(text(pending, "question")),
+            escape(text(pending, "answer"))
+        );
+        body += &begin("clear_handoff");
+        body += "<button>Clear pending Ask context</button></form>";
+    }
+    body += &format!(
+        "<h2>Built-in Agent instructions</h2><p>Instructions are {} for Agent messages. Ask and Chat are separate.</p>",
+        if status["wired"] == true { "enabled" } else { "disabled" }
+    );
+    body += &begin("wire");
+    body += "<label>Replace Agent instructions<textarea name=\"instructions\" required maxlength=\"16384\"></textarea></label><button>Save built-in Agent instructions</button></form>";
+    if status["wired"] == true {
+        body += &begin("unwire");
+        body += "<button>Remove built-in Agent instructions</button></form>";
+    }
+    body += "<h2>Models</h2>";
     for name in ["ask", "agent", "chat"] {
         let saved = &status["routes"][name];
         let mut options = String::new();
@@ -350,6 +459,32 @@ pub(super) fn job(engine: &Arc<Engine>, id: &str) -> Result<String> {
             escape(&id_path("session", session)?)
         );
     }
+    if job["lane"] == "ask" && job["status"] == "completed" {
+        body += "<h2>Continue in Agent</h2><p>Use the recorded question and answer as context. Chat remains separate.</p>";
+        body += &begin("handoff");
+        body += &hidden("ask_id", id);
+        body += "<button>Stage context for next Agent message</button></form>";
+        let sessions = engine.dispatch(Request::Sessions {})?;
+        let agents = sessions["sessions"]
+            .as_array()
+            .ok_or(Error::Integrity)?
+            .iter()
+            .filter(|session| session["lane"] == "agent")
+            .collect::<Vec<_>>();
+        if !agents.is_empty() {
+            body += &begin("handoff_run");
+            body += &hidden("ask_id", id);
+            body += &hidden("id", &nonce()?);
+            body += "<label>Agent conversation<select name=\"session\" required>";
+            for session in agents {
+                let id = text(session, "id");
+                body += &format!("<option value=\"{}\">{}</option>", escape(id), escape(id));
+            }
+            body += "</select></label><button>Run in selected Agent conversation</button></form>";
+        } else {
+            body += "<p>Create an Agent conversation in the workspace to run this context immediately.</p>";
+        }
+    }
     body += &begin(if running { "cancel" } else { "forget" });
     body += &hidden("id", id);
     body += if running {
@@ -416,4 +551,83 @@ pub(super) fn prowl(engine: &Arc<Engine>, path: &str) -> Result<String> {
         );
     }
     Ok(page("Prowl gateway", &body))
+}
+
+pub(super) fn usage(engine: &Arc<Engine>) -> Result<String> {
+    let usage = engine.dispatch(Request::Usage {})?;
+    let mut body = String::from(
+        "<p><a href=\"/console\">Workspace</a></p><p>Explicitly enroll a private local tool data directory. Collection retains aggregate activity and optional opencode soft caps. Transcripts and credentials stay out of the report; provider quota is separate.</p>",
+    );
+    body += &begin("enroll_usage");
+    body += "<label>Tool<select name=\"tool\"><option value=\"claude\">Claude</option><option value=\"codex\">Codex</option><option value=\"opencode\">opencode</option></select></label><label>Absolute private data directory<input name=\"path\" required maxlength=\"4096\"></label><label>Optional opencode five-hour soft cap<input name=\"five_hour_limit\" type=\"number\" min=\"1\" max=\"1000000000000000\"></label><label>Optional opencode seven-day soft cap<input name=\"seven_day_limit\" type=\"number\" min=\"1\" max=\"1000000000000000\"></label><button>Enroll local source</button></form>";
+    for (tool, source) in usage["sources"].as_object().ok_or(Error::Integrity)? {
+        body += &format!(
+            "<section><h2>{}</h2><p>Enrolled directory: {}</p>",
+            escape(tool),
+            escape(text(source, "path"))
+        );
+        let report = &usage["tools"][tool];
+        if report.is_null() {
+            body += "<p>Not yet collected.</p>";
+        } else {
+            body += &format!(
+                "<p>Source status: {}</p><p>Five-hour local tokens: {} · seven-day local tokens: {}</p><p>Provider quota: {}</p><pre>{}</pre>",
+                escape(text(report, "source_status")),
+                report["five_hour_tokens"],
+                report["seven_day_tokens"],
+                escape(text(report, "quota_status")),
+                escape(&serde_json::to_string_pretty(report).map_err(|_| Error::Storage)?)
+            );
+        }
+        for (action, label) in [
+            ("collect_usage", "Collect local activity now"),
+            ("disable_usage", "Disable source and clear cached activity"),
+        ] {
+            body += &begin(action);
+            body += &hidden("tool", tool);
+            body += &format!("<button>{label}</button></form>");
+        }
+        body += "</section>";
+    }
+    body += "<p>The running daemon owns the persistent five-minute schedule. Enrollment does not enable login startup, lingering or another collector process.</p>";
+    Ok(page("Local tool usage", &body))
+}
+
+pub(super) fn fix_form() -> String {
+    page(
+        "Fix investigation",
+        "<p><a href=\"/console\">Workspace</a></p><p>Review a finding and bounded native observations before starting an Agent investigation. Proposed repairs still need their separately authorized Ryoku provider and linked recovery.</p><form method=\"post\" action=\"/console/fix-preview\"><label>Finding type<select name=\"kind\"><option value=\"doctor\">Doctor</option><option value=\"tip\">Tip</option><option value=\"app\">App incident</option></select></label><label>Component<input name=\"component\" required maxlength=\"128\"></label><label>Finding and evidence<textarea name=\"evidence\" required maxlength=\"16384\"></textarea></label><button>Review destination and native evidence</button></form>",
+    )
+}
+pub(super) fn fix_preview(engine: &Arc<Engine>, body: &[u8]) -> Result<String> {
+    let fields = form(body)?;
+    let kind = value(&fields, "kind")?;
+    let component = value(&fields, "component")?;
+    let evidence = value(&fields, "evidence")?;
+    let preview = engine.dispatch(Request::FixPreview {
+        kind: fix_kind(kind)?,
+        component: component.into(),
+        evidence: evidence.into(),
+    })?;
+    let mut body = format!(
+        "<p><a href=\"/fix\">Back to finding</a></p><p>{}</p><h2>Destination</h2><pre>{}</pre><h2>Finding</h2><pre>{}</pre><h2>Bounded native observations</h2><pre>{}</pre><p>This review expires in {} seconds.</p>",
+        escape(text(&preview, "disclosure")),
+        escape(&serde_json::to_string_pretty(&preview["destination"]).map_err(|_| Error::Storage)?),
+        escape(evidence),
+        escape(text(&preview, "native_evidence")),
+        preview["expires_in_seconds"]
+    );
+    body += &begin("fix");
+    let id = nonce()?;
+    for (name, value) in [
+        ("id", id.as_str()),
+        ("kind", kind),
+        ("component", component),
+        ("evidence", evidence),
+        ("consent", text(&preview, "native_evidence_consent")),
+    ] {
+        body += &hidden(name, value);
+    }
+    body += "<label><input name=\"confirm\" type=\"checkbox\" value=\"yes\" required>I reviewed the destination, finding and native observations.</label><button>Confirm and start investigation</button></form>";
+    Ok(page("Review Fix investigation", &body))
 }

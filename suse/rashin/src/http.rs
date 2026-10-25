@@ -123,6 +123,8 @@ impl Gateway {
                     && !explicit_bearer
                     && (path.starts_with("/session/")
                         || path.starts_with("/job/")
+                        || path == "/fix"
+                        || path == "/usage"
                         || path == "/prowl"
                         || path.starts_with("/prowl/")) =>
             {
@@ -209,6 +211,11 @@ impl Gateway {
                     None,
                 )
             }
+            ("GET", "/fix") if owner => send_ui(stream, Ok(console::fix_form())),
+            ("POST", "/console/fix-preview") if owner && same_origin => {
+                send_ui(stream, console::fix_preview(&self.engine, &request.body))
+            }
+            ("GET", "/usage") if owner => send_ui(stream, console::usage(&self.engine)),
             ("GET", path) if owner && (path == "/prowl" || path.starts_with("/prowl/")) => {
                 send_ui(stream, console::prowl(&self.engine, path))
             }
@@ -224,12 +231,14 @@ impl Gateway {
                     Err(error) => send_ui(stream, Err(error)),
                 }
             }
-            ("POST", "/console/action" | "/ask" | "/index")
+            ("POST", "/console/action" | "/console/fix-preview" | "/ask" | "/index")
                 if !owner && !explicit_bearer && same_origin =>
             {
                 self.challenge(stream)
             }
-            ("POST", "/console/action" | "/ask" | "/index" | "/login") => denied(stream),
+            ("POST", "/console/action" | "/console/fix-preview" | "/ask" | "/index" | "/login") => {
+                denied(stream)
+            }
             _ if access.is_none() || !owner => denied(stream),
             _ => send(stream, 404, "text/plain", b"Not found", None),
         }

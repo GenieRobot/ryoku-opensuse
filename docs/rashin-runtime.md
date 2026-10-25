@@ -494,3 +494,44 @@ required. Profile create/edit/activate/reorder/delete/presets, every sign-in and
 other retained Prowl action, protected state/writer/recovery and full native/UI/VM
 acceptance remain required subsequent functionality; these reads certify none of
 those mutation or packaging gates.
+
+## Browser handoff, local usage and Fix review
+
+A completed Ask job offers two explicit continuations: stage its recorded question
+and answer for the next Agent message, or run that canonical context in a chosen
+existing Agent conversation. Chat conversations are not offered as Agent targets.
+The workspace displays pending context and can clear it. Copied question/answer
+form fields cannot replace the recorded source; accepted-ID replay remains
+idempotent. Chat and other independent activity do not consume staged context.
+
+The local usage page enrolls an explicit private Claude/Codex/opencode directory,
+collects through the existing descriptor-bound readers, and disables enrollment
+with cache removal. Optional opencode soft caps require both windows; invalid
+edits preserve existing enrollment. Reports distinguish not-yet-collected,
+fresh/partial/stale/unavailable activity and unavailable provider quota. Failed
+collection retains a labeled last-good result. Transcript/credential content is
+excluded from reports. The existing single-daemon persistent five-minute schedule
+owns periodic collection; these controls add no service/timer, startup or linger
+setting and perform no OAuth/RPC/provider request.
+
+Built-in Agent instruction forms call the existing `wire`/`unwire` actions; a
+replacement applies to Agent messages, with Ask and Chat separate. They do not
+claim native/external harness configuration enrollment or linked recovery.
+
+The Fix investigation page accepts a doctor/tip/app finding and first performs
+`fix_preview`. It displays the redacted Agent destination, exact supplied finding,
+bounded native observations, expiry and disclosure. Only an explicit checked
+confirmation submits the bound kind/component/finding/consent token to `fix`.
+Consent and credentials never enter a URL. Missing confirmation executes no job;
+an externally routed mismatched/stale/replayed approval remains rejected by the
+existing backend. Local Fix keeps its existing backend behavior. Accepted retry
+returns the same work record without additional egress. The review POST returns
+a private no-store page; execution redirects to the job GET, which shows progress
+and terminal status. Proposed repairs still require the separately authorized
+typed native provider and linked recovery; no shell command is executed here.
+
+All new pages/forms retain owner authentication, exact-Origin browser mutations,
+no cookie authority, escaped output and scoped Ask denial. Deterministic private
+fixtures exercise actual handlers and runtime actions without external provider
+calls. These browser paths do not establish retained native app/shell/ACP/harness
+protocol/tool/approval/terminal or packaged Tumbleweed browser/VM acceptance.
