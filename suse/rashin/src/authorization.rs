@@ -42,7 +42,11 @@ impl Request {
             | Self::Prompt { .. }
             | Self::ForgetJob { .. }
             | Self::DeleteSession { .. } => Action::Conversation,
-            Self::PutProvider { .. } | Self::RemoveProvider { .. } => Action::ProviderCredentials,
+            Self::PutProvider { .. }
+            | Self::RemoveProvider { .. }
+            | Self::IssueAskClient { .. }
+            | Self::AskClients {}
+            | Self::RevokeAskClient { .. } => Action::ProviderCredentials,
             Self::SetRoute { .. } => Action::Route,
             Self::Index { .. } => Action::Index,
             Self::Fix { .. } | Self::FixPreview { .. } => Action::Fix,

@@ -2,6 +2,7 @@
 //! kernel peer before deserializing any action. No action executes shell text.
 pub mod api;
 pub mod authorization;
+mod delegation;
 pub mod http;
 pub mod inspection;
 pub mod provider;

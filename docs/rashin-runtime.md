@@ -69,7 +69,7 @@ a restrictive CSP; the console requires no JavaScript.
 | Inspect | `status`, `providers`, `get_index`, `recent`, `sessions`, `session`, `job`, `usage`, `logs` | Account-private reads; provider inventory never returns keys; logs run only fixed bounded native readers |
 | Ask | `ask`, `cancel` | Read-only provider lane, private independent history, bounded asynchronous execution and cancellation |
 | Conversation | `new_session`, `prompt`, `forget_job`, `delete_session` | Persistent independent Agent/Chat transcripts; deletion removes associated jobs and usage records |
-| Credentials | `put_provider`, `remove_provider` | Owner configures/removes an explicit provider; keys remain only in private state and provider stdin |
+| Credentials | `put_provider`, `remove_provider`, `issue_ask_client`, `ask_clients`, `revoke_ask_client` | Owner configures/removes an explicit provider; keys remain only in private state and provider stdin |
 | Route/model | `set_route` | Owner selects a provider and one of its configured model IDs for an explicit lane |
 | Index | `index` | Owner replaces a bounded set of explicitly uploaded UTF-8 documents; every SHA-256 is verified before publication |
 | Fix | `fix_preview`, `fix` | Owner supplies a typed doctor/tip/app finding; external native-evidence egress requires a reviewed destination-bound preview; creates an Agent investigation request with Tumbleweed ownership/recovery instructions |
@@ -77,17 +77,32 @@ a restrictive CSP; the console requires no JavaScript.
 | Local agent instructions | `wire`, `unwire` | Owner installs/removes instructions for the built-in Agent lane; Ask/Chat are unaffected |
 | Local usage sources | `enroll_usage_source`, `collect_usage`, `disable_usage_source` | Owner explicitly enrolls a private tool data root, collects local activity or removes enrollment/cache; restricted Ask clients cannot use these actions |
 
-`authorization::Access::AskClient` is a separately tested restricted library
-policy: it cannot configure credentials/routes/index/wiring, start Fix/Agent/Chat,
-or inspect/cancel an Agent job. Neither HTTP nor Unix requests accept a claimed
-role. Current installed transports are not extended by this branch; the
-standalone owner transports deliberately grant the authenticated account owner
-its runtime actions. A future shell/model transport must assign its role on the
-trusted side instead of forwarding an owner credential to a model. The production
-HTTP/Unix handlers currently dispatch as Owner: restricted AskClient assignment
-has **no live bridge enforcement** yet. Same-UID clients are not separate
-identities. An authenticated restricted shell/assistant bridge is an explicit
-remaining integration and acceptance gate.
+`authorization::Access::AskClient` is enforced by the live HTTP API when the
+owner explicitly delegates an Ask credential. Its allowed actions are `ask`,
+`cancel` (Ask jobs only), `status` (Ask route/activity only), `get_index`, `recent`
+and `job` (Ask jobs only). It shares the account's Ask history/index context;
+it cannot configure credentials/routes/index/wiring, start Agent/Chat/Fix or
+handoff, inspect Agent jobs/transcripts, collect native logs or use local usage
+sources. JSON never selects the caller's role.
+
+Use the owner-only `{"action":"issue_ask_client","lifetime_seconds":900}` to
+obtain one private bearer token plus its revocation ID. The default lifetime is
+15 minutes, bounded from 60 seconds to one hour, with at most eight live grants.
+Pass the token only in `Authorization: Bearer TOKEN` to `/api/action`. An explicit
+scoped or invalid bearer cannot inherit stronger authority from an owner browser
+cookie. Host/loopback/Origin controls continue to apply. `ask_clients` lists IDs
+and expiry metadata without tokens/hashes; `revoke_ask_client` with `id` revokes
+subsequent requests. Accepted jobs remain controlled by the owner; use `cancel`
+to stop their model work. Only token hashes live in bounded memory, expiry uses
+monotonic elapsed time, and restart discards all grants. Tokens never enter
+prompts, URLs, persisted state or diagnostics.
+
+The Unix transport and full browser console authenticate the account owner.
+Capabilities limit HTTP authority. A client with owner filesystem/socket access
+retains that account's authority. Same UID is not a separate client identity.
+The shell/ACP integration still requires isolated credential delivery/process
+access and typed native per-action authorization with linked recovery. This live
+HTTP capability path does not establish those remaining native bridge gates.
 
 `fix` performs investigation only: findings never become a shell command or a
 package/service mutation. `wire` currently affects the built-in Agent's real
@@ -289,7 +304,7 @@ No row in the original inventory is removed by this slice.
 | Index/vault/memory/wiki/skills | SHA-256-verified uploaded local document retrieval | System/package/desktop/source/user/habits maps, bounded source mirrors, registered projects, vault/memory/journal enrollment and complete offline skills/wiki |
 | Provider/model/network | Local/fixture and configured HTTPS completion, private keys, catalog selection, unavailable-pick retention | Every individual Prowl provider/sign-in/model/profile/fallback/cache/network/project/harness/skill operation, adapter/source integrity and full settings UI |
 | Usage | Completion activity plus enrolled Claude/Codex/opencode JSON/SQLite activity, committed WAL snapshots, costs/soft caps, opencode model component/session-count rows, local/UTC days, five-minute scheduling and source failure statuses | Live OAuth/RPC/session-limit quota, complete model/session rows, separate timer and original shell/cache UI |
-| Web/app/API | Tested authenticated owner Rust HTTP/Unix boundary and basic browser console; AskClient is library policy only | Retained upstream Svelte console/native app and all source routes/sheets, theme/vitals/system/vault content and shell/Hub bridges; authenticated restricted role assignment on the live assistant bridge |
+| Web/app/API | Tested owner HTTP/Unix boundary, live scoped Ask HTTP delegation and basic browser console | Retained upstream Svelte console/native app and all source routes/sheets, theme/vitals/system/vault content and shell/Hub bridges; isolated shell/ACP credential delivery and complete assistant bridge integration |
 | Terminal | Typed JSON CLI, no arbitrary command execution | Upstream proposed-command tiers, command buffer confirmation, continuation/run feedback/recipes and shell integrations |
 | Lifecycle | Explicit optional standalone process, restart and stale socket recovery | Optional RPM install/remove, enable-now/login/linger/disable choices, Prowl lifecycle, no implicit reinstallation and registered writer coordination |
 | Protected mutations/recovery | No system/service/package/external-harness mutation exposed | #25's authenticated typed dispatch to #20 native coordinator; complete state enrollment, writer leasing, verified pre/post linked generations, authorization/revalidation and offline restore proof |

@@ -1128,3 +1128,189 @@ fn fixture_stream_progress_is_private_ephemeral_cancellable_and_commits_only_com
     );
     assert_eq!(rpc(&engine, Request::Usage {})["activity"].as_array().unwrap().len(), 1);
 }
+
+#[test]
+fn scoped_http_bearer_enforces_ask_role_and_cannot_inherit_owner_cookie_authority() {
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let owner = "a".repeat(64);
+    let gateway = ryoku_rashin::http::Gateway::new(
+        Arc::clone(&engine),
+        owner.clone(),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    let grant = engine.dispatch(Request::IssueAskClient { lifetime_seconds: Some(60) }).unwrap();
+    let token = grant["token"].as_str().unwrap();
+    let id = grant["id"].as_str().unwrap();
+    let scoped = format!(
+        "Content-Type: application/json\r\nAuthorization: Bearer {token}\r\nCookie: rashin={owner}\r\nOrigin: http://127.0.0.1:51321\r\n"
+    );
+    let status = http(&gateway, "POST", "/api/action", &scoped, r#"{"action":"status"}"#);
+    assert!(status.starts_with("HTTP/1.1 200"));
+    let value: Value = serde_json::from_str(status.split_once("\r\n\r\n").unwrap().1).unwrap();
+    assert!(value["data"]["routes"]["agent"].is_null());
+    assert!(value["data"].get("wired").is_none());
+    for body in [
+        r#"{"action":"providers"}"#,
+        r#"{"action":"issue_ask_client"}"#,
+        r#"{"action":"ask_clients"}"#,
+        r#"{"action":"put_provider","id":"forbidden","provider":{"kind":"local"}}"#,
+        r#"{"action":"new_session","id":"forbidden","lane":"agent"}"#,
+        r#"{"action":"set_route","lane":"agent","provider":"local","model":"local-retrieval-v1"}"#,
+        r#"{"action":"index","documents":[]}"#,
+        r#"{"action":"wire","instructions":"forbidden"}"#,
+        r#"{"action":"fix_preview","kind":"app","component":"synthetic.service","evidence":"finding"}"#,
+        r#"{"action":"logs","component":"synthetic.service"}"#,
+        r#"{"action":"enroll_usage_source","tool":"claude","path":"/not-consulted"}"#,
+    ] {
+        assert!(http(&gateway, "POST", "/api/action", &scoped, body).starts_with("HTTP/1.1 403"));
+    }
+    assert!(http(&gateway, "GET", "/console", &scoped, "").starts_with("HTTP/1.1 403"));
+    let forged = r#"{"action":"ask","id":"forged","prompt":"question","access":"owner"}"#;
+    assert!(http(&gateway, "POST", "/api/action", &scoped, forged).starts_with("HTTP/1.1 400"));
+    let invalid = scoped.replace(token, &"b".repeat(64));
+    assert!(
+        http(&gateway, "POST", "/api/action", &invalid, r#"{"action":"status"}"#)
+            .starts_with("HTTP/1.1 403")
+    );
+    assert!(
+        http(
+            &gateway,
+            "POST",
+            "/api/action",
+            &scoped,
+            r#"{"action":"ask","id":"scoped","prompt":"local evidence"}"#
+        )
+        .starts_with("HTTP/1.1 200")
+    );
+    done(&engine, "scoped");
+    rpc(&engine, Request::NewSession { id: "private-agent".into(), lane: Lane::Agent });
+    rpc(
+        &engine,
+        Request::Prompt {
+            id: "private-turn".into(),
+            session: "private-agent".into(),
+            prompt: "PRIVATE_AGENT_EVIDENCE".into(),
+        },
+    );
+    done(&engine, "private-turn");
+    for action in ["job", "cancel"] {
+        let body = json!({"action":action,"id":"private-turn"}).to_string();
+        assert!(http(&gateway, "POST", "/api/action", &scoped, &body).starts_with("HTTP/1.1 403"));
+    }
+    let persisted = fs::read_to_string(fixture.path.join("state.json")).unwrap();
+    assert!(!persisted.contains(token));
+    assert!(!engine.dispatch(Request::AskClients {}).unwrap().to_string().contains(token));
+    assert!(
+        http(
+            &gateway,
+            "POST",
+            "/api/action",
+            &scoped,
+            &json!({"action":"revoke_ask_client","id":id}).to_string()
+        )
+        .starts_with("HTTP/1.1 403")
+    );
+    engine.dispatch(Request::RevokeAskClient { id: id.into() }).unwrap();
+    assert!(
+        http(&gateway, "POST", "/api/action", &scoped, r#"{"action":"status"}"#)
+            .starts_with("HTTP/1.1 403")
+    );
+}
+
+#[test]
+fn built_daemon_assigns_scoped_http_role_and_restart_invalidates_delegation() {
+    use std::{
+        net::TcpStream,
+        process::{Child, Command, Stdio},
+    };
+    struct Daemon {
+        child: Child,
+        address: String,
+        token: String,
+    }
+    impl Drop for Daemon {
+        fn drop(&mut self) {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+    }
+    impl Daemon {
+        fn start(root: &std::path::Path) -> Self {
+            let child = Command::new(env!("CARGO_BIN_EXE_ryoku-rashin"))
+                .arg("web")
+                .arg(root)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped())
+                .spawn()
+                .unwrap();
+            let mut daemon = Self { child, address: String::new(), token: String::new() };
+            let mut startup = daemon.child.stderr.take().unwrap();
+            rustix::fs::fcntl_setfl(&startup, rustix::fs::OFlags::NONBLOCK).unwrap();
+            let until = Instant::now() + Duration::from_secs(5);
+            let mut bytes = Vec::new();
+            loop {
+                let mut chunk = [0; 256];
+                match startup.read(&mut chunk) {
+                    Ok(0) => panic!("fixture daemon exited before readiness"),
+                    Ok(count) => {
+                        bytes.extend_from_slice(&chunk[..count]);
+                        assert!(bytes.len() <= 2048);
+                        if bytes.contains(&b'\n') {
+                            break;
+                        }
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
+                    Err(error) => panic!("fixture readiness: {error}"),
+                }
+                assert!(Instant::now() < until, "fixture daemon readiness timed out");
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            let line = std::str::from_utf8(&bytes).unwrap().lines().next().unwrap();
+            let origin = line.strip_prefix("Rashin: ").unwrap().split(';').next().unwrap();
+            daemon.address = origin.strip_prefix("http://").unwrap().into();
+            daemon.token = fs::read_to_string(root.join("browser.token")).unwrap();
+            daemon
+        }
+
+        fn request(&self, token: &str, body: &str) -> (String, Value) {
+            let mut stream = TcpStream::connect(&self.address).unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+            write!(stream,"POST /api/action HTTP/1.1\r\nHost: {}\r\nAuthorization: Bearer {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",self.address,token,body.len(),body).unwrap();
+            let mut response = String::new();
+            stream.read_to_string(&mut response).unwrap();
+            let (header, body) = response.split_once("\r\n\r\n").unwrap();
+            (header.lines().next().unwrap().into(), serde_json::from_str(body).unwrap())
+        }
+    }
+    let fixture = Fixture::new();
+    let daemon = Daemon::start(&fixture.path);
+    let (status, grant) =
+        daemon.request(&daemon.token, r#"{"action":"issue_ask_client","lifetime_seconds":60}"#);
+    assert!(status.contains("200"));
+    let token = grant["data"]["token"].as_str().unwrap().to_owned();
+    let (status, _) = daemon.request(
+        &token,
+        r#"{"action":"ask","id":"scoped-live","prompt":"offline local question"}"#,
+    );
+    assert!(status.contains("200"));
+    let until = Instant::now() + Duration::from_secs(3);
+    loop {
+        let (status, result) = daemon.request(&token, r#"{"action":"job","id":"scoped-live"}"#);
+        assert!(status.contains("200"));
+        if result["data"]["job"]["status"] == "completed" {
+            break;
+        }
+        assert!(Instant::now() < until);
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert!(daemon.request(&token, r#"{"action":"issue_ask_client"}"#).0.contains("403"));
+    drop(daemon);
+    let daemon = Daemon::start(&fixture.path);
+    assert!(daemon.request(&token, r#"{"action":"recent"}"#).0.contains("403"));
+    let (status, recent) = daemon.request(&daemon.token, r#"{"action":"recent"}"#);
+    assert!(status.contains("200"));
+    assert_eq!(recent["data"]["asks"][0]["id"], "scoped-live");
+}

@@ -189,6 +189,7 @@ pub struct Engine {
     state: Mutex<State>,
     in_flight: Mutex<BTreeMap<String, ActiveJob>>,
     next_generation: AtomicU64,
+    delegations: crate::delegation::Delegations,
     healthy: AtomicBool,
     active: Arc<AtomicUsize>,
     usage_collection: Mutex<()>,
@@ -234,6 +235,7 @@ impl Engine {
             state: Mutex::new(state),
             in_flight: Mutex::new(BTreeMap::new()),
             next_generation: AtomicU64::new(0),
+            delegations: crate::delegation::Delegations::default(),
             healthy: AtomicBool::new(true),
             active: Arc::new(AtomicUsize::new(0)),
             usage_collection: Mutex::new(()),
@@ -257,6 +259,10 @@ impl Engine {
         self.store.save(&bytes).inspect_err(|_| self.healthy.store(false, Ordering::Release))?;
         *guard = next;
         Ok(result)
+    }
+
+    pub(crate) fn authenticate_ask_client(&self, token: &str) -> Result<bool> {
+        self.delegations.authenticate(token)
     }
 
     pub fn dispatch(self: &Arc<Self>, request: Request) -> Result<Value> {
@@ -285,6 +291,11 @@ impl Engine {
             return Err(Error::Unauthorized);
         }
         match request {
+            Request::IssueAskClient { lifetime_seconds } => {
+                self.delegations.issue(lifetime_seconds)
+            }
+            Request::AskClients {} => self.delegations.list(),
+            Request::RevokeAskClient { id } => self.delegations.revoke(&id),
             Request::EnrollUsageSource { tool, path, soft_caps } => {
                 let mut enrollment =
                     crate::usage::Enrollment::enroll(tool, std::path::Path::new(&path))?;
@@ -599,6 +610,13 @@ impl Engine {
             other => {
                 let state = self.state.lock().map_err(|_| Error::Storage)?;
                 match other {
+                    Request::Status {}
+                        if matches!(access, crate::authorization::Access::AskClient) =>
+                    {
+                        Ok(
+                            json!({"version":1,"optional_at_login":true,"routes":{"ask":state.routes.get(&Lane::Ask)},"running":state.jobs.values().filter(|job|job.lane==Lane::Ask && job.status==JobStatus::Running).count()}),
+                        )
+                    }
                     Request::Status {} => Ok(
                         json!({"version":1,"optional_at_login":true,"routes":state.routes,"wired":state.instructions.is_some(),"running":state.jobs.values().filter(|job| job.status == JobStatus::Running).count()}),
                     ),

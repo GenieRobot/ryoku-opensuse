@@ -4,6 +4,7 @@
 use crate::{
     Error, Result,
     api::{Document, MAX_REQUEST_BYTES, Request, Response},
+    authorization::Access,
     digest,
     runtime::Engine,
 };
@@ -77,11 +78,7 @@ impl Gateway {
         if request.headers.get("host").map(String::as_str) != self.origin.strip_prefix("http://") {
             return denied(stream);
         }
-        let bearer = request
-            .headers
-            .get("authorization")
-            .and_then(|value| value.strip_prefix("Bearer "))
-            .is_some_and(|token| equal(token, &self.token));
+        let explicit_bearer = request.headers.get("authorization");
         let cookie = request.headers.get("cookie").is_some_and(|cookies| {
             cookies
                 .split(';')
@@ -95,6 +92,26 @@ impl Gateway {
         if wrong_origin {
             return denied(stream);
         }
+        // An explicit restricted/invalid bearer cannot inherit a stronger
+        // browser cookie. Transport assigns the role; JSON never selects it.
+        let access = if let Some(header) = explicit_bearer {
+            if let Some(token) = header.strip_prefix("Bearer ") {
+                if equal(token, &self.token) {
+                    Some(Access::Owner)
+                } else if self.engine.authenticate_ask_client(token)? {
+                    Some(Access::AskClient)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else if cookie {
+            Some(Access::Owner)
+        } else {
+            None
+        };
+        let owner = matches!(access, Some(Access::Owner));
         match (request.method.as_str(), request.path.as_str()) {
             ("GET", "/") => send(stream, 200, "text/html; charset=utf-8", LOGIN.as_bytes(), None),
             ("POST", "/login") => {
@@ -114,9 +131,10 @@ impl Gateway {
                 )
             }
             ("POST", "/api/action") => {
-                if !bearer && !(cookie && same_origin) {
+                let Some(access) = access.filter(|_| explicit_bearer.is_some() || same_origin)
+                else {
                     return denied(stream);
-                }
+                };
                 if !request
                     .headers
                     .get("content-type")
@@ -132,7 +150,7 @@ impl Gateway {
                 }
                 let result = serde_json::from_slice::<Request>(&request.body)
                     .map_err(|_| Error::InvalidRequest)
-                    .and_then(|request| self.engine.dispatch(request));
+                    .and_then(|request| self.engine.dispatch_as(access, request));
                 let status = match &result {
                     Ok(_) => 200,
                     Err(Error::Unauthorized) => 403,
@@ -142,10 +160,10 @@ impl Gateway {
                     serde_json::to_vec(&Response::from(result)).map_err(|_| Error::Storage)?;
                 send(stream, status, "application/json", &bytes, None)
             }
-            ("GET", "/console") if cookie || bearer => {
+            ("GET", "/console") if owner => {
                 send(stream, 200, "text/html; charset=utf-8", self.console()?.as_bytes(), None)
             }
-            ("POST", "/ask") if cookie && same_origin => {
+            ("POST", "/ask") if owner && cookie && same_origin => {
                 let fields = form(&request.body)?;
                 let id = fields.get("id").ok_or(Error::InvalidRequest)?.to_owned();
                 let prompt = fields.get("prompt").ok_or(Error::InvalidRequest)?.to_owned();
@@ -168,7 +186,7 @@ impl Gateway {
                     None,
                 )
             }
-            ("POST", "/index") if cookie && same_origin => {
+            ("POST", "/index") if owner && cookie && same_origin => {
                 let fields = form(&request.body)?;
                 let name = fields.get("name").ok_or(Error::InvalidRequest)?.to_owned();
                 let content = fields.get("content").ok_or(Error::InvalidRequest)?.to_owned();
@@ -194,7 +212,7 @@ impl Gateway {
                     None,
                 )
             }
-            _ if !cookie && !bearer => denied(stream),
+            _ if access.is_none() || !owner => denied(stream),
             _ => send(stream, 404, "text/plain", b"Not found", None),
         }
     }

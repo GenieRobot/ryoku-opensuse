@@ -10,6 +10,13 @@ pub const MAX_REQUEST_BYTES: usize = 256 * 1024;
 pub enum Request {
     Status {},
     Providers {},
+    IssueAskClient {
+        lifetime_seconds: Option<u32>,
+    },
+    AskClients {},
+    RevokeAskClient {
+        id: String,
+    },
     PutProvider {
         id: String,
         provider: Provider,
