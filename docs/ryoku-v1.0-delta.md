@@ -30,7 +30,7 @@ edition-specific platform mechanisms need reviewed Tumbleweed replacements.
 | Nix packaging | 35 paths under `nix/`, plus two root flakes (37 total) | Initial shared application packaging extraction; explicitly not a NixOS module or validated release | Cross-check source/app/package boundaries; retain their feature intent through this port's declarative RPM/provider design rather than importing Nix host mechanisms. |
 | Installer and ISO | 62 paths under `installation/{backend,tui,iso,installerplan,tests}`; 29 paths in `ryoku-shell-installer` | Fedora/Void-aware install plans and edition-specific installer paths/tests | Retain the install experience through #24 native protected installation, #182 content/apps and #27–29 package contracts. Replace edition-specific destructive disk/config/package mechanisms with reviewed Tumbleweed equivalents. This source review does not add an ISO implementation or change separate #49 media scope. |
 | System integration and hardware | 61 paths under `system/` (hardware, packages, boot, policy, services, extras, containers) | Expanded hardware/platform package maps, boot integration, service and distribution policy | **Review only the Hyprland session dependencies actually shipped.** Do not import another distribution's bootloader, init, hardware mutation or package policy. |
-| Release, repository and CI | 77 paths under `release/`; 33 GitHub workflow paths; 17 `bin/` tools | Multi-edition stable/testing releases, signed repositories, manifests, provenance, ISO publication, publisher and maintainer tools, new CI gates | **Provenance reference only.** Do not reuse signing keys, repository URLs, or publisher scripts. Update this project's source pin, build inputs, package metadata and release docs independently. #173, #42–45. |
+| Release, repository and CI | 78 delta rows touching `release/` (77 changes plus one logo move to Nix); 33 GitHub workflow paths; 17 `bin/` tools | Multi-edition stable/testing releases, signed repositories, manifests, provenance, ISO publication, publisher and maintainer tools, new CI gates | **Provenance reference only.** Do not reuse signing keys, repository URLs, or publisher scripts. Update this project's source pin, build inputs, package metadata and release docs independently. #173, #42–45. |
 | Docs, tests, policies and licensing | 42 docs paths, 85 test paths, root policy/tooling metadata; NOTICE modified | New user, developer, release and edition guidance; test coverage; policy and notice changes | **Review licensing and relevant contracts.** Update the source inventory, dependency map, RPM build guide and acceptance docs; retain required upstream notices for every imported file. Upstream tests are evidence of changed behavior, not substitutes for this port's tests/VM acceptance. #173. |
 
 Counts are based on the two exact Git trees and recorded file paths; rename
@@ -113,3 +113,9 @@ The partial [Void/Nix source reference](ryoku-v1.0-void-nix-reference.md) pins
 all 189 identities, 72 template/derivation inputs, raw init translation losses
 and package mappings. Platform mechanisms remain reference-only; full feature
 ownership and semantic/native distribution acceptance remain open.
+
+The partial [installer/release source unit](ryoku-v1.0-installer-release-review.md)
+pins 295 current/prior paths, shared plan tables and 34 source/API references.
+It separates install/package authority, mutable bootstrap checksum equality,
+release signing/promotion and rollback-artifact retention under #24/#27–29 and
+#42–45/#49. No installer/publisher script runs or acceptance claims are added.

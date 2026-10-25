@@ -192,3 +192,11 @@ and the complete pinned flake lock. The [review](../../../docs/ryoku-v1.0-void-n
 records current nonselection separately from the retained feature target and
 Tumbleweed owners. No edition script, expression, installer or fetcher is run;
 upstream accepted-loss notes are not accepted port behavior.
+
+`installer-release-disposition.tsv` and `installer-release-boundary.json` pin
+295 current/prior identities, 34 anchored source interfaces, raw shared choice/
+component tables, six literal ISO links and the cached bootstrap binary/checksum
+binding. The [review](../../../docs/ryoku-v1.0-installer-release-review.md)
+separates checksum equality from publisher authority and maps install, package,
+promotion and retention operations to #24/#27–29/#42–45/#49 without importing
+or executing foreign platform mechanisms. Full semantic/native gates stay open.
