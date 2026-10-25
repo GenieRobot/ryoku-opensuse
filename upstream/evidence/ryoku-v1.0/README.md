@@ -228,3 +228,10 @@ against current pins/archives/specs and exact historical receipts. Its scope is
 document/reference consistency, not native acceptance or runtime enforcement.
 The contract prevents old #23/#24 results from satisfying refreshed #25/#26
 and M2 claims; those issues remain open for their actual native evidence.
+
+`plugin-query-effects.json` records the admitted plugin-list operation's four
+conditional effects, automatic UI triggers, exact state paths and #180/#182
+acceptance contracts. Rust evidence checks bind its six selected source blobs
+and unchanged launch patch; the offline pinned-object check verifies every
+line anchor. This is source evidence of impurity, not protected runtime
+implementation or feature removal.

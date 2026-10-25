@@ -109,6 +109,29 @@ is not a pure read in this upstream version.** The exact chain is:
    update receipt metadata. This loads plugin code into the user's compositor;
    listing the roster is therefore also an activation route.
 
+The branch-conditioned [query-effect ledger](../upstream/evidence/ryoku-v1.0/plugin-query-effects.json)
+binds this operation to six exact source blobs and distinguishes four effects:
+keysounds directory/README creation, refresh of an already-loaded extra plugin's
+receipt, enabled compatible plugin activation/evaluation, and post-load receipt
+refresh. The first effect occurs before installed-copy lookup, including when
+keysounds is disabled or missing. The second does not require the plugin toggle
+to be enabled. The activation branch excludes already-loaded and stale copies
+through switch ordering; receipt persistence additionally requires an existing
+receipt. Its atomic writer can create the parent directory and temporary file
+before renaming the receipt.
+
+This is reachable without an explicit activation click: `PluginsPage.qml`
+starts its list process with `running: true`, refreshes after actions, and
+refreshes 1.5 seconds after the Hub Save signal. Success can coexist with ignored
+README/receipt write errors. Neither exact argv nor a successful list result
+proves no writes. The ledger supplies concrete negative and positive acceptance
+cases for #180/#182 while preserving discovery, My sounds, activation, build,
+removal and status feedback. Those owners must implement the protected Rust
+operations; #173 does not change this executable Go behavior. The evidence tests
+bind selection, unchanged patch coverage and pinned source anchors; they do not
+execute or certify any plugin operation. Other query routes and the complete
+compositor acceptance row remain open.
+
 Other plugin routes have additional effects in
 `config_plugins_build.go` (`f7e3aa4ee1545b5a8b51c9f66462af7903cb1ae4`):
 
