@@ -55,6 +55,17 @@ struct Pick {
 pub(super) fn submit(engine: &Arc<Engine>, body: &[u8]) -> Result<String> {
     let fields = form(body)?;
     match value(&fields, "action")? {
+        "configure_prowl" => {
+            engine.dispatch(Request::ConfigureProwl {
+                port: value(&fields, "port")?.parse().map_err(|_| Error::InvalidRequest)?,
+                token: fields.get("token").filter(|token| !token.is_empty()).cloned(),
+            })?;
+            Ok("/prowl".into())
+        }
+        "disable_prowl" => {
+            engine.dispatch(Request::DisableProwl {})?;
+            Ok("/prowl".into())
+        }
         "ask" => {
             let id = value(&fields, "id")?.to_owned();
             engine.dispatch(Request::Ask {
@@ -148,7 +159,9 @@ pub(super) fn home(engine: &Arc<Engine>) -> Result<String> {
     let providers = engine.dispatch(Request::Providers {})?;
     let sessions = engine.dispatch(Request::Sessions {})?;
     let jobs = engine.dispatch(Request::Jobs {})?;
-    let mut body = String::from("<p>Your private assistant workspace.</p><h2>Ask</h2>");
+    let mut body = String::from(
+        "<p>Your private assistant workspace.</p><p><a href=\"/prowl\">Prowl gateway</a></p><h2>Ask</h2>",
+    );
     body += &begin("ask");
     body += &hidden("id", &nonce()?);
     body += "<label>Question<textarea name=\"prompt\" required maxlength=\"16384\"></textarea></label><button>Ask</button></form><h2>Conversations</h2>";
@@ -350,4 +363,57 @@ pub(super) fn job(engine: &Arc<Engine>, id: &str) -> Result<String> {
     } else {
         html
     })
+}
+
+pub(super) fn prowl(engine: &Arc<Engine>, path: &str) -> Result<String> {
+    use crate::prowl::Query;
+    let status = engine.dispatch(Request::ProwlStatus {})?;
+    let mut body = String::from(
+        "<p><a href=\"/console\">Workspace</a></p><p>Connect an already-running local Prowl gateway. This does not start or enable a service.</p>",
+    );
+    if path == "/prowl" {
+        body += &begin("configure_prowl");
+        body += &format!(
+            "<label>Loopback gateway port<input name=\"port\" type=\"number\" min=\"1\" max=\"65535\" value=\"{}\" required></label>",
+            status["port"].as_u64().unwrap_or(8788)
+        );
+        body += "<label>Management token (leave blank to retain saved credential)<input name=\"token\" type=\"password\" autocomplete=\"off\" maxlength=\"512\"></label><button>Save gateway connection</button></form>";
+        if status["configured"] == true {
+            body += "<p>Configured. Credentials remain private.</p><ul><li><a href=\"/prowl/profiles\">Profiles</a></li><li><a href=\"/prowl/active\">Active profile</a></li><li><a href=\"/prowl/presets\">Profile presets</a></li></ul>";
+            body += &begin("disable_prowl");
+            body += "<button>Disconnect gateway</button></form>";
+        } else {
+            body += "<p>No gateway configured.</p>";
+        }
+    } else {
+        let query = match path {
+            "/prowl/profiles" => Query::Profiles {},
+            "/prowl/active" => Query::ActiveProfile {},
+            "/prowl/presets" => Query::ProfilePresets {},
+            value => Query::ProfileModels {
+                id: value
+                    .strip_prefix("/prowl/models/")
+                    .ok_or(Error::InvalidRequest)?
+                    .parse()
+                    .map_err(|_| Error::InvalidRequest)?,
+            },
+        };
+        let result = engine.dispatch(Request::ReadProwl { query })?;
+        body += "<p><a href=\"/prowl\">Gateway settings</a></p>";
+        if matches!(query, Query::Profiles {}) {
+            for profile in result["result"].as_array().ok_or(Error::Integrity)? {
+                let id = profile["id"].as_u64().ok_or(Error::Integrity)?;
+                body += &format!(
+                    "<p><a href=\"/prowl/models/{id}\">{} · {} models</a></p>",
+                    escape(text(profile, "name")),
+                    profile["modelCount"]
+                );
+            }
+        }
+        body += &format!(
+            "<pre>{}</pre>",
+            escape(&serde_json::to_string_pretty(&result["result"]).map_err(|_| Error::Storage)?)
+        );
+    }
+    Ok(page("Prowl gateway", &body))
 }

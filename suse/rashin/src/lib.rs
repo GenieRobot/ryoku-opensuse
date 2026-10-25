@@ -6,6 +6,7 @@ mod delegation;
 pub mod http;
 pub mod inspection;
 pub mod provider;
+pub mod prowl;
 pub mod runtime;
 pub mod store;
 pub mod usage;

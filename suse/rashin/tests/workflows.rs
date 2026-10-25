@@ -1922,3 +1922,260 @@ fn browser_jobs_render_ephemeral_streaming_cancel_and_catalog_results() {
     assert!(home.contains("Saved pick unavailable: ui-fixture"));
     assert!(!home.contains("<partial>"));
 }
+
+fn prowl_fixture(responses: Vec<(&'static str, u16, Value)>) -> (u16, std::thread::JoinHandle<()>) {
+    use std::net::TcpListener;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    listener.set_nonblocking(true).unwrap();
+    let worker = std::thread::spawn(move || {
+        for (path, status, value) in responses {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let mut stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(Instant::now() < deadline, "Prowl fixture accept timeout");
+                        std::thread::sleep(Duration::from_millis(2));
+                    }
+                    Err(error) => panic!("Prowl fixture accept: {error}"),
+                }
+            };
+            stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            stream.set_write_timeout(Some(Duration::from_secs(2))).unwrap();
+            let mut bytes = Vec::new();
+            while !bytes.ends_with(b"\r\n\r\n") {
+                assert!(bytes.len() < 8192);
+                let mut byte = [0];
+                stream.read_exact(&mut byte).unwrap();
+                bytes.push(byte[0]);
+            }
+            let header = String::from_utf8(bytes).unwrap();
+            assert!(header.starts_with(&format!("GET {path} HTTP/1.1\r\n")));
+            assert!(header.contains("Authorization: Bearer PRIVATE_PROWL_FIXTURE_TOKEN\r\n"));
+            assert!(!header.contains("Cookie:"));
+            let body = serde_json::to_string(&value).unwrap();
+            write!(stream,"HTTP/1.1 {status} Fixture\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
+        }
+    });
+    (port, worker)
+}
+#[test]
+fn typed_prowl_reads_use_real_authenticated_local_gateway_and_private_browser_forms() {
+    use ryoku_rashin::prowl::Query;
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    assert_eq!(
+        engine.dispatch(Request::ReadProwl { query: Query::Profiles {} }),
+        Err(Error::ProviderUnavailable)
+    );
+    assert_eq!(
+        engine.dispatch(Request::ConfigureProwl { port: 8788, token: None }),
+        Err(Error::InvalidRequest)
+    );
+    let profile = json!({"id":7,"name":"Fixture <profile>","strategy":"budget","emoji":"◇","color":"blue","type":"custom","is_favorite":0,"sort_order":0,"auto_sort":null,"layout_config":null,"auto_include_new_models":1,"modelCount":0,"created_at":"2026-10-25","management_key":"not-a-public-field"});
+    let (port, server) = prowl_fixture(vec![
+        ("/api/profiles", 200, json!([profile])),
+        ("/api/profiles/active", 200, json!({"activeProfileId":7})),
+        ("/api/profiles/7/models", 200, json!([])),
+        ("/api/profiles/presets", 200, json!({"presets":[]})),
+    ]);
+    let gateway = ryoku_rashin::http::Gateway::new(
+        Arc::clone(&engine),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    let port_string = port.to_string();
+    assert!(
+        ui_submit(
+            &gateway,
+            &[
+                ("action", "configure_prowl"),
+                ("port", &port_string),
+                ("token", "PRIVATE_PROWL_FIXTURE_TOKEN")
+            ]
+        )
+        .contains("Location: /prowl\r\n")
+    );
+    assert!(
+        ui_submit(
+            &gateway,
+            &[("action", "configure_prowl"), ("port", &port_string), ("token", "")]
+        )
+        .starts_with("HTTP/1.1 303")
+    );
+    let settings = http(&gateway, "GET", "/prowl", BROWSER_AUTH, "");
+    assert!(settings.contains("Configured. Credentials remain private."));
+    assert!(!settings.contains("PRIVATE_PROWL_FIXTURE_TOKEN"));
+    let profiles = http(&gateway, "GET", "/prowl/profiles", BROWSER_AUTH, "");
+    assert!(profiles.contains("Fixture &lt;profile&gt;"));
+    assert!(profiles.contains("href=\"/prowl/models/7\""));
+    assert!(!profiles.contains("management_key"));
+    assert!(!profiles.contains("not-a-public-field"));
+    assert!(!profiles.contains("PRIVATE_PROWL_FIXTURE_TOKEN"));
+    assert_eq!(
+        engine.dispatch(Request::ReadProwl { query: Query::ActiveProfile {} }).unwrap()["result"]["activeProfileId"],
+        7
+    );
+    assert_eq!(
+        engine.dispatch(Request::ReadProwl { query: Query::ProfileModels { id: 7 } }).unwrap()["result"],
+        json!([])
+    );
+    assert_eq!(
+        engine.dispatch(Request::ReadProwl { query: Query::ProfilePresets {} }).unwrap()["result"],
+        json!({"presets":[]})
+    );
+    server.join().unwrap();
+    let state: Value =
+        serde_json::from_slice(&fs::read(fixture.path.join("state.json")).unwrap()).unwrap();
+    assert_eq!(state["prowl"]["token"], "PRIVATE_PROWL_FIXTURE_TOKEN");
+    assert!(state["jobs"].as_object().unwrap().is_empty());
+    assert!(state["usage"].as_array().unwrap().is_empty());
+    assert!(ui_submit(&gateway, &[("action", "disable_prowl")]).starts_with("HTTP/1.1 303"));
+    assert_eq!(engine.dispatch(Request::ProwlStatus {}).unwrap()["configured"], false);
+}
+#[test]
+fn prowl_authority_http_errors_and_invalid_configuration_never_leak_or_fall_back() {
+    use ryoku_rashin::{authorization::Access, prowl::Query};
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    for request in [
+        Request::ProwlStatus {},
+        Request::ConfigureProwl { port: 1, token: Some("PRIVATE_PROWL_FIXTURE_TOKEN".into()) },
+        Request::DisableProwl {},
+        Request::ReadProwl { query: Query::Profiles {} },
+    ] {
+        assert_eq!(engine.dispatch_as(Access::AskClient, request), Err(Error::Unauthorized));
+    }
+    let (port, server) = prowl_fixture(vec![
+        ("/api/profiles", 403, json!({"error":{"message":"PRIVATE_PROWL_FIXTURE_TOKEN"}})),
+        ("/api/profiles/active", 200, json!({"error":{"message":"not-active"}})),
+        ("/api/profiles", 302, json!([])),
+    ]);
+    engine
+        .dispatch(Request::ConfigureProwl {
+            port,
+            token: Some("PRIVATE_PROWL_FIXTURE_TOKEN".into()),
+        })
+        .unwrap();
+    assert_eq!(
+        engine.dispatch(Request::ConfigureProwl { port: 0, token: None }),
+        Err(Error::InvalidRequest)
+    );
+    assert_eq!(
+        engine.dispatch(Request::ConfigureProwl { port, token: Some("bad\nheader".into()) }),
+        Err(Error::InvalidRequest)
+    );
+    assert_eq!(
+        engine.dispatch(Request::ReadProwl { query: Query::Profiles {} }),
+        Err(Error::Unauthorized)
+    );
+    assert_eq!(
+        engine.dispatch(Request::ReadProwl { query: Query::ActiveProfile {} }),
+        Err(Error::ProviderFailed)
+    );
+    assert_eq!(
+        engine.dispatch(Request::ReadProwl { query: Query::Profiles {} }),
+        Err(Error::ProviderFailed)
+    );
+    server.join().unwrap();
+    assert_eq!(
+        engine.dispatch(Request::ReadProwl { query: Query::Profiles {} }),
+        Err(Error::ProviderUnavailable)
+    );
+    assert_eq!(engine.dispatch(Request::ProwlStatus {}).unwrap()["port"], port);
+    drop(engine);
+    let engine = fixture.reopen();
+    assert_eq!(engine.dispatch(Request::ProwlStatus {}).unwrap()["port"], port);
+    engine.dispatch(Request::DisableProwl {}).unwrap();
+    drop(engine);
+    let engine = fixture.reopen();
+    assert_eq!(engine.dispatch(Request::ProwlStatus {}).unwrap()["configured"], false);
+}
+
+fn held_prowl_fixture(
+    response: Vec<u8>,
+) -> (
+    u16,
+    std::sync::mpsc::Receiver<String>,
+    std::sync::mpsc::Sender<()>,
+    std::thread::JoinHandle<()>,
+) {
+    use std::{net::TcpListener, sync::mpsc};
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    listener.set_nonblocking(true).unwrap();
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(Instant::now() < deadline, "held Prowl accept timeout");
+                    std::thread::sleep(Duration::from_millis(2));
+                }
+                Err(error) => panic!("held Prowl accept: {error}"),
+            }
+        };
+        stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        stream.set_write_timeout(Some(Duration::from_secs(2))).unwrap();
+        let mut header = Vec::new();
+        while !header.ends_with(b"\r\n\r\n") {
+            assert!(header.len() < 8192);
+            let mut byte = [0];
+            stream.read_exact(&mut byte).unwrap();
+            header.push(byte[0]);
+        }
+        entered_tx.send(String::from_utf8(header).unwrap()).unwrap();
+        release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        let _ = stream.write_all(&response); // A timed-out client deliberately closes first.
+    });
+    (port, entered_rx, release_tx, worker)
+}
+#[test]
+fn prowl_read_rejects_stale_configuration_and_transport_handles_chunked_bounded_time_and_size() {
+    use ryoku_rashin::prowl::Query;
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let (port, entered, release, server) = held_prowl_fixture(
+        b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n[]".to_vec(),
+    );
+    engine
+        .dispatch(Request::ConfigureProwl {
+            port,
+            token: Some("PRIVATE_PROWL_FIXTURE_TOKEN".into()),
+        })
+        .unwrap();
+    let reader = Arc::clone(&engine);
+    let request = std::thread::spawn(move || {
+        reader.dispatch(Request::ReadProwl { query: Query::Profiles {} })
+    });
+    let header = entered.recv_timeout(Duration::from_secs(3)).unwrap();
+    assert!(header.starts_with("GET /api/profiles HTTP/1.1\r\n"));
+    assert!(header.contains("Authorization: Bearer PRIVATE_PROWL_FIXTURE_TOKEN\r\n"));
+    engine.dispatch(Request::ConfigureProwl { port: 1, token: None }).unwrap();
+    release.send(()).unwrap();
+    assert_eq!(request.join().unwrap(), Err(Error::Conflict));
+    server.join().unwrap();
+    for (response,should_timeout,expected) in [
+        (b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n2\r\n[]\r\n0\r\n\r\n".to_vec(),false,Ok(json!({"source":"configured-local-prowl","result":[]}))),
+        (b"HTTP/1.1 200 OK\r\nContent-Length: 1048577\r\nConnection: close\r\n\r\n".to_vec(),false,Err(Error::Limit)),
+        (b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n[]".to_vec(),true,Err(Error::ProviderUnavailable)),
+    ] {
+        let (port,entered,release,server)=held_prowl_fixture(response);
+        engine.dispatch(Request::ConfigureProwl{port,token:None}).unwrap();
+        let reader=Arc::clone(&engine);let start=Instant::now();
+        let request=std::thread::spawn(move||reader.dispatch(Request::ReadProwl{query:Query::Profiles{}}));
+        entered.recv_timeout(Duration::from_secs(3)).unwrap();
+        if !should_timeout {release.send(()).unwrap();}
+        assert_eq!(request.join().unwrap(),expected);
+        assert!(start.elapsed()<Duration::from_secs(5),"Prowl client exceeded bounded request deadline");
+        if should_timeout {release.send(()).unwrap();}
+        server.join().unwrap();
+    }
+    assert!(engine.dispatch(Request::Jobs {}).unwrap()["jobs"].as_array().unwrap().is_empty());
+    assert!(engine.dispatch(Request::Usage {}).unwrap()["activity"].as_array().unwrap().is_empty());
+}

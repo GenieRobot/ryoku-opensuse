@@ -121,7 +121,10 @@ impl Gateway {
             ("GET", path)
                 if access.is_none()
                     && !explicit_bearer
-                    && (path.starts_with("/session/") || path.starts_with("/job/")) =>
+                    && (path.starts_with("/session/")
+                        || path.starts_with("/job/")
+                        || path == "/prowl"
+                        || path.starts_with("/prowl/")) =>
             {
                 self.challenge(stream)
             }
@@ -205,6 +208,9 @@ impl Gateway {
                     .as_bytes(),
                     None,
                 )
+            }
+            ("GET", path) if owner && (path == "/prowl" || path.starts_with("/prowl/")) => {
+                send_ui(stream, console::prowl(&self.engine, path))
             }
             ("GET", path) if owner && path.starts_with("/session/") => {
                 send_ui(stream, console::session(&self.engine, &path[9..]))

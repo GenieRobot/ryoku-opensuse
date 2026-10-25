@@ -415,3 +415,82 @@ regressions and an independent standard-client two-port proof exercise the curre
 boundary. An actual browser engine is unavailable on this host; native browser,
 WebKit, packaged UI and Tumbleweed VM acceptance remain open alongside the full
 retained ACP/Prowl/provider/profile/sign-in/terminal/recovery capabilities.
+
+
+## Explicit local Prowl gateway connection and profiles
+
+`configure_prowl` accepts a nonzero `port` and a private management `token`.
+The destination is always `127.0.0.1`; it accepts no URL, host, path, process,
+credential filename or generic proxy request. The token is bounded printable
+ASCII (16–512 bytes). Omit `token` to retain a saved credential. `prowl_status`
+returns only configured/port/credential-present metadata. `disable_prowl` removes
+the connection and credential from current private state; it does not stop or
+remove Prowl. Historical state/recovery material still needs private retention.
+The owner browser's Prowl gateway page provides the same configuration/read
+workflows; blank token edits preserve the secret. No token is rendered back.
+
+Owner-only `read_prowl` takes a typed `query`:
+
+| Query operation | Fixed upstream endpoint | Returned data |
+| --- | --- | --- |
+| `profiles` | `GET /api/profiles` | Retained profile fields and model counts |
+| `active_profile` | `GET /api/profiles/active` | Explicit profile ID or null |
+| `profile_models` with positive safe-integer `id` | `GET /api/profiles/ID/models` | Membership priority/enabled/provider/model/ranks/limits/budget |
+| `profile_presets` | `GET /api/profiles/presets` | Preset metadata and requirements |
+
+Example request: `{"action":"read_prowl","query":{"operation":"profiles"}}`.
+The original Prowl management bearer stays server-side. Reads never rewrite saved
+Rashin lane/model picks, create conversation turns or count model usage. A new
+connection generation rejects a response captured before reconfiguration or
+removal. No automatic gateway spawn, ensure, autostart, model download, OAuth
+request or external endpoint occurs. A missing/stopped/unprovable gateway returns
+unavailable; HTTP unauthorized/not-found/malformed responses remain errors, with
+no fabricated empty profile data. Typed response fields discard unknown fields
+instead of forwarding arbitrary upstream bodies, and a raw token echo is refused.
+
+The transport connects once, then verifies the established server-side reverse
+IPv4 four-tuple, nonzero socket inode and current owner UID from the fixed
+`/proc/self/net/tcp` file on procfs before sending **any** request byte. Linux's
+[documented TCP table format](https://docs.kernel.org/networking/proc_net_tcp.html)
+provides those fields. A listening-port lookup alone is insufficient. Missing,
+ambiguous, wrong-UID, malformed or unavailable ownership evidence never permits
+credential send. A just-connected pending accept can wait within the same deadline
+for a real server inode; it is never accepted as proof.
+
+Rebinding a listening port cannot replace an already-established stream. The
+verified stream is held through the request, with no reconnect or redirect; a
+closed stream fails. Passing a socket/credential deliberately from an owning
+process remains that account's authority. A different UID's listening socket is
+refused before Host, Authorization or any other request data is sent. This proves
+account ownership of the peer, not a separate identity among same-UID processes.
+Privileged kernel/procfs compromise remains outside this boundary.
+
+The Rust transport bounds connect to one second, total request I/O to three
+seconds, HTTP headers/trailers to 16KiB each, decoded JSON body to 1MiB, and framing
+plus body consumption to 1MiB+32KiB (with at most an 8KiB buffered read-ahead).
+It accepts fixed-length, chunked and EOF-framed identity responses, refusing
+ambiguous lengths, compression, malformed/truncated data and redirects. Procfs
+inspection is capped at 4MiB and validated as procfs. This introduces no new
+crate/package and leaves configured HTTPS completion/catalog transport unchanged.
+
+The retained contract is pinned Ryoku 1.0 commit
+`a59d051f0e8080052216f6c7b9eb7e5928935ce8`:
+`backend/prowlgw.go` blob `0fbe44ee981735e3095080f57052ae37ff735de9`
+(default loopback8788, management bearer, no redirect), `web/src/lib/api/prowl.ts`
+blob `1bf8a0327b47b72c43c94bba2357264e7d0091f2` (lines192–202 profile reads),
+and `web/src/lib/pages/prowl/types.ts` blob
+`a78f45721bda91d23c20e569917a2a1c783149b9` (lines555–633 response fields),
+all relative to upstream `ryoku/rashin/`.
+
+Same-UID real TCP fixtures cover configured reads/forms, private credential
+retention, chunking, bounds, timeout, stale generations and failures. A separately
+executed subordinate-ID user-namespace test proves the foreign UID1 listener
+receives EOF with zero request bytes and the owner UID0 receives Unauthorized.
+It uses existing mappings, creates no host account and requires no root/password
+or download. The explicit test is ignored in default portable CI because
+subordinate mappings are an environment prerequisite; its host result is recorded
+separately from default counts. The packaged Tumbleweed kernel/procfs proof remains
+required. Profile create/edit/activate/reorder/delete/presets, every sign-in and
+other retained Prowl action, protected state/writer/recovery and full native/UI/VM
+acceptance remain required subsequent functionality; these reads certify none of
+those mutation or packaging gates.

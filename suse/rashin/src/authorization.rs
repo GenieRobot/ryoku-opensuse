@@ -28,6 +28,8 @@ impl Request {
         match self {
             Self::Status {}
             | Self::Providers {}
+            | Self::ProwlStatus {}
+            | Self::ReadProwl { .. }
             | Self::GetIndex {}
             | Self::Recent {}
             | Self::Jobs {}
@@ -49,7 +51,9 @@ impl Request {
             | Self::RemoveProvider { .. }
             | Self::IssueAskClient { .. }
             | Self::AskClients {}
-            | Self::RevokeAskClient { .. } => Action::ProviderCredentials,
+            | Self::RevokeAskClient { .. }
+            | Self::ConfigureProwl { .. }
+            | Self::DisableProwl {} => Action::ProviderCredentials,
             Self::SetRoute { .. } => Action::Route,
             Self::Index { .. } => Action::Index,
             Self::Fix { .. } | Self::FixPreview { .. } => Action::Fix,

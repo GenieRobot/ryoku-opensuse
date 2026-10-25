@@ -110,6 +110,10 @@ struct State {
     #[serde(default)]
     provider_revisions: BTreeMap<String, u64>,
     providers: BTreeMap<String, Provider>,
+    #[serde(default)]
+    prowl: Option<crate::prowl::Connection>,
+    #[serde(default)]
+    prowl_revision: u64,
     routes: BTreeMap<Lane, Route>,
     documents: Vec<Document>,
     sessions: BTreeMap<String, Session>,
@@ -131,6 +135,8 @@ impl Default for State {
             version: 1,
             configuration_revision: 0,
             provider_revisions: BTreeMap::new(),
+            prowl: None,
+            prowl_revision: 0,
             providers: BTreeMap::from([("local".into(), Provider::Local {})]),
             routes: [Lane::Ask, Lane::Agent, Lane::Chat]
                 .into_iter()
@@ -242,6 +248,9 @@ impl Engine {
         {
             return Err(Error::Integrity);
         }
+        if let Some(prowl) = &state.prowl {
+            prowl.validate()?;
+        }
         validate_documents(&state.documents)?;
         for (id, provider) in &state.providers {
             identifier(id)?;
@@ -319,6 +328,42 @@ impl Engine {
                 self.delegations.issue(lifetime_seconds)
             }
             Request::AskClients {} => self.delegations.list(),
+            Request::ProwlStatus {} => {
+                let state = self.state.lock().map_err(|_| Error::Storage)?;
+                Ok(match &state.prowl {
+                    Some(connection) => {
+                        json!({"configured":true,"port":connection.port,"credential_present":true})
+                    }
+                    None => json!({"configured":false,"credential_present":false}),
+                })
+            }
+            Request::ConfigureProwl { port, token } => self.transaction(|state| {
+                let token = token
+                    .or_else(|| state.prowl.as_ref().map(|connection| connection.token.clone()))
+                    .ok_or(Error::InvalidRequest)?;
+                let connection = crate::prowl::Connection { port, token };
+                connection.validate()?;
+                state.prowl = Some(connection);
+                state.prowl_revision = state.prowl_revision.checked_add(1).ok_or(Error::Limit)?;
+                Ok(json!({"configured":true,"port":port,"credential_present":true}))
+            }),
+            Request::DisableProwl {} => self.transaction(|state| {
+                state.prowl = None;
+                state.prowl_revision = state.prowl_revision.checked_add(1).ok_or(Error::Limit)?;
+                Ok(json!({"configured":false,"credential_present":false}))
+            }),
+            Request::ReadProwl { query } => {
+                let (connection, revision) = {
+                    let state = self.state.lock().map_err(|_| Error::Storage)?;
+                    (state.prowl.clone().ok_or(Error::ProviderUnavailable)?, state.prowl_revision)
+                };
+                let result = connection.read(query)?;
+                let state = self.state.lock().map_err(|_| Error::Storage)?;
+                if state.prowl_revision != revision {
+                    return Err(Error::Conflict);
+                }
+                Ok(json!({"source":"configured-local-prowl","result":result}))
+            }
             Request::RevokeAskClient { id } => self.delegations.revoke(&id),
             Request::EnrollUsageSource { tool, path, soft_caps } => {
                 let mut enrollment =

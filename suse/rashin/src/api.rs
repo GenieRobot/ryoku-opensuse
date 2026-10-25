@@ -10,6 +10,15 @@ pub const MAX_REQUEST_BYTES: usize = 256 * 1024;
 pub enum Request {
     Status {},
     Providers {},
+    ProwlStatus {},
+    ConfigureProwl {
+        port: u16,
+        token: Option<String>,
+    },
+    DisableProwl {},
+    ReadProwl {
+        query: crate::prowl::Query,
+    },
     IssueAskClient {
         lifetime_seconds: Option<u32>,
     },
