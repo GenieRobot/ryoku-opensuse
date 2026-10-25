@@ -1,0 +1,103 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "7fb97dac2eb3ee681ed340cb835e61ff78eb74b0"
+status = "private-prowl-assistant-completions-tested-full-native-parity-pending"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+new_dependencies = 0
+
+[source_contract]
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+completion_source = "ryoku/rashin/backend/quick.go:475-487"
+completion_blob = "a17fe93fc892cd504306b4e3b3948c65f823e6a0"
+completion_test = "ryoku/rashin/backend/quick_test.go:47-94"
+completion_test_blob = "83717f35224acf40fa344f920116cbf85c5b3208"
+retained_behavior = "fixed POST/v1/chat/completions,existing private gateway management bearer,auto:fast route,incremental answer and gateway-reported actual model"
+model_metadata = "fixed OpenAI-compatible GET/v1/models,fixture-tested;actual packaged Prowl endpoint/version acceptance remains open"
+
+[behavior]
+configuration = "owner connect_prowl_provider adds keyless gateway provider choice;explicit lane picks remain required;models/streaming edits retain private connection reference"
+credentials = "single private global token,omitted/blank edits preserve it;resolved worker context cannot enter JSON configuration;provider inventory/browser output remain redacted"
+capture = "port/token/models captured with accepted job;connection edits/disconnect bump provider generation and invalidate stale catalog/Fix consent;accepted work keeps captured destination until terminal/cancel"
+availability = "configuration presence is reported distinctly from live service health;disconnected saved picks remain visible/unavailable;new calls fail without fallback"
+workflows = "actual browser connect/update,streamed Ask/Agent,JSON Chat,independent histories,actual model and token accounting,owner catalog refresh and stale-response rejection"
+transport = "single direct Rust loopback stream;fixed paths;no shell,curl,proxy,redirect,reconnect,model download or implicit gateway start"
+peer_boundary = "unique reverse established4tuple,currentUID,nonzero inode via bounded procfs proof before any request byte;wrongUID immediate Unauthorized;unavailable/ambiguous snapshots polled only within original3s"
+limits = "connect1s,peer proof3s,total model request45s,cancellable50ms I/O polls,promptJSON256KiB,body1MiB,framing32KiB plus8KiB buffered read-ahead"
+streaming = "existing bounded JSON/SSE validation;live progress ephemeral;cancel closes held stream;no partial turn/token usage on cancellation/failure"
+fix = "gateway may forward externally;existing reviewed native evidence/action consent required for Prowl-routed Fix"
+
+[corrections]
+clippy = "removed two redundant unit expressions,moved Connection impl before test module;final strict Clippy has0warnings"
+collector_startup = "parallel fork-to-exec can temporarily inherit a CLOEXEC fixture lease;daemon test retries only exact startup Busy,at most50 times within original4s;all other/persistent failures remain assertions;production lock/scheduler unchanged"
+collector_repetition = "five full15-test collector repetitions after final retry cap,all pass;five earlier repetitions also passed"
+peer_failure = "captured procfs snapshot contained the same established reverse tuple twice,both UID1000/inode0;guard failed closed before sending bytes;parser still rejects that snapshot,caller now polls for fresh unique owned nonzero inode under existing deadline"
+peer_repetition = "two originally failing workflows pass independently;five consecutive groups of six actual Prowl workflows pass after polling correction;temporary tuple instrumentation removed"
+
+[validation]
+sequence = "set-e sequential full Rashin,workspace,strict Clippy,fmt/diff,supported-target deny,explicit two-UID proof: terminal exit0"
+focused_commands = ["cargo test -p ryoku-rashin --lib --locked --offline prowl -- --nocapture", "cargo test -p ryoku-rashin --test workflows --locked --offline prowl_ -- --nocapture"]
+focused_passed = 14
+focused_breakdown = "8 unit,6 workflows,one portable prerequisite ignore separate"
+peer_regression = "ambiguous duplicate zero-inode snapshot then owned row permits success;persistently ambiguous expires unavailable;foreignUID rejects on first probe"
+full_command = "cargo test -p ryoku-rashin --locked --offline"
+full_passed = 121
+full_failed = 0
+full_ignored = 1
+full_breakdown = "53 unit,15 collectors,53 workflows"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 701
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 8
+count_scope = "sum of terminal summaries including nested subprocesses;7 existing ignores plus separately exercised two-UID prerequisite case"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+dependency_metadata_command = "cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu"
+dependency_command = "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path FILTERED_METADATA --all-features check"
+dependency_result = "advisories,bans,licenses,sources ok for supported x86_64 all-features graph"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers;no fetch"
+two_uid_command = "unshare --user --map-auto --map-root-user target/debug/deps/ryoku_rashin-e5c84e14e6648c40 --ignored --exact prowl::transport::tests::connected_foreign_uid_receives_no_request_or_management_credential --nocapture"
+two_uid_result = "explicit host1/1 pass after final source in subordinate-ID namespace;both metadataGET and completionPOST:ownerUID0 Unauthorized,foreignUID1 zero request bytes/no prompt or bearer;separate from default CI ignore"
+
+[storage]
+verified_paths = "resolved workspace target,HOME,Cargo/Rustup caches on/dev/sdd;all test logs/tmp artifacts on/tmp tmpfs"
+pre_suite_available_bytes_linux = 954791526400
+pre_suite_available_bytes_tmpfs = 7069757440
+constraints = "C backing volume below10GiB floor remains untouched;no C-bound write,download,cleanup,candidate/native/VM work"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact-head hosted CI", "Actual packaged Prowl completion/model endpoint compatibility and service failure/recovery", "Full Prowl/profile/provider/sign-in/fallback/network mutations and native lifecycle", "Native app/Svelte/shell/launcher/Hub integration and complete ACP-v3 sessions/replay/cancellation", "All retained harness/model/tool/approval/image/thinking/terminal workflows", "Protected account state/writer/capture and linked mutation recovery", "Full machine/source/vault/memory/journal/project/skills enrollment and isolated capability delivery", "Quota/RPC/original timer-cache/shell bridge", "Source/export/RPM/vendor/license/native dependency closure and packaged Tumbleweed install/login/interaction/usage/restart/removal/KDE acceptance"]
+
+[log_sha256]
+focused_unit = "894662815ce4b3981bbbdf4e4bc33cfd0296b5227be9050dfe2fb6a379ec7464"
+focused_workflow = "c68f1140be29f1237822ca8fed2cc5b1541f781371095b27c0cb5f5ddfaf51d4"
+collector_retest = "0db03ae30a1925df94118ab707373ba72a0e629561fc52b35ec934ca52ec9f13"
+full = "f799f26e0cc65e732bc24fe8c4ae19cdc52c6a1c7854ebb95e2576f7f1d4c153"
+workspace = "280588a741ad6945ceb370260c0da12bed4208c2571c9f91f4b0557dae33a9b4"
+clippy = "98e882f458dc8c7e9788789491e280ba891f7785d545682643efed9e72e415d5"
+dependency = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+two_uid = "c2b3d268a016e3a780c2ce3373cb68503d5a3785d191528407c5822e4c07f021"
+sequence = "776488511d1cd135f0775ec3d544d9dfb470f447a9952f0914bb48e99321e6a1"
+prior_busy_failure = "9b6e954488e6d4b640663394b3eeaf407d46bce3bf90b63ad40606872a524134"
+prior_peer_failure = "3e16e6049a922337b00330394704d24f67b15efda9537c46aa17ca131ed897a4"
+
+[source_sha256]
+"docs/rashin-runtime.md" = "efd7f81c7fc88d0e52704c6e7e3e3cb4c9ec43209b2a09f9802ccff171fc722d"
+"suse/rashin/src/api.rs" = "17c63210de5a71293f7e15e115e8a48aff740ece326ff942e6e5b1b1d5e3b73d"
+"suse/rashin/src/authorization.rs" = "2c022e5b57b755abaa8dd0e6f41e58073016fa3746c3246d8dd49411e94db5a5"
+"suse/rashin/src/http/console.rs" = "1c33def9a2420f1c2b0c7db245408f170258e14b1149279f8b4fbd072e430283"
+"suse/rashin/src/provider.rs" = "f4458b9683e9e69d539592d040da9c8e12130126ebb3bc7d83107079c21a5d29"
+"suse/rashin/src/provider/stream.rs" = "16e3beefc8a7809d4dad3c4dfc9d25ffffbdb0eed979dad44dccf5458ad01a5e"
+"suse/rashin/src/prowl.rs" = "b00c11c02642141cccbef05b32e40b7e53ee3e51be3df7791ab90ef391b0248b"
+"suse/rashin/src/prowl/transport.rs" = "5a3ee5f1ab61a828c9a8a9baef0c4e0d7f5c75ebcdec9e3e7ad44afe41c8dfca"
+"suse/rashin/src/prowl/completion.rs" = "d8b5aea0e0ee4333ec5731af08e5c185d1a20b9745f1e4023b2a1b830aa4ae28"
+"suse/rashin/src/runtime.rs" = "9cae17c715d06efe83706b060a2e1420484865d9cf5e687552f8071943a15777"
+"suse/rashin/tests/usage_collectors.rs" = "fff9f7c3c8548589822520ae45341079beb2e0e03f13e55b8936aaa353c819ba"
+"suse/rashin/tests/workflows.rs" = "f88ec376f0790d3fb068418339ccba81ea21f19ffd2ecc6598d34ab0e4d28c67"

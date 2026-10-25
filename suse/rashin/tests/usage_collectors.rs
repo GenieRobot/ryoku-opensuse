@@ -393,22 +393,40 @@ fn daemon_scheduler_really_collects_overdue_enrolled_sources_after_restart() {
     engine.collect_due_usage(now - 301).unwrap();
     drop(engine);
     source.write("projects/project/session.jsonl", &lines(&[claude(now, 20)]));
-    let mut daemon = ChildGuard(
-        Command::new(env!("CARGO_BIN_EXE_ryoku-rashin"))
-            .arg("serve")
-            .arg(&state.0)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()
-            .unwrap(),
-    );
+    let spawn_daemon = || {
+        ChildGuard(
+            Command::new(env!("CARGO_BIN_EXE_ryoku-rashin"))
+                .arg("serve")
+                .arg(&state.0)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped())
+                .spawn()
+                .unwrap(),
+        )
+    };
     let deadline = Instant::now() + Duration::from_secs(4);
+    let mut daemon = spawn_daemon();
+    let mut startup_retries = 0;
     loop {
         if let Some(status) = daemon.0.try_wait().unwrap() {
             use std::io::Read;
             let mut diagnostic = String::new();
             daemon.0.stderr.take().unwrap().read_to_string(&mut diagnostic).unwrap();
+            // Other parallel collector tests fork CLI children. Until exec
+            // closes their inherited CLOEXEC descriptors, a just-dropped
+            // fixture lease can remain held. Retry only that startup result
+            // within the original deadline; a live/persistent lease still
+            // fails and no production lock semantics are weakened.
+            if diagnostic.starts_with("ryoku-rashin: Busy;")
+                && startup_retries < 50
+                && Instant::now() < deadline
+            {
+                startup_retries += 1;
+                std::thread::sleep(Duration::from_millis(2));
+                daemon = spawn_daemon();
+                continue;
+            }
             panic!("daemon exited before scheduled collection: {status}: {diagnostic}");
         }
         let mut client = Command::new(env!("CARGO_BIN_EXE_ryoku-rashin"))

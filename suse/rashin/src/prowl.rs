@@ -5,6 +5,7 @@
 use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+mod completion;
 mod transport;
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -223,6 +224,24 @@ fn parse(query: Query, body: &[u8]) -> Result<Value> {
             }
             encode(rows)
         }
+    }
+}
+
+impl Connection {
+    pub(crate) fn complete(
+        &self,
+        model: &str,
+        messages: &[crate::provider::Message],
+        streaming: bool,
+        cancelled: &std::sync::atomic::AtomicBool,
+        emit: &mut impl FnMut(&str) -> Result<()>,
+    ) -> Result<crate::provider::Completion> {
+        self.validate()?;
+        completion::complete(self, model, messages, streaming, cancelled, emit)
+    }
+    pub(crate) fn models(&self, cancelled: &std::sync::atomic::AtomicBool) -> Result<Vec<String>> {
+        self.validate()?;
+        completion::models(self, cancelled)
     }
 }
 

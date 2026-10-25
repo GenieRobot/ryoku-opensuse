@@ -1,11 +1,11 @@
 //! Bounded OpenAI-compatible SSE decoding. Transport supplies only bytes from
-//! the explicitly configured TLS endpoint. No event selects a URL or tool.
+//! the explicitly configured TLS endpoint or verified owner gateway. No event selects a URL or tool.
 use super::{Completion, MAX_RESPONSE};
 use crate::{Error, Result, text};
 use serde_json::Value;
 
 #[derive(Default)]
-pub(super) struct Decoder {
+pub(crate) struct Decoder {
     pending: Vec<u8>,
     data: Vec<u8>,
     answer: String,
@@ -17,7 +17,7 @@ pub(super) struct Decoder {
     done: bool,
 }
 impl Decoder {
-    pub(super) fn feed(
+    pub(crate) fn feed(
         &mut self,
         bytes: &[u8],
         emit: &mut impl FnMut(&str) -> Result<()>,
@@ -118,7 +118,7 @@ impl Decoder {
         }
         Ok(())
     }
-    pub(super) fn finish(
+    pub(crate) fn finish(
         mut self,
         emit: &mut impl FnMut(&str) -> Result<()>,
     ) -> Result<Completion> {

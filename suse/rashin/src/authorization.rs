@@ -56,7 +56,8 @@ impl Request {
             | Self::AskClients {}
             | Self::RevokeAskClient { .. }
             | Self::ConfigureProwl { .. }
-            | Self::DisableProwl {} => Action::ProviderCredentials,
+            | Self::DisableProwl {}
+            | Self::ConnectProwlProvider { .. } => Action::ProviderCredentials,
             Self::SetRoute { .. } => Action::Route,
             Self::Index { .. } | Self::IndexWiki { .. } => Action::Index,
             Self::Fix { .. } | Self::FixPreview { .. } => Action::Fix,

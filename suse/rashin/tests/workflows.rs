@@ -3087,3 +3087,396 @@ fn wiki_index_rejects_stale_or_conflicting_replacement_and_preserves_private_doc
         Err(Error::NotFound)
     );
 }
+
+fn completion_gateway(
+    count: usize,
+) -> (u16, std::sync::mpsc::Receiver<Value>, std::thread::JoinHandle<()>) {
+    use std::{net::TcpListener, sync::mpsc};
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let (sender, receiver) = mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        for _ in 0..count {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let mut stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(Instant::now() < deadline);
+                        std::thread::sleep(Duration::from_millis(2));
+                    }
+                    Err(error) => panic!("gateway accept: {error}"),
+                }
+            };
+            stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            stream.set_write_timeout(Some(Duration::from_secs(2))).unwrap();
+            let mut bytes = Vec::new();
+            while !bytes.ends_with(b"\r\n\r\n") {
+                assert!(bytes.len() < 8192);
+                let mut byte = [0];
+                stream.read_exact(&mut byte).unwrap();
+                bytes.push(byte[0]);
+            }
+            let header = String::from_utf8(bytes).unwrap();
+            assert!(header.contains("Authorization: Bearer PRIVATE_PROWL_COMPLETION_TOKEN\r\n"));
+            let length = header
+                .lines()
+                .find_map(|line| line.strip_prefix("Content-Length: "))
+                .unwrap()
+                .parse::<usize>()
+                .unwrap();
+            assert!(length <= 256 * 1024);
+            let mut body = vec![0; length];
+            stream.read_exact(&mut body).unwrap();
+            assert!(
+                !body
+                    .windows(b"PRIVATE_PROWL_COMPLETION_TOKEN".len())
+                    .any(|part| part == b"PRIVATE_PROWL_COMPLETION_TOKEN")
+            );
+            if header.starts_with("GET /v1/models ") {
+                assert!(body.is_empty());
+                let response = r#"{"data":[{"id":"auto:fast"},{"id":"profile/◇ opaque"}]}"#;
+                write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",
+                    response.len()
+                )
+                .unwrap();
+                sender.send(json!({"path":"/v1/models"})).unwrap();
+            } else {
+                assert!(header.starts_with("POST /v1/chat/completions HTTP/1.1\r\n"));
+                let body: Value = serde_json::from_slice(&body).unwrap();
+                assert_eq!(body["model"], "auto:fast");
+                sender.send(body.clone()).unwrap();
+                if body["stream"] == true {
+                    write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n").unwrap();
+                    let data = "data: {\"model\":\"gateway/model\",\"choices\":[{\"delta\":{\"content\":\"Real Prowl response Δ\"},\"finish_reason\":\"stop\"}]}\n\ndata: {\"choices\":[],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":7}}\n\ndata: [DONE]\n\n";
+                    write!(stream, "{:x}\r\n{data}\r\n0\r\n\r\n", data.len()).unwrap();
+                } else {
+                    let data = r#"{"model":"gateway/model","choices":[{"message":{"content":"Real Prowl response Δ"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":7}}"#;
+                    write!(
+                        stream,
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{data}",
+                        data.len()
+                    )
+                    .unwrap();
+                }
+            }
+        }
+    });
+    (port, receiver, worker)
+}
+#[test]
+fn prowl_provider_uses_private_connection_for_real_ask_agent_chat_and_model_refresh_without_rewriting_picks()
+ {
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let (port, requests, server) = completion_gateway(4);
+    let before = engine.dispatch(Request::Status {}).unwrap()["routes"].clone();
+    engine
+        .dispatch(Request::ConfigureProwl {
+            port,
+            token: Some("PRIVATE_PROWL_COMPLETION_TOKEN".into()),
+        })
+        .unwrap();
+    let gateway = ryoku_rashin::http::Gateway::new(
+        Arc::clone(&engine),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    assert!(
+        ui_submit(
+            &gateway,
+            &[
+                ("action", "connect_prowl_provider"),
+                ("provider", "gateway"),
+                ("models", "auto:fast"),
+                ("streaming", "true")
+            ]
+        )
+        .starts_with("HTTP/1.1 303")
+    );
+
+    assert_eq!(
+        engine.dispatch(Request::Status {}).unwrap()["routes"],
+        before,
+        "connect must not change saved picks"
+    );
+    for lane in [Lane::Ask, Lane::Agent, Lane::Chat] {
+        engine
+            .dispatch(Request::SetRoute {
+                lane,
+                provider: "gateway".into(),
+                model: "auto:fast".into(),
+            })
+            .unwrap();
+    }
+    engine.dispatch(Request::NewSession { id: "gateway-agent".into(), lane: Lane::Agent }).unwrap();
+    engine.dispatch(Request::NewSession { id: "gateway-chat".into(), lane: Lane::Chat }).unwrap();
+    engine
+        .dispatch(Request::Ask { id: "gateway-ask".into(), prompt: "ASK_PAYLOAD".into() })
+        .unwrap();
+    assert_eq!(done(&engine, "gateway-ask")["answer"], "Real Prowl response Δ");
+    for (id, session, prompt) in [
+        ("gateway-agent-job", "gateway-agent", "AGENT_PAYLOAD"),
+        ("gateway-chat-job", "gateway-chat", "CHAT_PAYLOAD"),
+    ] {
+        if id == "gateway-chat-job" {
+            assert!(
+                ui_submit(
+                    &gateway,
+                    &[
+                        ("action", "update_prowl_provider"),
+                        ("provider", "gateway"),
+                        ("models", "auto:fast")
+                    ]
+                )
+                .starts_with("HTTP/1.1 303")
+            );
+        }
+        engine
+            .dispatch(Request::Prompt {
+                id: id.into(),
+                session: session.into(),
+                prompt: prompt.into(),
+            })
+            .unwrap();
+        let job = done(&engine, id);
+        assert_eq!(job["actual_model"], "gateway/model");
+        assert_eq!(job["model"], "auto:fast");
+    }
+    for expected in ["ASK_PAYLOAD", "AGENT_PAYLOAD", "CHAT_PAYLOAD"] {
+        let body = requests.recv_timeout(Duration::from_secs(3)).unwrap();
+        assert_eq!(body["messages"].as_array().unwrap().last().unwrap()["content"], expected);
+        assert_eq!(body["stream"], expected != "CHAT_PAYLOAD");
+    }
+    engine
+        .dispatch(Request::RefreshModels {
+            id: "gateway-models".into(),
+            provider: "gateway".into(),
+        })
+        .unwrap();
+    assert_eq!(done(&engine, "gateway-models")["status"], "completed");
+    assert_eq!(requests.recv_timeout(Duration::from_secs(3)).unwrap()["path"], "/v1/models");
+    server.join().unwrap();
+    let providers = engine.dispatch(Request::Providers {}).unwrap();
+    let description = providers["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|provider| provider["id"] == "gateway")
+        .unwrap();
+    assert_eq!(description["kind"], "prowl_gateway");
+    assert_eq!(description["models"], json!(["auto:fast", "profile/◇ opaque"]));
+    assert!(!providers.to_string().contains("PRIVATE_PROWL_COMPLETION_TOKEN"));
+    let activity = engine.dispatch(Request::Usage {}).unwrap()["activity"].clone();
+    assert_eq!(activity.as_array().unwrap().len(), 3);
+    for row in activity.as_array().unwrap() {
+        assert_eq!(row["input_tokens"], 5);
+        assert_eq!(row["output_tokens"], 7);
+        assert_eq!(row["estimated"], false);
+        assert_eq!(row["actual_model"], "gateway/model");
+    }
+    assert_eq!(engine.dispatch(Request::Status {}).unwrap()["routes"]["ask"]["model"], "auto:fast");
+    let state = fs::read_to_string(fixture.path.join("state.json")).unwrap();
+    assert_eq!(
+        state.matches("PRIVATE_PROWL_COMPLETION_TOKEN").count(),
+        1,
+        "provider must reference the single private connection"
+    );
+    engine.dispatch(Request::ConfigureProwl { port, token: None }).unwrap();
+    assert_eq!(
+        engine.dispatch_as(
+            ryoku_rashin::authorization::Access::AskClient,
+            Request::ConnectProwlProvider {
+                id: "forbidden".into(),
+                models: vec!["auto:fast".into()],
+                streaming: true
+            }
+        ),
+        Err(Error::Unauthorized)
+    );
+    engine.dispatch(Request::DisableProwl {}).unwrap();
+    assert_eq!(
+        engine.dispatch(Request::Ask {
+            id: "disconnected-gateway".into(),
+            prompt: "must not send".into()
+        }),
+        Err(Error::ProviderUnavailable)
+    );
+    assert_eq!(engine.dispatch(Request::Status {}).unwrap()["routes"]["ask"]["model"], "auto:fast");
+    let html = http(&gateway, "GET", "/console", BROWSER_AUTH, "");
+    assert!(html.contains("Saved pick unavailable: gateway"));
+    assert!(!html.contains("PRIVATE_PROWL_COMPLETION_TOKEN"));
+}
+
+#[test]
+fn real_prowl_sse_progress_is_live_and_cancel_closes_stream_without_partial_turn_or_usage() {
+    use std::{net::TcpListener, sync::mpsc};
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let (closed_tx, closed_rx) = mpsc::channel();
+    let server = std::thread::spawn(move || {
+        listener.set_nonblocking(true).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(Instant::now() < deadline);
+                    std::thread::sleep(Duration::from_millis(2));
+                }
+                Err(error) => panic!("SSE accept: {error}"),
+            }
+        };
+        stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        stream.set_write_timeout(Some(Duration::from_secs(2))).unwrap();
+        let mut header = Vec::new();
+        while !header.ends_with(b"\r\n\r\n") {
+            assert!(header.len() < 8192);
+            let mut byte = [0];
+            stream.read_exact(&mut byte).unwrap();
+            header.push(byte[0]);
+        }
+        let header = String::from_utf8(header).unwrap();
+        assert!(header.starts_with("POST /v1/chat/completions HTTP/1.1\r\n"));
+        assert!(header.contains("Authorization: Bearer PRIVATE_PROWL_COMPLETION_TOKEN\r\n"));
+        let length = header
+            .lines()
+            .find_map(|line| line.strip_prefix("Content-Length: "))
+            .unwrap()
+            .parse::<usize>()
+            .unwrap();
+        let mut body = vec![0; length];
+        stream.read_exact(&mut body).unwrap();
+        let event =
+            "data: {\"choices\":[{\"delta\":{\"content\":\"LIVE_PRIVATE_PROGRESS_Δ\"}}]}\n\n";
+        write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n{:x}\r\n{event}\r\n",event.len()).unwrap();
+        stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let mut byte = [0];
+        match stream.read(&mut byte) {
+            Ok(0) => (),
+            Err(error) if error.kind() == std::io::ErrorKind::ConnectionReset => (),
+            other => panic!("cancel did not close Prowl stream: {other:?}"),
+        };
+        closed_tx.send(()).unwrap();
+    });
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    engine
+        .dispatch(Request::ConfigureProwl {
+            port,
+            token: Some("PRIVATE_PROWL_COMPLETION_TOKEN".into()),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::ConnectProwlProvider {
+            id: "stream-gateway".into(),
+            models: vec!["auto:fast".into()],
+            streaming: true,
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Agent,
+            provider: "stream-gateway".into(),
+            model: "auto:fast".into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::NewSession { id: "gateway-stream-session".into(), lane: Lane::Agent })
+        .unwrap();
+    engine
+        .dispatch(Request::Prompt {
+            id: "gateway-stream-job".into(),
+            session: "gateway-stream-session".into(),
+            prompt: "stream request".into(),
+        })
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        if engine.dispatch(Request::Job { id: "gateway-stream-job".into() }).unwrap()["progress"]
+            .as_str()
+            .is_some_and(|text| text.contains("LIVE_PRIVATE_PROGRESS_Δ"))
+        {
+            break;
+        }
+        assert!(Instant::now() < deadline, "actual gateway SSE did not expose live progress");
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert!(
+        !fs::read_to_string(fixture.path.join("state.json"))
+            .unwrap()
+            .contains("LIVE_PRIVATE_PROGRESS_Δ")
+    );
+    engine.dispatch(Request::Cancel { id: "gateway-stream-job".into() }).unwrap();
+    closed_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+    server.join().unwrap();
+    let job = engine.dispatch(Request::Job { id: "gateway-stream-job".into() }).unwrap();
+    assert_eq!(job["job"]["status"], "cancelled");
+    assert!(job["progress"].is_null());
+    assert!(job["job"]["answer"].is_null());
+    assert!(engine.dispatch(Request::Usage {}).unwrap()["activity"].as_array().unwrap().is_empty());
+    assert!(engine.dispatch(Request::Session{id:"gateway-stream-session".into()}).unwrap()["session"]["messages"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn prowl_gateway_credential_refresh_rejects_stale_catalog_and_keeps_reference_and_saved_model() {
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let body = r#"{"data":[{"id":"stale-gateway-offer"}]}"#;
+    let response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    );
+    let (port, entered, release, server) = held_prowl_fixture(response.into_bytes());
+    engine
+        .dispatch(Request::ConfigureProwl {
+            port,
+            token: Some("PRIVATE_PROWL_COMPLETION_TOKEN".into()),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::ConnectProwlProvider {
+            id: "changing-gateway".into(),
+            models: vec!["auto:fast".into()],
+            streaming: true,
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Ask,
+            provider: "changing-gateway".into(),
+            model: "auto:fast".into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::RefreshModels {
+            id: "old-gateway-catalog".into(),
+            provider: "changing-gateway".into(),
+        })
+        .unwrap();
+    let header = entered.recv_timeout(Duration::from_secs(3)).unwrap();
+    assert!(header.starts_with("GET /v1/models HTTP/1.1\r\n"));
+    engine.dispatch(Request::ConfigureProwl { port: 1, token: None }).unwrap();
+    release.send(()).unwrap();
+    let job = done(&engine, "old-gateway-catalog");
+    assert_eq!(job["status"], "failed");
+    assert_eq!(job["error"], "conflict");
+    server.join().unwrap();
+    let description = engine.dispatch(Request::Providers {}).unwrap()["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|provider| provider["id"] == "changing-gateway")
+        .unwrap()
+        .clone();
+    assert_eq!(description["models"], json!(["auto:fast"]));
+    assert_eq!(description["port"], 1);
+    assert_eq!(description["credential_present"], true);
+    let state = fs::read_to_string(fixture.path.join("state.json")).unwrap();
+    assert_eq!(state.matches("PRIVATE_PROWL_COMPLETION_TOKEN").count(), 1);
+    assert_eq!(engine.dispatch(Request::Status {}).unwrap()["routes"]["ask"]["model"], "auto:fast");
+}

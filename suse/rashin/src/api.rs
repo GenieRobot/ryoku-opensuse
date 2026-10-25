@@ -16,6 +16,11 @@ pub enum Request {
         token: Option<String>,
     },
     DisableProwl {},
+    ConnectProwlProvider {
+        id: String,
+        models: Vec<String>,
+        streaming: bool,
+    },
     ReadProwl {
         query: crate::prowl::Query,
     },

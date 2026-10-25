@@ -35,7 +35,7 @@ fn remaining(deadline: Instant) -> Result<Duration> {
         .filter(|duration| !duration.is_zero())
         .ok_or(Error::ProviderUnavailable)
 }
-fn verify_peer(stream: &TcpStream, deadline: Instant) -> Result<()> {
+pub(super) fn verify_peer(stream: &TcpStream, deadline: Instant) -> Result<()> {
     let SocketAddr::V4(client) = stream.local_addr().map_err(|_| Error::ProviderUnavailable)?
     else {
         return Err(Error::ProviderUnavailable);
@@ -46,8 +46,7 @@ fn verify_peer(stream: &TcpStream, deadline: Instant) -> Result<()> {
     if server.ip() != &Ipv4Addr::LOCALHOST || client.ip() != &Ipv4Addr::LOCALHOST {
         return Err(Error::Unauthorized);
     }
-    loop {
-        remaining(deadline)?;
+    wait_for_peer(deadline, || {
         let file = File::open("/proc/self/net/tcp").map_err(|_| Error::ProviderUnavailable)?;
         if rustix::fs::fstatfs(&file).map_err(|_| Error::ProviderUnavailable)?.f_type
             != rustix::fs::PROC_SUPER_MAGIC
@@ -62,14 +61,25 @@ fn verify_peer(stream: &TcpStream, deadline: Instant) -> Result<()> {
             return Err(Error::Limit);
         }
         let rows = std::str::from_utf8(&bytes).map_err(|_| Error::ProviderUnavailable)?;
-        if peer_owner(rows, server, client, rustix::process::geteuid().as_raw())? {
-            return Ok(());
+        peer_owner(rows, server, client, rustix::process::geteuid().as_raw())
+    })
+}
+fn wait_for_peer(deadline: Instant, mut probe: impl FnMut() -> Result<bool>) -> Result<()> {
+    loop {
+        remaining(deadline)?;
+        match probe() {
+            Ok(true) => return Ok(()),
+            // A procfs sequence can contain duplicate zero-inode rows while
+            // the established socket is accepted/moved between hash buckets.
+            // Missing/ambiguous rows never authorize a write. Re-read within
+            // the original deadline until a unique owned nonzero inode exists.
+            Ok(false) | Err(Error::ProviderUnavailable) => {}
+            Err(error) => return Err(error), // Foreign UID is immediately denied.
         }
-        // A just-connected server may not have accepted its socket/inode yet.
-        // Absence is never treated as proof and no bytes are sent while waiting.
         std::thread::sleep(Duration::from_millis(2));
     }
 }
+
 fn tuple(address: SocketAddrV4) -> String {
     format!("{:08X}:{:04X}", u32::from_ne_bytes(address.ip().octets()), address.port())
 }
@@ -144,6 +154,17 @@ fn line(reader: &mut impl Read, limit: usize) -> Result<Vec<u8>> {
     }
 }
 fn response(reader: &mut impl Read) -> Result<(u16, Vec<u8>)> {
+    let mut bytes = Vec::new();
+    let status = response_to(reader, &mut |chunk| {
+        bytes.extend_from_slice(chunk);
+        Ok(())
+    })?;
+    Ok((status, bytes))
+}
+pub(super) fn response_to(
+    reader: &mut impl Read,
+    emit: &mut impl FnMut(&[u8]) -> Result<()>,
+) -> Result<u16> {
     let first = line(reader, HEADER_LIMIT)?;
     let mut header_size = first.len() + 2;
     let first = std::str::from_utf8(&first).map_err(|_| Error::ProviderFailed)?;
@@ -177,41 +198,63 @@ fn response(reader: &mut impl Read) -> Result<(u16, Vec<u8>)> {
         }
     }
     if status != 200 {
-        return Ok((status, Vec::new()));
+        return Ok(status);
     }
     if headers.get("content-encoding").is_some_and(|value| !value.eq_ignore_ascii_case("identity"))
     {
         return Err(Error::ProviderFailed);
     }
-    let body = match (headers.get("content-length"), headers.get("transfer-encoding")) {
+
+    match (headers.get("content-length"), headers.get("transfer-encoding")) {
         (Some(_), Some(_)) => return Err(Error::ProviderFailed),
         (Some(length), None) => {
             let length = length.parse::<usize>().map_err(|_| Error::ProviderFailed)?;
             if length > BODY_LIMIT {
                 return Err(Error::Limit);
             }
-            let mut body = vec![0; length];
-            reader.read_exact(&mut body).map_err(|_| Error::ProviderUnavailable)?;
-            body
+            transfer(reader, length, emit)?;
         }
-        (None, Some(encoding)) if encoding.eq_ignore_ascii_case("chunked") => chunked(reader)?,
+        (None, Some(encoding)) if encoding.eq_ignore_ascii_case("chunked") => {
+            chunked_to(reader, emit)?
+        }
         (None, Some(_)) => return Err(Error::ProviderFailed),
         (None, None) => {
-            let mut body = Vec::new();
-            reader
-                .take((BODY_LIMIT + 1) as u64)
-                .read_to_end(&mut body)
-                .map_err(|_| Error::ProviderUnavailable)?;
-            if body.len() > BODY_LIMIT {
-                return Err(Error::Limit);
+            let mut total = 0usize;
+            let mut chunk = [0; 8192];
+            loop {
+                let count = reader.read(&mut chunk).map_err(|_| Error::ProviderUnavailable)?;
+                if count == 0 {
+                    break;
+                }
+                total = total
+                    .checked_add(count)
+                    .filter(|total| *total <= BODY_LIMIT)
+                    .ok_or(Error::Limit)?;
+                emit(&chunk[..count])?;
             }
-            body
         }
-    };
-    Ok((status, body))
+    }
+    Ok(status)
 }
-fn chunked(reader: &mut impl Read) -> Result<Vec<u8>> {
-    let mut body = Vec::new();
+fn transfer(
+    reader: &mut impl Read,
+    mut length: usize,
+    emit: &mut impl FnMut(&[u8]) -> Result<()>,
+) -> Result<()> {
+    let mut bytes = [0; 8192];
+    while length > 0 {
+        let count =
+            reader.read(&mut bytes[..length.min(8192)]).map_err(|_| Error::ProviderUnavailable)?;
+        if count == 0 {
+            return Err(Error::ProviderUnavailable);
+        }
+        emit(&bytes[..count])?;
+        length -= count;
+    }
+    Ok(())
+}
+fn chunked_to(reader: &mut impl Read, emit: &mut impl FnMut(&[u8]) -> Result<()>) -> Result<()> {
+    let mut total = 0usize;
     loop {
         let size = line(reader, 1024)?;
         let size = std::str::from_utf8(&size)
@@ -224,12 +267,12 @@ fn chunked(reader: &mut impl Read) -> Result<Vec<u8>> {
         }
         let size = usize::from_str_radix(size, 16).map_err(|_| Error::Limit)?;
         if size == 0 {
-            let mut total = 0;
+            let mut count = 0;
             loop {
-                let trailer = line(reader, HEADER_LIMIT.saturating_sub(total))?;
-                total += trailer.len() + 2;
+                let trailer = line(reader, HEADER_LIMIT.saturating_sub(count))?;
+                count += trailer.len() + 2;
                 if trailer.is_empty() {
-                    return Ok(body);
+                    return Ok(());
                 }
                 if !trailer.contains(&b':')
                     || trailer.iter().any(|byte| byte.is_ascii_control() && *byte != b'\t')
@@ -238,14 +281,8 @@ fn chunked(reader: &mut impl Read) -> Result<Vec<u8>> {
                 }
             }
         }
-        let length = body
-            .len()
-            .checked_add(size)
-            .filter(|length| *length <= BODY_LIMIT)
-            .ok_or(Error::Limit)?;
-        let offset = body.len();
-        body.resize(length, 0);
-        reader.read_exact(&mut body[offset..]).map_err(|_| Error::ProviderUnavailable)?;
+        total = total.checked_add(size).filter(|total| *total <= BODY_LIMIT).ok_or(Error::Limit)?;
+        transfer(reader, size, emit)?;
         let mut delimiter = [0; 2];
         reader.read_exact(&mut delimiter).map_err(|_| Error::ProviderUnavailable)?;
         if delimiter != *b"\r\n" {
@@ -269,6 +306,43 @@ mod tests {
             "sl local_address rem_address st tx_queue rx_queue tr tm->when retrnsmt uid timeout inode\n{row}\n"
         )
     }
+    #[test]
+    fn peer_poll_requires_unique_owned_inode_after_ambiguity_and_never_retries_foreign_uid() {
+        let server = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8788);
+        let client = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 40000);
+        let header = "sl local_address rem_address st tx_queue rx_queue tr tm->when retrnsmt uid timeout inode\n";
+        let row = |uid, inode| {
+            format!("0: {} {} 01 0:0 00:0 0 {uid} 0 {inode}\n", tuple(server), tuple(client))
+        };
+        let ambiguous = format!("{header}{}{}", row(1000, 0), row(1000, 0));
+        let owned = format!("{header}{}", row(1000, 42));
+        let foreign = format!("{header}{}", row(1001, 43));
+        let mut calls = 0;
+        assert_eq!(
+            wait_for_peer(Instant::now() + Duration::from_secs(1), || {
+                calls += 1;
+                peer_owner(if calls == 1 { &ambiguous } else { &owned }, server, client, 1000)
+            }),
+            Ok(())
+        );
+        assert_eq!(calls, 2);
+        assert_eq!(
+            wait_for_peer(Instant::now() + Duration::from_millis(5), || peer_owner(
+                &ambiguous, server, client, 1000
+            )),
+            Err(Error::ProviderUnavailable)
+        );
+        calls = 0;
+        assert_eq!(
+            wait_for_peer(Instant::now() + Duration::from_secs(1), || {
+                calls += 1;
+                peer_owner(&foreign, server, client, 1000)
+            }),
+            Err(Error::Unauthorized)
+        );
+        assert_eq!(calls, 1);
+    }
+
     #[test]
     fn established_reverse_tuple_requires_unambiguous_owned_inode_not_a_listening_port() {
         let server = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8788);
@@ -369,66 +443,86 @@ mod tests {
     #[ignore = "requires user namespace mapping owner UID0 and foreign UID1"]
     fn connected_foreign_uid_receives_no_request_or_management_credential() {
         assert_eq!(rustix::process::geteuid().as_raw(), 0);
-        let executable = File::open(std::env::current_exe().unwrap()).unwrap();
-        // Resolve the already-open ELF through procfs after setuid, avoiding
-        // any need to traverse the owner's private workspace as the foreign UID.
-        let mut command = Command::new(format!("/proc/self/fd/{}", executable.as_raw_fd()));
-        command
-            .uid(1)
-            .gid(1)
-            .env("RASHIN_FOREIGN_LISTENER", "1")
-            .args(["--exact", "prowl::transport::tests::foreign_listener_fixture", "--nocapture"])
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped());
-        struct Guard(std::process::Child);
-        impl Drop for Guard {
-            fn drop(&mut self) {
-                let _ = self.0.kill();
-                let _ = self.0.wait();
+        for completion in [false, true] {
+            let executable = File::open(std::env::current_exe().unwrap()).unwrap();
+            // Resolve the already-open ELF through procfs after setuid, avoiding
+            // any need to traverse the owner's private workspace as the foreign UID.
+            let mut command = Command::new(format!("/proc/self/fd/{}", executable.as_raw_fd()));
+            command
+                .uid(1)
+                .gid(1)
+                .env("RASHIN_FOREIGN_LISTENER", "1")
+                .args([
+                    "--exact",
+                    "prowl::transport::tests::foreign_listener_fixture",
+                    "--nocapture",
+                ])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped());
+            struct Guard(std::process::Child);
+            impl Drop for Guard {
+                fn drop(&mut self) {
+                    let _ = self.0.kill();
+                    let _ = self.0.wait();
+                }
             }
+            let mut child = Guard(command.spawn().unwrap());
+            let mut stderr = child.0.stderr.take().unwrap();
+            rustix::fs::fcntl_setfl(&stderr, rustix::fs::OFlags::NONBLOCK).unwrap();
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let mut diagnostic = Vec::new();
+            let port = loop {
+                let mut chunk = [0; 256];
+                match stderr.read(&mut chunk) {
+                    Ok(count) => diagnostic.extend_from_slice(&chunk[..count]),
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => (),
+                    Err(error) => panic!("foreign fixture readiness: {error}"),
+                }
+                assert!(diagnostic.len() < 2048);
+                if let Some(port) = String::from_utf8_lossy(&diagnostic).lines().find_map(|line| {
+                    line.strip_prefix("PROWL_FIXTURE_PORT=")
+                        .and_then(|port| port.parse::<u16>().ok())
+                }) {
+                    break port;
+                }
+                assert!(
+                    child.0.try_wait().unwrap().is_none(),
+                    "foreign fixture exited: {}",
+                    String::from_utf8_lossy(&diagnostic)
+                );
+                assert!(Instant::now() < deadline);
+                std::thread::sleep(Duration::from_millis(2));
+            };
+            let result = if completion {
+                crate::prowl::Connection { port, token: "PRIVATE_PROWL_FIXTURE_TOKEN".into() }
+                    .complete(
+                        "auto:fast",
+                        &[crate::provider::Message {
+                            role: crate::provider::Role::User,
+                            content: "PRIVATE_PROMPT_MUST_NOT_REACH_FOREIGN_UID".into(),
+                        }],
+                        true,
+                        &std::sync::atomic::AtomicBool::new(false),
+                        &mut |_| Ok(()),
+                    )
+                    .map(|_| ())
+            } else {
+                get(port, "PRIVATE_PROWL_FIXTURE_TOKEN", "/api/profiles").map(|_| ())
+            };
+            assert_eq!(result, Err(Error::Unauthorized));
+            loop {
+                if let Some(status) = child.0.try_wait().unwrap() {
+                    assert!(status.success());
+                    break;
+                }
+                assert!(Instant::now() < deadline);
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            let mut tail = Vec::new();
+            stderr.read_to_end(&mut tail).unwrap();
+            diagnostic.extend(tail);
+            assert!(String::from_utf8_lossy(&diagnostic).contains("PROWL_FIXTURE_NO_BYTES"));
         }
-        let mut child = Guard(command.spawn().unwrap());
-        let mut stderr = child.0.stderr.take().unwrap();
-        rustix::fs::fcntl_setfl(&stderr, rustix::fs::OFlags::NONBLOCK).unwrap();
-        let deadline = Instant::now() + Duration::from_secs(5);
-        let mut diagnostic = Vec::new();
-        let port = loop {
-            let mut chunk = [0; 256];
-            match stderr.read(&mut chunk) {
-                Ok(count) => diagnostic.extend_from_slice(&chunk[..count]),
-                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => (),
-                Err(error) => panic!("foreign fixture readiness: {error}"),
-            }
-            assert!(diagnostic.len() < 2048);
-            if let Some(port) = String::from_utf8_lossy(&diagnostic).lines().find_map(|line| {
-                line.strip_prefix("PROWL_FIXTURE_PORT=").and_then(|port| port.parse::<u16>().ok())
-            }) {
-                break port;
-            }
-            assert!(
-                child.0.try_wait().unwrap().is_none(),
-                "foreign fixture exited: {}",
-                String::from_utf8_lossy(&diagnostic)
-            );
-            assert!(Instant::now() < deadline);
-            std::thread::sleep(Duration::from_millis(2));
-        };
-        assert_eq!(
-            get(port, "PRIVATE_PROWL_FIXTURE_TOKEN", "/api/profiles"),
-            Err(Error::Unauthorized)
-        );
-        loop {
-            if let Some(status) = child.0.try_wait().unwrap() {
-                assert!(status.success());
-                break;
-            }
-            assert!(Instant::now() < deadline);
-            std::thread::sleep(Duration::from_millis(2));
-        }
-        let mut tail = Vec::new();
-        stderr.read_to_end(&mut tail).unwrap();
-        diagnostic.extend(tail);
-        assert!(String::from_utf8_lossy(&diagnostic).contains("PROWL_FIXTURE_NO_BYTES"));
     }
 }

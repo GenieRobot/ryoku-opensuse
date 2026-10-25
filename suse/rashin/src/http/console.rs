@@ -178,6 +178,25 @@ pub(super) fn submit(engine: &Arc<Engine>, body: &[u8]) -> Result<String> {
                 .dispatch(Request::DisableUsageSource { tool: tool(value(&fields, "tool")?)? })?;
             Ok("/usage".into())
         }
+        "connect_prowl_provider" => {
+            engine.dispatch(Request::ConnectProwlProvider {
+                id: value(&fields, "provider")?.into(),
+                models: models(value(&fields, "models")?),
+                streaming: fields.contains_key("streaming"),
+            })?;
+            Ok("/console".into())
+        }
+        "update_prowl_provider" => {
+            engine.dispatch(Request::UpdateProvider {
+                id: value(&fields, "provider")?.into(),
+                changes: ProviderEdit {
+                    models: Some(models(value(&fields, "models")?)),
+                    streaming: Some(fields.contains_key("streaming")),
+                    ..ProviderEdit::default()
+                },
+            })?;
+            Ok("/console".into())
+        }
         "configure_prowl" => {
             engine.dispatch(Request::ConfigureProwl {
                 port: value(&fields, "port")?.parse().map_err(|_| Error::InvalidRequest)?,
@@ -343,6 +362,9 @@ pub(super) fn home(engine: &Arc<Engine>) -> Result<String> {
         let mut options = String::new();
         let mut available = false;
         for provider in providers["providers"].as_array().ok_or(Error::Integrity)? {
+            if provider["available"] == false {
+                continue;
+            }
             for model in provider["models"].as_array().ok_or(Error::Integrity)? {
                 let model = model.as_str().ok_or(Error::Integrity)?;
                 let provider_id = text(provider, "id");
@@ -384,6 +406,26 @@ pub(super) fn home(engine: &Arc<Engine>) -> Result<String> {
             body += &hidden("provider", id);
             body += &provider_fields(provider, false);
             body += "<button>Save provider changes</button></form>";
+        }
+        if provider["kind"] == "prowl_gateway" {
+            body += &format!(
+                "<p>Gateway connection configured: {}. <a href=\"/prowl\">Manage private gateway connection</a></p>",
+                provider["available"]
+            );
+            body += &begin("update_prowl_provider");
+            body += &hidden("provider", id);
+            let models = provider["models"]
+                .as_array()
+                .ok_or(Error::Integrity)?
+                .iter()
+                .filter_map(Value::as_str)
+                .collect::<Vec<_>>()
+                .join("\n");
+            body += &format!(
+                "<label>Offered route/model IDs<textarea name=\"models\">{}</textarea></label><label><input name=\"streaming\" type=\"checkbox\" value=\"true\"{}>Stream responses</label><button>Save gateway provider settings</button></form>",
+                escape(&models),
+                if provider["streaming"] == true { " checked" } else { "" }
+            );
         }
         if id != "local" {
             body += &begin("remove_provider");
@@ -572,6 +614,9 @@ pub(super) fn prowl(engine: &Arc<Engine>, path: &str) -> Result<String> {
         body += "<label>Management token (leave blank to retain saved credential)<input name=\"token\" type=\"password\" autocomplete=\"off\" maxlength=\"512\"></label><button>Save gateway connection</button></form>";
         if status["configured"] == true {
             body += "<p>Configured. Credentials remain private.</p><ul><li><a href=\"/prowl/profiles\">Profiles</a></li><li><a href=\"/prowl/active\">Active profile</a></li><li><a href=\"/prowl/presets\">Profile presets</a></li></ul>";
+            body += "<h2>Use Prowl for assistant completions</h2><p>Connect adds a provider choice. Choose its model explicitly in the workspace; saved lane picks stay unchanged. Prowl may route prompts to external providers you configured.</p>";
+            body += &begin("connect_prowl_provider");
+            body += "<label>Provider name<input name=\"provider\" value=\"prowl\" required maxlength=\"64\"></label><label>Offered route/model IDs, one per line<textarea name=\"models\" required>auto:fast</textarea></label><label><input name=\"streaming\" type=\"checkbox\" checked>Stream responses</label><button>Connect Prowl provider</button></form>";
             body += &begin("disable_prowl");
             body += "<button>Disconnect gateway</button></form>";
         } else {

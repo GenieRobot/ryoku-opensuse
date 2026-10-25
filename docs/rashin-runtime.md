@@ -74,7 +74,7 @@ a restrictive CSP; the console requires no JavaScript.
 | Inspect | `status`, `providers`, `get_index`, `wiki_pages`, `read_wiki`, `recent`, `sessions`, `session`, `job`, `jobs`, `usage`, `logs` | Account-private reads; provider inventory never returns keys; logs run only fixed bounded native readers |
 | Ask | `ask`, `cancel` | Read-only provider lane, private independent history, bounded asynchronous execution and cancellation |
 | Conversation | `new_session`, `prompt`, `forget_job`, `delete_session` | Persistent independent Agent/Chat transcripts; deletion removes associated jobs and usage records |
-| Credentials | `put_provider`, `update_provider`, `refresh_models`, `remove_provider`, `issue_ask_client`, `ask_clients`, `revoke_ask_client` | Owner configures/removes an explicit provider; keys remain only in private state and provider stdin |
+| Credentials | `put_provider`, `update_provider`, `refresh_models`, `remove_provider`, `connect_prowl_provider`, `issue_ask_client`, `ask_clients`, `revoke_ask_client` | Owner configures/removes an explicit provider; keys remain only in private state and provider stdin |
 | Route/model | `set_route` | Owner selects a provider and one of its configured model IDs for an explicit lane |
 | Index | `index`, `index_wiki` | Owner replaces a bounded set of explicitly uploaded UTF-8 documents; every SHA-256 is verified before publication |
 | Fix | `fix_preview`, `fix` | Owner supplies a typed doctor/tip/app finding; external native-evidence egress requires a reviewed destination-bound preview; creates an Agent investigation request with Tumbleweed ownership/recovery instructions |
@@ -473,8 +473,10 @@ IPv4 four-tuple, nonzero socket inode and current owner UID from the fixed
 [documented TCP table format](https://docs.kernel.org/networking/proc_net_tcp.html)
 provides those fields. A listening-port lookup alone is insufficient. Missing,
 ambiguous, wrong-UID, malformed or unavailable ownership evidence never permits
-credential send. A just-connected pending accept can wait within the same deadline
-for a real server inode; it is never accepted as proof.
+credential send. A pending accept or ambiguous procfs snapshot is polled within
+the same deadline until a fresh unique owned nonzero inode appears. A duplicate
+zero-inode snapshot is never accepted as proof; persistent ambiguity fails and
+a foreign UID is rejected immediately.
 
 Rebinding a listening port cannot replace an already-established stream. The
 verified stream is held through the request, with no reconnect or redirect; a
@@ -595,3 +597,56 @@ and digest, and verify persistence after restart, replacement conflicts, safe
 rendering and preservation of an existing uploaded document. Full machine/source
 maps, vault/memory/journal/project enrollment, native Svelte/app/shell/ACP and every
 retained provider/tool/terminal/recovery/Tumbleweed acceptance gate remain required.
+
+
+## Prowl-backed assistant completions
+
+After configuring the private local Prowl connection, use the browser's
+**Connect Prowl provider** form or owner `connect_prowl_provider` with a provider
+`id`, explicit route/model `models` and `streaming` choice. Connection adds a
+provider choice; it does not rewrite Ask/Agent/Chat picks. Choose a lane model
+explicitly afterward. The pinned upstream quick path uses `auto:fast` with
+`POST /v1/chat/completions` and the existing gateway management bearer
+(`backend/quick.go` lines475–487 and `quick_test.go` lines47–94 at the retained
+Ryoku1.0 revision). The Rust provider uses that fixed endpoint; model refresh uses
+the OpenAI-compatible fixed `GET /v1/models` metadata endpoint. Actual packaged
+Prowl endpoint/version acceptance remains required.
+
+The provider stores a reference to the single private Prowl connection, not a
+second copy of its token. Worker port/token capture occurs with the accepted
+job's provider/model state. A resolved credential context is excluded from JSON
+serialization/deserialization and cannot be installed through `put_provider`.
+Provider inventory and forms return only redacted connection metadata. Model and
+streaming edits keep the credential reference; change the gateway port/token in
+its connection form, where omitted/blank token preserves the existing value.
+Connection edits/disconnect advance connected provider generations, invalidating
+stale catalog results and old native Fix previews without rewriting saved picks.
+Disconnected picks remain saved and visibly unavailable. Already accepted work
+keeps its captured destination until terminal state or explicit cancellation;
+disconnecting the configuration starts no automatic replacement or replay.
+
+The model transport uses one direct Rust IPv4 stream to the configured loopback
+port, proves the established reverse tuple/nonzero inode/current UID before any
+request byte, and never reconnects, redirects or consults proxy environment.
+Only fixed completion/model paths are available; model IDs remain opaque JSON
+values. Prompt JSON is bounded to256KiB, HTTP body to1MiB, framing overhead to32KiB,
+with the existing 8KiB buffered read-ahead. Connect is bounded to1s, peer proof to3s,
+and total model request to45s. Model I/O checks cancellation at50ms intervals;
+proof checks cancellation before any write. Foreign-peer proof covers both GET
+and POST, including a prompt that must never reach the foreign account.
+
+Both JSON and incremental SSE responses use the existing bounded completion
+validation. Live deltas stay in ephemeral job memory; missing terminal, cancelled
+or failed work publishes no partial turn/usage. Prowl's actual model and usage
+are recorded separately from the saved route/model pick. Ask, Agent and Chat
+keep their histories independent. A Prowl gateway can forward to external
+providers; native Fix therefore requires the same reviewed egress consent as a
+configured external completion provider. Full read-only tool loops, ACP/harness
+operations, Prowl server mutations/sign-ins/native lifecycle/protected recovery
+and complete packaged acceptance remain subsequent required functionality.
+
+Real local HTTP fixtures exercise owner browser connect/edit, streamed Ask/Agent,
+non-streamed Chat, model refresh and usage, saved-pick retention, one-copy private
+credential storage, unavailable disconnect state, stale credential/catalog races,
+and cancellation closing the actual stream without partial transcript or usage.
+No external provider account/request or model download is needed for these tests.

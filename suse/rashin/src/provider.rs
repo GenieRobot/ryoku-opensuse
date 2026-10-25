@@ -1,6 +1,6 @@
 //! Fixed provider protocols. Credentials travel over stdin to the distro curl
 //! client, never command arguments, diagnostics, or assistant responses.
-mod stream;
+pub(crate) mod stream;
 use crate::{Error, Result, text};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -33,6 +33,18 @@ pub enum Provider {
         #[serde(default)]
         streaming: bool,
     },
+    /// References the separately enrolled private Prowl connection. No key is
+    /// duplicated in provider configuration or exposed by provider inventory.
+    ProwlGateway {
+        #[serde(default)]
+        models: Vec<String>,
+        #[serde(default)]
+        streaming: bool,
+    },
+    /// Captured worker-only credentials. Never accepted or stored through JSON.
+    #[doc(hidden)]
+    #[serde(skip)]
+    ProwlResolved { port: u16, token: String, models: Vec<String>, streaming: bool },
 }
 
 /// Explicit network-free catalog fixture; cached/offered sets model server
@@ -144,10 +156,52 @@ impl Provider {
                 model_name(model)?;
             }
         }
+        if let Self::ProwlGateway { models, .. } | Self::ProwlResolved { models, .. } = self {
+            if models.len() > 128 {
+                return Err(Error::Limit);
+            }
+            for model in models {
+                model_name(model)?;
+            }
+        }
+        if let Self::ProwlResolved { port, token, .. } = self {
+            crate::prowl::Connection { port: *port, token: token.clone() }.validate()?;
+        }
         Ok(())
+    }
+    pub(crate) fn resolve(&self, connection: Option<&crate::prowl::Connection>) -> Result<Self> {
+        if let Self::ProwlGateway { models, streaming } = self {
+            let connection = connection.ok_or(Error::ProviderUnavailable)?;
+            connection.validate()?;
+            Ok(Self::ProwlResolved {
+                port: connection.port,
+                token: connection.token.clone(),
+                models: models.clone(),
+                streaming: *streaming,
+            })
+        } else {
+            Ok(self.clone())
+        }
+    }
+    pub(crate) fn is_prowl(&self) -> bool {
+        matches!(self, Self::ProwlGateway { .. } | Self::ProwlResolved { .. })
     }
 
     pub fn edited(&self, edit: ProviderEdit) -> Result<Self> {
+        if let Self::ProwlGateway { models, streaming } = self {
+            if edit.endpoint.is_some()
+                || edit.api_key.is_some()
+                || (edit.models.is_none() && edit.streaming.is_none())
+            {
+                return Err(Error::InvalidRequest);
+            }
+            let next = Self::ProwlGateway {
+                models: edit.models.unwrap_or_else(|| models.clone()),
+                streaming: edit.streaming.unwrap_or(*streaming),
+            };
+            next.validate()?;
+            return Ok(next);
+        }
         let Self::OpenAiCompatible { endpoint, api_key, models, streaming } = self else {
             return Err(Error::InvalidRequest);
         };
@@ -175,13 +229,16 @@ impl Provider {
                 .as_ref()
                 .map(|catalog| catalog.cached.clone())
                 .unwrap_or_else(|| vec!["fixture-v1".into()]),
-            Self::OpenAiCompatible { models, .. } => models.clone(),
+            Self::OpenAiCompatible { models, .. }
+            | Self::ProwlGateway { models, .. }
+            | Self::ProwlResolved { models, .. } => models.clone(),
         }
     }
 
     pub(crate) fn with_catalog(mut self, models: Vec<String>) -> Result<Self> {
         match &mut self {
-            Self::OpenAiCompatible { models: cached, .. } => *cached = models,
+            Self::OpenAiCompatible { models: cached, .. }
+            | Self::ProwlGateway { models: cached, .. } => *cached = models,
             Self::Fixture { catalog: Some(catalog), .. } => catalog.cached = models,
             Self::Local {} if models == ["local-retrieval-v1"] => {}
             Self::Fixture { catalog: None, .. } if models == ["fixture-v1"] => {}
@@ -214,6 +271,10 @@ impl Provider {
                     .map(|catalog| catalog.offered.clone())
                     .unwrap_or_else(|| self.models()))
             }
+            Self::ProwlGateway { .. } => Err(Error::ProviderUnavailable),
+            Self::ProwlResolved { port, token, .. } => {
+                crate::prowl::Connection { port: *port, token: token.clone() }.models(cancelled)
+            }
             Self::OpenAiCompatible { endpoint, api_key, .. } => {
                 let config = format!(
                     "url = {}\nrequest = \"GET\"\nheader = {}\nheader = \"Accept: application/json\"\n",
@@ -232,6 +293,12 @@ impl Provider {
             }
             Self::Fixture { .. } => {
                 json!({"id":id,"kind":"fixture","models":self.models(),"requires_credentials":false,"test_only":true})
+            }
+            Self::ProwlGateway { streaming, .. } => {
+                json!({"id":id,"kind":"prowl_gateway","models":self.models(),"streaming":streaming,"requires_credentials":true,"credential_reference":"private_prowl_connection"})
+            }
+            Self::ProwlResolved { port, streaming, .. } => {
+                json!({"id":id,"kind":"prowl_gateway","models":self.models(),"streaming":streaming,"port":port,"requires_credentials":true,"credential_present":true,"available":true,"egress":"configured_gateway_routes_may_be_external"})
             }
             Self::OpenAiCompatible { endpoint, streaming, .. } => {
                 json!({"id":id,"kind":"open_ai_compatible","endpoint":endpoint,"models":self.models(),"requires_credentials":true,"credential_present":true,"streaming":streaming})
@@ -367,6 +434,11 @@ impl Provider {
                     actual_model: Some(model.into()),
                 })
             }
+            Self::ProwlGateway { .. } => Err(Error::ProviderUnavailable),
+            Self::ProwlResolved { port, token, streaming, .. } => {
+                crate::prowl::Connection { port: *port, token: token.clone() }
+                    .complete(model, messages, *streaming, cancelled, emit)
+            }
             Self::OpenAiCompatible { endpoint, api_key, streaming, .. } => {
                 let mut body = json!({"model":model,"messages":messages,"stream":streaming});
                 if *streaming {
@@ -439,41 +511,7 @@ impl Provider {
                     if *streaming {
                         return decoder.finish(emit);
                     }
-                    let value: serde_json::Value =
-                        serde_json::from_slice(&bytes).map_err(|_| Error::ProviderFailed)?;
-                    let answer = value
-                        .pointer("/choices/0/message/content")
-                        .and_then(|v| v.as_str())
-                        .ok_or(Error::ProviderFailed)?
-                        .to_owned();
-                    text(&answer, 128 * 1024).map_err(|_| Error::ProviderFailed)?;
-                    let input = value.pointer("/usage/prompt_tokens").and_then(|v| v.as_u64());
-                    let output = value.pointer("/usage/completion_tokens").and_then(|v| v.as_u64());
-                    let actual_model = value
-                        .get("model")
-                        .and_then(|value| value.as_str())
-                        .map(|name| {
-                            model_name(name).map_err(|_| Error::ProviderFailed)?;
-                            Ok(name.to_owned())
-                        })
-                        .transpose()?;
-                    Ok(Completion {
-                        text: answer,
-                        input_tokens: input.unwrap_or_default(),
-                        output_tokens: output.unwrap_or_default(),
-                        estimated: input.is_none() || output.is_none(),
-                        stop_reason: value
-                            .pointer("/choices/0/finish_reason")
-                            .and_then(|value| value.as_str())
-                            .filter(|reason| {
-                                reason.len() <= 64
-                                    && reason
-                                        .bytes()
-                                        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
-                            })
-                            .map(str::to_owned),
-                        actual_model,
-                    })
+                    parse_json_completion(&bytes)
                 })();
                 if result.is_err() {
                     let _ = child.kill();
@@ -485,7 +523,43 @@ impl Provider {
     }
 }
 
-fn parse_catalog(bytes: &[u8]) -> Result<Vec<String>> {
+pub(crate) fn parse_json_completion(bytes: &[u8]) -> Result<Completion> {
+    let value: serde_json::Value =
+        serde_json::from_slice(bytes).map_err(|_| Error::ProviderFailed)?;
+    let answer = value
+        .pointer("/choices/0/message/content")
+        .and_then(|v| v.as_str())
+        .ok_or(Error::ProviderFailed)?
+        .to_owned();
+    text(&answer, 128 * 1024).map_err(|_| Error::ProviderFailed)?;
+    let input = value.pointer("/usage/prompt_tokens").and_then(|v| v.as_u64());
+    let output = value.pointer("/usage/completion_tokens").and_then(|v| v.as_u64());
+    let actual_model = value
+        .get("model")
+        .and_then(|value| value.as_str())
+        .map(|name| {
+            model_name(name).map_err(|_| Error::ProviderFailed)?;
+            Ok(name.to_owned())
+        })
+        .transpose()?;
+    Ok(Completion {
+        text: answer,
+        input_tokens: input.unwrap_or_default(),
+        output_tokens: output.unwrap_or_default(),
+        estimated: input.is_none() || output.is_none(),
+        stop_reason: value
+            .pointer("/choices/0/finish_reason")
+            .and_then(|value| value.as_str())
+            .filter(|reason| {
+                reason.len() <= 64
+                    && reason.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+            })
+            .map(str::to_owned),
+        actual_model,
+    })
+}
+
+pub(crate) fn parse_catalog(bytes: &[u8]) -> Result<Vec<String>> {
     let value: serde_json::Value =
         serde_json::from_slice(bytes).map_err(|_| Error::ProviderFailed)?;
     if value.get("error").is_some_and(|error| !error.is_null()) {
@@ -691,5 +765,34 @@ mod tests {
         }
         let bytes=serde_json::to_vec(&json!({"data":(0..129).map(|n|json!({"id":format!("model-{n}")})).collect::<Vec<_>>()})).unwrap();
         assert!(matches!(parse_catalog(&bytes), Err(Error::Limit)));
+    }
+
+    #[test]
+    fn prowl_provider_keeps_credential_reference_and_resolved_context_cannot_enter_json_state() {
+        let provider = Provider::ProwlGateway { models: vec!["auto:fast".into()], streaming: true };
+        let connection =
+            crate::prowl::Connection { port: 8788, token: "PRIVATE_RESOLVED_PROWL_KEY".into() };
+        let resolved = provider.resolve(Some(&connection)).unwrap();
+        assert!(serde_json::to_string(&resolved).is_err());
+        assert!(serde_json::from_str::<Provider>(r#"{"kind":"prowl_resolved","port":8788,"token":"not-input","models":[],"streaming":true}"#).is_err());
+        assert!(!serde_json::to_string(&provider).unwrap().contains("PRIVATE_RESOLVED_PROWL_KEY"));
+        assert_eq!(provider.resolve(None).err(), Some(Error::ProviderUnavailable));
+        assert!(
+            provider
+                .edited(ProviderEdit {
+                    api_key: Some("must-use-private-connection".into()),
+                    ..ProviderEdit::default()
+                })
+                .is_err()
+        );
+        let edited = provider
+            .edited(ProviderEdit {
+                models: Some(vec!["opaque/model ◇".into()]),
+                streaming: Some(false),
+                ..ProviderEdit::default()
+            })
+            .unwrap();
+        assert_eq!(edited.models(), vec!["opaque/model ◇"]);
+        assert!(edited.is_prowl());
     }
 }

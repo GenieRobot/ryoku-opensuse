@@ -191,6 +191,22 @@ impl Default for State {
     }
 }
 
+fn describe_provider(state: &State, id: &str, provider: &Provider) -> Value {
+    if provider.is_prowl() {
+        match provider.resolve(state.prowl.as_ref()) {
+            Ok(provider) => provider.describe(id),
+            Err(_) => {
+                let mut description = provider.describe(id);
+                description["available"] = json!(false);
+                description["credential_present"] = json!(false);
+                description
+            }
+        }
+    } else {
+        provider.describe(id)
+    }
+}
+
 struct EvidencePreview {
     component: String,
     revision: u64,
@@ -384,6 +400,21 @@ impl Engine {
                     None => json!({"configured":false,"credential_present":false}),
                 })
             }
+            Request::ConnectProwlProvider { id, models, streaming } => {
+                identifier(&id)?;
+                if id == "local" {
+                    return Err(Error::Conflict);
+                }
+                let provider = Provider::ProwlGateway { models, streaming };
+                provider.validate()?;
+                self.transaction(|state|{
+                    if state.prowl.is_none(){return Err(Error::ProviderUnavailable)}
+                    if state.providers.get(&id).is_some_and(|provider|!provider.is_prowl()){return Err(Error::Conflict)}
+                    if !state.providers.contains_key(&id)&&state.providers.len()>=32{return Err(Error::Limit)}
+                    state.providers.insert(id.clone(),provider);bump_provider(state,&id)?;
+                    Ok(json!({"connected":id,"credential_reference":"private_prowl_connection","routes":state.routes}))
+                })
+            }
             Request::ConfigureProwl { port, token } => self.transaction(|state| {
                 let token = token
                     .or_else(|| state.prowl.as_ref().map(|connection| connection.token.clone()))
@@ -392,11 +423,29 @@ impl Engine {
                 connection.validate()?;
                 state.prowl = Some(connection);
                 state.prowl_revision = state.prowl_revision.checked_add(1).ok_or(Error::Limit)?;
+                let connected = state
+                    .providers
+                    .iter()
+                    .filter(|(_, provider)| provider.is_prowl())
+                    .map(|(id, _)| id.clone())
+                    .collect::<Vec<_>>();
+                for id in connected {
+                    bump_provider(state, &id)?;
+                }
                 Ok(json!({"configured":true,"port":port,"credential_present":true}))
             }),
             Request::DisableProwl {} => self.transaction(|state| {
                 state.prowl = None;
                 state.prowl_revision = state.prowl_revision.checked_add(1).ok_or(Error::Limit)?;
+                let connected = state
+                    .providers
+                    .iter()
+                    .filter(|(_, provider)| provider.is_prowl())
+                    .map(|(id, _)| id.clone())
+                    .collect::<Vec<_>>();
+                for id in connected {
+                    bump_provider(state, &id)?;
+                }
                 Ok(json!({"configured":false,"credential_present":false}))
             }),
             Request::ReadProwl { query } => {
@@ -697,6 +746,9 @@ impl Engine {
                 )
             }
             Request::PutProvider { id, provider } => {
+                if matches!(provider, Provider::ProwlResolved { .. }) {
+                    return Err(Error::InvalidRequest);
+                }
                 identifier(&id)?;
                 provider.validate()?;
                 if id == "local" {
@@ -829,7 +881,7 @@ impl Engine {
                         json!({"version":1,"optional_at_login":true,"routes":state.routes,"wired":state.instructions.is_some(),"running":state.jobs.values().filter(|job| job.status == JobStatus::Running).count()}),
                     ),
                     Request::Providers {} => Ok(
-                        json!({"providers":state.providers.iter().map(|(id, provider)| provider.describe(id)).collect::<Vec<_>>()}),
+                        json!({"providers":state.providers.iter().map(|(id, provider)| describe_provider(&state,id,provider)).collect::<Vec<_>>()}),
                     ),
                     Request::GetIndex {} => Ok(
                         json!({"documents":state.documents.iter().map(|doc| json!({"name":doc.name,"sha256":doc.sha256})).collect::<Vec<_>>()}),
@@ -975,7 +1027,7 @@ impl Engine {
         Ok((
             state.configuration_revision,
             json!({"provider":provider.describe(&route.provider),"model":route.model}),
-            matches!(provider, Provider::OpenAiCompatible { .. }),
+            matches!(provider, Provider::OpenAiCompatible { .. } | Provider::ProwlResolved { .. }),
         ))
     }
 
@@ -1176,7 +1228,7 @@ impl Engine {
                 && state.jobs.values().any(|job| job.session.as_ref() == Some(session) && job.status == JobStatus::Running) { return Err(Error::Busy); }
             if options.evidence_approval.as_ref().is_some_and(|approval| approval.revision != state.configuration_revision) { return Err(Error::EvidenceConsentRequired); }
             let route = if let Some(provider)=&catalog_provider {Route {provider:provider.clone(),model:String::new()}} else {state.routes.get(&lane).ok_or(Error::NotFound)?.clone()};
-            let provider = state.providers.get(&route.provider).ok_or(Error::ProviderUnavailable)?.clone();
+            let provider = state.providers.get(&route.provider).ok_or(Error::ProviderUnavailable)?.resolve(state.prowl.as_ref())?;
             if catalog_provider.is_none() && !provider.models().contains(&route.model) { return Err(Error::ProviderUnavailable); }
             let catalog_revision=catalog_provider.as_ref().map(|id|state.provider_revisions.get(id).copied().unwrap_or_default());
             if let Some(session) = &session
