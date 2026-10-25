@@ -96,7 +96,7 @@ route independently reads saved output selection and requires both the UI's
 After reviewing those bytes, an operator explicitly invokes:
 
 ```text
-ryoku-hook authorize INDEX COMMAND_SHA256 SECONDS apply|restore [kitty_user] [fish_user]
+ryoku-hook authorize INDEX COMMAND_SHA256 SECONDS apply|restore [kitty_user] [fish_user] [staged]
 ```
 
 `kitty_user` means the existing `.config/kitty/user.conf`; `fish_user` means the
@@ -147,6 +147,38 @@ the existing recoverable Applying/MayHaveMutated or post-capture-failure history
 The declared outputs and their exact post-state are in the linked generation;
 the policy digest in the receipt identifies that write set. Policy records are
 operational authorization metadata, not user-editable configuration.
+
+The optional `staged` policy is separately bound into approval and the plan;
+existing direct approvals cannot acquire it implicitly. It preserves literal
+HOME, cwd, UID, EUID and primary GID while computing against a private HOME
+mounted at that same absolute path. Only the exact declared preimages seed the
+private home; unrelated home content and inherited environment are not exposed.
+The rest of the mount namespace is recursively read-only, networking has a
+private namespace, and the noexec tmpfs is limited to 64 MiB and 256 inodes.
+The same root-pinned Bash/runtime and seccomp policy apply. A second exec of
+the approved installed Bash succeeds with numeric identity intact. An ELF
+stored in the staging output cannot run through the approved ELF loader.
+
+After observed child success, the wrapper accepts one private tmpfs descriptor
+and inspects its complete membership. Undeclared entries, links, oversized
+outputs, changed real preimages or unsafe destination parents refuse publication.
+It prepares every replacement inode with captured mode/UID/GID/ACL/SELinux
+metadata before publishing a name. A failed publication compensates attempted
+paths from the preimages and leaves the existing linked recovery operation
+failed; it never reports success after compensation. Timeout, cancellation and
+quota failure publish nothing. Native writers remain held throughout computation,
+commit and refreeze verification. Tests cover a real second-rename failure and
+exact content/metadata compensation. Namespace denial is actionable failure,
+never fallback to an unconstrained launcher.
+
+This staging class currently supports the two existing captured output files
+and pinned Bash only. It does not yet admit matugen, dynamic template outputs,
+input trees, optional parent creation, symlinks, logical GSettings changes or
+reload actors. The local environment has no installed/cached matugen binary;
+real package execution and native lifecycle proof remain open. Secondary group
+semantics and broader environment/input needs require their own reviewed policy.
+The retained wallpaper → scheduleTheme → paintWorker path remains in scope,
+with its complete effect ledger; this staging checkpoint does not prove it.
 
 Unsupported external executables, children, file creation/replacement, custom
 roots and network effects receive real policy/refusal errors. They retain their

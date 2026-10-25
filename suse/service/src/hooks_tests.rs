@@ -18,6 +18,22 @@ fn unknown_and_ambiguous_wire_fields_do_not_reach_policy() {
     }
 }
 #[test]
+fn staged_policy_is_explicit_and_changes_the_authenticated_policy_bytes() {
+    let mut value = serde_json::json!({"index":0,"command_sha256":"ab".repeat(32),"outputs":["kitty_user"],"timeout_seconds":1,"allow_restore":false});
+    let direct: HookApprovalRequest = serde_json::from_value(value.clone()).unwrap();
+    assert!(direct.validate());
+    value["execution"] = serde_json::json!("staged_outputs");
+    let staged: HookApprovalRequest = serde_json::from_value(value.clone()).unwrap();
+    assert!(staged.validate());
+    assert_ne!(direct, staged);
+    assert_ne!(
+        digest(&serde_json::to_vec(&direct).unwrap()),
+        digest(&serde_json::to_vec(&staged).unwrap())
+    );
+    value["execution"] = serde_json::json!("unconfined");
+    assert!(serde_json::from_value::<HookApprovalRequest>(value).is_err());
+}
+#[test]
 fn configured_hook_has_no_approval_without_durable_successful_post_checkpoint() {
     let path = std::env::temp_dir().join(format!("ryoku-hook-journal-{}", std::process::id()));
     let file =

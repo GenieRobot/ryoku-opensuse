@@ -5,6 +5,7 @@ use crate::{
 };
 use std::{
     os::unix::fs::{PermissionsExt, symlink},
+    path::Path,
     sync::atomic::{AtomicU64, Ordering},
 };
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -47,6 +48,7 @@ impl Fixture {
                     outputs: vec![HookOutput::KittyUser],
                     timeout_seconds: 1,
                     allow_restore: false,
+                    execution: crate::hook_protocol::HookExecutionPolicy::DirectWriteOnly,
                 },
                 configuration_sha256: digest(&config),
                 shell_sha256: shell_digest().unwrap(),
@@ -75,6 +77,25 @@ impl Fixture {
     }
     fn output(&self) -> Vec<u8> {
         std::fs::read(format!("{}/.config/kitty/user.conf", self.home)).unwrap()
+    }
+    fn staged(&mut self) {
+        self.call.policy.approval.execution =
+            crate::hook_protocol::HookExecutionPolicy::StagedOutputs;
+    }
+    fn add_fish(&mut self) {
+        std::fs::create_dir_all(format!("{}/.config/fish", self.home)).unwrap();
+        std::fs::write(format!("{}/.config/fish/user.fish", self.home), b"fish before").unwrap();
+        std::fs::set_permissions(
+            format!("{}/.config/fish/user.fish", self.home),
+            std::fs::Permissions::from_mode(0o640),
+        )
+        .unwrap();
+        self.call.policy.approval.outputs.push(HookOutput::FishUser);
+        self.call.output_identities = crate::hook_protocol::output_identities(
+            &File::open(&self.home).unwrap(),
+            &self.call.policy.approval.outputs,
+        )
+        .unwrap();
     }
 }
 impl Drop for Fixture {
@@ -160,6 +181,134 @@ fn timeout_and_cancellation_reap_the_owned_process() {
     assert_eq!(fixture.output(), b"before");
 }
 #[test]
+fn staged_output_preserves_literal_home_and_commits_only_the_declared_file() {
+    let mut fixture = Fixture::new("printf '%s' \"$HOME\" > \"$HOME/.config/kitty/user.conf\"");
+    fixture.call.policy.approval.execution =
+        crate::hook_protocol::HookExecutionPolicy::StagedOutputs;
+    run(&fixture.call, &fixture.home, || false).unwrap();
+    assert_eq!(fixture.output(), fixture.home.as_bytes());
+    assert_eq!(
+        std::fs::metadata(format!("{}/.config/kitty/user.conf", fixture.home)).unwrap().mode()
+            & 0o777,
+        0o600
+    );
+    assert_eq!(std::fs::read(format!("{}/sentinel", fixture.home)).unwrap(), b"unrelated");
+}
+#[test]
+fn staged_unknown_writes_and_parent_namespace_escape_commit_nothing() {
+    for command in [
+        "printf changed > .config/kitty/user.conf; printf rogue > sentinel",
+        "printf rogue > /proc/$PPID/root$HOME/sentinel",
+    ] {
+        let mut fixture = Fixture::new(command);
+        fixture.call.policy.approval.execution =
+            crate::hook_protocol::HookExecutionPolicy::StagedOutputs;
+        assert!(run(&fixture.call, &fixture.home, || false).is_err());
+        assert_eq!(fixture.output(), b"before");
+        assert_eq!(std::fs::read(format!("{}/sentinel", fixture.home)).unwrap(), b"unrelated");
+    }
+}
+#[test]
+fn staged_data_cannot_become_executable_through_the_elf_loader() {
+    let mut fixture = Fixture::new("exec /lib64/ld-linux-x86-64.so.2 .config/kitty/user.conf");
+    let binary = std::fs::read("/usr/bin/true").unwrap();
+    std::fs::write(format!("{}/.config/kitty/user.conf", fixture.home), &binary).unwrap();
+    fixture.call.policy.approval.execution =
+        crate::hook_protocol::HookExecutionPolicy::StagedOutputs;
+    assert!(run(&fixture.call, &fixture.home, || false).is_err());
+    assert_eq!(fixture.output(), binary);
+}
+#[test]
+fn staged_root_pinned_bash_exec_preserves_home_cwd_uid_and_two_outputs() {
+    let mut fixture = Fixture::new(
+        "exec /usr/bin/bash --noprofile --norc -c 'IFS= read -r previous < .config/kitty/user.conf || :; printf \"%s:%s:%s:%s:%s:%s\" \"$HOME\" \"$PWD\" \"$UID\" \"$EUID\" \"${GROUPS[0]}\" \"$previous\" > .config/kitty/user.conf; printf fish-after > .config/fish/user.fish'",
+    );
+    fixture.staged();
+    fixture.add_fish();
+    run(&fixture.call, &fixture.home, || false).unwrap();
+    assert_eq!(
+        fixture.output(),
+        format!(
+            "{}:{}:{}:{}:{}:before",
+            fixture.home,
+            fixture.home,
+            fixture.call.policy.uid,
+            fixture.call.policy.uid,
+            rustix::process::getegid().as_raw()
+        )
+        .as_bytes()
+    );
+    let fish = format!("{}/.config/fish/user.fish", fixture.home);
+    assert_eq!(std::fs::read(&fish).unwrap(), b"fish-after");
+    let metadata = std::fs::metadata(&fish).unwrap();
+    assert_eq!(metadata.mode() & 0o7777, 0o640);
+    assert_eq!(metadata.uid(), fixture.call.policy.uid);
+    assert_eq!(metadata.gid(), rustix::process::getegid().as_raw());
+    assert_eq!(std::fs::read(format!("{}/sentinel", fixture.home)).unwrap(), b"unrelated");
+}
+#[test]
+fn staged_changed_preimage_refuses_publication_without_clobbering_the_change() {
+    for replace in [false, true] {
+        let mut fixture = Fixture::new(
+            "printf after > .config/kitty/user.conf; for ((i=0;i<20000;i++)); do :; done",
+        );
+        fixture.staged();
+        let mut calls = 0;
+        let result = run(&fixture.call, &fixture.home, || {
+            calls += 1;
+            if calls == 2 {
+                let output = format!("{}/.config/kitty/user.conf", fixture.home);
+                if replace {
+                    let replacement = format!("{}/replacement", fixture.home);
+                    std::fs::write(&replacement, b"concurrent").unwrap();
+                    std::fs::rename(replacement, &output).unwrap();
+                } else {
+                    std::fs::write(output, b"concurrent").unwrap();
+                }
+            }
+            false
+        });
+        assert!(result.unwrap_err().to_string().contains("during staging"));
+        assert!(calls >= 2);
+        assert_eq!(fixture.output(), b"concurrent");
+    }
+}
+#[test]
+fn staged_cancel_deadline_and_byte_limit_never_publish_partial_outputs() {
+    for (command, cancel) in [
+        ("printf partial > .config/kitty/user.conf; while :; do :; done", true),
+        ("printf partial > .config/kitty/user.conf; while :; do :; done", false),
+        ("printf '%17825792s' x > .config/kitty/user.conf", false),
+    ] {
+        let mut fixture = Fixture::new(command);
+        fixture.staged();
+        let started = Instant::now();
+        let mut calls = 0;
+        assert!(
+            run(&fixture.call, &fixture.home, || {
+                calls += 1;
+                cancel && calls > 5
+            })
+            .is_err()
+        );
+        assert!(started.elapsed() < Duration::from_secs(3));
+        assert_eq!(fixture.output(), b"before");
+    }
+}
+#[test]
+fn staged_inode_quota_stops_creation_and_undeclared_names_prevent_commit() {
+    let mut fixture = Fixture::new(
+        "i=0; while ((i<300)); do if ! printf x > \"extra-$i\"; then exit 0; fi; ((i+=1)); done; exit 23",
+    );
+    fixture.staged();
+    let error = run(&fixture.call, &fixture.home, || false).unwrap_err();
+    // The command succeeds only when creation fails before 300 inodes. A
+    // generic process failure would not establish the tmpfs quota was reached.
+    assert!(error.to_string().contains("undeclared staged entries"), "{error}");
+    assert_eq!(fixture.output(), b"before");
+    assert!(!Path::new(&format!("{}/extra-0", fixture.home)).exists());
+}
+#[test]
 fn held_writers_stay_frozen_across_success_and_exec_refusal() {
     const TEST: &str =
         "hook_supervisor::tests::held_writers_stay_frozen_across_success_and_exec_refusal";
@@ -209,6 +358,12 @@ fn held_writers_stay_frozen_across_success_and_exec_refusal() {
     freeze.check().unwrap();
     assert_eq!(before, std::fs::read(&marker).unwrap());
     assert_eq!(fixture.output(), b"approved");
+    let mut staged = Fixture::new("printf staged > .config/kitty/user.conf");
+    staged.staged();
+    run(&staged.call, &staged.home, || false).unwrap();
+    freeze.check().unwrap();
+    assert_eq!(before, std::fs::read(&marker).unwrap());
+    assert_eq!(staged.output(), b"staged");
     let denied = Fixture::new("exec /usr/bin/true");
     assert!(run(&denied.call, &denied.home, || false).is_err());
     freeze.check().unwrap();

@@ -24,6 +24,7 @@ pub mod generation;
 pub mod generation_capture;
 pub mod hook_client;
 pub mod hook_protocol;
+mod hook_staging;
 mod hook_supervisor;
 pub use hook_supervisor::shell_digest as hook_shell_digest;
 #[cfg(target_os = "linux")]

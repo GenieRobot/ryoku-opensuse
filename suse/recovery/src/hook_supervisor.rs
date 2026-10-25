@@ -150,7 +150,16 @@ pub(crate) fn run(
         outputs.push(file);
     }
     let runtime = runtime_files()?;
-    let sandbox = Sandbox::new(&executable, &runtime, &outputs)?;
+    let staged = if call.policy.approval.execution
+        == crate::hook_protocol::HookExecutionPolicy::StagedOutputs
+    {
+        Some(crate::hook_staging::HookStage::prepare(&root, home, call)?)
+    } else {
+        None
+    };
+    let namespace = staged.as_ref().map(|stage| stage.namespace());
+    let sandbox =
+        Sandbox::new(&executable, &runtime, if staged.is_some() { &[] } else { &outputs })?;
     let parent = std::process::id();
     let mut command = Command::new(format!("/proc/self/fd/{}", executable.as_raw_fd()));
     command.args(["--noprofile", "--norc", "-c", &call.expanded_command()]);
@@ -171,6 +180,15 @@ pub(crate) fn run(
             {
                 return Err(io::Error::last_os_error());
             }
+            let staged_root =
+                namespace.as_ref().map(|namespace| namespace.install()).transpose()?;
+            // Namespace credential transitions may clear PDEATHSIG. Re-arm and
+            // check the original parent before any untrusted image executes.
+            if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL) != 0
+                || libc::getppid() != parent as i32
+            {
+                return Err(io::Error::from_raw_os_error(libc::ECHILD));
+            }
             for (resource, limit) in [
                 (libc::RLIMIT_CORE, 0),
                 (libc::RLIMIT_FSIZE, 16 * 1024 * 1024),
@@ -186,7 +204,7 @@ pub(crate) fn run(
             if libc::syscall(libc::SYS_close_range, 3_u32, u32::MAX, 4_u32) != 0 {
                 return Err(io::Error::last_os_error());
             }
-            sandbox.enforce()
+            sandbox.enforce(staged_root)
         });
     }
     let mut child = command.spawn()?;
@@ -199,7 +217,7 @@ pub(crate) fn run(
                 return if let Some(reason) = failure {
                     Err(io::Error::other(reason))
                 } else if status.success() {
-                    Ok(())
+                    staged.as_ref().map_or(Ok(()), |stage| stage.commit())
                 } else {
                     Err(io::Error::other(
                         "hook process failed or requested an effect outside its approved policy",
@@ -288,12 +306,23 @@ impl Sandbox {
         }
         Ok(Self { ruleset, filter: filter()? })
     }
-    unsafe fn enforce(&self) -> io::Result<()> {
+    unsafe fn enforce(&self, staged_root: Option<i32>) -> io::Result<()> {
         let program = libc::sock_fprog {
             len: self.filter.len() as u16,
             filter: self.filter.as_ptr().cast_mut(),
         };
         // SAFETY: valid ruleset and prebuilt BPF program; this affects only the fork child.
+        if let Some(root) = staged_root {
+            // Only the private, noexec, quota-bounded tmpfs receives computation
+            // write access. No real home directory or output inode is writable.
+            let rule = PathRule { allowed_access: 0x7fff & !EXECUTE, parent_fd: root };
+            if unsafe {
+                libc::syscall(libc::SYS_landlock_add_rule, self.ruleset.as_raw_fd(), 1, &rule, 0)
+            } != 0
+            {
+                return Err(io::Error::last_os_error());
+            }
+        }
         if unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) } != 0
             || unsafe {
                 libc::syscall(libc::SYS_landlock_restrict_self, self.ruleset.as_raw_fd(), 0)
@@ -344,6 +373,10 @@ fn filter() -> io::Result<Vec<libc::sock_filter>> {
         libc::SYS_geteuid,
         libc::SYS_getgid,
         libc::SYS_getegid,
+        // Newer Bash uses the saved-ID queries during startup/re-exec. These
+        // only read identity; every set*id and capability mutation stays denied.
+        libc::SYS_getresuid,
+        libc::SYS_getresgid,
         libc::SYS_getpgrp,
         libc::SYS_getgroups,
         libc::SYS_arch_prctl,

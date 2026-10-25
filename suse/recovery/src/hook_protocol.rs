@@ -24,6 +24,15 @@ pub struct HookApprovalRequest {
     pub outputs: Vec<HookOutput>,
     pub timeout_seconds: u16,
     pub allow_restore: bool,
+    #[serde(default)]
+    pub execution: HookExecutionPolicy,
+}
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HookExecutionPolicy {
+    #[default]
+    DirectWriteOnly,
+    StagedOutputs,
 }
 impl HookApprovalRequest {
     pub fn validate(&self) -> bool {
