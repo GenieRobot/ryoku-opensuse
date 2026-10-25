@@ -78,9 +78,11 @@ Requires:       dbus-1-tools
 # These qmldir modules are private to the shell's import root under /usr/share.
 # Tumbleweed's generator recognizes provides only below /qt6/qml/, while its
 # requires scanner also sees these private module imports. Keep all scanning
-# enabled and declare exactly the two modules shipped in this package.
+# enabled and declare exactly the four modules shipped in this package.
 Provides:       qt6qmlimport(shell.services)
 Provides:       qt6qmlimport(shell.barkit)
+Provides:       qt6qmlimport(shell.modules.phone)
+Provides:       qt6qmlimport(shell.modules.stage.frame)
 # Upstream ships directory imports with singleton exports but no module line.
 Provides:       qt6qmlimport(Ryoku.Ui.Singletons)
 Provides:       qt6qmlimport(Ryoku.PluginKit.Singletons)

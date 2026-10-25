@@ -132,3 +132,30 @@ or correct QML type registration. Blobs shader sources are embedded by
 files. Their resource contents and execution remain native acceptance work.
 All eleven ordinary audit tests and explicit native spec parsing pass using
 cached locked dependencies; runtime sources, specs and archives stay unchanged.
+
+## Native candidate QML metadata correction
+
+The first native runtime RPM built from port `8985d22698e3f73d77a9ee2e9305d438c5f9f6b0`
+(SHA-256 `252f4adcc3d233888ef199e654336ebbb541a37f2e26f5283144832c242b1697`)
+exposed two separate problems. Its explicit Spatial3D 1.0 consumer generates
+`qt6qmlimport(Ryoku.Spatial3D.1)`, satisfied by the same RPM's
+`qt6qmlimport(Ryoku.Spatial3D.1) = 0`. The audit now matches that exact major-bearing
+capability name, rather than demanding a bare URI or literal equality with the
+versioned Provide line. Wrong-major, missing, malformed and lookalike providers
+remain failures; constrained internal requirements require separate native solver
+validation and fail this gate.
+
+The runtime also ships `shell.modules.phone` and `shell.modules.stage.frame`
+qmldirs under its private shell tree, outside the distribution's `/qt6/qml`
+provider scan roots. Their exact selected Source3 blobs, modes, module declarations
+and original RPM file digests are recorded in
+[private-qml-providers.json](../upstream/evidence/ryoku-v1.0/private-qml-providers.json).
+The runtime spec declares these two real private capabilities, retaining all
+scanning and payloads. The unchanged original native Requires/aggregate Provides
+fixtures reproduce the missing-provider failure; tests bind each added Provide
+to its selected qmldir and runtime subpackage.
+
+This is source and recipe evidence. A corrected native RPM must be rebuilt and
+hashed before rerunning the production audit. The original failing RPM/audit
+remain evidence; source regressions do not establish native solver, ABI loading,
+phone, editor or full Ryoku acceptance. No feature is removed by this correction.
