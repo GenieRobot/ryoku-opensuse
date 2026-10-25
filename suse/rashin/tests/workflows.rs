@@ -232,6 +232,7 @@ fn provider_keys_are_private_and_never_returned_by_inventory_or_errors() {
     let engine = fixture.engine();
     let secret = "synthetic-test-key-not-a-real-credential";
     let provider = Provider::OpenAiCompatible {
+        streaming: false,
         endpoint: "https://example.invalid/v1".into(),
         api_key: secret.into(),
         models: vec!["model-1".into()],
@@ -278,6 +279,7 @@ fn malformed_and_insecure_provider_sources_are_rejected() {
         "https://example.com\nheader=x",
     ] {
         let provider = Provider::OpenAiCompatible {
+            streaming: false,
             endpoint: endpoint.into(),
             api_key: "secret".into(),
             models: vec!["model".into()],
@@ -285,6 +287,7 @@ fn malformed_and_insecure_provider_sources_are_rejected() {
         assert_eq!(provider.validate(), Err(Error::InvalidRequest), "{endpoint}");
     }
     let provider = Provider::OpenAiCompatible {
+        streaming: false,
         endpoint: "https://example.com/v1".into(),
         api_key: "secret\nheader:bad".into(),
         models: vec!["model".into()],
@@ -1044,4 +1047,84 @@ fn handoff_rejects_cancelled_sources_and_preserves_pending_on_busy_until_accepte
             .unwrap()
             .is_empty()
     );
+}
+
+#[test]
+fn fixture_stream_progress_is_private_ephemeral_cancellable_and_commits_only_complete_turns() {
+    use ryoku_rashin::provider::FixtureOutcome;
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let config = |fail| Request::PutProvider {
+        id: "stream".into(),
+        provider: Provider::Fixture {
+            delay_millis: 600,
+            outcome: FixtureOutcome::Stream {
+                chunks: vec!["PRIVATE_PROGRESS_".into(), "Δelta ".into(), "answer".into()],
+                fail,
+            },
+        },
+    };
+    rpc(&engine, config(false));
+    rpc(
+        &engine,
+        Request::SetRoute {
+            lane: Lane::Agent,
+            provider: "stream".into(),
+            model: "fixture-v1".into(),
+        },
+    );
+    rpc(&engine, Request::NewSession { id: "stream-session".into(), lane: Lane::Agent });
+    let prompt = |id: &str| Request::Prompt {
+        id: id.into(),
+        session: "stream-session".into(),
+        prompt: "fixture question".into(),
+    };
+    rpc(&engine, prompt("cancel-stream"));
+    let until = Instant::now() + Duration::from_secs(3);
+    loop {
+        let job = rpc(&engine, Request::Job { id: "cancel-stream".into() });
+        if job["progress"].as_str().is_some_and(|text| text.contains("PRIVATE_PROGRESS_")) {
+            assert_eq!(job["job"]["status"], "running");
+            break;
+        }
+        assert!(Instant::now() < until);
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    let persisted: Value =
+        serde_json::from_slice(&fs::read(fixture.path.join("state.json")).unwrap()).unwrap();
+    assert!(!persisted["jobs"].to_string().contains("PRIVATE_PROGRESS_"));
+    assert!(persisted["jobs"]["cancel-stream"].get("progress").is_none());
+    rpc(&engine, Request::Cancel { id: "cancel-stream".into() });
+    assert!(rpc(&engine, Request::Job { id: "cancel-stream".into() })["progress"].is_null());
+    assert_eq!(done(&engine, "cancel-stream")["status"], "cancelled");
+    assert!(
+        rpc(&engine, Request::Session { id: "stream-session".into() })["session"]["messages"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(rpc(&engine, Request::Usage {})["activity"].as_array().unwrap().is_empty());
+    rpc(&engine, config(true));
+    rpc(&engine, prompt("fail-stream"));
+    assert_eq!(done(&engine, "fail-stream")["status"], "failed");
+    assert!(rpc(&engine, Request::Job { id: "fail-stream".into() })["progress"].is_null());
+    assert!(
+        rpc(&engine, Request::Session { id: "stream-session".into() })["session"]["messages"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    rpc(&engine, config(false));
+    rpc(&engine, prompt("complete-stream"));
+    let job = done(&engine, "complete-stream");
+    assert_eq!(job["answer"], "PRIVATE_PROGRESS_Δelta answer");
+    assert!(rpc(&engine, Request::Job { id: "complete-stream".into() })["progress"].is_null());
+    assert_eq!(
+        rpc(&engine, Request::Session { id: "stream-session".into() })["session"]["messages"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    assert_eq!(rpc(&engine, Request::Usage {})["activity"].as_array().unwrap().len(), 1);
 }

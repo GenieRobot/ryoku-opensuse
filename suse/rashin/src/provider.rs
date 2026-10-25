@@ -1,5 +1,6 @@
 //! Fixed provider protocols. Credentials travel over stdin to the distro curl
 //! client, never command arguments, diagnostics, or assistant responses.
+mod stream;
 use crate::{Error, Result, text};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -18,14 +19,13 @@ pub enum Provider {
     Local {},
     /// Explicit, bounded acceptance provider. It performs no network I/O and
     /// is labeled as a fixture in every provider description and usage record.
-    Fixture {
-        delay_millis: u16,
-        outcome: FixtureOutcome,
-    },
+    Fixture { delay_millis: u16, outcome: FixtureOutcome },
     OpenAiCompatible {
         endpoint: String,
         api_key: String,
         models: Vec<String>,
+        #[serde(default)]
+        streaming: bool,
     },
 }
 
@@ -34,6 +34,7 @@ pub enum Provider {
 pub enum FixtureOutcome {
     Answer(String),
     Failure,
+    Stream { chunks: Vec<String>, fail: bool },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -57,6 +58,10 @@ pub struct Completion {
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub estimated: bool,
+    #[serde(default)]
+    pub stop_reason: Option<String>,
+    #[serde(default)]
+    pub actual_model: Option<String>,
 }
 
 impl Provider {
@@ -65,11 +70,22 @@ impl Provider {
             if *delay_millis > 1000 {
                 return Err(Error::Limit);
             }
+            if let FixtureOutcome::Stream { chunks, .. } = outcome {
+                if chunks.is_empty()
+                    || chunks.len() > 128
+                    || chunks.iter().map(String::len).sum::<usize>() > 16 * 1024
+                {
+                    return Err(Error::Limit);
+                }
+                for chunk in chunks {
+                    text(chunk, 16 * 1024)?;
+                }
+            }
             if let FixtureOutcome::Answer(answer) = outcome {
                 text(answer, 16 * 1024)?;
             }
         }
-        if let Self::OpenAiCompatible { endpoint, api_key, models } = self {
+        if let Self::OpenAiCompatible { endpoint, api_key, models, .. } = self {
             text(endpoint, 2048)?;
             text(api_key, 4096)?;
             // No URL credentials, fragments, queries, control bytes or proxy
@@ -111,8 +127,8 @@ impl Provider {
             Self::Fixture { .. } => {
                 json!({"id":id,"kind":"fixture","models":self.models(),"requires_credentials":false,"test_only":true})
             }
-            Self::OpenAiCompatible { endpoint, .. } => {
-                json!({"id":id,"kind":"open_ai_compatible","endpoint":endpoint,"models":self.models(),"requires_credentials":true,"credential_present":true})
+            Self::OpenAiCompatible { endpoint, streaming, .. } => {
+                json!({"id":id,"kind":"open_ai_compatible","endpoint":endpoint,"models":self.models(),"requires_credentials":true,"credential_present":true,"streaming":streaming})
             }
         }
     }
@@ -123,6 +139,16 @@ impl Provider {
         messages: &[Message],
         cancelled: &AtomicBool,
     ) -> Result<Completion> {
+        self.complete_with_progress(model, messages, cancelled, &mut |_| Ok(()))
+    }
+
+    pub fn complete_with_progress(
+        &self,
+        model: &str,
+        messages: &[Message],
+        cancelled: &AtomicBool,
+        emit: &mut impl FnMut(&str) -> Result<()>,
+    ) -> Result<Completion> {
         self.validate()?;
         if !self.models().iter().any(|candidate| candidate == model) {
             return Err(Error::NotFound);
@@ -132,6 +158,44 @@ impl Provider {
         }
         match self {
             Self::Fixture { delay_millis, outcome } => {
+                if let FixtureOutcome::Stream { chunks, fail } = outcome {
+                    let mut answer = String::new();
+                    for chunk in chunks {
+                        if cancelled.load(Ordering::Acquire) {
+                            return Err(Error::Cancelled);
+                        }
+                        answer.push_str(chunk);
+                        emit(chunk)?;
+                        let deadline = std::time::Instant::now()
+                            + std::time::Duration::from_millis(
+                                u64::from(*delay_millis) / chunks.len() as u64,
+                            );
+                        while std::time::Instant::now() < deadline {
+                            if cancelled.load(Ordering::Acquire) {
+                                return Err(Error::Cancelled);
+                            }
+                            std::thread::sleep(std::time::Duration::from_millis(2));
+                        }
+                    }
+                    if *fail {
+                        return Err(Error::ProviderFailed);
+                    }
+                    return Ok(Completion {
+                        text: answer,
+                        input_tokens: messages
+                            .iter()
+                            .map(|message| message.content.len().div_ceil(4) as u64)
+                            .sum(),
+                        output_tokens: chunks
+                            .iter()
+                            .map(|chunk| chunk.len())
+                            .sum::<usize>()
+                            .div_ceil(4) as u64,
+                        estimated: true,
+                        stop_reason: None,
+                        actual_model: Some(model.into()),
+                    });
+                }
                 let deadline = std::time::Instant::now()
                     + std::time::Duration::from_millis((*delay_millis).into());
                 while std::time::Instant::now() < deadline {
@@ -152,8 +216,13 @@ impl Provider {
                             .sum(),
                         output_tokens: answer.len().div_ceil(4) as u64,
                         estimated: true,
+                        stop_reason: None,
+                        actual_model: Some(model.into()),
                     }),
                     FixtureOutcome::Failure => Err(Error::ProviderFailed),
+                    FixtureOutcome::Stream { .. } => {
+                        unreachable!("stream fixture handled before delay")
+                    }
                 }
             }
             Self::Local {} => {
@@ -188,10 +257,15 @@ impl Provider {
                     output_tokens: answer.len().div_ceil(4) as u64,
                     text: answer,
                     estimated: true,
+                    stop_reason: None,
+                    actual_model: Some(model.into()),
                 })
             }
-            Self::OpenAiCompatible { endpoint, api_key, .. } => {
-                let body = json!({"model":model,"messages":messages,"stream":false});
+            Self::OpenAiCompatible { endpoint, api_key, streaming, .. } => {
+                let mut body = json!({"model":model,"messages":messages,"stream":streaming});
+                if *streaming {
+                    body["stream_options"] = json!({"include_usage":true});
+                }
                 let config = format!(
                     "url = {}\nheader = {}\nheader = \"Content-Type: application/json\"\ndata = {}\n",
                     quote(&format!("{}/chat/completions", endpoint.trim_end_matches('/'))),
@@ -207,6 +281,7 @@ impl Provider {
                         .write_all(config.as_bytes())
                         .map_err(|_| Error::ProviderFailed)?;
                     let mut bytes = Vec::new();
+                    let mut decoder = stream::Decoder::default();
                     let mut stdout = child.stdout.take().ok_or(Error::ProviderFailed)?;
                     rustix::fs::fcntl_setfl(&stdout, rustix::fs::OFlags::NONBLOCK)
                         .map_err(|_| Error::ProviderFailed)?;
@@ -222,7 +297,11 @@ impl Provider {
                         match stdout.read(&mut chunk) {
                             Ok(0) => break,
                             Ok(count) => {
-                                bytes.extend_from_slice(&chunk[..count]);
+                                if *streaming {
+                                    decoder.feed(&chunk[..count], emit)?;
+                                } else {
+                                    bytes.extend_from_slice(&chunk[..count]);
+                                }
                                 if bytes.len() as u64 > MAX_RESPONSE {
                                     return Err(Error::Limit);
                                 }
@@ -251,6 +330,9 @@ impl Provider {
                     if cancelled.load(Ordering::Acquire) {
                         return Err(Error::Cancelled);
                     }
+                    if *streaming {
+                        return decoder.finish(emit);
+                    }
                     let value: serde_json::Value =
                         serde_json::from_slice(&bytes).map_err(|_| Error::ProviderFailed)?;
                     let answer = value
@@ -261,11 +343,30 @@ impl Provider {
                     text(&answer, 128 * 1024).map_err(|_| Error::ProviderFailed)?;
                     let input = value.pointer("/usage/prompt_tokens").and_then(|v| v.as_u64());
                     let output = value.pointer("/usage/completion_tokens").and_then(|v| v.as_u64());
+                    let actual_model = value
+                        .get("model")
+                        .and_then(|value| value.as_str())
+                        .map(|name| {
+                            model_name(name).map_err(|_| Error::ProviderFailed)?;
+                            Ok(name.to_owned())
+                        })
+                        .transpose()?;
                     Ok(Completion {
                         text: answer,
                         input_tokens: input.unwrap_or_default(),
                         output_tokens: output.unwrap_or_default(),
                         estimated: input.is_none() || output.is_none(),
+                        stop_reason: value
+                            .pointer("/choices/0/finish_reason")
+                            .and_then(|value| value.as_str())
+                            .filter(|reason| {
+                                reason.len() <= 64
+                                    && reason
+                                        .bytes()
+                                        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+                            })
+                            .map(str::to_owned),
+                        actual_model,
                     })
                 })();
                 if result.is_err() {
@@ -296,6 +397,7 @@ fn quote(value: &str) -> String {
 const CURL_ARGS: &[&str] = &[
     "--disable",
     "--silent",
+    "--no-buffer",
     "--fail",
     "--proto",
     "=https",
@@ -334,7 +436,26 @@ mod tests {
         assert_eq!(command.get_program(), "/usr/bin/curl");
         assert_eq!(
             command.get_args().map(|arg| arg.to_str().unwrap()).collect::<Vec<_>>(),
-            CURL_ARGS
+            vec![
+                "--disable",
+                "--silent",
+                "--no-buffer",
+                "--fail",
+                "--proto",
+                "=https",
+                "--max-redirs",
+                "0",
+                "--connect-timeout",
+                "5",
+                "--max-time",
+                "45",
+                "--max-filesize",
+                "1048576",
+                "--proxy",
+                "",
+                "--config",
+                "-"
+            ]
         );
         assert_eq!(
             command.get_envs().collect::<Vec<_>>(),

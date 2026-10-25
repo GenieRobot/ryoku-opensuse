@@ -190,7 +190,35 @@ native excerpts additionally require the preview confirmation described above.
 Provider keys are
 not inserted into assistant context.
 
-Usage records preserve provider/model, input/output tokens, timestamp and
+Configured OpenAI-compatible providers may explicitly set `"streaming":true`;
+the default remains false for existing provider configurations. This requests
+OpenAI SSE and usage events from the same configured HTTPS endpoint. The fixed
+curl client now disables stdout buffering. Keys and request JSON remain stdin-only,
+and the existing no-shell/environment/TLS/redirect/proxy/time/size limits apply.
+The decoder handles fragmented UTF-8, LF/CRLF, comments and multiline data, and
+requires a terminal `[DONE]`. Malformed/error/tool-call frames, extra data after
+the terminal marker, 64 KiB frame limits, 128 KiB text limits and the total 1 MiB
+response bound fail the request. This completion provider still executes no tools;
+the retained typed ACP/tool approval path remains required. Stop reason and
+provider-reported actual model are recorded separately from the saved model pick,
+which is never silently changed. Missing usage remains explicitly estimated.
+
+`job` returns a top-level `progress` string while a streaming job is Running.
+It is private bounded memory for at most four workers, with at most 128 KiB per
+worker, and is never fsynced on each delta or inserted into durable session turns.
+Cancellation, failure, completion and restart discard it. Successful completion
+alone publishes answer/session/usage through the existing atomic state boundary.
+The explicitly labeled fixture provider also supports a bounded streamed outcome
+for deterministic workflow tests; it contacts no endpoint. Live provider/network
+acceptance and upstream v3 WebSocket/ACP/UI replay remain required.
+
+Active cancellation/progress registration occurs under the state publication
+lock before Running becomes visible. A per-process monotonic worker generation
+binds callbacks, completion and cleanup to that job instance. Cancelling/forgetting
+and reusing an ID cannot let an old worker publish into or clear its replacement.
+Generation counters are checked for exhaustion; restart never resumes old workers.
+
+Usage records preserve provider/model, input/output tokens, provider-reported actual model when available, timestamp and
 whether token counts are estimates or fixture results. Provider-reported counts
 come from the completion response. The runtime's activity is explicitly **not
 provider quota**; quota is reported unavailable. Upstream Claude OAuth, Codex
@@ -254,7 +282,7 @@ No row in the original inventory is removed by this slice.
 
 | Retained upstream capability | Implemented here | Required for #183 acceptance |
 | --- | --- | --- |
-| Ask/recent/cancel/handoff | Real asynchronous Ask, cancellation, independent history, canonical completed-history staging and atomic immediate Agent Run | Upstream streaming protocol, shell/launcher shared history, explicit UI handoff/replay and manual/unfinished-question/current-ACP-Ask cancellation semantics |
+| Ask/recent/cancel/handoff | Real asynchronous Ask, configured HTTPS streaming/private progress, cancellation, independent history, canonical completed-history staging and atomic immediate Agent Run | Upstream streaming protocol, shell/launcher shared history, explicit UI handoff/replay and manual/unfinished-question/current-ACP-Ask cancellation semantics |
 | Agent/plain Chat | Independent persistent turns, sessions, load/read/delete and saved lane routes | ACP initialize/session/prompt/notifications, v3 replay/WebSocket, tools, approvals, images, thinking, terminal resume and all retained harnesses |
 | Fix doctor/tip/app | Typed investigation using configured Agent route, bounded native user-unit/journal/RPM context; evidence is data | Complete app logs/coredumps/package-change context, upstream transient fix unit/terminal harness, protected repair providers |
 | Agent wire/unwire | Effective built-in Agent instructions | Exact external marker/skill/MCP wiring, preservation of unrelated config, harness readiness/default/model operations |

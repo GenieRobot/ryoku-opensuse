@@ -2,7 +2,7 @@ use crate::{
     Error, Result,
     api::{Document, Lane, Request},
     digest, identifier,
-    provider::{Message, Provider, Role},
+    provider::{Completion, Message, Provider, Role},
     store::Store,
     text,
 };
@@ -14,7 +14,7 @@ use std::{
     os::unix::net::{UnixListener, UnixStream},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     },
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -64,8 +64,14 @@ struct Job {
     provider: String,
     model: String,
     started: u64,
+    #[serde(default, skip_serializing)]
+    generation: u64,
     #[serde(default)]
     handoff: Option<Handoff>,
+    #[serde(default)]
+    stop_reason: Option<String>,
+    #[serde(default)]
+    actual_model: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -79,6 +85,8 @@ struct Usage {
     estimated: bool,
     fixture: bool,
     recorded: u64,
+    #[serde(default)]
+    actual_model: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -170,10 +178,17 @@ fn canonical_handoff(state: &State, ask_id: &str) -> Result<Handoff> {
     Ok(handoff)
 }
 
+struct ActiveJob {
+    generation: u64,
+    cancelled: Arc<AtomicBool>,
+    text: String,
+}
+
 pub struct Engine {
     store: Store,
     state: Mutex<State>,
-    cancellations: Mutex<BTreeMap<String, Arc<AtomicBool>>>,
+    in_flight: Mutex<BTreeMap<String, ActiveJob>>,
+    next_generation: AtomicU64,
     healthy: AtomicBool,
     active: Arc<AtomicUsize>,
     usage_collection: Mutex<()>,
@@ -217,7 +232,8 @@ impl Engine {
         Ok(Arc::new(Self {
             store,
             state: Mutex::new(state),
-            cancellations: Mutex::new(BTreeMap::new()),
+            in_flight: Mutex::new(BTreeMap::new()),
+            next_generation: AtomicU64::new(0),
             healthy: AtomicBool::new(true),
             active: Arc::new(AtomicUsize::new(0)),
             usage_collection: Mutex::new(()),
@@ -485,22 +501,21 @@ impl Engine {
                     },
                 )
             }
-            Request::Cancel { id } => {
-                let result = self.transaction(|state| {
-                    let job = state.jobs.get_mut(&id).ok_or(Error::NotFound)?;
-                    if job.status == JobStatus::Running {
-                        job.status = JobStatus::Cancelled;
-                        job.error = Some(Error::Cancelled);
+            Request::Cancel { id } => self.transaction(|state| {
+                let job = state.jobs.get_mut(&id).ok_or(Error::NotFound)?;
+                if job.status == JobStatus::Running {
+                    job.status = JobStatus::Cancelled;
+                    job.error = Some(Error::Cancelled);
+                    if let Some(active) =
+                        self.in_flight.lock().map_err(|_| Error::Storage)?.get_mut(&id)
+                        && active.generation == job.generation
+                    {
+                        active.cancelled.store(true, Ordering::Release);
+                        active.text.clear();
                     }
-                    Ok(json!({"id":id,"status":job.status}))
-                })?;
-                if let Some(cancel) =
-                    self.cancellations.lock().map_err(|_| Error::Storage)?.get(&id)
-                {
-                    cancel.store(true, Ordering::Release);
                 }
-                Ok(result)
-            }
+                Ok(json!({"id":id,"status":job.status}))
+            }),
             Request::PutProvider { id, provider } => {
                 identifier(&id)?;
                 provider.validate()?;
@@ -594,7 +609,18 @@ impl Engine {
                         json!({"documents":state.documents.iter().map(|doc| json!({"name":doc.name,"sha256":doc.sha256})).collect::<Vec<_>>()}),
                     ),
                     Request::Job { id } => {
-                        Ok(json!({"id":id,"job":state.jobs.get(&id).ok_or(Error::NotFound)?}))
+                        let job = state.jobs.get(&id).ok_or(Error::NotFound)?;
+                        let progress = if job.status == JobStatus::Running {
+                            self.in_flight
+                                .lock()
+                                .map_err(|_| Error::Storage)?
+                                .get(&id)
+                                .filter(|active| active.generation == job.generation)
+                                .map(|active| active.text.clone())
+                        } else {
+                            None
+                        };
+                        Ok(json!({"id":id,"job":job,"progress":progress}))
                     }
                     Request::Recent {} => Ok(
                         json!({"asks":state.jobs.iter().filter(|(_, job)| job.lane == Lane::Ask).map(|(id, job)| json!({"id":id,"job":job})).collect::<Vec<_>>()}),
@@ -718,6 +744,82 @@ impl Engine {
         ))
     }
 
+    fn finish_active(&self, id: &str, generation: u64) {
+        if let Ok(mut active) = self.in_flight.lock()
+            && active.get(id).is_some_and(|job| job.generation == generation)
+        {
+            active.remove(id);
+        }
+    }
+    fn publish_completion(
+        &self,
+        job_id: &str,
+        generation: u64,
+        result: Result<Completion>,
+        fixture: bool,
+    ) {
+        let publication = self.transaction(|state| {
+            let job = state.jobs.get_mut(job_id).ok_or(Error::NotFound)?;
+            if job.generation != generation || job.status != JobStatus::Running {
+                return Ok(Value::Null);
+            }
+            match result {
+                Ok(completion) => {
+                    if let Some(session) = &job.session {
+                        let conversation =
+                            state.sessions.get_mut(session).ok_or(Error::NotFound)?;
+                        conversation
+                            .messages
+                            .push(Message { role: Role::User, content: job.prompt.clone() });
+                        conversation.messages.push(Message {
+                            role: Role::Assistant,
+                            content: completion.text.clone(),
+                        });
+                    }
+                    job.status = JobStatus::Completed;
+                    job.answer = Some(completion.text);
+                    job.stop_reason = completion.stop_reason;
+                    job.actual_model = completion.actual_model.clone();
+                    state.usage.push(Usage {
+                        job: job_id.to_owned(),
+                        provider: job.provider.clone(),
+                        model: job.model.clone(),
+                        input_tokens: completion.input_tokens,
+                        output_tokens: completion.output_tokens,
+                        estimated: completion.estimated,
+                        fixture,
+                        recorded: now(),
+                        actual_model: completion.actual_model,
+                    });
+                    if state.usage.len() > 512 {
+                        state.usage.remove(0);
+                    }
+                }
+                Err(error) => {
+                    job.status = JobStatus::Failed;
+                    job.error = Some(error);
+                }
+            }
+            Ok(Value::Null)
+        });
+        if publication == Err(Error::Limit) {
+            // The completion/history/usage clone was never
+            // published. Use the reserved error allowance instead
+            // of leaving a dead worker reported as Running forever.
+            let failed = self.transaction(|state| {
+                let job = state.jobs.get_mut(job_id).ok_or(Error::NotFound)?;
+                if job.generation == generation && job.status == JobStatus::Running {
+                    job.status = JobStatus::Failed;
+                    job.error = Some(Error::Limit);
+                }
+                Ok(Value::Null)
+            });
+            if failed.is_err() {
+                self.healthy.store(false, Ordering::Release);
+            }
+        }
+    }
+
     fn start(
         self: &Arc<Self>,
         id: String,
@@ -732,7 +834,14 @@ impl Engine {
         let fingerprint = options.fingerprint.unwrap_or(digest(
             &serde_json::to_vec(&(&session, &prompt, lane)).map_err(|_| Error::InvalidRequest)?,
         ));
+        let generation = self
+            .next_generation
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |value| value.checked_add(1))
+            .map_err(|_| Error::Limit)?
+            + 1;
         let mut task = None;
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let mut registered = false;
         let response = self.transaction(|state| {
             if let Some(existing) = state.jobs.get(&id) {
                 if existing.fingerprint != fingerprint { return Err(Error::Conflict); }
@@ -770,7 +879,7 @@ impl Engine {
                 messages.extend(conversation.messages.clone());
             }
             messages.push(Message { role: Role::User, content: prompt.clone() });
-            state.jobs.insert(id.clone(), Job { fingerprint, lane, session, prompt, status: JobStatus::Running, answer: None, error: None, provider: route.provider, model: route.model.clone(), started: now(), handoff: handoff.clone() });
+            state.jobs.insert(id.clone(), Job { fingerprint, lane, session, prompt, status: JobStatus::Running, answer: None, error: None, provider: route.provider, model: route.model.clone(), started: now(), generation, handoff: handoff.clone(), stop_reason: None, actual_model: None });
             self.active.try_update(Ordering::AcqRel, Ordering::Acquire, |active| (active < 4).then_some(active + 1)).map_err(|_| Error::Busy)?;
             let permit = ProviderPermit(Arc::clone(&self.active));
             if let Some(token) = options.evidence_approval.and_then(|approval| approval.token) {
@@ -782,15 +891,26 @@ impl Engine {
                 if preview.created.elapsed() >= Duration::from_secs(300) { return Err(Error::EvidenceConsentRequired); }
             }
             if handoff.is_some() { state.pending_handoff = None; }
+            // Install cancellation/progress before publishing Running under
+            // the state lock: Cancel can never observe an accepted job without
+            // its flag, even if it arrives before the worker thread starts.
+            if let Some(old)=self.in_flight.lock().map_err(|_|Error::Storage)?.insert(id.clone(),ActiveJob {generation,cancelled:Arc::clone(&cancelled),text:String::new()}) {
+                old.cancelled.store(true,Ordering::Release);
+            }
+            registered=true;
             task = Some((provider, route.model, messages, permit));
             Ok(json!({"id":id,"status":"running"}))
-        })?;
+        });
+        let response = match response {
+            Ok(response) => response,
+            Err(error) => {
+                if registered {
+                    self.finish_active(&id, generation);
+                }
+                return Err(error);
+            }
+        };
         if let Some((provider, model, messages, permit)) = task {
-            let cancelled = Arc::new(AtomicBool::new(false));
-            self.cancellations
-                .lock()
-                .map_err(|_| Error::Storage)?
-                .insert(id.clone(), Arc::clone(&cancelled));
             let engine = Arc::clone(self);
             let job_id = id.clone();
             if std::thread::Builder::new()
@@ -798,75 +918,38 @@ impl Engine {
                 .spawn(move || {
                     let _permit = permit;
                     let fixture = matches!(&provider, Provider::Fixture { .. });
-                    let result = provider.complete(&model, &messages, &cancelled);
-                    let publication = engine.transaction(|state| {
-                        let job = state.jobs.get_mut(&job_id).ok_or(Error::NotFound)?;
-                        if job.status != JobStatus::Running {
-                            return Ok(Value::Null);
-                        }
-                        match result {
-                            Ok(completion) => {
-                                if let Some(session) = &job.session {
-                                    let conversation =
-                                        state.sessions.get_mut(session).ok_or(Error::NotFound)?;
-                                    conversation.messages.push(Message {
-                                        role: Role::User,
-                                        content: job.prompt.clone(),
-                                    });
-                                    conversation.messages.push(Message {
-                                        role: Role::Assistant,
-                                        content: completion.text.clone(),
-                                    });
-                                }
-                                job.status = JobStatus::Completed;
-                                job.answer = Some(completion.text);
-                                state.usage.push(Usage {
-                                    job: job_id.clone(),
-                                    provider: job.provider.clone(),
-                                    model: job.model.clone(),
-                                    input_tokens: completion.input_tokens,
-                                    output_tokens: completion.output_tokens,
-                                    estimated: completion.estimated,
-                                    fixture,
-                                    recorded: now(),
-                                });
-                                if state.usage.len() > 512 {
-                                    state.usage.remove(0);
-                                }
+                    let result = provider.complete_with_progress(
+                        &model,
+                        &messages,
+                        &cancelled,
+                        &mut |delta| {
+                            if cancelled.load(Ordering::Acquire) {
+                                return Err(Error::Cancelled);
                             }
-                            Err(error) => {
-                                job.status = JobStatus::Failed;
-                                job.error = Some(error);
+                            let mut active = engine.in_flight.lock().map_err(|_| Error::Storage)?;
+                            let progress = active
+                                .get_mut(&job_id)
+                                .filter(|active| active.generation == generation)
+                                .ok_or(Error::Cancelled)?;
+                            if progress.text.len() + delta.len() > 128 * 1024 {
+                                return Err(Error::Limit);
                             }
-                        }
-                        Ok(Value::Null)
-                    });
-                    if publication == Err(Error::Limit) {
-                        // The completion/history/usage clone was never
-                        // published. Use the reserved error allowance instead
-                        // of leaving a dead worker reported as Running forever.
-                        let failed = engine.transaction(|state| {
-                            let job = state.jobs.get_mut(&job_id).ok_or(Error::NotFound)?;
-                            if job.status == JobStatus::Running {
-                                job.status = JobStatus::Failed;
-                                job.error = Some(Error::Limit);
-                            }
-                            Ok(Value::Null)
-                        });
-                        if failed.is_err() {
-                            engine.healthy.store(false, Ordering::Release);
-                        }
-                    }
-                    if let Ok(mut cancellations) = engine.cancellations.lock() {
-                        cancellations.remove(&job_id);
-                    }
+                            progress.text.push_str(delta);
+                            Ok(())
+                        },
+                    );
+                    engine.publish_completion(&job_id, generation, result, fixture);
+                    engine.finish_active(&job_id, generation);
                 })
                 .is_err()
             {
+                self.finish_active(&id, generation);
                 self.transaction(|state| {
                     let job = state.jobs.get_mut(&id).ok_or(Error::NotFound)?;
-                    job.status = JobStatus::Failed;
-                    job.error = Some(Error::ProviderUnavailable);
+                    if job.generation == generation && job.status == JobStatus::Running {
+                        job.status = JobStatus::Failed;
+                        job.error = Some(Error::ProviderUnavailable);
+                    }
                     Ok(Value::Null)
                 })?;
             }
@@ -969,6 +1052,7 @@ mod evidence_tests {
             .dispatch(Request::PutProvider {
                 id: "external".into(),
                 provider: Provider::OpenAiCompatible {
+                    streaming: true,
                     endpoint: "https://example.invalid/v1".into(),
                     api_key: "PRIVATE_TEST_KEY".into(),
                     models: vec!["test".into()],
@@ -1286,5 +1370,64 @@ mod evidence_tests {
             assert!(std::time::Instant::now() < until);
             std::thread::sleep(Duration::from_millis(5));
         }
+    }
+    #[test]
+    fn stale_worker_cannot_publish_or_remove_a_reused_request_id() {
+        let fixture = Fixture::new();
+        let engine = fixture.engine();
+        engine
+            .dispatch(Request::PutProvider {
+                id: "stream".into(),
+                provider: Provider::Fixture {
+                    delay_millis: 1000,
+                    outcome: crate::provider::FixtureOutcome::Stream {
+                        chunks: vec!["first".into(), "second".into()],
+                        fail: false,
+                    },
+                },
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::SetRoute {
+                lane: Lane::Ask,
+                provider: "stream".into(),
+                model: "fixture-v1".into(),
+            })
+            .unwrap();
+        let request = || Request::Ask { id: "reused".into(), prompt: "same question".into() };
+        engine.dispatch(request()).unwrap();
+        let old_generation = engine.state.lock().unwrap().jobs["reused"].generation;
+        let old_flag = Arc::clone(&engine.in_flight.lock().unwrap()["reused"].cancelled);
+        engine.dispatch(Request::Cancel { id: "reused".into() }).unwrap();
+        assert!(old_flag.load(Ordering::Acquire));
+        engine.dispatch(Request::ForgetJob { id: "reused".into() }).unwrap();
+        engine.dispatch(request()).unwrap();
+        let generation = engine.state.lock().unwrap().jobs["reused"].generation;
+        assert_ne!(generation, old_generation);
+        let new_flag = Arc::clone(&engine.in_flight.lock().unwrap()["reused"].cancelled);
+        engine.finish_active("reused", old_generation);
+        assert_eq!(engine.in_flight.lock().unwrap()["reused"].generation, generation);
+        engine.publish_completion(
+            "reused",
+            old_generation,
+            Ok(Completion {
+                text: "STALE_ANSWER".into(),
+                input_tokens: 1,
+                output_tokens: 1,
+                estimated: true,
+                stop_reason: None,
+                actual_model: None,
+            }),
+            true,
+        );
+        engine.publish_completion("reused", old_generation, Err(Error::ProviderFailed), true);
+        let state = engine.state.lock().unwrap();
+        assert_eq!(state.jobs["reused"].status, JobStatus::Running);
+        assert!(state.jobs["reused"].answer.is_none());
+        assert!(state.usage.is_empty());
+        drop(state);
+        assert!(!new_flag.load(Ordering::Acquire));
+        engine.dispatch(Request::Cancel { id: "reused".into() }).unwrap();
+        assert!(new_flag.load(Ordering::Acquire));
     }
 }
