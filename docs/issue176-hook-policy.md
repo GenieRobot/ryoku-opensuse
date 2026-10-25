@@ -140,3 +140,22 @@ UI/source and require further reviewed policy classes. This is usable bounded
 command execution, not acceptance of the remaining matrix rows. Native daemon
 trigger→helper approval→Snapper/generation→actual desktop execution, interrupted
 approval restoration, and all full Tumbleweed lifecycle tests remain unproven.
+
+## Startup broker readiness follow-up
+
+Native startup now waits, before configuration/store initialization and hook
+registration execution, for a bootstrap byte on its authenticated inherited
+parent channel. Rust sends it after binding and validating the public broker
+listener and before starting proxy threads that can transfer R/A descriptors.
+An early connection therefore cannot race a valid startup hook into a missing
+broker, nor can a query descriptor overtake bootstrap. Missing/invalid readiness
+fails after five seconds without beginning native startup. The signal grants
+no hook execution authority: the exact typed policy and linked operation remain
+mandatory. A real Unix descriptor test checks byte/SCM_RIGHTS ordering and the
+unchanged query frame; the complete retained Rust/daemon suites pass.
+
+The original configured-command receipt is historical at commit
+`9a77472971ae17f19df403eac4bcba0b752927c6` (hosted CI `40209142753` green).
+The startup follow-up has its own source/log hashes in
+`issue176-startup-readiness-20261025.toml`. Neither receipt accepts the remaining
+per-hook/theme or native lifecycle requirements.

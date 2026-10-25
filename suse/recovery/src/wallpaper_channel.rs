@@ -19,6 +19,7 @@ pub(crate) struct NativeActor {
     uid: u32,
     executable: crate::writer_freeze::ExecutablePin,
     manual_paused: std::sync::atomic::AtomicBool,
+    ready: std::sync::atomic::AtomicBool,
 }
 
 impl NativeActor {
@@ -45,7 +46,20 @@ impl NativeActor {
             uid,
             executable,
             manual_paused: std::sync::atomic::AtomicBool::new(false),
+            ready: std::sync::atomic::AtomicBool::new(false),
         })
+    }
+
+    /// The public listener is bound before this bootstrap byte, and no query
+    /// descriptor is transferred until afterwards. This grants no action.
+    pub(crate) fn announce_ready(&self) -> io::Result<()> {
+        self.identity()?;
+        let mut control =
+            self.control.lock().map_err(|_| io::Error::other("native control channel poisoned"))?;
+        if self.ready.swap(true, std::sync::atomic::Ordering::AcqRel) {
+            return Err(io::Error::other("native bootstrap already announced"));
+        }
+        announce_ready(&mut control)
     }
 
     pub(crate) fn identity(&self) -> io::Result<ActorIdentity> {
@@ -139,6 +153,9 @@ impl NativeActor {
 
     fn connection(&self, kind: ChannelKind) -> io::Result<UnixStream> {
         self.identity()?;
+        if !self.ready.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(io::Error::other("native broker bootstrap is not ready"));
+        }
         let (broker, native) = UnixStream::pair()?;
         let control =
             self.control.lock().map_err(|_| io::Error::other("native control channel poisoned"))?;
@@ -277,6 +294,10 @@ pub(crate) fn transfer_connection(
     Ok(())
 }
 
+fn announce_ready(control: &mut UnixStream) -> io::Result<()> {
+    control.write_all(b"Y")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -309,6 +330,23 @@ mod tests {
         }
         assert_eq!(descriptors.len(), 1);
         (byte[0], UnixStream::from(descriptors.pop().unwrap()))
+    }
+
+    #[test]
+    fn native_bootstrap_precedes_query_descriptors_without_granting_an_action() {
+        let (mut broker, mut native) = UnixStream::pair().unwrap();
+        let (mut query, connection) = UnixStream::pair().unwrap();
+        announce_ready(&mut broker).unwrap();
+        transfer_connection(&broker, &connection, ChannelKind::ReadOnly).unwrap();
+        let mut first = [0];
+        native.read_exact(&mut first).unwrap();
+        assert_eq!(&first, b"Y");
+        let (kind, mut receiver) = receive(&native);
+        assert_eq!(kind, b'R');
+        query.write_all(b"status\n").unwrap();
+        let mut frame = [0; 7];
+        receiver.read_exact(&mut frame).unwrap();
+        assert_eq!(&frame, b"status\n");
     }
 
     #[test]

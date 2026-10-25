@@ -100,6 +100,9 @@ impl ProxyServer {
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
         let socket = std::fs::symlink_metadata(&path)?;
         listener.set_nonblocking(true)?;
+        // Native startup hooks may now reach the typed public handoff. Announce
+        // only after bind/ownership checks, before any proxy thread can send R/A.
+        actor.announce_ready()?;
         let closed = Arc::new(AtomicBool::new(false));
         let stop = Arc::clone(&closed);
         let native = Arc::clone(&actor);
