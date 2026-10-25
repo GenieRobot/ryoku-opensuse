@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Bound launcher/quick-settings/clipboard/notification navigation IPC clients;
+  reap a stalled client tree while preserving the running server and all
+  interactive compositor, lock, screenshot and daemon lifetimes.
+
 - Add separate guarded read-only Ryoku login and post-failure cleanup inspection
   modes while preserving the KDE inspector; verify installed unit/process and
   environment identities without starting a manager or claiming visual results.

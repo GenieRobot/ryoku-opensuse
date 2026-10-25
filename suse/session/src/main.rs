@@ -163,7 +163,7 @@ fn checked(mut command: Command) -> Result<()> {
     Ok(())
 }
 
-// Bound only short lifecycle clients, never the compositor or lock lifetime.
+// Bound only short control/IPC clients, never the compositor or lock lifetime.
 // A fresh process group keeps a timed-out client's descendants in the same
 // cleanup boundary; the direct child remains unreaped until its group is killed.
 fn checked_control(mut command: Command, timeout: Duration) -> Result<()> {
@@ -180,7 +180,7 @@ fn checked_control(mut command: Command, timeout: Duration) -> Result<()> {
         }
         if Instant::now() >= deadline {
             let group = rustix::process::Pid::from_raw(child.id() as i32)
-                .ok_or("invalid lifecycle control process identity")?;
+                .ok_or("invalid control process identity")?;
             // A zombie still reserves its PID until this owner reaps it, so
             // this freshly created group cannot become an unrelated group.
             let killed = rustix::process::kill_process_group(group, rustix::process::Signal::KILL);
@@ -213,7 +213,7 @@ fn checked_control(mut command: Command, timeout: Duration) -> Result<()> {
             }
             return Err(std::io::Error::new(
                 std::io::ErrorKind::TimedOut,
-                format!("{} exceeded its lifecycle deadline", program.to_string_lossy()),
+                format!("{} exceeded its control deadline", program.to_string_lossy()),
             )
             .into());
         }
@@ -442,7 +442,12 @@ fn run(action: Action) -> Result<()> {
                 .into())
         }
         Action::ProviderCommand(arguments) => Err(provider_command(&arguments).exec().into()),
-        Action::Open(surface) => checked(open_surface_command(surface)?),
+        Action::Open(surface) => open_surface_using(
+            surface,
+            Path::new(PAYLOAD),
+            Path::new(QML_MODULES),
+            &mut checked_control,
+        ),
         Action::Activate => activate(),
         Action::Compositor { software } => {
             if env::var_os("WAYLAND_DISPLAY").is_some_and(|value| !value.is_empty()) {
@@ -461,16 +466,21 @@ fn run(action: Action) -> Result<()> {
     }
 }
 
-fn open_surface_command(surface: Surface) -> Result<Command> {
+fn open_surface_using(
+    surface: Surface,
+    root: &Path,
+    modules: &Path,
+    execute: &mut impl FnMut(Command, Duration) -> Result<()>,
+) -> Result<()> {
     let mut command = Command::new("/usr/bin/setpriv");
     // Calling existing IPC navigates the coordinated daemon's shell; it does
     // not launch a second, unregistered Quickshell writer.
     command
         .args(["--no-new-privs", QUICKSHELL, "-p"])
-        .arg(Path::new(PAYLOAD).join("shell/quickshell/shell"))
+        .arg(root.join("shell/quickshell/shell"))
         .args(["ipc", "call", "shell", "openSurface", "", surface.upstream_id()]);
-    surface_environment(&mut command, Path::new(PAYLOAD), Path::new(QML_MODULES))?;
-    Ok(command)
+    surface_environment(&mut command, root, modules)?;
+    execute(command, CONTROL_TIMEOUT)
 }
 
 fn compositor_command(software: bool) -> Command {
@@ -530,6 +540,21 @@ mod tests {
             .stdout(Stdio::null())
             .stderr(Stdio::null());
         command
+    }
+
+    fn fixture_surface_payload(root: &Path) -> std::path::PathBuf {
+        let modules = root.join("qt6/qml");
+        for relative in ["shell/quickshell/shell/shell.qml", "hub/quickshell/shell.qml"] {
+            let path = root.join(relative);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, "synthetic entrypoint").unwrap();
+        }
+        for module in SURFACE_MODULES {
+            let path = modules.join("Ryoku").join(module);
+            std::fs::create_dir_all(&path).unwrap();
+            std::fs::write(path.join("qmldir"), "synthetic module").unwrap();
+        }
+        modules
     }
 
     #[test]
@@ -760,15 +785,24 @@ mod tests {
     }
 
     #[test]
-    fn timeout_kills_only_the_owned_control_tree_and_reaps_its_client() {
+    fn navigation_timeout_reaps_only_its_client_tree_and_preserves_existing_server() {
         let root = env::temp_dir().join(format!("ryoku25-control-{}", std::process::id()));
         std::fs::create_dir(&root).unwrap();
+        let modules = fixture_surface_payload(&root);
         let mut unrelated = fixture_command("blocked").spawn().unwrap();
-        let mut command = fixture_command("blocked-tree");
-        command.env("RYOKU_SESSION_TEST_CONTROL_DIR", &root);
         let started = Instant::now();
-        assert!(checked_control(command, Duration::from_secs(1)).is_err());
-        assert!(started.elapsed() < Duration::from_secs(3));
+        let result =
+            open_surface_using(Surface::Launcher, &root, &modules, &mut |command, limit| {
+                assert_eq!(command.get_program(), "/usr/bin/setpriv");
+                assert_eq!(limit, CONTROL_TIMEOUT);
+                let mut client = fixture_command("blocked-tree");
+                client.env("RYOKU_SESSION_TEST_CONTROL_DIR", &root);
+                checked_control(client, limit)
+            });
+        assert!(result.unwrap_err().to_string().contains("deadline"));
+        assert!(
+            started.elapsed() < CONTROL_TIMEOUT + CONTROL_REAP_TIMEOUT + Duration::from_secs(1)
+        );
         let pids = std::fs::read_to_string(root.join("children")).unwrap();
         let mut processes = pids.split_whitespace();
         let client = processes.next().unwrap();
@@ -783,9 +817,63 @@ mod tests {
                 "control descendant survived its deadline"
             );
         }
-        assert!(unrelated.try_wait().unwrap().is_none(), "timeout signaled an unrelated helper");
+        assert!(unrelated.try_wait().unwrap().is_none(), "timeout signaled the existing server");
         unrelated.kill().unwrap();
         unrelated.wait().unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn all_navigation_ipc_requests_keep_fixed_arguments_and_success_failure_results() {
+        let root = env::temp_dir().join(format!("ryoku25-navigation-{}", std::process::id()));
+        std::fs::create_dir(&root).unwrap();
+        let modules = fixture_surface_payload(&root);
+        for surface in
+            [Surface::Launcher, Surface::QuickSettings, Surface::Clipboard, Surface::Notifications]
+        {
+            for role in ["success", "failure", "blocked"] {
+                let result = open_surface_using(surface, &root, &modules, &mut |command, limit| {
+                    assert_eq!(limit, CONTROL_TIMEOUT);
+                    assert_eq!(command.get_program(), "/usr/bin/setpriv");
+                    let expected: Vec<OsString> = vec![
+                        "--no-new-privs".into(),
+                        QUICKSHELL.into(),
+                        "-p".into(),
+                        root.join("shell/quickshell/shell").into_os_string(),
+                        "ipc".into(),
+                        "call".into(),
+                        "shell".into(),
+                        "openSurface".into(),
+                        "".into(),
+                        surface.upstream_id().into(),
+                    ];
+                    assert_eq!(command.get_args().collect::<Vec<_>>(), expected);
+                    checked_control(
+                        fixture_command(role),
+                        if role == "blocked" { Duration::from_millis(25) } else { limit },
+                    )
+                });
+                if role == "success" {
+                    assert!(result.is_ok());
+                } else {
+                    assert!(result.unwrap_err().to_string().contains(if role == "blocked" {
+                        "deadline"
+                    } else {
+                        "23"
+                    }));
+                }
+            }
+        }
+        std::fs::remove_file(modules.join("Ryoku/Spatial3D/qmldir")).unwrap();
+        let mut called = false;
+        assert!(
+            open_surface_using(Surface::Clipboard, &root, &modules, &mut |_, _| {
+                called = true;
+                Ok(())
+            })
+            .is_err()
+        );
+        assert!(!called, "missing required payload still dispatched navigation IPC");
         std::fs::remove_dir_all(root).unwrap();
     }
 
@@ -1126,17 +1214,7 @@ mod tests {
     fn shell_and_hub_keep_existing_writer_coordination_and_native_paths() {
         let root = env::temp_dir().join(format!("ryoku25-environment-{}", std::process::id()));
         std::fs::create_dir(&root).unwrap();
-        let modules = root.join("qt6/qml");
-        for relative in ["shell/quickshell/shell/shell.qml", "hub/quickshell/shell.qml"] {
-            let path = root.join(relative);
-            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-            std::fs::write(path, "synthetic entrypoint").unwrap();
-        }
-        for module in SURFACE_MODULES {
-            let path = modules.join("Ryoku").join(module);
-            std::fs::create_dir_all(&path).unwrap();
-            std::fs::write(path.join("qmldir"), "synthetic module").unwrap();
-        }
+        let modules = fixture_surface_payload(&root);
         for hub in [false, true] {
             let command = surface_command_at(hub, &root, &modules).unwrap();
             assert_eq!(command.get_program(), "/usr/bin/setpriv");

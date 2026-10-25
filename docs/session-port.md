@@ -143,6 +143,18 @@ client deadline; killing the client group is not evidence those services stopped
 The supported experimental fixture has one graphical login per user;
 concurrent logins share a user manager and are not accepted.
 
+The four shortcut navigation requests (launcher, quick settings, clipboard and
+notifications) also use the existing three-second owned-client deadline. A
+stalled Quickshell IPC client and its descendants are terminated/reaped without
+signalling the already running shell server. Success and nonzero exit status
+still propagate; fixed positional IPC arguments and payload validation remain.
+The compositor, lock/unlock, interactive screenshot, shell/Hub daemon and
+clipboard-keeper lifetimes are unchanged. The
+[navigation receipt](../infra/tumbleweed-lab/evidence/issue25-navigation-deadlines-20261025.toml)
+records all four success/failure/stall cases and actual three-second client-tree
+cleanup with an independent server stand-in. These subprocess tests are not
+native Quickshell frames, cold rendering or session acceptance.
+
 ## Recovery and authentication limits
 
 Writer registration coordinates capture of the daemon's writers. It does not
