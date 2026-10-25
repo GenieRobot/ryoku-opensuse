@@ -178,6 +178,13 @@ pub(super) fn submit(engine: &Arc<Engine>, body: &[u8]) -> Result<String> {
                 .dispatch(Request::DisableUsageSource { tool: tool(value(&fields, "tool")?)? })?;
             Ok("/usage".into())
         }
+        "set_public_web" => {
+            engine.dispatch(Request::SetPublicWeb {
+                provider: value(&fields, "provider")?.into(),
+                enabled: fields.contains_key("enabled"),
+            })?;
+            Ok("/console".into())
+        }
         "set_code_search" => {
             if fields.get("root_id").is_some_and(|id| !id.is_empty())
                 && fields.get("confirm").map(String::as_str) != Some("yes")
@@ -476,6 +483,12 @@ pub(super) fn home(engine: &Arc<Engine>) -> Result<String> {
             body += &begin("enroll_read_root");
             body += &hidden("provider", id);
             body += "<label>Root ID<input name=\"root_id\" required maxlength=\"64\"></label><label>Absolute directory<input name=\"path\" required maxlength=\"4096\"></label><label><input name=\"confirm\" type=\"checkbox\" value=\"yes\" required>Allow this gateway and its configured provider to read/list ordinary text files in this directory. Secret and credential Store paths remain blocked.</label><button>Enroll file root</button></form>";
+            body += &begin("set_public_web");
+            body += &hidden("provider", id);
+            body += &format!(
+                "<label><input name=\"enabled\" type=\"checkbox\" value=\"true\"{}>Enable public web reads</label><p>Allows model-selected public HTTP/S GET requests and up to three public redirects. URL requests reach those sites and fetched text reaches this provider. No account credentials/cookies are sent. Private/local addresses are blocked. Fix keeps fetch disabled.</p><button>Save web permission</button></form>",
+                if provider["public_web_enabled"] == true { " checked" } else { "" }
+            );
             body += &begin("set_read_only_tools");
             body += &hidden("provider", id);
             body += &format!(

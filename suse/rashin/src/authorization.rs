@@ -61,6 +61,7 @@ impl Request {
             | Self::SetReadOnlyTools { .. }
             | Self::ReadRoots { .. }
             | Self::SetCodeSearch { .. }
+            | Self::SetPublicWeb { .. }
             | Self::EnrollReadRoot { .. }
             | Self::DisableReadRoot { .. } => Action::ProviderCredentials,
             Self::SetRoute { .. } => Action::Route,

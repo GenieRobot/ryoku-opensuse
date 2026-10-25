@@ -13,12 +13,13 @@ use std::{
 #[derive(Default)]
 pub(crate) struct Context {
     pub system_queries: bool,
+    pub public_web: bool,
     pub roots: Vec<read_roots::Captured>,
     pub code_root: Option<String>,
 }
 impl Context {
     pub fn enabled(&self) -> bool {
-        self.system_queries || !self.roots.is_empty()
+        self.system_queries || self.public_web || !self.roots.is_empty()
     }
 }
 fn schema(context: &Context) -> Value {
@@ -37,6 +38,9 @@ fn schema(context: &Context) -> Value {
     }
     if let Some(root_id) = &context.code_root {
         tools.push(json!({"type":"function","function":{"name":"search_code","description":format!("Search the configured Prowl source index for enrolled root {root_id}. Returns bounded current-root source snippets."),"parameters":{"type":"object","additionalProperties":false,"properties":{"query":{"type":"string"}},"required":["query"]}}}));
+    }
+    if context.public_web {
+        tools.push(json!({"type":"function","function":{"name":"fetch_url","description":"Fetch a public HTTP(S) page as bounded text. No credentials/cookies. Every DNS result and redirect must stay public.","parameters":{"type":"object","additionalProperties":false,"properties":{"url":{"type":"string"}},"required":["url"]}}}));
     }
     Value::Array(tools)
 }
@@ -136,6 +140,12 @@ pub(super) fn complete(
             }
             let result = if call.function.name == "system_query" && context.system_queries {
                 match system_query::execute(&call.function.arguments, cancelled, deadline) {
+                    Ok(value) => value,
+                    Err(Error::Cancelled) => return Err(Error::Cancelled),
+                    Err(error) => json!({"error":format!("{error}")}).to_string(),
+                }
+            } else if call.function.name == "fetch_url" && context.public_web {
+                match super::public_web::execute(&call.function.arguments, cancelled, deadline) {
                     Ok(value) => value,
                     Err(Error::Cancelled) => return Err(Error::Cancelled),
                     Err(error) => json!({"error":format!("{error}")}).to_string(),

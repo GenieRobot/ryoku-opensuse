@@ -154,6 +154,8 @@ struct State {
     #[serde(default)]
     read_only_tools: BTreeSet<String>,
     #[serde(default)]
+    public_web: BTreeSet<String>,
+    #[serde(default)]
     read_roots: BTreeMap<String, Vec<crate::prowl::read_roots::Enrollment>>,
     #[serde(default)]
     code_search_roots: BTreeMap<String, String>,
@@ -181,6 +183,7 @@ impl Default for State {
             prowl: None,
             prowl_revision: 0,
             read_only_tools: BTreeSet::new(),
+            public_web: BTreeSet::new(),
             read_roots: BTreeMap::new(),
             code_search_roots: BTreeMap::new(),
             providers: BTreeMap::from([("local".into(), Provider::Local {})]),
@@ -214,6 +217,7 @@ fn describe_provider(state: &State, id: &str, provider: &Provider) -> Value {
     } else {
         provider.describe(id)
     };
+    description["public_web_enabled"] = json!(state.public_web.contains(id));
     description["read_only_tools_enabled"] = json!(state.read_only_tools.contains(id));
     description["enrolled_read_roots"] = json!(state.read_roots.get(id).map_or(0, Vec::len));
     description
@@ -354,6 +358,14 @@ impl Engine {
         {
             return Err(Error::Integrity);
         }
+        if state.public_web.len() > 32
+            || state
+                .public_web
+                .iter()
+                .any(|id| state.providers.get(id).is_none_or(|p| !p.is_prowl()))
+        {
+            return Err(Error::Integrity);
+        }
         for (id, provider) in &state.providers {
             identifier(id)?;
             provider.validate()?;
@@ -439,6 +451,12 @@ impl Engine {
                     None => json!({"configured":false,"credential_present":false}),
                 })
             }
+            Request::SetPublicWeb {provider,enabled}=>self.transaction(|state|{
+                if !state.providers.get(&provider).ok_or(Error::NotFound)?.is_prowl(){return Err(Error::InvalidRequest);}
+                if enabled{state.public_web.insert(provider.clone());}else{state.public_web.remove(&provider);}
+                bump_provider(state,&provider)?;
+                Ok(json!({"provider":provider,"public_web_enabled":enabled}))
+            }),
             Request::ConnectProwlProvider { id, models, streaming } => {
                 identifier(&id)?;
                 if id == "local" {
@@ -871,6 +889,7 @@ impl Engine {
                     bump_provider(state, &id)?;
                     if !provider.is_prowl() {
                         state.read_only_tools.remove(&id);
+                        state.public_web.remove(&id);
                         state.read_roots.remove(&id);
                         state.code_search_roots.remove(&id);
                     }
@@ -905,6 +924,7 @@ impl Engine {
                 state.providers.remove(&id).ok_or(Error::NotFound)?;
                 state.provider_revisions.remove(&id);
                 state.read_only_tools.remove(&id);
+                state.public_web.remove(&id);
                 state.read_roots.remove(&id);
                 state.code_search_roots.remove(&id);
                 state.configuration_revision =
@@ -1350,7 +1370,7 @@ impl Engine {
             let catalog_revision=catalog_provider.as_ref().map(|id|state.provider_revisions.get(id).copied().unwrap_or_default());
             let read_only_tools = if options.disable_tools || catalog_provider.is_some() {crate::prowl::ReadTools::default()} else {
                 let protected=self.store.identity()?;
-                crate::prowl::ReadTools {system_queries:state.read_only_tools.contains(&route.provider),code_root:state.code_search_roots.get(&route.provider).cloned(),roots:state.read_roots.get(&route.provider).into_iter().flatten().map(|root|root.capture(protected)).collect::<Result<Vec<_>>>()?}
+                crate::prowl::ReadTools {system_queries:state.read_only_tools.contains(&route.provider),public_web:state.public_web.contains(&route.provider),code_root:state.code_search_roots.get(&route.provider).cloned(),roots:state.read_roots.get(&route.provider).into_iter().flatten().map(|root|root.capture(protected)).collect::<Result<Vec<_>>>()?}
             };
             if let Some(session) = &session
                 && state.sessions.get(session).ok_or(Error::NotFound)?.lane != lane { return Err(Error::InvalidRequest); }

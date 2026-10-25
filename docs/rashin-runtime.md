@@ -360,19 +360,22 @@ The 338-path source ledger, 34 upstream HTTP/WebSocket registrations, 89 Prowl
 client calls, bridge references and capability matrix remain retained targets.
 No row in the original inventory is removed by this slice.
 
-| Retained upstream capability | Implemented here | Required for #183 acceptance |
+| Retained upstream capability | Implemented and host-tested in this runtime | Still required for full #183 acceptance |
 | --- | --- | --- |
-| Ask/recent/cancel/handoff | Real asynchronous Ask, configured HTTPS streaming/private progress, cancellation, independent history, recorded/partial/manual context, browser staging and atomic immediate Agent Run/Ask cancellation | Upstream streaming protocol, shell/launcher shared history, full v3 replay and actual ACP-Ask cancellation bridge |
-| Agent/plain Chat | Independent persistent turns, sessions, load/read/delete and saved lane routes | ACP initialize/session/prompt/notifications, v3 replay/WebSocket, tools, approvals, images, thinking, terminal resume and all retained harnesses |
-| Fix doctor/tip/app | Typed investigation using configured Agent route, bounded native user-unit/journal/RPM context; evidence is data | Complete app logs/coredumps/package-change context, upstream transient fix unit/terminal harness, protected repair providers |
-| Agent wire/unwire | Effective built-in Agent instructions | Exact external marker/skill/MCP wiring, preservation of unrelated config, harness readiness/default/model operations |
-| Index/vault/memory/wiki/skills | SHA-256-verified uploaded document retrieval plus8 embedded offline Wiki pages,exact source references,Tumbleweed views and confirmed per-document index merge | System/package/desktop/source/user/habits maps, bounded source mirrors, registered projects, vault/memory/journal enrollment and complete offline skills/wiki |
-| Provider/model/network | Local/fixture and configured HTTPS completion, private keys, catalog refresh/selection, unavailable-pick retention and verified-peer Prowl profile reads | Every individual Prowl provider/sign-in/model/profile/fallback/cache/network/project/harness/skill operation, adapter/source integrity and full settings UI |
-| Usage | Completion activity plus enrolled Claude/Codex/opencode JSON/SQLite activity, committed WAL snapshots, costs/soft caps, opencode model component/session-count rows, local/UTC days, five-minute scheduling and source failure statuses | Live OAuth/RPC/session-limit quota, complete model/session rows, separate timer and original shell/cache UI |
-| Web/app/API | Tested owner HTTP/Unix boundary, live scoped Ask delegation and Rust browser provider/session/handoff/Fix/usage workflows | Retained upstream Svelte console/native app and all source routes/sheets, theme/vitals/system/vault content and shell/Hub bridges; isolated shell/ACP credential delivery and complete assistant bridge integration |
-| Terminal | Typed JSON CLI, no arbitrary command execution | Upstream proposed-command tiers, command buffer confirmation, continuation/run feedback/recipes and shell integrations |
-| Lifecycle | Explicit optional standalone process, restart and stale socket recovery | Optional RPM install/remove, enable-now/login/linger/disable choices, Prowl lifecycle, no implicit reinstallation and registered writer coordination |
-| Protected mutations/recovery | No system/service/package/external-harness mutation exposed | #25's authenticated typed dispatch to #20 native coordinator; complete state enrollment, writer leasing, verified pre/post linked generations, authorization/revalidation and offline restore proof |
+| Ask/recent/cancel/handoff | Asynchronous local/fixture/HTTPS/Prowl Ask, bounded live SSE progress, actual model/usage, cancellation/restart, canonical recorded/manual/unfinished handoff and atomic Agent Run cancelling Ask | Original launcher/shell/Hub entrypoints and shared history, TOOLS_REQUIRED isolated Ask fallback, ACP cancellation and complete WebSocket-v3 replay |
+| Agent/plain Chat | Independent persistent sessions/turns, load/read/delete, saved routes and explicit model picks; both JSON/SSE gateway completions | Actual ACP initialize/session/prompt/notifications/load/resume, replay, all retained harnesses, approvals/diffs/images/thinking/terminal |
+| Fix doctor/tip/app | Typed investigation, bounded native user-unit/journal/RPM evidence, external destination/finding preview, expiring single-use exact-action consent, replay safety; tools disabled to preserve reviewed evidence | Complete upstream app/coredump/package-change context and native entrypoints, transient unit/terminal harness, actual authorized repair providers with linked recovery |
+| Agent wire/unwire | Effective owner-controlled built-in Agent instructions, separate Ask/Chat, private persistence and scoped denial | Exact external marker/skill/MCP wiring, unrelated config preservation, native harness readiness/default/model operations and protected writer enrollment |
+| Index/vault/memory/wiki/skills | Verified uploaded document retrieval, all8 exact retained Wiki sources plus Tumbleweed views, browser/API navigation and confirmed per-document merge preserving uploads | Native machine/package/desktop/user/habits maps, registered projects, vault/memory/journal/skills enrollment and source mirror/index build/report lifecycle |
+| Fast-lane read-only tools | All5 execute through real model/tool-result rounds: system_query, read_file, list_dir, search_code, fetch_url; four rounds then final no-tools, explicit owner grants, path/Store/DNS guards, cancellation and bounded actual native/network fixtures | Original activity/diff/approval UI, escalation semantics, native default root discovery and full ACP tool/permission/process integration |
+| Provider/model/network | Private key CRUD/retention, opaque IDs, explicit saved/unavailable lane picks, async generation-bound catalog refresh, HTTPS and real authenticated Prowl Ask/Agent/Chat; four typed management reads (profiles/active/profile-models/presets) | Remaining retained Prowl provider/profile CRUD and selection, sign-in/OAuth/device flows, fallback/cache/network/project/harness/skill operations, all adapter model/config options and full native settings UI; actual packaged endpoint/provider acceptance |
+| Usage | Completion activity plus enrolled Claude/Codex/opencode JSON/SQLite activity, committed WAL snapshots, costs/cache/reset/soft caps, opencode model/session-component rows, local/UTC windows, one five-minute daemon schedule and labeled source failures | Real OAuth/RPC/session-limit quota, remaining provider/model/session detail, original separate timer/cache/shell UI and service integration |
+| ACP/process/harness | Source contract retained; live HTTP Ask-only capability delegation and action policy provide the restricted bridge seam | Actual adapter stdio/JSON-RPC lifecycle, initialize/capabilities/shared sessions/model options/prompts/notifications/cancel/replay, process isolation, all harnesses, tools/approvals/images/thinking/terminal; no ACP parity claim yet |
+| Web/native app/API | Owner Unix/HTTP API, scoped Ask bridge, cookie-free Basic/exact-Origin browser, real Ask/Agent/Chat/provider/model/job/handoff/Fix/usage/Wiki/root/tool permission forms | Retained Svelte/native app routes/sheets, theme/vitals/system/vault content, launcher/shell/Hub bridges, isolated credential delivery and real WebKit/native browser behavior |
+| Terminal | Typed request/logs CLI and bounded fixed native read probes | Upstream proposed-command tiers, command-buffer confirmation, continuation/run feedback/recipes, terminal sessions and shell integrations |
+| Service/lifecycle | Optional explicitly started development daemon/web process, private state lease/atomic persistence, interrupted restart handling, cancellation and source/provider failure states | Packaged install/remove and native launch, enable-now/login/linger/disable choices, real Prowl start/stop/health/recovery/version inventory, service failure/recovery/removal/KDE tests and registered writer coordination |
+| Protected state/mutations/recovery | Private atomic Store, rollback/quota/restart failure semantics, descriptor-bound grants; no external covered mutation is exposed | #25 authenticated NSS/pidfd/native coordinator seam, exact InstalledInventory enrollment of all Rashin state/effects, writer leases, action authorization/revalidation, verified linked pre/post generations and offline restore proof |
+| Source/package/VM closure | Retained source/license inventory, exact runtime executable provider receipts and offline dependency checks; no large downloads | Complete vendor/export/RPM/native dependency closure and packaged Tumbleweed install/login/interaction/usage/restart/removal/KDE acceptance after #25/#173 integration |
 
 Before production integration the coordinator must enroll the exact durable
 Rashin state and every external effect in installed capture/restore policy, add
@@ -798,3 +801,70 @@ controlled source replacement. Index report/build/mirror lifecycle and the full
 Prowl/native package acceptance remain required alongside public-web fetch,
 tool activity/escalation, ACP/harness/process/terminal and protected native
 state/writer/recovery integration. No retained feature is removed from the target.
+
+## Owner-enabled public web text
+
+Enable **public web reads** separately for a Prowl provider in the browser or use
+owner `set_public_web {provider,enabled}`. It starts disabled, survives restart,
+and does not grant system queries, file roots or source search. Scoped clients
+cannot change it. The disclosure explains that model-selected URL requests reach
+those public sites and fetched text reaches the configured provider. Accepted
+work captures the permission; disable affects new work and Cancel stops accepted
+work. Native Fix always suppresses every tool, including public web fetch.
+
+The retained `fetch_url` contract is pinned `backend/quicktools.go` lines274–389:
+public HTTP/S GET, at most three redirects, bounded readable text and no local or
+private-network access. The cached Rust `url`2.5.8 parser normalizes IDNA and
+unusual IP spellings before validation. URL userinfo, unsupported protocols,
+controls, local/private/shared/link-local/unspecified/multicast/reserved targets
+and non-global special-use prefixes are refused. The IANA
+[IPv4](https://www.iana.org/assignments/iana-ipv4-special-registry) and
+[IPv6](https://www.iana.org/assignments/iana-ipv6-special-registry) registry audit
+includes the non-global `2001:2::/48` benchmarking range, which is already inside
+the `2001::/23` exception whitelist. Mapped IPv4 is checked as its actual IPv4
+destination; NAT64/6to4/Teredo forms also validate embedded IPv4 addresses.
+
+Fixed `/usr/bin/getent -A ahosts -- HOST` resolves domains. All returned addresses
+must pass, with no accepting a public address from a mixed private answer. Each
+hop pins that validated set into curl; literal IPs remain literal. Curl never
+follows redirects itself. Every relative/absolute Location is parsed and checked,
+then DNS is revalidated and repinned for the next request. There is no generic
+URL proxy, shell, fallback client or inherited proxy/credential environment.
+Fixed curl argv contains no URL, query or credential; escaped URL/pin config goes
+on stdin. Requests send no account Authorization/Cookie/netrc/client certificate,
+and fresh per-hop processes carry no cookies across redirects. TLS verification
+stays enabled; HTTP and HTTPS remain available.
+
+One12-second fetch deadline sits inside the whole45-second tool loop. Resolver,
+client and charset conversion are cancellable child processes with bounded pipe
+pumps and unconditional kill/wait. Curl receives512MiB address-space,8CPU-second
+and zero-core limits before stdin config can start a request, preserving stricter
+inherited limits. Headers cap at16KiB; response/decompression consumption caps at
+40KiB before a24KiB body prefix is retained. Plain output caps at8KiB, with
+truncation labeled. Curl decodes supported content codings. UTF-8 has replacement
+explicitly labeled; declared other charsets use fixed glibc iconv with bounded
+stdin/output, no model-selected options. Partial conversion is marked lossy and
+truncated. HTML tags and script/style bodies are removed; referenced images,
+scripts and stylesheets are never fetched or executed. No response file or model
+artifact is created. Only the final successful assistant answer and aggregate
+model usage persist; intermediate page text remains ephemeral.
+
+The exact installed Tumbleweed providers are curl8.21.0-1.1 and
+glibc2.44-3.1 for getent/iconv. RPM requirements name curl/glibc and the three
+absolute executable file capabilities. Missing tools fail unavailable without
+fallback. The URL/IDNA/ICU dependency closure was already cached and resolved with
+`--offline`; existing locked package versions stay unchanged. Vendor/export and
+packaged acceptance remain required.
+
+Portable units cover URL/IP/IANA, real local-host resolver rejection, mixed DNS,
+exact curl environment/argv/pins, missing tools, headers/HTML/charset and bounds.
+Explicitly executed fresh user/network namespaces assign public-classified
+fixture addresses only to isolated loopback, with no external route or traffic.
+Real curl fixtures prove public redirects, changed per-hop DNS pins, private
+rebinding/redirect refusal, redirect caps, gzip/Latin-1 text and cancellation.
+Actual authenticated gateway fixtures prove Ask→fetch→redirect→text→model, no
+credentials at the web server, independent owner/browser permission, scoped
+denial, restart/disable/Fix boundaries and cancellation without partial usage.
+These namespace proofs are distinct from portable CI prerequisites. Tool activity,
+escalation, ACP/harness/process/terminal, Prowl/index/native/writer/recovery,
+complete UI/package closure and packaged Tumbleweed acceptance stay required.

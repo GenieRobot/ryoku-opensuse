@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 mod code_search;
 mod completion;
+mod public_web;
 pub(crate) mod read_roots;
 mod system_query;
 mod tool_calls;

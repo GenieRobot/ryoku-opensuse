@@ -65,6 +65,11 @@ Requires:       procps
 Requires:       coreutils
 Requires:       pciutils
 Requires:       iproute2
+# Fixed getent resolver used for validated/pinned public web reads.
+Requires:       glibc
+Requires:       /usr/bin/curl
+Requires:       /usr/bin/getent
+Requires:       /usr/bin/iconv
 # These qmldir modules are private to the shell's import root under /usr/share.
 # Tumbleweed's generator recognizes provides only below /qt6/qml/, while its
 # requires scanner also sees these private module imports. Keep all scanning

@@ -744,7 +744,17 @@ fn external_client_runtime_dependency_is_declared_for_tumbleweed() {
         .split("%description runtime\n")
         .next()
         .unwrap();
-    for package in ["zypper", "procps", "coreutils", "pciutils", "iproute2"] {
+    for package in [
+        "zypper",
+        "procps",
+        "coreutils",
+        "pciutils",
+        "iproute2",
+        "glibc",
+        "/usr/bin/curl",
+        "/usr/bin/getent",
+        "/usr/bin/iconv",
+    ] {
         assert!(
             runtime
                 .lines()
@@ -4325,4 +4335,209 @@ fn code_search_gateway_rejects_source_replacement_during_index_response_without_
         .unwrap();
     assert!(engine.dispatch(Request::ReadRoots{provider:"tool-gateway".into()}).unwrap()["source_root"].is_null());
     fs::remove_dir_all(moved).unwrap();
+}
+
+fn web_call(url: &str) -> Value {
+    tool_round_response("fetch_url", &json!({"url":url}).to_string(), "web-query")
+}
+#[test]
+fn public_web_permission_is_owner_explicit_persistent_and_independent_with_fix_disabled() {
+    use ryoku_rashin::{api::FixKind, authorization::Access};
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let (port, requests, server) = tool_gateway(vec![
+        Some(tool_answer()),
+        Some(web_call("http://127.0.0.1:9/private")),
+        Some(tool_answer()),
+        Some(tool_answer()),
+        Some(tool_answer()),
+    ]);
+    connect_tool_gateway(&engine, port, false);
+    engine
+        .dispatch(Request::Ask { id: "web-default-off".into(), prompt: "No implicit web".into() })
+        .unwrap();
+    assert_eq!(done(&engine, "web-default-off")["status"], "completed");
+    assert!(requests.recv_timeout(Duration::from_secs(2)).unwrap().get("tools").is_none());
+    assert_eq!(
+        engine.dispatch_as(
+            Access::AskClient,
+            Request::SetPublicWeb { provider: "tool-gateway".into(), enabled: true }
+        ),
+        Err(Error::Unauthorized)
+    );
+    let gateway = ryoku_rashin::http::Gateway::new(
+        engine.clone(),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    assert!(
+        ui_submit(
+            &gateway,
+            &[("action", "set_public_web"), ("provider", "tool-gateway"), ("enabled", "true")]
+        )
+        .starts_with("HTTP/1.1 303")
+    );
+    engine
+        .dispatch(Request::Ask { id: "web-private-refused".into(), prompt: "Try the URL".into() })
+        .unwrap();
+    assert_eq!(done(&engine, "web-private-refused")["status"], "completed");
+    let first = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert_eq!(first["tools"].as_array().unwrap().len(), 1);
+    assert_eq!(first["tools"][0]["function"]["name"], "fetch_url");
+    let next = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    let result: Value = serde_json::from_str(
+        next["messages"].as_array().unwrap().last().unwrap()["content"].as_str().unwrap(),
+    )
+    .unwrap();
+    assert_eq!(result["error"], "Unauthorized");
+    let preview = engine
+        .dispatch(Request::FixPreview {
+            kind: FixKind::App,
+            component: "synthetic.service".into(),
+            evidence: "web boundary".into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::Fix {
+            id: "web-fix-off".into(),
+            kind: FixKind::App,
+            component: "synthetic.service".into(),
+            evidence: "web boundary".into(),
+            native_evidence_consent: Some(
+                preview["native_evidence_consent"].as_str().unwrap().into(),
+            ),
+        })
+        .unwrap();
+    assert_eq!(done(&engine, "web-fix-off")["status"], "completed");
+    assert!(requests.recv_timeout(Duration::from_secs(2)).unwrap().get("tools").is_none());
+    drop(gateway);
+    drop(engine);
+    let engine = fixture.reopen();
+    assert!(
+        engine.dispatch(Request::Providers {}).unwrap()["providers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["id"] == "tool-gateway" && p["public_web_enabled"] == true)
+    );
+    engine
+        .dispatch(Request::SetPublicWeb { provider: "tool-gateway".into(), enabled: false })
+        .unwrap();
+    engine.dispatch(Request::Ask { id: "web-disabled".into(), prompt: "No web".into() }).unwrap();
+    assert_eq!(done(&engine, "web-disabled")["status"], "completed");
+    assert!(requests.recv_timeout(Duration::from_secs(2)).unwrap().get("tools").is_none());
+    server.join().unwrap();
+}
+#[test]
+#[ignore = "requires fresh user+network namespace and RASHIN_PUBLIC_WEB_PARENT_NET guard"]
+fn isolated_public_web_gateway_returns_real_redirect_text_and_cancels_without_partial_usage() {
+    use std::{net::TcpListener, process::Command, sync::mpsc};
+    let parent =
+        std::env::var("RASHIN_PUBLIC_WEB_PARENT_NET").expect("run in fresh user/net namespace");
+    assert_ne!(fs::read_link("/proc/self/ns/net").unwrap().to_str().unwrap(), parent);
+    for args in
+        [vec!["link", "set", "lo", "up"], vec!["address", "add", "11.0.0.1/32", "dev", "lo"]]
+    {
+        assert!(Command::new("/usr/sbin/ip").args(args).status().unwrap().success());
+    }
+    let listener = TcpListener::bind("11.0.0.1:0").unwrap();
+    let web_port = listener.local_addr().unwrap().port();
+    let web = std::thread::spawn(move || {
+        for step in 0..2 {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+            let mut header = Vec::new();
+            while !header.ends_with(b"\r\n\r\n") {
+                assert!(header.len() < 8192);
+                let mut b = [0];
+                stream.read_exact(&mut b).unwrap();
+                header.push(b[0]);
+            }
+            let header = String::from_utf8(header).unwrap();
+            assert!(!header.to_ascii_lowercase().contains("authorization:"));
+            assert!(!header.to_ascii_lowercase().contains("cookie:"));
+            assert!(!header.contains("PRIVATE_TOOL_GATEWAY_KEY"));
+            if step == 0 {
+                assert!(header.starts_with("GET /start "));
+                stream.write_all(b"HTTP/1.1 302 Found\r\nLocation: /final\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
+            } else {
+                assert!(header.starts_with("GET /final "));
+                let body = "<h1>PUBLIC_FETCH_REAL_TEXT λ</h1><script>PRIVATE_SCRIPT_BODY</script>";
+                write!(stream,"HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: text/html; charset=UTF-8\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
+            }
+        }
+    });
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let (port, requests, server) = tool_gateway(vec![
+        Some(web_call(&format!("http://11.0.0.1:{web_port}/start"))),
+        Some(tool_answer()),
+    ]);
+    connect_tool_gateway(&engine, port, true);
+    engine
+        .dispatch(Request::SetPublicWeb { provider: "tool-gateway".into(), enabled: true })
+        .unwrap();
+    engine
+        .dispatch(Request::Ask { id: "real-web".into(), prompt: "Fetch the public fixture".into() })
+        .unwrap();
+    assert_eq!(done(&engine, "real-web")["status"], "completed");
+    requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    let next = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    let result: Value = serde_json::from_str(
+        next["messages"].as_array().unwrap().last().unwrap()["content"].as_str().unwrap(),
+    )
+    .unwrap();
+    assert_eq!(result["status"], 200);
+    assert_eq!(result["text"], "PUBLIC_FETCH_REAL_TEXT λ");
+    assert!(!next.to_string().contains("PRIVATE_SCRIPT_BODY"));
+    web.join().unwrap();
+    server.join().unwrap();
+    let listener = TcpListener::bind("11.0.0.1:0").unwrap();
+    let web_port = listener.local_addr().unwrap().port();
+    let (ready_tx, ready_rx) = mpsc::channel();
+    let web = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+        let mut header = Vec::new();
+        while !header.ends_with(b"\r\n\r\n") {
+            let mut b = [0];
+            stream.read_exact(&mut b).unwrap();
+            header.push(b[0]);
+        }
+        stream
+            .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 100000\r\n\r\nUNPERSISTED_WEB_PREFIX")
+            .unwrap();
+        stream.flush().unwrap();
+        ready_tx.send(()).unwrap();
+        let mut b = [0];
+        match stream.read(&mut b) {
+            Ok(0) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::ConnectionReset => {}
+            other => panic!("web cancel failed {other:?}"),
+        }
+    });
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let (port, requests, server) =
+        tool_gateway(vec![Some(web_call(&format!("http://11.0.0.1:{web_port}/wait")))]);
+    connect_tool_gateway(&engine, port, true);
+    engine
+        .dispatch(Request::SetPublicWeb { provider: "tool-gateway".into(), enabled: true })
+        .unwrap();
+    engine
+        .dispatch(Request::Ask { id: "cancel-real-web".into(), prompt: "Fetch then wait".into() })
+        .unwrap();
+    requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    ready_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+    engine.dispatch(Request::Cancel { id: "cancel-real-web".into() }).unwrap();
+    assert_eq!(done(&engine, "cancel-real-web")["status"], "cancelled");
+    web.join().unwrap();
+    server.join().unwrap();
+    assert!(engine.dispatch(Request::Usage {}).unwrap()["activity"].as_array().unwrap().is_empty());
+    assert!(
+        !fs::read_to_string(fixture.path.join("state.json"))
+            .unwrap()
+            .contains("UNPERSISTED_WEB_PREFIX")
+    );
 }

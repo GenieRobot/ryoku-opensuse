@@ -21,6 +21,10 @@ pub enum Request {
         models: Vec<String>,
         streaming: bool,
     },
+    SetPublicWeb {
+        provider: String,
+        enabled: bool,
+    },
     SetCodeSearch {
         provider: String,
         root_id: Option<String>,
