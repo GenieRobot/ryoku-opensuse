@@ -72,6 +72,12 @@ pub enum Request {
         ask_id: String,
         run: Option<HandoffRun>,
     },
+    ManualHandoff {
+        question: String,
+        #[serde(default)]
+        answer: String,
+        run: Option<HandoffRun>,
+    },
     ClearHandoff {},
     NewSession {
         id: String,

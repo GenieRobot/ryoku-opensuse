@@ -78,7 +78,7 @@ a restrictive CSP; the console requires no JavaScript.
 | Route/model | `set_route` | Owner selects a provider and one of its configured model IDs for an explicit lane |
 | Index | `index` | Owner replaces a bounded set of explicitly uploaded UTF-8 documents; every SHA-256 is verified before publication |
 | Fix | `fix_preview`, `fix` | Owner supplies a typed doctor/tip/app finding; external native-evidence egress requires a reviewed destination-bound preview; creates an Agent investigation request with Tumbleweed ownership/recovery instructions |
-| Ask handoff | `handoff`, `clear_handoff` | Owner stages canonical completed Ask history for the next Agent prompt or explicitly runs it in an Agent session; plain Chat is separate |
+| Ask handoff | `handoff`, `manual_handoff`, `clear_handoff` | Owner stages recorded/partial Ask or explicit manual context, or runs it in Agent while cancelling Ask; plain Chat is separate |
 | Local agent instructions | `wire`, `unwire` | Owner installs/removes instructions for the built-in Agent lane; Ask/Chat are unaffected |
 | Local usage sources | `enroll_usage_source`, `collect_usage`, `disable_usage_source` | Owner explicitly enrolls a private tool data root, collects local activity or removes enrollment/cache; restricted Ask clients cannot use these actions |
 
@@ -143,34 +143,53 @@ The runtime package requires `systemd` and `rpm >= 4.19`.
 
 ## Explicit Ask handoff
 
-`{"action":"handoff","ask_id":"completed-ask"}` stages the canonical question
-and answer from that completed Ask job. The request accepts no replacement text.
-Pending context is visible through owner `sessions`, survives daemon restart and
-Agent session creation/selection, and is consumed once by the next accepted Agent
-`prompt`. Ask and plain Chat do not consume it. It is serialized as untrusted
-prior conversation data, so delimiter-looking answer text stays data. The Agent
-job records the handoff; later prompts do not prepend it again. As normal
-conversation context, a handoff goes to the selected Agent provider when prompted.
+`{"action":"handoff","ask_id":"selected-ask"}` stages the recorded question
+and completed answer, or a generation-bound snapshot of the current partial Ask
+answer. It accepts no replacement text. Partial snapshots are labeled
+`in_flight_ask`; completed records are `recorded_ask`. Staging leaves Ask work
+running. Pending context is visible through owner `sessions`, survives restart
+and Agent session changes, and is consumed once by the next accepted Agent
+`prompt`. Ask and Chat do not consume it. Serialized untrusted conversation data
+keeps delimiter-looking answer text as data. Later prompts do not prepend it again.
 
-For explicit immediate Run, supply
-`"run":{"id":"handoff-job","session":"agent-session"}` in the same action.
-Source validation, chosen session/lane, provider capture, handoff consumption and
-job publication share one transaction; another prompt cannot steal a half-staged
-Run. Retrying the accepted Run ID returns its recorded status without restaging
-or sending again, including after restart. Different source/session reuse
-conflicts. Running, cancelled, failed or non-Ask source jobs cannot be handed off.
-Busy/limit/unavailable failures before acceptance preserve pending context.
-Accepted cancellation/failure retains the job's handoff metadata without adding
-incomplete conversation turns or silently retrying. Combined prompt size remains
-bounded. `clear_handoff` removes pending context; forgetting its source Ask also
-clears a pending copy. Existing Agent history remains independently deletable.
+`manual_handoff` accepts a required `question`, optional `answer` (default empty)
+and optional `run`. It trims supplied context and labels it `manual`, with no
+recorded Ask ID. It cannot claim recorded provenance through a caller-selected
+source flag. Manual context supports question-only continuation and remains
+separate from canonical Ask history. The browser offers these manual controls
+and shows provenance beside pending context.
 
-These owner-only actions are unavailable to restricted AskClient policy. The
-retained upstream `ws.go` and `handoff_test.go` define canonical history, pending
-once-only context, session-change preservation and explicit Run semantics. Live
-shell/UI/WebSocket replay, manual or unfinished-question handoff and current
-ACP-Ask cancellation still need their full bridge integration; this typed
-completed-history workflow does not remove those requirements.
+For explicit immediate Run, supply `"run":{"id":"handoff-job","session":"agent-session"}`
+in either action. Accepted Run atomically captures the source/partial snapshot,
+chosen Agent session, provider and prompt, publishes the new job, consumes pending
+context and marks active Ask jobs cancelled. Cancellation flags/progress change
+only after successful state publication. Ask cannot later publish a completion or
+usage for that cancelled generation. Chat work stays separate. This preserves
+the upstream single Ask-lane cancellation semantics without adding an unbounded
+provider worker: the existing four-worker admission limit still applies before
+acceptance. Busy/invalid/unavailable/quota/storage rejection preserves source work
+and pending context; a failed state write performs no provider launch.
+
+An accepted Run ID returns its recorded status on replay without restaging,
+resending or cancelling later Ask work, including after restart. Different
+source/session/manual-context reuse conflicts. Cancelled, failed or non-Ask jobs
+cannot masquerade as canonical sources. Explicit manual context remains available.
+Accepted job failure/cancellation retains its source metadata without incomplete
+conversation turns. Prompt/context bounds remain enforced. `clear_handoff` removes
+pending context; forgetting a referenced Ask removes its staged snapshot. Manual
+context has no false source-job identity. Legacy recorded handoff state decodes
+with default recorded provenance; older canonical Run fingerprints are retained.
+
+These owner-only actions remain unavailable to scoped Ask clients. The pinned
+Ryoku1.0 `backend/ws.go` blob `d237e2d732630f86619ab44f4a9beca8589264ab`
+(lines563–624) selects canonical history when available, accepts manual/empty-answer
+context, stages without cancellation and cancels Ask on Run. The pinned
+`backend/handoff_test.go` blob `673d416ddf4895f2d2cb2d61b40258435f4fbf60`
+(lines65–120) explicitly tests unfinished/manual Run cancellation and prompt data;
+both are at commit `a59d051f0e8080052216f6c7b9eb7e5928935ce8` under
+`ryoku/rashin/`. The Rust API/browser and deterministic local fixture path implement
+those semantics. Actual shell/launcher/ACP/WebSocket v3 shared state, cancellation
+and replay integration remain required full-parity gates.
 
 ## Provider and model configuration
 
@@ -343,14 +362,14 @@ No row in the original inventory is removed by this slice.
 
 | Retained upstream capability | Implemented here | Required for #183 acceptance |
 | --- | --- | --- |
-| Ask/recent/cancel/handoff | Real asynchronous Ask, configured HTTPS streaming/private progress, cancellation, independent history, canonical completed-history staging and atomic immediate Agent Run | Upstream streaming protocol, shell/launcher shared history, explicit UI handoff/replay and manual/unfinished-question/current-ACP-Ask cancellation semantics |
+| Ask/recent/cancel/handoff | Real asynchronous Ask, configured HTTPS streaming/private progress, cancellation, independent history, recorded/partial/manual context, browser staging and atomic immediate Agent Run/Ask cancellation | Upstream streaming protocol, shell/launcher shared history, full v3 replay and actual ACP-Ask cancellation bridge |
 | Agent/plain Chat | Independent persistent turns, sessions, load/read/delete and saved lane routes | ACP initialize/session/prompt/notifications, v3 replay/WebSocket, tools, approvals, images, thinking, terminal resume and all retained harnesses |
 | Fix doctor/tip/app | Typed investigation using configured Agent route, bounded native user-unit/journal/RPM context; evidence is data | Complete app logs/coredumps/package-change context, upstream transient fix unit/terminal harness, protected repair providers |
 | Agent wire/unwire | Effective built-in Agent instructions | Exact external marker/skill/MCP wiring, preservation of unrelated config, harness readiness/default/model operations |
 | Index/vault/memory/wiki/skills | SHA-256-verified uploaded local document retrieval | System/package/desktop/source/user/habits maps, bounded source mirrors, registered projects, vault/memory/journal enrollment and complete offline skills/wiki |
-| Provider/model/network | Local/fixture and configured HTTPS completion, private keys, catalog selection, unavailable-pick retention | Every individual Prowl provider/sign-in/model/profile/fallback/cache/network/project/harness/skill operation, adapter/source integrity and full settings UI |
+| Provider/model/network | Local/fixture and configured HTTPS completion, private keys, catalog refresh/selection, unavailable-pick retention and verified-peer Prowl profile reads | Every individual Prowl provider/sign-in/model/profile/fallback/cache/network/project/harness/skill operation, adapter/source integrity and full settings UI |
 | Usage | Completion activity plus enrolled Claude/Codex/opencode JSON/SQLite activity, committed WAL snapshots, costs/soft caps, opencode model component/session-count rows, local/UTC days, five-minute scheduling and source failure statuses | Live OAuth/RPC/session-limit quota, complete model/session rows, separate timer and original shell/cache UI |
-| Web/app/API | Tested owner HTTP/Unix boundary, live scoped Ask HTTP delegation and basic browser console | Retained upstream Svelte console/native app and all source routes/sheets, theme/vitals/system/vault content and shell/Hub bridges; isolated shell/ACP credential delivery and complete assistant bridge integration |
+| Web/app/API | Tested owner HTTP/Unix boundary, live scoped Ask delegation and Rust browser provider/session/handoff/Fix/usage workflows | Retained upstream Svelte console/native app and all source routes/sheets, theme/vitals/system/vault content and shell/Hub bridges; isolated shell/ACP credential delivery and complete assistant bridge integration |
 | Terminal | Typed JSON CLI, no arbitrary command execution | Upstream proposed-command tiers, command buffer confirmation, continuation/run feedback/recipes and shell integrations |
 | Lifecycle | Explicit optional standalone process, restart and stale socket recovery | Optional RPM install/remove, enable-now/login/linger/disable choices, Prowl lifecycle, no implicit reinstallation and registered writer coordination |
 | Protected mutations/recovery | No system/service/package/external-harness mutation exposed | #25's authenticated typed dispatch to #20 native coordinator; complete state enrollment, writer leasing, verified pre/post linked generations, authorization/revalidation and offline restore proof |

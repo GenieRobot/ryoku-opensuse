@@ -979,7 +979,8 @@ fn immediate_handoff_is_atomic_and_idempotent_and_conflicts_do_not_restage_it() 
 }
 
 #[test]
-fn handoff_rejects_cancelled_sources_and_preserves_pending_on_busy_until_accepted_failure() {
+fn handoff_stages_unfinished_but_rejects_cancelled_sources_and_preserves_pending_on_busy_until_accepted_failure()
+ {
     use ryoku_rashin::provider::FixtureOutcome;
     let fixture = Fixture::new();
     let engine = fixture.engine();
@@ -1000,8 +1001,13 @@ fn handoff_rejects_cancelled_sources_and_preserves_pending_on_busy_until_accepte
     );
     rpc(&engine, Request::Ask { id: "unfinished".into(), prompt: "not complete".into() });
     assert_eq!(
-        engine.dispatch(Request::Handoff { ask_id: "unfinished".into(), run: None }),
-        Err(Error::Busy)
+        engine.dispatch(Request::Handoff { ask_id: "unfinished".into(), run: None }).unwrap()["pending_handoff"]
+            ["origin"],
+        "in_flight_ask"
+    );
+    assert_eq!(
+        engine.dispatch(Request::Job { id: "unfinished".into() }).unwrap()["job"]["status"],
+        "running"
     );
     rpc(&engine, Request::Cancel { id: "unfinished".into() });
     assert_eq!(
@@ -2229,7 +2235,7 @@ fn browser_handoff_stages_canonical_context_and_runs_only_in_selected_agent() {
     assert_eq!(pending["question"], source["prompt"]);
     assert_eq!(pending["answer"], source["answer"]);
     let home = http(&gateway, "GET", "/console", BROWSER_AUTH, "");
-    assert!(home.contains("Pending Ask context for next Agent message"));
+    assert!(home.contains("Pending context for next Agent message"));
     assert!(home.contains("&lt;question&gt;"));
     assert!(!home.contains("FORGED_ANSWER"));
     assert!(
@@ -2528,4 +2534,372 @@ fn browser_wiring_is_effective_and_fix_review_requires_explicit_bound_confirmati
         3,
         "mismatched review starts no external provider job"
     );
+}
+
+#[test]
+fn unfinished_ask_handoff_run_snapshots_partial_context_cancels_ask_and_replay_leaves_new_ask_alone()
+ {
+    use ryoku_rashin::{api::HandoffRun, provider::FixtureOutcome};
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    engine
+        .dispatch(Request::PutProvider {
+            id: "slow-handoff".into(),
+            provider: Provider::Fixture {
+                delay_millis: 1000,
+                outcome: FixtureOutcome::Stream {
+                    chunks: vec!["PARTIAL_Δ".into(), " later".into()],
+                    fail: false,
+                },
+                catalog: None,
+            },
+        })
+        .unwrap();
+    for lane in [Lane::Ask, Lane::Chat] {
+        engine
+            .dispatch(Request::SetRoute {
+                lane,
+                provider: "slow-handoff".into(),
+                model: "fixture-v1".into(),
+            })
+            .unwrap();
+    }
+    engine.dispatch(Request::NewSession { id: "handoff-agent".into(), lane: Lane::Agent }).unwrap();
+    engine.dispatch(Request::NewSession { id: "handoff-chat".into(), lane: Lane::Chat }).unwrap();
+    engine
+        .dispatch(Request::Ask {
+            id: "unfinished-source".into(),
+            prompt: "Canonical unfinished question".into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::Prompt {
+            id: "unrelated-chat".into(),
+            session: "handoff-chat".into(),
+            prompt: "independent chat".into(),
+        })
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        let job = engine.dispatch(Request::Job { id: "unfinished-source".into() }).unwrap();
+        if job["progress"].as_str().is_some_and(|text| text.starts_with("PARTIAL_Δ")) {
+            break;
+        }
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    let request = || Request::Handoff {
+        ask_id: "unfinished-source".into(),
+        run: Some(HandoffRun { id: "unfinished-run".into(), session: "handoff-agent".into() }),
+    };
+    engine.dispatch(request()).unwrap();
+    let source = engine.dispatch(Request::Job { id: "unfinished-source".into() }).unwrap();
+    assert_eq!(source["job"]["status"], "cancelled");
+    assert!(source["job"]["answer"].is_null());
+    assert!(source["progress"].is_null());
+    assert_ne!(
+        engine.dispatch(Request::Job { id: "unrelated-chat".into() }).unwrap()["job"]["status"],
+        "cancelled"
+    );
+    let run = done(&engine, "unfinished-run");
+    assert_eq!(run["status"], "completed");
+    assert_eq!(run["handoff"]["origin"], "in_flight_ask");
+    assert_eq!(run["handoff"]["ask_id"], "unfinished-source");
+    assert_eq!(run["handoff"]["question"], "Canonical unfinished question");
+    assert!(run["handoff"]["answer"].as_str().unwrap().starts_with("PARTIAL_Δ"));
+    assert!(run["prompt"].as_str().unwrap().contains("untrusted prior conversation data"));
+    assert_eq!(done(&engine, "unrelated-chat")["status"], "completed");
+    let activity = engine.dispatch(Request::Usage {}).unwrap()["activity"].clone();
+    assert!(activity.as_array().unwrap().iter().all(|row| row["job"] != "unfinished-source"));
+    engine
+        .dispatch(Request::Ask { id: "new-ask-after-run".into(), prompt: "new question".into() })
+        .unwrap();
+    engine.dispatch(request()).unwrap();
+    assert_eq!(
+        engine.dispatch(Request::Job { id: "new-ask-after-run".into() }).unwrap()["job"]["status"],
+        "running",
+        "accepted Run replay must not cancel later Ask work"
+    );
+    engine.dispatch(Request::Cancel { id: "new-ask-after-run".into() }).unwrap();
+    assert_eq!(
+        engine.dispatch(Request::Job { id: "unfinished-source".into() }).unwrap()["job"]["status"],
+        "cancelled"
+    );
+    assert_eq!(engine.dispatch(Request::Session{id:"handoff-agent".into()}).unwrap()["session"]["messages"].as_array().unwrap().len(),2);
+}
+
+#[test]
+fn manual_handoff_accepts_empty_answer_preserves_provenance_and_restart_and_cancels_only_on_run() {
+    use ryoku_rashin::{api::HandoffRun, authorization::Access, provider::FixtureOutcome};
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let manual = || Request::ManualHandoff {
+        question: "  Manual <question>  ".into(),
+        answer: "".into(),
+        run: None,
+    };
+    assert_eq!(engine.dispatch_as(Access::AskClient, manual()), Err(Error::Unauthorized));
+    let staged = engine.dispatch(manual()).unwrap();
+    assert_eq!(staged["pending_handoff"]["origin"], "manual");
+    assert!(staged["pending_handoff"]["ask_id"].is_null());
+    assert_eq!(staged["pending_handoff"]["question"], "Manual <question>");
+    engine.dispatch(Request::NewSession { id: "manual-agent".into(), lane: Lane::Agent }).unwrap();
+    engine.dispatch(Request::NewSession { id: "manual-chat".into(), lane: Lane::Chat }).unwrap();
+    drop(engine);
+    let engine = fixture.reopen();
+    engine
+        .dispatch(Request::Prompt {
+            id: "manual-chat-turn".into(),
+            session: "manual-chat".into(),
+            prompt: "plain".into(),
+        })
+        .unwrap();
+    assert!(done(&engine, "manual-chat-turn")["handoff"].is_null());
+    assert_eq!(
+        engine.dispatch(Request::Sessions {}).unwrap()["pending_handoff"]["origin"],
+        "manual"
+    );
+    engine
+        .dispatch(Request::Prompt {
+            id: "manual-agent-turn".into(),
+            session: "manual-agent".into(),
+            prompt: "continue".into(),
+        })
+        .unwrap();
+    assert_eq!(done(&engine, "manual-agent-turn")["handoff"]["origin"], "manual");
+    engine
+        .dispatch(Request::PutProvider {
+            id: "slow-manual".into(),
+            provider: Provider::Fixture {
+                delay_millis: 1000,
+                outcome: FixtureOutcome::Answer("old Ask".into()),
+                catalog: None,
+            },
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Ask,
+            provider: "slow-manual".into(),
+            model: "fixture-v1".into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::Ask { id: "manual-active-ask".into(), prompt: "active".into() })
+        .unwrap();
+    engine.dispatch(manual()).unwrap();
+    assert_eq!(
+        engine.dispatch(Request::Job { id: "manual-active-ask".into() }).unwrap()["job"]["status"],
+        "running",
+        "staging must not cancel Ask"
+    );
+    let run = || Request::ManualHandoff {
+        question: "Manual run question".into(),
+        answer: "".into(),
+        run: Some(HandoffRun { id: "manual-run".into(), session: "manual-agent".into() }),
+    };
+    engine.dispatch(run()).unwrap();
+    assert_eq!(
+        engine.dispatch(Request::Job { id: "manual-active-ask".into() }).unwrap()["job"]["status"],
+        "cancelled"
+    );
+    let job = done(&engine, "manual-run");
+    assert_eq!(job["handoff"]["origin"], "manual");
+    assert!(job["handoff"]["ask_id"].is_null());
+    assert_eq!(job["handoff"]["answer"], "");
+    engine.dispatch(run()).unwrap();
+    assert_eq!(engine.dispatch(Request::Session{id:"manual-agent".into()}).unwrap()["session"]["messages"].as_array().unwrap().len(),4);
+    assert!(engine.dispatch(Request::Sessions {}).unwrap()["pending_handoff"].is_null());
+    assert_eq!(
+        engine.dispatch(Request::ManualHandoff {
+            question: " ".into(),
+            answer: "x".into(),
+            run: None
+        }),
+        Err(Error::InvalidRequest)
+    );
+    assert!(
+        serde_json::from_value::<Request>(
+            json!({"action":"manual_handoff","question":"fake","answer":"","origin":"recorded_ask"})
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn rejected_handoff_run_preserves_running_ask_and_pending_context_at_worker_limit() {
+    use ryoku_rashin::{api::HandoffRun, provider::FixtureOutcome};
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    engine
+        .dispatch(Request::ManualHandoff {
+            question: "Keep this pending".into(),
+            answer: "".into(),
+            run: None,
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::NewSession { id: "busy-handoff-agent".into(), lane: Lane::Agent })
+        .unwrap();
+    engine
+        .dispatch(Request::PutProvider {
+            id: "busy-asks".into(),
+            provider: Provider::Fixture {
+                delay_millis: 1000,
+                outcome: FixtureOutcome::Answer("later".into()),
+                catalog: None,
+            },
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Ask,
+            provider: "busy-asks".into(),
+            model: "fixture-v1".into(),
+        })
+        .unwrap();
+    for index in 0..4 {
+        engine
+            .dispatch(Request::Ask { id: format!("busy-source-{index}"), prompt: "waiting".into() })
+            .unwrap();
+    }
+    assert_eq!(
+        engine.dispatch(Request::Handoff {
+            ask_id: "busy-source-0".into(),
+            run: Some(HandoffRun {
+                id: "rejected-handoff".into(),
+                session: "busy-handoff-agent".into()
+            })
+        }),
+        Err(Error::Busy)
+    );
+    assert_eq!(
+        engine.dispatch(Request::Sessions {}).unwrap()["pending_handoff"]["question"],
+        "Keep this pending"
+    );
+    for index in 0..4 {
+        let id = format!("busy-source-{index}");
+        assert_eq!(
+            engine.dispatch(Request::Job { id: id.clone() }).unwrap()["job"]["status"],
+            "running"
+        );
+        engine.dispatch(Request::Cancel { id }).unwrap();
+    }
+}
+
+#[test]
+fn browser_manual_and_unfinished_handoff_expose_provenance_and_only_accepted_run_cancels_ask() {
+    use ryoku_rashin::provider::FixtureOutcome;
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let gateway = ryoku_rashin::http::Gateway::new(
+        Arc::clone(&engine),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    ui_submit(&gateway, &[("action", "new_session"), ("id", "manual-ui-agent"), ("lane", "agent")]);
+    ui_submit(&gateway, &[("action", "new_session"), ("id", "manual-ui-chat"), ("lane", "chat")]);
+    let stage = [
+        ("action", "manual_handoff"),
+        ("question", "Manual <context>"),
+        ("answer", ""),
+        ("mode", "stage"),
+    ];
+    assert!(ui_submit(&gateway, &stage).starts_with("HTTP/1.1 303"));
+    let home = http(&gateway, "GET", "/console", BROWSER_AUTH, "");
+    assert!(home.contains("Manual context for Agent"));
+    assert!(home.contains("Context source: manual"));
+    assert!(home.contains("Manual &lt;context&gt;"));
+    engine
+        .dispatch(Request::PutProvider {
+            id: "ui-unfinished".into(),
+            provider: Provider::Fixture {
+                delay_millis: 1000,
+                outcome: FixtureOutcome::Stream {
+                    chunks: vec!["UI_PARTIAL_Δ".into()],
+                    fail: false,
+                },
+                catalog: None,
+            },
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Ask,
+            provider: "ui-unfinished".into(),
+            model: "fixture-v1".into(),
+        })
+        .unwrap();
+    ui_submit(
+        &gateway,
+        &[("action", "ask"), ("id", "manual-ui-ask"), ("prompt", "First active Ask")],
+    );
+    let invalid = [
+        ("action", "manual_handoff"),
+        ("question", "Manual <context>"),
+        ("answer", ""),
+        ("mode", "run"),
+        ("id", "invalid-manual-target"),
+        ("session", ""),
+    ];
+    assert!(ui_submit(&gateway, &invalid).starts_with("HTTP/1.1 400"));
+    assert_eq!(
+        engine.dispatch(Request::Job { id: "manual-ui-ask".into() }).unwrap()["job"]["status"],
+        "running"
+    );
+    assert_eq!(
+        engine.dispatch(Request::Sessions {}).unwrap()["pending_handoff"]["question"],
+        "Manual <context>"
+    );
+    let run = [
+        ("action", "manual_handoff"),
+        ("question", "Manual <context>"),
+        ("answer", ""),
+        ("mode", "run"),
+        ("id", "manual-ui-run"),
+        ("session", "manual-ui-agent"),
+    ];
+    assert!(ui_submit(&gateway, &run).contains("Location: /job/manual-ui-run\r\n"));
+    assert_eq!(
+        engine.dispatch(Request::Job { id: "manual-ui-ask".into() }).unwrap()["job"]["status"],
+        "cancelled"
+    );
+    assert_eq!(done(&engine, "manual-ui-run")["handoff"]["origin"], "manual");
+    ui_submit(
+        &gateway,
+        &[("action", "ask"), ("id", "unfinished-ui-ask"), ("prompt", "Recorded active question")],
+    );
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+        if engine.dispatch(Request::Job { id: "unfinished-ui-ask".into() }).unwrap()["progress"]
+            .as_str()
+            .is_some_and(|text| text.contains("UI_PARTIAL_Δ"))
+        {
+            break;
+        }
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    let page = http(&gateway, "GET", "/job/unfinished-ui-ask", BROWSER_AUTH, "");
+    assert!(page.contains("This Ask is unfinished"));
+    assert!(page.contains("Run in selected Agent conversation"));
+    assert!(!page.contains("Stage context for next Agent message"));
+    let fields = [
+        ("action", "handoff_run"),
+        ("ask_id", "unfinished-ui-ask"),
+        ("id", "unfinished-ui-run"),
+        ("session", "manual-ui-agent"),
+        ("question", "FORGED_UI_SOURCE"),
+    ];
+    assert!(ui_submit(&gateway, &fields).contains("Location: /job/unfinished-ui-run\r\n"));
+    let job = done(&engine, "unfinished-ui-run");
+    assert_eq!(job["handoff"]["origin"], "in_flight_ask");
+    assert_eq!(job["handoff"]["question"], "Recorded active question");
+    assert_eq!(job["handoff"]["answer"], "UI_PARTIAL_Δ");
+    assert_eq!(
+        engine.dispatch(Request::Job { id: "unfinished-ui-ask".into() }).unwrap()["job"]["status"],
+        "cancelled"
+    );
+    assert!(engine.dispatch(Request::Session{id:"manual-ui-chat".into()}).unwrap()["session"]["messages"].as_array().unwrap().is_empty());
 }

@@ -1,0 +1,89 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "4bcefdb084d2e7bb28c35bc472e981724531d094"
+status = "manual-and-unfinished-handoff-cancellation-parity-tested-full-acp-native-parity-pending"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+new_dependencies = 0
+
+[upstream_contract]
+commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+handler_path = "ryoku/rashin/backend/ws.go"
+handler_blob = "d237e2d732630f86619ab44f4a9beca8589264ab"
+handler_lines = "563-624"
+handler_behavior = "canonical saved Ask preferred; otherwise manual question/answer accepted,empty answer allowed; stage without cancellation; Run cancels Ask lane then prompts Agent"
+test_path = "ryoku/rashin/backend/handoff_test.go"
+test_blob = "673d416ddf4895f2d2cb2d61b40258435f4fbf60"
+test_lines = "65-120"
+test_behavior = "TestRunHandoffPromptsImmediately requires cancellation of in-flight Ask and exact question-only prompt context"
+
+[implementation]
+manual_action = "owner-only manual_handoff required question,optional empty-default answer,optional explicit Run; whitespace trimmed; request cannot set origin/Ask identity"
+provenance = "recorded_ask or generation-bound in_flight_ask snapshot retains real Ask ID; manual has null Ask ID and explicit manual origin; old recorded state defaults compatibly"
+staging = "completed,partial or explicit manual context survives restart/session changes and is consumed once by next accepted Agent prompt; staging leaves Ask running; Chat remains separate"
+run = "one state transaction captures payload/session/provider,marks active Ask jobs Cancelled and publishes Agent job while consuming pending context; worker flags/progress change only after durable publication"
+partial = "capture only current matched worker generation; no fabricated completed Ask answer or cancelled-source token usage; late cancelled worker cannot overwrite state"
+replay = "accepted ID retains original snapshot/fingerprint and returns recorded status without new provider call,restaging or cancellation of later Ask jobs; canonical fingerprints retained"
+rejection = "existing four-provider admission bound enforced before acceptance; Busy/invalid/unavailable/quota/storage failures preserve original Ask flags/progress/pending context; no fifth worker or hidden queue"
+failed_storage = "actual blocked atomic-state publication fixture proves original Ask flag remains false,state/pending unchanged,new active entry removed and no new provider launched"
+browser = "explicit manual question/optional answer stage/Run controls; provenance visible; unfinished Ask offers current-partial stage or immediate Run; rejected target leaves Ask/pending unchanged"
+authority = "owner transport only; scoped Ask cannot handoff; payload remains serialized untrusted conversation data; no shell/native system action"
+
+[validation]
+sequence = "set-e sequential full Rashin,workspace,strict Clippy,fmt/diff,supported-target deny,explicit two-UID test: terminal exit0"
+focused_command = "cargo test -p ryoku-rashin --locked --offline handoff -- --nocapture"
+focused_passed = 10
+focused_failed = 0
+focused_breakdown = "2 state/publication unit cases plus8 handoff workflows"
+new_cases = ["generation-bound partial snapshot,Ask cancellation,Chat independence,no cancelled-source usage", "replay does not cancel later Ask", "manual empty-answer/label/staging/restart/Run", "Busy preserves four running Asks and previous pending context", "failed state publication preserves Ask flags and launches no worker", "legacy recorded provenance and forged manual identity denial", "actual browser manual/unfinished stage/Run and rejected-target preservation"]
+full_command = "cargo test -p ryoku-rashin --locked --offline"
+full_passed = 112
+full_failed = 0
+full_ignored = 1
+full_breakdown = "49 unit,15 collectors,48 workflows; environment-dependent two-UID case separate"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 692
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 8
+count_scope = "sum of terminal summaries including nested subprocesses;7 existing ignores plus explicitly exercised two-UID prerequisite case"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed,0 warnings"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+dependency_metadata_command = "cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu"
+dependency_command = "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path FILTERED_METADATA --all-features check"
+dependency_result = "advisories,bans,licenses,sources ok for supported x86_64 graph"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers; no fetch"
+two_uid_command = "unshare --user --map-auto --map-root-user target/debug/deps/ryoku_rashin-e5c84e14e6648c40 --ignored --exact prowl::transport::tests::connected_foreign_uid_receives_no_request_or_management_credential --nocapture"
+two_uid_result = "explicit host1/1 pass after final source; owner UID0 Unauthorized,foreign UID1 zero bytes; separate from CI default ignore"
+fixture_correction = "initial test delays exceeded existing1000ms fixture limit; corrected to existing bound without changing provider behavior/limit; completed-only Busy assertion updated for implemented upstream partial staging"
+
+[storage]
+pre_workspace_check = "HOME,Cargo/Rustup caches,resolved workspace target all on/dev/sdd; temp resolves/tmp tmpfs; no Windows target/temp/wrapper overrides"
+linux_available_bytes = 960746106880
+tmpfs_available_bytes = 7203958784
+windows_floor = "coordinator notified when C backing mount below10GiB; no C-path writes/downloads; candidate/native work held; offline host checks explicitly authorized on Linux/tmpfs"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact-head hosted CI", "Actual shell/launcher/ACP/WebSocket-v3 shared history,cancellation and replay bridge", "Every retained harness/tools/approval/images/thinking/terminal/native UI workflow", "Complete Prowl/profile/provider/sign-in/fallback/network mutations and protected state/writer/capture/recovery", "External harness wiring,full private inventory and isolated capability delivery", "Quota/RPC/original timer-cache/shell bridge", "RPM/vendor/native closure and packaged Tumbleweed install/login/interaction/usage/restart/removal/KDE acceptance"]
+
+[log_sha256]
+focused = "0d7d4c1dd8484e596ab936a9cb06f187fbaf05d6e2077a9b2424623120f647ae"
+full = "67df7c9332f320bae49b314406a3d77aadd33b0a6777ecba518c0c547dc42f4c"
+workspace = "cf7cbc94fc03b2129738b717f906bec05b35dcaad6be9d4c7a01b2a08969d826"
+clippy = "ee9f73a4f46e06e1d284ab9d240dfb66912523ce5511cf16de2c070e608d9f68"
+dependency = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+two_uid = "c12d1615f75893320effc6bd23ad8c1fb77e166078ef2e07d7421cdd77f3c70d"
+
+[source_sha256]
+"suse/rashin/src/api.rs" = "2e70906f71514a947921cf66516345546cd68cc3a7eabf7724fbe723af9b74a0"
+"suse/rashin/src/authorization.rs" = "1c401951cefc741810377e136cde3a5e4b2d9c1bebe02c0545d4d4ebfc5f992f"
+"suse/rashin/src/http/console.rs" = "38b50344aeb074047ef919d5c0b986e640f34207990a7c18cac3a8e0fcde41f8"
+"suse/rashin/src/runtime.rs" = "e7e1605818370e8b5ed0a4870d78eda140e1bf67bed6bd9048432baf076a8863"
+"suse/rashin/tests/workflows.rs" = "94389a9fc6d90b2f65732eff977c42cc1f519b6dcff06fc9c6c3d52252a44827"
+"docs/rashin-runtime.md" = "f59547c73d79857ba0dcd09293f681a11d951536c7ecf38a24d24d88e80a9825"

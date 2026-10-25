@@ -40,6 +40,7 @@ impl Request {
             | Self::Job { .. } => Action::Inspect,
             Self::Ask { .. } | Self::Cancel { .. } => Action::Ask,
             Self::Handoff { .. }
+            | Self::ManualHandoff { .. }
             | Self::ClearHandoff {}
             | Self::NewSession { .. }
             | Self::Prompt { .. }

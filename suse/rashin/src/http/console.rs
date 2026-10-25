@@ -94,6 +94,27 @@ pub(super) fn submit(engine: &Arc<Engine>, body: &[u8]) -> Result<String> {
             })?;
             id_path("job", &id)
         }
+        "manual_handoff" => {
+            let run = match value(&fields, "mode")? {
+                "stage" => None,
+                "run" => Some(HandoffRun {
+                    id: value(&fields, "id")?.into(),
+                    session: value(&fields, "session")?.into(),
+                }),
+                _ => return Err(Error::InvalidRequest),
+            };
+            let path = run
+                .as_ref()
+                .map(|run| id_path("job", &run.id))
+                .transpose()?
+                .unwrap_or_else(|| "/console".into());
+            engine.dispatch(Request::ManualHandoff {
+                question: value(&fields, "question")?.into(),
+                answer: value(&fields, "answer")?.into(),
+                run,
+            })?;
+            Ok(path)
+        }
         "handoff" => {
             engine.dispatch(Request::Handoff {
                 ask_id: value(&fields, "ask_id")?.into(),
@@ -270,13 +291,28 @@ pub(super) fn home(engine: &Arc<Engine>) -> Result<String> {
     if !sessions["pending_handoff"].is_null() {
         let pending = &sessions["pending_handoff"];
         body += &format!(
-            "<h2>Pending Ask context for next Agent message</h2><h3>Question</h3><pre>{}</pre><h3>Answer</h3><pre>{}</pre>",
+            "<h2>Pending context for next Agent message</h2><h3>Question</h3><pre>{}</pre><h3>Answer</h3><pre>{}</pre>",
             escape(text(pending, "question")),
             escape(text(pending, "answer"))
         );
+        body += &format!("<p>Context source: {}</p>", escape(text(pending, "origin")));
         body += &begin("clear_handoff");
-        body += "<button>Clear pending Ask context</button></form>";
+        body += "<button>Clear pending context</button></form>";
     }
+    body += "<details><summary>Manual context for Agent</summary><p>Supplied context is labeled manual and is separate from recorded Ask history. Immediate Run cancels active Ask work.</p>";
+    body += &begin("manual_handoff");
+    body += &hidden("id", &nonce()?);
+    body += "<label>Question<textarea name=\"question\" required maxlength=\"16384\"></textarea></label><label>Answer (may be empty)<textarea name=\"answer\" maxlength=\"16384\"></textarea></label><label>Continue<select name=\"mode\"><option value=\"stage\">Stage for next Agent message</option><option value=\"run\">Run now and cancel Ask</option></select></label><label>Agent conversation for immediate Run<select name=\"session\"><option value=\"\">Choose Agent conversation</option>";
+    for session in sessions["sessions"]
+        .as_array()
+        .ok_or(Error::Integrity)?
+        .iter()
+        .filter(|session| session["lane"] == "agent")
+    {
+        let id = text(session, "id");
+        body += &format!("<option value=\"{}\">{}</option>", escape(id), escape(id));
+    }
+    body += "</select></label><button>Continue with manual context</button></form></details>";
     body += &format!(
         "<h2>Built-in Agent instructions</h2><p>Instructions are {} for Agent messages. Ask and Chat are separate.</p>",
         if status["wired"] == true { "enabled" } else { "disabled" }
@@ -459,11 +495,18 @@ pub(super) fn job(engine: &Arc<Engine>, id: &str) -> Result<String> {
             escape(&id_path("session", session)?)
         );
     }
-    if job["lane"] == "ask" && job["status"] == "completed" {
+    if job["lane"] == "ask" && (job["status"] == "completed" || running) {
         body += "<h2>Continue in Agent</h2><p>Use the recorded question and answer as context. Chat remains separate.</p>";
+        if running {
+            body += "<p>This Ask is unfinished. Staging captures partial context and leaves Ask running. Immediate Run cancels active Ask work; neither action marks the Ask completed.</p>";
+        }
         body += &begin("handoff");
         body += &hidden("ask_id", id);
-        body += "<button>Stage context for next Agent message</button></form>";
+        body += if running {
+            "<button>Stage current partial context for next Agent message</button></form>"
+        } else {
+            "<button>Stage context for next Agent message</button></form>"
+        };
         let sessions = engine.dispatch(Request::Sessions {})?;
         let agents = sessions["sessions"]
             .as_array()

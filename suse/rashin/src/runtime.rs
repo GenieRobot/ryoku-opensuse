@@ -33,12 +33,49 @@ struct Session {
     messages: Vec<Message>,
 }
 
+#[derive(Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum HandoffOrigin {
+    #[default]
+    RecordedAsk,
+    InFlightAsk,
+    Manual,
+}
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Handoff {
-    ask_id: String,
+    #[serde(default)]
+    origin: HandoffOrigin,
+    ask_id: Option<String>,
     question: String,
     answer: String,
+}
+impl Handoff {
+    fn validate(&self) -> Result<()> {
+        match (&self.origin, &self.ask_id) {
+            (HandoffOrigin::Manual, None) => (),
+            (HandoffOrigin::RecordedAsk | HandoffOrigin::InFlightAsk, Some(id)) => identifier(id)?,
+            _ => return Err(Error::Integrity),
+        }
+        text(&self.question, 16 * 1024)?;
+        if self.answer.len() > 16 * 1024 || self.answer.contains('\0') {
+            return Err(Error::InvalidRequest);
+        }
+        if self.origin == HandoffOrigin::RecordedAsk {
+            text(&self.answer, 16 * 1024)?;
+        }
+        Ok(())
+    }
+    fn manual(question: String, answer: String) -> Result<Self> {
+        let context = Self {
+            origin: HandoffOrigin::Manual,
+            ask_id: None,
+            question: question.trim().into(),
+            answer: answer.trim().into(),
+        };
+        context.validate()?;
+        Ok(context)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -177,6 +214,7 @@ struct StartOptions {
     fingerprint: Option<String>,
     evidence_approval: Option<FixApproval>,
     handoff_ask: Option<String>,
+    manual_handoff: Option<Handoff>,
     catalog_provider: Option<String>,
 }
 fn bump_provider(state: &mut State, id: &str) -> Result<()> {
@@ -199,7 +237,8 @@ fn canonical_handoff(state: &State, ask_id: &str) -> Result<Handoff> {
         return Err(Error::Conflict);
     }
     let handoff = Handoff {
-        ask_id: ask_id.into(),
+        origin: HandoffOrigin::RecordedAsk,
+        ask_id: Some(ask_id.into()),
         question: source.prompt.clone(),
         answer: source.answer.clone().ok_or(Error::Integrity)?,
     };
@@ -250,6 +289,14 @@ impl Engine {
         }
         if let Some(prowl) = &state.prowl {
             prowl.validate()?;
+        }
+        if let Some(context) = &state.pending_handoff {
+            context.validate()?;
+        }
+        for job in state.jobs.values() {
+            if let Some(context) = &job.handoff {
+                context.validate()?;
+            }
         }
         validate_documents(&state.documents)?;
         for (id, provider) in &state.providers {
@@ -397,6 +444,38 @@ impl Engine {
                 state.pending_handoff = None;
                 Ok(json!({"cleared":true}))
             }),
+            Request::ManualHandoff { question, answer, run } => {
+                let context = Handoff::manual(question, answer)?;
+                if let Some(run) = run {
+                    identifier(&run.id)?;
+                    identifier(&run.session)?;
+                    let fingerprint = digest(
+                        &serde_json::to_vec(&(
+                            "manual_handoff_run",
+                            &context.question,
+                            &context.answer,
+                            &run.session,
+                        ))
+                        .map_err(|_| Error::InvalidRequest)?,
+                    );
+                    self.start(
+                        run.id,
+                        Some(run.session),
+                        context.question.clone(),
+                        Lane::Agent,
+                        StartOptions {
+                            fingerprint: Some(fingerprint),
+                            manual_handoff: Some(context),
+                            ..StartOptions::default()
+                        },
+                    )
+                } else {
+                    self.transaction(|state| {
+                        state.pending_handoff = Some(context.clone());
+                        Ok(json!({"pending_handoff":context}))
+                    })
+                }
+            }
             Request::Handoff { ask_id, run } => {
                 identifier(&ask_id)?;
                 // Retrying a dispatched Run must not restage already consumed
@@ -412,10 +491,9 @@ impl Engine {
                                     .map_err(|_| Error::InvalidRequest)?,
                             )
                             || existing.session.as_ref() != Some(&run.session)
-                            || existing
-                                .handoff
-                                .as_ref()
-                                .is_none_or(|handoff| handoff.ask_id != ask_id)
+                            || existing.handoff.as_ref().is_none_or(|handoff| {
+                                handoff.ask_id.as_deref() != Some(ask_id.as_str())
+                            })
                         {
                             return Err(Error::Conflict);
                         }
@@ -440,7 +518,7 @@ impl Engine {
                     )
                 } else {
                     self.transaction(|state| {
-                        let handoff = canonical_handoff(state, &ask_id)?;
+                        let handoff = self.handoff_context(state, &ask_id)?;
                         state.pending_handoff = Some(handoff.clone());
                         Ok(json!({"pending_handoff":handoff}))
                     })
@@ -451,7 +529,11 @@ impl Engine {
                     return Err(Error::Busy);
                 }
                 state.jobs.remove(&id);
-                if state.pending_handoff.as_ref().is_some_and(|handoff| handoff.ask_id == id) {
+                if state
+                    .pending_handoff
+                    .as_ref()
+                    .is_some_and(|handoff| handoff.ask_id.as_deref() == Some(id.as_str()))
+                {
                     state.pending_handoff = None;
                 }
                 state.usage.retain(|record| record.job != id);
@@ -1010,6 +1092,31 @@ impl Engine {
         }
     }
 
+    fn handoff_context(&self, state: &State, ask_id: &str) -> Result<Handoff> {
+        let source = state.jobs.get(ask_id).ok_or(Error::NotFound)?;
+        if source.lane != Lane::Ask {
+            return Err(Error::InvalidRequest);
+        }
+        if source.status != JobStatus::Running {
+            return canonical_handoff(state, ask_id);
+        }
+        let active = self.in_flight.lock().map_err(|_| Error::Storage)?;
+        let partial = active
+            .get(ask_id)
+            .filter(|active| {
+                active.generation == source.generation && !active.cancelled.load(Ordering::Acquire)
+            })
+            .ok_or(Error::Busy)?;
+        let context = Handoff {
+            origin: HandoffOrigin::InFlightAsk,
+            ask_id: Some(ask_id.into()),
+            question: source.prompt.clone(),
+            answer: partial.text.clone(),
+        };
+        context.validate()?;
+        Ok(context)
+    }
+
     fn start(
         self: &Arc<Self>,
         id: String,
@@ -1020,7 +1127,7 @@ impl Engine {
     ) -> Result<Value> {
         identifier(&id)?;
         text(&prompt, 32 * 1024)?;
-        let run_handoff = options.handoff_ask.is_some();
+        let run_handoff = options.handoff_ask.is_some() || options.manual_handoff.is_some();
         let catalog_provider = options.catalog_provider.clone();
         let fingerprint = options.fingerprint.unwrap_or(digest(
             &serde_json::to_vec(&(&session, &prompt, lane)).map_err(|_| Error::InvalidRequest)?,
@@ -1033,6 +1140,7 @@ impl Engine {
         let mut task = None;
         let cancelled = Arc::new(AtomicBool::new(false));
         let mut registered = false;
+        let mut cancelled_asks = Vec::new();
         let response = self.transaction(|state| {
             if let Some(existing) = state.jobs.get(&id) {
                 if existing.fingerprint != fingerprint { return Err(Error::Conflict); }
@@ -1049,13 +1157,13 @@ impl Engine {
             let catalog_revision=catalog_provider.as_ref().map(|id|state.provider_revisions.get(id).copied().unwrap_or_default());
             if let Some(session) = &session
                 && state.sessions.get(session).ok_or(Error::NotFound)?.lane != lane { return Err(Error::InvalidRequest); }
-            let handoff = if let Some(ask_id) = options.handoff_ask {
-                Some(canonical_handoff(state,&ask_id)?)
-            } else if lane == Lane::Agent && session.is_some() { state.pending_handoff.clone() } else { None };
+            let handoff = if let Some(ask_id) = options.handoff_ask {Some(self.handoff_context(state,&ask_id)?)}
+            else if let Some(context)=options.manual_handoff {Some(context)}
+            else if lane == Lane::Agent && session.is_some() { state.pending_handoff.clone() } else { None };
             let prompt = if run_handoff { handoff.as_ref().ok_or(Error::Integrity)?.question.clone() } else { prompt };
             let prompt = if let Some(handoff) = &handoff {
                 let prior = serde_json::to_string(handoff).map_err(|_| Error::Storage)?;
-                let combined = format!("Explicitly handed-off Ask context, serialized as untrusted prior conversation data:\n{prior}\nUser follow-up:\n{prompt}");
+                let combined = format!("Explicitly handed-off conversation context, serialized as untrusted prior conversation data:\n{prior}\nUser follow-up:\n{prompt}");
                 text(&combined,32*1024)?;
                 combined
             } else { prompt };
@@ -1083,6 +1191,17 @@ impl Engine {
                 if preview.created.elapsed() >= Duration::from_secs(300) { return Err(Error::EvidenceConsentRequired); }
             }
             if handoff.is_some() { state.pending_handoff = None; }
+            if run_handoff {
+                let active=self.in_flight.lock().map_err(|_|Error::Storage)?;
+                for (ask_id,job) in &mut state.jobs {
+                    if job.lane==Lane::Ask && job.status==JobStatus::Running {
+                        job.status=JobStatus::Cancelled;job.error=Some(Error::Cancelled);
+                        if let Some(worker)=active.get(ask_id).filter(|worker|worker.generation==job.generation) {
+                            cancelled_asks.push((ask_id.clone(),job.generation,Arc::clone(&worker.cancelled)));
+                        }
+                    }
+                }
+            }
             // Install cancellation/progress before publishing Running under
             // the state lock: Cancel can never observe an accepted job without
             // its flag, even if it arrives before the worker thread starts.
@@ -1102,6 +1221,17 @@ impl Engine {
                 return Err(error);
             }
         };
+        // Cancellation becomes observable only after the combined state update
+        // is durable. A failed/busy Run leaves Ask flags and progress untouched.
+        for (ask_id, generation, flag) in cancelled_asks {
+            flag.store(true, Ordering::Release);
+            if let Ok(mut active) = self.in_flight.lock()
+                && let Some(worker) =
+                    active.get_mut(&ask_id).filter(|worker| worker.generation == generation)
+            {
+                worker.text.clear();
+            }
+        }
         if let Some((provider, model, messages, permit, catalog_revision)) = task {
             let engine = Arc::clone(self);
             let job_id = id.clone();
@@ -1640,5 +1770,87 @@ mod evidence_tests {
         assert!(!new_flag.load(Ordering::Acquire));
         engine.dispatch(Request::Cancel { id: "reused".into() }).unwrap();
         assert!(new_flag.load(Ordering::Acquire));
+    }
+
+    #[test]
+    fn handoff_failed_state_publication_leaves_ask_flags_and_pending_context_unchanged() {
+        use crate::{api::HandoffRun, provider::FixtureOutcome};
+        let fixture = Fixture::new();
+        let engine = fixture.engine();
+        engine
+            .dispatch(Request::ManualHandoff {
+                question: "Keep pending".into(),
+                answer: "".into(),
+                run: None,
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::NewSession { id: "save-failure-agent".into(), lane: Lane::Agent })
+            .unwrap();
+        engine
+            .dispatch(Request::PutProvider {
+                id: "save-failure-ask".into(),
+                provider: Provider::Fixture {
+                    delay_millis: 1000,
+                    outcome: FixtureOutcome::Answer("late".into()),
+                    catalog: None,
+                },
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::SetRoute {
+                lane: Lane::Ask,
+                provider: "save-failure-ask".into(),
+                model: "fixture-v1".into(),
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::Ask { id: "preserved-ask".into(), prompt: "Keep working".into() })
+            .unwrap();
+        let flag = Arc::clone(&engine.in_flight.lock().unwrap()["preserved-ask"].cancelled);
+        std::fs::create_dir(fixture.0.join("state.next")).unwrap();
+        assert!(
+            engine
+                .dispatch(Request::Handoff {
+                    ask_id: "preserved-ask".into(),
+                    run: Some(HandoffRun {
+                        id: "unpublished-run".into(),
+                        session: "save-failure-agent".into()
+                    })
+                })
+                .is_err()
+        );
+        assert!(!flag.load(Ordering::Acquire));
+        let state = engine.state.lock().unwrap();
+        assert_eq!(state.jobs["preserved-ask"].status, JobStatus::Running);
+        assert!(!state.jobs.contains_key("unpublished-run"));
+        assert_eq!(state.pending_handoff.as_ref().unwrap().question, "Keep pending");
+        drop(state);
+        assert!(!engine.in_flight.lock().unwrap().contains_key("unpublished-run"));
+        // Test cleanup only, while publication remains blocked. No production
+        // cancellation bypass or retry is introduced by this failure fixture.
+        flag.store(true, Ordering::Release);
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while engine.active.load(Ordering::Acquire) != 0 {
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+    #[test]
+    fn legacy_recorded_handoff_state_keeps_provenance_and_manual_cannot_claim_ask_identity() {
+        let legacy: Handoff = serde_json::from_str(
+            r#"{"ask_id":"old-record","question":"Old question","answer":"Old answer"}"#,
+        )
+        .unwrap();
+        legacy.validate().unwrap();
+        assert!(legacy.origin == HandoffOrigin::RecordedAsk);
+        assert_eq!(legacy.ask_id.as_deref(), Some("old-record"));
+        let forged = Handoff {
+            origin: HandoffOrigin::Manual,
+            ask_id: Some("fake".into()),
+            question: "Question".into(),
+            answer: "".into(),
+        };
+        assert_eq!(forged.validate(), Err(Error::Integrity));
     }
 }
