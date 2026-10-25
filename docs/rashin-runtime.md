@@ -18,9 +18,13 @@ ryoku-rashin web /absolute/private/rashin-directory
 ```
 
 The daemon prints its loopback URL. Open it, read `browser.token` in the private
-directory, and enter that token in the login form. It is rotated on each web
-daemon start. Index a document, then ask a question containing terms from that
-document. Refresh the console to see the answer and usage. The default
+directory, then open the workspace link. In the browser authentication dialog,
+use username `owner` and the token as the password. The token rotates on each web
+daemon start. Close the browser session to clear cached authentication. Index a
+document, then ask a question containing terms from that document. The workspace
+shows recent answers, separate Agent/Chat conversations, explicit model picks,
+provider editing and asynchronous model refresh. Job pages refresh while running
+and show ephemeral streamed progress, cancellation and terminal results. The default
 `local-retrieval-v1` provider returns matching indexed evidence with source names
 and hashes. It performs no network I/O and is not a general language model.
 
@@ -57,8 +61,9 @@ digits, hyphen and underscore, up to 64 bytes.
 All HTTP actions use `POST /api/action` with `Content-Type: application/json`.
 The same `Request` enum is used by the CLI, HTTP handler, console and tests.
 Unknown actions and fields are refused. The Unix socket authenticates the
-kernel peer UID before parsing. HTTP requires a private bearer token, or the
-HttpOnly SameSite=Strict cookie plus the exact configured Origin for POST.
+kernel peer UID before parsing. HTTP requires a private bearer token, or browser
+HTTP Basic authentication (`owner` and the private token) plus the exact configured
+Origin for POST. Cookies are never issued or accepted as authority.
 Origin, Host and `X-Rashin-Client` are not identity credentials. Cross-origin
 requests, duplicate HTTP headers, chunked bodies, oversized frames and arbitrary
 commands are refused. Browser responses are private, uncached, escaped, and have
@@ -66,7 +71,7 @@ a restrictive CSP; the console requires no JavaScript.
 
 | Action family | JSON actions | Effects and authorization |
 | --- | --- | --- |
-| Inspect | `status`, `providers`, `get_index`, `recent`, `sessions`, `session`, `job`, `usage`, `logs` | Account-private reads; provider inventory never returns keys; logs run only fixed bounded native readers |
+| Inspect | `status`, `providers`, `get_index`, `recent`, `sessions`, `session`, `job`, `jobs`, `usage`, `logs` | Account-private reads; provider inventory never returns keys; logs run only fixed bounded native readers |
 | Ask | `ask`, `cancel` | Read-only provider lane, private independent history, bounded asynchronous execution and cancellation |
 | Conversation | `new_session`, `prompt`, `forget_job`, `delete_session` | Persistent independent Agent/Chat transcripts; deletion removes associated jobs and usage records |
 | Credentials | `put_provider`, `update_provider`, `refresh_models`, `remove_provider`, `issue_ask_client`, `ask_clients`, `revoke_ask_client` | Owner configures/removes an explicit provider; keys remain only in private state and provider stdin |
@@ -89,8 +94,8 @@ Use the owner-only `{"action":"issue_ask_client","lifetime_seconds":900}` to
 obtain one private bearer token plus its revocation ID. The default lifetime is
 15 minutes, bounded from 60 seconds to one hour, with at most eight live grants.
 Pass the token only in `Authorization: Bearer TOKEN` to `/api/action`. An explicit
-scoped or invalid bearer cannot inherit stronger authority from an owner browser
-cookie. Host/loopback/Origin controls continue to apply. `ask_clients` lists IDs
+scoped or invalid bearer cannot inherit stronger authority from browser
+authentication. Host/loopback/Origin controls continue to apply. `ask_clients` lists IDs
 and expiry metadata without tokens/hashes; `revoke_ask_client` with `id` revokes
 subsequent requests. Accepted jobs remain controlled by the owner; use `cancel`
 to stop their model work. Only token hashes live in bounded memory, expiry uses
@@ -374,3 +379,39 @@ cancel/failure/recovery, restart interruption, deletion and unsafe filesystem
 objects. Tests require local sockets, so the execution environment must allow
 socketpair and bind. No real provider key, remote request, model download or VM
 is required. See the issue183 evidence TOML for exact commands and scope.
+
+
+## Browser credential isolation
+
+The former login response put the raw owner bearer in a host cookie. A browser
+could send that cookie to another service on the same loopback host at a different
+port; HttpOnly, SameSite and request Origin checks did not prevent disclosure to
+that service. Cookies have no port isolation ([RFC6265 §8.5](https://www.rfc-editor.org/rfc/rfc6265.html#section-8.5)).
+The gateway now issues no authentication cookie and ignores all cookie credentials,
+including a legacy valid token with a forged exact Origin. Browser authentication
+uses the HTTP protection space, which includes scheme, host and port
+([RFC9110 §11.5](https://www.rfc-editor.org/rfc/rfc9110.html#section-11.5)).
+Only the canonical Basic credential for username `owner` is accepted. Explicit
+owner and delegated Ask bearer APIs retain their existing typed authority.
+
+The threat is a different local web service receiving ambient browser credentials.
+A standards-conforming client does not forward this authentication to another
+origin, even when that service challenges with the same realm. The exact Host,
+loopback peer, Origin checks, no-store responses, restrictive CSP, escaped content,
+relative-only redirects and absence of credential URLs remain required. Every
+browser mutation requires the exact Origin; an unauthenticated same-origin form
+can challenge and retry without executing the action first. Provider forms keep
+keys private and a blank edit retains the saved key. Saved unavailable model picks
+remain visible until explicitly changed. No external provider request is needed
+to render or edit these forms.
+
+This boundary assumes the user does not manually give another service the token,
+and that the browser implements HTTP origin/protection-space rules. A process
+with owner filesystem/socket access already has account authority. Loopback HTTP
+does not defend against privileged traffic inspection or a compromised browser.
+A previously leaked bearer remains usable until web restart rotates it; restart
+is required when upgrading from the cookie implementation. Automated Rust handler
+regressions and an independent standard-client two-port proof exercise the current
+boundary. An actual browser engine is unavailable on this host; native browser,
+WebKit, packaged UI and Tumbleweed VM acceptance remain open alongside the full
+retained ACP/Prowl/provider/profile/sign-in/terminal/recovery capabilities.

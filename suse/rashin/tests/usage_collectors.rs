@@ -393,18 +393,24 @@ fn daemon_scheduler_really_collects_overdue_enrolled_sources_after_restart() {
     engine.collect_due_usage(now - 301).unwrap();
     drop(engine);
     source.write("projects/project/session.jsonl", &lines(&[claude(now, 20)]));
-    let _daemon = ChildGuard(
+    let mut daemon = ChildGuard(
         Command::new(env!("CARGO_BIN_EXE_ryoku-rashin"))
             .arg("serve")
             .arg(&state.0)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .spawn()
             .unwrap(),
     );
     let deadline = Instant::now() + Duration::from_secs(4);
     loop {
+        if let Some(status) = daemon.0.try_wait().unwrap() {
+            use std::io::Read;
+            let mut diagnostic = String::new();
+            daemon.0.stderr.take().unwrap().read_to_string(&mut diagnostic).unwrap();
+            panic!("daemon exited before scheduled collection: {status}: {diagnostic}");
+        }
         let mut client = Command::new(env!("CARGO_BIN_EXE_ryoku-rashin"))
             .arg("request")
             .arg(state.0.join("rashin.sock"))

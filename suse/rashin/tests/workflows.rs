@@ -517,7 +517,7 @@ fn actual_http_api_requires_private_credentials_and_rejects_cross_origin_request
             &format!("{cookie}Origin: http://127.0.0.1:51321\r\n"),
             body
         )
-        .starts_with("HTTP/1.1 200")
+        .starts_with("HTTP/1.1 403")
     );
     let login = http(
         &gateway,
@@ -526,7 +526,8 @@ fn actual_http_api_requires_private_credentials_and_rejects_cross_origin_request
         "Origin: http://127.0.0.1:51321\r\n",
         &format!("token={token}"),
     );
-    assert!(login.contains("HttpOnly; SameSite=Strict"));
+    assert!(login.starts_with("HTTP/1.1 403"));
+    assert!(!login.contains("Set-Cookie:"));
     assert!(login.contains("Cache-Control: no-store"));
     assert!(login.contains("frame-ancestors 'none'"));
     assert!(!login.split("\r\n\r\n").nth(1).unwrap().contains(&token));
@@ -551,7 +552,7 @@ fn http_index_ask_poll_and_browser_console_exercise_the_actual_engine() {
     let poll =
         http(&gateway, "POST", "/api/action", &headers, r#"{"action":"job","id":"http-ask"}"#);
     assert!(poll.contains("zypper"));
-    let console = http(&gateway, "GET", "/console", &format!("Cookie: rashin={token}\r\n"), "");
+    let console = http(&gateway, "GET", "/console", &headers, "");
     assert!(console.contains("zypper"));
     assert!(console.contains("&lt;script&gt;bad&lt;/script&gt;"));
     assert!(!console.contains("<script>bad</script>"));
@@ -1604,4 +1605,320 @@ fn catalog_results_bind_provider_generation_and_allow_independent_provider_refre
     assert_eq!(listed["providers"][1]["models"][0], "new-server-response");
     assert_eq!(listed["providers"][2]["models"][0], "two-fresh");
     assert!(rpc(&engine, Request::Usage {})["activity"].as_array().unwrap().is_empty());
+}
+
+// Independent known canonical encoding of owner plus 64 ASCII ones; never a
+// real credential. Production does not decode arbitrary Basic values.
+const BROWSER_AUTH: &str = "Authorization: Basic b3duZXI6MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMQ==\r\n";
+fn ui_form(fields: &[(&str, &str)]) -> String {
+    fields
+        .iter()
+        .map(|(key, value)| {
+            let value: String = value.bytes().map(|byte| format!("%{byte:02X}")).collect();
+            format!("{key}={value}")
+        })
+        .collect::<Vec<_>>()
+        .join("&")
+}
+fn ui_submit(gateway: &ryoku_rashin::http::Gateway, fields: &[(&str, &str)]) -> String {
+    http(
+        gateway,
+        "POST",
+        "/console/action",
+        &format!(
+            "{BROWSER_AUTH}Origin: http://127.0.0.1:51321\r\nContent-Type: application/x-www-form-urlencoded\r\n"
+        ),
+        &ui_form(fields),
+    )
+}
+#[test]
+fn browser_authority_is_cookie_free_and_origin_bound_with_bearer_api_preserved() {
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let gateway = ryoku_rashin::http::Gateway::new(
+        Arc::clone(&engine),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    for path in ["/console", "/login", "/session/private", "/job/private"] {
+        let response = http(&gateway, "GET", path, "", "");
+        assert!(response.starts_with("HTTP/1.1 401"));
+        assert!(response.contains(
+            "WWW-Authenticate: Basic realm=\"Rashin http://127.0.0.1:51321\", charset=\"UTF-8\""
+        ));
+        assert!(!response.contains("Set-Cookie:"));
+        assert!(!response.contains(&"1".repeat(64)));
+    }
+    let valid = http(&gateway, "GET", "/console", BROWSER_AUTH, "");
+    assert!(valid.starts_with("HTTP/1.1 200"));
+    assert!(!valid.contains("Set-Cookie:"));
+    assert!(!valid.contains("b3duZXI6"));
+    assert!(valid.contains("<h2>Usage</h2>"));
+    assert!(valid.contains("quota_status"));
+    assert!(valid.contains("<h2>Status</h2>"));
+    let login = http(&gateway, "GET", "/login", BROWSER_AUTH, "");
+    assert!(login.starts_with("HTTP/1.1 303"));
+    assert!(login.contains("Location: /console\r\n"));
+    for headers in [
+        format!("Cookie: rashin={}\r\n", "1".repeat(64)),
+        format!("Cookie: rashin={}\r\nOrigin: http://127.0.0.1:51321\r\n", "1".repeat(64)),
+        "Authorization: Basic b3duZXI6c2hvcnQ=\r\n".into(),
+        BROWSER_AUTH.replace("Basic ", "Basic  "),
+        BROWSER_AUTH.replace("==", "="),
+        BROWSER_AUTH.replace("b3duZXI6", "d3Jvbmc6"),
+    ] {
+        assert!(!http(&gateway, "GET", "/console", &headers, "").starts_with("HTTP/1.1 200"));
+        let headers = format!("{headers}Content-Type: application/json\r\n");
+        assert!(
+            http(&gateway, "POST", "/api/action", &headers, r#"{"action":"status"}"#)
+                .starts_with("HTTP/1.1 403")
+        );
+    }
+    let fields = ui_form(&[("action", "new_session"), ("id", "forged"), ("lane", "agent")]);
+    for headers in [
+        BROWSER_AUTH.into(),
+        format!("{BROWSER_AUTH}Origin: http://127.0.0.1:51322\r\n"),
+        format!("{BROWSER_AUTH}Origin: null\r\n"),
+    ] {
+        assert!(
+            http(&gateway, "POST", "/console/action", &headers, &fields)
+                .starts_with("HTTP/1.1 403")
+        );
+    }
+    let challenge = http(
+        &gateway,
+        "POST",
+        "/console/action",
+        "Origin: http://127.0.0.1:51321\r\nContent-Type: application/x-www-form-urlencoded\r\n",
+        &fields,
+    );
+    assert!(challenge.starts_with("HTTP/1.1 401"));
+    assert!(challenge.contains("WWW-Authenticate: Basic"));
+    assert_eq!(engine.dispatch(Request::Sessions {}).unwrap()["sessions"], json!([]));
+    let basic_json = format!("{BROWSER_AUTH}Content-Type: application/json\r\n");
+    assert!(
+        http(&gateway, "POST", "/api/action", &basic_json, r#"{"action":"status"}"#)
+            .starts_with("HTTP/1.1 403")
+    );
+    assert!(
+        http(
+            &gateway,
+            "POST",
+            "/api/action",
+            &format!("{basic_json}Origin: http://127.0.0.1:51321\r\n"),
+            r#"{"action":"status"}"#
+        )
+        .starts_with("HTTP/1.1 200")
+    );
+    let bearer =
+        format!("Authorization: Bearer {}\r\nContent-Type: application/json\r\n", "1".repeat(64));
+    assert!(
+        http(&gateway, "POST", "/api/action", &bearer, r#"{"action":"status"}"#)
+            .starts_with("HTTP/1.1 200")
+    );
+    let scoped =
+        engine.dispatch(Request::IssueAskClient { lifetime_seconds: Some(60) }).unwrap()["token"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+    let forbidden = format!("Authorization: Basic {scoped}\r\n");
+    assert!(!http(&gateway, "GET", "/console", &forbidden, "").starts_with("HTTP/1.1 200"));
+    let scoped = format!("Authorization: Bearer {scoped}\r\nContent-Type: application/json\r\n");
+    assert!(
+        http(&gateway, "POST", "/api/action", &scoped, r#"{"action":"jobs"}"#)
+            .starts_with("HTTP/1.1 403")
+    );
+}
+
+#[test]
+fn no_javascript_provider_model_and_session_forms_preserve_private_workflows() {
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let gateway = ryoku_rashin::http::Gateway::new(
+        Arc::clone(&engine),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    let key = "private-ui-fixture-key-DO-NOT-RENDER";
+    let model = "org/model <candidate> \"opaque\"";
+    let created = ui_submit(
+        &gateway,
+        &[
+            ("action", "put_provider"),
+            ("provider", "external"),
+            ("endpoint", "https://provider.invalid/v1"),
+            ("api_key", key),
+            ("models", model),
+            ("streaming", "true"),
+        ],
+    );
+    assert!(created.starts_with("HTTP/1.1 303"));
+    let home = http(&gateway, "GET", "/console", BROWSER_AUTH, "");
+    assert!(home.contains("New API key (leave blank to retain current key)"));
+    assert!(!home.contains(key));
+    assert!(!home.contains(model));
+    assert!(home.contains("org/model &lt;candidate&gt; &quot;opaque&quot;"));
+    assert!(!home.contains("<script"));
+    let choice = json!({"provider":"external","model":model}).to_string();
+    assert!(
+        ui_submit(&gateway, &[("action", "set_route"), ("lane", "chat"), ("choice", &choice)])
+            .starts_with("HTTP/1.1 303")
+    );
+    assert!(
+        ui_submit(
+            &gateway,
+            &[
+                ("action", "update_provider"),
+                ("provider", "external"),
+                ("endpoint", "https://provider.invalid/v2"),
+                ("api_key", ""),
+                ("models", "new offered")
+            ]
+        )
+        .starts_with("HTTP/1.1 303")
+    );
+    assert_eq!(engine.dispatch(Request::Status {}).unwrap()["routes"]["chat"]["model"], model);
+    let home = http(&gateway, "GET", "/console", BROWSER_AUTH, "");
+    assert!(home.contains("Saved pick unavailable: external"));
+    let state = fs::read_to_string(fixture.path.join("state.json")).unwrap();
+    assert!(state.contains(key), "blank key preserves existing private credential");
+    assert!(!home.contains(key));
+    let choice = json!({"provider":"local","model":"local-retrieval-v1"}).to_string();
+    assert!(
+        ui_submit(&gateway, &[("action", "set_route"), ("lane", "chat"), ("choice", &choice)])
+            .starts_with("HTTP/1.1 303")
+    );
+    let session =
+        ui_submit(&gateway, &[("action", "new_session"), ("id", "browser-chat"), ("lane", "chat")]);
+    assert!(session.contains("Location: /session/browser-chat\r\n"));
+    engine.dispatch(Request::Index { documents: vec![document()] }).unwrap();
+    let prompt = ui_submit(
+        &gateway,
+        &[
+            ("action", "prompt"),
+            ("id", "browser-job"),
+            ("session", "browser-chat"),
+            ("prompt", "Tumbleweed packages <script>never execute</script>"),
+        ],
+    );
+    assert!(prompt.contains("Location: /job/browser-job\r\n"));
+    assert_eq!(done(&engine, "browser-job")["status"], "completed");
+    let conversation = http(&gateway, "GET", "/session/browser-chat", BROWSER_AUTH, "");
+    assert!(conversation.contains("zypper"));
+    assert!(conversation.contains("&lt;script&gt;never execute&lt;/script&gt;"));
+    assert!(!conversation.contains("<script>"));
+    let job = http(&gateway, "GET", "/job/browser-job", BROWSER_AUTH, "");
+    assert!(job.contains("zypper"));
+    assert!(!job.contains("http-equiv=\"refresh\""));
+    assert!(
+        ui_submit(&gateway, &[("action", "forget"), ("id", "browser-job")])
+            .starts_with("HTTP/1.1 303")
+    );
+    assert!(
+        ui_submit(&gateway, &[("action", "delete_session"), ("session", "browser-chat")])
+            .starts_with("HTTP/1.1 303")
+    );
+    assert!(
+        ui_submit(&gateway, &[("action", "remove_provider"), ("provider", "external")])
+            .starts_with("HTTP/1.1 303")
+    );
+    assert_eq!(engine.dispatch(Request::Sessions {}).unwrap()["sessions"], json!([]));
+}
+
+#[test]
+fn browser_jobs_render_ephemeral_streaming_cancel_and_catalog_results() {
+    use ryoku_rashin::provider::{FixtureCatalog, FixtureOutcome};
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    engine
+        .dispatch(Request::PutProvider {
+            id: "ui-fixture".into(),
+            provider: Provider::Fixture {
+                delay_millis: 600,
+                outcome: FixtureOutcome::Stream {
+                    chunks: vec!["<partial>".into(), "answer".into()],
+                    fail: false,
+                },
+                catalog: Some(FixtureCatalog {
+                    cached: vec!["fixture-v1".into()],
+                    offered: vec!["catalog<new>".into()],
+                    fail: false,
+                }),
+            },
+        })
+        .unwrap();
+    let gateway = ryoku_rashin::http::Gateway::new(
+        Arc::clone(&engine),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    let choice = json!({"provider":"ui-fixture","model":"fixture-v1"}).to_string();
+    assert!(
+        ui_submit(&gateway, &[("action", "set_route"), ("lane", "agent"), ("choice", &choice)])
+            .starts_with("HTTP/1.1 303")
+    );
+    assert!(
+        ui_submit(&gateway, &[("action", "new_session"), ("id", "ui-agent"), ("lane", "agent")])
+            .starts_with("HTTP/1.1 303")
+    );
+    assert!(
+        ui_submit(
+            &gateway,
+            &[
+                ("action", "prompt"),
+                ("id", "ui-stream"),
+                ("session", "ui-agent"),
+                ("prompt", "stream fixture")
+            ]
+        )
+        .contains("Location: /job/ui-stream\r\n")
+    );
+    let until = Instant::now() + Duration::from_secs(3);
+    loop {
+        let work = http(&gateway, "GET", "/job/ui-stream", BROWSER_AUTH, "");
+        if work.contains("&lt;partial&gt;") {
+            assert!(work.contains("Receiving response"));
+            assert!(work.contains("http-equiv=\"refresh\""));
+            assert!(work.contains(">Cancel</button>"));
+            assert!(!work.contains("<partial>"));
+            break;
+        }
+        assert!(Instant::now() < until, "stream progress missing from browser job");
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    let persisted: Value =
+        serde_json::from_slice(&fs::read(fixture.path.join("state.json")).unwrap()).unwrap();
+    assert!(!persisted["jobs"]["ui-stream"].to_string().contains("<partial>"));
+    assert!(persisted["sessions"]["ui-agent"]["messages"].as_array().unwrap().is_empty());
+    assert!(
+        ui_submit(&gateway, &[("action", "cancel"), ("id", "ui-stream")])
+            .starts_with("HTTP/1.1 303")
+    );
+    let work = http(&gateway, "GET", "/job/ui-stream", BROWSER_AUTH, "");
+    assert!(work.contains("cancelled"));
+    assert!(!work.contains("&lt;partial&gt;"));
+    assert!(!work.contains("http-equiv=\"refresh\""));
+    assert!(
+        engine.dispatch(Request::Session { id: "ui-agent".into() }).unwrap()["session"]["messages"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        ui_submit(
+            &gateway,
+            &[("action", "refresh_models"), ("id", "ui-catalog"), ("provider", "ui-fixture")]
+        )
+        .contains("Location: /job/ui-catalog\r\n")
+    );
+    assert_eq!(done(&engine, "ui-catalog")["status"], "completed");
+    let work = http(&gateway, "GET", "/job/ui-catalog", BROWSER_AUTH, "");
+    assert!(work.contains("Model catalog refresh · offered models: 1"));
+    let home = http(&gateway, "GET", "/console", BROWSER_AUTH, "");
+    assert!(home.contains("catalog&lt;new&gt;"));
+    assert!(home.contains("Saved pick unavailable: ui-fixture"));
+    assert!(!home.contains("<partial>"));
 }

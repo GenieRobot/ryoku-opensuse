@@ -697,6 +697,15 @@ impl Engine {
                         };
                         Ok(json!({"id":id,"job":job,"progress":progress}))
                     }
+                    Request::Jobs {} => {
+                        let mut jobs = state.jobs.iter().collect::<Vec<_>>();
+                        jobs.sort_by(|a, b| {
+                            b.1.started.cmp(&a.1.started).then_with(|| a.0.cmp(b.0))
+                        });
+                        Ok(
+                            json!({"jobs":jobs.into_iter().map(|(id,job)|json!({"id":id,"operation":job.operation,"lane":job.lane,"session":job.session,"status":job.status,"started":job.started,"provider":job.provider,"model":job.model,"summary":job.prompt.chars().take(80).collect::<String>()})).collect::<Vec<_>>()}),
+                        )
+                    }
                     Request::Recent {} => Ok(
                         json!({"asks":state.jobs.iter().filter(|(_, job)| job.lane == Lane::Ask).map(|(id, job)| json!({"id":id,"job":job})).collect::<Vec<_>>()}),
                     ),

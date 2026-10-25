@@ -58,6 +58,7 @@ pub enum Request {
         id: String,
     },
     Recent {},
+    Jobs {},
     Handoff {
         ask_id: String,
         run: Option<HandoffRun>,

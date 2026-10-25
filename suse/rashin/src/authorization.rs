@@ -30,6 +30,7 @@ impl Request {
             | Self::Providers {}
             | Self::GetIndex {}
             | Self::Recent {}
+            | Self::Jobs {}
             | Self::Sessions {}
             | Self::Session { .. }
             | Self::Usage {}

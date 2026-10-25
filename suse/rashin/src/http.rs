@@ -1,6 +1,7 @@
 //! Loopback browser/API boundary. The browser uses a private credential and
-//! same-origin, HttpOnly cookies; the CLI uses a bearer credential. A localhost
+//! origin-scoped HTTP authentication; the CLI uses a bearer credential. A localhost
 //! Origin or X-Rashin-Client header alone never grants access.
+mod console;
 use crate::{
     Error, Result,
     api::{Document, MAX_REQUEST_BYTES, Request, Response},
@@ -21,6 +22,7 @@ pub struct Gateway {
     engine: Arc<Engine>,
     token: String,
     origin: String,
+    browser_authorization: String,
 }
 
 impl Gateway {
@@ -37,7 +39,9 @@ impl Gateway {
         if !address.ip().is_loopback() || address.port() == 0 {
             return Err(Error::InvalidRequest);
         }
-        Ok(Self { engine, token, origin })
+        let browser_authorization =
+            format!("Basic {}", base64(format!("owner:{token}").as_bytes()));
+        Ok(Self { engine, token, origin, browser_authorization })
     }
 
     pub fn serve(self, listener: TcpListener) -> Result<()> {
@@ -78,13 +82,8 @@ impl Gateway {
         if request.headers.get("host").map(String::as_str) != self.origin.strip_prefix("http://") {
             return denied(stream);
         }
-        let explicit_bearer = request.headers.get("authorization");
-        let cookie = request.headers.get("cookie").is_some_and(|cookies| {
-            cookies
-                .split(';')
-                .filter_map(|cookie| cookie.trim().split_once('='))
-                .any(|(name, token)| name == "rashin" && equal(token, &self.token))
-        });
+        let authorization = request.headers.get("authorization");
+        let explicit_bearer = authorization.is_some_and(|value| value.starts_with("Bearer "));
         let same_origin =
             request.headers.get("origin").is_some_and(|origin| origin == &self.origin);
         let wrong_origin =
@@ -92,9 +91,10 @@ impl Gateway {
         if wrong_origin {
             return denied(stream);
         }
-        // An explicit restricted/invalid bearer cannot inherit a stronger
-        // browser cookie. Transport assigns the role; JSON never selects it.
-        let access = if let Some(header) = explicit_bearer {
+        // Cookies never grant authority: browser cookies cross local ports.
+        // Transport assigns the role; JSON never selects it. Only the exact
+        // canonical Basic credential is accepted, avoiding decoding ambiguity.
+        let access = if let Some(header) = authorization {
             if let Some(token) = header.strip_prefix("Bearer ") {
                 if equal(token, &self.token) {
                     Some(Access::Owner)
@@ -103,36 +103,30 @@ impl Gateway {
                 } else {
                     None
                 }
+            } else if equal(header, &self.browser_authorization) {
+                Some(Access::Owner)
             } else {
                 None
             }
-        } else if cookie {
-            Some(Access::Owner)
         } else {
             None
         };
         let owner = matches!(access, Some(Access::Owner));
         match (request.method.as_str(), request.path.as_str()) {
             ("GET", "/") => send(stream, 200, "text/html; charset=utf-8", LOGIN.as_bytes(), None),
-            ("POST", "/login") => {
-                if !same_origin {
-                    return denied(stream);
-                }
-                let fields = form(&request.body)?;
-                if !fields.get("token").is_some_and(|token| equal(token, &self.token)) {
-                    return denied(stream);
-                }
-                send(
-                    stream,
-                    200,
-                    "text/html; charset=utf-8",
-                    self.console()?.as_bytes(),
-                    Some(&format!("rashin={}; HttpOnly; SameSite=Strict; Path=/", self.token)),
-                )
+            ("GET", "/login") if owner => redirect(stream, "/console"),
+            ("GET", "/login" | "/console") if access.is_none() && !explicit_bearer => {
+                self.challenge(stream)
+            }
+            ("GET", path)
+                if access.is_none()
+                    && !explicit_bearer
+                    && (path.starts_with("/session/") || path.starts_with("/job/")) =>
+            {
+                self.challenge(stream)
             }
             ("POST", "/api/action") => {
-                let Some(access) = access.filter(|_| explicit_bearer.is_some() || same_origin)
-                else {
+                let Some(access) = access.filter(|_| explicit_bearer || same_origin) else {
                     return denied(stream);
                 };
                 if !request
@@ -163,7 +157,7 @@ impl Gateway {
             ("GET", "/console") if owner => {
                 send(stream, 200, "text/html; charset=utf-8", self.console()?.as_bytes(), None)
             }
-            ("POST", "/ask") if owner && cookie && same_origin => {
+            ("POST", "/ask") if owner && same_origin => {
                 let fields = form(&request.body)?;
                 let id = fields.get("id").ok_or(Error::InvalidRequest)?.to_owned();
                 let prompt = fields.get("prompt").ok_or(Error::InvalidRequest)?.to_owned();
@@ -186,7 +180,7 @@ impl Gateway {
                     None,
                 )
             }
-            ("POST", "/index") if owner && cookie && same_origin => {
+            ("POST", "/index") if owner && same_origin => {
                 let fields = form(&request.body)?;
                 let name = fields.get("name").ok_or(Error::InvalidRequest)?.to_owned();
                 let content = fields.get("content").ok_or(Error::InvalidRequest)?.to_owned();
@@ -212,24 +206,41 @@ impl Gateway {
                     None,
                 )
             }
+            ("GET", path) if owner && path.starts_with("/session/") => {
+                send_ui(stream, console::session(&self.engine, &path[9..]))
+            }
+            ("GET", path) if owner && path.starts_with("/job/") => {
+                send_ui(stream, console::job(&self.engine, &path[5..]))
+            }
+            ("POST", "/console/action") if owner && same_origin => {
+                match console::submit(&self.engine, &request.body) {
+                    Ok(path) => redirect(stream, &path),
+                    Err(error) => send_ui(stream, Err(error)),
+                }
+            }
+            ("POST", "/console/action" | "/ask" | "/index")
+                if !owner && !explicit_bearer && same_origin =>
+            {
+                self.challenge(stream)
+            }
+            ("POST", "/console/action" | "/ask" | "/index" | "/login") => denied(stream),
             _ if access.is_none() || !owner => denied(stream),
             _ => send(stream, 404, "text/plain", b"Not found", None),
         }
     }
 
+    fn challenge(&self, stream: &mut impl Write) -> Result<()> {
+        send(
+            stream,
+            401,
+            "text/html; charset=utf-8",
+            LOGIN.as_bytes(),
+            Some(&format!("Basic realm=\"Rashin {}\", charset=\"UTF-8\"", self.origin)),
+        )
+    }
+
     fn console(&self) -> Result<String> {
-        let recent = self.engine.dispatch(Request::Recent {})?;
-        let usage = self.engine.dispatch(Request::Usage {})?;
-        let status = self.engine.dispatch(Request::Status {})?;
-        Ok(page(
-            "Rashin",
-            &format!(
-                "<p>Private local assistant console. Provider configuration and Agent/Chat are also available through the typed API.</p><h2>Ask</h2><form method=\"post\" action=\"/ask\"><label>Unique request ID <input name=\"id\" required maxlength=\"64\"></label><label>Question <textarea name=\"prompt\" required maxlength=\"16384\"></textarea></label><button>Ask</button></form><h2>Index local evidence</h2><p>This replaces the current document index. Uploaded text stays in your private account state.</p><form method=\"post\" action=\"/index\"><label>Document name <input name=\"name\" required maxlength=\"128\"></label><label>Content <textarea name=\"content\" required maxlength=\"32768\"></textarea></label><button>Index</button></form><h2>Recent answers</h2><a href=\"/console\">Refresh</a><pre>{}</pre><h2>Usage</h2><pre>{}</pre><h2>Status</h2><pre>{}</pre>",
-                escape(&serde_json::to_string_pretty(&recent).map_err(|_| Error::Storage)?),
-                escape(&serde_json::to_string_pretty(&usage).map_err(|_| Error::Storage)?),
-                escape(&serde_json::to_string_pretty(&status).map_err(|_| Error::Storage)?)
-            ),
-        ))
+        console::home(&self.engine)
     }
 }
 
@@ -296,11 +307,12 @@ fn send(
     status: u16,
     content_type: &str,
     body: &[u8],
-    cookie: Option<&str>,
+    challenge: Option<&str>,
 ) -> Result<()> {
-    let cookie = cookie.map(|cookie| format!("Set-Cookie: {cookie}\r\n")).unwrap_or_default();
+    let challenge =
+        challenge.map(|value| format!("WWW-Authenticate: {value}\r\n")).unwrap_or_default();
     let header = format!(
-        "HTTP/1.1 {status} {}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'\r\n{cookie}\r\n",
+        "HTTP/1.1 {status} {}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'\r\n{challenge}\r\n",
         if status == 200 { "OK" } else { "Error" },
         body.len()
     );
@@ -308,6 +320,34 @@ fn send(
         .write_all(header.as_bytes())
         .and_then(|()| stream.write_all(body))
         .map_err(|_| Error::Storage)
+}
+fn send_ui(stream: &mut impl Write, result: Result<String>) -> Result<()> {
+    match result {
+        Ok(html) => send(stream, 200, "text/html; charset=utf-8", html.as_bytes(), None),
+        Err(error) => send(
+            stream,
+            400,
+            "text/html; charset=utf-8",
+            page(
+                "Rashin action",
+                &format!(
+                    "<p>{}</p><a href=\"/console\">Back to workspace</a>",
+                    escape(&error.to_string())
+                ),
+            )
+            .as_bytes(),
+            None,
+        ),
+    }
+}
+fn redirect(stream: &mut impl Write, path: &str) -> Result<()> {
+    if !path.starts_with('/')
+        || path.starts_with("//")
+        || path.bytes().any(|byte| byte.is_ascii_control())
+    {
+        return Err(Error::InvalidRequest);
+    }
+    write!(stream,"HTTP/1.1 303 See Other\r\nLocation: {path}\r\nContent-Length: 0\r\nConnection: close\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'\r\n\r\n").map_err(|_|Error::Storage)
 }
 fn denied(stream: &mut impl Write) -> Result<()> {
     send(stream, 403, "application/json", br#"{"status":"error","error":"unauthorized"}"#, None)
@@ -362,4 +402,42 @@ fn decode(raw: &str) -> Result<String> {
     }
     String::from_utf8(bytes).map_err(|_| Error::InvalidRequest)
 }
-const LOGIN: &str = "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Rashin sign in</title><main><h1>Rashin</h1><p>Read browser.token in your private Rashin state directory and enter its value to connect.</p><form method=\"post\" action=\"/login\"><label>Private browser token <input name=\"token\" type=\"password\" required autocomplete=\"off\" maxlength=\"64\"></label><button>Connect</button></form></main></html>";
+// Encoding only: authentication compares the complete canonical header in
+// constant time. No permissive decoder, alternate username, or cookie fallback.
+fn base64(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut encoded = String::new();
+    for chunk in bytes.chunks(3) {
+        let word = (u32::from(chunk[0]) << 16)
+            | (u32::from(*chunk.get(1).unwrap_or(&0)) << 8)
+            | u32::from(*chunk.get(2).unwrap_or(&0));
+        for index in 0..4 {
+            encoded.push(if index > chunk.len() {
+                '='
+            } else {
+                ALPHABET[((word >> (18 - index * 6)) & 63) as usize] as char
+            });
+        }
+    }
+    encoded
+}
+const LOGIN: &str = "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Rashin sign in</title><main><h1>Rashin</h1><p>Open the workspace and use username <strong>owner</strong> with the value of browser.token in your private Rashin state directory as the password. Your browser authenticates only to this origin. Close the browser session to clear its cached authentication.</p><a href=\"/console\">Open private workspace</a></main></html>";
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn canonical_basic_encoding_matches_standard_vectors() {
+        for (raw, expected) in [
+            ("", ""),
+            ("f", "Zg=="),
+            ("fo", "Zm8="),
+            ("foo", "Zm9v"),
+            (
+                "owner:1111111111111111111111111111111111111111111111111111111111111111",
+                "b3duZXI6MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMQ==",
+            ),
+        ] {
+            assert_eq!(super::base64(raw.as_bytes()), expected);
+        }
+    }
+}
