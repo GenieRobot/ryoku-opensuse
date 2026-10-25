@@ -1,6 +1,6 @@
 //! Versioned, typed boundary between the per-user service and root helper.
-//! The installed helper currently rejects all requests and has no mutation
-//! runner.
+//! The installed operator boundary executes only the reviewed wallpaper runner;
+//! all other mutation families retain explicit unsupported responses.
 
 use rustix::{
     event::{PollFd, PollFlags, Timespec, poll},
@@ -66,8 +66,8 @@ impl HelperEnvelope {
     }
 }
 
-/// The current protocol can only reject requests. There is no success or
-/// accepted response until a reviewed helper backend exists.
+/// A typed result. Wallpaper success is emitted only after the protected runner
+/// has verified its post-checkpoint and completed the operation journal.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HelperResponse {
@@ -77,9 +77,61 @@ pub struct HelperResponse {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "result", content = "error", rename_all = "snake_case")]
+#[serde(from = "HelperOutcomeWire", into = "HelperOutcomeWire")]
 pub enum HelperOutcome {
     Rejected(ServiceError),
+    WallpaperApplied { operation_id: crate::OperationId, reply: Vec<u8> },
+    WallpaperAudioSet { operation_id: crate::OperationId, reply: Vec<u8> },
+    WallpaperPaused { operation_id: crate::OperationId, reply: Vec<u8> },
+    WorkspaceWallpaperChanged { operation_id: crate::OperationId, reply: Vec<u8> },
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(tag = "result", rename_all = "snake_case", deny_unknown_fields)]
+enum HelperOutcomeWire {
+    Rejected { error: ServiceError },
+    WallpaperApplied { operation_id: crate::OperationId, reply: Vec<u8> },
+    WallpaperAudioSet { operation_id: crate::OperationId, reply: Vec<u8> },
+    WallpaperPaused { operation_id: crate::OperationId, reply: Vec<u8> },
+    WorkspaceWallpaperChanged { operation_id: crate::OperationId, reply: Vec<u8> },
+}
+impl From<HelperOutcome> for HelperOutcomeWire {
+    fn from(value: HelperOutcome) -> Self {
+        match value {
+            HelperOutcome::Rejected(error) => Self::Rejected { error },
+            HelperOutcome::WallpaperPaused { operation_id, reply } => {
+                Self::WallpaperPaused { operation_id, reply }
+            }
+            HelperOutcome::WallpaperAudioSet { operation_id, reply } => {
+                Self::WallpaperAudioSet { operation_id, reply }
+            }
+            HelperOutcome::WorkspaceWallpaperChanged { operation_id, reply } => {
+                Self::WorkspaceWallpaperChanged { operation_id, reply }
+            }
+            HelperOutcome::WallpaperApplied { operation_id, reply } => {
+                Self::WallpaperApplied { operation_id, reply }
+            }
+        }
+    }
+}
+impl From<HelperOutcomeWire> for HelperOutcome {
+    fn from(value: HelperOutcomeWire) -> Self {
+        match value {
+            HelperOutcomeWire::Rejected { error } => Self::Rejected(error),
+            HelperOutcomeWire::WallpaperPaused { operation_id, reply } => {
+                Self::WallpaperPaused { operation_id, reply }
+            }
+            HelperOutcomeWire::WallpaperAudioSet { operation_id, reply } => {
+                Self::WallpaperAudioSet { operation_id, reply }
+            }
+            HelperOutcomeWire::WorkspaceWallpaperChanged { operation_id, reply } => {
+                Self::WorkspaceWallpaperChanged { operation_id, reply }
+            }
+            HelperOutcomeWire::WallpaperApplied { operation_id, reply } => {
+                Self::WallpaperApplied { operation_id, reply }
+            }
+        }
+    }
 }
 
 /// Read one bounded newline-delimited helper frame and validate both its
@@ -112,8 +164,8 @@ pub fn dispatch_helper_request(
     let outcome = if authorize_helper_peer(peer, service_uid).is_err() {
         HelperOutcome::Rejected(ServiceError::Unauthorized)
     } else {
-        // No request variant is executable in this build. Never return an
-        // accepted response or persist a mutation that was not performed.
+        // This service-account boundary has no executable request variant.
+        // Operator wallpaper dispatch uses its separate authenticated path.
         HelperOutcome::Rejected(ServiceError::Unsupported)
     };
     Ok(HelperResponse {
@@ -134,8 +186,45 @@ pub fn dispatch_operator_request(
     let outcome = if authorize_helper_operator(&peer, operator_gid).is_err() {
         HelperOutcome::Rejected(ServiceError::Unauthorized)
     } else {
-        // Availability probes and every future provider request fail closed.
-        HelperOutcome::Rejected(ServiceError::Unsupported)
+        match envelope.request {
+            HelperRequest::ApplyWallpaper { action, rpc_id } => {
+                match crate::wallpaper::apply(&peer, operator_gid, action, rpc_id) {
+                    Ok(completed) => HelperOutcome::WallpaperApplied {
+                        operation_id: completed.operation_id,
+                        reply: completed.reply,
+                    },
+                    Err(error) => HelperOutcome::Rejected(error),
+                }
+            }
+            HelperRequest::PauseWallpaper { action, rpc_id } => {
+                match crate::wallpaper::pause(&peer, operator_gid, action, rpc_id) {
+                    Ok(completed) => HelperOutcome::WallpaperPaused {
+                        operation_id: completed.operation_id,
+                        reply: completed.reply,
+                    },
+                    Err(error) => HelperOutcome::Rejected(error),
+                }
+            }
+            HelperRequest::SetWallpaperAudio { action, rpc_id } => {
+                match crate::wallpaper::set_audio(&peer, operator_gid, action, rpc_id) {
+                    Ok(completed) => HelperOutcome::WallpaperAudioSet {
+                        operation_id: completed.operation_id,
+                        reply: completed.reply,
+                    },
+                    Err(error) => HelperOutcome::Rejected(error),
+                }
+            }
+            HelperRequest::ChangeWorkspaceWallpaper { action, rpc_id } => {
+                match crate::wallpaper::workspace(&peer, operator_gid, action, rpc_id) {
+                    Ok(completed) => HelperOutcome::WorkspaceWallpaperChanged {
+                        operation_id: completed.operation_id,
+                        reply: completed.reply,
+                    },
+                    Err(error) => HelperOutcome::Rejected(error),
+                }
+            }
+            _ => HelperOutcome::Rejected(ServiceError::Unsupported),
+        }
     };
     Ok(HelperResponse {
         version: HELPER_PROTOCOL_VERSION,
@@ -225,7 +314,7 @@ pub fn serve_helper_connection(
     };
 
     let response = dispatch_helper_request(&peer, service_uid, envelope)?;
-    write_helper_response_until(&mut stream, response, deadline)
+    write_helper_response_until(&mut stream, response, Instant::now() + HELPER_IO_TIMEOUT)
 }
 
 /// Serve one connection from the opt-in group-owned helper socket.
@@ -302,7 +391,7 @@ pub fn serve_operator_helper_connection(
         }
     };
     let response = dispatch_operator_request(peer, operator_gid, envelope)?;
-    write_helper_response_until(&mut stream, response, deadline)
+    write_helper_response_until(&mut stream, response, Instant::now() + HELPER_IO_TIMEOUT)
 }
 
 pub fn check_action_availability(action: ManagedActionKind) -> ServiceError {
@@ -339,6 +428,12 @@ pub(crate) fn check_action_availability_until(
         }
         match response.outcome {
             HelperOutcome::Rejected(error) => Ok(error),
+            HelperOutcome::WallpaperApplied { .. }
+            | HelperOutcome::WallpaperAudioSet { .. }
+            | HelperOutcome::WallpaperPaused { .. }
+            | HelperOutcome::WorkspaceWallpaperChanged { .. } => {
+                Err(ProtocolError::Malformed("unexpected mutation response to availability probe"))
+            }
         }
     })();
     match result {
@@ -414,7 +509,7 @@ fn wait_helper_ready(
     }
 }
 
-fn connect_helper_until(path: &Path, deadline: Instant) -> std::io::Result<UnixStream> {
+pub(crate) fn connect_helper_until(path: &Path, deadline: Instant) -> std::io::Result<UnixStream> {
     remaining(deadline).map_err(|_| std::io::Error::from(std::io::ErrorKind::TimedOut))?;
     let socket = socket_with(
         AddressFamily::UNIX,
@@ -531,6 +626,140 @@ mod tests {
     use crate::{CheckpointId, ManagedActionKind, PackageId, authorize_helper_operator};
     use std::io::{BufRead, BufReader};
     use std::os::unix::net::UnixStream;
+
+    #[test]
+    fn manual_workspace_helper_has_no_client_preparation_or_authority_shortcut() {
+        use ryoku_recovery::workspace_protocol::{
+            WorkspaceOperation, WorkspaceRequest, WorkspaceSelector,
+        };
+        for operation in [WorkspaceOperation::Assign, WorkspaceOperation::Unassign] {
+            let action = WorkspaceRequest {
+                operation,
+                workspace: WorkspaceSelector { output: "DP-1".into(), ..Default::default() },
+                wallpaper: None,
+            };
+            let response = dispatch_operator_request(
+                PeerIdentity { uid: 1000, gid: 1000, supplementary_gids: vec![], pid: None },
+                4242,
+                valid_envelope(HelperRequest::ChangeWorkspaceWallpaper { action, rpc_id: 4 }),
+            )
+            .unwrap();
+            assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
+        }
+        let success = HelperOutcome::WorkspaceWallpaperChanged {
+            operation_id: crate::OperationId::new("workspace-wire").unwrap(),
+            reply: b"reply".to_vec(),
+        };
+        let wire = serde_json::to_value(&success).unwrap();
+        assert_eq!(wire["result"], "workspace_wallpaper_changed");
+        assert!(wire.get("reply").is_some());
+        assert!(wire.get("error").is_none());
+        assert_eq!(serde_json::from_value::<HelperOutcome>(wire).unwrap(), success);
+        assert!(serde_json::from_value::<HelperRequest>(serde_json::json!({"operation":"change_workspace_wallpaper","rpc_id":4,"action":{"operation":"assign","workspace":{"output":"DP-1"},"wallpaper":null,"prepared":{"active":true}}})).is_err());
+    }
+    #[test]
+    fn pause_wire_and_dispatch_refuse_client_player_identity_and_unauthorized_resume() {
+        for paused in [true, false] {
+            let action =
+                ryoku_recovery::wallpaper_protocol::WallpaperPause { outputs: vec![], paused };
+            let envelope = valid_envelope(HelperRequest::PauseWallpaper { action, rpc_id: 7 });
+            envelope.validate().unwrap();
+            let response = dispatch_operator_request(
+                PeerIdentity { uid: 1000, gid: 1000, supplementary_gids: vec![], pid: None },
+                4242,
+                envelope,
+            )
+            .unwrap();
+            assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
+        }
+        assert!(
+            serde_json::from_value::<HelperRequest>(serde_json::json!({
+                "operation":"pause_wallpaper","rpc_id":7,"action":{"paused":false,"player_pins":[]}
+            }))
+            .is_err()
+        );
+        let success = HelperOutcome::WallpaperPaused {
+            operation_id: crate::OperationId::new("pause-wire").unwrap(),
+            reply: b"reply".to_vec(),
+        };
+        let wire = serde_json::to_value(&success).unwrap();
+        assert_eq!(wire["result"], "wallpaper_paused");
+        assert!(wire.get("reply").is_some());
+        assert!(wire.get("error").is_none());
+        assert_eq!(serde_json::from_value::<HelperOutcome>(wire).unwrap(), success);
+    }
+
+    #[test]
+    fn audio_wire_and_dispatch_keep_action_authority_separate() {
+        let action = ryoku_recovery::wallpaper_protocol::WallpaperAudio {
+            outputs: vec![],
+            mute: Some(true),
+            volume: Some(35),
+        };
+        let envelope =
+            valid_envelope(HelperRequest::SetWallpaperAudio { action: action.clone(), rpc_id: 7 });
+        envelope.validate().unwrap();
+        let response = dispatch_operator_request(
+            PeerIdentity { uid: 1000, gid: 1000, supplementary_gids: vec![], pid: None },
+            4242,
+            envelope,
+        )
+        .unwrap();
+        assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
+        assert!(
+            valid_envelope(HelperRequest::SetWallpaperAudio { action, rpc_id: -1 })
+                .validate()
+                .is_err()
+        );
+        let success = HelperOutcome::WallpaperAudioSet {
+            operation_id: crate::OperationId::new("audio-wire-1").unwrap(),
+            reply: b"audio-reply".to_vec(),
+        };
+        let wire = serde_json::to_value(&success).unwrap();
+        assert_eq!(wire["result"], "wallpaper_audio_set");
+        assert!(wire.get("reply").is_some());
+        assert!(wire.get("error").is_none());
+        assert_eq!(serde_json::from_value::<HelperOutcome>(wire).unwrap(), success);
+    }
+
+    #[test]
+    fn wallpaper_success_wire_matches_proxy_and_preserves_rejection_shape() {
+        let operation_id = crate::OperationId::new("wallpaper-wire-1").unwrap();
+        let reply = br#"{"id":7,"result":{"applied":true}}"#.to_vec();
+        let success = HelperOutcome::WallpaperApplied { operation_id, reply: reply.clone() };
+        let wire = serde_json::to_value(&success).unwrap();
+        assert_eq!(wire["result"], "wallpaper_applied");
+        assert_eq!(wire["reply"], serde_json::json!(reply));
+        assert!(wire.get("error").is_none());
+        assert_eq!(serde_json::from_value::<HelperOutcome>(wire).unwrap(), success);
+        let rejection = HelperOutcome::Rejected(ServiceError::Unsupported);
+        let wire = serde_json::to_value(&rejection).unwrap();
+        assert_eq!(wire, serde_json::json!({"result":"rejected","error":{"code":"unsupported"}}));
+        assert_eq!(serde_json::from_value::<HelperOutcome>(wire).unwrap(), rejection);
+        assert!(
+            serde_json::from_value::<HelperOutcome>(serde_json::json!({
+                "result":"wallpaper_applied","operation_id":"wallpaper-wire-1",
+                "error":{"reply":[]}
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn wallpaper_dispatch_rejects_unauthorized_before_provider_lookup() {
+        let action = serde_json::from_value(serde_json::json!({
+            "type":"static","path":"/not-accessed.png","outputs":[],
+            "outputs_audio":{},"outputs_volume":{}
+        }))
+        .unwrap();
+        let response = dispatch_operator_request(
+            PeerIdentity { uid: 1000, gid: 1000, supplementary_gids: vec![], pid: None },
+            4242,
+            valid_envelope(HelperRequest::ApplyWallpaper { action, rpc_id: 7 }),
+        )
+        .unwrap();
+        assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
+    }
 
     #[test]
     fn account_resolution_occurs_only_after_operator_authorization() {

@@ -1147,6 +1147,94 @@ mod tests {
     }
 
     #[test]
+    fn pause_failure_after_dispatch_remains_applying_with_only_its_precheckpoint() {
+        let (path, mut journal) = operation_journal("pause-partial");
+        let id = operation_id("pause-partial");
+        let mut operation =
+            JournaledOperation::new(&mut journal, id.clone(), ManagedActionKind::PauseWallpaper);
+        let lock = mutation_lock("pause-partial");
+        let trace = Arc::new(Mutex::new(Vec::new()));
+        let mut checkpoint = FakeCheckpoint { evidence: Ok(evidence()), trace: trace.clone() };
+        let mut revalidator = FakeRevalidator { matches: true, trace };
+        let mut actor_state_changed = false;
+        let result = with_journaled_verified_mutation(
+            &lock.lock,
+            &planned(),
+            &mut operation,
+            &mut checkpoint,
+            &mut revalidator,
+            |_| {
+                actor_state_changed = true;
+                Err::<(), _>(GateError::ApplyFailed)
+            },
+            |_, _| panic!("failed pause must not obtain successful post capture"),
+        );
+        assert!(actor_state_changed);
+        assert_eq!(result, Err(GateError::ApplyFailed));
+        drop(operation);
+        drop(journal);
+        let reopened = OperationJournal::open(
+            std::fs::OpenOptions::new().read(true).append(true).open(&path).unwrap(),
+        )
+        .unwrap();
+        let context = reopened.mutation_context(&id).unwrap();
+        assert_eq!(context.stage, MutationStage::Applying);
+        assert_eq!(context.outcome, Some(MutationOutcome::MayHaveMutated));
+        assert!(context.checkpoint.is_some());
+        assert!(context.post_checkpoint.is_none());
+        assert_eq!(reopened.get(&id).unwrap().action, ManagedActionKind::PauseWallpaper);
+        assert!(!persisted_phases(&path, &id).contains(&OperationPhase::Succeeded));
+        assert_eq!(reopened.recovery_required().len(), 1);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn audio_partial_write_failure_reopens_as_recovery_required_without_success() {
+        let (path, mut journal) = operation_journal("audio-partial");
+        let id = operation_id("audio-partial");
+        let mut operation =
+            JournaledOperation::new(&mut journal, id.clone(), ManagedActionKind::SetWallpaperAudio);
+        let lock = mutation_lock("audio-partial");
+        let trace = Arc::new(Mutex::new(Vec::new()));
+        let mut checkpoint = FakeCheckpoint { evidence: Ok(evidence()), trace: trace.clone() };
+        let mut revalidator = FakeRevalidator { matches: true, trace };
+        let changed = path.with_extension("workspace-state");
+        std::fs::write(&changed, b"prior").unwrap();
+        let result = with_journaled_verified_mutation(
+            &lock.lock,
+            &planned(),
+            &mut operation,
+            &mut checkpoint,
+            &mut revalidator,
+            |_| {
+                std::fs::write(&changed, b"partial audio write").unwrap();
+                Err::<(), _>(GateError::ApplyFailed)
+            },
+            |_, _| panic!("failed audio must not enter successful post capture"),
+        );
+        assert_eq!(result, Err(GateError::ApplyFailed));
+        drop(operation);
+        drop(journal);
+        let reopened = OperationJournal::open(
+            std::fs::OpenOptions::new().read(true).append(true).open(&path).unwrap(),
+        )
+        .unwrap();
+        let status = reopened.get(&id).unwrap();
+        assert_eq!(status.action, ManagedActionKind::SetWallpaperAudio);
+        assert_eq!(status.phase, OperationPhase::Failed);
+        let context = reopened.mutation_context(&id).unwrap();
+        assert_eq!(context.stage, MutationStage::Applying);
+        assert_eq!(context.outcome, Some(MutationOutcome::MayHaveMutated));
+        assert!(context.checkpoint.is_some());
+        assert!(context.post_checkpoint.is_none());
+        assert_eq!(reopened.recovery_required().len(), 1);
+        assert!(!persisted_phases(&path, &id).contains(&OperationPhase::Succeeded));
+        assert_eq!(std::fs::read(&changed).unwrap(), b"partial audio write");
+        std::fs::remove_file(changed).unwrap();
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
     fn journaled_apply_failure_is_a_terminal_failed_record() {
         let (path, mut journal) = operation_journal("apply-failure");
         let id = operation_id("op-apply-failure");

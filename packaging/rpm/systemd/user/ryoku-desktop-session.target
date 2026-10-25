@@ -1,0 +1,6 @@
+[Unit]
+Description=Ryoku openSUSE experimental desktop session
+BindsTo=graphical-session.target
+Before=graphical-session.target
+Requires=ryoku-desktop-shell.service ryoku-service.service
+After=ryoku-desktop-shell.service ryoku-service.service

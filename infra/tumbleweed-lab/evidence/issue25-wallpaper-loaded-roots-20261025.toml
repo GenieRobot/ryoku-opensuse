@@ -1,0 +1,47 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+scope = "Loaded wallpaper roots match the linked inventory before native writes; user-state integrity evidence only"
+branch_parent = "0cb43ceb1d259d22799bd15eee450d7963bd512e"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+native_acceptance = false
+vm_access = false
+downloads = false
+
+[boundary]
+existing_root_check = "InstalledInventory validates current on-disk paths.cache through a no-follow configuration open"
+new_actor_check = "Native A receiver compares HOME to the root-supplied account-home commitment, then loaded cache/store/state/configuration roots to that enrolled standard layout before creating/consuming a write permit"
+authenticated_home = "Root commitment derives from the NSS-bound AccountStateRoot home descriptor, never service HOME; the authenticated writer lease independently checks its capture context"
+home_mismatch_test = "Actor HOME and every loaded root agree with an alternate writable tree, but the account-bound permit refuses before writes to either tree; sentinel bytes survive and valid enrolled apply then succeeds"
+followup_parent = "24d38b2e04fb3c8c31331fd91d6baf7a47d5a554"
+refusal = "Correlated code -32012 becomes a typed helper/proxy layout diagnostic after refreeze; no successful result/history is fabricated"
+custom_data = "Retained custom outputs/index/state sentinel bytes survive both refused and subsequent enrolled-root operations"
+custom_parity = "Temporary fixed-layout coverage, not permanent feature exclusion; #175/#176 own configured-root enrollment/layout binding/restoration"
+manifest_constraint = "FileRecord's compiled UserHome allowlist and installed restore inventory reject unlisted roots; this slice does not weaken them"
+
+[checks]
+format = "cargo fmt -p ryoku-recovery -p ryoku-service --check"
+format_passed = true
+clippy = "CARGO_INCREMENTAL=0 cargo clippy --offline --locked -p ryoku-recovery -p ryoku-service --all-targets -- -D warnings"
+clippy_passed = true
+rust = "CARGO_INCREMENTAL=0 cargo test --offline --locked -p ryoku-recovery -p ryoku-service"
+recovery_passed = 232
+recovery_existing_ignored = 6
+service_passed = 124
+service_existing_ignored = 1
+rust_failed = 0
+native_passed_cases = 328
+native_missing_tool_skips = 7
+native_cross_issue_prerequisites = 9
+native_categories_disjoint = true
+native_missing_tool_tests = ["TestAutoOptimizeTouchesOnlyNewImages", "TestGradePreviewAndCommit", "TestOptimizeCancelStopsEarly", "TestOptimizeRunConvertsPNGs", "TestScanGeneratesThumb", "TestScanMergeMtimeChangeReprocesses", "TestScanSkipsFreshThumb"]
+native_excluded_prerequisite_tests = ["TestE2EDepthSetAndClearFoldIntoFrame", "TestE2EJSONRequestsAndEventsShareOneConnection", "TestE2EWallpaperNextAdvances", "TestE2EFavouriteSurvivesRescan", "TestE2ESetFavouriteBroadcastsCached", "TestE2EWallDeleteRequiresSubfolderCatalogKey", "TestEventsFlowWhileRequestRuns", "TestSlowSourceSearchDoesNotBlockStatusOnSameConnection", "TestClosingConnectionClearsSearchRegistry"]
+native_filter = "Exact same nine #175/#176 names in docs/issue25-appearance-transport.md; no blanket filtering"
+patch = "Tracked 16-file patch reproduced byte-for-byte; cached Source3 plus launch/appearance patches applied with fuzz=0"
+
+[remaining]
+required = [
+  "#175/#176 complete actual custom-root capture and restoration while retaining settings/UI/data",
+  "Native 1.0 package/SDDM/login/reboot/logout/KDE/core workflow and real wallpaper/theme acceptance",
+  "Hyprland ApplyReport completeness is separate: six user overlay/live files plus configured/global numlock handoff; #177 owns cross-account greeter handling and #180 user integration",
+]

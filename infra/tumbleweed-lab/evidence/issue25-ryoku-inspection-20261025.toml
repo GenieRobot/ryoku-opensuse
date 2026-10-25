@@ -1,0 +1,65 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+branch_parent = "897be34455a2520f1a2269543d69c9ebf6cf179e"
+scope = "Read-only guarded installed Ryoku login and fallback inspection modes; offline parser and command-contract tests"
+native_acceptance = false
+vm_access = false
+qmp_access = false
+downloads = false
+install = false
+
+[contract]
+login_command = "vm-lab guest-ryoku-login-inspect"
+fallback_command = "vm-lab guest-ryoku-fallback-inspect"
+kde_command_preserved = "vm-lab guest-login-inspect"
+guard = "Reuse seeded disposable QEMU/root/enforcing-SELinux fixture, recorded ordinary account, native RPM-intact SDDM/PAM/no-autologin and independent KDE entry checks"
+login = "Require active unambiguous seat0 ordinary password SDDM Wayland/Hyprland session; exact RPM-owned entry and units; independently ready target/shell/service; PID start/executable inode/device/cgroup snapshots and final revalidation"
+environment = "Bind authenticated fixture passwd HOME/runtime/session and manager-imported values to admitted native shell daemon; do not require post-exec Hyprland variables in the compositor's initial proc environment"
+socket = "Require owned Wayland socket and compositor PID/UID peer credentials, then revalidate process and login identities"
+quickshell = "Verify runtime-owned alias plus ryoku-quickshell-owned real image and exact packaged shell selector; reject IPC clients/unrelated surfaces"
+fallback = "Require native greeter, no fixture login or named Ryoku process including stopped tasks, stopped unit partners/cleared imported environment; alternatively exact inactive/dead user manager/MainPID0 and absent runtime endpoints"
+non_actuation = "Only fixed typed show/show-environment user-manager queries; no start/stop/restart/import or arbitrary unit; no manager activation to inspect absent manager"
+query_bounds = "New command queries use existing process-group deadline/kill/reap runner: 10 seconds and 1 MiB retained output; proc environment/cmdline limited to 1 MiB; no raw output/environment/PIDs exported"
+output = "Exact static public result/reason allowlist; inspection results do not claim painted frames, KDE usability, reboot or device behavior"
+
+[checks]
+default_automation = "CARGO_INCREMENTAL=0 cargo test --offline --locked -p ryoku-automation --bin vm-lab"
+default_automation_passed = 89
+default_automation_failed = 0
+new_inspector_tests = 9
+new_public_evidence_tests = 1
+workspace = "CARGO_INCREMENTAL=0 cargo test --workspace --all-features --offline --locked"
+workspace_passed = true
+all_features_automation_passed = 90
+recovery_passed = 245
+recovery_existing_ignored = 6
+service_passed = 140
+service_existing_ignored = 1
+clippy = "CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets --all-features --offline --locked -- -D warnings"
+clippy_passed = true
+format = "cargo fmt --all --check"
+whitespace = "git diff --check"
+test_environment = "Offline temporary account-owned Unix socket/process fixtures outside restricted socket sandbox; no live guest or QMP endpoint contacted"
+
+[initial_failure]
+command = "CARGO_INCREMENTAL=0 cargo test --offline --locked -p ryoku-automation --bin vm-lab"
+exit = 101
+passed = 83
+failed = 5
+cause = "Restricted sandbox denies existing synthetic QMP socket bind/connect: PermissionDenied/Operation not permitted; no inspector regression or production policy changed to bypass it"
+tests = ["host::qmp::tests::frames_fail_on_eof_deadline_and_oversize", "host::qmp::tests::handshake_requires_greeting_and_matching_capability_reply", "host::qmp::tests::input_and_screenshot_share_one_connection_with_distinct_reply_ids", "host::qmp::tests::reply_ids_events_and_top_level_fields_are_checked", "host::qmp::tests::screendump_uses_qmp_monitor_and_only_the_fixed_run_filename"]
+identical_socket_allowed_rerun_passed = 88
+identical_socket_allowed_rerun_failed = 0
+final_delta = "Added explicit stopped-player fallback inventory regression; final exact source rerun has 89 default vm-lab cases"
+raw_logs = "Retained privately outside repository; public receipt contains only fixed test names, status and commands; no usernames, host paths, tokens or credentials"
+
+[source_sha256]
+"automation/src/lab/desktop/ryoku.rs" = "47ecd6c1721b327df97c877d518785b19aa35bc235e15f024dbff0e5c674c80b"
+"automation/src/lab/main.rs" = "3a80e7099d6e43ded799c0b4574e485b86d2fbf6de4067d3948ce06f131f648c"
+"automation/src/lab/support.rs" = "d04d651994837b8796e766863608f16fce391a7c66ad63d5405d2bf7ba017286"
+
+[remaining]
+issue_open = true
+pr_draft = true
+required = ["Exact combined #173 source/archive/spec/RPM/native image/repository tuple and approved guard/storage/install plan", "Execute scoped inspectors after ordinary cold SDDM password login, logout/controlled startup failure and reboot", "Actual bar/launcher/Hub/app frames, installed native C READY/decode/display and workflow checklist", "Independent KDE runtime/app use after the controlled failure", "Explicit simulated/physical device results", "#176 real typed wallpaper-theme/automatic accounting; #175 library/provider parity"]

@@ -1,0 +1,54 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+branch_parent = "ba6871a86bc6fc148cdfb50ceef1d4168a899727"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+scope = "Bound the four short session navigation IPC clients using existing owned-process-group control cleanup"
+native_acceptance = false
+native_build = false
+package_build = false
+vm_access = false
+qmp_access = false
+downloads = false
+
+[contract]
+problem = "Action::Open waited indefinitely on a short Quickshell navigation IPC subprocess, leaving stalled shortcut clients without a deadline"
+requests = ["launcher", "quicksettings", "clipboard", "notifications"]
+upstream_surfaces = ["launcher", "quick-settings", "clipboard", "quick-settings#notifications"]
+timeout_seconds = 3
+reap_grace_seconds = 1
+cleanup = "Existing checked_control creates a fresh client process group; timeout SIGKILLs only that group and reaps its direct child, with existing bounded uninterruptible-child reaper behavior"
+retained = "Exact fixed setpriv/Quickshell/payload/IPC/openSurface positional arguments and surface environment validation; success/nonzero failure propagation; no arbitrary command or second unregistered shell"
+long_lifetimes = "Compositor, native lock/unlock, interactive screenshot, shell/Hub daemon and clipboard keeper retain their original lifetime behavior; no new timeout or process-group action applied to them"
+
+[checks]
+focused = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo test --offline --locked -p ryoku-session"
+session_passed = 20
+terminal_passed = 4
+failed = 0
+success_failure_stall = "Each of four actual command builders reaches the bounded route, preserves exact arguments and3s budget, and propagates success/exit23/blocked error using owned Rust subprocess fixtures; blocked matrix uses25ms fixture deadline"
+actual_deadline = "Separate real3s stalled client-tree case reaps client, verifies descendants exited/zombie and independent server stand-in still alive; then kills/reaps only that owned stand-in"
+payload = "Missing required Spatial3D metadata refuses before navigation dispatch"
+new_cases = ["tests::all_navigation_ipc_requests_keep_fixed_arguments_and_success_failure_results", "tests::navigation_timeout_reaps_only_its_client_tree_and_preserves_existing_server"]
+workspace = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo test --workspace --all-features --offline --locked"
+workspace_passed = true
+vm_lab_passed = 94
+recovery_passed = 246
+recovery_existing_ignored = 6
+service_passed = 140
+service_existing_ignored = 1
+clippy = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo clippy --workspace --all-targets --all-features --offline --locked -- -D warnings"
+clippy_passed = true
+format = "cargo fmt --all --check"
+whitespace = "git diff --check"
+fixture_limits = "Temporary payload metadata and owned Rust subprocess/server stand-ins only; no actual Quickshell, SDDM, PAM, systemd manager, installed daemon or compositor controlled"
+
+[storage_privacy]
+paths = "Reuse existing /dev/sdd target/cache/toolchain and /tmp tmpfs; no duplicate target, no C-mounted output, no native/package phase below10GiB storage guard"
+logs = "Raw logs remain outside public repository; fixed paths/contracts/test outcomes only, no host/account identifiers or credentials"
+
+[remaining]
+issue_open = true
+pr_draft = true
+native = "Actual cold/warm launcher, quick-settings, clipboard and notification frames, keyboard navigation and unavailable/reconnect behavior on exact combined #173 candidate; current SDDM/reboot/KDE and device workflow matrix remains open"
+dependencies = "Storage/builder clearance for native packages and #176 real typed theme/automatic accounting remain required"

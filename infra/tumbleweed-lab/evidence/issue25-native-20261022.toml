@@ -1,0 +1,67 @@
+schema_version = 1
+issue = 25
+result = "partial_native_build_install_and_shell_login"
+date_label = "2026-10-22 coordinator date; guest/host UTC observations 2026-10-21"
+base_main = "19f41fe848ac5bdc04d30075766294a25286ecf3"
+runtime_source = "b91786f245c9d93986ea4240754750baada305a3"
+session_source = "422c3228c84c4947a96d5cc943e9669aad464d90"
+session_source_archive_sha256 = "4fd302e1c2bae2e92bcad0fe39f532baa4445e258227f7049fad903039cc9d05"
+runtime_source_archive_sha256 = "7c13e344d2841dac73cfc8d5de36aeb6653cd464b223671c4365e27d5c10e475"
+vendor_archive_sha256 = "71afe68541f2ecfd5f90f3780e7b4fe0ba2cd5e6301e2ede229ace64476f6949"
+cargo_lock_sha256 = "25dfc82f2f202fcff94f3fec9e5dbd795f30be9d6048d81eea6faa6902091c96"
+
+[fixture]
+ownership = "Fresh issue25 COW overlay backed only by the preserved, powered-off issue23-packaging-20261016 Btrfs disk; preserved disk never opened writable. Not a clean-install target."
+environment = "Authorized existing openSUSE WSL; native QEMU 11.1.2/Q35/KVM, 2 vCPUs, 6144 MiB, virtio-vga, Btrfs root, UEFI, SELinux enforcing"
+ssh = "Preserved fixture SSH host key, StrictHostKeyChecking=yes; no acceptance-new substitution or authentication bypass"
+repositories = "Native raw metadata hashes matched the preserved issue23 acceptance OSS/non-OSS/openh264/update set before transactions; zypper --no-refresh; normal HTTPS/signature/dependency/file-conflict checks retained"
+oss_repomd_sha256 = "1d891e33c8abd582b71e579118e6b4c94e5e57ecdc1b77a2a7fc1abf7cc930a0"
+non_oss_repomd_sha256 = "a7f061031bbcc905eff8c2ddd2e760a2d780e05433559062761b008e465542cf"
+openh264_repomd_sha256 = "57b42e1c830f50adf5fd3424b2ed0260671e3d709804f51064d71a446ceb9dd1"
+update_repomd_sha256 = "834b4de254c4b18ff5d47328ffa3965ace9673fe07189708abbf736c3ed0827d"
+versions = "Hyprland0.56.2-1.2, Qt6.11.2-2.1, Plasma6.8.0-1.1, SDDM0.21.0+git57-1.1"
+
+[native_build]
+sdk = "Inherited independent issue23-buildroot Btrfs snapshot inside the owned overlay; native Rust/Cargo1.99.0-1.1 and rpm-build4.20.1-11.1. This SDK is separate from the installed target root."
+command = "Ordinary tester: CARGO_BUILD_JOBS=2 rpmbuild -ba --define '_topdir /home/tester/issue25/rpmbuild' --define '_smp_build_ncpus 2' SPEC"
+session = "BuildRequires enabled; offline locked vendored prep/build/install/file checks passed, exit0; rebuilt after committed activation-failure correction, exit0"
+desktop = "Unchanged current main desktop spec plus exact accepted pinned runtime/writer source archives; Rust writer, original Go components and native Blobs build passed, exit0; full Qt6 requirement scanning retained"
+warnings = "Native rpmbuild hostname canonicalization, existing absolute writer aliases, and empty Rust debugsource file list warnings retained; no debugsource completeness claim"
+session_build_log_sha256 = "703bc2d7169a5fa3c7546dd1d0d2d4fe692328f38223608668c1b96f0621c6c3"
+desktop_build_log_sha256 = "f3ed14b295f3dfad18118cb2a1778fc3bee181954c69f3f15340edef3a9efb54"
+
+[native_install]
+trust = "One-day disposable fixture signing key70656F5D20FAC45C5BF4E822F154FEEA91CC28A1; public key imported only into owned guest. Separate signed copies; no production signing/publication claim."
+initial = "Accepted ten release5 RPMs plus native session RPM; all signatures/digests verified; zypper download-only, dry-run and install passed62-package dependency closure; selected Ryoku rpm -V empty"
+runtime_rebuild = "Signed force-reinstall of current native runtime, exit0, complete native file-conflict check, rpm -V empty; corrected session signed force-reinstall also exit0 and rpm -V empty"
+session_signed_rpm_sha256 = "5bbdc6948a55c7a761541a834d3f9dd33c4c633f277ed1df1b72bb674f925f92"
+runtime_signed_rpm_sha256 = "7598a708e8339f1daf4d4b5d4681790fd7efcdff01007106e1b4f9abd7538652"
+session_installed_sha256 = "6944995f1ca8988aa49cd0ab1c2794d64eb8bb6aad606ce81fe33592d6258f29"
+writer_installed_sha256 = "647ca6180d0f0ab49cb413336ce0024304dbc713fdca928aa3fbfb8a8974473d"
+unchanged_old_service_installed_sha256 = "38cbcffd759aaf3cec3ae35ac8bba524b7a8e4ae2edcb52d96d5883e922123de"
+unit_verify = "Installed native systemd-analyze --user verify of target/shell/service exit0, before subsequent portal-target metadata changes"
+kde_entry = "Independent plasmawayland.desktop remains owned by native plasma6-session; existence/ownership only, not login proof"
+
+[login]
+authentication = "Ordinary ryoku-desktop user, native SDDM password entry over QMP, no autologin/PAM bypass or interactive development shell activation"
+first_attempt = "Real SDDM/Hyprland login; shell failed EXDEV in old accepted issue23 writer because native per-user runtime tmpfs crosses mount. Empty compositor frame retained privately as failed result. Main already contained the correction; no recovery code changed on this branch."
+retry = "After current-runtime and committed-session rebuilds, real SDDM/Hyprland login; session target and shell active; Rust writer owns original daemon, native provider wrapper, Quickshell shell and wl-paste history process"
+frame = "issue25-native-20261022-shell.png: independently inspected genuine Ryoku bar, clock and calendar; no Hub/launcher/workflow or complete service readiness claim"
+frame_sha256 = "836f9581da2b436e9bdb2b9cd9f43c237e5d30a95114a587c42f20d25cf6d53f"
+rust_service = "Still fails account writer coordination namespace because unchanged accepted helper RPM also predates main runtime-mount correction. Requires current native helper rebuild before service/workflow acceptance."
+portal = "Native service reports graphical-session.target inactive; subsequent local session-target binding and explicit Hyprland portal dependencies require fresh native validation"
+other_native_diagnostics = "Native hyprland-update process dumped core. No suppression or success claim; rendered shell is separately evidenced."
+first_failure_log_sha256 = "5587d2ab47b733a13b2ee491e9f9f4fefcffc4d5f0cd88261e9bac44b5dc87bd"
+retry_log_sha256 = "b14dd82e7d032731d28a0c1fbf188db0ff54775a6bf95ff97773def08e978205"
+
+[remaining]
+native = "Rebuild current helper, verify service and new portal/screenshot route, full native workflows, normal logout cleanup, reboot login and KDE fallback, intentional startup failure return-to-greeter/KDE. Committed failure-exit code builds/tests but intentional native failure path not yet exercised."
+locking_and_authentication = "No accepted locker, lock/unlock/suspend/crash or privileged authentication workflow. Native SDDM password login only."
+devices = "No physical tests; virtual Ethernet, no attached Bluetooth or physical audio devices. No fake adapter or audio success."
+limits = "No clean install, migration/reinstall preservation, supported installer mutation, complete linked restore, provider write or combined first-sprint gate claim"
+issue_must_remain_open = true
+
+[pause]
+reason = "Released single KVM slot for issue22 acceptance; owned guest orderly powered off, QEMU exit0, no issue25 QEMU remains"
+preservation = "Owned overlay/firmware/private logs and signing material retained for authorized continuation; original preserved base/firmware and native firmware/VGA input digests independently match pre-run receipt"
+privacy = "Only allowlisted facts and reviewed synthetic desktop frame published. Password, SSH/signing private keys, machine IDs and raw native logs remain private."

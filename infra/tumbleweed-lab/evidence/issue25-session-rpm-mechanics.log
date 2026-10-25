@@ -1,0 +1,107 @@
+Executing(%mkbuilddir): /usr/bin/bash -e <mechanics-topdir>/tmp/rpm-tmp.a0fYWD
+Executing(%prep): /usr/bin/bash -e <mechanics-topdir>/tmp/rpm-tmp.QZO99W
++ umask 022
++ cd <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build
++ cd <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build
++ rm -rf ryoku-opensuse-0.1.0
++ /usr/lib/rpm/rpmuncompress -x <mechanics-topdir>/SOURCES/ryoku-opensuse-0.1.0.tar.gz
++ STATUS=0
++ '[' 0 -ne 0 ']'
++ cd ryoku-opensuse-0.1.0
++ /usr/lib/rpm/rpmuncompress -x <mechanics-topdir>/SOURCES/ryoku-opensuse-vendor-0.1.0.tar.xz
++ STATUS=0
++ '[' 0 -ne 0 ']'
++ /usr/bin/chmod -Rf a+rX,u+w,g-w,o-w .
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%build): /usr/bin/bash -e <mechanics-topdir>/tmp/rpm-tmp.fqMnhZ
++ umask 022
++ cd <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build
++ /usr/bin/rm -rf <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT
+++ dirname <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT
++ /usr/bin/mkdir -p <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build
++ /usr/bin/mkdir <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT
++ cd ryoku-opensuse-0.1.0
++ CARGO_NET_OFFLINE=true
++ cargo --config 'source.crates-io.replace-with="vendored-sources"' --config 'source.vendored-sources.directory="vendor"' build --offline --locked --release -p ryoku-session --bins
+   Compiling rustix v1.1.5
+   Compiling bitflags v2.13.2
+   Compiling linux-raw-sys v0.12.1
+   Compiling ryoku-session v0.1.0 (<mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/ryoku-opensuse-0.1.0/suse/session)
+    Finished `release` profile [optimized] target(s) in 4.32s
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%install): /usr/bin/bash -e <mechanics-topdir>/tmp/rpm-tmp.8Lo4Kl
++ umask 022
++ cd <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build
++ /usr/bin/rm -rf <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT
++ /usr/bin/mkdir -p <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build
++ /usr/bin/mkdir <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT
++ cd ryoku-opensuse-0.1.0
++ install -D -m 0755 <mechanics-topdir>/target/release/ryoku-session <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT/usr/bin/ryoku-session
++ install -D -m 0755 <mechanics-topdir>/target/release/ryoku-app <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT/usr/bin/ryoku-app
++ install -D -m 0644 packaging/rpm/wayland-sessions/ryoku-opensuse.desktop <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT/usr/share/wayland-sessions/ryoku-opensuse.desktop
++ install -D -m 0644 packaging/rpm/session/hyprland.conf <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT/usr/share/ryoku-opensuse/session/hyprland.conf
++ install -D -m 0644 packaging/rpm/systemd/user/ryoku-desktop-session.target <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT/usr/lib/systemd/user/ryoku-desktop-session.target
++ install -D -m 0644 packaging/rpm/systemd/user/ryoku-desktop-shell.service <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT/usr/lib/systemd/user/ryoku-desktop-shell.service
++ install -D -m 0644 packaging/rpm/systemd/user/ryoku-service.service.d/25-session.conf <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT/usr/lib/systemd/user/ryoku-service.service.d/25-session.conf
++ /usr/lib/rpm/find-debuginfo -j10 -n --run-dwz --dwz-low-mem-die-limit 10000000 --dwz-max-die-limit 50000000 -S debugsourcefiles.list <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/ryoku-opensuse-0.1.0
+find-debuginfo: starting
+WARNING: /usr/bin/ryoku-app is already stripped!
+WARNING: /usr/bin/ryoku-session is already stripped!
+Extracting debug info from 0 files
+find-debuginfo: done
++ /usr/lib/rpm/brp-compress
++ /usr/lib/rpm/brp-suse
+Reading <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/SPECPARTS/rpm-debuginfo.specpart
+Processing files: ryoku-session-0.1.0-1.x86_64
+Executing(%doc): /usr/bin/bash -e <mechanics-topdir>/tmp/rpm-tmp.6zWvWZ
++ umask 022
++ cd <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build
++ cd ryoku-opensuse-0.1.0
++ DOCDIR=<mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-session
++ export LC_ALL=C.UTF-8
++ LC_ALL=C.UTF-8
++ export DOCDIR
++ /usr/bin/mkdir -p <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-session
++ cp -pr <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/ryoku-opensuse-0.1.0/docs/session-port.md <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-session
++ cp -pr <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/ryoku-opensuse-0.1.0/docs/native-desktop-workflows.md <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT/usr/share/doc/packages/ryoku-session
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%license): /usr/bin/bash -e <mechanics-topdir>/tmp/rpm-tmp.qwURZe
++ umask 022
++ cd <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build
++ cd ryoku-opensuse-0.1.0
++ LICENSEDIR=<mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-session
++ export LC_ALL=C.UTF-8
++ LC_ALL=C.UTF-8
++ export LICENSEDIR
++ /usr/bin/mkdir -p <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-session
++ cp -pr <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/ryoku-opensuse-0.1.0/LICENSE <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT/usr/share/licenses/ryoku-session
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Provides: ryoku-session = 0.1.0-1 ryoku-session(x86-64) = 0.1.0-1
+Requires(rpmlib): rpmlib(CompressedFileNames) <= 3.0.4-1 rpmlib(FileDigests) <= 4.6.0-1 rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+Requires: ld-linux-x86-64.so.2()(64bit) ld-linux-x86-64.so.2(GLIBC_2.3)(64bit) libc.so.6()(64bit) libc.so.6(GLIBC_2.14)(64bit) libc.so.6(GLIBC_2.15)(64bit) libc.so.6(GLIBC_2.16)(64bit) libc.so.6(GLIBC_2.18)(64bit) libc.so.6(GLIBC_2.2.5)(64bit) libc.so.6(GLIBC_2.28)(64bit) libc.so.6(GLIBC_2.29)(64bit) libc.so.6(GLIBC_2.3)(64bit) libc.so.6(GLIBC_2.3.4)(64bit) libc.so.6(GLIBC_2.30)(64bit) libc.so.6(GLIBC_2.32)(64bit) libc.so.6(GLIBC_2.33)(64bit) libc.so.6(GLIBC_2.34)(64bit) libc.so.6(GLIBC_2.39)(64bit) libc.so.6(GLIBC_2.9)(64bit) libgcc_s.so.1()(64bit) libgcc_s.so.1(GCC_3.0)(64bit) libgcc_s.so.1(GCC_3.3)(64bit) libgcc_s.so.1(GCC_4.2.0)(64bit)
+Processing files: ryoku-session-debugsource-0.1.0-1.x86_64
+warning: Empty %files file <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/ryoku-opensuse-0.1.0/debugsourcefiles.list
+Checking for unpackaged file(s): /usr/lib/rpm/check-files <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/BUILDROOT
+Wrote: <mechanics-topdir>/SRPMS/ryoku-session-0.1.0-1.src.rpm
+Wrote: <mechanics-topdir>/RPMS/x86_64/ryoku-session-debugsource-0.1.0-1.x86_64.rpm
+Wrote: <mechanics-topdir>/RPMS/x86_64/ryoku-session-0.1.0-1.x86_64.rpm
+Executing(rmbuild): /usr/bin/bash -e <mechanics-topdir>/tmp/rpm-tmp.U0aOs8
++ umask 022
++ cd <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build
++ test -d <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build
++ /usr/bin/chmod -Rf a+rX,u+w,g-w,o-w <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build
++ rm -rf <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build
++ RPM_EC=0
+++ jobs -p
++ exit 0
+
+RPM build warnings:
+    Empty %files file <mechanics-topdir>/BUILD/ryoku-session-0.1.0-build/ryoku-opensuse-0.1.0/debugsourcefiles.list

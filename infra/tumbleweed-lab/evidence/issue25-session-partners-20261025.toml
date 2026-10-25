@@ -1,0 +1,33 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+branch_parent = "47d1d6d3f0a50363f3b59b87a2d5fe560ee9667e"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+scope = "Required session-partner activation checks; offline Rust subprocess evidence"
+native_acceptance = false
+vm_access = false
+downloads = false
+
+[contract]
+problem = "systemctl is-active accepts several units with ANY-active success semantics; one healthy unit could mask the other required partner"
+reference = "https://www.freedesktop.org/software/systemd/man/257/systemctl.html#is-active%20PATTERN%E2%80%A6"
+required_units = ["ryoku-desktop-shell.service", "ryoku-service.service"]
+correction = "After the target start succeeds, run a separate fixed bounded is-active --quiet command for each required unit; both must succeed"
+control_timeout_seconds = 3
+failure = "Retain original startup error and attempt target stop, both environment cleanups and compositor exit in their original order"
+long_lifetimes = "Compositor and locker lifetime bounds unchanged; no timeout added to their normal running lifetime"
+
+[checks]
+format = "cargo fmt --all --check"
+clippy = "CARGO_INCREMENTAL=0 cargo clippy --offline --locked -p ryoku-session --all-targets -- -D warnings"
+tests = "CARGO_INCREMENTAL=0 cargo test --offline --locked -p ryoku-session"
+terminal_passed = 4
+session_passed = 17
+failed = 0
+matrix = "Real Rust subprocess success/failure/deadline fixture emulates systemctl ANY-active semantics for both-active, shell-only, service-only and neither-active; each inactive case is repeated with failure and timeout"
+assertions = "Only separate one-unit readiness queries accepted; both-active succeeds without exit; every failed combination runs stop, clear bus, clear manager, exit; each existing lifecycle failure/timeout and descendant-isolation regression still passes"
+fixtures = "No actual systemd/D-Bus/Hyprland/SDDM/PAM/portal service controlled; only temporary owned Rust child processes are executed"
+
+[remaining]
+required = ["Fresh combined #173 exact source/archive/spec/RPM candidate", "Native unit/socket/render readiness, ordinary display-manager login and reboot", "Supported core workflow/device checklist", "KDE fallback after controlled startup failure", "#176 real wallpaper-to-theme typed handoff and complete linked accounting"]
+issue_open = true

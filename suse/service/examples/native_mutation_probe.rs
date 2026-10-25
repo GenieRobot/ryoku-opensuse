@@ -128,7 +128,10 @@ impl Provider {
 }
 impl NativeMutationProvider for Provider {
     type Output = ();
-    fn plan(&mut self) -> std::result::Result<PlannedChange, GateError> {
+    fn plan(
+        &mut self,
+        _session: &ryoku_recovery::capture_session::NativeCaptureSession,
+    ) -> std::result::Result<PlannedChange, GateError> {
         self.plans += 1;
         Ok(PlannedChange {
             operation_key: format!("fixture:{}", self.name),
@@ -147,7 +150,11 @@ impl NativeMutationProvider for Provider {
         }
         Ok(())
     }
-    fn apply(&mut self, proof: &VerifiedLinkedGeneration) -> std::result::Result<(), GateError> {
+    fn apply(
+        &mut self,
+        proof: &VerifiedLinkedGeneration,
+        _session: &ryoku_recovery::capture_session::NativeCaptureSession,
+    ) -> std::result::Result<(), GateError> {
         self.apply_checked(proof).map_err(|_| GateError::ApplyFailed)
     }
     fn health_check(&mut self, _: &()) -> std::result::Result<(), GateError> {

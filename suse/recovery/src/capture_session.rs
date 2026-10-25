@@ -68,6 +68,36 @@ pub struct NativeCaptureSession {
     store: GenerationStore,
 }
 impl NativeCaptureSession {
+    /// Read only the actor registered in this account's still-frozen lease.
+    pub fn wallpaper_actor(&self) -> Result<crate::wallpaper_protocol::ActorIdentity> {
+        self.revalidate()?;
+        self.freezer.wallpaper_actor()
+    }
+
+    /// Prior manual choice recorded only from a verified typed actor receipt.
+    pub fn wallpaper_manual_paused(&self) -> Result<bool> {
+        self.revalidate()?;
+        self.freezer.wallpaper_manual_paused()
+    }
+
+    /// Exact installed native-player identities in the still-frozen actor lease.
+    pub fn wallpaper_players(&self) -> Result<Vec<crate::wallpaper_protocol::ActorIdentity>> {
+        self.revalidate()?;
+        self.freezer.wallpaper_players()
+    }
+
+    /// Trusted helper integration only: call after authorization, durable
+    /// Applying and complete linked-proof revalidation. The machine lock and
+    /// every unrelated writer remain held; return requires a full refreeze.
+    pub fn apply_wallpaper_actor(
+        &self,
+        call: &crate::wallpaper_protocol::ActorCall,
+    ) -> Result<Vec<u8>> {
+        self.revalidate()?;
+        let reply = self.freezer.apply_wallpaper(call)?;
+        self.revalidate()?;
+        Ok(reply)
+    }
     /// Shared protected journal anchor. Access is valid only while this session
     /// owns the machine lock and all registered account writers are stopped.
     pub fn coordinator_directory(&self) -> Result<&File> {

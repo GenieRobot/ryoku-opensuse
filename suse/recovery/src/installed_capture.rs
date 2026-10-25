@@ -3,8 +3,10 @@
 //! `InstalledInventory` cannot be deserialized or constructed from a client's
 //! paths. The installed catalogue enumerates bounded preferences from the
 //! pinned upstream runtime and the port-owned typed personal profile. Referenced
-//! wallpaper/media paths, credentials, caches and unrelated home data are never
-//! followed. Immutable local bundles retain all profile layer inputs offline.
+//! wallpaper/media paths, credentials, derived caches and unrelated home data
+//! are never followed. The exact Ryogami catalogue/selection/workspace files under its
+//! cache directory are persistent enrolled state. Immutable local bundles
+//! retain all profile layer inputs offline.
 //!
 //! The service must resolve these descriptors (the user descriptor comes from
 //! its authenticated account resolver), validate the protected store, and hold
@@ -45,11 +47,25 @@ pub enum InventoryError {
     InvalidProfile,
     ProfileIdentityMismatch,
     UnsupportedManagedState,
+    WallpaperStateLocation,
+    WallpaperStoreCapacity { file: &'static str, maximum_bytes: u64 },
 }
 impl std::fmt::Display for InventoryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Never include private profile bytes or host paths in errors.
-        write!(f, "{self:?}")
+        if let Self::WallpaperStoreCapacity { file, maximum_bytes } = self {
+            write!(
+                f,
+                "wallpaper recovery file {file} exceeds the verified {maximum_bytes}-byte capacity; increase verified recovery capacity before applying changes"
+            )
+        } else if matches!(self, Self::WallpaperStateLocation) {
+            write!(
+                f,
+                "wallpaper cache setting is outside the current enrolled restore-point locations; use an enrolled cache setting or its declared-state recovery provider"
+            )
+        } else {
+            write!(f, "{self:?}")
+        }
     }
 }
 impl std::error::Error for InventoryError {}
@@ -183,6 +199,7 @@ impl InstalledInventory {
             validate_managed_tree(home, path, 0, &mut visited)?;
         }
         validate_wallpaper_state_location(home)?;
+        validate_wallpaper_store_capacity(home)?;
         Ok(())
     }
     /// Complete fixed first-sprint preference scope for the pinned runtime on
@@ -195,14 +212,22 @@ impl InstalledInventory {
                 path,
                 writer: "pinned-session-preferences",
                 owner: Owner::Account,
-                kind: if *path == crate::installed_inventory::PERSONAL_PROFILE {
+                kind: if *path == crate::installed_inventory::PERSONAL_PROFILE
+                    || crate::installed_inventory::WALLPAPER_PERSISTENT_STATE.contains(path)
+                {
                     Kind::Regular
                 } else {
                     Kind::Preference
                 },
-                modes: &[0o600, 0o640, 0o644, 0o777],
+                modes: if crate::installed_inventory::WALLPAPER_PERSISTENT_STATE.contains(path) {
+                    &[0o600, 0o640, 0o644]
+                } else {
+                    &[0o600, 0o640, 0o644, 0o777]
+                },
                 max_bytes: if *path == crate::installed_inventory::PERSONAL_PROFILE {
                     ryoku_profiles::MAX_PROFILE_DOCUMENT_BYTES as u64
+                } else if crate::installed_inventory::WALLPAPER_PERSISTENT_STATE.contains(path) {
+                    crate::installed_inventory::WALLPAPER_STORE_MAX_BYTES
                 } else {
                     4 * 1024 * 1024
                 },
@@ -729,14 +754,47 @@ fn validate_wallpaper_state_location(home: &File) -> Result<(), GenerationCaptur
     let config: serde_json::Value =
         serde_json::from_slice(&bytes).map_err(|_| InventoryError::UnsupportedManagedState)?;
     if let Some(cache) = config.get("paths").and_then(|v| v.get("cache")) {
-        let value = cache.as_str().ok_or(InventoryError::UnsupportedManagedState)?;
+        let value = cache.as_str().ok_or(InventoryError::WallpaperStateLocation)?;
         let home_path = std::fs::read_link(format!("/proc/self/fd/{}", home.as_raw_fd()))?;
         let expected = home_path.join(".cache/ryogami");
         if !value.is_empty()
             && value != "~/.cache/ryogami"
             && std::path::Path::new(value) != expected
         {
-            return Err(InventoryError::UnsupportedManagedState.into());
+            return Err(InventoryError::WallpaperStateLocation.into());
+        }
+    }
+    Ok(())
+}
+
+fn validate_wallpaper_store_capacity(home: &File) -> Result<(), GenerationCaptureError> {
+    for path in crate::installed_inventory::WALLPAPER_PERSISTENT_STATE {
+        let file = match rustix::fs::openat2(
+            home,
+            *path,
+            rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC | rustix::fs::OFlags::NONBLOCK,
+            rustix::fs::Mode::empty(),
+            rustix::fs::ResolveFlags::BENEATH
+                | rustix::fs::ResolveFlags::NO_SYMLINKS
+                | rustix::fs::ResolveFlags::NO_MAGICLINKS
+                | rustix::fs::ResolveFlags::NO_XDEV,
+        ) {
+            Ok(file) => file,
+            Err(rustix::io::Errno::NOENT) => continue,
+            Err(error) => return Err(error.into()),
+        };
+        let stat = fstat(&file)?;
+        if FileType::from_raw_mode(stat.st_mode) != FileType::RegularFile {
+            return Err(InventoryError::EntryPolicy.into());
+        }
+        if stat.st_size < 0
+            || stat.st_size as u64 > crate::installed_inventory::WALLPAPER_STORE_MAX_BYTES
+        {
+            return Err(InventoryError::WallpaperStoreCapacity {
+                file: path,
+                maximum_bytes: crate::installed_inventory::WALLPAPER_STORE_MAX_BYTES,
+            }
+            .into());
         }
     }
     Ok(())

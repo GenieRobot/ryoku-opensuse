@@ -33,6 +33,38 @@ pub fn public_evidence(line: &str) -> bool {
     if crate::recovery_gate_results::RESULTS.contains(&line) {
         return true;
     }
+    // Exact static Ryoku inspection results only; no PIDs, unit diagnostics,
+    // session identifiers, environment values or raw errors become public.
+    if line.starts_with("ryoku_") {
+        return matches!(
+            line,
+            "ryoku_login=inspected"
+                | "ryoku_session=sddm_password_wayland"
+                | "ryoku_units=ready"
+                | "ryoku_units=stopped"
+                | "ryoku_units=manager_absent"
+                | "ryoku_processes=rpm_bound_live"
+                | "ryoku_environment=matched"
+                | "ryoku_environment=cleared"
+                | "ryoku_environment=manager_absent"
+                | "ryoku_wayland=peer_connected"
+                | "ryoku_kde_entry=selectable"
+                | "ryoku_kde_runtime=unverified"
+                | "ryoku_visible_frame=unverified"
+                | "ryoku_reboot=unverified"
+                | "ryoku_devices=unverified"
+                | "ryoku_fallback=greeter_ready"
+                | "ryoku_inspection_reason=fixture"
+                | "ryoku_inspection_reason=installed_metadata"
+                | "ryoku_inspection_reason=fallback_cleanup"
+                | "ryoku_inspection_reason=native_login"
+                | "ryoku_inspection_reason=unit_readiness"
+                | "ryoku_inspection_reason=process_identity"
+                | "ryoku_inspection_reason=session_environment"
+                | "ryoku_inspection_reason=wayland_peer"
+                | "ryoku_inspection_reason=revalidation"
+        );
+    }
     let Some((key, value)) = line.split_once('=') else {
         return false;
     };
@@ -398,6 +430,31 @@ mod tests {
         assert!(public_evidence("zypp_inventory_cockpit_socket_listen_scope=loopback-only"));
         assert!(public_evidence("zypp_inventory_host_tcp_listener_scope=non-loopback-present"));
         assert!(!public_evidence("zypp_inventory_cockpit_socket_listen_scope=127.0.0.1:9090"));
+    }
+
+    #[test]
+    fn ryoku_inspection_results_are_exact_and_never_claim_visible_or_device_acceptance() {
+        for line in [
+            "ryoku_login=inspected",
+            "ryoku_units=stopped",
+            "ryoku_fallback=greeter_ready",
+            "ryoku_inspection_reason=process_identity",
+            "ryoku_kde_runtime=unverified",
+        ] {
+            assert!(public_evidence(line));
+        }
+        for line in [
+            "ryoku_login=passed",
+            "ryoku_kde_runtime=passed",
+            "ryoku_visible_frame=passed",
+            "ryoku_devices=passed",
+            "ryoku_inspection_reason=private-path",
+            "ryoku_pid=1234",
+            "ryoku_environment=HOME_private",
+            "ryoku_login=inspected\nsecret=value",
+        ] {
+            assert!(!public_evidence(line));
+        }
     }
 
     #[test]

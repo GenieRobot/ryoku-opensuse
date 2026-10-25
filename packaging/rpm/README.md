@@ -8,8 +8,11 @@ Cargo and retained upstream Go/CMake; they add no executable project scriptlets
 or transaction hooks.
 
 The desktop runtime implements the integrated issue #18 writer payload map,
-public wrapper aliases and fixed QML launch paths. The desktop package set precedes issue #25. Login sessions, session adapters,
-Hyprland defaults and KDE fallback configuration belong to that later issue.
+public wrapper aliases and fixed QML launch paths. The optional `ryoku-session.spec` adds the experimental issue #25 login,
+Rust adapters and immutable Hyprland defaults. It depends on the accepted
+release-5 desktop package set and retains KDE dependencies explicitly. See
+[the session contract](../../docs/session-port.md); this additional spec has
+not passed the native RPM/session acceptance gate.
 The separate GTK proof remains an explicitly labeled demonstration application.
 Installing any of these RPMs does not authorize a supported system mutation or
 establish recovery readiness.

@@ -1,0 +1,66 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+branch_parent = "6fc2fc06a5d1d95b61c5e251299aeaeef970ce49"
+scope = "Prevent false post-logout cleanup observation for an unlinked surviving Ryoku image"
+native_acceptance = false
+native_build = false
+package_build = false
+vm_access = false
+qmp_access = false
+downloads = false
+
+[contract]
+problem = "procfs exposes a still-running image with a literal appended ' (deleted)' suffix after unlink; literal basename matching missed such a surviving actor/player"
+correction = "Recognize only one exact kernel deleted suffix before matching the same fixed Ryoku image names; do not match unrelated names, prefixes, suffixes, paths or repeated deleted suffixes"
+ownership = "Only #25 read-only fallback inspection changes; no wallpaper/player actuation, authorization, recovery, provider or #175/#176 route change"
+product = "Full existing Ryoku features and normal wallpaper workflows remain present"
+
+[focused]
+command = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo test --offline --locked -p ryoku-automation --bin vm-lab desktop::ryoku::tests:: -- --nocapture"
+exit = 0
+passed = 11
+failed = 0
+filtered_other_tests = 80
+new_cases = ["desktop::ryoku::tests::fallback_recognizes_deleted_actor_images_without_matching_unrelated_paths", "desktop::ryoku::tests::fallback_detects_owned_actor_after_its_running_image_is_unlinked"]
+fixture = "Copy already-built current Rust test ELF into a newly created owned temporary directory named ryogami-live; verify ELF header; spawn only the exact same test in bounded child-hold mode; require its explicit ready marker and exact copied proc executable path; verify own UID, ordinary and actual procfs deleted identity; SIGSTOP and observe T; recognize image while stopped; SIGKILL and wait; verify proc entry absent; cleanup on failure via owned Child guard"
+limits = "Disposable host test process only; no real C player, installed executable, native session, display, other account or QMP endpoint touched"
+full_checks = "Full all-features workspace/strict all-target Clippy on exact pushed head required through hosted CI; local focus is not a full workspace result"
+
+[affected_suite]
+command = "TMPDIR=/tmp <existing-target>/debug/deps/vm_lab-<default-build>"
+exit = 0
+passed = 91
+failed = 0
+repetitions_command = "TMPDIR=/tmp <same-test-binary> --exact desktop::ryoku::tests::fallback_detects_owned_actor_after_its_running_image_is_unlinked"
+actual_repetitions = 5
+selected_passed_each = 1
+failed_each = 0
+other_library_tests_filtered_each = 90
+execution = "Use the exact already-built corrected default test binary; no additional Cargo compile or duplicate target directory"
+
+[hosted_initial_failure]
+commit = "6fc2fc06a5d1d95b61c5e251299aeaeef970ce49"
+run = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40193962029"
+job = 121170705799
+passed = 91
+failed = 1
+test = "desktop::ryoku::tests::fallback_detects_owned_actor_after_its_running_image_is_unlinked"
+assertion = "automation/src/lab/desktop/ryoku.rs:671 initial ryoku_process_image(proc exe) assertion failed before unlink"
+scope = "Initial disposable fixture copied host /usr/bin/sleep without establishing exact running-image readiness; actual failing exe target was not recorded, so no specific interpreter/re-exec implementation is claimed"
+correction = "Use known native Rust test ELF and observe child readiness plus exact proc exe path before unlink, preserving all UID/unlink/real-stop/recognize/kill/reap assertions; production image predicate is unchanged"
+preservation = "Original failed hosted log remains at the recorded job; no failure removed or rerun relabeled as original success"
+
+[storage_guard]
+effective_target = "Reused existing #25 worktree target; cargo metadata confirms no duplicate target directory"
+mount_verification = "Resolve paths and inspect /proc/self/mountinfo: target/workspace, Cargo cache and Rustup/toolchain are ext4 /dev/sdd; TMPDIR/TMP/TEMP are /tmp tmpfs"
+local_compile = "Original two focused incremental builds (1.75s/1.58s); after coordinator-approved verified-path fixture correction, one1.86s incremental build passes11 inspector tests; no native/package build"
+telemetry = "C below10GiB floor; first11-case sample decreased4096 bytes, attribution unknown and local compilation stopped. Coordinator authorized verified-path fixture correction: its before/after samples were stable. Subsequent readonly polling showed unrelated unassigned host-space changes, so full affected91-case suite/repetitions ran only already-built binary; full workspace/Clippy use hosted CI"
+artifacts = "Rust artifacts remain in existing /dev/sdd target, owned fixture/private logs in tmpfs; no C mount path selected for outputs, cache or temporary files"
+privacy = "Raw logs remain outside public repository; receipt records fixed test names and scoped outcomes, not host/account paths or raw process data"
+
+[remaining]
+issue_open = true
+pr_draft = true
+native_gate = "Shared #173 builder release, current storage/guard clearance and exact combined source/vendor/spec/package tuple before sequential offline BuildRequires keeper/session build; install is separate approved phase"
+acceptance = "Ordinary SDDM login/reboot, actual controlled-failure cleanup and KDE use, native player/workflow/device matrix remain open; #176 actual typed wallpaper-theme accounting still required"

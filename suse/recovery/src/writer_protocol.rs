@@ -17,7 +17,8 @@ use std::{
         fd::AsRawFd,
         unix::net::{UnixListener, UnixStream},
     },
-    process::Command,
+    process::{Command, Stdio},
+    sync::Arc,
     thread,
     time::{Duration, Instant},
 };
@@ -279,6 +280,7 @@ pub(crate) struct CaptureWriterLease {
     lock: Option<File>,
     writers: Vec<UnixStream>,
     names: Vec<(String, i32)>,
+    actor_used: std::cell::Cell<bool>,
 }
 impl CaptureWriterLease {
     pub(crate) fn for_account(uid: u32, gid: u32, home: &File) -> Result<Self> {
@@ -295,7 +297,13 @@ impl CaptureWriterLease {
     fn acquire(namespace: Namespace, home: &str) -> Result<Self> {
         let lock = namespace.open_lock(false)?;
         let names = namespace.sockets()?;
-        let mut lease = Self { namespace, lock: Some(lock), writers: Vec::new(), names };
+        let mut lease = Self {
+            namespace,
+            lock: Some(lock),
+            writers: Vec::new(),
+            names,
+            actor_used: std::cell::Cell::new(false),
+        };
         for (name, pid) in &lease.names {
             let mut stream = UnixStream::connect(lease.namespace.path(name))?;
             let peer = socket_peercred(&stream)?;
@@ -349,6 +357,63 @@ impl CaptureWriterLease {
         self.writers.clear();
         Ok(())
     }
+    fn wallpaper_stream(&self) -> Result<UnixStream> {
+        self.check()?;
+        let actors = self
+            .names
+            .iter()
+            .enumerate()
+            .filter(|(_, (name, _))| name.starts_with("ryogami-"))
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>();
+        let [index] = actors.as_slice() else { return Err(Error::WriterUnavailable) };
+        let stream = self.writers[*index].try_clone()?;
+        stream.set_read_timeout(Some(TIMEOUT))?;
+        stream.set_write_timeout(Some(TIMEOUT))?;
+        Ok(stream)
+    }
+    pub(crate) fn wallpaper_actor(&self) -> Result<crate::wallpaper_protocol::ActorIdentity> {
+        let mut stream = self.wallpaper_stream()?;
+        stream.write_all(b"I")?;
+        let identity = read_actor_wire(&mut stream)?;
+        self.check()?;
+        Ok(identity)
+    }
+    pub(crate) fn wallpaper_manual_paused(&self) -> Result<bool> {
+        let mut stream = self.wallpaper_stream()?;
+        stream.write_all(b"K")?;
+        let paused = read_actor_wire(&mut stream)?;
+        self.check()?;
+        Ok(paused)
+    }
+    pub(crate) fn wallpaper_players(
+        &self,
+    ) -> Result<Vec<crate::wallpaper_protocol::ActorIdentity>> {
+        let mut stream = self.wallpaper_stream()?;
+        stream.write_all(b"J")?;
+        let players = read_actor_wire(&mut stream)?;
+        self.check()?;
+        Ok(players)
+    }
+    pub(crate) fn apply_wallpaper(
+        &self,
+        call: &crate::wallpaper_protocol::ActorCall,
+    ) -> Result<Vec<u8>> {
+        if self.actor_used.get() {
+            return Err(Error::Unsupported);
+        }
+        let expected = self.wallpaper_actor()?;
+        call.validate(&expected).map_err(|_| Error::Unsupported)?;
+        let mut stream = self.wallpaper_stream()?;
+        self.actor_used.set(true);
+        stream.set_read_timeout(Some(Duration::from_secs(45)))?;
+        stream.write_all(b"A")?;
+        write_actor_wire(&mut stream, call)?;
+        let reply = read_actor_wire(&mut stream)?;
+        stream.set_read_timeout(Some(TIMEOUT))?;
+        self.check()?;
+        Ok(reply)
+    }
 }
 impl Drop for CaptureWriterLease {
     fn drop(&mut self) {
@@ -365,6 +430,13 @@ pub fn run_writer(kind: WriterKind, arguments: &[std::ffi::OsString]) -> Result<
     let uid = rustix::process::geteuid().as_raw();
     if uid == 0 {
         return Err(Error::Unsupported);
+    }
+    if kind == WriterKind::Ryogami
+        && !(arguments.is_empty() || arguments == [std::ffi::OsString::from("daemon")])
+    {
+        // CLI is a broker client, never a second daemon/actor or an unreviewed
+        // native worker. Its exact frame crosses the same picker boundary.
+        return crate::wallpaper_proxy::run_client(arguments).map_err(Error::from);
     }
     let namespace = Namespace::native(uid, rustix::process::getegid().as_raw(), true)?;
     let mut command = kind.command();
@@ -389,7 +461,13 @@ impl Endpoint {
         listener.set_nonblocking(true)?;
         Ok(Self { namespace, name, inode: (stat.st_dev, stat.st_ino), listener, clean: false })
     }
-    fn serve(&self, mut stream: UnixStream, lock: &File, helper_uid: u32) -> Result<()> {
+    fn serve(
+        &self,
+        mut stream: UnixStream,
+        lock: &File,
+        helper_uid: u32,
+        actor: Option<&crate::wallpaper_channel::NativeActor>,
+    ) -> Result<()> {
         let peer = socket_peercred(&stream)?;
         if peer.uid.as_raw() != helper_uid {
             return Err(Error::UnsafeBoundary);
@@ -415,7 +493,9 @@ impl Endpoint {
             .map(|(_, pid)| *pid)
             .filter(|pid| *pid != std::process::id() as i32)
             .collect();
-        let mut freeze = crate::writer_freeze::WriterFreeze::for_children(&home, excluded)?;
+        let stops =
+            actor.map(|actor| actor.preserved_player_stops()).transpose()?.unwrap_or_default();
+        let mut freeze = crate::writer_freeze::WriterFreeze::for_children(&home, excluded, stops)?;
         fs::flock(lock, FlockOperation::Unlock)?;
         // Even a failed acknowledgement must reacquire shared ownership before
         // releasing child stops, so a concurrent capture cannot be bypassed.
@@ -423,6 +503,7 @@ impl Endpoint {
             stream.write_all(b"Q")?;
             stream.set_read_timeout(Some(Duration::from_millis(100)))?;
             let mut request = [0];
+            let mut actor_used = false;
             loop {
                 if SHUTDOWN_SIGNAL.load(std::sync::atomic::Ordering::Relaxed) != 0 {
                     return Err(Error::WriterUnavailable);
@@ -433,6 +514,93 @@ impl Endpoint {
                         freeze.check()?;
                         self.namespace.check_lock(lock)?;
                         stream.write_all(b"V")?;
+                    }
+                    Ok(1) if request == *b"I" => {
+                        freeze.check()?;
+                        let actor = actor.ok_or(Error::Unsupported)?;
+                        write_actor_wire(&mut stream, &actor.identity()?)?;
+                    }
+                    Ok(1) if request == *b"K" => {
+                        freeze.check()?;
+                        let actor = actor.ok_or(Error::Unsupported)?;
+                        write_actor_wire(&mut stream, &actor.manual_paused()?)?;
+                    }
+                    Ok(1) if request == *b"J" => {
+                        freeze.check()?;
+                        let actor = actor.ok_or(Error::Unsupported)?;
+                        write_actor_wire(&mut stream, &actor.player_identities()?)?;
+                    }
+                    Ok(1) if request == *b"A" => {
+                        if actor_used {
+                            return Err(Error::Unsupported);
+                        }
+                        let actor = actor.ok_or(Error::Unsupported)?;
+                        stream.set_read_timeout(Some(TIMEOUT))?;
+                        let call: crate::wallpaper_protocol::ActorCall =
+                            read_actor_wire(&mut stream)?;
+                        call.validate_for_home(&actor.identity()?, &home)
+                            .map_err(|_| Error::Unsupported)?;
+                        freeze.check()?;
+                        self.namespace.check_lock(lock)?;
+                        let (_, action) = crate::wallpaper_protocol::parse_change(&call.frame)
+                            .map_err(|_| Error::Unsupported)?;
+                        if matches!(action, crate::wallpaper_protocol::WallpaperChange::Pause(_))
+                            && actor.player_identities()? != call.player_pins
+                        {
+                            return Err(Error::WriterUnavailable);
+                        }
+                        if matches!(
+                            action,
+                            crate::wallpaper_protocol::WallpaperChange::Apply(_)
+                                | crate::wallpaper_protocol::WallpaperChange::Workspace(_)
+                        ) && call.inherit_manual_pause != actor.manual_paused()?
+                        {
+                            return Err(Error::WriterUnavailable);
+                        }
+                        let execution = actor.execution(&call)?;
+                        // This lease accepts exactly one approved native call;
+                        // it cannot be replayed even if the application fails.
+                        actor_used = true;
+                        freeze.run_actor(execution)?;
+                        let applied = actor.apply(&call);
+                        // Always refreeze before interpreting an application
+                        // error or acknowledging any response to the helper.
+                        let stopped = freeze.refreeze();
+                        stopped?;
+                        freeze.check()?;
+                        actor.identity()?;
+                        self.namespace.check_lock(lock)?;
+                        let applied = applied?;
+                        if let crate::wallpaper_protocol::WallpaperChange::Pause(pause) = action {
+                            if actor.player_identities()? != call.player_pins {
+                                return Err(Error::WriterUnavailable);
+                            }
+                            let value: serde_json::Value =
+                                serde_json::from_slice(&applied).map_err(|_| Error::Unsupported)?;
+                            if value.get("error").is_none() {
+                                let effective = value["result"]["effective_paused"]
+                                    .as_bool()
+                                    .ok_or(Error::Unsupported)?;
+                                let pins: Vec<crate::wallpaper_protocol::ActorIdentity> =
+                                    serde_json::from_value(value["result"]["player_pins"].clone())
+                                        .map_err(|_| Error::Unsupported)?;
+                                if pins != call.player_pins
+                                    || value["result"]["paused"].as_bool() != Some(pause.paused)
+                                {
+                                    return Err(Error::Unsupported);
+                                }
+                                let manual = value["result"]["manual_paused"]
+                                    .as_bool()
+                                    .ok_or(Error::Unsupported)?;
+                                if pause.paused && !manual {
+                                    return Err(Error::Unsupported);
+                                }
+                                freeze.playback_disposition(pins, effective)?;
+                                actor.record_manual_pause(manual)?;
+                            }
+                        }
+                        write_actor_wire(&mut stream, &applied)?;
+                        stream.set_read_timeout(Some(Duration::from_millis(100)))?;
                     }
                     Ok(_) => return Err(Error::Unsupported),
                     Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
@@ -480,12 +648,54 @@ fn run_using(
     let lock = namespace.open_lock(true)?;
     fs::flock(&lock, FlockOperation::LockShared)?;
     let mut endpoint = Endpoint::bind(namespace, kind)?;
+    let native_control = if kind == WriterKind::Ryogami {
+        let (control, native) = UnixStream::pair()?;
+        command
+            .env("RYOKU_WALLPAPER_BROKER_FD", "0")
+            .stdin(Stdio::from(std::os::fd::OwnedFd::from(native)));
+        Some(control)
+    } else {
+        None
+    };
     let mut child = match command.spawn() {
         Ok(child) => child,
         Err(error) => {
             endpoint.clean = true;
             return Err(error.into());
         }
+    };
+    let actor = if let Some(control) = native_control {
+        match crate::wallpaper_channel::NativeActor::new(
+            control,
+            child.id(),
+            endpoint.namespace.uid,
+        ) {
+            Ok(actor) => Some(Arc::new(actor)),
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(error.into());
+            }
+        }
+    } else {
+        None
+    };
+    let _proxy = if let Some(actor) = &actor {
+        match crate::wallpaper_proxy::ProxyServer::start(
+            Arc::clone(actor),
+            endpoint.namespace.uid,
+            endpoint.namespace.gid,
+        ) {
+            Ok(proxy) => Some(proxy),
+            Err(error) => {
+                actor.shutdown();
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(error.into());
+            }
+        }
+    } else {
+        None
     };
     let mut status = None;
     loop {
@@ -505,7 +715,7 @@ fn run_using(
         }
         match endpoint.listener.accept() {
             Ok((stream, _)) => {
-                let result = endpoint.serve(stream, &lock, helper_uid);
+                let result = endpoint.serve(stream, &lock, helper_uid, actor.as_deref());
                 #[cfg(test)]
                 if let Err(error) = &result {
                     eprintln!("fixture writer lease failed: {error}");
@@ -519,6 +729,28 @@ fn run_using(
         }
         endpoint.namespace.check_lock(&lock)?;
     }
+}
+
+const MAX_ACTOR_WIRE: usize = crate::wallpaper_protocol::MAX_REQUEST_BYTES * 4 + 4096;
+fn read_actor_wire<T: serde::de::DeserializeOwned>(stream: &mut UnixStream) -> Result<T> {
+    let mut length = [0; 4];
+    stream.read_exact(&mut length)?;
+    let length = u32::from_be_bytes(length) as usize;
+    if length == 0 || length > MAX_ACTOR_WIRE {
+        return Err(Error::Unsupported);
+    }
+    let mut bytes = vec![0; length];
+    stream.read_exact(&mut bytes)?;
+    serde_json::from_slice(&bytes).map_err(|_| Error::Unsupported)
+}
+fn write_actor_wire(stream: &mut UnixStream, value: &impl serde::Serialize) -> Result<()> {
+    let bytes = serde_json::to_vec(value).map_err(|_| Error::Unsupported)?;
+    if bytes.len() > MAX_ACTOR_WIRE {
+        return Err(Error::Unsupported);
+    }
+    stream.write_all(&(bytes.len() as u32).to_be_bytes())?;
+    stream.write_all(&bytes)?;
+    Ok(())
 }
 extern "C" fn remember_signal(signal: libc::c_int) {
     SHUTDOWN_SIGNAL.store(signal, std::sync::atomic::Ordering::Relaxed);

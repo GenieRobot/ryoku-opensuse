@@ -1,0 +1,81 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+branch_parent = "61f0756f585607f4466ff46e2c082079812a558d"
+stack_base = "dd6ce61627103a71b1aec5ab4cbfa3aa2c36b83c"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+scope = "Typed manual wallpaper workspace assignment/unassignment; retained aliases, read-only compositor resolution, exact state/plan binding and actor cleanup"
+native_acceptance = false
+vm_access = false
+downloads = false
+
+[contract]
+public_methods = ["wall.assign", "wall.unassign"]
+helper_request = "change_workspace_wallpaper"
+helper_success = "workspace_wallpaper_changed only after verified post-state and durable Succeeded/Complete"
+operation_keys = ["workspace-assign-v1", "workspace-unassign-v1"]
+private_actor_method = "broker.workspace: single canonical root-prepared frame on inherited A connection, never public/native query authority"
+selector = "Authenticated actor session and read-only fixed j/monitors all; socket/account/peer/start/pinned-image validation; bounded 2s/256KiB reply; current focused output or explicit screen/future workspace; upstream name-first identity"
+write_set = [".cache/ryogami/workspaces.json"]
+read_bindings = [".cache/ryogami/outputs.json", ".cache/ryogami/workspaces.json", ".config/ryoku/ryogami.json"]
+inventory = "Existing full installed wallpaper inventory, including catalogue/selection/output/legacy state, remains enrolled; manual repaint uses record=false and does not increment catalogue/apply records"
+captured_state = "Workspace exact bytes/absence/mode, optional raw SHA commitments before native mutation; no-follow regular single-link policy; root final post-state target/provider/type/path/audio/key-removal checks"
+source = "Existing explicit source/output/assignment/static-library fallback and configured audio defaults retained; static 64MiB/video 8GiB bounds, account-home or installed share source rules"
+plan_revalidation = "Final provider equality against immediately prior computed/reviewed plan before frame emission rejects changed live focus, workspace/output state or source identity"
+persist = "Atomic replacement preserves unrelated assignments; current assignment updates active identity; future target persists without repainting another screen"
+failure = "Repaint failure compensates prior bytes/absence and native active/provider state; compensation failure remains explicit linked-recovery error and cannot report success"
+automatic_effects = "#176 owns automatic workspace playback/theme/hooks and their own typed permits; manual/user apply cannot authorize those effects"
+native_fixture_scope = "Real inherited native query/A receiver and workspace handler, synthetic permit framing only; root authorization/checkpoint authority is separately tested in Rust, not claimed by dummy native fixture digests"
+
+[cleanup]
+observed_failure = "Default-parallel forbidden-exec test exposed context loss on early begin_actor/tick/refreeze errors; transient /proc absence during de-threading was insufficient death proof and rejected actor could survive detach"
+deterministic_repro = "Invalid signal on second held actor thread forces a real PTRACE_CONT error after the first resumed; pre-resume pidfd must exist, abort must prove death, sibling stays stopped, no live actor survives detach"
+correction = "Retain poisoned execution context; pin verified actor-owned TGIDs before resume and verified event-enrolled descendant groups before continuation; use only those pidfds for SIGKILL; collect terminal wait statuses even for previously stopped threads"
+death = "Pidfd poll IN/HUP plus full stopped-target verification required before poisoned detach; /proc disappearance or merely sending SIGKILL never proves death"
+bounded_failure = "Return failure while dedicated tracer retains stops/retries if bounded cleanup cannot prove actor death and stopped-target consistency; channel disconnect cannot implicitly detach live rejected actor"
+pending_stop = "An exact event-enrolled non-actor R task remains PendingInitialStop/ready=false until its own wait status is consumed; unrecorded R, wrong start/TGID/tracer refuse; no scan-based ownership or sibling resume"
+limits = "Evidence covers reviewed pinned actor ordinary fork/clone/exec; CLONE_UNTRACED/namespace malicious native paths are not proven universally contained"
+
+[sources]
+runtime_sha256 = "8aeff20645c14af76f3d341e5d4e7c31923fd249f6671caa704c8b23a6c84e65"
+writers_sha256 = "7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be"
+replay = "Cached exact Source2/3 hashes and runtime SHA256SUMS passed; tracked sixteen-file appearance patch byte reproduction and zero-fuzz launch+appearance RPM prep passed; no network or VM"
+
+[redaction]
+rule = "Actual worktree/account-home/temporary absolute paths replaced with <worktree>/, <account-home>/ and <tmp>/; fixed system interfaces and synthetic test identifiers retained"
+scan = "No actual account/host paths, username, credential-token formats, authorization headers or credential-bearing URLs in new public log/receipt/contract"
+raw_logs = "Retained outside the public repository only"
+
+[checks]
+format = "cargo fmt --all --check"
+clippy = "CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets --offline --locked -- -D warnings"
+rust = "CARGO_INCREMENTAL=0 cargo test --workspace --offline --locked"
+recovery_passed = 240
+recovery_existing_ignored = 6
+service_passed = 137
+service_existing_ignored = 1
+cli_passed = 26
+state_init_passed = 2
+writer_policy_passed = 1
+helper_policy_passed = 3
+rust_failed = 0
+native_passed_cases = 357
+native_missing_tool_skips = 7
+native_cross_issue_prerequisites = 9
+native_categories_disjoint = true
+native_missing_tool_tests = ["TestAutoOptimizeTouchesOnlyNewImages", "TestGradePreviewAndCommit", "TestOptimizeCancelStopsEarly", "TestOptimizeRunConvertsPNGs", "TestScanGeneratesThumb", "TestScanMergeMtimeChangeReprocesses", "TestScanSkipsFreshThumb"]
+native_excluded_prerequisite_tests = ["TestE2EDepthSetAndClearFoldIntoFrame", "TestE2EJSONRequestsAndEventsShareOneConnection", "TestE2EWallpaperNextAdvances", "TestE2EFavouriteSurvivesRescan", "TestE2ESetFavouriteBroadcastsCached", "TestE2EWallDeleteRequiresSubfolderCatalogKey", "TestEventsFlowWhileRequestRuns", "TestSlowSourceSearchDoesNotBlockStatusOnSameConnection", "TestClosingConnectionClearsSearchRegistry"]
+native_command = "GOFLAGS=-buildvcs=false GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -mod=vendor -skip '^(TestE2EDepthSetAndClearFoldIntoFrame|TestE2EJSONRequestsAndEventsShareOneConnection|TestE2EWallpaperNextAdvances|TestE2EFavouriteSurvivesRescan|TestE2ESetFavouriteBroadcastsCached|TestE2EWallDeleteRequiresSubfolderCatalogKey|TestEventsFlowWhileRequestRuns|TestSlowSourceSearchDoesNotBlockStatusOnSameConnection|TestClosingConnectionClearsSearchRegistry)$' -count=1 -json ./..."
+patch_replay = "16-file tracked appearance patch reproduces byte-for-byte; cached Source2/3 hashes and runtime SHA256SUMS pass; launch plus appearance RPM prep apply with fuzz=0"
+actor_outer_repetitions = 5
+failure_and_corrected_log = "issue25-workspace-regression-20261025.log"
+native_patch_sha256 = "5878c64f3ed2b8030510f632d096599a11ebfcb2fd5f4fdb191c0275b5f90bc1"
+focused_dispatch = "cargo test --offline --locked -p ryoku-service wallpaper::tests::final_dispatch_refuses_changed_focus_state_or_source_before_emitting_a_frame"
+focused_dispatch_passed = 1
+resolver_and_helper_tests_passed = 9
+actor_repetition_seconds = [24.74, 24.56, 24.39, 24.27, 24.38]
+
+[remaining]
+required = ["#25 manual pause control contract and core session/workflow acceptance", "#25 refreshed exact Ryoku 1.0 native RPM/login/reboot/logout/KDE/audio-device/static-video/clipboard/portal/workflow evidence", "#176 real wallpaper-to-theme/automatic/hooks accounting, distinct from manual assignment permits", "#175 full configured alternate-root/provider/library/WE workflows", "#177 greeter handoff and #180 complete Hyprland overlay write reporting/preferences gates", "Combined #26 recovery acceptance on the complete 1.0 candidate"]
+issue_open = true
+pr_draft = true

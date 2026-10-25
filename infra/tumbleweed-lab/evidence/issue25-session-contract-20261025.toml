@@ -1,0 +1,58 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+branch_parent = "8bb97d6e8a9a28276bf953e504ef346594d92012"
+scope = "Cross-file display-manager entrypoint, core target/readiness/lifecycle and optional-provider source contract"
+native_acceptance = false
+vm_access = false
+downloads = false
+
+[contract]
+"entry" = "Packaged desktop Exec/TryExec fixed to /usr/bin/ryoku-session compositor, Application/Hyprland desktop identity and Rust parser agreement"
+"required" = "Target Requires exactly the two shared REQUIRED_SERVICES; ordered dependencies match and actual Rust command builder issues one independently bounded check per required unit"
+"lifecycle" = "Shell/service PartOf same target; shell fixed Rust entrypoint and Wayland condition; lock scoped to target, native config and unbounded normal lifetime; logout worker remains outside stopped target and preserves separate lifecycle"
+"optional" = "No optional provider in required/ordered Wanted boot work; session target/shell/lock/logout units have no automatic install enablement"
+"fallback" = "Session RPM preserves independent KDE desktop-entry path; this source assertion cannot prove actual Plasma startup/usability"
+"metadata_parser" = "Trusted test-only whitespace-list parser handles empty systemd reset, preventing stale earlier Requires from incorrectly certifying a cleared dependency"
+"runtime_delta" = "Required service names moved unchanged to a shared constant; command values/order/deadlines unchanged"
+"tested_metadata" = ["packaging/rpm/wayland-sessions/ryoku-opensuse.desktop", "packaging/rpm/systemd/user/ryoku-desktop-session.target", "packaging/rpm/systemd/user/ryoku-desktop-shell.service", "packaging/rpm/systemd/user/ryoku-service.service.d/25-session.conf", "packaging/rpm/systemd/user/ryoku-session-lock.service", "packaging/rpm/systemd/user/ryoku-session-logout.service", "packaging/rpm/ryoku-session.spec"]
+
+[checks]
+"focused" = "CARGO_INCREMENTAL=0 cargo test --offline --locked -p ryoku-session"
+"session_passed" = 19
+"terminal_passed" = 4
+"failed" = 0
+"workspace" = "CARGO_INCREMENTAL=0 cargo test --workspace --offline --locked"
+"workspace_passed" = true
+"clippy" = "CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets --offline --locked -- -D warnings"
+"clippy_passed" = true
+"all_features" = "CARGO_INCREMENTAL=0 cargo test --workspace --all-features --offline --locked"
+"all_features_passed" = true
+"recovery_passed" = 245
+"recovery_existing_ignored" = 6
+"service_passed" = 140
+"service_existing_ignored" = 1
+"format" = "cargo fmt --all --check"
+"whitespace" = "git diff --check"
+"manager_scope" = "No display manager, D-Bus, systemd manager, PAM, compositor or actual installed service controlled by these metadata/source tests"
+
+[current_source3_compatibility]
+"sha256" = "387d829860ba844ad32ecdd5982678707665f3251e41bbb43c6fd6f87dc7eee0"
+"bytes" = 34625504
+"matched_regular_preimages" = 17
+"method" = "Read-only streaming archive SHA and exact17-file preimage comparison, no extraction/VM/download"
+"limits" = "Source compatibility only; no new native build/ABI/install, signature, login, decode/display or source-tuple acceptance"
+
+[metadata_sha256]
+"1" = "packaging/rpm/wayland-sessions/ryoku-opensuse.desktop 89fa25f28fd013bf1d6c0886bb248137d38f85c9a08a0bb5e4a3c2274b55b7e8"
+"2" = "packaging/rpm/systemd/user/ryoku-desktop-session.target dc4215da8766243b11570708206f02386b83ecf333b4def3aae0537bd50e8925"
+"3" = "packaging/rpm/systemd/user/ryoku-desktop-shell.service d8f6e138f7c352dc4bc7cf43ad34d302191a77eac7bc919cb995031ff5050ec3"
+"4" = "packaging/rpm/systemd/user/ryoku-service.service.d/25-session.conf 43fb38d4a621314e6579cfc932f95654ccea86fbfe3e0cb7b8e472c2af3eef61"
+"5" = "packaging/rpm/systemd/user/ryoku-session-lock.service 2a73426dac00f950348f992d0543edd06683b494e84288f56c274f2c4049f8fc"
+"6" = "packaging/rpm/systemd/user/ryoku-session-logout.service 35dac3723be0ec14e608a0ac83dd838697319d9eaf8a4971b0f2eaf887cbed08"
+"7" = "packaging/rpm/ryoku-session.spec 9ad4335d1efa966b3b51aba65eca09688c5ea72a67a85d909b1933eb53eee03d"
+
+[remaining]
+"issue_open" = true
+"pr_draft" = true
+"required" = ["Fresh combined#173 exact Source0/Source2/Source3/vendor/lock/spec/RPM/toolchain and signed native image/repositories", "#25 ordinary display-manager login and reboot without interactive shell", "#25 native supported workflow checklist, installed C READY/decode/display and explicit simulated/physical device distinction", "#25 KDE fallback app/launcher usability after controlled Ryoku failure", "#176 actual typed theme/automatic handoff and linked accounting;#175 retained provider/library/external parity", "Combined#26 recovery and#177/#180 owner gates"]

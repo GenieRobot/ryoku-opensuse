@@ -1,0 +1,47 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+branch_parent = "2664573d61e852ae7a939575db63e4e71e055ade"
+scope = "Packaged terminal/files keyboard shortcuts enter the supported native-default client contract"
+native_acceptance = false
+native_build = false
+package_build = false
+vm_access = false
+qmp_access = false
+downloads = false
+actual_gui_started = false
+
+[contract]
+configuration = "packaging/rpm/session/hyprland.conf"
+terminal = "bind = SUPER, Return, exec, /usr/bin/ryoku-app terminal"
+files = "bind = SUPER, E, exec, /usr/bin/ryoku-app files"
+change = "Replace direct Konsole/Dolphin command paths with the same tested ordinary-launch client used by shell surfaces; terminal preserves native default shell, files respects the native MIME desktop default"
+unchanged = "All other shortcut arguments and compositor/session behavior; no Hub role preferences, service configuration, user files or protected provider state changes"
+previous_dispatch_receipt = "issue25-app-defaults-20261025.toml"
+
+[checks]
+focused_command = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo test --offline --locked -p ryoku-session --bin ryoku-app"
+launcher_passed = 7
+focused_failed = 0
+workspace_passed = true
+vm_lab_passed = 95
+recovery_passed = 246
+recovery_existing_ignored = 6
+service_passed = 140
+service_existing_ignored = 1
+session_passed = 22
+shared_client_passed = 2
+clippy_passed = true
+format_passed = true
+whitespace_passed = true
+new_test = "tests::packaged_terminal_and_files_shortcuts_enter_the_supported_role_contract"
+assertion = "Each key has exactly one matching fixed exec command; parsing its no-argument role yields DefaultShell or Files with zero operands, preventing packaged launcher/API drift"
+workspace_command = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo test --workspace --all-features --offline --locked"
+clippy_command = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo clippy --workspace --all-targets --all-features --offline --locked -- -D warnings"
+
+[remaining]
+issue_open = true
+pr_draft = true
+native = "Combined #173 source/package/target tuple, installed key press to actual terminal/file windows, browser URI delivery, SDDM/login/reboot/KDE/device workflow evidence remain pending under the storage/builder guard"
+owners = "#180 retains custom role commands/default-app preferences/additional roles; #175/#176 retained library/hooks/theme gates unchanged"
+privacy = "Repository-relative paths and fixed test counts only; existing /dev/sdd cache/target/toolchain plus /tmp tmpfs; no private logs or credentials published"

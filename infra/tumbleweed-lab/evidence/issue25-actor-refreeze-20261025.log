@@ -1,0 +1,245 @@
+Issue #25 host actor lease regression; no native/VM acceptance.
+
+Initial failed repetition (retained, before correction):
+
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+thread 'writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement' (270397) panicked at suse/recovery/src/writer_freeze.rs:972:17:
+actor exec did not fail closed
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 5.11s
+
+FAILED
+
+failures:
+
+failures:
+    writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 236 filtered out; finished in 20.18s
+
+FAILED
+
+failures:
+
+---- writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement stdout ----
+
+thread 'writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement' (270395) panicked at suse/recovery/src/writer_freeze.rs:988:9:
+assertion failed: status.success()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 236 filtered out; finished in 20.19s
+
+
+Diagnostic failed emergency-refreeze retry (retained, before pidfd correction):
+   Compiling ryoku-recovery v0.1.0 (/home/jin/src/ryoku-opensuse/target/issue25-native-workflows/suse/recovery)
+   Compiling ryoku-service v0.1.0 (/home/jin/src/ryoku-opensuse/target/issue25-native-workflows/suse/service)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 15.26s
+     Running unittests src/lib.rs (target/debug/deps/ryoku_recovery-8ebea4e3c3155356)
+
+running 1 test
+
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=272905 previous=Ok(272905) actual=Ok(Some(Task { tid: 272905, tgid: 272905, tracer: 272904, state: 't', start: 6050650, uids: [1000, 1000, 1000, 1000] }))
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=272906 previous=Ok(272907) actual=Ok(Some(Task { tid: 272906, tgid: 272906, tracer: 272912, state: 't', start: 6050655, uids: [1000, 1000, 1000, 1000] }))
+actor tick failure WriterUnavailable; actor=272906 task=Ok(Some(Task { tid: 272906, tgid: 272906, tracer: 272912, state: 'R', start: 6050655, uids: [1000, 1000, 1000, 1000] })); held=[(272887, 272887, 6050640, true, false, false), (272888, 272888, 6050640, true, false, false), (272889, 272887, 6050640, true, false, false), (272890, 272887, 6050640, true, false, false), (272891, 272887, 6050640, true, false, false), (272892, 272887, 6050640, true, false, false), (272893, 272888, 6050640, true, false, false), (272894, 272888, 6050640, true, false, false), (272895, 272888, 6050640, true, false, false), (272896, 272888, 6050640, true, false, false), (272898, 272898, 6050647, true, false, false), (272899, 272898, 6050647, true, false, false), (272905, 272905, 6050650, true, false, false), (272906, 272906, 6050655, false, true, true), (272907, 272906, 6050655, false, false, true)]
+
+thread 'writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement' (272886) panicked at suse/recovery/src/writer_freeze.rs:1009:17:
+actor exec did not fail closed
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 5.11s
+
+FAILED
+
+failures:
+
+failures:
+    writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 236 filtered out; finished in 20.19s
+
+
+thread 'writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement' (272884) panicked at suse/recovery/src/writer_freeze.rs:1025:9:
+assertion failed: status.success()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... FAILED
+
+failures:
+
+failures:
+    writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 236 filtered out; finished in 20.19s
+
+error: test failed, to rerun pass `-p ryoku-recovery --lib`
+
+Corrected exact top-level repetition 1:
+
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=274761 previous=Ok(274761) actual=Ok(Some(Task { tid: 274761, tgid: 274761, tracer: 274760, state: 't', start: 6073083, uids: [1000, 1000, 1000, 1000] }))
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=274762 previous=Ok(274763) actual=Ok(Some(Task { tid: 274762, tgid: 274762, tracer: 274768, state: 't', start: 6073087, uids: [1000, 1000, 1000, 1000] }))
+actor tick failure WriterUnavailable; actor=274762 task=Ok(None); held=[(274743, 274743, 6073073, true, false, false), (274744, 274744, 6073073, true, false, false), (274745, 274743, 6073074, true, false, false), (274746, 274744, 6073074, true, false, false), (274747, 274743, 6073074, true, false, false), (274748, 274744, 6073074, true, false, false), (274749, 274743, 6073074, true, false, false), (274750, 274743, 6073074, true, false, false), (274751, 274744, 6073074, true, false, false), (274752, 274744, 6073074, true, false, false), (274754, 274754, 6073081, true, false, false), (274755, 274754, 6073081, true, false, false), (274761, 274761, 6073083, true, false, false), (274763, 274762, 6073087, false, false, true)]
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 2.04s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 15.19s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 15.19s
+
+
+Corrected exact top-level repetition 2:
+
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=274842 previous=Ok(274842) actual=Ok(Some(Task { tid: 274842, tgid: 274842, tracer: 274841, state: 't', start: 6074604, uids: [1000, 1000, 1000, 1000] }))
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=274843 previous=Ok(274844) actual=Ok(Some(Task { tid: 274843, tgid: 274843, tracer: 274849, state: 't', start: 6074609, uids: [1000, 1000, 1000, 1000] }))
+actor tick failure WriterUnavailable; actor=274843 task=Ok(None); held=[(274824, 274824, 6074595, true, false, false), (274825, 274825, 6074595, true, false, false), (274826, 274824, 6074595, true, false, false), (274827, 274824, 6074595, true, false, false), (274828, 274824, 6074595, true, false, false), (274829, 274824, 6074595, true, false, false), (274830, 274825, 6074595, true, false, false), (274831, 274825, 6074595, true, false, false), (274832, 274825, 6074595, true, false, false), (274833, 274825, 6074595, true, false, false), (274835, 274835, 6074602, true, false, false), (274836, 274835, 6074602, true, false, false), (274842, 274842, 6074604, true, false, false), (274844, 274843, 6074609, false, false, true)]
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 2.04s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 15.20s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 15.21s
+
+
+Corrected exact top-level repetition 3:
+
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=274880 previous=Ok(274880) actual=Ok(Some(Task { tid: 274880, tgid: 274880, tracer: 274879, state: 't', start: 6076125, uids: [1000, 1000, 1000, 1000] }))
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=274881 previous=Ok(274882) actual=Ok(Some(Task { tid: 274881, tgid: 274881, tracer: 274887, state: 't', start: 6076129, uids: [1000, 1000, 1000, 1000] }))
+actor tick failure WriterUnavailable; actor=274881 task=Ok(None); held=[(274862, 274862, 6076116, true, false, false), (274863, 274863, 6076116, true, false, false), (274864, 274862, 6076116, true, false, false), (274865, 274863, 6076116, true, false, false), (274866, 274862, 6076116, true, false, false), (274867, 274863, 6076116, true, false, false), (274868, 274862, 6076116, true, false, false), (274869, 274863, 6076116, true, false, false), (274870, 274862, 6076116, true, false, false), (274871, 274863, 6076116, true, false, false), (274873, 274873, 6076122, true, false, false), (274874, 274873, 6076122, true, false, false), (274880, 274880, 6076125, true, false, false), (274882, 274881, 6076129, false, false, true)]
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 2.04s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 15.19s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 15.19s
+
+
+Corrected exact top-level repetition 4:
+
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=274910 previous=Ok(274910) actual=Ok(Some(Task { tid: 274910, tgid: 274910, tracer: 274909, state: 't', start: 6077646, uids: [1000, 1000, 1000, 1000] }))
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... actor tick failure WriterUnavailable; actor=274911 task=Ok(Some(Task { tid: 274911, tgid: 274911, tracer: 274917, state: 'R', start: 6077650, uids: [1000, 1000, 1000, 1000] })); held=[(274892, 274892, 6077637, true, false, false), (274893, 274893, 6077637, true, false, false), (274894, 274892, 6077637, true, false, false), (274895, 274892, 6077637, true, false, false), (274896, 274892, 6077637, true, false, false), (274897, 274892, 6077637, true, false, false), (274898, 274893, 6077637, true, false, false), (274899, 274893, 6077637, true, false, false), (274900, 274893, 6077637, true, false, false), (274901, 274893, 6077637, true, false, false), (274903, 274903, 6077644, true, false, false), (274904, 274903, 6077644, true, false, false), (274910, 274910, 6077646, true, false, false), (274911, 274911, 6077650, false, false, true), (274912, 274911, 6077650, false, false, true)]
+exec event tid=274911 previous=Ok(274912) actual=Ok(Some(Task { tid: 274911, tgid: 274911, tracer: 274917, state: 't', start: 6077650, uids: [1000, 1000, 1000, 1000] }))
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 2.04s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 15.18s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 15.19s
+
+
+Corrected exact top-level repetition 5:
+
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::approved_actor_keeps_sibling_stopped_refreezes_and_rejects_exec_replacement ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... 
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=274985 previous=Ok(274985) actual=Ok(Some(Task { tid: 274985, tgid: 274985, tracer: 274984, state: 't', start: 6079167, uids: [1000, 1000, 1000, 1000] }))
+
+running 1 test
+test writer_freeze::tests::kernel_guard_resumes_after_release_and_helper_sigkill ... exec event tid=274986 previous=Ok(274987) actual=Ok(Some(Task { tid: 274986, tgid: 274986, tracer: 274992, state: 't', start: 6079171, uids: [1000, 1000, 1000, 1000] }))
+actor tick failure WriterUnavailable; actor=274986 task=Ok(None); held=[(274967, 274967, 6079158, true, false, false), (274968, 274968, 6079158, true, false, false), (274969, 274967, 6079158, true, false, false), (274970, 274967, 6079158, true, false, false), (274971, 274967, 6079158, true, false, false), (274972, 274967, 6079158, true, false, false), (274973, 274968, 6079158, true, false, false), (274974, 274968, 6079158, true, false, false), (274975, 274968, 6079158, true, false, false), (274976, 274968, 6079158, true, false, false), (274978, 274978, 6079165, true, false, false), (274979, 274978, 6079165, true, false, false), (274985, 274985, 6079167, true, false, false), (274987, 274986, 6079172, false, false, true)]
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 2.04s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 15.18s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 15.18s
+

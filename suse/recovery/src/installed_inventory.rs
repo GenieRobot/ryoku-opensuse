@@ -1,8 +1,18 @@
-//! Reviewed fixed paths from upstream 98a0368253d9628be72b853985878a5db90e1547.
+//! Reviewed fixed paths from upstream 98a0368253d9628be72b853985878a5db90e1547,
+//! with the Ryogami store paths from a59d051f0e8080052216f6c7b9eb7e5928935ce8.
 //! Each is relative to the authenticated account home, never to a manifest
 //! supplied root. The native boundary supports the standard XDG layout only.
 
 pub const PERSONAL_PROFILE: &str = ".config/ryoku/opensuse-profile.json";
+
+/// Persistent catalog/selection state, even though upstream places it in cache.
+/// These are regular account-owned files; a link cannot enroll another asset.
+pub const WALLPAPER_STORE: &[&str] =
+    &[".cache/ryogami/wallpaper/index.json", ".cache/ryogami/wallpaper/state.json"];
+pub const WALLPAPER_WORKSPACES: &str = ".cache/ryogami/workspaces.json";
+pub const WALLPAPER_PERSISTENT_STATE: &[&str] =
+    &[WALLPAPER_STORE[0], WALLPAPER_STORE[1], WALLPAPER_WORKSPACES];
+pub const WALLPAPER_STORE_MAX_BYTES: u64 = 16 * 1024 * 1024;
 
 pub const PREFERENCES: &[&str] = &[
     PERSONAL_PROFILE,
@@ -77,4 +87,7 @@ pub const PREFERENCES: &[&str] = &[
     ".local/state/ryoku/game-mode.profile",
     ".cache/ryogami/outputs.json",
     ".cache/ryogami/state.json",
+    WALLPAPER_STORE[0],
+    WALLPAPER_STORE[1],
+    WALLPAPER_WORKSPACES,
 ];

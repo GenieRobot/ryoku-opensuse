@@ -1,0 +1,64 @@
+schema_version = 1
+issue = 25
+date = "2026-10-24"
+scope = "Offline session source and package-metadata refresh; no native acceptance"
+branch_parent = "86b8a432e513f37bb42cd7d1b14f1af6c84b0be9"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+upstream_tree = "06b2962f82f43118c3a98372c2a4b435b689b725"
+session_candidate = "ryoku-session-0.1.0-3"
+desktop_dependency = "ryoku-desktop >= 0.1.0-8"
+dependency_candidate_head = "925fb7129cfc4f86d162583fa62a7c71a24434e3"
+native_acceptance = false
+vm_access = false
+downloads = false
+
+[review]
+source_manifest = "PR #174 upstream/evidence/ryoku-v1.0/writer-source-manifest.tsv"
+manifest_blobs_match_local_inputs = true
+logout_route = "SessionActions.qml call session.logout -> IPC handler -> Hyprland provider act session.exit"
+prior_native_failure = "Direct compositor exit caused the Hyprland portal SIGSEGV in the preserved 0.75.5 receipt"
+logout_adapter = "Private provider alias intercepts exact act session.exit; a fixed independent user unit stops desktop/graphical targets before compositor exit"
+other_provider_calls = "Literal original argv enters existing Rust provider writer; non-UTF-8 and metacharacter preservation tested"
+compositor_identity = "Requester and worker require nonempty WAYLAND_DISPLAY and HYPRLAND_INSTANCE_SIGNATURE"
+new_module_admission = "Ryoku.Spatial3D metadata required alongside Ui, FrameBars, PluginKit, Blobs and Wm/Hyprland"
+activation_admission = "Fixed payload metadata is checked before starting the target; a missing module enters existing activation cleanup/greeter exit instead of racing Type=exec readiness"
+
+[[source]]
+path = "ryoku/shell/quickshell/shell/services/SessionActions.qml"
+git_blob = "d89740057dbdcec6779e4ecc5162a14313a0966b"
+sha256 = "9b939bd7d511d52ef03cfec2b3579438a49d38bfbbfc46157215c4a017168cf8"
+
+[[source]]
+path = "ryoku/shell/ipc/session.go"
+git_blob = "8b7e782be31401d6080b40533ae7753500ee6248"
+sha256 = "c020a78fa8bb6b61d29213de3c08fad6d4df35b2f9188f202ed3639d31c6a1d4"
+
+[[source]]
+path = "ryoku/wm/hyprland/act.go"
+git_blob = "b0529d66e0b21146b5308fafce7e811e1daed98b"
+sha256 = "8697497f9d197dc25d3b964bb17eeb64466bea8d4bf5019add3f4d09877cc14b"
+
+[checks]
+session_tests = "CARGO_INCREMENTAL=0 cargo test --offline --locked -p ryoku-session"
+session_tests_passed = 14
+session_tests_failed = 0
+clippy = "CARGO_INCREMENTAL=0 cargo clippy --offline --locked -p ryoku-session --all-targets -- -D warnings"
+clippy_passed = true
+format = "cargo fmt -p ryoku-session --check"
+format_passed = true
+spec = "rpmspec --parse packaging/rpm/ryoku-session.spec"
+spec_passed = true
+whitespace = "git diff --check"
+whitespace_passed = true
+
+[remaining]
+required = [
+  "Coordinator integration of #173 and refreshed source/vendor RPM inputs",
+  "Native BuildRequires-enabled session RPM build and signed install",
+  "Clean recorded 1.0 SDDM password login, reboot, PAM/password/autologin preservation and optional-Voxtype-absent startup",
+  "Original shell UI and keyboard logout while portals are active; no portal crash, descendant teardown and cleared environment",
+  "Controlled startup failure returning to SDDM and ordinary KDE password login with panel/launcher/app",
+  "Current native lock/unlock and wrong-password rejection through unchanged distro PAM",
+  "Functional workflow evidence and exact source/RPM/installed hashes as listed in docs/native-desktop-workflows.md",
+]
+stronger_unproven = ["empty/stalled PAM", "suspend/resume continuity", "locked compositor crash"]

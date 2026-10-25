@@ -1,0 +1,69 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+branch_parent = "697fe42ad5d574417f9a9f0e47198afda2cae7cb"
+stack_base = "dd6ce61627103a71b1aec5ab4cbfa3aa2c36b83c"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+scope = "Typed manual native/in-shell wallpaper pause and explicit resume with preserved stopped-player identity"
+native_acceptance = false
+vm_access = false
+downloads = false
+
+[contract]
+public_method = "wall.pause"
+request = "Boolean paused (default true), at most16 unique output names; lone wildcard normalized; no client PID/player set/command/permit"
+helper_request = "pause_wallpaper"
+helper_success = "wallpaper_paused only after linked pre/post, refreeze, verified receipt and durable Succeeded/Complete"
+operation_key = "wallpaper-pause-v1"
+player_plan = "Frozen authenticated writer returns exact installed C-player PID/start identities; bounded sorted unique set participates in helper plan/final equality and private ActorCall; revalidated before/after actor call"
+stopped_capture = "Only the verified actor installed /usr/bin/ryogami-live descendants may register an existing stop; actor/player start, UID, pinned image and pidfd are retained; unknown/stale/unrelated T writers refuse"
+ordinary_calls = "Apply/audio/manual assignment never grant resume; players stay held through actor calls and detach/re-capture, with real pidfd STOP before ordinary detach"
+resume = "Only explicit authorized paused=false plus verified effective-unpaused reply releases the same exact player pins after full refreeze/post-capture; actual held SIGCONT cannot bypass that release"
+native_signals = "Owned Go os.Process.Signal, no raw negative/reusable process-group IDs in the new manual handler; exact owned process start set checked before first signal"
+transient_state = "Manual/effective pause and frame state are volatile upstream state; no new persistent file or package actuator. Existing installed account inventory remains linked-captured; no process-memory/playback-position restore claim"
+partial_failure = "Failure after dispatch remains Applying/MayHaveMutated, verified pre-checkpoint only, no Succeeded/success post-checkpoint; external-provider rejection does not preemptively register newly paused C players"
+normal_workflows = "Audio and another-output wallpaper apply preserve paused players; new frames inherit pause; no-player in-shell controls remain functional"
+dependencies = "paper.pause retains full source/UI and belongs to#175; automatic pause/theme/hooks remain#176. Full installed C-player startup/replacement/device behavior stays native acceptance"
+
+[checks]
+format = "cargo fmt --all --check"
+clippy = "CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets --offline --locked -- -D warnings"
+rust = "CARGO_INCREMENTAL=0 cargo test --workspace --offline --locked"
+recovery_passed = 243
+recovery_existing_ignored = 6
+service_passed = 139
+service_existing_ignored = 1
+cli_passed = 26
+state_init_passed = 2
+writer_policy_passed = 1
+helper_policy_passed = 3
+rust_failed = 0
+native_passed_cases = 359
+native_missing_tool_skips = 7
+native_cross_issue_prerequisites = 9
+native_categories_disjoint = true
+native_missing_tool_tests = ["TestAutoOptimizeTouchesOnlyNewImages", "TestGradePreviewAndCommit", "TestOptimizeCancelStopsEarly", "TestOptimizeRunConvertsPNGs", "TestScanGeneratesThumb", "TestScanMergeMtimeChangeReprocesses", "TestScanSkipsFreshThumb"]
+native_excluded_prerequisite_tests = ["TestE2EDepthSetAndClearFoldIntoFrame", "TestE2EJSONRequestsAndEventsShareOneConnection", "TestE2EWallpaperNextAdvances", "TestE2EFavouriteSurvivesRescan", "TestE2ESetFavouriteBroadcastsCached", "TestE2EWallDeleteRequiresSubfolderCatalogKey", "TestEventsFlowWhileRequestRuns", "TestSlowSourceSearchDoesNotBlockStatusOnSameConnection", "TestClosingConnectionClearsSearchRegistry"]
+native_command = "GOFLAGS=-buildvcs=false GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -mod=vendor -skip '^(TestE2EDepthSetAndClearFoldIntoFrame|TestE2EJSONRequestsAndEventsShareOneConnection|TestE2EWallpaperNextAdvances|TestE2EFavouriteSurvivesRescan|TestE2ESetFavouriteBroadcastsCached|TestE2EWallDeleteRequiresSubfolderCatalogKey|TestEventsFlowWhileRequestRuns|TestSlowSourceSearchDoesNotBlockStatusOnSameConnection|TestClosingConnectionClearsSearchRegistry)$' -count=1 -json ./..."
+patch_replay = "17-file tracked appearance patch byte reproduction; zero-fuzz launch+appearance RPM prep from unchanged cached Source3"
+actor_outer_repetitions = 5
+failure_and_corrected_log = "issue25-pause-regression-20261025.log"
+native_patch_sha256 = "b6c05e3c66646d54989ccde4ab2f522932ec9ada19aa267dd418f605c5b84f05"
+focused_dispatch = "CARGO_INCREMENTAL=0 cargo test --offline --locked -p ryoku-recovery -p ryoku-service pause -- --nocapture"
+focused_dispatch_passed = 4
+actor_repetition_seconds = [0.42, 0.4, 0.41, 0.41, 0.46]
+
+[sources]
+runtime_sha256 = "8aeff20645c14af76f3d341e5d4e7c31923fd249f6671caa704c8b23a6c84e65"
+writers_tested_sha256 = "7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be"
+combined_candidate_gate = "Current #173 completion tuple requires Source3 387d829860ba844ad32ecdd5982678707665f3251e41bbb43c6fd6f87dc7eee0; this historical cached-source prep proof cannot replace its refreshed combined native acceptance"
+
+[redaction]
+rule = "Actual worktree/account-home/temporary absolute paths replaced with <worktree>/, <account-home>/ and <tmp>/; fixed system interfaces and synthetic test identifiers retained"
+scan = "No actual account/host paths, username, credential-token formats, authorization headers or credential-bearing URLs in new public log/receipt/contract"
+raw_logs = "Retained outside the public repository only"
+
+[remaining]
+issue_open = true
+pr_draft = true
+required = ["Fresh combined#173 current Source0/Source2/Source3/vendor/spec/RPM/toolchain identities and native BuildRequires install", "#25 exact1.0 login/reboot/logout/KDE and supported workflow/device checklist", "Installed C-player decode/display, pause/resume and player startup/replacement while paused on the complete candidate", "#176 real typed wallpaper-to-theme/automatic handoff with complete linked pre/post accounting", "#175 external paper/WE/provider/library/custom-root parity", "Combined#26 recovery and separately owned#177/#180 gates"]
