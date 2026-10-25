@@ -2,6 +2,7 @@
 //! origin-scoped HTTP authentication; the CLI uses a bearer credential. A localhost
 //! Origin or X-Rashin-Client header alone never grants access.
 mod console;
+mod wiki;
 use crate::{
     Error, Result,
     api::{Document, MAX_REQUEST_BYTES, Request, Response},
@@ -123,6 +124,8 @@ impl Gateway {
                     && !explicit_bearer
                     && (path.starts_with("/session/")
                         || path.starts_with("/job/")
+                        || path == "/wiki"
+                        || path.starts_with("/wiki/")
                         || path == "/fix"
                         || path == "/usage"
                         || path == "/prowl"
@@ -210,6 +213,9 @@ impl Gateway {
                     .as_bytes(),
                     None,
                 )
+            }
+            ("GET", path) if owner && (path == "/wiki" || path.starts_with("/wiki/")) => {
+                send_ui(stream, wiki::view(&self.engine, path))
             }
             ("GET", "/fix") if owner => send_ui(stream, Ok(console::fix_form())),
             ("POST", "/console/fix-preview") if owner && same_origin => {

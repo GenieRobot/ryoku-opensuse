@@ -10,6 +10,7 @@ pub mod prowl;
 pub mod runtime;
 pub mod store;
 pub mod usage;
+pub mod wiki;
 
 use serde::{Deserialize, Serialize};
 

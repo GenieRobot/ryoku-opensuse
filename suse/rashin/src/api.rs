@@ -50,6 +50,17 @@ pub enum Request {
         documents: Vec<Document>,
     },
     GetIndex {},
+    WikiPages {},
+    ReadWiki {
+        id: String,
+        #[serde(default)]
+        original: bool,
+    },
+    IndexWiki {
+        id: String,
+        sha256: String,
+        replace_sha256: Option<String>,
+    },
     Ask {
         id: String,
         prompt: String,

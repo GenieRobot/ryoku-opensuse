@@ -71,6 +71,20 @@ struct Pick {
 pub(super) fn submit(engine: &Arc<Engine>, body: &[u8]) -> Result<String> {
     let fields = form(body)?;
     match value(&fields, "action")? {
+        "index_wiki" => {
+            let id = value(&fields, "id")?;
+            let replace = fields.get("replace_sha256").filter(|sha| !sha.is_empty()).cloned();
+            if replace.is_some() && fields.get("confirm_replace").map(String::as_str) != Some("yes")
+            {
+                return Err(Error::InvalidRequest);
+            }
+            engine.dispatch(Request::IndexWiki {
+                id: id.into(),
+                sha256: value(&fields, "sha256")?.into(),
+                replace_sha256: replace,
+            })?;
+            id_path("wiki", id)
+        }
         "wire" => {
             engine
                 .dispatch(Request::Wire { instructions: value(&fields, "instructions")?.into() })?;
@@ -269,7 +283,7 @@ pub(super) fn home(engine: &Arc<Engine>) -> Result<String> {
     let sessions = engine.dispatch(Request::Sessions {})?;
     let jobs = engine.dispatch(Request::Jobs {})?;
     let mut body = String::from(
-        "<p>Your private assistant workspace.</p><p><a href=\"/prowl\">Prowl gateway</a> · <a href=\"/usage\">Local tool usage</a> · <a href=\"/fix\">Fix investigation</a></p><h2>Ask</h2>",
+        "<p>Your private assistant workspace.</p><p><a href=\"/prowl\">Prowl gateway</a> · <a href=\"/usage\">Local tool usage</a> · <a href=\"/fix\">Fix investigation</a> · <a href=\"/wiki\">Offline Wiki</a></p><h2>Ask</h2>",
     );
     body += &begin("ask");
     body += &hidden("id", &nonce()?);

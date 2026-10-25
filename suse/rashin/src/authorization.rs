@@ -31,6 +31,8 @@ impl Request {
             | Self::ProwlStatus {}
             | Self::ReadProwl { .. }
             | Self::GetIndex {}
+            | Self::WikiPages {}
+            | Self::ReadWiki { .. }
             | Self::Recent {}
             | Self::Jobs {}
             | Self::Sessions {}
@@ -56,7 +58,7 @@ impl Request {
             | Self::ConfigureProwl { .. }
             | Self::DisableProwl {} => Action::ProviderCredentials,
             Self::SetRoute { .. } => Action::Route,
-            Self::Index { .. } => Action::Index,
+            Self::Index { .. } | Self::IndexWiki { .. } => Action::Index,
             Self::Fix { .. } | Self::FixPreview { .. } => Action::Fix,
             Self::Wire { .. } | Self::Unwire {} => Action::AgentInstructions,
             Self::EnrollUsageSource { .. } | Self::DisableUsageSource { .. } => Action::UsageSource,

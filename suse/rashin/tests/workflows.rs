@@ -2903,3 +2903,187 @@ fn browser_manual_and_unfinished_handoff_expose_provenance_and_only_accepted_run
     );
     assert!(engine.dispatch(Request::Session{id:"manual-ui-chat".into()}).unwrap()["session"]["messages"].as_array().unwrap().is_empty());
 }
+
+#[test]
+fn offline_wiki_navigation_and_verified_indexing_really_feed_ask_and_survive_restart() {
+    use ryoku_rashin::authorization::Access;
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let gateway = ryoku_rashin::http::Gateway::new(
+        Arc::clone(&engine),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    engine.dispatch(Request::Index { documents: vec![document()] }).unwrap();
+    let pages = engine.dispatch(Request::WikiPages {}).unwrap();
+    assert_eq!(pages["pages"].as_array().unwrap().len(), 8);
+    let guide =
+        engine.dispatch(Request::ReadWiki { id: "linux-basics".into(), original: false }).unwrap();
+    let sha = guide["sha256"].as_str().unwrap();
+    assert!(guide["content"].as_str().unwrap().contains("zypper dup"));
+    assert!(engine.dispatch(Request::ReadWiki{id:"linux-basics".into(),original:true}).unwrap()["content"].as_str().unwrap().contains("pacman"));
+    for path in ["/wiki", "/wiki/linux-basics", "/wiki/linux-basics/upstream", "/wiki/license"] {
+        assert!(http(&gateway, "GET", path, "", "").starts_with("HTTP/1.1 401"));
+        let response = http(&gateway, "GET", path, BROWSER_AUTH, "");
+        assert!(response.starts_with("HTTP/1.1 200"));
+        assert!(response.contains("Cache-Control: no-store"));
+    }
+    let listing = http(&gateway, "GET", "/wiki", BROWSER_AUTH, "");
+    for id in [
+        "overview",
+        "desktop",
+        "go-tools",
+        "hyprland-lua",
+        "linux-basics",
+        "niri-kdl",
+        "quickshell-qml",
+        "rashin",
+    ] {
+        assert!(listing.contains(&format!("href=\"/wiki/{id}\"")));
+    }
+    let original = http(&gateway, "GET", "/wiki/linux-basics/upstream", BROWSER_AUTH, "");
+    assert!(original.contains("Exact upstream reference edition"));
+    assert!(!original.contains("name=\"action\" value=\"index_wiki\""));
+    assert_eq!(
+        engine.dispatch_as(Access::AskClient, Request::WikiPages {}),
+        Err(Error::Unauthorized)
+    );
+    assert_eq!(
+        engine.dispatch_as(
+            Access::AskClient,
+            Request::ReadWiki { id: "linux-basics".into(), original: false }
+        ),
+        Err(Error::Unauthorized)
+    );
+    assert_eq!(
+        engine.dispatch_as(
+            Access::AskClient,
+            Request::IndexWiki {
+                id: "linux-basics".into(),
+                sha256: sha.into(),
+                replace_sha256: None
+            }
+        ),
+        Err(Error::Unauthorized)
+    );
+    assert!(
+        ui_submit(&gateway, &[("action", "index_wiki"), ("id", "linux-basics"), ("sha256", sha)])
+            .contains("Location: /wiki/linux-basics\r\n")
+    );
+    let index = engine.dispatch(Request::GetIndex {}).unwrap();
+    assert_eq!(index["documents"].as_array().unwrap().len(), 2);
+    assert!(
+        index["documents"].as_array().unwrap().iter().any(|row| row["name"] == "tumbleweed.md")
+    );
+    assert!(
+        ui_submit(&gateway, &[("action", "index_wiki"), ("id", "linux-basics"), ("sha256", sha)])
+            .starts_with("HTTP/1.1 303")
+    );
+    engine
+        .dispatch(Request::Ask {
+            id: "wiki-answer".into(),
+            prompt: "Tumbleweed Zypper distribution upgrade".into(),
+        })
+        .unwrap();
+    let answer = done(&engine, "wiki-answer")["answer"].as_str().unwrap().to_owned();
+    assert!(answer.contains("wiki/linux-basics.md"));
+    assert!(answer.contains("zypper"));
+    assert!(answer.contains(&sha[..12]));
+    drop(gateway);
+    drop(engine);
+    let engine = fixture.reopen();
+    assert_eq!(
+        engine.dispatch(Request::GetIndex {}).unwrap()["documents"].as_array().unwrap().len(),
+        2
+    );
+    engine
+        .dispatch(Request::Ask {
+            id: "wiki-after-restart".into(),
+            prompt: "Tumbleweed Zypper".into(),
+        })
+        .unwrap();
+    assert!(
+        done(&engine, "wiki-after-restart")["answer"]
+            .as_str()
+            .unwrap()
+            .contains("wiki/linux-basics.md")
+    );
+}
+
+#[test]
+fn wiki_index_rejects_stale_or_conflicting_replacement_and_preserves_private_documents() {
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let gateway = ryoku_rashin::http::Gateway::new(
+        Arc::clone(&engine),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    let old_content = "PRIVATE_INDEX_DOCUMENT".to_string();
+    let old_sha = format!("{:x}", Sha256::digest(old_content.as_bytes()));
+    let clash = Document {
+        name: "wiki/linux-basics.md".into(),
+        content: old_content,
+        sha256: old_sha.clone(),
+    };
+    engine.dispatch(Request::Index { documents: vec![document(), clash] }).unwrap();
+    let guide =
+        engine.dispatch(Request::ReadWiki { id: "linux-basics".into(), original: false }).unwrap();
+    let sha = guide["sha256"].as_str().unwrap();
+    assert_eq!(
+        engine.dispatch(Request::IndexWiki {
+            id: "linux-basics".into(),
+            sha256: "0".repeat(64),
+            replace_sha256: None
+        }),
+        Err(Error::Conflict)
+    );
+    assert_eq!(
+        engine.dispatch(Request::IndexWiki {
+            id: "linux-basics".into(),
+            sha256: sha.into(),
+            replace_sha256: None
+        }),
+        Err(Error::Conflict)
+    );
+    let page = http(&gateway, "GET", "/wiki/linux-basics", BROWSER_AUTH, "");
+    assert!(page.contains("already has a different digest"));
+    assert!(page.contains(&old_sha));
+    assert!(!page.contains("PRIVATE_INDEX_DOCUMENT"));
+    let mut fields = vec![
+        ("action", "index_wiki"),
+        ("id", "linux-basics"),
+        ("sha256", sha),
+        ("replace_sha256", old_sha.as_str()),
+    ];
+    assert!(ui_submit(&gateway, &fields).starts_with("HTTP/1.1 400"));
+    assert!(
+        engine.dispatch(Request::GetIndex {}).unwrap()["documents"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| row["sha256"] == old_sha)
+    );
+    assert_eq!(
+        engine.dispatch(Request::IndexWiki {
+            id: "linux-basics".into(),
+            sha256: sha.into(),
+            replace_sha256: Some("stale".into())
+        }),
+        Err(Error::Conflict)
+    );
+    fields.push(("confirm_replace", "yes"));
+    assert!(ui_submit(&gateway, &fields).starts_with("HTTP/1.1 303"));
+    let index = engine.dispatch(Request::GetIndex {}).unwrap();
+    assert_eq!(index["documents"].as_array().unwrap().len(), 2);
+    assert!(
+        index["documents"].as_array().unwrap().iter().any(|row| row["name"] == "tumbleweed.md")
+    );
+    assert!(index["documents"].as_array().unwrap().iter().any(|row| row["sha256"] == sha));
+    assert_eq!(
+        engine.dispatch(Request::ReadWiki { id: "../../private".into(), original: false }),
+        Err(Error::NotFound)
+    );
+}

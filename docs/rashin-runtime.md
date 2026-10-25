@@ -71,12 +71,12 @@ a restrictive CSP; the console requires no JavaScript.
 
 | Action family | JSON actions | Effects and authorization |
 | --- | --- | --- |
-| Inspect | `status`, `providers`, `get_index`, `recent`, `sessions`, `session`, `job`, `jobs`, `usage`, `logs` | Account-private reads; provider inventory never returns keys; logs run only fixed bounded native readers |
+| Inspect | `status`, `providers`, `get_index`, `wiki_pages`, `read_wiki`, `recent`, `sessions`, `session`, `job`, `jobs`, `usage`, `logs` | Account-private reads; provider inventory never returns keys; logs run only fixed bounded native readers |
 | Ask | `ask`, `cancel` | Read-only provider lane, private independent history, bounded asynchronous execution and cancellation |
 | Conversation | `new_session`, `prompt`, `forget_job`, `delete_session` | Persistent independent Agent/Chat transcripts; deletion removes associated jobs and usage records |
 | Credentials | `put_provider`, `update_provider`, `refresh_models`, `remove_provider`, `issue_ask_client`, `ask_clients`, `revoke_ask_client` | Owner configures/removes an explicit provider; keys remain only in private state and provider stdin |
 | Route/model | `set_route` | Owner selects a provider and one of its configured model IDs for an explicit lane |
-| Index | `index` | Owner replaces a bounded set of explicitly uploaded UTF-8 documents; every SHA-256 is verified before publication |
+| Index | `index`, `index_wiki` | Owner replaces a bounded set of explicitly uploaded UTF-8 documents; every SHA-256 is verified before publication |
 | Fix | `fix_preview`, `fix` | Owner supplies a typed doctor/tip/app finding; external native-evidence egress requires a reviewed destination-bound preview; creates an Agent investigation request with Tumbleweed ownership/recovery instructions |
 | Ask handoff | `handoff`, `manual_handoff`, `clear_handoff` | Owner stages recorded/partial Ask or explicit manual context, or runs it in Agent while cancelling Ask; plain Chat is separate |
 | Local agent instructions | `wire`, `unwire` | Owner installs/removes instructions for the built-in Agent lane; Ask/Chat are unaffected |
@@ -366,7 +366,7 @@ No row in the original inventory is removed by this slice.
 | Agent/plain Chat | Independent persistent turns, sessions, load/read/delete and saved lane routes | ACP initialize/session/prompt/notifications, v3 replay/WebSocket, tools, approvals, images, thinking, terminal resume and all retained harnesses |
 | Fix doctor/tip/app | Typed investigation using configured Agent route, bounded native user-unit/journal/RPM context; evidence is data | Complete app logs/coredumps/package-change context, upstream transient fix unit/terminal harness, protected repair providers |
 | Agent wire/unwire | Effective built-in Agent instructions | Exact external marker/skill/MCP wiring, preservation of unrelated config, harness readiness/default/model operations |
-| Index/vault/memory/wiki/skills | SHA-256-verified uploaded local document retrieval | System/package/desktop/source/user/habits maps, bounded source mirrors, registered projects, vault/memory/journal enrollment and complete offline skills/wiki |
+| Index/vault/memory/wiki/skills | SHA-256-verified uploaded document retrieval plus8 embedded offline Wiki pages,exact source references,Tumbleweed views and confirmed per-document index merge | System/package/desktop/source/user/habits maps, bounded source mirrors, registered projects, vault/memory/journal enrollment and complete offline skills/wiki |
 | Provider/model/network | Local/fixture and configured HTTPS completion, private keys, catalog refresh/selection, unavailable-pick retention and verified-peer Prowl profile reads | Every individual Prowl provider/sign-in/model/profile/fallback/cache/network/project/harness/skill operation, adapter/source integrity and full settings UI |
 | Usage | Completion activity plus enrolled Claude/Codex/opencode JSON/SQLite activity, committed WAL snapshots, costs/soft caps, opencode model component/session-count rows, local/UTC days, five-minute scheduling and source failure statuses | Live OAuth/RPC/session-limit quota, complete model/session rows, separate timer and original shell/cache UI |
 | Web/app/API | Tested owner HTTP/Unix boundary, live scoped Ask delegation and Rust browser provider/session/handoff/Fix/usage workflows | Retained upstream Svelte console/native app and all source routes/sheets, theme/vitals/system/vault content and shell/Hub bridges; isolated shell/ACP credential delivery and complete assistant bridge integration |
@@ -554,3 +554,44 @@ no cookie authority, escaped output and scoped Ask denial. Deterministic private
 fixtures exercise actual handlers and runtime actions without external provider
 calls. These browser paths do not establish retained native app/shell/ACP/harness
 protocol/tool/approval/terminal or packaged Tumbleweed browser/VM acceptance.
+
+
+## Offline Wiki and verified guide indexing
+
+The owner-only `wiki_pages` and `read_wiki` actions expose all eight retained
+Ryoku1.0 Wiki pages: overview, desktop, Go tools, Hyprland Lua, Linux basics,
+Niri KDL, Quickshell QML and Rashin. Fixed IDs choose embedded assets; no path,
+URL, subprocess or download is accepted. The originals total25,481bytes and
+remain byte-exact, including their source Git blobs/SHA-256/byte counts. Original
+GPLv3 and attribution are embedded and visible through the Wiki license page.
+`upstream/evidence/rashin-v1.0/wiki-assets.json` records source and adaptation
+provenance. Source/export/RPM closure remains the separate acceptance gate.
+
+The default overview/Linux basics are Tumbleweed adaptations. The package
+information uses official openSUSE [Zypper](https://manpages.opensuse.org/Tumbleweed/zypper/zypper.8.en.html)
+and [Tumbleweed update](https://doc.opensuse.org/documentation/tumbleweed/updating_upgrading_reverting/)
+references. Other guides carry explicit upstream-reference context; the Go guide
+is retained for upstream sources while this port's owned executable code is Rust.
+The exact original edition is separately readable with `original:true`; the
+browser does not offer indexing that Arch-oriented reference by mistake.
+Both the pinned upstream digest and current view digest are shown distinctly.
+
+`index_wiki` takes a fixed page `id` and its current `sha256`. It verifies the
+compiled source/view, then merges one `wiki/ID.md` document into the existing
+bounded index, preserving unrelated uploaded documents. Identical indexing is
+idempotent. A stale page digest or an existing different document returns Conflict;
+replacement requires its exact `replace_sha256`. Browser replacement additionally
+requires a checked confirmation naming the document. Stale confirmation does not
+overwrite a newer document. Existing index size/content validation and atomic
+private storage still apply. No reading/indexing operation executes Wiki commands.
+
+Actual owner browser routes provide navigation, source/reference/license views
+and index forms. Source HTML stays text, fenced code is escaped and only known
+Wiki paths or explicit HTTPS links become anchors. Images/scripts are not fetched.
+The existing owner/Origin/no-cookie policy and scoped Ask restrictions apply.
+Private upload content is never included in public provenance or Wiki listings.
+Deterministic tests index the guide, obtain real local Ask output with its source
+and digest, and verify persistence after restart, replacement conflicts, safe
+rendering and preservation of an existing uploaded document. Full machine/source
+maps, vault/memory/journal/project enrollment, native Svelte/app/shell/ACP and every
+retained provider/tool/terminal/recovery/Tumbleweed acceptance gate remain required.

@@ -753,6 +753,30 @@ impl Engine {
                 state.routes.insert(lane, Route { provider, model });
                 Ok(json!({"routes":state.routes}))
             }),
+            Request::WikiPages {} => Ok(
+                json!({"pages":crate::wiki::pages()?.into_iter().map(|page|json!({"id":page.id,"title":page.title,"sha256":page.sha256,"upstream_blob":page.upstream_blob})).collect::<Vec<_>>()}),
+            ),
+            Request::ReadWiki { id, original } => {
+                serde_json::to_value(crate::wiki::page(&id, original)?).map_err(|_| Error::Storage)
+            }
+            Request::IndexWiki { id, sha256, replace_sha256 } => {
+                let document = crate::wiki::document(&id, &sha256)?;
+                self.transaction(|state| {
+                    let mut documents=state.documents.clone();
+                    if let Some(existing)=documents.iter_mut().find(|existing|existing.name==document.name) {
+                        if existing.sha256!=document.sha256 {
+                            if replace_sha256.as_deref()!=Some(existing.sha256.as_str()) {return Err(Error::Conflict)}
+                            *existing=document;
+                        }
+                    } else {
+                        if replace_sha256.is_some() {return Err(Error::Conflict)}
+                        documents.push(document);
+                    }
+                    validate_documents(&documents)?;
+                    state.documents=documents;
+                    Ok(json!({"indexed":id,"documents":state.documents.iter().map(|document|json!({"name":document.name,"sha256":document.sha256})).collect::<Vec<_>>()}))
+                })
+            }
             Request::Index { documents } => {
                 validate_documents(&documents)?;
                 self.transaction(|state| {
