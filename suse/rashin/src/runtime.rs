@@ -51,9 +51,21 @@ enum JobStatus {
     Interrupted,
 }
 
+#[derive(Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum JobOperation {
+    #[default]
+    Completion,
+    CatalogRefresh,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Job {
+    #[serde(default)]
+    operation: JobOperation,
+    #[serde(default)]
+    catalog_count: Option<usize>,
     fingerprint: String,
     lane: Lane,
     session: Option<String>,
@@ -95,6 +107,8 @@ struct State {
     version: u16,
     #[serde(default)]
     configuration_revision: u64,
+    #[serde(default)]
+    provider_revisions: BTreeMap<String, u64>,
     providers: BTreeMap<String, Provider>,
     routes: BTreeMap<Lane, Route>,
     documents: Vec<Document>,
@@ -116,6 +130,7 @@ impl Default for State {
         Self {
             version: 1,
             configuration_revision: 0,
+            provider_revisions: BTreeMap::new(),
             providers: BTreeMap::from([("local".into(), Provider::Local {})]),
             routes: [Lane::Ask, Lane::Agent, Lane::Chat]
                 .into_iter()
@@ -156,7 +171,16 @@ struct StartOptions {
     fingerprint: Option<String>,
     evidence_approval: Option<FixApproval>,
     handoff_ask: Option<String>,
+    catalog_provider: Option<String>,
 }
+fn bump_provider(state: &mut State, id: &str) -> Result<()> {
+    let revision = state.provider_revisions.entry(id.into()).or_default();
+    *revision = revision.checked_add(1).ok_or(Error::Limit)?;
+    state.configuration_revision =
+        state.configuration_revision.checked_add(1).ok_or(Error::Limit)?;
+    Ok(())
+}
+
 fn canonical_handoff(state: &State, ask_id: &str) -> Result<Handoff> {
     let source = state.jobs.get(ask_id).ok_or(Error::NotFound)?;
     if source.lane != Lane::Ask {
@@ -527,6 +551,24 @@ impl Engine {
                 }
                 Ok(json!({"id":id,"status":job.status}))
             }),
+            Request::RefreshModels { id, provider } => {
+                identifier(&provider)?;
+                let fingerprint = digest(
+                    &serde_json::to_vec(&("refresh_models", &provider))
+                        .map_err(|_| Error::InvalidRequest)?,
+                );
+                self.start(
+                    id,
+                    None,
+                    "Refresh model catalog".into(),
+                    Lane::Agent,
+                    StartOptions {
+                        fingerprint: Some(fingerprint),
+                        catalog_provider: Some(provider),
+                        ..StartOptions::default()
+                    },
+                )
+            }
             Request::PutProvider { id, provider } => {
                 identifier(&id)?;
                 provider.validate()?;
@@ -538,8 +580,7 @@ impl Engine {
                         return Err(Error::Limit);
                     }
                     let description = provider.describe(&id);
-                    state.configuration_revision =
-                        state.configuration_revision.checked_add(1).ok_or(Error::Limit)?;
+                    bump_provider(state, &id)?;
                     state.providers.insert(id, provider);
                     Ok(description)
                 })
@@ -553,8 +594,7 @@ impl Engine {
                     let provider =
                         state.providers.get(&id).ok_or(Error::NotFound)?.edited(changes)?;
                     let description = provider.describe(&id);
-                    state.configuration_revision =
-                        state.configuration_revision.checked_add(1).ok_or(Error::Limit)?;
+                    bump_provider(state, &id)?;
                     state.providers.insert(id, provider);
                     // Picks remain explicit, including ones no longer offered.
                     Ok(description)
@@ -570,6 +610,7 @@ impl Engine {
                     return Err(Error::Conflict);
                 }
                 state.providers.remove(&id).ok_or(Error::NotFound)?;
+                state.provider_revisions.remove(&id);
                 state.configuration_revision =
                     state.configuration_revision.checked_add(1).ok_or(Error::Limit)?;
                 // Saved picks remain visible when their provider disappears.
@@ -854,6 +895,67 @@ impl Engine {
         }
     }
 
+    fn publish_catalog(
+        &self,
+        job_id: &str,
+        generation: u64,
+        revision: u64,
+        result: Result<Vec<String>>,
+    ) {
+        let publication = self.transaction(|state| {
+            let job = state.jobs.get(job_id).ok_or(Error::NotFound)?;
+            if job.generation != generation
+                || job.status != JobStatus::Running
+                || job.operation != JobOperation::CatalogRefresh
+            {
+                return Ok(Value::Null);
+            }
+            let provider = job.provider.clone();
+            let result = result.and_then(|models| {
+                if state.provider_revisions.get(&provider).copied().unwrap_or_default() != revision
+                {
+                    return Err(Error::Conflict);
+                }
+                let count = models.len();
+                let updated = state
+                    .providers
+                    .get(&provider)
+                    .ok_or(Error::ProviderUnavailable)?
+                    .clone()
+                    .with_catalog(models)?;
+                Ok((updated, count))
+            });
+            match result {
+                Ok((updated, count)) => {
+                    bump_provider(state, &provider)?;
+                    state.providers.insert(provider, updated);
+                    let job = state.jobs.get_mut(job_id).ok_or(Error::NotFound)?;
+                    job.status = JobStatus::Completed;
+                    job.catalog_count = Some(count);
+                }
+                Err(error) => {
+                    let job = state.jobs.get_mut(job_id).ok_or(Error::NotFound)?;
+                    job.status = JobStatus::Failed;
+                    job.error = Some(error);
+                }
+            }
+            Ok(Value::Null)
+        });
+        if publication == Err(Error::Limit) {
+            let failed = self.transaction(|state| {
+                let job = state.jobs.get_mut(job_id).ok_or(Error::NotFound)?;
+                if job.generation == generation && job.status == JobStatus::Running {
+                    job.status = JobStatus::Failed;
+                    job.error = Some(Error::Limit);
+                }
+                Ok(Value::Null)
+            });
+            if failed.is_err() {
+                self.healthy.store(false, Ordering::Release);
+            }
+        }
+    }
+
     fn start(
         self: &Arc<Self>,
         id: String,
@@ -865,6 +967,7 @@ impl Engine {
         identifier(&id)?;
         text(&prompt, 32 * 1024)?;
         let run_handoff = options.handoff_ask.is_some();
+        let catalog_provider = options.catalog_provider.clone();
         let fingerprint = options.fingerprint.unwrap_or(digest(
             &serde_json::to_vec(&(&session, &prompt, lane)).map_err(|_| Error::InvalidRequest)?,
         ));
@@ -886,9 +989,10 @@ impl Engine {
             if let Some(session) = &session
                 && state.jobs.values().any(|job| job.session.as_ref() == Some(session) && job.status == JobStatus::Running) { return Err(Error::Busy); }
             if options.evidence_approval.as_ref().is_some_and(|approval| approval.revision != state.configuration_revision) { return Err(Error::EvidenceConsentRequired); }
-            let route = state.routes.get(&lane).ok_or(Error::NotFound)?.clone();
+            let route = if let Some(provider)=&catalog_provider {Route {provider:provider.clone(),model:String::new()}} else {state.routes.get(&lane).ok_or(Error::NotFound)?.clone()};
             let provider = state.providers.get(&route.provider).ok_or(Error::ProviderUnavailable)?.clone();
-            if !provider.models().contains(&route.model) { return Err(Error::ProviderUnavailable); }
+            if catalog_provider.is_none() && !provider.models().contains(&route.model) { return Err(Error::ProviderUnavailable); }
+            let catalog_revision=catalog_provider.as_ref().map(|id|state.provider_revisions.get(id).copied().unwrap_or_default());
             if let Some(session) = &session
                 && state.sessions.get(session).ok_or(Error::NotFound)?.lane != lane { return Err(Error::InvalidRequest); }
             let handoff = if let Some(ask_id) = options.handoff_ask {
@@ -913,7 +1017,7 @@ impl Engine {
                 messages.extend(conversation.messages.clone());
             }
             messages.push(Message { role: Role::User, content: prompt.clone() });
-            state.jobs.insert(id.clone(), Job { fingerprint, lane, session, prompt, status: JobStatus::Running, answer: None, error: None, provider: route.provider, model: route.model.clone(), started: now(), generation, handoff: handoff.clone(), stop_reason: None, actual_model: None });
+            state.jobs.insert(id.clone(), Job { operation:if catalog_revision.is_some() {JobOperation::CatalogRefresh} else {JobOperation::Completion},catalog_count:None, fingerprint, lane, session, prompt, status: JobStatus::Running, answer: None, error: None, provider: route.provider, model: route.model.clone(), started: now(), generation, handoff: handoff.clone(), stop_reason: None, actual_model: None });
             self.active.try_update(Ordering::AcqRel, Ordering::Acquire, |active| (active < 4).then_some(active + 1)).map_err(|_| Error::Busy)?;
             let permit = ProviderPermit(Arc::clone(&self.active));
             if let Some(token) = options.evidence_approval.and_then(|approval| approval.token) {
@@ -932,7 +1036,7 @@ impl Engine {
                 old.cancelled.store(true,Ordering::Release);
             }
             registered=true;
-            task = Some((provider, route.model, messages, permit));
+            task = Some((provider, route.model, messages, permit,catalog_revision));
             Ok(json!({"id":id,"status":"running"}))
         });
         let response = match response {
@@ -944,13 +1048,19 @@ impl Engine {
                 return Err(error);
             }
         };
-        if let Some((provider, model, messages, permit)) = task {
+        if let Some((provider, model, messages, permit, catalog_revision)) = task {
             let engine = Arc::clone(self);
             let job_id = id.clone();
             if std::thread::Builder::new()
                 .name("rashin-provider".into())
                 .spawn(move || {
                     let _permit = permit;
+                    if let Some(revision) = catalog_revision {
+                        let result = provider.fetch_models(&cancelled);
+                        engine.publish_catalog(&job_id, generation, revision, result);
+                        engine.finish_active(&job_id, generation);
+                        return;
+                    }
                     let fixture = matches!(&provider, Provider::Fixture { .. });
                     let result = provider.complete_with_progress(
                         &model,
@@ -1310,6 +1420,7 @@ mod evidence_tests {
             .dispatch(Request::PutProvider {
                 id: "large".into(),
                 provider: Provider::Fixture {
+                    catalog: None,
                     delay_millis: 1000,
                     outcome: crate::provider::FixtureOutcome::Answer("x".repeat(16 * 1024)),
                 },
@@ -1424,6 +1535,7 @@ mod evidence_tests {
             .dispatch(Request::PutProvider {
                 id: "stream".into(),
                 provider: Provider::Fixture {
+                    catalog: None,
                     delay_millis: 1000,
                     outcome: crate::provider::FixtureOutcome::Stream {
                         chunks: vec!["first".into(), "second".into()],

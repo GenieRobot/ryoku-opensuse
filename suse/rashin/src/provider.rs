@@ -19,14 +19,30 @@ pub enum Provider {
     Local {},
     /// Explicit, bounded acceptance provider. It performs no network I/O and
     /// is labeled as a fixture in every provider description and usage record.
-    Fixture { delay_millis: u16, outcome: FixtureOutcome },
+    Fixture {
+        delay_millis: u16,
+        outcome: FixtureOutcome,
+        #[serde(default)]
+        catalog: Option<FixtureCatalog>,
+    },
     OpenAiCompatible {
         endpoint: String,
         api_key: String,
+        #[serde(default)]
         models: Vec<String>,
         #[serde(default)]
         streaming: bool,
     },
+}
+
+/// Explicit network-free catalog fixture; cached/offered sets model server
+/// changes without sending a request or changing saved user picks implicitly.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FixtureCatalog {
+    pub cached: Vec<String>,
+    pub offered: Vec<String>,
+    pub fail: bool,
 }
 
 /// Optional owner edits preserve existing credential contents when no new key
@@ -77,7 +93,7 @@ pub struct Completion {
 
 impl Provider {
     pub fn validate(&self) -> Result<()> {
-        if let Self::Fixture { delay_millis, outcome } = self {
+        if let Self::Fixture { delay_millis, outcome, .. } = self {
             if *delay_millis > 1000 {
                 return Err(Error::Limit);
             }
@@ -96,6 +112,16 @@ impl Provider {
                 text(answer, 16 * 1024)?;
             }
         }
+        if let Self::Fixture { catalog: Some(catalog), .. } = self {
+            for models in [&catalog.cached, &catalog.offered] {
+                if models.len() > 128 {
+                    return Err(Error::Limit);
+                }
+                for model in models {
+                    model_name(model)?;
+                }
+            }
+        }
         if let Self::OpenAiCompatible { endpoint, api_key, models, .. } = self {
             text(endpoint, 2048)?;
             text(api_key, 4096)?;
@@ -110,7 +136,6 @@ impl Provider {
                     .next()
                     .is_none_or(str::is_empty)
                 || api_key.bytes().any(|b| b.is_ascii_control())
-                || models.is_empty()
                 || models.len() > 128
             {
                 return Err(Error::InvalidRequest);
@@ -146,8 +171,57 @@ impl Provider {
     pub fn models(&self) -> Vec<String> {
         match self {
             Self::Local {} => vec!["local-retrieval-v1".into()],
-            Self::Fixture { .. } => vec!["fixture-v1".into()],
+            Self::Fixture { catalog, .. } => catalog
+                .as_ref()
+                .map(|catalog| catalog.cached.clone())
+                .unwrap_or_else(|| vec!["fixture-v1".into()]),
             Self::OpenAiCompatible { models, .. } => models.clone(),
+        }
+    }
+
+    pub(crate) fn with_catalog(mut self, models: Vec<String>) -> Result<Self> {
+        match &mut self {
+            Self::OpenAiCompatible { models: cached, .. } => *cached = models,
+            Self::Fixture { catalog: Some(catalog), .. } => catalog.cached = models,
+            Self::Local {} if models == ["local-retrieval-v1"] => {}
+            Self::Fixture { catalog: None, .. } if models == ["fixture-v1"] => {}
+            _ => return Err(Error::Integrity),
+        }
+        self.validate()?;
+        Ok(self)
+    }
+    pub(crate) fn fetch_models(&self, cancelled: &AtomicBool) -> Result<Vec<String>> {
+        self.validate()?;
+        if cancelled.load(Ordering::Acquire) {
+            return Err(Error::Cancelled);
+        }
+        match self {
+            Self::Local {} => Ok(self.models()),
+            Self::Fixture { delay_millis, catalog, .. } => {
+                let until = std::time::Instant::now()
+                    + std::time::Duration::from_millis(u64::from(*delay_millis));
+                while std::time::Instant::now() < until {
+                    if cancelled.load(Ordering::Acquire) {
+                        return Err(Error::Cancelled);
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(2));
+                }
+                if catalog.as_ref().is_some_and(|catalog| catalog.fail) {
+                    return Err(Error::ProviderFailed);
+                }
+                Ok(catalog
+                    .as_ref()
+                    .map(|catalog| catalog.offered.clone())
+                    .unwrap_or_else(|| self.models()))
+            }
+            Self::OpenAiCompatible { endpoint, api_key, .. } => {
+                let config = format!(
+                    "url = {}\nrequest = \"GET\"\nheader = {}\nheader = \"Accept: application/json\"\n",
+                    quote(&format!("{}/models", endpoint.trim_end_matches('/'))),
+                    quote(&format!("Authorization: Bearer {api_key}"))
+                );
+                parse_catalog(&catalog_request(&config, cancelled)?)
+            }
         }
     }
 
@@ -189,7 +263,7 @@ impl Provider {
             return Err(Error::Cancelled);
         }
         match self {
-            Self::Fixture { delay_millis, outcome } => {
+            Self::Fixture { delay_millis, outcome, .. } => {
                 if let FixtureOutcome::Stream { chunks, fail } = outcome {
                     let mut answer = String::new();
                     for chunk in chunks {
@@ -411,6 +485,87 @@ impl Provider {
     }
 }
 
+fn parse_catalog(bytes: &[u8]) -> Result<Vec<String>> {
+    let value: serde_json::Value =
+        serde_json::from_slice(bytes).map_err(|_| Error::ProviderFailed)?;
+    if value.get("error").is_some_and(|error| !error.is_null()) {
+        return Err(Error::ProviderFailed);
+    }
+    let rows = value["data"].as_array().ok_or(Error::ProviderFailed)?;
+    if rows.len() > 128 {
+        return Err(Error::Limit);
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    let mut models = Vec::new();
+    for row in rows {
+        let id = row["id"].as_str().ok_or(Error::ProviderFailed)?;
+        model_name(id).map_err(|_| Error::ProviderFailed)?;
+        if seen.insert(id.to_owned()) {
+            models.push(id.to_owned());
+        }
+    }
+    Ok(models)
+}
+fn catalog_request(config: &str, cancelled: &AtomicBool) -> Result<Vec<u8>> {
+    let mut child = client_command().spawn().map_err(|_| Error::ProviderUnavailable)?;
+    let result = (|| {
+        child
+            .stdin
+            .take()
+            .ok_or(Error::ProviderFailed)?
+            .write_all(config.as_bytes())
+            .map_err(|_| Error::ProviderFailed)?;
+        let mut stdout = child.stdout.take().ok_or(Error::ProviderFailed)?;
+        rustix::fs::fcntl_setfl(&stdout, rustix::fs::OFlags::NONBLOCK)
+            .map_err(|_| Error::ProviderFailed)?;
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(46);
+        let mut bytes = Vec::new();
+        loop {
+            if cancelled.load(Ordering::Acquire) {
+                return Err(Error::Cancelled);
+            }
+            if std::time::Instant::now() >= deadline {
+                return Err(Error::ProviderFailed);
+            }
+            let mut chunk = [0; 8192];
+            match stdout.read(&mut chunk) {
+                Ok(0) => break,
+                Ok(count) => {
+                    bytes.extend_from_slice(&chunk[..count]);
+                    if bytes.len() as u64 > MAX_RESPONSE {
+                        return Err(Error::Limit);
+                    }
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(std::time::Duration::from_millis(5))
+                }
+                Err(_) => return Err(Error::ProviderFailed),
+            }
+        }
+        loop {
+            if cancelled.load(Ordering::Acquire) {
+                return Err(Error::Cancelled);
+            }
+            if std::time::Instant::now() >= deadline {
+                return Err(Error::ProviderFailed);
+            }
+            if let Some(status) = child.try_wait().map_err(|_| Error::ProviderFailed)? {
+                if !status.success() {
+                    return Err(Error::ProviderFailed);
+                }
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        Ok(bytes)
+    })();
+    if result.is_err() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+    result
+}
+
 pub fn model_name(model: &str) -> Result<()> {
     text(model, 128)?;
     // Model IDs are opaque JSON values chosen from the configured allowlist.
@@ -517,5 +672,24 @@ mod tests {
         assert_eq!(quote("a\\b\"c\nd\r"), "\"a\\\\b\\\"c\\nd\\r\"");
         assert_eq!(quote("synthetic-private-key").lines().count(), 1);
         assert_eq!(quote("synthetic-private-prompt\nnext line").lines().count(), 1);
+    }
+    #[test]
+    fn catalog_parser_preserves_opaque_ids_empty_sets_and_refuses_invalid_or_large_data() {
+        assert_eq!(
+            parse_catalog(br#"{"data":[{"id":"model@one#profile"},{"id":"model@one#profile"}]}"#)
+                .unwrap(),
+            vec!["model@one#profile"]
+        );
+        assert!(parse_catalog(br#"{"data":[]}"#).unwrap().is_empty());
+        for bytes in [
+            b"not JSON".as_slice(),
+            br#"{"data":[{}]}"#,
+            br#"{"data":[],"error":{"message":"PRIVATE_API_BODY"}}"#,
+            br#"{"data":[{"id":"bad\nmodel"}]}"#,
+        ] {
+            assert!(matches!(parse_catalog(bytes), Err(Error::ProviderFailed)));
+        }
+        let bytes=serde_json::to_vec(&json!({"data":(0..129).map(|n|json!({"id":format!("model-{n}")})).collect::<Vec<_>>()})).unwrap();
+        assert!(matches!(parse_catalog(&bytes), Err(Error::Limit)));
     }
 }

@@ -626,6 +626,7 @@ fn inflight_cancel_and_provider_failure_preserve_sessions_and_allow_recovery() {
         Request::PutProvider {
             id: "fixture".into(),
             provider: Provider::Fixture {
+                catalog: None,
                 delay_millis: 500,
                 outcome: FixtureOutcome::Answer("fixture response".into()),
             },
@@ -663,7 +664,11 @@ fn inflight_cancel_and_provider_failure_preserve_sessions_and_allow_recovery() {
         &engine,
         Request::PutProvider {
             id: "fixture".into(),
-            provider: Provider::Fixture { delay_millis: 0, outcome: FixtureOutcome::Failure },
+            provider: Provider::Fixture {
+                catalog: None,
+                delay_millis: 0,
+                outcome: FixtureOutcome::Failure,
+            },
         },
     );
     rpc(
@@ -688,6 +693,7 @@ fn inflight_cancel_and_provider_failure_preserve_sessions_and_allow_recovery() {
         Request::PutProvider {
             id: "fixture".into(),
             provider: Provider::Fixture {
+                catalog: None,
                 delay_millis: 0,
                 outcome: FixtureOutcome::Answer("recovered response".into()),
             },
@@ -980,7 +986,11 @@ fn handoff_rejects_cancelled_sources_and_preserves_pending_on_busy_until_accepte
         &engine,
         Request::PutProvider {
             id: "slow".into(),
-            provider: Provider::Fixture { delay_millis: 1000, outcome: FixtureOutcome::Failure },
+            provider: Provider::Fixture {
+                catalog: None,
+                delay_millis: 1000,
+                outcome: FixtureOutcome::Failure,
+            },
         },
     );
     rpc(
@@ -1057,6 +1067,7 @@ fn fixture_stream_progress_is_private_ephemeral_cancellable_and_commits_only_com
     let config = |fail| Request::PutProvider {
         id: "stream".into(),
         provider: Provider::Fixture {
+            catalog: None,
             delay_millis: 600,
             outcome: FixtureOutcome::Stream {
                 chunks: vec!["PRIVATE_PROGRESS_".into(), "Δelta ".into(), "answer".into()],
@@ -1157,6 +1168,7 @@ fn scoped_http_bearer_enforces_ask_role_and_cannot_inherit_owner_cookie_authorit
         r#"{"action":"ask_clients"}"#,
         r#"{"action":"put_provider","id":"forbidden","provider":{"kind":"local"}}"#,
         r#"{"action":"update_provider","id":"forbidden","changes":{"streaming":true}}"#,
+        r#"{"action":"refresh_models","id":"forbidden","provider":"local"}"#,
         r#"{"action":"new_session","id":"forbidden","lane":"agent"}"#,
         r#"{"action":"set_route","lane":"agent","provider":"local","model":"local-retrieval-v1"}"#,
         r#"{"action":"index","documents":[]}"#,
@@ -1420,7 +1432,6 @@ fn invalid_partial_provider_edits_roll_back_without_secret_loss_or_role_escalati
             endpoint: Some("http://insecure.invalid".into()),
             ..ProviderEdit::default()
         },
-        ProviderEdit { models: Some(vec![]), ..ProviderEdit::default() },
         ProviderEdit { models: Some(vec!["control\nmodel".into()]), ..ProviderEdit::default() },
     ];
     for changes in bad {
@@ -1461,4 +1472,136 @@ fn invalid_partial_provider_edits_roll_back_without_secret_loss_or_role_escalati
     let state: Value =
         serde_json::from_slice(&fs::read(fixture.path.join("state.json")).unwrap()).unwrap();
     assert_eq!(state["providers"]["editable"]["api_key"], "ROTATED_PRIVATE_KEY");
+}
+
+#[test]
+fn asynchronous_catalog_refresh_preserves_picks_and_handles_empty_failure_and_cancellation() {
+    use ryoku_rashin::provider::{FixtureCatalog, FixtureOutcome};
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let config = |offered: Vec<String>, fail| Request::PutProvider {
+        id: "catalog".into(),
+        provider: Provider::Fixture {
+            delay_millis: 300,
+            outcome: FixtureOutcome::Answer("fixture".into()),
+            catalog: Some(FixtureCatalog { cached: vec!["saved".into()], offered, fail }),
+        },
+    };
+    rpc(&engine, config(vec!["模型@fresh#one".into(), "second".into()], false));
+    rpc(
+        &engine,
+        Request::SetRoute { lane: Lane::Ask, provider: "catalog".into(), model: "saved".into() },
+    );
+    let refresh = |id: &str| Request::RefreshModels { id: id.into(), provider: "catalog".into() };
+    rpc(&engine, refresh("catalog-success"));
+    let job = done(&engine, "catalog-success");
+    assert_eq!(job["status"], "completed");
+    assert_eq!(job["operation"], "catalog_refresh");
+    assert_eq!(job["catalog_count"], 2);
+    assert!(job["answer"].is_null());
+    assert!(rpc(&engine, Request::Usage {})["activity"].as_array().unwrap().is_empty());
+    assert!(rpc(&engine, Request::Sessions {})["sessions"].as_array().unwrap().is_empty());
+    assert!(rpc(&engine, Request::Recent {})["asks"].as_array().unwrap().is_empty());
+    assert_eq!(rpc(&engine, Request::Status {})["routes"]["ask"]["model"], "saved");
+    assert_eq!(
+        engine.dispatch(Request::Ask {
+            id: "unavailable-after-refresh".into(),
+            prompt: "no fallback".into()
+        }),
+        Err(Error::ProviderUnavailable)
+    );
+    let provider = rpc(&engine, Request::Providers {});
+    assert_eq!(provider["providers"][0]["models"][0], "模型@fresh#one");
+    rpc(&engine, config(vec![], false));
+    rpc(&engine, refresh("catalog-empty"));
+    assert_eq!(done(&engine, "catalog-empty")["catalog_count"], 0);
+    drop(engine);
+    let engine = fixture.reopen();
+    assert!(
+        rpc(&engine, Request::Providers {})["providers"][0]["models"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    rpc(&engine, config(vec!["not-published".into()], true));
+    rpc(&engine, refresh("catalog-fail"));
+    assert_eq!(done(&engine, "catalog-fail")["status"], "failed");
+    assert_eq!(rpc(&engine, Request::Providers {})["providers"][0]["models"][0], "saved");
+    rpc(&engine, config(vec!["not-published".into()], false));
+    rpc(&engine, refresh("catalog-cancel"));
+    rpc(&engine, Request::Cancel { id: "catalog-cancel".into() });
+    assert_eq!(done(&engine, "catalog-cancel")["status"], "cancelled");
+    assert_eq!(rpc(&engine, Request::Providers {})["providers"][0]["models"][0], "saved");
+    assert_eq!(
+        engine.dispatch_as(ryoku_rashin::authorization::Access::AskClient, refresh("denied")),
+        Err(Error::Unauthorized)
+    );
+    assert_eq!(
+        engine.dispatch_as(
+            ryoku_rashin::authorization::Access::AskClient,
+            Request::Job { id: "catalog-success".into() }
+        ),
+        Err(Error::Unauthorized)
+    );
+}
+
+#[test]
+fn catalog_results_bind_provider_generation_and_allow_independent_provider_refresh() {
+    use ryoku_rashin::provider::{FixtureCatalog, FixtureOutcome};
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let config = |id: &str, cached: &str, offered: &str| Request::PutProvider {
+        id: id.into(),
+        provider: Provider::Fixture {
+            delay_millis: 500,
+            outcome: FixtureOutcome::Answer("fixture".into()),
+            catalog: Some(FixtureCatalog {
+                cached: vec![cached.into()],
+                offered: vec![offered.into()],
+                fail: false,
+            }),
+        },
+    };
+    rpc(&engine, config("one", "original", "old-server-response"));
+    rpc(&engine, Request::RefreshModels { id: "stale".into(), provider: "one".into() });
+    rpc(
+        &engine,
+        Request::PutProvider {
+            id: "one".into(),
+            provider: Provider::OpenAiCompatible {
+                endpoint: "https://replacement.invalid/v1".into(),
+                api_key: "PRIVATE_NEW_GENERATION_KEY".into(),
+                models: vec!["new-owner-setting".into()],
+                streaming: true,
+            },
+        },
+    );
+    let stale = done(&engine, "stale");
+    assert_eq!(stale["status"], "failed");
+    assert_eq!(stale["error"], "conflict");
+    let listed = rpc(&engine, Request::Providers {});
+    assert_eq!(listed["providers"][1]["models"][0], "new-owner-setting");
+    let state: Value =
+        serde_json::from_slice(&fs::read(fixture.path.join("state.json")).unwrap()).unwrap();
+    assert_eq!(state["providers"]["one"]["api_key"], "PRIVATE_NEW_GENERATION_KEY");
+    assert_eq!(state["providers"]["one"]["endpoint"], "https://replacement.invalid/v1");
+    rpc(&engine, config("one", "new-owner-setting", "new-server-response"));
+    rpc(&engine, config("two", "two-old", "two-fresh"));
+    rpc(&engine, Request::RefreshModels { id: "one-refresh".into(), provider: "one".into() });
+    rpc(&engine, Request::RefreshModels { id: "two-refresh".into(), provider: "two".into() });
+    rpc(
+        &engine,
+        Request::SetRoute {
+            lane: Lane::Agent,
+            provider: "one".into(),
+            model: "new-owner-setting".into(),
+        },
+    );
+    assert_eq!(done(&engine, "one-refresh")["status"], "completed");
+    assert_eq!(done(&engine, "two-refresh")["status"], "completed");
+    assert_eq!(rpc(&engine, Request::Status {})["routes"]["agent"]["model"], "new-owner-setting");
+    let listed = rpc(&engine, Request::Providers {});
+    assert_eq!(listed["providers"][1]["models"][0], "new-server-response");
+    assert_eq!(listed["providers"][2]["models"][0], "two-fresh");
+    assert!(rpc(&engine, Request::Usage {})["activity"].as_array().unwrap().is_empty());
 }

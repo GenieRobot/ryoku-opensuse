@@ -69,7 +69,7 @@ a restrictive CSP; the console requires no JavaScript.
 | Inspect | `status`, `providers`, `get_index`, `recent`, `sessions`, `session`, `job`, `usage`, `logs` | Account-private reads; provider inventory never returns keys; logs run only fixed bounded native readers |
 | Ask | `ask`, `cancel` | Read-only provider lane, private independent history, bounded asynchronous execution and cancellation |
 | Conversation | `new_session`, `prompt`, `forget_job`, `delete_session` | Persistent independent Agent/Chat transcripts; deletion removes associated jobs and usage records |
-| Credentials | `put_provider`, `update_provider`, `remove_provider`, `issue_ask_client`, `ask_clients`, `revoke_ask_client` | Owner configures/removes an explicit provider; keys remain only in private state and provider stdin |
+| Credentials | `put_provider`, `update_provider`, `refresh_models`, `remove_provider`, `issue_ask_client`, `ask_clients`, `revoke_ask_client` | Owner configures/removes an explicit provider; keys remain only in private state and provider stdin |
 | Route/model | `set_route` | Owner selects a provider and one of its configured model IDs for an explicit lane |
 | Index | `index` | Owner replaces a bounded set of explicitly uploaded UTF-8 documents; every SHA-256 is verified before publication |
 | Fix | `fix_preview`, `fix` | Owner supplies a typed doctor/tip/app finding; external native-evidence egress requires a reviewed destination-bound preview; creates an Agent investigation request with Tumbleweed ownership/recovery instructions |
@@ -213,6 +213,27 @@ catalog. IDs are JSON values; they never become command arguments, executable
 syntax, URL paths or filesystem paths. This retains the pinned ACP model
 contract (`SetModel` passes `modelID`/config-option values directly) and avoids
 turning catalog identifiers into an edition-specific alphabet.
+
+`refresh_models` takes an owner-chosen request `id` and configured `provider` ID
+and starts an asynchronous `catalog_refresh` job. Query/cancel/forget it through
+the existing typed job actions. The configured OpenAI-compatible provider uses
+fixed authenticated HTTPS `GET /models`, following the
+[model-list response contract](https://developers.openai.com/api/reference/resources/models/methods/list).
+Only bounded `data[].id` metadata is accepted: at most 128 rows, opaque ID
+validation, exact deduplication and the existing 1 MiB/45-second curl limits.
+No model files are downloaded. The operation sends no prompt/index/history data.
+Keys stay in the private stdin configuration and never enter job responses.
+Local/explicit catalog fixtures exercise the same publication path offline.
+
+A provider may be configured before models are offered; an empty catalog is a
+valid connected-but-unavailable selection state. Refresh success atomically
+updates offered IDs plus job status/count, preserving credentials, other settings
+and every saved lane pick. It publishes no conversation turn or token-usage
+record. Per-provider configuration generations reject a response after newer
+settings/key/endpoint/catalog changes. Independent providers refresh concurrently;
+newer route choices are retained. Cancellation/failure preserves the existing
+catalog. Restart marks unfinished work interrupted and never silently reissues a
+network request. No automatic refresh or provider connection is enabled here.
 
 Select it with `set_route` fields `lane`, `provider`, `model`. Ask, Agent and Chat
 have explicit independent routes in this slice. Removing or updating a provider
