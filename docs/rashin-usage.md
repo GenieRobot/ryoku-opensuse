@@ -112,4 +112,4 @@ Private deterministic fixtures exercise source formats, cache/cost semantics,
 enroll/disable, persisted cadence and failure, real daemon restart catch-up,
 isolated-process time zones, malformed/oversized files, unsafe/replaced roots,
 stale/partial/unavailable handling and absence of transcript/key leakage. The
-largest fixture is a sparse file just over 4 MiB; no remote source is fetched.
+largest collector fixture is a sparse file just over 4 MiB; no remote source is fetched.

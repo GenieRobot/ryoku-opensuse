@@ -216,7 +216,13 @@ Failed/cancelled requests do not insert incomplete conversation turns. Pending
 jobs become `interrupted` after daemon restart and are never silently reissued
 to a network provider. A state publication I/O failure marks the runtime
 unhealthy; it stops reporting subsequent state as healthy until restart. Logical
-size limits refuse the request without publishing it. Jobs, sessions, documents,
+size limits refuse the request without publishing it. Each Running job reserves
+128 bytes under the private state cap so concurrent owner configuration cannot
+consume its terminal-error allowance. If a completion's answer/history/usage
+would exceed the cap, that clone is discarded and the worker records
+`failed`/`limit`, preserving prior turns and usage. The owner can free history
+and retry with a new request ID; the daemon stays usable. A failure to publish
+even that terminal record makes the runtime unavailable until restart. Jobs, sessions, documents,
 model catalogs and in-flight provider workers have explicit bounds. Forget/delete
 actions make the retained-history bounds usable for ongoing operation.
 

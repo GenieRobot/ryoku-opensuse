@@ -231,7 +231,11 @@ impl Engine {
         let mut next = guard.clone();
         let result = update(&mut next)?;
         let bytes = serde_json::to_vec(&next).map_err(|_| Error::Storage)?;
-        if bytes.len() as u64 > crate::store::MAX_STATE_BYTES {
+        // Keep enough room for every accepted worker to publish its bounded
+        // terminal error even when owner configuration fills the state quota.
+        let failure_reserve =
+            next.jobs.values().filter(|job| job.status == JobStatus::Running).count() as u64 * 128;
+        if bytes.len() as u64 > crate::store::MAX_STATE_BYTES.saturating_sub(failure_reserve) {
             return Err(Error::Limit);
         }
         self.store.save(&bytes).inspect_err(|_| self.healthy.store(false, Ordering::Release))?;
@@ -795,7 +799,7 @@ impl Engine {
                     let _permit = permit;
                     let fixture = matches!(&provider, Provider::Fixture { .. });
                     let result = provider.complete(&model, &messages, &cancelled);
-                    let _ = engine.transaction(|state| {
+                    let publication = engine.transaction(|state| {
                         let job = state.jobs.get_mut(&job_id).ok_or(Error::NotFound)?;
                         if job.status != JobStatus::Running {
                             return Ok(Value::Null);
@@ -837,6 +841,22 @@ impl Engine {
                         }
                         Ok(Value::Null)
                     });
+                    if publication == Err(Error::Limit) {
+                        // The completion/history/usage clone was never
+                        // published. Use the reserved error allowance instead
+                        // of leaving a dead worker reported as Running forever.
+                        let failed = engine.transaction(|state| {
+                            let job = state.jobs.get_mut(&job_id).ok_or(Error::NotFound)?;
+                            if job.status == JobStatus::Running {
+                                job.status = JobStatus::Failed;
+                                job.error = Some(Error::Limit);
+                            }
+                            Ok(Value::Null)
+                        });
+                        if failed.is_err() {
+                            engine.healthy.store(false, Ordering::Release);
+                        }
+                    }
                     if let Ok(mut cancellations) = engine.cancellations.lock() {
                         cancellations.remove(&job_id);
                     }
@@ -1152,5 +1172,119 @@ mod evidence_tests {
             std::thread::sleep(Duration::from_millis(2));
         }
         panic!("local fixture did not complete");
+    }
+    #[test]
+    fn completion_state_limit_publishes_failure_without_partial_turns_and_allows_recovery() {
+        let fixture = Fixture::new();
+        let engine = fixture.engine();
+        engine
+            .dispatch(Request::PutProvider {
+                id: "large".into(),
+                provider: Provider::Fixture {
+                    delay_millis: 1000,
+                    outcome: crate::provider::FixtureOutcome::Answer("x".repeat(16 * 1024)),
+                },
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::SetRoute {
+                lane: Lane::Agent,
+                provider: "large".into(),
+                model: "fixture-v1".into(),
+            })
+            .unwrap();
+        engine.dispatch(Request::NewSession { id: "active".into(), lane: Lane::Agent }).unwrap();
+        engine
+            .transaction(|state| {
+                for n in 0..2 {
+                    let messages = (0..128)
+                        .map(|i| Message {
+                            role: if i % 2 == 0 { Role::User } else { Role::Assistant },
+                            content: if i % 2 == 0 { "p".into() } else { "z".repeat(65536) },
+                        })
+                        .collect();
+                    state
+                        .sessions
+                        .insert(format!("retained-{n}"), Session { lane: Lane::Chat, messages });
+                }
+                let size = serde_json::to_vec(state).unwrap().len();
+                let target = crate::store::MAX_STATE_BYTES as usize - 4096;
+                let excess = size - target;
+                let last =
+                    state.sessions.get_mut("retained-1").unwrap().messages.last_mut().unwrap();
+                last.content.truncate(last.content.len() - excess);
+                Ok(Value::Null)
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::Prompt {
+                id: "over-quota".into(),
+                session: "active".into(),
+                prompt: "p".into(),
+            })
+            .unwrap();
+        // Fill the remaining owner-config quota while the worker is active.
+        // The reserved bytes are then the only room for its terminal record.
+        engine
+            .transaction(|state| {
+                assert_eq!(state.jobs["over-quota"].status, JobStatus::Running);
+                let size = serde_json::to_vec(state).unwrap().len();
+                let target = crate::store::MAX_STATE_BYTES as usize - 128;
+                let padding = &mut state
+                    .sessions
+                    .get_mut("retained-1")
+                    .unwrap()
+                    .messages
+                    .last_mut()
+                    .unwrap()
+                    .content;
+                padding.push_str(&"z".repeat(target - size));
+                Ok(Value::Null)
+            })
+            .unwrap();
+        let until = std::time::Instant::now() + Duration::from_secs(15);
+        loop {
+            let state = engine.state.lock().unwrap();
+            let job = &state.jobs["over-quota"];
+            if job.status != JobStatus::Running {
+                assert_eq!(job.status, JobStatus::Failed);
+                assert_eq!(job.error, Some(Error::Limit));
+                assert!(job.answer.is_none());
+                assert!(state.usage.is_empty());
+                assert!(state.sessions["active"].messages.is_empty());
+                break;
+            }
+            drop(state);
+            assert!(std::time::Instant::now() < until);
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(engine.dispatch(Request::Status {}).is_ok());
+        engine.dispatch(Request::DeleteSession { id: "retained-0".into() }).unwrap();
+        engine
+            .dispatch(Request::SetRoute {
+                lane: Lane::Agent,
+                provider: "local".into(),
+                model: "local-retrieval-v1".into(),
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::Prompt {
+                id: "recovered".into(),
+                session: "active".into(),
+                prompt: "p".into(),
+            })
+            .unwrap();
+        loop {
+            let state = engine.state.lock().unwrap();
+            let job = &state.jobs["recovered"];
+            if job.status != JobStatus::Running {
+                assert_eq!(job.status, JobStatus::Completed);
+                assert_eq!(state.usage.len(), 1);
+                break;
+            }
+            drop(state);
+            assert!(std::time::Instant::now() < until);
+            std::thread::sleep(Duration::from_millis(5));
+        }
     }
 }
