@@ -58,7 +58,10 @@ impl Request {
             | Self::ConfigureProwl { .. }
             | Self::DisableProwl {}
             | Self::ConnectProwlProvider { .. }
-            | Self::SetReadOnlyTools { .. } => Action::ProviderCredentials,
+            | Self::SetReadOnlyTools { .. }
+            | Self::ReadRoots { .. }
+            | Self::EnrollReadRoot { .. }
+            | Self::DisableReadRoot { .. } => Action::ProviderCredentials,
             Self::SetRoute { .. } => Action::Route,
             Self::Index { .. } | Self::IndexWiki { .. } => Action::Index,
             Self::Fix { .. } | Self::FixPreview { .. } => Action::Fix,

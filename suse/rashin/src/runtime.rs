@@ -153,6 +153,8 @@ struct State {
     prowl_revision: u64,
     #[serde(default)]
     read_only_tools: BTreeSet<String>,
+    #[serde(default)]
+    read_roots: BTreeMap<String, Vec<crate::prowl::read_roots::Enrollment>>,
     routes: BTreeMap<Lane, Route>,
     documents: Vec<Document>,
     sessions: BTreeMap<String, Session>,
@@ -177,6 +179,7 @@ impl Default for State {
             prowl: None,
             prowl_revision: 0,
             read_only_tools: BTreeSet::new(),
+            read_roots: BTreeMap::new(),
             providers: BTreeMap::from([("local".into(), Provider::Local {})]),
             routes: [Lane::Ask, Lane::Agent, Lane::Chat]
                 .into_iter()
@@ -209,6 +212,7 @@ fn describe_provider(state: &State, id: &str, provider: &Provider) -> Value {
         provider.describe(id)
     };
     description["read_only_tools_enabled"] = json!(state.read_only_tools.contains(id));
+    description["enrolled_read_roots"] = json!(state.read_roots.get(id).map_or(0, Vec::len));
     description
 }
 
@@ -328,6 +332,15 @@ impl Engine {
         {
             return Err(Error::Integrity);
         }
+        if state.read_roots.len() > 32
+            || state.read_roots.iter().any(|(provider, roots)| {
+                state.providers.get(provider).is_none_or(|p| !p.is_prowl())
+                    || roots.len() > 8
+                    || roots.iter().map(|r| &r.id).collect::<BTreeSet<_>>().len() != roots.len()
+            })
+        {
+            return Err(Error::Integrity);
+        }
         for (id, provider) in &state.providers {
             identifier(id)?;
             provider.validate()?;
@@ -428,6 +441,52 @@ impl Engine {
                     Ok(json!({"connected":id,"credential_reference":"private_prowl_connection","routes":state.routes}))
                 })
             }
+            Request::ReadRoots { provider } => {
+                let state = self.state.lock().map_err(|_| Error::Storage)?;
+                if !state.providers.get(&provider).ok_or(Error::NotFound)?.is_prowl() {
+                    return Err(Error::InvalidRequest);
+                }
+                let protected = self.store.identity()?;
+                Ok(
+                    json!({"provider":provider,"roots":state.read_roots.get(&provider).into_iter().flatten().map(|root|{let mut value=root.describe();value["available"]=json!(root.capture(protected).is_ok());value}).collect::<Vec<_>>()}),
+                )
+            }
+            Request::EnrollReadRoot { provider, id, path } => {
+                let enrollment = crate::prowl::read_roots::Enrollment::enroll(
+                    id.clone(),
+                    path.into(),
+                    self.store.identity()?,
+                )?;
+                self.transaction(|state| {
+                    if !state.providers.get(&provider).ok_or(Error::NotFound)?.is_prowl() {
+                        return Err(Error::InvalidRequest);
+                    }
+                    let roots = state.read_roots.entry(provider.clone()).or_default();
+                    if let Some(root) = roots.iter_mut().find(|r| r.id == id) {
+                        *root = enrollment;
+                    } else {
+                        if roots.len() >= 8 {
+                            return Err(Error::Limit);
+                        }
+                        roots.push(enrollment);
+                    }
+                    bump_provider(state, &provider)?;
+                    Ok(json!({"provider":provider,"enrolled":id}))
+                })
+            }
+            Request::DisableReadRoot { provider, id } => self.transaction(|state| {
+                let roots = state.read_roots.get_mut(&provider).ok_or(Error::NotFound)?;
+                let len = roots.len();
+                roots.retain(|r| r.id != id);
+                if roots.len() == len {
+                    return Err(Error::NotFound);
+                }
+                if roots.is_empty() {
+                    state.read_roots.remove(&provider);
+                }
+                bump_provider(state, &provider)?;
+                Ok(json!({"provider":provider,"disabled":id}))
+            }),
             Request::SetReadOnlyTools { provider, enabled } => self.transaction(|state| {
                 if !state.providers.get(&provider).ok_or(Error::NotFound)?.is_prowl() {
                     return Err(Error::InvalidRequest);
@@ -788,6 +847,7 @@ impl Engine {
                     bump_provider(state, &id)?;
                     if !provider.is_prowl() {
                         state.read_only_tools.remove(&id);
+                        state.read_roots.remove(&id);
                     }
                     state.providers.insert(id, provider);
                     Ok(description)
@@ -820,6 +880,7 @@ impl Engine {
                 state.providers.remove(&id).ok_or(Error::NotFound)?;
                 state.provider_revisions.remove(&id);
                 state.read_only_tools.remove(&id);
+                state.read_roots.remove(&id);
                 state.configuration_revision =
                     state.configuration_revision.checked_add(1).ok_or(Error::Limit)?;
                 // Saved picks remain visible when their provider disappears.
@@ -1261,7 +1322,10 @@ impl Engine {
             let provider = state.providers.get(&route.provider).ok_or(Error::ProviderUnavailable)?.resolve(state.prowl.as_ref())?;
             if catalog_provider.is_none() && !provider.models().contains(&route.model) { return Err(Error::ProviderUnavailable); }
             let catalog_revision=catalog_provider.as_ref().map(|id|state.provider_revisions.get(id).copied().unwrap_or_default());
-            let read_only_tools = !options.disable_tools && state.read_only_tools.contains(&route.provider);
+            let read_only_tools = if options.disable_tools || catalog_provider.is_some() {crate::prowl::ReadTools::default()} else {
+                let protected=self.store.identity()?;
+                crate::prowl::ReadTools {system_queries:state.read_only_tools.contains(&route.provider),roots:state.read_roots.get(&route.provider).into_iter().flatten().map(|root|root.capture(protected)).collect::<Result<Vec<_>>>()?}
+            };
             if let Some(session) = &session
                 && state.sessions.get(session).ok_or(Error::NotFound)?.lane != lane { return Err(Error::InvalidRequest); }
             let handoff = if let Some(ask_id) = options.handoff_ask {Some(self.handoff_context(state,&ask_id)?)}
@@ -1368,8 +1432,14 @@ impl Engine {
                         progress.text.push_str(delta);
                         Ok(())
                     };
-                    let result = if read_only_tools {
-                        provider.complete_with_read_tools(&model, &messages, &cancelled, &mut emit)
+                    let result = if read_only_tools.enabled() {
+                        provider.complete_with_read_tools(
+                            &model,
+                            &messages,
+                            &cancelled,
+                            &read_only_tools,
+                            &mut emit,
+                        )
                     } else {
                         provider.complete_with_progress(&model, &messages, &cancelled, &mut emit)
                     };

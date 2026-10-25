@@ -110,6 +110,11 @@ impl Store {
         Ok(store)
     }
 
+    pub(crate) fn identity(&self) -> Result<(u64, u64)> {
+        let stat = fs::fstat(&self.directory).map_err(|_| Error::Storage)?;
+        Ok((stat.st_dev, stat.st_ino))
+    }
+
     pub fn read(&self) -> Result<Option<Vec<u8>>> {
         let file = match fs::openat2(
             &self.directory,

@@ -3781,3 +3781,252 @@ fn tool_round_gateway_cancellation_closes_followup_stream_without_partial_answer
     assert!(!state.contains("Evidence-backed tool answer"));
     assert!(!state.contains("waiting"));
 }
+
+fn file_tool_call(name: &str, path: &str, id: &str) -> Value {
+    json!({"id":id,"type":"function","function":{"name":name,"arguments":json!({"path":path}).to_string()}})
+}
+fn file_tool_round(calls: Vec<Value>) -> Value {
+    json!({"model":"tool-actual","choices":[{"message":{"content":null,"tool_calls":calls},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":2,"completion_tokens":3}})
+}
+#[test]
+fn enrolled_file_gateway_reads_and_lists_allowed_notes_but_refuses_renamed_store_links_and_secrets()
+{
+    use ryoku_rashin::authorization::Access;
+    let root = Fixture::new();
+    let state_path = root.path.join("account-state");
+    fs::create_dir(&state_path).unwrap();
+    fs::set_permissions(&state_path, fs::Permissions::from_mode(0o700)).unwrap();
+    let engine = Engine::open(Store::open(&state_path).unwrap()).unwrap();
+    fs::write(root.path.join("note.md"), "ENROLLED_NOTE_BODY λ").unwrap();
+    fs::write(root.path.join("api-key"), "PRIVATE_ROOT_KEY_SENTINEL").unwrap();
+    fs::write(root.path.join("hard-target"), "PRIVATE_HARD_LINK_SENTINEL").unwrap();
+    fs::hard_link(root.path.join("hard-target"), root.path.join("hard")).unwrap();
+    symlink("note.md", root.path.join("link")).unwrap();
+    let moved = root.path.join("moved-account-state");
+    fs::rename(&state_path, &moved).unwrap();
+    let responses = vec![
+        Some(file_tool_round(vec![
+            file_tool_call("list_dir", "vault:/", "list"),
+            file_tool_call("read_file", "vault:/note.md", "note"),
+            file_tool_call("read_file", "vault:/moved-account-state/state.json", "store"),
+            file_tool_call("read_file", "vault:/api-key", "key"),
+            file_tool_call("read_file", "vault:/link", "link"),
+            file_tool_call("read_file", "vault:/hard", "hard"),
+            json!({"id":"system","type":"function","function":{"name":"system_query","arguments":"{\"topic\":\"kernel\"}"}}),
+            file_tool_call("read_file", "vault:/../outside", "escape"),
+        ])),
+        Some(tool_answer()),
+        Some(tool_answer()),
+        Some(tool_answer()),
+    ];
+    let (port, requests, server) = tool_gateway(responses);
+    connect_tool_gateway(&engine, port, true);
+    assert_eq!(
+        engine.dispatch_as(
+            Access::AskClient,
+            Request::EnrollReadRoot {
+                provider: "tool-gateway".into(),
+                id: "vault".into(),
+                path: root.path.to_str().unwrap().into()
+            }
+        ),
+        Err(Error::Unauthorized)
+    );
+    let gateway = ryoku_rashin::http::Gateway::new(
+        engine.clone(),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    let mut fields = vec![
+        ("action", "enroll_read_root"),
+        ("provider", "tool-gateway"),
+        ("root_id", "vault"),
+        ("path", root.path.to_str().unwrap()),
+    ];
+    assert!(ui_submit(&gateway, &fields).starts_with("HTTP/1.1 400"));
+    assert!(
+        engine.dispatch(Request::ReadRoots { provider: "tool-gateway".into() }).unwrap()["roots"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    fields.push(("confirm", "yes"));
+    assert!(ui_submit(&gateway, &fields).starts_with("HTTP/1.1 303"));
+    engine
+        .dispatch(Request::Ask {
+            id: "file-round".into(),
+            prompt: "Read the enrolled ordinary note".into(),
+        })
+        .unwrap();
+    assert_eq!(done(&engine, "file-round")["status"], "completed");
+    let first = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    let names = first["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["function"]["name"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(names, ["read_file", "list_dir"]);
+    let followup = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    let results = followup["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|m| m["role"] == "tool")
+        .map(|m| {
+            (
+                m["tool_call_id"].as_str().unwrap(),
+                serde_json::from_str::<Value>(m["content"].as_str().unwrap()).unwrap(),
+            )
+        })
+        .collect::<std::collections::BTreeMap<_, _>>();
+    assert_eq!(results["note"]["text"], "ENROLLED_NOTE_BODY λ");
+    assert!(results["list"]["entries"].as_array().unwrap().iter().any(|e| e["name"] == "note.md"));
+    for id in ["store", "key", "link", "hard", "system", "escape"] {
+        assert!(results[id].get("error").is_some(), "{id} must fail closed");
+    }
+    assert_eq!(results["store"]["error"], "Unauthorized");
+    assert_eq!(results["system"]["error"], "unknown_tool");
+    let serialized = followup.to_string();
+    for marker in
+        ["PRIVATE_ROOT_KEY_SENTINEL", "PRIVATE_HARD_LINK_SENTINEL", "PRIVATE_TOOL_GATEWAY_KEY"]
+    {
+        assert!(!serialized.contains(marker));
+    }
+    assert_eq!(
+        engine
+            .dispatch_as(Access::AskClient, Request::ReadRoots { provider: "tool-gateway".into() }),
+        Err(Error::Unauthorized)
+    );
+    let preview = engine
+        .dispatch(Request::FixPreview {
+            kind: ryoku_rashin::api::FixKind::App,
+            component: "synthetic.service".into(),
+            evidence: "file boundary finding".into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::Fix {
+            id: "file-fix-no-tools".into(),
+            kind: ryoku_rashin::api::FixKind::App,
+            component: "synthetic.service".into(),
+            evidence: "file boundary finding".into(),
+            native_evidence_consent: Some(
+                preview["native_evidence_consent"].as_str().unwrap().into(),
+            ),
+        })
+        .unwrap();
+    assert_eq!(done(&engine, "file-fix-no-tools")["status"], "completed");
+    assert!(requests.recv_timeout(Duration::from_secs(2)).unwrap().get("tools").is_none());
+    drop(gateway);
+    drop(engine);
+    let state_fixture = Fixture { path: moved };
+    let engine = state_fixture.reopen();
+    let roots = engine.dispatch(Request::ReadRoots { provider: "tool-gateway".into() }).unwrap();
+    assert_eq!(roots["roots"][0]["available"], true);
+    assert_eq!(
+        engine.dispatch_as(
+            Access::AskClient,
+            Request::DisableReadRoot { provider: "tool-gateway".into(), id: "vault".into() }
+        ),
+        Err(Error::Unauthorized)
+    );
+    engine
+        .dispatch(Request::DisableReadRoot { provider: "tool-gateway".into(), id: "vault".into() })
+        .unwrap();
+    engine
+        .dispatch(Request::Ask {
+            id: "file-root-disabled".into(),
+            prompt: "No tools after disable".into(),
+        })
+        .unwrap();
+    assert_eq!(done(&engine, "file-root-disabled")["status"], "completed");
+    assert!(requests.recv_timeout(Duration::from_secs(2)).unwrap().get("tools").is_none());
+    server.join().unwrap();
+}
+#[test]
+fn replaced_file_root_is_unavailable_and_requires_explicit_reenrollment_before_gateway_use() {
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let root = Fixture::new();
+    fs::write(root.path.join("note"), "old").unwrap();
+    let (port, requests, server) = tool_gateway(vec![
+        Some(file_tool_round(vec![file_tool_call("read_file", "vault:/note", "note")])),
+        Some(tool_answer()),
+    ]);
+    connect_tool_gateway(&engine, port, false);
+    engine
+        .dispatch(Request::EnrollReadRoot {
+            provider: "tool-gateway".into(),
+            id: "vault".into(),
+            path: root.path.to_str().unwrap().into(),
+        })
+        .unwrap();
+    let moved = root.path.with_extension("moved");
+    fs::rename(&root.path, &moved).unwrap();
+    fs::create_dir(&root.path).unwrap();
+    fs::set_permissions(&root.path, fs::Permissions::from_mode(0o700)).unwrap();
+    fs::write(root.path.join("note"), "NEW_EXPLICITLY_ENROLLED_NOTE").unwrap();
+    assert_eq!(
+        engine.dispatch(Request::ReadRoots { provider: "tool-gateway".into() }).unwrap()["roots"]
+            [0]["available"],
+        false
+    );
+    assert_eq!(
+        engine.dispatch(Request::Ask { id: "stale-file-root".into(), prompt: "Read note".into() }),
+        Err(Error::Integrity)
+    );
+    assert!(requests.try_recv().is_err());
+    engine
+        .dispatch(Request::EnrollReadRoot {
+            provider: "tool-gateway".into(),
+            id: "vault".into(),
+            path: root.path.to_str().unwrap().into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::Ask { id: "new-file-root".into(), prompt: "Read note".into() })
+        .unwrap();
+    assert_eq!(done(&engine, "new-file-root")["status"], "completed");
+    requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    let next = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    let result: Value = serde_json::from_str(
+        next["messages"].as_array().unwrap().last().unwrap()["content"].as_str().unwrap(),
+    )
+    .unwrap();
+    assert_eq!(result["text"], "NEW_EXPLICITLY_ENROLLED_NOTE");
+    server.join().unwrap();
+    fs::remove_dir_all(moved).unwrap();
+}
+#[test]
+fn enrolled_file_tool_cancellation_drops_ephemeral_read_results_and_closes_followup_stream() {
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let root = Fixture::new();
+    fs::write(root.path.join("note"), "UNPERSISTED_ENROLLED_TEXT").unwrap();
+    let (port, requests, server) = tool_gateway(vec![
+        Some(file_tool_round(vec![file_tool_call("read_file", "vault:/note", "note")])),
+        None,
+    ]);
+    connect_tool_gateway(&engine, port, true);
+    engine
+        .dispatch(Request::EnrollReadRoot {
+            provider: "tool-gateway".into(),
+            id: "vault".into(),
+            path: root.path.to_str().unwrap().into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::Ask { id: "cancel-file-tool".into(), prompt: "Read then wait".into() })
+        .unwrap();
+    requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    let next = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert!(next.to_string().contains("UNPERSISTED_ENROLLED_TEXT"));
+    engine.dispatch(Request::Cancel { id: "cancel-file-tool".into() }).unwrap();
+    assert_eq!(done(&engine, "cancel-file-tool")["status"], "cancelled");
+    server.join().unwrap();
+    assert!(engine.dispatch(Request::Usage {}).unwrap()["activity"].as_array().unwrap().is_empty());
+    let state = fs::read_to_string(fixture.path.join("state.json")).unwrap();
+    assert!(!state.contains("UNPERSISTED_ENROLLED_TEXT"));
+}

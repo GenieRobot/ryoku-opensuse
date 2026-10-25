@@ -1,0 +1,109 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "ff01e70f0fd2da1aed5c331bd74da83fd4c04751"
+status = "explicit-descriptor-bound-read-file-list-dir-tested-full-native-enrollment-pending"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+new_dependencies = 0
+
+[source_contract]
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+read_source = "ryoku/rashin/backend/quicktools.go:137-245"
+read_blob = "5fd8cba88541794d467c4ed877c8fe5062b0acec"
+secret_source = "ryoku/rashin/backend/readonly.go:57-108"
+secret_blob = "dc6da32f94eb3acbac9f2a5af8fd238b6483f291"
+retained_behavior = "read_file,list_dir,32KiB text/200 directory rows,approved roots,retained secret-name markers"
+port_boundary = "Rust credential Store contains provider secrets unlike upstream port-only config;exclude held Store device/inode at enrollment/every path component,including renamed/bind aliases"
+
+[behavior]
+api = "owner enroll_read_root/read_roots/disable_read_root;at most8 roots per Prowl provider;separate from system_query permission;scoped enrollment/inspection/disable denied"
+browser = "explicit absolute directory/rootID with checked gateway/provider disclosure;missing confirmation stores no grant;owner sees availability and disable controls"
+identity = "grant binds root dev/inode;accepted job captures verified fd;replacement is unavailable/rejects new work until explicit re-enrollment;accepted snapshot retains original held root"
+confinement = "openat2 BENEATH/NO_SYMLINKS/NO_MAGICLINKS/NO_XDEV on each component;protected Store identity checked throughout;regular files require one link and safe ownership/modes"
+data_open = "O_PATH metadata validates regular file/directory before reopening held numeric descriptor through verified procfs;no caller-selected magic link or device/FIFO data-open"
+markers = "both supplied/full physical names checked;logical rootID aliases cannot bypass .config/prowl-agent or retained secret markers"
+read_consistency = "recheck file identity,size,mtime,ctime,mode,uid/gid,linkcount and current descriptor-relative target;changed source fails instead of emitting mixed result"
+listing = "sorted <=200 entries,scan<=4096;changed directory fails;unsafe/secret/protected entries omitted with explicit count"
+text = "<=32KiB UTF8-safe output with truncation labeled;NUL binary rejected"
+permission = "file grants advertise read_file/list_dir only;system_query remains absent/denied unless separately enabled;Fix disables both file/system tools"
+privacy = "actual gateway receives only allowed ordinary note/list;Store key,secret marker and hardlink sentinels absent;intermediate results ephemeral;cancelled round persists no read result/partial answer/usage"
+limits = "checks cancellation/deadline before/after bounded read and each directory entry;filesystem syscall cancellation is cooperative,not a claim of kernel IO interruption"
+removal = "provider removal/different-kind replacement removes grants;disable affects new work;cancel accepted work to stop captured reads"
+
+[validation]
+sequence = "full Rashin,strict workspace Clippy,workspace,fmt/diff,supported-target deny,explicit two-UID,explicit bind proof:terminal exit0"
+focused_unit_command = "cargo test -p ryoku-rashin --lib --locked --offline read_roots -- --nocapture"
+focused_unit_passed = 3
+focused_unit_ignored = 1
+focused_unit_cases = ["actual read/list and credential Store inode denial after rename", "physical secret markers,logical alias,symlink,hardlink,socket and replaced enrollment guards", "text/list bounds,cancellation,deadline,binary rejection"]
+focused_gateway_command = "cargo test -p ryoku-rashin --test workflows --locked --offline file_ -- --nocapture"
+focused_gateway_passed = 3
+focused_gateway_cases = ["allowed list/read results reach model;renamed Store/secret/link/hardlink/traversal denied;system tool permission not widened;owner/browser/scoped/restart/disable/Fix boundaries", "replaced root visibly unavailable,job rejected before gateway until explicit re-enrollment", "cancel following file result closes SSE and persists no read result/answer/usage"]
+full_command = "cargo test -p ryoku-rashin --locked --offline"
+full_passed = 136
+full_failed = 0
+full_ignored = 2
+full_breakdown = "62unit,15collector,59workflow"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 716
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 9
+count_scope = "sum of terminal summaries including nested subprocesses;7 existing ignores plus two explicitly exercised namespace prerequisite cases"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings:passed,0warnings"
+format = "cargo fmt --all -- --check:passed"
+diff = "git diff --check:passed"
+dependency_metadata_command = "cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu"
+dependency_command = "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path FILTERED_METADATA --all-features check"
+dependency_result = "advisories,bans,licenses,sources ok for supported x86_64 all-features graph"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers;no fetch"
+two_uid_command = "unshare --user --map-auto --map-root-user target/debug/deps/ryoku_rashin-e5c84e14e6648c40 --ignored --exact prowl::transport::tests::connected_foreign_uid_receives_no_request_or_management_credential --nocapture"
+two_uid_result = "explicit host1/1 pass after final source;both metadataGET/completionPOST ownerUID0 Unauthorized/foreignUID1 zero bytes;separate from defaultCI ignore"
+bind_command = "unshare --user --map-auto --map-root-user --mount --propagation private target/debug/deps/ryoku_rashin-e5c84e14e6648c40 --ignored --exact prowl::read_roots::tests::bind_alias_and_mount_crossing_never_enter_credential_store --nocapture"
+bind_capability = "host kernel permits mapped owner user namespace plus isolated mount namespace;private mount propagation;fixture bind/umount succeed"
+bind_result = "explicit host1/1 pass after final source;direct Store bind alias enrollment Unauthorized,nested mount crossing read refused;no credentials delivered;separate from defaultCI prerequisite ignore"
+corrected_before_final = "mount-test unit binding/redundant closure replaced with catch_unwind,explicit umount before assertion rethrow;no lint allows;all final stages rerun"
+
+[native_prerequisite]
+issue = 25
+clean_head = "09dab11ed518cd690c7587dfae8dc6ae5939f634"
+exact_ci = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40201426735"
+state = "other worker reports exact-green stable NSS/pidfd/detach/account seam;coordinator sequencing required;not rebased/depended on dirty work or edited shared APIs"
+
+[storage]
+verified_paths = "workspace target,HOME,Cargo/Rustup caches on/dev/sdd;logs/fixtures/tmp artifacts on/tmp tmpfs"
+pre_suite_available_bytes_linux = 954179420160
+pre_suite_available_bytes_tmpfs = 7054868480
+constraints = "C backing volume below10GiB floor remains untouched;no C-bound writes,downloads,cleanup,candidate/native/VM work"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact-head hosted CI", "Native NSS/default vault/config/data discovery and complete protected enrollment/writer/capture/recovery", "Source search_code and public fetch_url DNS/redirect checks", "Tool activity UI and TOOLS_REQUIRED isolated harness escalation", "Full retained ACP sessions,replay,cancellation,tools,approvals,images,thinking,terminal and process isolation", "Prowl/profile/provider/sign-in/fallback/network server mutations and native lifecycle", "Full vault/memory/journal/project/skills/source enrollment and isolated capability delivery", "Quota/RPC/original timer-cache/shell bridge", "Native app/Svelte/shell/Hub integration,source/export/RPM/vendor/license closure and packaged Tumbleweed install/login/interaction/usage/restart/removal/KDE acceptance"]
+
+[log_sha256]
+focused_unit = "3931bc7eb0905b5e0575ec9ba3043f510b0b601d80ce8b89894ab9ffd5a368e7"
+focused_gateways = "89d233d0166ede4085f2ebd8776d0f9dc32fb1d771537a88527ce9b0a72d2921"
+full = "0a19fb90eb3ede8f9fc63a789a423cba6e046a96eb1b6f6f1f8cbad522a5723a"
+workspace = "bd73695f1cd78c294c9e69b6f7a08b1009dfe55bba16c6d0a6cde443a2413cd8"
+clippy = "b29c84c771814f03e19eab1da65988cdbc8bfdfbe31036bd90df464cb070e8d3"
+dependency = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+two_uid = "bcdee3ed979aeb3f3f31cad879bfce8690ca52469201feaaca841e9fe0ee4973"
+bind = "17e9b37cb4f3a619b60f58969727dd17fd701871b366d2e7ff951e2881029dce"
+sequence = "ca66d1aea0ecf89a5cffe7acc8c9a82a6cdf23e9c453ee9fb1d09e6e256e15d8"
+
+[source_sha256]
+"docs/rashin-runtime.md" = "b5d2a31618615d95e68bd98ee64ab9da82863e050ea43c046770d1549fe0707c"
+"suse/rashin/src/api.rs" = "472356d269c0acddda2b23619d0bcc554f2a9aae07dc7ce2372129e395580028"
+"suse/rashin/src/authorization.rs" = "cab9d21db33b72eabce081b98e9d4a7eb87725d7dd5973c9d7512222f61adc87"
+"suse/rashin/src/http/console.rs" = "c02e46ef2efc3418e18bcddf608fa9c006810fc969eeffb28f29f4dbbea150d7"
+"suse/rashin/src/provider.rs" = "c140def6536ff68d075586bd74369f6716420537f75fc9e3e47096d08ccfda0b"
+"suse/rashin/src/prowl.rs" = "78a87661937d529a4cf6ce8ff4ebb30dccaef0d4d3e1cd5aea8559f79d765bc0"
+"suse/rashin/src/prowl/tools.rs" = "43781740b188abfd6e73297f08b979620653d4a761b5e0f286465e07676eccca"
+"suse/rashin/src/prowl/read_roots.rs" = "7c71ad1a6ac51a1aa3bff049e7aa38697a78844d882bd7483dcf0c457659b7b0"
+"suse/rashin/src/runtime.rs" = "75831d4ec77ccf55ea4d915aab92e8a43d2b6161a3e3789f5e7c156e3bdc6620"
+"suse/rashin/src/store.rs" = "dee99b15511689352b480258078fef32c49d34465335e4484480342bfad9697c"
+"suse/rashin/tests/workflows.rs" = "b078fe07788e73e66ce89898425dcd83e30fe4b31ab81f55ecad570a549ae7ae"

@@ -694,3 +694,66 @@ This is the first executable read-only tool slice. The complete retained
 `search_code`, public-web `fetch_url` DNS/redirect restrictions, tool activity UI,
 TOOLS_REQUIRED escalation and isolated ACP/harness operations remain required
 follow-ups. Protected mutations and full native/package/VM acceptance stay open.
+
+## Enrolled file and directory tools
+
+Each Prowl provider can now receive separate owner grants for ordinary file
+reads. In its browser section, enter a root ID and absolute directory, then check
+the disclosure that this gateway/provider may receive its text. The owner API
+uses `enroll_read_root {provider,id,path}`, `read_roots {provider}` and
+`disable_read_root {provider,id}`. Scoped clients cannot enroll, inspect or disable
+these roots. Up to eight roots per provider are stored; provider removal or
+replacement by a different provider kind removes its grants. File enrollment
+adds `read_file`/`list_dir` only; it does not enable `system_query`. Native Fix
+keeps every tool disabled even when file/system permissions are enabled.
+
+A grant binds the directory's device/inode and accepted work holds its verified
+file descriptor. Tools accept an absolute path under that root or
+`ROOT_ID:/relative/path`. A replaced enrollment is visibly unavailable and rejects
+new work until explicit owner re-enrollment; accepted work keeps its captured
+root descriptor. Overlapping absolute grants are ambiguous and fail, while a
+root-ID path explicitly chooses its grant. Disabling a root affects new work;
+cancel accepted work to stop its captured reads. The owner chooses paths
+explicitly; no client-supplied HOME value establishes an account root.
+
+Pinned `backend/quicktools.go` lines137–245 and `readonly.go` lines57–108 define
+the retained vault/config/data reads and secret markers. Markers are checked on
+both supplied and full physical names, so root-ID aliases cannot hide
+`.config/prowl-agent`, keys, tokens, credentials or the other retained protected
+names. This Rust port stores provider secrets in its private Store rather than
+the upstream port-only configuration. Its held Store device/inode is therefore
+excluded at enrollment and every walked component, including renamed or bind
+aliases. Model-selected filenames cannot authorize Store access.
+
+Descriptor-relative `openat2` refuses traversal, symlinks, magic links and mount
+crossings. Regular files require one link and safe ownership/modes. `O_PATH`
+metadata validation proves a regular file/directory before data-open through that
+held kernel descriptor, preventing a path race from opening a device/FIFO.
+Only the trusted numeric descriptor is reopened through verified procfs; no
+model-selected proc path is followed. File identity, size, timestamp, mode and
+link count are rechecked around reads. Directory changes fail instead of
+returning a mixed listing. Secret, unsafe and protected listing entries are
+omitted with an explicit omitted count.
+
+Text reads return at most32KiB with truncation labeled; NUL-bearing binary data
+is refused. Directory scans cap at4096 entries and return at most200 sorted
+names with truncation/omission labels. Cancellation/deadline checks surround the
+bounded file read and each directory iteration; these are cooperative checks
+around kernel filesystem operations. Intermediate read results remain ephemeral;
+only a successful final assistant answer and aggregate usage are persisted.
+No write, filesystem repair, permission change, enrollment download or external
+process is performed by these file tools.
+
+Deterministic actual gateway tests exercise allowed list/read results, private
+Store and renamed aliases, secret names, symlinks/hardlinks, replaced enrollment,
+owner/browser disclosure, scoped denial, restart/disable, independent system-tool
+permission, Fix isolation and cancellation. A separate explicitly executed
+user/mount-namespace proof binds the Store below an enrolled root: direct alias
+enrollment and nested mount crossing both fail. Portable CI keeps that
+capability-dependent test distinct from its default suite.
+
+This explicit enrollment path restores functional read/list workflows. Native
+NSS/default vault/config/data discovery and complete protected enrollment/writer
+recovery still depend on the stable shared native contract; no #25 files are
+changed here. Source search, public-web fetch, tool activity/escalation and full
+ACP/harness/native/package/VM acceptance remain required follow-ups.

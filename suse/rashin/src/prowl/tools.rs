@@ -1,6 +1,6 @@
 //! Retained fast lane: at most four tool rounds, then one no-tools answer round.
 //! One deadline covers all HTTP requests and fixed native probes.
-use super::{Connection, completion, system_query, tool_calls};
+use super::{Connection, completion, read_roots, system_query, tool_calls};
 use crate::{
     Error, Result,
     provider::{Completion, Message},
@@ -10,10 +10,34 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
 };
-fn schema() -> Value {
-    json!([{"type":"function","function":{"name":"system_query","description":"Read native system state. Enabled by the owner; results may be sent to the configured gateway/provider.","parameters":{"type":"object","additionalProperties":false,"properties":{"topic":{"type":"string","enum":["packages","updates","service","processes","disk","kernel","gpu","network"]},"arg":{"type":"string","description":"Optional installed package capability or user service name"}},"required":["topic"]}}}])
+#[derive(Default)]
+pub(crate) struct Context {
+    pub system_queries: bool,
+    pub roots: Vec<read_roots::Captured>,
+}
+impl Context {
+    pub fn enabled(&self) -> bool {
+        self.system_queries || !self.roots.is_empty()
+    }
+}
+fn schema(context: &Context) -> Value {
+    let mut tools = Vec::new();
+    if context.system_queries {
+        tools.extend(json!([{"type":"function","function":{"name":"system_query","description":"Read native system state. Enabled by the owner; results may be sent to the configured gateway/provider.","parameters":{"type":"object","additionalProperties":false,"properties":{"topic":{"type":"string","enum":["packages","updates","service","processes","disk","kernel","gpu","network"]},"arg":{"type":"string","description":"Optional installed package capability or user service name"}},"required":["topic"]}}}]).as_array().expect("fixed tool schema").clone());
+    }
+    if !context.roots.is_empty() {
+        let roots = context.roots.iter().map(|root| root.describe()).collect::<Vec<_>>();
+        for (name, description) in [
+            ("read_file", "Read a text file, at most32KiB"),
+            ("list_dir", "List at most200 directory entries"),
+        ] {
+            tools.push(json!({"type":"function","function":{"name":name,"description":format!("{description}. Only these owner-enrolled roots are authorized: {roots:?}. Use an absolute path or ROOT_ID:/relative/path. No symlink,secret or credential Store reads."),"parameters":{"type":"object","additionalProperties":false,"properties":{"path":{"type":"string"}},"required":["path"]}}}));
+        }
+    }
+    Value::Array(tools)
 }
 struct RoundOptions {
+    schema: Value,
     streaming: bool,
     tools: bool,
     deadline: Instant,
@@ -26,13 +50,13 @@ fn round(
     cancelled: &AtomicBool,
     emit: &mut impl FnMut(&str) -> Result<()>,
 ) -> Result<tool_calls::Round> {
-    let RoundOptions { streaming, tools, deadline } = options;
+    let RoundOptions { streaming, tools, deadline, schema } = options;
     let mut payload = json!({"model":model,"messages":messages,"stream":streaming});
     if streaming {
         payload["stream_options"] = json!({"include_usage":true});
     }
     if tools {
-        payload["tools"] = schema();
+        payload["tools"] = schema;
     }
     let payload = serde_json::to_vec(&payload).map_err(|_| Error::InvalidRequest)?;
     if payload.len() > crate::api::MAX_REQUEST_BYTES {
@@ -63,6 +87,7 @@ pub(super) fn complete(
     messages: &[Message],
     streaming: bool,
     cancelled: &AtomicBool,
+    context: &Context,
     emit: &mut impl FnMut(&str) -> Result<()>,
 ) -> Result<Completion> {
     let deadline = Instant::now() + Duration::from_secs(45);
@@ -85,7 +110,7 @@ pub(super) fn complete(
             connection,
             model,
             &messages,
-            RoundOptions { streaming, tools: index < 4, deadline },
+            RoundOptions { streaming, tools: index < 4, deadline, schema: schema(context) },
             cancelled,
             emit,
         )?;
@@ -105,9 +130,23 @@ pub(super) fn complete(
             if cancelled.load(Ordering::Acquire) {
                 return Err(Error::Cancelled);
             }
-            let result = if call.function.name == "system_query" {
+            let result = if call.function.name == "system_query" && context.system_queries {
                 match system_query::execute(&call.function.arguments, cancelled, deadline) {
                     Ok(value) => value,
+                    Err(Error::Cancelled) => return Err(Error::Cancelled),
+                    Err(error) => json!({"error":format!("{error}")}).to_string(),
+                }
+            } else if matches!(call.function.name.as_str(), "read_file" | "list_dir")
+                && !context.roots.is_empty()
+            {
+                match read_roots::execute(
+                    &context.roots,
+                    &call.function.name,
+                    &call.function.arguments,
+                    cancelled,
+                    deadline,
+                ) {
+                    Ok(value) => value.to_string(),
                     Err(Error::Cancelled) => return Err(Error::Cancelled),
                     Err(error) => json!({"error":format!("{error}")}).to_string(),
                 }

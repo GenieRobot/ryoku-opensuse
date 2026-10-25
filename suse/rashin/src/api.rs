@@ -21,6 +21,18 @@ pub enum Request {
         models: Vec<String>,
         streaming: bool,
     },
+    ReadRoots {
+        provider: String,
+    },
+    EnrollReadRoot {
+        provider: String,
+        id: String,
+        path: String,
+    },
+    DisableReadRoot {
+        provider: String,
+        id: String,
+    },
     SetReadOnlyTools {
         provider: String,
         enabled: bool,

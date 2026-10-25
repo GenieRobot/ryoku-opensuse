@@ -6,9 +6,11 @@ use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 mod completion;
+pub(crate) mod read_roots;
 mod system_query;
 mod tool_calls;
 mod tools;
+pub(crate) use tools::Context as ReadTools;
 mod transport;
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -248,10 +250,11 @@ impl Connection {
         messages: &[crate::provider::Message],
         streaming: bool,
         cancelled: &std::sync::atomic::AtomicBool,
+        context: &ReadTools,
         emit: &mut impl FnMut(&str) -> Result<()>,
     ) -> Result<crate::provider::Completion> {
         self.validate()?;
-        tools::complete(self, model, messages, streaming, cancelled, emit)
+        tools::complete(self, model, messages, streaming, cancelled, context, emit)
     }
     pub(crate) fn models(&self, cancelled: &std::sync::atomic::AtomicBool) -> Result<Vec<String>> {
         self.validate()?;

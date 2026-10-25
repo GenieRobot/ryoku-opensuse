@@ -320,12 +320,13 @@ impl Provider {
         model: &str,
         messages: &[Message],
         cancelled: &AtomicBool,
+        context: &crate::prowl::ReadTools,
         emit: &mut impl FnMut(&str) -> Result<()>,
     ) -> Result<Completion> {
         match self {
             Self::ProwlResolved { port, token, streaming, .. } => {
                 crate::prowl::Connection { port: *port, token: token.clone() }
-                    .complete_with_tools(model, messages, *streaming, cancelled, emit)
+                    .complete_with_tools(model, messages, *streaming, cancelled, context, emit)
             }
             _ => Err(Error::InvalidRequest),
         }

@@ -178,6 +178,24 @@ pub(super) fn submit(engine: &Arc<Engine>, body: &[u8]) -> Result<String> {
                 .dispatch(Request::DisableUsageSource { tool: tool(value(&fields, "tool")?)? })?;
             Ok("/usage".into())
         }
+        "enroll_read_root" => {
+            if fields.get("confirm").map(String::as_str) != Some("yes") {
+                return Err(Error::InvalidRequest);
+            }
+            engine.dispatch(Request::EnrollReadRoot {
+                provider: value(&fields, "provider")?.into(),
+                id: value(&fields, "root_id")?.into(),
+                path: value(&fields, "path")?.into(),
+            })?;
+            Ok("/console".into())
+        }
+        "disable_read_root" => {
+            engine.dispatch(Request::DisableReadRoot {
+                provider: value(&fields, "provider")?.into(),
+                id: value(&fields, "root_id")?.into(),
+            })?;
+            Ok("/console".into())
+        }
         "set_read_only_tools" => {
             engine.dispatch(Request::SetReadOnlyTools {
                 provider: value(&fields, "provider")?.into(),
@@ -419,6 +437,24 @@ pub(super) fn home(engine: &Arc<Engine>) -> Result<String> {
                 "<p>Gateway connection configured: {}. <a href=\"/prowl\">Manage private gateway connection</a></p>",
                 provider["available"]
             );
+            let roots = engine.dispatch(Request::ReadRoots { provider: id.into() })?;
+            body += "<h4>Enrolled file read roots</h4>";
+            for root in roots["roots"].as_array().ok_or(Error::Integrity)? {
+                let root_id = root["id"].as_str().ok_or(Error::Integrity)?;
+                body += &format!(
+                    "<p>{}: {} · available {}</p>",
+                    escape(root_id),
+                    escape(root["path"].as_str().ok_or(Error::Integrity)?),
+                    root["available"]
+                );
+                body += &begin("disable_read_root");
+                body += &hidden("provider", id);
+                body += &hidden("root_id", root_id);
+                body += "<button>Disable file root</button></form>";
+            }
+            body += &begin("enroll_read_root");
+            body += &hidden("provider", id);
+            body += "<label>Root ID<input name=\"root_id\" required maxlength=\"64\"></label><label>Absolute directory<input name=\"path\" required maxlength=\"4096\"></label><label><input name=\"confirm\" type=\"checkbox\" value=\"yes\" required>Allow this gateway and its configured provider to read/list ordinary text files in this directory. Secret and credential Store paths remain blocked.</label><button>Enroll file root</button></form>";
             body += &begin("set_read_only_tools");
             body += &hidden("provider", id);
             body += &format!(
