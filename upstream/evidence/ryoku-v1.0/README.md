@@ -208,3 +208,10 @@ distinguishes retained app/VM/remote/palette/Redux/device features from current
 selection and required native typed authorization/capture, including custom
 renderer execution and the current-not-installed DNS basename-policy gap.
 No application, helper, device, model, remote endpoint or installer is run.
+
+`cava-upower-providers.json` binds two retained command/system-bus dependencies
+to exact raw signed-primary records and selected source/QS archive evidence.
+The [runtime-provider review](../../../docs/ryoku-v1.0-runtime-providers.md)
+explains the cava/upower Requires and preserves the unresolved PowerProfiles
+service choice and protected wiring under its owners. Native package/import/
+ELF/service acceptance and full feature-owner work remain open.

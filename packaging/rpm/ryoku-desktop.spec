@@ -66,6 +66,10 @@ Requires:       ffmpeg
 # WaveCapture starts these commands with QProcess; ELF scanning cannot find them.
 Requires:       pulseaudio-utils
 Requires:       pipewire-tools
+# CavaFeed starts cava and the retained UPower clients use the system bus;
+# neither provider can be inferred from the native module's ELF dependencies.
+Requires:       cava
+Requires:       upower
 Requires:       kf6-syntax-highlighting-imports = 6.31.0
 Requires:       google-noto-sans-cjk-fonts
 Requires:       systemd

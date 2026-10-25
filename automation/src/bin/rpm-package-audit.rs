@@ -165,6 +165,17 @@ fn wavecapture_requires(requires: &str) -> Result<()> {
     Ok(())
 }
 
+fn retained_runtime_requires(requires: &str) -> Result<()> {
+    wavecapture_requires(requires)?;
+    for package in ["cava", "upower"] {
+        require(
+            requires.lines().any(|line| line.split_whitespace().next() == Some(package)),
+            &format!("runtime omits retained command/system-bus provider: {package}"),
+        )?;
+    }
+    Ok(())
+}
+
 fn run() -> Result<()> {
     let arguments: Vec<_> = std::env::args_os().skip(1).collect();
     require(
@@ -215,7 +226,7 @@ fn run() -> Result<()> {
         .flat_map(|(_, value)| value.lines().map(str::to_owned))
         .collect();
     qml_imports(&evidence["ryoku-desktop-runtime-requires.txt"], &provides)?;
-    wavecapture_requires(&evidence["ryoku-desktop-runtime-requires.txt"])?;
+    retained_runtime_requires(&evidence["ryoku-desktop-runtime-requires.txt"])?;
     fs::create_dir(&output)?;
     for (name, bytes) in evidence {
         fs::write(output.join(name), bytes)?;
@@ -499,6 +510,80 @@ mod tests {
     }
 
     #[test]
+    fn retained_cava_upower_consumers_require_exact_signed_package_names() {
+        use sha2::{Digest, Sha256};
+
+        let complete = "pulseaudio-utils\npipewire-tools\ncava\nupower\n";
+        assert!(retained_runtime_requires(complete).is_ok());
+        for package in ["cava", "upower"] {
+            let missing = complete.replace(&format!("{package}\n"), "");
+            assert!(retained_runtime_requires(&missing).is_err());
+            assert!(retained_runtime_requires(&format!("{missing}{package}-devel\n")).is_err());
+        }
+        let evidence: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/cava-upower-providers.json"
+        ))
+        .unwrap();
+        let packages = evidence["packages"].as_array().unwrap();
+        assert_eq!(packages.len(), 2);
+        for (name, binary) in [("cava", "/usr/bin/cava"), ("upower", "/usr/bin/upower")] {
+            let package = packages.iter().find(|package| package["name"] == name).unwrap();
+            assert!(package["files"].as_array().unwrap().iter().any(|file| file == binary));
+            let xml = package["raw_primary_xml"].as_str().unwrap();
+            assert!(xml.contains(&format!("<name>{name}</name>")));
+            assert!(xml.contains(&format!("<file>{binary}</file>")));
+            assert_eq!(
+                format!("{:x}", Sha256::digest(xml.as_bytes())),
+                package["raw_primary_sha256"]
+            );
+        }
+        let writer =
+            include_str!("../../../upstream/evidence/ryoku-v1.0/writer-source-manifest.tsv");
+        let runtime_sources =
+            include_str!("../../../upstream/evidence/ryoku-v1.0/runtime-source-manifest.tsv");
+        for source in evidence["source_consumers"].as_array().unwrap() {
+            let in_writer = source["source3_selected"].as_bool().unwrap();
+            let payload = source["source2_payload"].as_str();
+            assert!(in_writer || payload.is_some());
+            if in_writer {
+                let prefix = format!(
+                    "{}\t{}\t",
+                    source["source"].as_str().unwrap(),
+                    source["git_blob"].as_str().unwrap()
+                );
+                assert!(writer.lines().any(|line| line.starts_with(&prefix)));
+            }
+            if let Some(payload) = payload {
+                let prefix = format!(
+                    "{payload}\t{}\t{}\t",
+                    source["source"].as_str().unwrap(),
+                    source["git_blob"].as_str().unwrap()
+                );
+                assert!(runtime_sources.lines().any(|line| line.starts_with(&prefix)));
+            }
+        }
+        let quickshell: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/quickshell-systemtray-source.json"
+        ))
+        .unwrap();
+        assert_eq!(evidence["quickshell"]["archive_sha256"], quickshell["archive_sha256"]);
+        assert_eq!(evidence["quickshell"]["module"], "Quickshell.Services.UPower");
+        let spec = include_str!("../../../packaging/rpm/ryoku-desktop.spec");
+        let runtime = spec.split_once("%package runtime\n").unwrap().1;
+        let runtime = runtime.split_once("%description runtime\n").unwrap().0;
+        let requires: String = runtime
+            .lines()
+            .filter_map(|line| line.strip_prefix("Requires:"))
+            .map(|line| format!("{}\n", line.trim()))
+            .collect();
+        assert!(retained_runtime_requires(&requires).is_ok());
+        assert!(!requires.lines().any(|line| {
+            matches!(line.split_whitespace().next(), Some("power-profiles-daemon" | "ppd-service"))
+        }));
+        assert_eq!(evidence["power_profile_choice"]["spec_requirement_added"], false);
+    }
+
+    #[test]
     fn qml_metadata_rejects_silent_scanner_failure_and_missing_internal_providers() {
         let required = "qt6qmlimport(QtQuick)\nqt6qmlimport(QtMultimedia)\nqt6qmlimport(Quickshell)\nqt6qmlimport(Ryoku.Ui.Singletons)\n";
         let mut provided = BTreeSet::from(["qt6qmlimport(Quickshell)".into()]);
@@ -578,7 +663,7 @@ mod tests {
             .output()
             .unwrap();
         assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
-        assert!(wavecapture_requires(&String::from_utf8(output.stdout).unwrap()).is_ok());
+        assert!(retained_runtime_requires(&String::from_utf8(output.stdout).unwrap()).is_ok());
     }
 
     #[test]
