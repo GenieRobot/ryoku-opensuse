@@ -134,6 +134,17 @@ stale stopped processes retain the existing refusal. Ordinary apply/audio/manual
 assignment grants no resume: registered players remain ptrace-held during the
 actor call, then receive a real pidfd STOP before detach. A subsequent capture
 recognizes the same stop without losing the user's playback choice.
+Successful release now also requires observing every thread in that exact
+untraced player group in real `T` state (or pidfd-proven process death).
+Queued STOP and transient running states are not completion. Identity ambiguity
+returns a bounded failure; only successfully admitted pins and unsuccessful
+detach entries remain owned by the dedicated retry guardian. Rejected stale
+registrations never enter that handoff or block construction cleanup. Only the
+existing exact authorized player set can receive CONT.
+The [group-stop receipt](../infra/tumbleweed-lab/evidence/issue25-detach-group-stop-20261025.toml)
+preserves the hosted immediate-state failure, deterministic pending-state test
+and real capture/detach/re-capture regressions; no native-player acceptance is
+inferred.
 
 The native manual handler validates its owned `os.Process` identities and start
 set before signalling; it never uses raw negative/reusable process-group PIDs.

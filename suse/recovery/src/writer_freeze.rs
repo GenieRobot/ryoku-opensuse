@@ -42,6 +42,11 @@ enum Request {
         reply: SyncSender<Result<()>>,
     },
     Release(SyncSender<Result<()>>),
+    #[cfg(test)]
+    FailStopConfirmation {
+        armed: SyncSender<()>,
+        completed: SyncSender<()>,
+    },
 }
 
 /// Constructed by the fixed native broker, never decoded from a UI request.
@@ -155,6 +160,11 @@ impl PreservedPlayerStop {
         Ok(pin)
     }
     fn matches(&self, tracer: i32) -> Result<bool> {
+        self.matches_state(tracer, true)
+    }
+    // Relax only the observation used to send STOP to this already-pinned
+    // process after detach. This never admits a writer or authorizes CONT.
+    fn matches_state(&self, tracer: i32, require_stopped: bool) -> Result<bool> {
         if process_dead(&self.process)? {
             return Ok(false);
         }
@@ -170,9 +180,56 @@ impl PreservedPlayerStop {
             && task.start == self.start
             && task.uids == [self.uid; 4]
             && task.tracer == tracer
-            && matches!(task.state, 'T' | 't')
+            && (!require_stopped || matches!(task.state, 'T' | 't'))
             && self.executable.matches(self.pid)?)
     }
+
+    fn confirm_detached_stop(&self) -> Result<()> {
+        let deadline = Instant::now() + TIMEOUT;
+        loop {
+            if process_dead(&self.process)? {
+                return Ok(());
+            }
+            if !self.matches_state(0, false)? {
+                return Err(Error::WriterUnavailable);
+            }
+            let mut tasks = Vec::new();
+            for entry in std::fs::read_dir(format!("/proc/{}/task", self.pid))? {
+                let tid: i32 = entry?
+                    .file_name()
+                    .to_str()
+                    .ok_or(Error::WriterUnavailable)?
+                    .parse()
+                    .map_err(|_| Error::WriterUnavailable)?;
+                tasks.push(read_task(tid)?.ok_or(Error::WriterUnavailable)?);
+            }
+            if detached_group_stopped(&tasks, self.pid, self.uid)? {
+                // Revalidate the same pin after the complete group scan.
+                if !self.matches(0)? {
+                    return Err(Error::WriterUnavailable);
+                }
+                return Ok(());
+            }
+            if Instant::now() >= deadline {
+                return Err(Error::WriterUnavailable);
+            }
+            thread::sleep(Duration::from_millis(2));
+        }
+    }
+}
+
+fn detached_group_stopped(tasks: &[Task], pid: i32, uid: u32) -> Result<bool> {
+    if tasks.is_empty() || !tasks.iter().any(|task| task.tid == pid) {
+        return Err(Error::WriterUnavailable);
+    }
+    for task in tasks {
+        if task.tgid != pid || task.uids != [uid; 4] || task.tracer != 0 {
+            return Err(Error::WriterUnavailable);
+        }
+    }
+    // R/S/D can describe a pending group-stop, never its completion. Every
+    // thread must be in a real untraced T stop before release can succeed.
+    Ok(tasks.iter().all(|task| task.state == 'T'))
 }
 
 /// Preserve only already-stopped, exact installed native-player descendants.
@@ -331,6 +388,11 @@ impl WriterFreeze {
                             };
                             let _ = reply.send(result);
                         }
+                        #[cfg(test)]
+                        Request::FailStopConfirmation { armed, completed } => {
+                            owner.stop_confirmation_fault = Some((true, completed));
+                            let _ = armed.send(());
+                        }
                         Request::Release(reply) => {
                             let stopped = if poisoned {
                                 owner.abort_actor()
@@ -365,6 +427,15 @@ impl WriterFreeze {
                     while owner.abort_actor().is_err() {
                         thread::sleep(Duration::from_millis(20));
                     }
+                }
+                // The public release already returned its bounded failure.
+                // Keep admitted registrations in this dedicated guardian;
+                // rejected construction never enters this handoff.
+                while owner.stops_admitted
+                    && !owner.preserved_stops.is_empty()
+                    && owner.detach().is_err()
+                {
+                    thread::sleep(Duration::from_millis(20));
                 }
             })?;
         match received.recv_timeout(TIMEOUT + Duration::from_secs(1)) {
@@ -476,6 +547,9 @@ struct TraceOwner {
     actor_processes: BTreeMap<i32, File>,
     cleanup_required: bool,
     preserved_stops: BTreeMap<i32, PreservedPlayerStop>,
+    stops_admitted: bool,
+    #[cfg(test)]
+    stop_confirmation_fault: Option<(bool, SyncSender<()>)>,
     playback: Option<(i32, PlaybackExecution)>,
     resumed_players: std::collections::BTreeSet<i32>,
 }
@@ -540,6 +614,9 @@ impl TraceOwner {
             actor_processes: BTreeMap::new(),
             cleanup_required: false,
             preserved_stops: stops.into_iter().map(|stop| (stop.pid, stop)).collect(),
+            stops_admitted: false,
+            #[cfg(test)]
+            stop_confirmation_fault: None,
             playback: None,
             resumed_players: std::collections::BTreeSet::new(),
         };
@@ -600,6 +677,7 @@ impl TraceOwner {
                 })
             }) {
                 owner.check()?;
+                owner.stops_admitted = true;
                 return Ok(owner);
             }
             if Instant::now() >= deadline {
@@ -1011,9 +1089,9 @@ impl TraceOwner {
         }
         // Reassert a real kernel stop through the same process descriptor.
         // PTRACE_DETACH signal injection alone is not a group-stop guarantee.
-        for stop in self.preserved_stops.values() {
+        for stop in self.preserved_stops.values().filter(|_| self.stops_admitted) {
             if !process_dead(&stop.process)? {
-                if !stop.matches(self.tracer)? {
+                if !stop.matches(self.tracer)? && !stop.matches_state(0, false)? {
                     return Err(Error::WriterUnavailable);
                 }
                 if !self.resumed_players.contains(&stop.pid) {
@@ -1026,7 +1104,9 @@ impl TraceOwner {
             }
         }
         let mut failure = false;
-        for (tid, held) in std::mem::take(&mut self.tasks) {
+        let tids: Vec<_> = self.tasks.keys().copied().collect();
+        for tid in tids {
+            let held = &self.tasks[&tid];
             if let Err(error) = control(
                 libc::PTRACE_DETACH,
                 tid,
@@ -1034,10 +1114,28 @@ impl TraceOwner {
             ) && error.raw_os_error() != Some(libc::ESRCH)
             {
                 failure = true;
+            } else {
+                self.tasks.remove(&tid);
             }
         }
         if failure {
             return Err(Error::WriterUnavailable);
+        }
+        #[cfg(test)]
+        if let Some((fail_once, _)) = &mut self.stop_confirmation_fault
+            && *fail_once
+        {
+            *fail_once = false;
+            return Err(Error::WriterUnavailable);
+        }
+        for stop in self.preserved_stops.values().filter(|_| self.stops_admitted) {
+            if !self.resumed_players.contains(&stop.pid) {
+                stop.confirm_detached_stop()?;
+            }
+        }
+        #[cfg(test)]
+        if let Some((_, completed)) = self.stop_confirmation_fault.take() {
+            let _ = completed.send(());
         }
         for pid in &self.resumed_players {
             let stop = self.preserved_stops.get(pid).ok_or(Error::WriterUnavailable)?;
@@ -1295,6 +1393,27 @@ mod tests {
         process::{Child, Command},
         sync::atomic::{AtomicU64, Ordering},
     };
+
+    #[test]
+    fn detach_requires_observed_group_stop_not_a_pending_signal() {
+        let task =
+            |tid, state| Task { tid, tgid: 17, tracer: 0, state, start: 42, uids: vec![1000; 4] };
+        // Deterministically model asynchronous STOP completion after detach:
+        // neither a running leader nor a running remaining thread is success.
+        assert!(!detached_group_stopped(&[task(17, 'R'), task(18, 'T')], 17, 1000).unwrap());
+        assert!(!detached_group_stopped(&[task(17, 'T'), task(18, 'R')], 17, 1000).unwrap());
+        assert!(detached_group_stopped(&[task(17, 'T'), task(18, 'T')], 17, 1000).unwrap());
+        assert!(!detached_group_stopped(&[task(17, 't')], 17, 1000).unwrap());
+        assert!(detached_group_stopped(&[], 17, 1000).is_err());
+        assert!(detached_group_stopped(&[task(18, 'T')], 17, 1000).is_err());
+        assert!(detached_group_stopped(&[task(17, 'T')], 17, 1001).is_err());
+        let mut wrong = task(17, 'T');
+        wrong.tracer = 7;
+        assert!(detached_group_stopped(&[wrong], 17, 1000).is_err());
+        let mut wrong = task(17, 'T');
+        wrong.tgid = 18;
+        assert!(detached_group_stopped(&[wrong], 17, 1000).is_err());
+    }
     #[test]
     fn unobserved_children_never_gain_actor_ownership_from_scan_or_retries() {
         let task = |tid, state, tracer| Task {
@@ -1662,7 +1781,11 @@ mod tests {
         let mut stale =
             PreservedPlayerStop::pin(actor_pid, player, uid, fixture_executable_pin()).unwrap();
         stale.start += 1;
+        let rejected_at = Instant::now();
         assert!(WriterFreeze::start_with_stops(target(), vec![stale]).is_err());
+        assert!(rejected_at.elapsed() < TIMEOUT, "rejected registration blocked cleanup");
+        assert_eq!(read_task(actor_pid).unwrap().unwrap().tracer, 0);
+        assert_eq!(read_task(player).unwrap().unwrap().state, 'T');
         assert!(
             PreservedPlayerStop::pin(
                 std::process::id() as i32,
@@ -1710,6 +1833,27 @@ mod tests {
             thread::sleep(Duration::from_millis(20));
             assert_eq!(counters(), before, "ordinary actor call resumed paused player");
         }
+        // A post-detach confirmation error returns a bounded failure while
+        // the admitted pin is handed to the dedicated guardian, not Drop.
+        let pin =
+            PreservedPlayerStop::pin(actor_pid, player, uid, fixture_executable_pin()).unwrap();
+        let mut guard = WriterFreeze::start_with_stops(target(), vec![pin]).unwrap();
+        let (armed, armed_reply) = mpsc::sync_channel(1);
+        let (completed, completion_reply) = mpsc::sync_channel(1);
+        guard
+            .sender
+            .as_ref()
+            .unwrap()
+            .send(Request::FailStopConfirmation { armed, completed })
+            .unwrap();
+        armed_reply.recv_timeout(TIMEOUT).unwrap();
+        let released_at = Instant::now();
+        assert!(guard.release().is_err());
+        assert!(released_at.elapsed() < TIMEOUT, "release blocked instead of handing off");
+        completion_reply.recv_timeout(TIMEOUT + Duration::from_secs(1)).unwrap();
+        assert_eq!(read_task(player).unwrap().unwrap().state, 'T');
+        assert_eq!(read_task(actor_pid).unwrap().unwrap().tracer, 0);
+        assert_eq!(counters(), before, "confirmation error resumed a preserved player");
         let identity = crate::wallpaper_protocol::ActorIdentity {
             pid: player as u32,
             start_time: read_task(player).unwrap().unwrap().start,
@@ -1734,6 +1878,10 @@ mod tests {
         assert!(guard.playback_disposition(vec![identity.clone()], false).is_err());
         guard.release().unwrap();
         assert_eq!(read_task(player).unwrap().unwrap().state, 'T');
+        for thread in std::fs::read_dir(format!("/proc/{player}/task")).unwrap() {
+            let tid = thread.unwrap().file_name().to_str().unwrap().parse().unwrap();
+            assert_eq!(read_task(tid).unwrap().unwrap().state, 'T');
+        }
         assert_eq!(counters(), before);
 
         let pin =

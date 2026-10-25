@@ -1,0 +1,73 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+branch_parent = "5c5191a16affe53ba2227f4ebaed8034e17abd00"
+scope = "Observe completion of exact preserved-player group stop before successful detach release"
+native_acceptance = false
+native_build = false
+package_build = false
+vm_access = false
+qmp_access = false
+downloads = false
+
+[failure]
+run = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40194618450"
+job = 121172673388
+test = "writer_freeze::tests::preserved_player_stop_survives_actor_call_detach_and_recapture"
+recovery_passed = 244
+recovery_failed = 1
+recovery_existing_ignored = 6
+lab_passed = 92
+observed = "Nested writer_freeze.rs:1736 immediate post-release state assertion saw R rather than T; outer1626 status assertion failed"
+cause = "Detach queued pidfd STOP and detached traced threads, but returned success without observing the asynchronous completed group-stop"
+initial_local_repeats = "Five exact pre-correction outer repetitions passed; this did not erase the hosted failure or prove immediate stop completion"
+preservation = "Original hosted job remains available under the exact failed commit/run; no failed run relabeled"
+
+[correction]
+admission = "Existing strict preserved-player admission still requires exact actor/player UID/start/executable/pidfd and stopped state; no unobserved writer gains ownership"
+stop_only_retry = "After partial detach, only the same still-valid pinned actor/player identity may receive another pidfd STOP; relaxed state observation is used only for stopping an already-pinned process, never admission or CONT authorization"
+completion = "Before success, require exact pin to be untraced and every current thread in its group to have correct TGID/UID/tracer0 and real T state; revalidate leader pin after group scan, or accept pidfd-proven death"
+pending = "R/S/D and ptrace t do not constitute completed real group-stop; bounded polling never returns success for them"
+ambiguity = "Each confirmation attempt has5s bound and returns failure on ambiguity. Public release returns bounded failure without joining guardian; only successfully admitted pins and failed detach entries remain in dedicated background retry. Drop has no new unbounded retry loop. Never silently discard admitted ambiguous release state"
+rejected_construction = "Mark stops admitted only after full frozen-target/check validation; failed construction detaches acquired tasks but never signals/confirms/retries rejected stop registrations"
+resume = "No new CONT path or player set; existing separately authorized exact resumed_players remains the only resume permission"
+
+[checks]
+deterministic = "writer_freeze::tests::detach_requires_observed_group_stop_not_a_pending_signal"
+matrix = "LeaderR/threadT and leaderT/threadR are pending false; allT succeeds; t is false; missing leader/empty/wrongTGID/wrongUID/wrongtracer error"
+kernel = "writer_freeze::tests::preserved_player_stop_survives_actor_call_detach_and_recapture"
+kernel_assertions = "Existing stale/unauthorized/SIGCONT/counter/capture/refreeze/re-capture behavior retained; immediate T for every player thread after release; rejected stale construction returns within TIMEOUT with actor untraced/player T; test-only post-detach confirmation fault returns bounded error and completion channel proves admitted guardian retry without counter progress"
+repetitions = 5
+selected_passed_each = 1
+failed_each = 0
+other_library_tests_filtered_each = 251
+fault_injection = "Private cfg(test)-only request arms one post-detach confirmation failure after actual detaches and observes retry completion; no production request/wire/authorization route added"
+workspace = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo test --workspace --all-features --offline --locked"
+workspace_passed = true
+recovery_passed = 246
+recovery_existing_ignored = 6
+service_passed = 140
+service_existing_ignored = 1
+vm_lab_passed = 92
+clippy = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo clippy --workspace --all-targets --all-features --offline --locked -- -D warnings"
+clippy_passed = true
+format = "cargo fmt --all --check"
+whitespace = "git diff --check"
+fixture_limits = "Only existing temporary owned Rust process/ptrace/pidfd/socket fixtures; no real C player, native session, installed file, guest or QMP endpoint"
+
+[interim_failure]
+scope = "Uncommitted local development run; not a passing final result"
+observed = "Retrying every registration from Drop stalled on the deliberately stale/unadmitted stop case; actor remained ptrace-stopped and player remained group-stopped"
+correction = "Explicit admission state and bounded release/guardian handoff above; preserve original stale-admission assertion and add completion/error timing checks"
+cleanup = "Stopped that failed test via only its exact pidfd-pinned disposable writer after current UID/image/fixed test-role verification; original stalled/failure log retained privately"
+
+[storage_privacy]
+paths = "Existing target/Cargo/Rustup are /dev/sdd; temporary fixtures/logs on /tmp tmpfs, no duplicate target, no C path selected for artifacts"
+guard = "C remains below10GiB native guard; no native/package/VM phase started; exact mounted-path checks precede approved local offline Rust verification"
+logs = "Raw logs remain private outside public repository; fixed test names/commands/outcomes published, no account/host/temp paths or credentials"
+
+[remaining]
+issue_open = true
+pr_draft = true
+native = "Exact combined #173 source/package and fresh storage/builder clearance before sequential offline BuildRequires keeper/session builds; native login/reboot/KDE/player/workflow/device acceptance still open"
+owners = "#175 library/provider and #176 real typed theme/automatic accounting remain separate required parity gates"
