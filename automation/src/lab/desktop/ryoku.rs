@@ -634,6 +634,14 @@ mod tests {
 
     #[test]
     fn fallback_detects_owned_actor_after_its_running_image_is_unlinked() {
+        const READY: &str = "RYOKU_ISSUE25_TEST_ACTOR_READY";
+        if let Some(ready) = std::env::var_os(READY) {
+            let mut marker =
+                fs::OpenOptions::new().write(true).create_new(true).open(ready).unwrap();
+            marker.write_all(b"ready\n").unwrap();
+            thread::sleep(Duration::from_secs(30));
+            return;
+        }
         struct Fixture {
             directory: PathBuf,
             child: Option<std::process::Child>,
@@ -652,12 +660,18 @@ mod tests {
         fs::create_dir(&directory).unwrap();
         let mut fixture = Fixture { directory, child: None };
         let image = fixture.directory.join("ryogami-live");
-        // An ordinary owned sleep process models only procfs identity. No
-        // native player/display, installed file or other account is touched.
-        fs::copy("/usr/bin/sleep", &image).unwrap();
+        // Use this known native Rust ELF, not a host utility which may be an
+        // interpreted or re-executing launcher. The exact child test emits
+        // readiness after exec and holds only its disposable process alive.
+        fs::copy(std::env::current_exe().unwrap(), &image).unwrap();
+        let mut header = [0; 4];
+        fs::File::open(&image).unwrap().read_exact(&mut header).unwrap();
+        assert_eq!(&header, b"\x7fELF");
+        let ready = fixture.directory.join("ready");
         fixture.child = Some(
             Command::new(&image)
-                .arg("30")
+                .args(["--exact", "desktop::ryoku::tests::fallback_detects_owned_actor_after_its_running_image_is_unlinked", "--nocapture"])
+                .env(READY, &ready)
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
@@ -667,6 +681,17 @@ mod tests {
         let pid = fixture.child.as_ref().unwrap().id();
         let proc = PathBuf::from(format!("/proc/{pid}"));
         let uid = rustix::process::getuid().as_raw();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !ready.exists() {
+            assert!(
+                fixture.child.as_mut().unwrap().try_wait().unwrap().is_none(),
+                "owned actor exited before readiness"
+            );
+            assert!(Instant::now() < deadline, "owned actor did not become ready");
+            thread::sleep(Duration::from_millis(1));
+        }
+        assert_eq!(fs::read(&ready).unwrap(), b"ready\n");
+        assert_eq!(fs::read_link(proc.join("exe")).unwrap(), fs::canonicalize(&image).unwrap());
         assert!(has_uid(&fs::read_to_string(proc.join("status")).unwrap(), uid));
         assert!(ryoku_process_image(&fs::read_link(proc.join("exe")).unwrap()));
         fs::remove_file(&image).unwrap();
