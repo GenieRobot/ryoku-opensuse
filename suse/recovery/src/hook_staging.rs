@@ -209,6 +209,9 @@ impl HookStage {
                 14 => "mount(HOME,MS_BIND|MS_REC)",
                 15 => "chdir(private HOME)",
                 16 => "sendmsg(private stage descriptor)",
+                17 => "open(O_WRONLY,/proc/self/setgroups)",
+                18 => "open(O_WRONLY,/proc/self/uid_map)",
+                19 => "open(O_WRONLY,/proc/self/gid_map)",
                 _ => "unknown namespace setup operation",
             }
         } else {
@@ -496,11 +499,11 @@ impl NamespacePlan {
                 return Err(self.failure(1, io::Error::last_os_error()));
             }
             write_control(c"/proc/self/setgroups", b"deny")
-                .map_err(|error| self.failure(2, error))?;
+                .map_err(|(opening, error)| self.failure(if opening { 17 } else { 2 }, error))?;
             write_control(c"/proc/self/uid_map", self.uid_map.as_bytes())
-                .map_err(|error| self.failure(3, error))?;
+                .map_err(|(opening, error)| self.failure(if opening { 18 } else { 3 }, error))?;
             write_control(c"/proc/self/gid_map", self.gid_map.as_bytes())
-                .map_err(|error| self.failure(4, error))?;
+                .map_err(|(opening, error)| self.failure(if opening { 19 } else { 4 }, error))?;
             if libc::unshare(libc::CLONE_NEWNS | libc::CLONE_NEWNET) != 0 {
                 return Err(self.failure(5, io::Error::last_os_error()));
             }
@@ -588,16 +591,16 @@ impl NamespacePlan {
         }
     }
 }
-unsafe fn write_control(path: &std::ffi::CStr, bytes: &[u8]) -> io::Result<()> {
+unsafe fn write_control(path: &std::ffi::CStr, bytes: &[u8]) -> Result<(), (bool, io::Error)> {
     // SAFETY: caller is the pre-exec child; path and bytes are valid prebuilt buffers.
     unsafe {
         let fd = libc::open(path.as_ptr(), libc::O_WRONLY | libc::O_CLOEXEC | libc::O_NOFOLLOW);
         if fd < 0 {
-            return Err(io::Error::last_os_error());
+            return Err((true, io::Error::last_os_error()));
         }
         let result = write_bytes(fd, bytes);
         libc::close(fd);
-        result
+        result.map_err(|error| (false, error))
     }
 }
 unsafe fn write_bytes(fd: i32, mut bytes: &[u8]) -> io::Result<()> {
