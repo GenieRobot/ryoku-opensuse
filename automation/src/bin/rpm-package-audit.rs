@@ -110,12 +110,26 @@ fn main() {
 }
 
 fn qml_imports(requires: &str, provides: &BTreeSet<String>) -> Result<()> {
-    for required in
-        ["qt6qmlimport(QtQuick)", "qt6qmlimport(QtMultimedia)", "qt6qmlimport(Quickshell)"]
-    {
+    // These selected v1.0 consumers must survive native RPM dependency scanning.
+    // An ELF SONAME or similarly named module cannot stand in for a QML import.
+    for module in [
+        "QtQuick",
+        "QtMultimedia",
+        "Quickshell",
+        "QtQuick3D",
+        "Qt.labs.platform",
+        "QtQuick.Controls.Material",
+        "QtQuick.Window",
+        "QtQuick.Dialogs",
+        "Quickshell.Services.SystemTray",
+        "Quickshell.Services.UPower",
+        "Ryoku.Blobs",
+        "Ryoku.Spatial3D",
+    ] {
+        let required = format!("qt6qmlimport({module})");
         require(
             requires.lines().any(|line| line == required),
-            "Qt6 import scanner output is absent or incomplete",
+            &format!("Qt6 import scanner output omits retained v1.0 module: {module}"),
         )?;
     }
     for line in requires.lines() {
@@ -584,17 +598,54 @@ mod tests {
     }
 
     #[test]
-    fn qml_metadata_rejects_silent_scanner_failure_and_missing_internal_providers() {
-        let required = "qt6qmlimport(QtQuick)\nqt6qmlimport(QtMultimedia)\nqt6qmlimport(Quickshell)\nqt6qmlimport(Ryoku.Ui.Singletons)\n";
-        let mut provided = BTreeSet::from(["qt6qmlimport(Quickshell)".into()]);
-        assert!(qml_imports("libQt6Qml.so.6()(64bit)\n", &provided).is_err());
-        assert!(qml_imports(required, &provided).is_err());
-        provided.insert("qt6qmlimport(Ryoku.Ui.Singletons)".into());
+    fn qml_metadata_requires_the_major_source_delta_and_exact_internal_providers() {
+        // This independent candidate fixture includes the new 1.0 imports,
+        // plus a pre-existing private singleton.
+        let required = "qt6qmlimport(QtQuick)\nqt6qmlimport(QtMultimedia)\nqt6qmlimport(Quickshell)\nqt6qmlimport(QtQuick3D)\nqt6qmlimport(Qt.labs.platform)\nqt6qmlimport(QtQuick.Controls.Material)\nqt6qmlimport(QtQuick.Window)\nqt6qmlimport(QtQuick.Dialogs)\nqt6qmlimport(Quickshell.Services.SystemTray)\nqt6qmlimport(Quickshell.Services.UPower)\nqt6qmlimport(Ryoku.Blobs)\nqt6qmlimport(Ryoku.Spatial3D)\nqt6qmlimport(Ryoku.Ui.Singletons)\n";
+        let provided: BTreeSet<String> = required
+            .lines()
+            .filter(|line| {
+                line.starts_with("qt6qmlimport(Quickshell")
+                    || line.starts_with("qt6qmlimport(Ryoku.")
+            })
+            .map(str::to_owned)
+            .collect();
         assert!(qml_imports(required, &provided).is_ok());
-        let tray = format!("{required}qt6qmlimport(Quickshell.Services.SystemTray)\n");
-        assert!(qml_imports(&tray, &provided).is_err());
-        provided.insert("qt6qmlimport(Quickshell.Services.SystemTray)".into());
-        assert!(qml_imports(&tray, &provided).is_ok());
+        assert!(qml_imports("libQt6Qml.so.6()(64bit)\n", &provided).is_err());
+        // Historical native success cannot satisfy the 1.0 import gate.
+        let historical = include_str!(
+            "../../../infra/tumbleweed-lab/evidence/issue23-native-20261021/runtime-manifests/ryoku-desktop-runtime-requires.txt"
+        );
+        assert!(qml_imports(historical, &provided).is_err());
+        let imports = include_str!("../../../upstream/evidence/ryoku-v1.0/qml-import-names.txt");
+        let scanner: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/qml-import-scanner.json"
+        ))
+        .unwrap();
+        for capability in required.lines().take(12) {
+            let module =
+                capability.strip_prefix("qt6qmlimport(").unwrap().strip_suffix(')').unwrap();
+            assert!(imports.lines().any(|name| name == module), "{module}");
+            assert!(scanner.as_array().unwrap().iter().any(|entry| entry["name"] == module));
+            let missing = required.replace(&format!("{capability}\n"), "");
+            assert!(qml_imports(&missing, &provided).is_err(), "{capability}");
+            for substitute in
+                [format!("{capability}.lookalike"), format!("lib{module}.so.6()(64bit)")]
+            {
+                assert!(qml_imports(&format!("{missing}{substitute}\n"), &provided).is_err());
+            }
+        }
+        for capability in &provided {
+            let mut missing = provided.clone();
+            missing.remove(capability);
+            assert!(qml_imports(required, &missing).is_err(), "{capability}");
+            missing.insert(format!("{capability}.lookalike"));
+            assert!(qml_imports(required, &missing).is_err(), "{capability}");
+        }
+        let mut wrong_abi = provided.clone();
+        wrong_abi.remove("qt6qmlimport(Ryoku.Spatial3D)");
+        wrong_abi.insert("qt6qmlimport(Ryoku.Spatial3D.2)".into());
+        assert!(qml_imports(required, &wrong_abi).is_err());
         assert!(
             qml_imports(&format!("{required}qt6qmlimport(shell.unknown)\n"), &provided).is_err()
         );

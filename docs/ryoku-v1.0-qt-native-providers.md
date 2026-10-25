@@ -90,3 +90,28 @@ builds, Ryogami image/video/tool tests, notices/license closure and fresh
 session/recovery acceptance remain open. #25/#175/#176 and other feature owners
 retain the complete experience; current package selection is not product scope
 reduction. No entire #173 checklist row is checked complete by this evidence.
+
+## Enforced candidate metadata gate
+
+The Rust `rpm-package-audit` now requires the generated runtime Requires to
+contain exact capabilities for QtQuick, QtMultimedia, Quickshell, QtQuick3D,
+Qt.labs.platform, QtQuick.Controls.Material, QtQuick.Window, QtQuick.Dialogs,
+Quickshell.Services.SystemTray, Quickshell.Services.UPower, Ryoku.Blobs and
+Ryoku.Spatial3D. The previous three-import check could accept metadata missing
+the 1.0 native/service imports. Every internal import must also have its exact
+provider in the candidate package set. The audit completes validation before
+publishing its evidence directory.
+
+Focused omission tests reject each missing required capability, SONAME and
+lookalike substitutes, missing internal providers, a wrong Spatial3D module
+name and unknown private imports. The expected names are checked against the
+pinned scanner output and selected import-name inventory. All ten ordinary
+audit tests and the explicit native spec-parser test pass using cached locked
+Rust dependencies; this does not rebuild an RPM or run a module.
+
+This tightens the acceptance gate without changing runtime features, payloads,
+spec dependencies or archives. The unversioned capability spellings follow the
+existing native generator contract and scanner module names. Generated v1.0 RPM
+metadata, versioned capability constraints, recursive signed-snapshot solver
+closure, plugin loading and native session/recovery tests remain required; a
+passing synthetic metadata test does not satisfy them.
