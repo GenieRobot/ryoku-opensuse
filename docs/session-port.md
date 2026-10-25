@@ -158,6 +158,23 @@ exclusive environment ownership claims despite `HYPRLAND_NO_SD_VARS=1`.
 
 ## Evidence and remaining acceptance
 
+The current combined candidate also needs two #25-owned native package builds:
+`ryoku-session` (declared NEVR `ryoku-session-0.1.0-3`) and its exact private
+`ryoku-session-clipboard-keeper-0.5.0-1` dependency. The keeper is pinned upstream
+Rust `wl-clip-persist` 0.5.0 with the recorded parser/I/O port; its independent
+version does not change the Ryoku 1.0 source identity. Both source/vendor
+archives are already cached and hash-verified in this worktree's ignored
+`target/issue25-native-packet/SOURCES`, so no network fetch is needed.
+The [native package prerequisite receipt](../infra/tumbleweed-lab/evidence/issue25-native-package-prerequisites-20261025.toml)
+records exact spec/archive/lock/patch hashes and declared NEVRs. No current
+keeper native RPM exists and no build/install is claimed. After #173 releases
+the shared builder and the coordinator rechecks storage, build the keeper
+(including its `%check`) and session sequentially, offline with BuildRequires
+enabled, using the exact combined Source0/vendor/lock for the session. Record
+actual native RPM/SRPM identities/signatures rather than relabeling historical
+session 0.1.0-1 artifacts. Install remains a separate approved combined-target
+phase; preserve the retained shared guest while #173 collects its evidence.
+
 The preserved [first SDDM receipt](../infra/tumbleweed-lab/evidence/issue25-native-sddm-first-pass.toml)
 and [reboot/KDE receipt](../infra/tumbleweed-lab/evidence/issue25-native-reboot-kde-fallback.toml)
 record historical manually staged source and artifact hashes. They establish

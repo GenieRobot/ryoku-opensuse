@@ -1,0 +1,59 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+source_commit = "5092d14c3b3f1aae4250b230b1f427476a2229ca"
+scope = "#25-owned session and private clipboard-keeper native build prerequisites; verified cached inputs only"
+native_build = false
+native_install = false
+native_acceptance = false
+vm_access = false
+qmp_access = false
+downloads = false
+
+[session]
+spec = "packaging/rpm/ryoku-session.spec"
+spec_sha256 = "9ad4335d1efa966b3b51aba65eca09688c5ea72a67a85d909b1933eb53eee03d"
+declared_nevr = "ryoku-session-0.1.0-3"
+parsed_epoch_evr = "0:0.1.0-3"
+arch = "x86_64"
+keeper_requires = "ryoku-session-clipboard-keeper = 0.5.0-1"
+source0 = "Must be generated from the exact clean combined #173/#25 port commit, not the historical cached session0.1.0-1 package"
+source1 = "Exact combined Cargo.lock/vendor closure; build offline with BuildRequires enabled"
+
+[keeper]
+spec = "packaging/rpm/ryoku-session-clipboard-keeper.spec"
+spec_sha256 = "b03e2efc185b0e69b1acf650c0bf5baaa7503d692ce0b6654daa82f3be56af8b"
+declared_nevr = "ryoku-session-clipboard-keeper-0.5.0-1"
+parsed_epoch_evr = "0:0.5.0-1"
+arch = "x86_64"
+upstream_revision = "e26fde01c13922e3a65049dafb7d5adfbc52626e"
+source_archive = "ryoku-session-clipboard-keeper-0.5.0.tar.xz"
+source_bytes = 33556
+source_sha256 = "e0fe47bc936c49bcc45e579225cbf2538f3dd387083e631622c744fc98cf0c21"
+vendor_archive = "ryoku-session-clipboard-vendor-0.5.0.tar.xz"
+vendor_bytes = 6548828
+vendor_sha256 = "72a89a10effa498bee1c51fa1f7e8da7b8b89009751bc81f8821ac8226c5ebb3"
+lock = "packaging/rpm/session/clipboard/Cargo.lock"
+lock_sha256 = "58e2cbd463fe1d01b238605b1c8dfd3648c736a5e711994b05f15399b49e5b3d"
+patch = "upstream/patches/issue25-clipboard-port.patch"
+patch_sha256 = "06e13504fc7c90a4ccc7c191e97a07ad069748a68b8a778c8df62c83f3ed0bbe"
+cached_native_rpm = false
+version_scope = "Pinned clipboard keeper is independently versioned0.5.0; full Ryoku remains Amaterasu1.0 at a59d051"
+
+[verification]
+metadata_command = "rpmspec --query --qf '%{NAME} %{EPOCHNUM}:%{VERSION}-%{RELEASE} %{ARCH}\\n' packaging/rpm/ryoku-session.spec packaging/rpm/ryoku-session-clipboard-keeper.spec"
+metadata_exit = 0
+spec_and_inputs = "SHA-256 verified against upstream/session-dependencies.toml and the two specs"
+cache_directory = "target/issue25-native-packet/SOURCES"
+cache_policy = "Two existing verified archives copied into this issue worktree's ignored build-input cache; specs remain tracked in the same worktree; no extraction, build or network"
+cached_archive_bytes = 6582384
+artifact_limit = "Declared host-parsed metadata only; actual native RPM/SRPM NEVRA/SHA/signatures, dependency resolution and installed payload remain unverified"
+executable_delta = "No code/spec/source change since fully green5092d14; only prerequisite receipt and session documentation added"
+
+[next_phase]
+owner = 25
+builder = "Reuse existing guarded Tumbleweed builder sequentially only after #173 frees it; no competing QMP, new VM or overlay"
+clearance = "Coordinator must confirm exact combined source tuple and fresh storage headroom before BuildRequires-enabled offline keeper then session builds"
+check = "Keeper spec executes locked offline workspace tests in %check"
+install = "Separate fresh combined-target guard/storage/install plan required; native ordinary login, retention/image/history/error, reboot and KDE usability still open"
+issue_open = true
