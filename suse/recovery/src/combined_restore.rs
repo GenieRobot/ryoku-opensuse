@@ -12,7 +12,8 @@ use crate::{
         ArtifactStatus, PreflightError, PreflightEvidence, RestoreScope,
         build_preference_subset_plan,
     },
-    ryogami_assets::{AssetError, AssetScope, MAX_CAPTURE_LIMITS},
+    ryogami_assets::{AssetError, AssetPath, AssetScope, MAX_CAPTURE_LIMITS},
+    tree_restore::{TreeRestoreIntent, TreeRestorePlan},
 };
 use std::{collections::BTreeSet, fs::File};
 
@@ -47,6 +48,16 @@ impl std::fmt::Display for CombinedError {
 }
 impl std::error::Error for CombinedError {}
 type Result<T> = std::result::Result<T, CombinedError>;
+fn is_under(path: &AssetPath, root: &AssetPath) -> bool {
+    root.namespace() == path.namespace()
+        && root.with_relative(path.relative().clone()).is_ok_and(|candidate| candidate == *path)
+        && (path == root
+            || path
+                .relative()
+                .as_str()
+                .strip_prefix(root.relative().as_str())
+                .is_some_and(|tail| tail.starts_with('/')))
+}
 
 /// All restore-generated file names are derived before the fresh checkpoint.
 /// No client-provided root, prepared plan or checkpoint evidence is accepted.
@@ -55,10 +66,40 @@ pub struct CombinedRestoreIntent {
     source_manifest: Sha256,
     account: AccountPrincipal,
     assets: Vec<FileRestoreIntent>,
+    trees: Vec<TreeRestoreIntent>,
     scope: AssetScope,
 }
 impl CombinedRestoreIntent {
     pub fn new(operation: Identifier, source: &VerifiedGeneration) -> Result<Self> {
+        Self::build(operation, source, |_, _| Err(CombinedError::UnsupportedAssetKind))
+    }
+    pub fn discover(
+        operation: Identifier,
+        source: &VerifiedGeneration,
+        home: &File,
+        account: &CaptureAccount,
+    ) -> Result<Self> {
+        Self::build(operation, source, |item, root| {
+            TreeRestoreIntent::new(item, source, root, home, account)
+                .map_err(CombinedError::Restore)
+        })
+    }
+    pub fn from_checkpoint(
+        operation: Identifier,
+        source: &VerifiedGeneration,
+        checkpoint: &VerifiedGeneration,
+        account: &CaptureAccount,
+    ) -> Result<Self> {
+        Self::build(operation, source, |item, root| {
+            TreeRestoreIntent::from_checkpoint(item, source, root, checkpoint, account)
+                .map_err(CombinedError::Restore)
+        })
+    }
+    fn build(
+        operation: Identifier,
+        source: &VerifiedGeneration,
+        mut tree: impl FnMut(Identifier, &AssetPath) -> Result<TreeRestoreIntent>,
+    ) -> Result<Self> {
         let manifest = source.manifest();
         let inventory = manifest.assets().ok_or(CombinedError::Binding)?;
         if manifest.root_snapshot_receipt().is_none()
@@ -73,7 +114,23 @@ impl CombinedRestoreIntent {
         let mut stages = BTreeSet::new();
         let mut paths = BTreeSet::new();
         let mut assets = Vec::new();
+        let mut trees = Vec::new();
+        let mut roots = Vec::new();
+        for (index, root) in inventory.trees().iter().enumerate() {
+            let item = Identifier::new(format!(
+                "tree-{}-{index}",
+                &crate::wallpaper_protocol::digest(operation.as_str().as_bytes())[..32]
+            ))
+            .map_err(|_| CombinedError::Binding)?;
+            let intent = tree(item, root)?;
+            paths.extend(intent.scope().paths().iter().cloned());
+            roots.extend(intent.scope().trees().iter().cloned());
+            trees.push(intent);
+        }
         for (index, entry) in inventory.entries().iter().enumerate() {
+            if inventory.trees().iter().any(|root| is_under(&entry.path, root)) {
+                continue;
+            }
             if !matches!(entry.kind, EntryKind::RegularFile { .. } | EntryKind::Absent) {
                 return Err(CombinedError::UnsupportedAssetKind);
             }
@@ -95,12 +152,14 @@ impl CombinedRestoreIntent {
             MAX_CAPTURE_LIMITS.max_file_bytes,
             MAX_CAPTURE_LIMITS.max_total_bytes,
         )
+        .and_then(|scope| scope.with_trees(roots))
         .map_err(CombinedError::Asset)?;
         Ok(Self {
             operation,
             source_manifest: manifest.manifest_sha256.clone().ok_or(CombinedError::Binding)?,
             account,
             assets,
+            trees,
             scope,
         })
     }
@@ -126,6 +185,7 @@ pub struct PreparedCombinedRestore {
     checkpoint_manifest: Sha256,
     preferences: StagedConfiguration,
     assets: Vec<FileRestorePlan>,
+    trees: Vec<TreeRestorePlan>,
 }
 impl PreparedCombinedRestore {
     pub fn prepare(
@@ -196,6 +256,20 @@ impl PreparedCombinedRestore {
                 .map_err(CombinedError::Restore)
             })
             .collect::<Result<Vec<_>>>()?;
+        let trees = intent
+            .trees
+            .iter()
+            .map(|tree| {
+                TreeRestorePlan::prepare(
+                    tree,
+                    request.source,
+                    request.checkpoint,
+                    request.home,
+                    request.account,
+                )
+                .map_err(CombinedError::Restore)
+            })
+            .collect::<Result<Vec<_>>>()?;
         Ok(Self {
             intent,
             checkpoint_manifest: checkpoint
@@ -204,6 +278,7 @@ impl PreparedCombinedRestore {
                 .ok_or(CombinedError::Binding)?,
             preferences,
             assets,
+            trees,
         })
     }
     pub fn operation(&self) -> &Identifier {
@@ -213,7 +288,7 @@ impl PreparedCombinedRestore {
         self.preferences.entries().len()
     }
     pub fn asset_entries(&self) -> usize {
-        self.assets.len()
+        self.assets.len() + self.trees.len()
     }
     pub fn source_manifest(&self) -> &Sha256 {
         &self.intent.source_manifest

@@ -26,6 +26,9 @@ struct CombinedFixture {
 }
 impl CombinedFixture {
     fn new() -> Self {
+        Self::with_tree(false)
+    }
+    fn with_tree(tree: bool) -> Self {
         let fixture = Fixture::new();
         let model = AssetPath::new(
             AssetNamespace::SemanticModels,
@@ -37,13 +40,41 @@ impl CombinedFixture {
         std::fs::create_dir_all(config.parent().unwrap()).unwrap();
         std::fs::write(&config, ORIGINAL).unwrap();
         std::fs::set_permissions(&config, std::fs::Permissions::from_mode(0o600)).unwrap();
-        let source = fixture.capture(1, std::slice::from_ref(&model));
+        let source = if tree {
+            let root = model.with_relative(RelativePath::new("fixture").unwrap()).unwrap();
+            fixture.write(&cover(), b"original cover");
+            let scope = crate::ryogami_trees::inspect_scope(
+                &fixture.home,
+                &fixture.account,
+                root,
+                vec![cover()],
+                MAX_CAPTURE_LIMITS.max_file_bytes,
+                MAX_CAPTURE_LIMITS.max_total_bytes,
+                || true,
+            )
+            .unwrap();
+            fixture.capture_scope(1, &scope)
+        } else {
+            fixture.capture(1, std::slice::from_ref(&model))
+        };
         fixture.write(&model, b"changed model");
+        if tree {
+            fixture.write(&cover(), b"changed cover");
+        }
         std::fs::write(&config, CURRENT).unwrap();
-        let intent =
-            CombinedRestoreIntent::new(Identifier::new("combined-operation").unwrap(), &source)
-                .unwrap();
-        let checkpoint = fixture.capture_named(2, intent.scope().paths(), "combined-operation");
+        let intent = CombinedRestoreIntent::discover(
+            Identifier::new("combined-operation").unwrap(),
+            &source,
+            &fixture.home,
+            &fixture.account,
+        )
+        .unwrap();
+        let checkpoint = fixture.publish_assets(
+            2,
+            intent.scope().capture(&fixture.home, &fixture.account).unwrap(),
+            true,
+            "combined-operation",
+        );
         let facts = PreflightEvidence {
             generation: ArtifactStatus::Verified,
             archive: ArtifactStatus::Verified,
@@ -81,8 +112,13 @@ impl CombinedFixture {
         }
     }
     fn intent(&self) -> CombinedRestoreIntent {
-        CombinedRestoreIntent::new(Identifier::new("combined-operation").unwrap(), &self.source)
-            .unwrap()
+        CombinedRestoreIntent::from_checkpoint(
+            Identifier::new("combined-operation").unwrap(),
+            &self.source,
+            &self.checkpoint,
+            &self.fixture.account,
+        )
+        .unwrap()
     }
     fn request(&self) -> CombinedPreparation<'_> {
         CombinedPreparation {
@@ -551,4 +587,192 @@ fn combined_native_handoff_binds_receipt_and_leaves_failed_or_unbooted_restore_p
     let mut backend = Backend { fail: false, calls: 0 };
     assert!(stores.execute_combined_root_rollback(&prepared, || Ok(()), &mut backend).is_err());
     assert_eq!(backend.calls, 0);
+}
+
+fn cover() -> AssetPath {
+    AssetPath::new(AssetNamespace::RemotePreviews, RelativePath::new("fixture/cover.png").unwrap())
+        .unwrap()
+}
+#[test]
+fn combined_tree_restores_config_and_metadata_before_completion_and_reopens() {
+    let f = CombinedFixture::with_tree(true);
+    let prepared = f.begin();
+    let journal = f.apply(&prepared, || true).unwrap();
+    assert_eq!(journal.phase, RestorePhase::ConfigurationRestored);
+    assert_eq!(std::fs::read(f.config()).unwrap(), ORIGINAL);
+    assert_eq!(std::fs::read(f.fixture.file(&f.model)).unwrap(), b"original model");
+    assert_eq!(f.apply(&f.reopen(), || true).unwrap().phase, RestorePhase::ConfigurationRestored);
+    let record: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(f.fixture.path.join("journal/combined-restore-combined-operation.json"))
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(std::fs::read(f.fixture.file(&cover())).unwrap(), b"original cover");
+    assert_eq!(record["assets"].as_array().unwrap().len(), 1);
+    assert_eq!(record["schema"], 2);
+    assert_eq!(record["trees"].as_array().unwrap().len(), 1);
+}
+#[test]
+fn combined_tree_interruption_cleanup_and_reopen_hold_completion_until_all_families_verify() {
+    let mut partials = 0;
+    for stop in 1..30 {
+        let f = CombinedFixture::with_tree(true);
+        let prepared = f.begin();
+        let mut calls = 0;
+        let result = f.apply(&prepared, || {
+            calls += 1;
+            calls != stop
+        });
+        if result.is_ok() {
+            break;
+        }
+        assert_eq!(f.phase(), RestorePhase::WritersStopped);
+        let reopened = f.reopen();
+        if let Ok(cleanup) = reopened.partial_cleanup(
+            Identifier::new("fresh-tree-cleanup").unwrap(),
+            &f.checkpoint,
+            &f.fixture.home,
+            &f.fixture.account,
+        ) {
+            partials += 1;
+            assert!(f.apply(&reopened, || true).is_err());
+            let fresh = f.fixture.publish_assets(
+                3,
+                cleanup.scope().capture(&f.fixture.home, &f.fixture.account).unwrap(),
+                true,
+                "fresh-tree-cleanup",
+            );
+            assert_eq!(
+                cleanup
+                    .apply(
+                        &f.checkpoint,
+                        &fresh,
+                        &f.fixture.home,
+                        &f.fixture.account,
+                        &f.fixture.journal,
+                        || true
+                    )
+                    .unwrap(),
+                1
+            );
+            assert_eq!(f.phase(), RestorePhase::WritersStopped);
+        }
+        assert_eq!(
+            f.apply(&f.reopen(), || true).unwrap().phase,
+            RestorePhase::ConfigurationRestored
+        );
+        assert_eq!(std::fs::read(f.config()).unwrap(), ORIGINAL);
+        assert_eq!(std::fs::read(f.fixture.file(&f.model)).unwrap(), b"original model");
+    }
+    assert!(partials > 0);
+}
+#[test]
+fn combined_tree_changed_membership_or_preference_failure_never_completes() {
+    for tree_failure in [false, true] {
+        let f = CombinedFixture::with_tree(true);
+        let prepared = f.begin();
+        let parent = f.config().parent().unwrap().to_path_buf();
+        let backup = parent.with_file_name("saved");
+        if tree_failure {
+            f.fixture.write(
+                &f.model.with_relative(RelativePath::new("fixture/unexpected").unwrap()).unwrap(),
+                b"private",
+            );
+        } else {
+            std::fs::rename(&parent, &backup).unwrap();
+            std::os::unix::fs::symlink("/tmp", &parent).unwrap();
+        }
+        assert!(f.apply(&prepared, || true).is_err());
+        assert_eq!(f.phase(), RestorePhase::WritersStopped);
+        if !tree_failure {
+            std::fs::remove_file(&parent).unwrap();
+            std::fs::rename(backup, parent).unwrap();
+            assert_eq!(
+                f.apply(&f.reopen(), || true).unwrap().phase,
+                RestorePhase::ConfigurationRestored
+            );
+        } else {
+            assert!(
+                PreparedCombinedRestore::reopen(
+                    Identifier::new("combined-operation").unwrap(),
+                    &f.stores(),
+                    f.request()
+                )
+                .is_err()
+            );
+            assert_eq!(std::fs::read(f.config()).unwrap(), CURRENT);
+        }
+    }
+}
+
+#[test]
+fn combined_tree_preparation_replays_immutable_checkpoint_and_preserves_live_bytes() {
+    for stop in 2..=6 {
+        let f = CombinedFixture::with_tree(true);
+        let prepared = PreparedCombinedRestore::prepare(f.intent(), f.request()).unwrap();
+        let mut step = 0;
+        assert!(
+            f.with_execution(|execution| prepared.begin_with_boundary(
+                &f.stores(),
+                execution,
+                || {
+                    step += 1;
+                    step != stop
+                }
+            ))
+            .is_err()
+        );
+        let reconstructed = PreparedCombinedRestore::prepare(f.intent(), f.request()).unwrap();
+        assert_eq!(
+            f.with_execution(|execution| reconstructed.resume_preparation(&f.stores(), execution))
+                .unwrap()
+                .phase,
+            RestorePhase::ContentStaged
+        );
+        assert_eq!(std::fs::read(f.config()).unwrap(), CURRENT);
+        assert_eq!(std::fs::read(f.fixture.file(&f.model)).unwrap(), b"changed model");
+        assert_eq!(std::fs::read(f.fixture.file(&cover())).unwrap(), b"changed cover");
+        f.reopen();
+    }
+}
+#[test]
+fn combined_tree_receipt_downgrade_or_omission_cannot_authorize_replay() {
+    for mutation in ["downgrade", "omit", "receipt"] {
+        let f = CombinedFixture::with_tree(true);
+        f.begin();
+        let path = f.fixture.path.join("journal/combined-restore-combined-operation.json");
+        let mut record: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        match mutation {
+            "downgrade" => record["schema"] = 1.into(),
+            "omit" => {
+                record["schema"] = 1.into();
+                record.as_object_mut().unwrap().remove("trees");
+            }
+            _ => record["trees"][0]["record_sha256"] = "0".repeat(64).into(),
+        }
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        std::fs::write(&path, serde_json::to_vec(&record).unwrap()).unwrap();
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(
+            PreparedCombinedRestore::reopen(
+                Identifier::new("combined-operation").unwrap(),
+                &f.stores(),
+                f.request()
+            )
+            .is_err()
+        );
+        assert_eq!(f.phase(), RestorePhase::WritersStopped);
+        assert_eq!(std::fs::read(f.config()).unwrap(), CURRENT);
+    }
+    let f = CombinedFixture::new();
+    f.begin();
+    let record: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(f.fixture.path.join("journal/combined-restore-combined-operation.json"))
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(record["schema"], 1);
+    assert!(record.get("trees").is_none());
+    f.reopen();
 }

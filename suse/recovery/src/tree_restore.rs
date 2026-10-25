@@ -205,6 +205,45 @@ impl TreeRestoreIntent {
         }
         Ok(Self { operation, source: reference, root: root.clone(), stage, trash, scope })
     }
+    /// Reconstruct the enrollment from immutable checkpoint membership during
+    /// restart; never discover a changed live tree as a new recovery target.
+    pub fn from_checkpoint(
+        operation: Identifier,
+        source: &VerifiedGeneration,
+        root: &AssetPath,
+        checkpoint: &VerifiedGeneration,
+        account: &CaptureAccount,
+    ) -> Result<Self> {
+        let reference = Reference::new(source)?;
+        if operation == reference.transaction {
+            return Err(RestoreError::InvalidBinding);
+        }
+        let desired = source.manifest().assets().ok_or(RestoreError::InvalidBinding)?;
+        let before = checkpoint.manifest().assets().ok_or(RestoreError::InvalidBinding)?;
+        desired.require_account(account).map_err(|_| RestoreError::InvalidBinding)?;
+        before.require_account(account).map_err(|_| RestoreError::InvalidBinding)?;
+        let wanted = records(desired, root)?;
+        let current: Vec<_> = records(before, root)?
+            .into_iter()
+            .filter(|entry| entry.path == *root || entry.kind != EntryKind::Absent)
+            .map(|entry| entry.path)
+            .collect();
+        let (stage, trash) = roots(&operation, &reference, root)?;
+        let scope = scope(root, &stage, &trash, &wanted, &current)?;
+        for generated in [&stage, &trash] {
+            if records(before, generated)?.iter().any(|entry| entry.kind != EntryKind::Absent) {
+                return Err(RestoreError::InvalidBinding);
+            }
+        }
+        if scope
+            .paths()
+            .iter()
+            .any(|path| !before.entries().iter().any(|entry| entry.path == *path))
+        {
+            return Err(RestoreError::InvalidBinding);
+        }
+        Ok(Self { operation, source: reference, root: root.clone(), stage, trash, scope })
+    }
     pub fn scope(&self) -> &AssetScope {
         &self.scope
     }
@@ -344,6 +383,21 @@ impl TreeRestorePlan {
             .iter()
             .filter(|e| e.kind != EntryKind::Absent)
             .eq(self.previous.iter().filter(|e| e.kind != EntryKind::Absent))
+    }
+    pub(crate) fn matches_intent(&self, intent: &TreeRestoreIntent) -> bool {
+        self.record.operation == intent.operation
+            && self.record.source == intent.source
+            && self.record.root == intent.root
+            && self.record.stage == intent.stage
+            && self.record.trash == intent.trash
+            && self.record.scope == intent.scope
+    }
+    pub(crate) fn ready(&self, home: &File, account: &CaptureAccount) -> Result<bool> {
+        Ok(match self.observe(home, account)? {
+            TreeObservation::Original => true,
+            TreeObservation::Restored => self.noop(),
+            _ => false,
+        })
     }
     pub fn receipt_identity(&self) -> Result<TreeRestoreReceipt> {
         Ok(TreeRestoreReceipt {

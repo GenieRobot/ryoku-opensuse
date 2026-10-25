@@ -65,8 +65,6 @@ fn capture_account(
 
 pub(super) fn prepare(context: Prepare<'_>) -> Result<String, String> {
     let account = capture_account(context.source, context.account)?;
-    let intent = CombinedRestoreIntent::new(context.restore_id.clone(), context.source)
-        .map_err(|error| error.to_string())?;
     stop_account_writers(account.uid)?;
     let checkpoint = if let Some(journal) = &context.existing {
         let checkpoint = context
@@ -85,6 +83,13 @@ pub(super) fn prepare(context: Prepare<'_>) -> Result<String, String> {
             .map_err(|error| error.to_string())?;
         checkpoint
     } else {
+        let intent = CombinedRestoreIntent::discover(
+            context.restore_id.clone(),
+            context.source,
+            &context.account.home,
+            &account,
+        )
+        .map_err(|error| error.to_string())?;
         // Read-only exact enrollment validation precedes native snapshot work.
         intent
             .scope()
@@ -128,6 +133,13 @@ pub(super) fn prepare(context: Prepare<'_>) -> Result<String, String> {
             .open_verified_transaction(context.restore_id)
             .map_err(|error| error.to_string())?
     };
+    let intent = CombinedRestoreIntent::from_checkpoint(
+        context.restore_id.clone(),
+        context.source,
+        &checkpoint,
+        &account,
+    )
+    .map_err(|error| error.to_string())?;
     ensure_cataloged_checkpoint(
         context.root,
         context.generations,
@@ -348,8 +360,13 @@ pub(super) fn rollback(context: Replay<'_>) -> Result<String, String> {
     )?;
     // Re-run preparation validation before root rollback while live targets
     // still match the retained current-state checkpoint.
-    let intent = CombinedRestoreIntent::new(context.journal.restore_id.clone(), context.source)
-        .map_err(|error| error.to_string())?;
+    let intent = CombinedRestoreIntent::from_checkpoint(
+        context.journal.restore_id.clone(),
+        context.source,
+        context.checkpoint,
+        &parts.capture,
+    )
+    .map_err(|error| error.to_string())?;
     let prepared = PreparedCombinedRestore::prepare(
         intent,
         CombinedPreparation {
@@ -480,8 +497,13 @@ pub(super) fn discard(
         .map(|root| ConfigurationDestination { root: root.root, directory: &root.directory })
         .collect();
     let prepared = PreparedCombinedRestore::prepare(
-        CombinedRestoreIntent::new(restore_id.clone(), &source)
-            .map_err(|error| error.to_string())?,
+        CombinedRestoreIntent::from_checkpoint(
+            restore_id.clone(),
+            &source,
+            &checkpoint,
+            &parts.capture,
+        )
+        .map_err(|error| error.to_string())?,
         CombinedPreparation {
             source: &source,
             checkpoint: &checkpoint,

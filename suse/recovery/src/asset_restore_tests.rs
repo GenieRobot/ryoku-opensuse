@@ -69,14 +69,6 @@ impl Fixture {
     ) -> VerifiedGeneration {
         self.capture_preferences_named(number, paths, include_preferences, &format!("tx-{number}"))
     }
-    fn capture_named(
-        &self,
-        number: u64,
-        paths: &[AssetPath],
-        transaction: &str,
-    ) -> VerifiedGeneration {
-        self.capture_preferences_named(number, paths, true, transaction)
-    }
     fn capture_preferences_named(
         &self,
         number: u64,

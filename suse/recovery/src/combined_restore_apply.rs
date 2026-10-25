@@ -7,6 +7,7 @@ use crate::{
     disk_stage::DiskStageStore,
     generation_capture::DeclaredRoot,
     restore::{RestoreJournal, RestoreJournalStore, RestorePhase, RestorePlan},
+    tree_restore::{TreeObservation, TreeRestoreReceipt},
 };
 use rustix::fs::{self, AtFlags, FileType, Mode, OFlags, ResolveFlags};
 use serde::{Deserialize, Serialize};
@@ -40,6 +41,8 @@ struct Record {
     checkpoint_generation: Identifier,
     checkpoint_manifest: Sha256,
     assets: Vec<FileRestoreReceipt>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    trees: Vec<TreeRestoreReceipt>,
 }
 fn record_name(operation: &Identifier) -> String {
     format!("combined-restore-{}.json", operation.as_str())
@@ -88,7 +91,9 @@ fn read_record(directory: &File, operation: &Identifier) -> Result<Record> {
         return Err(CombinedError::Record);
     }
     let record: Record = serde_json::from_slice(&bytes).map_err(|_| CombinedError::Record)?;
-    if record.schema != 1 || record.operation != *operation {
+    if record.schema != if record.trees.is_empty() { 1 } else { 2 }
+        || record.operation != *operation
+    {
         return Err(CombinedError::Record);
     }
     Ok(record)
@@ -126,13 +131,22 @@ fn asset_record_exists(directory: &File, receipt: &FileRestoreReceipt) -> Result
         Err(_) => Err(CombinedError::Record),
     }
 }
+fn tree_record_exists(directory: &File, receipt: &TreeRestoreReceipt) -> Result<bool> {
+    private_directory(directory)?;
+    let name = format!("tree-restore-{}.json", receipt.operation.as_str());
+    match fs::statat(directory, name.as_str(), AtFlags::SYMLINK_NOFOLLOW) {
+        Ok(_) => Ok(true),
+        Err(rustix::io::Errno::NOENT) => Ok(false),
+        Err(_) => Err(CombinedError::Record),
+    }
+}
 impl PreparedCombinedRestore {
     fn record(&self, checkpoint: &VerifiedGeneration) -> Result<Record> {
         if checkpoint.manifest().manifest_sha256.as_ref() != Some(&self.checkpoint_manifest) {
             return Err(CombinedError::Binding);
         }
         Ok(Record {
-            schema: 1,
+            schema: if self.trees.is_empty() { 1 } else { 2 },
             operation: self.intent.operation.clone(),
             account: self.intent.account.clone(),
             plan: self.preferences.plan().clone(),
@@ -142,6 +156,12 @@ impl PreparedCombinedRestore {
                 .assets
                 .iter()
                 .map(FileRestorePlan::receipt_identity)
+                .collect::<std::result::Result<_, _>>()
+                .map_err(CombinedError::Restore)?,
+            trees: self
+                .trees
+                .iter()
+                .map(TreeRestorePlan::receipt_identity)
                 .collect::<std::result::Result<_, _>>()
                 .map_err(CombinedError::Restore)?,
         })
@@ -166,7 +186,12 @@ impl PreparedCombinedRestore {
         request: CombinedPreparation<'_>,
     ) -> Result<Self> {
         let record = read_record(stores.assets, &operation)?;
-        let intent = CombinedRestoreIntent::new(operation, request.source)?;
+        let intent = CombinedRestoreIntent::from_checkpoint(
+            operation,
+            request.source,
+            request.checkpoint,
+            request.account,
+        )?;
         if record.operation != request.checkpoint.manifest().transaction_id
             || record.account != request.account.principal
             || record.account != intent.account
@@ -179,6 +204,7 @@ impl PreparedCombinedRestore {
                     .ok_or(CombinedError::Binding)?
             || record.checkpoint_generation != request.checkpoint.manifest().generation_id
             || record.assets.len() != intent.assets.len()
+            || record.trees.len() != intent.trees.len()
             || request.scope == RestoreScope::SystemOnly
             || request.evidence.current_state_checkpoint != ArtifactStatus::Verified
         {
@@ -240,7 +266,45 @@ impl PreparedCombinedRestore {
                 Ok(plan)
             })
             .collect::<Result<Vec<_>>>()?;
-        Ok(Self { intent, checkpoint_manifest: record.checkpoint_manifest, preferences, assets })
+        let trees = intent
+            .trees
+            .iter()
+            .zip(&record.trees)
+            .map(|(item, receipt)| {
+                let plan = if tree_record_exists(stores.assets, receipt)? {
+                    TreeRestorePlan::reopen(
+                        receipt,
+                        request.source,
+                        request.checkpoint,
+                        request.home,
+                        request.account,
+                        stores.assets,
+                    )
+                } else {
+                    TreeRestorePlan::prepare(
+                        item,
+                        request.source,
+                        request.checkpoint,
+                        request.home,
+                        request.account,
+                    )
+                }
+                .map_err(CombinedError::Restore)?;
+                if !plan.matches_intent(item)
+                    || plan.receipt_identity().map_err(CombinedError::Restore)? != *receipt
+                {
+                    return Err(CombinedError::Record);
+                }
+                Ok(plan)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Self {
+            intent,
+            checkpoint_manifest: record.checkpoint_manifest,
+            preferences,
+            assets,
+            trees,
+        })
     }
 
     /// Writes preparation records only. The native coordinator must establish
@@ -272,6 +336,11 @@ impl PreparedCombinedRestore {
             if asset.observe(execution.home, execution.account).map_err(CombinedError::Restore)?
                 != RestoreObservation::Original
             {
+                return Err(CombinedError::Binding);
+            }
+        }
+        for tree in &self.trees {
+            if !tree.ready(execution.home, execution.account).map_err(CombinedError::Restore)? {
                 return Err(CombinedError::Binding);
             }
         }
@@ -341,6 +410,13 @@ impl PreparedCombinedRestore {
                     .observe(execution.home, execution.account)
                     .map_err(CombinedError::Restore)?
                     != RestoreObservation::Original
+            {
+                return Err(CombinedError::Binding);
+            }
+        }
+        for (tree, receipt) in self.trees.iter().zip(&record.trees) {
+            if tree_record_exists(stores.assets, receipt)?
+                || !tree.ready(execution.home, execution.account).map_err(CombinedError::Restore)?
             {
                 return Err(CombinedError::Binding);
             }
@@ -582,6 +658,64 @@ impl PreparedCombinedRestore {
                 return Err(CombinedError::Record);
             }
         }
+        for (tree, receipt) in self.trees.iter().zip(&record.trees) {
+            if !boundary() {
+                return Err(CombinedError::Interrupted);
+            }
+            let exists = tree_record_exists(stores.assets, receipt)?;
+            let reopened;
+            let tree = if exists {
+                reopened = TreeRestorePlan::reopen(
+                    receipt,
+                    execution.source,
+                    execution.checkpoint,
+                    execution.home,
+                    execution.account,
+                    stores.assets,
+                )
+                .map_err(CombinedError::Restore)?;
+                &reopened
+            } else {
+                tree
+            };
+            if exists
+                && tree
+                    .observe(execution.home, execution.account)
+                    .map_err(CombinedError::Restore)?
+                    == TreeObservation::Restored
+            {
+                continue;
+            }
+            if matches!(
+                journal.phase,
+                RestorePhase::ConfigurationRestored | RestorePhase::HealthChecked
+            ) {
+                return Err(CombinedError::Binding);
+            }
+            let actual = if exists {
+                tree.resume(
+                    execution.source,
+                    execution.checkpoint,
+                    execution.home,
+                    execution.account,
+                    stores.assets,
+                    &mut boundary,
+                )
+            } else {
+                tree.apply(
+                    execution.source,
+                    execution.checkpoint,
+                    execution.home,
+                    execution.account,
+                    stores.assets,
+                    &mut boundary,
+                )
+            }
+            .map_err(CombinedError::Restore)?;
+            if actual != *receipt {
+                return Err(CombinedError::Record);
+            }
+        }
         apply_subset(
             &self.preferences,
             stores.stages,
@@ -594,6 +728,13 @@ impl PreparedCombinedRestore {
         .map_err(|_| CombinedError::Apply)?;
         for asset in &self.assets {
             if !asset.restored(execution.home, execution.account).map_err(CombinedError::Restore)? {
+                return Err(CombinedError::Binding);
+            }
+        }
+        for tree in &self.trees {
+            if tree.observe(execution.home, execution.account).map_err(CombinedError::Restore)?
+                != TreeObservation::Restored
+            {
                 return Err(CombinedError::Binding);
             }
         }
@@ -621,6 +762,7 @@ pub struct CombinedCleanupIntent {
     source_manifest: Sha256,
     account: AccountPrincipal,
     intents: Vec<FileRestoreIntent>,
+    trees: Vec<TreeRestoreIntent>,
     scope: AssetScope,
 }
 impl PreparedCombinedRestore {
@@ -638,6 +780,8 @@ impl PreparedCombinedRestore {
             return Err(CombinedError::Binding);
         }
         let mut intents = Vec::new();
+        let mut trees = Vec::new();
+        let mut roots = Vec::new();
         let mut paths = BTreeSet::new();
         for (index, (plan, original)) in self.assets.iter().zip(&self.intent.assets).enumerate() {
             if plan.observe(home, account).map_err(CombinedError::Restore)?
@@ -656,7 +800,24 @@ impl PreparedCombinedRestore {
                 intents.push(intent);
             }
         }
-        if intents.is_empty() {
+        for (index, (plan, original)) in self.trees.iter().zip(&self.intent.trees).enumerate() {
+            if plan.observe(home, account).map_err(CombinedError::Restore)?
+                == TreeObservation::Staged
+            {
+                let id = Identifier::new(format!(
+                    "cleanup-tree-{}-{index}",
+                    &crate::wallpaper_protocol::digest(operation.as_str().as_bytes())[..32]
+                ))
+                .map_err(|_| CombinedError::Binding)?;
+                let intent =
+                    TreeRestoreIntent::new(id, checkpoint, original.staging(), home, account)
+                        .map_err(CombinedError::Restore)?;
+                paths.extend(intent.scope().paths().iter().cloned());
+                roots.extend(intent.scope().trees().iter().cloned());
+                trees.push(intent);
+            }
+        }
+        if intents.is_empty() && trees.is_empty() {
             return Err(CombinedError::Binding);
         }
         let scope = AssetScope::new(
@@ -664,6 +825,7 @@ impl PreparedCombinedRestore {
             MAX_CAPTURE_LIMITS.max_file_bytes,
             MAX_CAPTURE_LIMITS.max_total_bytes,
         )
+        .and_then(|scope| scope.with_trees(roots))
         .map_err(CombinedError::Asset)?;
         Ok(CombinedCleanupIntent {
             operation,
@@ -671,6 +833,7 @@ impl PreparedCombinedRestore {
             source_manifest: self.checkpoint_manifest.clone(),
             account: self.intent.account.clone(),
             intents,
+            trees,
             scope,
         })
     }
@@ -707,6 +870,14 @@ impl CombinedCleanupIntent {
                     .map_err(CombinedError::Restore)
             })
             .collect::<Result<Vec<_>>>()?;
+        let trees = self
+            .trees
+            .iter()
+            .map(|intent| {
+                TreeRestorePlan::prepare(intent, source, checkpoint, home, account)
+                    .map_err(CombinedError::Restore)
+            })
+            .collect::<Result<Vec<_>>>()?;
         #[derive(Serialize)]
         struct CleanupRecord<'a> {
             schema: u16,
@@ -717,9 +888,11 @@ impl CombinedCleanupIntent {
             checkpoint_manifest: &'a Sha256,
             account: &'a AccountPrincipal,
             receipts: Vec<FileRestoreReceipt>,
+            #[serde(skip_serializing_if = "Vec::is_empty")]
+            trees: Vec<TreeRestoreReceipt>,
         }
         let record = CleanupRecord {
-            schema: 1,
+            schema: if trees.is_empty() { 1 } else { 2 },
             operation: &self.operation,
             restore_operation: &self.restore_operation,
             source_manifest: &self.source_manifest,
@@ -733,6 +906,11 @@ impl CombinedCleanupIntent {
             receipts: plans
                 .iter()
                 .map(FileRestorePlan::receipt_identity)
+                .collect::<std::result::Result<_, _>>()
+                .map_err(CombinedError::Restore)?,
+            trees: trees
+                .iter()
+                .map(TreeRestorePlan::receipt_identity)
                 .collect::<std::result::Result<_, _>>()
                 .map_err(CombinedError::Restore)?,
         };
@@ -765,6 +943,10 @@ impl CombinedCleanupIntent {
             plan.apply(source, checkpoint, home, account, journal, &mut boundary)
                 .map_err(CombinedError::Restore)?;
         }
-        Ok(plans.len())
+        for tree in &trees {
+            tree.apply(source, checkpoint, home, account, journal, &mut boundary)
+                .map_err(CombinedError::Restore)?;
+        }
+        Ok(plans.len() + trees.len())
     }
 }
