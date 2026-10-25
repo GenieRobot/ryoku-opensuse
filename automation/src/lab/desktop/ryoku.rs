@@ -283,6 +283,26 @@ fn has_uid(source: &str, uid: u32) -> bool {
         .is_some_and(|ids| ids.split_whitespace().any(|id| id == uid.to_string()))
 }
 
+fn ryoku_process_image(executable: &Path) -> bool {
+    let Some(name) = executable.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    // procfs appends this exact suffix when an executing file is unlinked.
+    // A surviving paused player still counts as incomplete logout cleanup.
+    let name = name.strip_suffix(" (deleted)").unwrap_or(name);
+    [
+        "Hyprland",
+        "ryoku-session",
+        "ryoku-writer",
+        "ryoku-shell",
+        "ryoku-service",
+        "ryogami",
+        "ryogami-live",
+        "qs",
+    ]
+    .contains(&name)
+}
+
 fn no_ryoku_processes(uid: u32) -> Result<()> {
     // Unlike the KDE live-process helper, include stopped tasks: a manually
     // paused player or ptrace-stopped writer is not completed logout cleanup.
@@ -300,23 +320,7 @@ fn no_ryoku_processes(uid: u32) -> Result<()> {
         let Ok(exe) = fs::read_link(entry.path().join("exe")) else {
             continue;
         };
-        require(
-            !exe.file_name().is_some_and(|name| {
-                [
-                    "Hyprland",
-                    "ryoku-session",
-                    "ryoku-writer",
-                    "ryoku-shell",
-                    "ryoku-service",
-                    "ryogami",
-                    "ryogami-live",
-                    "qs",
-                ]
-                .iter()
-                .any(|expected| name == *expected)
-            }),
-            "Ryoku process remains after failure/logout",
-        )?;
+        require(!ryoku_process_image(&exe), "Ryoku process remains after failure/logout")?;
     }
     Ok(())
 }
@@ -597,6 +601,100 @@ mod tests {
         assert!(has_uid("Uid:\t0\t1001\t0\t0\nState:\tT\n", 1001));
         assert!(!has_uid("Uid:\t10010\t10010\t10010\t10010\n", 1001));
         assert!(!has_uid("State:\tT\n", 1001));
+    }
+
+    #[test]
+    fn fallback_recognizes_deleted_actor_images_without_matching_unrelated_paths() {
+        for name in [
+            "Hyprland",
+            "ryoku-session",
+            "ryoku-writer",
+            "ryoku-shell",
+            "ryoku-service",
+            "ryogami",
+            "ryogami-live",
+            "qs",
+        ] {
+            for suffix in ["", " (deleted)"] {
+                assert!(ryoku_process_image(Path::new(&format!("/fixture/{name}{suffix}"))));
+            }
+        }
+        for path in [
+            "/fixture/other",
+            "/fixture/not-ryogami-live",
+            "/fixture/ryogami-live-extra",
+            "/fixture/ryogami-live (deleted).bak",
+            "/fixture/ryogami-live (deleted) (deleted)",
+            "/fixture/ryogami-live/other",
+            "/",
+        ] {
+            assert!(!ryoku_process_image(Path::new(path)));
+        }
+    }
+
+    #[test]
+    fn fallback_detects_owned_actor_after_its_running_image_is_unlinked() {
+        struct Fixture {
+            directory: PathBuf,
+            child: Option<std::process::Child>,
+        }
+        impl Drop for Fixture {
+            fn drop(&mut self) {
+                if let Some(child) = &mut self.child {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                }
+                let _ = fs::remove_dir_all(&self.directory);
+            }
+        }
+        let directory =
+            std::env::temp_dir().join(format!("issue25-unlinked-actor-{}", std::process::id()));
+        fs::create_dir(&directory).unwrap();
+        let mut fixture = Fixture { directory, child: None };
+        let image = fixture.directory.join("ryogami-live");
+        // An ordinary owned sleep process models only procfs identity. No
+        // native player/display, installed file or other account is touched.
+        fs::copy("/usr/bin/sleep", &image).unwrap();
+        fixture.child = Some(
+            Command::new(&image)
+                .arg("30")
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap(),
+        );
+        let pid = fixture.child.as_ref().unwrap().id();
+        let proc = PathBuf::from(format!("/proc/{pid}"));
+        let uid = rustix::process::getuid().as_raw();
+        assert!(has_uid(&fs::read_to_string(proc.join("status")).unwrap(), uid));
+        assert!(ryoku_process_image(&fs::read_link(proc.join("exe")).unwrap()));
+        fs::remove_file(&image).unwrap();
+        let unlinked = fs::read_link(proc.join("exe")).unwrap();
+        assert!(unlinked.as_os_str().to_string_lossy().ends_with("/ryogami-live (deleted)"));
+        assert!(ryoku_process_image(&unlinked));
+        assert!(fixture.child.as_mut().unwrap().try_wait().unwrap().is_none());
+        rustix::process::kill_process(
+            rustix::process::Pid::from_raw(pid as i32).unwrap(),
+            rustix::process::Signal::STOP,
+        )
+        .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            let status = fs::read_to_string(proc.join("status")).unwrap();
+            if status.lines().any(|line| line.starts_with("State:\tT")) {
+                assert!(has_uid(&status, uid));
+                assert!(ryoku_process_image(&fs::read_link(proc.join("exe")).unwrap()));
+                break;
+            }
+            assert!(Instant::now() < deadline, "owned fixture did not stop");
+            thread::sleep(Duration::from_millis(1));
+        }
+        let child = fixture.child.as_mut().unwrap();
+        child.kill().unwrap();
+        child.wait().unwrap();
+        fixture.child = None;
+        assert!(!proc.exists(), "owned fixture was not reaped");
     }
 
     #[test]

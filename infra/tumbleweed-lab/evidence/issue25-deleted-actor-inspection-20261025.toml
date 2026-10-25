@@ -1,0 +1,42 @@
+schema_version = 1
+issue = 25
+date = "2026-10-25"
+branch_parent = "f5309eefa1954b492d613a172b2a583231ca61e4"
+scope = "Prevent false post-logout cleanup observation for an unlinked surviving Ryoku image"
+native_acceptance = false
+native_build = false
+package_build = false
+vm_access = false
+qmp_access = false
+downloads = false
+
+[contract]
+problem = "procfs exposes a still-running image with a literal appended ' (deleted)' suffix after unlink; literal basename matching missed such a surviving actor/player"
+correction = "Recognize only one exact kernel deleted suffix before matching the same fixed Ryoku image names; do not match unrelated names, prefixes, suffixes, paths or repeated deleted suffixes"
+ownership = "Only #25 read-only fallback inspection changes; no wallpaper/player actuation, authorization, recovery, provider or #175/#176 route change"
+product = "Full existing Ryoku features and normal wallpaper workflows remain present"
+
+[focused]
+command = "TMPDIR=/tmp CARGO_INCREMENTAL=0 CARGO_NET_OFFLINE=true cargo test --offline --locked -p ryoku-automation --bin vm-lab desktop::ryoku::tests:: -- --nocapture"
+exit = 0
+passed = 11
+failed = 0
+filtered_other_tests = 80
+new_cases = ["desktop::ryoku::tests::fallback_recognizes_deleted_actor_images_without_matching_unrelated_paths", "desktop::ryoku::tests::fallback_detects_owned_actor_after_its_running_image_is_unlinked"]
+fixture = "Copy existing /usr/bin/sleep into a newly created owned temporary directory named ryogami-live; spawn only that process; verify own UID, ordinary and actual procfs deleted executable identity; SIGSTOP and observe T; recognize image while stopped; SIGKILL and wait; verify proc entry absent; cleanup on failure via owned Child guard"
+limits = "Disposable host test process only; no real C player, installed executable, native session, display, other account or QMP endpoint touched"
+full_checks = "Full all-features workspace/strict all-target Clippy on exact pushed head required through hosted CI; local focus is not a full workspace result"
+
+[storage_guard]
+effective_target = "Reused existing #25 worktree target; cargo metadata confirms no duplicate target directory"
+mount_verification = "Resolve paths and inspect /proc/self/mountinfo: target/workspace, Cargo cache and Rustup/toolchain are ext4 /dev/sdd; TMPDIR/TMP/TEMP are /tmp tmpfs"
+local_compile = "Only two bounded incremental focused builds (1.75s and 1.58s), first3 tests then final11 tests; no native/package build"
+telemetry = "C remains below10GiB floor; final test's before/after available-byte sample decreased4096 bytes, attribution unknown; further local compilation stopped as directed"
+artifacts = "Rust artifacts remain in existing /dev/sdd target, owned fixture/private logs in tmpfs; no C mount path selected for outputs, cache or temporary files"
+privacy = "Raw logs remain outside public repository; receipt records fixed test names and scoped outcomes, not host/account paths or raw process data"
+
+[remaining]
+issue_open = true
+pr_draft = true
+native_gate = "Shared #173 builder release, current storage/guard clearance and exact combined source/vendor/spec/package tuple before sequential offline BuildRequires keeper/session build; install is separate approved phase"
+acceptance = "Ordinary SDDM login/reboot, actual controlled-failure cleanup and KDE use, native player/workflow/device matrix remain open; #176 actual typed wallpaper-theme accounting still required"

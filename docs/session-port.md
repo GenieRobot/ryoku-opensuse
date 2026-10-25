@@ -106,6 +106,12 @@ manager and absent runtime endpoints without starting it. The existing
 `guest-login-inspect` remains the separate Plasma runtime inspection. A selectable
 KDE entry alone does not establish KDE usability, and a greeter inspection alone
 does not establish which preceding failure/logout caused it.
+The process-image scan also recognizes procfs's exact ` (deleted)` suffix:
+unlinking a still-running or stopped player's executable cannot turn it into
+completed cleanup. The [deleted-image regression receipt](../infra/tumbleweed-lab/evidence/issue25-deleted-actor-inspection-20261025.toml)
+records an owned disposable sleep-image unlink/stop/kill/reap test and unrelated
+image exclusions. This is an inspector test, not installed-player or native
+logout acceptance.
 
 These commands neither install packages nor start/stop services, change PAM,
 enter credentials, use QMP or reboot. They require the existing explicitly
