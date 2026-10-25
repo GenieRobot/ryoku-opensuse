@@ -1,5 +1,10 @@
 //! Bounded, explicitly enrolled local activity collectors. Parsing never retains
 //! prompt/message content or credentials. Activity and soft caps are not quota.
+#[allow(unsafe_code)]
+mod sqlite;
+mod sqlite_image;
+#[cfg(test)]
+mod sqlite_tests;
 use crate::{Error, Result};
 use jiff::{Timestamp, ToSpan, tz::TimeZone};
 use rustix::fs::{self, FileType, Mode, OFlags, ResolveFlags};
@@ -119,6 +124,8 @@ fn private_directory(path: &Path) -> Result<File> {
 pub struct Report {
     pub tool: Tool,
     pub source_status: String,
+    #[serde(default = "json_source_format")]
+    pub source_format: String,
     pub attempted_at: u64,
     pub updated_at: Option<u64>,
     pub files_scanned: usize,
@@ -143,6 +150,7 @@ impl Report {
         Self {
             tool,
             source_status: "unavailable".into(),
+            source_format: json_source_format(),
             attempted_at: now,
             updated_at: None,
             files_scanned: 0,
@@ -181,6 +189,8 @@ struct Scan {
     partial: bool,
     events: Vec<Event>,
     seen_files: BTreeSet<(u64, u64)>,
+    opencode_records: usize,
+    sqlite: bool,
 }
 struct Event {
     time: i64,
@@ -218,16 +228,57 @@ pub fn collect(enrollment: &Enrollment, now: u64) -> Result<Report> {
             Err(_) => return Err(Error::UnsafeState),
         }
     }
+    if enrollment.tool == Tool::Opencode
+        && scan.opencode_records == 0
+        && fs::statat(&root, "opencode.db", fs::AtFlags::SYMLINK_NOFOLLOW).is_ok()
+    {
+        let image = sqlite_image::capture(&root, TOTAL_BYTES.saturating_sub(scan.bytes), deadline)?;
+        scan.bytes += image.source_bytes;
+        scan.files += image.files;
+        let reader = sqlite::Reader::new(image.bytes, deadline)?;
+        let cutoff = i64::try_from(now)
+            .map_err(|_| Error::InvalidRequest)?
+            .saturating_sub(8 * 86400)
+            .saturating_mul(1000);
+        reader.rows(cutoff, |bytes, role, time| {
+            let Ok(mut value) = serde_json::from_slice::<Value>(bytes) else {
+                scan.partial = true;
+                return Ok(false);
+            };
+            let Some(object) = value.as_object_mut() else {
+                scan.partial = true;
+                return Ok(false);
+            };
+            if let Some(role) = role.filter(|role| !role.is_empty()) {
+                let Ok(role) = std::str::from_utf8(role) else {
+                    scan.partial = true;
+                    return Ok(false);
+                };
+                object.insert("role".into(), Value::String(role.into()));
+            }
+            let model = object.get("model").cloned().unwrap_or(Value::Null);
+            if object.get("modelID").and_then(Value::as_str).is_none_or(str::is_empty) {
+                object.insert("modelID".into(), model["id"].clone());
+            }
+            if object.get("providerID").and_then(Value::as_str).is_none_or(str::is_empty) {
+                object.insert("providerID".into(), model["providerID"].clone());
+            }
+            if message_time(&value).unwrap_or_default() == 0
+                && let Some(time) = time
+            {
+                value["time"] = json!(time);
+            }
+            let before = scan.opencode_records;
+            parse_opencode(&value, &mut scan);
+            Ok(scan.opencode_records != before)
+        })?;
+        scan.sqlite = true;
+        found = true;
+    }
     // A replaced enrollment never publishes results from its former identity.
     enrollment.open()?;
     if !found {
         return Ok(Report::unavailable(enrollment.tool, now));
-    }
-    if enrollment.tool == Tool::Opencode
-        && scan.events.is_empty()
-        && fs::statat(&root, "opencode.db", fs::AtFlags::SYMLINK_NOFOLLOW).is_ok()
-    {
-        scan.partial = true;
     }
     if scan.partial && scan.events.is_empty() {
         return Err(Error::ProviderUnavailable);
@@ -467,18 +518,26 @@ fn parse_codex(value: &Value, previous: &mut Option<u64>, tailed: bool, scan: &m
     );
 }
 
+fn message_time(value: &Value) -> Option<i64> {
+    value["time"]["completed"]
+        .as_i64()
+        .filter(|time| *time != 0)
+        .or_else(|| value["time"]["created"].as_i64())
+        .or_else(|| value["time"].as_i64())
+}
+fn json_source_format() -> String {
+    "local_json_activity".into()
+}
 fn parse_opencode(value: &Value, scan: &mut Scan) {
-    if value["role"] != "assistant" || value["modelID"].as_str().is_none() {
+    if value["role"] != "assistant" || value["modelID"].as_str().is_none_or(str::is_empty) {
         return;
     }
-    let time = value["time"]["completed"]
-        .as_i64()
-        .or_else(|| value["time"]["created"].as_i64())
-        .or_else(|| value["time"].as_i64());
+    let time = message_time(value);
     let Some(time) = time else {
         scan.partial = true;
         return;
     };
+    scan.opencode_records += 1;
     let usage = &value["tokens"];
     let cache = &usage["cache"];
     let Some(tokens) = [
@@ -531,6 +590,9 @@ fn aggregate(tool: Tool, now: u64, soft_caps: &SoftCaps, scan: Scan) -> Result<R
     }
     let mut report = Report::unavailable(tool, now as u64);
     report.source_status = if scan.partial { "partial" } else { "fresh" }.into();
+    if scan.sqlite {
+        report.source_format = "opencode_sqlite".into();
+    }
     report.partial = scan.partial;
     report.updated_at = Some(now as u64);
     report.files_scanned = scan.files;

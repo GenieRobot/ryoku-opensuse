@@ -654,6 +654,7 @@ name = "ryoku-rashin"
 version = "0.1.0"
 dependencies = [
  "jiff",
+ "libc",
  "rustix",
  "serde",
  "serde_json",

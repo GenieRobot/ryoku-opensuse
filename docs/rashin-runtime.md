@@ -139,9 +139,11 @@ Usage records preserve provider/model, input/output tokens, timestamp and
 whether token counts are estimates or fixture results. Provider-reported counts
 come from the completion response. The runtime's activity is explicitly **not
 provider quota**; quota is reported unavailable. Upstream Claude OAuth, Codex
-live rate-limit RPC and opencode SQLite remain required work. The
+live rate-limit RPC remain required work. The
 [enrolled local activity collectors](rashin-usage.md), persistent schedule,
 private fixture tests and dependency handoff are implemented separately.
+The [opencode SQLite fallback](rashin-sqlite.md) includes committed WAL snapshots
+and a documented system-library boundary requiring separate review before merge.
 
 ## Privacy, persistence and failure
 
@@ -181,7 +183,7 @@ No row in the original inventory is removed by this slice.
 | Agent wire/unwire | Effective built-in Agent instructions | Exact external marker/skill/MCP wiring, preservation of unrelated config, harness readiness/default/model operations |
 | Index/vault/memory/wiki/skills | SHA-256-verified uploaded local document retrieval | System/package/desktop/source/user/habits maps, bounded source mirrors, registered projects, vault/memory/journal enrollment and complete offline skills/wiki |
 | Provider/model/network | Local/fixture and configured HTTPS completion, private keys, catalog selection, unavailable-pick retention | Every individual Prowl provider/sign-in/model/profile/fallback/cache/network/project/harness/skill operation, adapter/source integrity and full settings UI |
-| Usage | Completion activity plus enrolled Claude/Codex/opencode JSON activity, costs/soft caps, local/UTC days, persistent five-minute scheduling and source failure statuses | Live OAuth/RPC/session-limit quota, opencode SQLite and complete model/session rows, separate timer and original shell/cache UI |
+| Usage | Completion activity plus enrolled Claude/Codex/opencode JSON/SQLite activity, committed WAL snapshots, costs/soft caps, local/UTC days, five-minute scheduling and source failure statuses | Live OAuth/RPC/session-limit quota, complete model/session rows, separate timer and original shell/cache UI |
 | Web/app/API | Tested authenticated Rust HTTP/Unix boundary and basic browser console | Retained upstream Svelte console/native app and all source routes/sheets, theme/vitals/system/vault content and shell/Hub bridges |
 | Terminal | Typed JSON CLI, no arbitrary command execution | Upstream proposed-command tiers, command buffer confirmation, continuation/run feedback/recipes and shell integrations |
 | Lifecycle | Explicit optional standalone process, restart and stale socket recovery | Optional RPM install/remove, enable-now/login/linger/disable choices, Prowl lifecycle, no implicit reinstallation and registered writer coordination |

@@ -48,7 +48,9 @@ with this scheduling owner so packaged login does not create duplicate collector
 Reports distinguish `fresh`, `partial`, `stale` and `unavailable`. Failure keeps
 a labeled stale last-good report with a sanitized error class. A failed first
 collection has no `updated_at`, rather than claiming an authoritative zero.
-SQLite-only opencode is unavailable. Malformed data and file/scan limits label
+Malformed or unsupported SQLite data is unavailable. The
+[read-only SQLite fallback](rashin-sqlite.md) now handles both retained table
+families and committed WAL snapshots. Malformed JSON and file/scan limits label
 partial results. Oversized Codex tails use last-turn counts rather than assigning
 an unknown historical prefix to the current window. Missing costs are labeled
 unavailable rather than identifying activity as free.
@@ -58,7 +60,7 @@ are not inferred from local activity. Quota stays unavailable here. Opencode's
 default local caps are 1,000,000 tokens/five hours and 20,000,000/seven days.
 Typed opencode enrollment can set `soft_caps` fields `five_hour_limit` and
 `seven_day_limit`. Caps are explicitly local estimates, never provider quota.
-Live quota, opencode SQLite, complete model/session rows, the separate timer and
+Live quota, complete model/session rows, the separate timer and
 the original shell/cache UI remain required #183 acceptance work.
 
 Readers pin directory descriptors, reject symlinks/hardlinks and unsafe

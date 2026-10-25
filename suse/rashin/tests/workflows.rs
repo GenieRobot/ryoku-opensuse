@@ -734,6 +734,11 @@ fn external_client_runtime_dependency_is_declared_for_tumbleweed() {
             .lines()
             .any(|line| line.split_whitespace().collect::<Vec<_>>() == ["Requires:", "timezone"])
     );
+    assert!(
+        runtime.lines().any(
+            |line| line.split_whitespace().collect::<Vec<_>>() == ["Requires:", "libsqlite3-0"]
+        )
+    );
 }
 
 #[test]

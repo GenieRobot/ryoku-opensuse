@@ -291,13 +291,13 @@ fn persistent_five_minute_schedule_catches_up_once_and_records_failed_attempts()
 }
 
 #[test]
-fn sqlite_only_opencode_is_unavailable_instead_of_claiming_zero_activity() {
+fn malformed_sqlite_opencode_is_unavailable_instead_of_claiming_zero_activity() {
     let source = Fixture::new();
     source.write("storage/message/.keep", b"");
     source.write("opencode.db", b"synthetic unsupported database");
     assert!(matches!(
         usage::collect(&source.enrollment(Tool::Opencode), current()),
-        Err(Error::ProviderUnavailable)
+        Err(Error::Integrity)
     ));
     let state = Fixture::new();
     let engine = state.engine();
