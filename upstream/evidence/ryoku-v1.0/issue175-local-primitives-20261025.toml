@@ -1,0 +1,54 @@
+schema_version = 1
+issue = 175
+status = "partial-implementation-not-installed-acceptance"
+branch = "codex/issue175-ryogami-library-providers"
+base_commit = "f5309eefa1954b492d613a172b2a583231ca61e4"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+source_identity_rows = 57
+source_identity_check = "all 57 manifest blob IDs independently matched cached immutable Git objects"
+
+[storage]
+worktree_filesystem = "/dev/sdd"
+cargo_target_filesystem = "/dev/sdd"
+cargo_cache_filesystem = "/dev/sdd"
+rustup_filesystem = "/dev/sdd"
+fixture_filesystem = "tmpfs"
+provider_network_calls = 0
+media_downloads = 0
+model_downloads = 0
+vm_operations = 0
+native_tool_launches = 0
+
+[validation]
+formatting = "pass"
+strict_clippy_workspace_all_targets_all_features = "pass"
+workspace_tests_offline_locked_all_features = "pass"
+service_tests_passed = 166
+service_tests_existing_ignored = 1
+recovery_tests_passed = 245
+recovery_tests_existing_ignored = 6
+vm_lab_tests_passed = 90
+focused_new_tests = 26
+dependency_advisories = "pass-cached-offline"
+dependency_bans = "pass-cached-offline"
+dependency_licenses = "pass-cached-offline"
+dependency_sources = "pass-cached-offline"
+whitespace = "pass"
+initial_environmental_failure = "sandbox denied synthetic AF_UNIX write with EPERM; separately approved local-only rerun passed"
+initial_dependency_environmental_failure = "read-only advisory database lock; separately approved cached offline review passed"
+
+[acceptance]
+installed_helper_provider_dispatch = false
+picker_provider_integration = false
+complete_asset_linked_capture = false
+native_snapper_proof = false
+native_provider_or_ui_test = false
+issue_complete = false
+remaining = [
+  "exact account-owned asset/content capture and offline restore bound to protected journal",
+  "authenticated helper and broker integration with complete reviewed write sets",
+  "trusted source/search/credential resolution and separate remote-effect receipts",
+  "bounded Steam/lens/conversion providers with process and resume accounting",
+  "every retained UI/CLI/daemon operation through deterministic end-to-end fixtures",
+  "fresh combined native Tumbleweed provider/package/UI/recovery acceptance under issue26"
+]
