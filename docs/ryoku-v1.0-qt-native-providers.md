@@ -115,3 +115,20 @@ existing native generator contract and scanner module names. Generated v1.0 RPM
 metadata, versioned capability constraints, recursive signed-snapshot solver
 closure, plugin loading and native session/recovery tests remain required; a
 passing synthetic metadata test does not satisfy them.
+
+The subsequent [native module install contract](../upstream/evidence/ryoku-v1.0/native-module-install-contract.json)
+also makes the RPM audit require eight regular files: each Blobs/Spatial3D
+module's `qmldir`, target `.qmltypes`, backing library and plugin library under
+`/usr/lib64/qt6/qml/Ryoku`. Their target/output-directory and full-directory
+copy contracts are pinned to source and recipe; historical native Blobs output
+confirms its four names. Spatial3D uses the same Qt target pattern, with the
+refreshed generated output still an explicit native gate. Missing, symlink,
+directory, duplicate and lookalike cases fail. Historical Blobs-only payload
+cannot pass the 1.0 gate.
+
+This is file/type integrity, not proof of ELF contents, RPATH, ABI, loadability
+or correct QML type registration. Blobs shader sources are embedded by
+`qt_add_shaders`; the inventory gate assumes no standalone installed `.qsb`
+files. Their resource contents and execution remain native acceptance work.
+All eleven ordinary audit tests and explicit native spec parsing pass using
+cached locked dependencies; runtime sources, specs and archives stay unchanged.

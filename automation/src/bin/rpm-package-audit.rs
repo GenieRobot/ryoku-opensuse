@@ -143,6 +143,26 @@ fn qml_imports(requires: &str, provides: &BTreeSet<String>) -> Result<()> {
     Ok(())
 }
 
+fn native_modules(records: &[FileRecord]) -> Result<()> {
+    for (module, target) in [("Blobs", "ryoku-blobs"), ("Spatial3D", "ryoku-spatial3d")] {
+        for name in [
+            "qmldir".to_owned(),
+            format!("{target}.qmltypes"),
+            format!("lib{target}.so"),
+            format!("lib{target}plugin.so"),
+        ] {
+            let path = format!("/usr/lib64/qt6/qml/Ryoku/{module}/{name}");
+            let mut matches = records.iter().filter(|record| record.path == path);
+            require(
+                matches.next().is_some_and(|record| record.mode & 0o170000 == 0o100000)
+                    && matches.next().is_none(),
+                &format!("missing, non-regular or ambiguous native module payload: {path}"),
+            )?;
+        }
+    }
+    Ok(())
+}
+
 fn component_licenses(records: &[FileRecord]) -> Result<()> {
     for name in PICKER_LICENSES.iter().chain(INIR_FONT_LICENSES) {
         let mut matching = records.iter().filter(|record| {
@@ -220,6 +240,7 @@ fn run() -> Result<()> {
         let inventory = query(path, &["--qf", FILE_QUERY])?;
         let records = files(&inventory)?;
         if name == "ryoku-desktop-runtime" {
+            native_modules(&records)?;
             component_licenses(&records)?;
             let license = query(path, &["--qf", "%{LICENSE}\n"])?;
             runtime_license(&license)?;
@@ -259,6 +280,66 @@ mod tests {
 
     fn row(path: &str, mode: u32) -> String {
         format!("{}\t{mode}\t\"root\"\t\"root\"\t(none)\n", serde_json::to_string(path).unwrap())
+    }
+
+    #[test]
+    fn native_modules_require_both_complete_regular_file_sets() {
+        // Explicit expected output paths, independent of the validator's construction.
+        let paths = [
+            "/usr/lib64/qt6/qml/Ryoku/Blobs/qmldir",
+            "/usr/lib64/qt6/qml/Ryoku/Blobs/ryoku-blobs.qmltypes",
+            "/usr/lib64/qt6/qml/Ryoku/Blobs/libryoku-blobs.so",
+            "/usr/lib64/qt6/qml/Ryoku/Blobs/libryoku-blobsplugin.so",
+            "/usr/lib64/qt6/qml/Ryoku/Spatial3D/qmldir",
+            "/usr/lib64/qt6/qml/Ryoku/Spatial3D/ryoku-spatial3d.qmltypes",
+            "/usr/lib64/qt6/qml/Ryoku/Spatial3D/libryoku-spatial3d.so",
+            "/usr/lib64/qt6/qml/Ryoku/Spatial3D/libryoku-spatial3dplugin.so",
+        ];
+        let contract: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/native-module-install-contract.json"
+        ))
+        .unwrap();
+        assert_eq!(contract["expected_runtime_regular_files"], serde_json::json!(paths));
+        let source = &contract["source"];
+        let manifest =
+            include_str!("../../../upstream/evidence/ryoku-v1.0/runtime-source-manifest.tsv");
+        assert!(manifest.lines().any(|line| {
+            let fields: Vec<_> = line.split('\t').collect();
+            fields[0] == source["Source2_payload"].as_str().unwrap()
+                && fields[1] == source["path"].as_str().unwrap()
+                && fields[2] == source["git_blob"].as_str().unwrap()
+                && fields[3] == "644"
+        }));
+        let spec = include_str!("../../../packaging/rpm/ryoku-desktop.spec");
+        for anchor in contract["recipe"]["anchors"].as_array().unwrap() {
+            assert!(spec.contains(anchor.as_str().unwrap()));
+        }
+        let inventory: String = paths.iter().map(|path| row(path, 0o100644)).collect();
+        assert!(native_modules(&files(&inventory).unwrap()).is_ok());
+        for index in 0..paths.len() {
+            let mut records = files(&inventory).unwrap();
+            records.remove(index);
+            assert!(native_modules(&records).is_err(), "{}", paths[index]);
+            for mode in [0o120777, 0o040755] {
+                let mut records = files(&inventory).unwrap();
+                records[index].mode = mode;
+                assert!(native_modules(&records).is_err());
+            }
+            let mut records = files(&inventory).unwrap();
+            records[index].path.push_str(".lookalike");
+            assert!(native_modules(&records).is_err());
+            let mut records = files(&inventory).unwrap();
+            records.push(FileRecord { path: paths[index].into(), mode: 0o100644 });
+            assert!(native_modules(&records).is_err());
+        }
+        let historical = files(include_str!(
+            "../../../infra/tumbleweed-lab/evidence/issue23-native-20261021/runtime-manifests/ryoku-desktop-runtime-files.tsv"
+        ))
+        .unwrap();
+        for path in paths.iter().take(4) {
+            assert!(historical.iter().any(|record| record.path == *path));
+        }
+        assert!(native_modules(&historical).is_err());
     }
 
     #[test]

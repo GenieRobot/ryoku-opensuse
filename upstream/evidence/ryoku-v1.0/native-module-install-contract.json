@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "project_base_commit": "b8e1c82af202151536647d87f292e2fb6bd66797",
+  "source": {
+    "path": "ryoku/shell/plugin/CMakeLists.txt",
+    "git_blob": "b0e9949cf25e1109a21f6124a130769472b6ddd9",
+    "git_mode": "100644",
+    "sha256": "da42536a7fc0ac6ef6988c5acf103ccd01c0db9bcc67fda9c7898c59c0751835",
+    "Source2_payload": "native/ryoku-blobs/CMakeLists.txt",
+    "anchors": [
+      {
+        "lines": [
+          24
+        ],
+        "text": "qt_add_qml_module(ryoku-blobs"
+      },
+      {
+        "lines": [
+          25
+        ],
+        "text": "URI Ryoku.Blobs"
+      },
+      {
+        "lines": [
+          27,
+          55
+        ],
+        "text": "OUTPUT_DIRECTORY \"${CMAKE_BINARY_DIR}/qml/Ryoku/Blobs\""
+      },
+      {
+        "lines": [
+          54
+        ],
+        "text": "set_target_properties(ryoku-blobs ryoku-blobsplugin"
+      },
+      {
+        "lines": [
+          60
+        ],
+        "text": "qt_add_qml_module(ryoku-spatial3d"
+      },
+      {
+        "lines": [
+          61
+        ],
+        "text": "URI Ryoku.Spatial3D"
+      },
+      {
+        "lines": [
+          63,
+          73
+        ],
+        "text": "OUTPUT_DIRECTORY \"${CMAKE_BINARY_DIR}/qml/Ryoku/Spatial3D\""
+      },
+      {
+        "lines": [
+          72
+        ],
+        "text": "set_target_properties(ryoku-spatial3d ryoku-spatial3dplugin"
+      },
+      {
+        "lines": [
+          78
+        ],
+        "text": "qt_add_shaders(ryoku-blobs \"blob_shaders\""
+      },
+      {
+        "lines": [
+          81
+        ],
+        "text": "PREFIX \"/\""
+      },
+      {
+        "lines": [
+          83
+        ],
+        "text": "shaders/blob.vert"
+      },
+      {
+        "lines": [
+          84
+        ],
+        "text": "shaders/blob.frag"
+      },
+      {
+        "lines": [
+          85
+        ],
+        "text": "shaders/beam.vert"
+      },
+      {
+        "lines": [
+          86
+        ],
+        "text": "shaders/beam.frag"
+      }
+    ]
+  },
+  "expected_runtime_regular_files": [
+    "/usr/lib64/qt6/qml/Ryoku/Blobs/qmldir",
+    "/usr/lib64/qt6/qml/Ryoku/Blobs/ryoku-blobs.qmltypes",
+    "/usr/lib64/qt6/qml/Ryoku/Blobs/libryoku-blobs.so",
+    "/usr/lib64/qt6/qml/Ryoku/Blobs/libryoku-blobsplugin.so",
+    "/usr/lib64/qt6/qml/Ryoku/Spatial3D/qmldir",
+    "/usr/lib64/qt6/qml/Ryoku/Spatial3D/ryoku-spatial3d.qmltypes",
+    "/usr/lib64/qt6/qml/Ryoku/Spatial3D/libryoku-spatial3d.so",
+    "/usr/lib64/qt6/qml/Ryoku/Spatial3D/libryoku-spatial3dplugin.so"
+  ],
+  "derivation": "Pinned Linux x86_64 Qt module targets and full module-directory install contract; historical native Blobs output confirms its four file names. Spatial3D uses the same Qt target pattern; exact generated native output still requires refreshed build acceptance.",
+  "recipe": {
+    "path": "packaging/rpm/ryoku-desktop.spec",
+    "sha256": "564b0ffbbff1d95601f136f51cad57d05702b22363925945769a7661c04196e9",
+    "anchors": [
+      "ExclusiveArch:  x86_64",
+      "%global qml_root %{_libdir}/qt6/qml/Ryoku",
+      "cp -a blobs-build/qml/Ryoku/Blobs %{buildroot}%{qml_root}/",
+      "cp -a blobs-build/qml/Ryoku/Spatial3D %{buildroot}%{qml_root}/"
+    ]
+  },
+  "historical_reference": {
+    "path": "infra/tumbleweed-lab/evidence/issue23-native-20261021/runtime-manifests/ryoku-desktop-runtime-files.tsv",
+    "sha256": "0c2c08819d22fa0c50271bc7069260b1d94577006c42790c9148d87223e13a4d",
+    "scope": "Confirms four original Blobs paths only; no Spatial3D or refreshed candidate acceptance"
+  },
+  "shader_contract": "qt_add_shaders embeds four source shaders as Qt resources in Blobs; no standalone installed .qsb file is assumed or required by this inventory gate. Resource contents still need native verification.",
+  "scope": "Required packaging file/type integrity only; no binary magic, ABI, RPATH, ELF Requires/solver, plugin loading, shader execution, session or recovery acceptance; no feature exclusion."
+}
