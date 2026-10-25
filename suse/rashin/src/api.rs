@@ -43,6 +43,11 @@ pub enum Request {
         id: String,
     },
     Recent {},
+    Handoff {
+        ask_id: String,
+        run: Option<HandoffRun>,
+    },
+    ClearHandoff {},
     NewSession {
         id: String,
         lane: Lane,
@@ -89,6 +94,13 @@ pub enum Request {
     DisableUsageSource {
         tool: crate::usage::Tool,
     },
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct HandoffRun {
+    pub id: String,
+    pub session: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

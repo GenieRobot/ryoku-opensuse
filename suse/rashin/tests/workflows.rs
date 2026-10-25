@@ -373,7 +373,18 @@ fn unsafe_paths_links_modes_and_duplicate_daemons_fail_closed() {
 
 impl Fixture {
     fn engine_result(&self) -> ryoku_rashin::Result<Arc<Engine>> {
-        Engine::open(Store::open(&self.path)?)
+        // Another test's fork may briefly inherit a CLOEXEC lease. Preserve
+        // the actual unsafe/integrity result once exec releases that lease.
+        let until = Instant::now() + Duration::from_millis(100);
+        loop {
+            match Store::open(&self.path) {
+                Ok(store) => return Engine::open(store),
+                Err(Error::Busy) if Instant::now() < until => {
+                    std::thread::sleep(Duration::from_millis(2))
+                }
+                Err(error) => return Err(error),
+            }
+        }
     }
 }
 
@@ -851,4 +862,186 @@ fn built_binary_serves_real_tcp_and_cli_requests_without_autostart() {
     let value: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(value["data"]["optional_at_login"], true);
     assert!(fixture.path.join("state.json").exists());
+}
+
+#[test]
+fn canonical_ask_handoff_survives_restart_and_session_changes_then_is_consumed_once() {
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    rpc(
+        &engine,
+        Request::Ask { id: "source".into(), prompt: "PRIVATE_HANDOFF_QUESTION ] marker".into() },
+    );
+    let ask = done(&engine, "source");
+    let staged = rpc(&engine, Request::Handoff { ask_id: "source".into(), run: None });
+    assert_eq!(staged["pending_handoff"]["question"], ask["prompt"]);
+    assert_eq!(staged["pending_handoff"]["answer"], ask["answer"]);
+    rpc(&engine, Request::NewSession { id: "older-agent".into(), lane: Lane::Agent });
+    drop(engine);
+    let engine = fixture.reopen();
+    rpc(&engine, Request::NewSession { id: "selected-agent".into(), lane: Lane::Agent });
+    rpc(&engine, Request::NewSession { id: "plain-chat".into(), lane: Lane::Chat });
+    rpc(
+        &engine,
+        Request::Prompt {
+            id: "chat-turn".into(),
+            session: "plain-chat".into(),
+            prompt: "chat only".into(),
+        },
+    );
+    assert!(done(&engine, "chat-turn")["handoff"].is_null());
+    assert_eq!(rpc(&engine, Request::Sessions {})["pending_handoff"]["ask_id"], "source");
+    rpc(
+        &engine,
+        Request::Prompt {
+            id: "agent-turn".into(),
+            session: "selected-agent".into(),
+            prompt: "continue here".into(),
+        },
+    );
+    let job = done(&engine, "agent-turn");
+    assert_eq!(job["handoff"]["ask_id"], "source");
+    assert!(job["prompt"].as_str().unwrap().contains("PRIVATE_HANDOFF_QUESTION ] marker"));
+    assert!(job["prompt"].as_str().unwrap().contains("untrusted prior conversation data"));
+    assert!(rpc(&engine, Request::Sessions {})["pending_handoff"].is_null());
+    rpc(
+        &engine,
+        Request::Prompt {
+            id: "next-turn".into(),
+            session: "selected-agent".into(),
+            prompt: "next question".into(),
+        },
+    );
+    let next = done(&engine, "next-turn");
+    assert!(next["handoff"].is_null());
+    assert_eq!(next["prompt"], "next question");
+    assert_eq!(rpc(&engine, Request::Recent {})["asks"].as_array().unwrap().len(), 1);
+    assert!(
+        rpc(&engine, Request::Session { id: "older-agent".into() })["session"]["messages"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn immediate_handoff_is_atomic_and_idempotent_and_conflicts_do_not_restage_it() {
+    use ryoku_rashin::api::HandoffRun;
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    rpc(&engine, Request::Ask { id: "source".into(), prompt: "canonical source".into() });
+    done(&engine, "source");
+    rpc(&engine, Request::NewSession { id: "agent".into(), lane: Lane::Agent });
+    rpc(&engine, Request::NewSession { id: "chat".into(), lane: Lane::Chat });
+    let run = |session: &str| Request::Handoff {
+        ask_id: "source".into(),
+        run: Some(HandoffRun { id: "run-handoff".into(), session: session.into() }),
+    };
+    assert_eq!(engine.dispatch(run("chat")), Err(Error::InvalidRequest));
+    assert!(rpc(&engine, Request::Sessions {})["pending_handoff"].is_null());
+    rpc(&engine, run("agent"));
+    let job = done(&engine, "run-handoff");
+    assert_eq!(job["handoff"]["question"], "canonical source");
+    let usage = rpc(&engine, Request::Usage {})["activity"].as_array().unwrap().len();
+    drop(engine);
+    let engine = fixture.reopen();
+    assert_eq!(rpc(&engine, run("agent"))["status"], "completed");
+    assert_eq!(engine.dispatch(run("chat")), Err(Error::Conflict));
+    assert!(rpc(&engine, Request::Sessions {})["pending_handoff"].is_null());
+    assert_eq!(rpc(&engine, Request::Usage {})["activity"].as_array().unwrap().len(), usage);
+    assert_eq!(
+        engine.dispatch(Request::Handoff { ask_id: "run-handoff".into(), run: None }),
+        Err(Error::InvalidRequest)
+    );
+    assert_eq!(
+        engine.dispatch_as(
+            ryoku_rashin::authorization::Access::AskClient,
+            Request::Handoff { ask_id: "source".into(), run: None }
+        ),
+        Err(Error::Unauthorized)
+    );
+    rpc(&engine, Request::Handoff { ask_id: "source".into(), run: None });
+    rpc(&engine, Request::ClearHandoff {});
+    assert!(rpc(&engine, Request::Sessions {})["pending_handoff"].is_null());
+    rpc(&engine, Request::Handoff { ask_id: "source".into(), run: None });
+    rpc(&engine, Request::ForgetJob { id: "source".into() });
+    assert!(rpc(&engine, Request::Sessions {})["pending_handoff"].is_null());
+}
+
+#[test]
+fn handoff_rejects_cancelled_sources_and_preserves_pending_on_busy_until_accepted_failure() {
+    use ryoku_rashin::provider::FixtureOutcome;
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    rpc(
+        &engine,
+        Request::PutProvider {
+            id: "slow".into(),
+            provider: Provider::Fixture { delay_millis: 1000, outcome: FixtureOutcome::Failure },
+        },
+    );
+    rpc(
+        &engine,
+        Request::SetRoute { lane: Lane::Ask, provider: "slow".into(), model: "fixture-v1".into() },
+    );
+    rpc(&engine, Request::Ask { id: "unfinished".into(), prompt: "not complete".into() });
+    assert_eq!(
+        engine.dispatch(Request::Handoff { ask_id: "unfinished".into(), run: None }),
+        Err(Error::Busy)
+    );
+    rpc(&engine, Request::Cancel { id: "unfinished".into() });
+    assert_eq!(
+        engine.dispatch(Request::Handoff { ask_id: "unfinished".into(), run: None }),
+        Err(Error::Conflict)
+    );
+    rpc(
+        &engine,
+        Request::SetRoute {
+            lane: Lane::Ask,
+            provider: "local".into(),
+            model: "local-retrieval-v1".into(),
+        },
+    );
+    rpc(&engine, Request::Ask { id: "source".into(), prompt: "ready".into() });
+    done(&engine, "source");
+    rpc(&engine, Request::NewSession { id: "agent".into(), lane: Lane::Agent });
+    rpc(
+        &engine,
+        Request::SetRoute {
+            lane: Lane::Agent,
+            provider: "slow".into(),
+            model: "fixture-v1".into(),
+        },
+    );
+    rpc(
+        &engine,
+        Request::Prompt { id: "busy".into(), session: "agent".into(), prompt: "wait".into() },
+    );
+    rpc(&engine, Request::Handoff { ask_id: "source".into(), run: None });
+    assert_eq!(
+        engine.dispatch(Request::Prompt {
+            id: "blocked".into(),
+            session: "agent".into(),
+            prompt: "next".into()
+        }),
+        Err(Error::Busy)
+    );
+    assert_eq!(rpc(&engine, Request::Sessions {})["pending_handoff"]["ask_id"], "source");
+    rpc(&engine, Request::Cancel { id: "busy".into() });
+    rpc(
+        &engine,
+        Request::Prompt {
+            id: "failed".into(),
+            session: "agent".into(),
+            prompt: "investigate".into(),
+        },
+    );
+    assert_eq!(done(&engine, "failed")["status"], "failed");
+    assert!(rpc(&engine, Request::Sessions {})["pending_handoff"].is_null());
+    assert!(
+        rpc(&engine, Request::Session { id: "agent".into() })["session"]["messages"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 }

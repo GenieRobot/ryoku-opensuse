@@ -36,7 +36,9 @@ impl Request {
             | Self::Logs { .. }
             | Self::Job { .. } => Action::Inspect,
             Self::Ask { .. } | Self::Cancel { .. } => Action::Ask,
-            Self::NewSession { .. }
+            Self::Handoff { .. }
+            | Self::ClearHandoff {}
+            | Self::NewSession { .. }
             | Self::Prompt { .. }
             | Self::ForgetJob { .. }
             | Self::DeleteSession { .. } => Action::Conversation,
