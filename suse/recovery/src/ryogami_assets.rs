@@ -173,6 +173,77 @@ impl AssetInventory {
     }
 }
 
+/// Frozen server-reviewed scope and byte reservation for both pre/post captures.
+/// It is not a wire authorization token. Exact paths and bounds participate in
+/// the reviewed plan fingerprint so a provider cannot change scope after apply.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AssetScope {
+    paths: Vec<AssetPath>,
+    max_file_bytes: u64,
+    max_total_bytes: u64,
+}
+impl AssetScope {
+    pub fn new(
+        mut paths: Vec<AssetPath>,
+        max_file_bytes: u64,
+        max_total_bytes: u64,
+    ) -> Result<Self, AssetError> {
+        paths.sort();
+        let scope = Self { paths, max_file_bytes, max_total_bytes };
+        scope.validate()?;
+        Ok(scope)
+    }
+    pub fn validate(&self) -> Result<(), AssetError> {
+        if self.paths.is_empty()
+            || self.paths.len() > MAX_CAPTURE_LIMITS.max_paths
+            || self.paths.windows(2).any(|pair| pair[0] >= pair[1])
+            || self.max_file_bytes == 0
+            || self.max_file_bytes > MAX_CAPTURE_LIMITS.max_file_bytes
+            || self.max_total_bytes < self.max_file_bytes
+            || self.max_total_bytes > MAX_CAPTURE_LIMITS.max_total_bytes
+        {
+            return Err(AssetError::Bounds);
+        }
+        for path in &self.paths {
+            path.validate()?;
+        }
+        Ok(())
+    }
+    pub fn paths(&self) -> &[AssetPath] {
+        &self.paths
+    }
+    pub fn limits(&self) -> CaptureLimits {
+        CaptureLimits {
+            max_paths: self.paths.len(),
+            max_file_bytes: self.max_file_bytes,
+            max_total_bytes: self.max_total_bytes,
+        }
+    }
+    pub fn capture(
+        &self,
+        home: &File,
+        account: &CaptureAccount,
+    ) -> Result<CapturedAssets, AssetError> {
+        self.validate()?;
+        capture_assets(home, account, &self.paths, self.limits())
+    }
+    pub fn bind_fingerprint(
+        &self,
+        preferences: &Sha256,
+        assets: &AssetInventory,
+    ) -> Result<Sha256, AssetError> {
+        self.validate()?;
+        assets.validate()?;
+        if assets.entries().iter().map(|entry| &entry.path).ne(self.paths.iter()) {
+            return Err(AssetError::Path);
+        }
+        let bytes =
+            serde_json::to_vec(&(preferences, self, assets)).map_err(|_| AssetError::Manifest)?;
+        Sha256::new(format!("{:x}", Hash::digest(bytes))).map_err(|_| AssetError::Manifest)
+    }
+}
+
 pub struct CapturedAssets {
     inventory: AssetInventory,
     metadata: Payloads,

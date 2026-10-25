@@ -50,11 +50,27 @@ this set with the whole preference inventory into one sealed generation;
 its inventory readback also checks all enrolled assets.
 
 Restore staging preserves content, uid/gid, mode, mtime and supported ACL/label
-metadata on a caller-owned private inode. The old preference-only planner and
-stage explicitly refuse asset-bearing manifests instead of silently skipping
-media. This is not a completed live restore: journaled destination publication,
-parent-directory enrollment, configured image/video roots, complete provider
-write sets and installed routing remain open. No current helper request has
+metadata on a caller-owned private inode. The exact-file restore engine now
+publishes regular/absent destinations under existing owned parents using an
+immutable write-ahead record. It binds distinct source/current linked
+generations, parent inode/owner/mode, exact target and generated staging
+absence. Restart inspection distinguishes original, partially staged and
+restored state. Interrupted staging is retained; cleanup and retry require
+separate fresh captured operations. Local restored bytes never count as a
+native operation result without complete post-capture.
+
+The native mutation runner accepts an optional server-owned `AssetScope`,
+freezes its paths/bounds through post-capture, and binds them with preference
+and asset state into the reviewed fingerprint. Existing #25 providers retain
+`None` and their unchanged preference fingerprint/capture. Scope changes are
+rejected before native snapshot creation. Pair capacity is checked before
+capture, and source metadata allocation remains capped at 64 MiB even when
+asset content limits are larger.
+
+The old preference-only planner and stage explicitly refuse asset-bearing
+manifests instead of silently skipping media. General directory creation and
+metadata recovery, configured image/video roots, complete provider write sets
+and installed routing remain open. No current helper request has
 been changed to forward an unprotected operation. No upstream component,
 picker control, daemon feature, package path or language has been removed or
 rewritten by this checkpoint.
@@ -138,6 +154,24 @@ The first installed-capture integration fixture used an invalid all-zero native
 filesystem UUID; correcting the synthetic receipt made the intended integration
 pass. Strict lint found a complex inode fingerprint tuple; replacing it with
 named fields and fixing its size access passed the subsequent full check.
+
+The exact-file restore/scope checkpoint adds eight tests (two reviewed-scope
+fingerprint/bounds tests and six journaled destination tests). The focused
+`cargo test --offline --locked -p ryoku-recovery asset_restore` selection passes
+7/7 because it also includes the prior streamed restore refusal test.
+
+| Exact destination boundary | Evidence |
+| --- | --- |
+| Atomic restoration and persisted identity | `exact_restore_journals_before_replace_preserves_source_and_reopens_after_restart` verifies restored bytes, stage removal, protected-record reopen, original linked partner and unrelated sentinel |
+| Interrupted stage cleanup and retry | `partial_stage_is_truthful_and_cleanup_and_restore_require_fresh_captured_operations` retains the partial, observes it after reopen, refuses blind replay, captures a fresh cleanup operation and then another fresh restore operation |
+| Pre-write refusal | Missing target/stage coverage, wrong account, changed parent identity/mode, stale target and oversized/symlink stage injection leave the journal and destinations unchanged |
+| Crash windows | `journal_only_and_post_rename_interruptions_have_distinct_restart_observations` reports Original versus Restored without falsely marking native completion |
+| Record corruption | Missing/tampered record or exchanged source/checkpoint cannot reopen a valid restore plan |
+| Scope identity | Reviewed paths, bounds, preference fingerprint, asset bytes and absence all participate; duplicate/malformed scopes and oversized current state refuse |
+
+All fixtures remain local synthetic data. Native provider authorization,
+Snapper execution, general tree recovery and installed picker actions have not
+been exercised by these storage tests.
 
 ## Remaining acceptance gates
 

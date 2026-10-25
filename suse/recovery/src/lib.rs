@@ -9,6 +9,8 @@
 
 pub mod account_principal;
 #[cfg(target_os = "linux")]
+pub mod asset_restore;
+#[cfg(target_os = "linux")]
 pub mod capture;
 pub use account_principal::AccountPrincipal;
 #[cfg(target_os = "linux")]

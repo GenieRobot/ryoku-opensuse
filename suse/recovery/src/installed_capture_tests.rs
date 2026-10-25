@@ -1197,7 +1197,10 @@ fn installed_capture_publishes_preferences_and_exact_assets_in_one_native_linked
         roots,
         asset_request("installed-assets"),
         collect,
-        InstalledCaptureSources { bundle: None, assets: Some(&[path.clone(), absent]) },
+        InstalledCaptureSources {
+            bundle: None,
+            assets: Some((&[path.clone(), absent], crate::ryogami_assets::MAX_CAPTURE_LIMITS)),
+        },
         || Ok(()),
     )
     .unwrap();
@@ -1242,7 +1245,10 @@ fn changed_asset_after_capture_retracts_linked_publication_without_panicking() {
         roots,
         asset_request("changed-assets"),
         collect,
-        InstalledCaptureSources { bundle: None, assets: Some(&[path]) },
+        InstalledCaptureSources {
+            bundle: None,
+            assets: Some((&[path], crate::ryogami_assets::MAX_CAPTURE_LIMITS)),
+        },
         || {
             calls.set(calls.get() + 1);
             if calls.get() == 4 {

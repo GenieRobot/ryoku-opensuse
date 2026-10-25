@@ -116,6 +116,50 @@ impl NativeCaptureSession {
         Ok(fingerprint)
     }
 
+    /// Binds the complete preference fingerprint, exact asset inventory and
+    /// server-owned transfer/capture limits to one reviewed mutation plan.
+    pub fn inventory_fingerprint_with_assets(
+        &self,
+        scope: &crate::ryogami_assets::AssetScope,
+    ) -> Result<crate::Sha256> {
+        let preferences = self.inventory_fingerprint()?;
+        let assets = scope
+            .capture(&self.home, &self.account)
+            .map_err(|_| CaptureSessionError::UnsafeBoundary)?;
+        self.revalidate()?;
+        scope
+            .bind_fingerprint(&preferences, assets.inventory())
+            .map_err(|_| CaptureSessionError::UnsafeBoundary)
+    }
+
+    /// Check room for both maximum scoped asset generations plus the historical
+    /// preference pair and metadata overhead. This is a read-only check, not a
+    /// disk reservation; publication still checks capacity and all write errors.
+    pub fn ensure_asset_checkpoint_space(
+        &self,
+        scope: &crate::ryogami_assets::AssetScope,
+    ) -> Result<()> {
+        self.revalidate()?;
+        scope.validate().map_err(|_| CaptureSessionError::UnsafeBoundary)?;
+        let required = scope
+            .limits()
+            .max_total_bytes
+            .checked_mul(2)
+            .and_then(|bytes| bytes.checked_add(192 * 1024 * 1024))
+            .ok_or(CaptureSessionError::UnsafeBoundary)?;
+        let stats = fs::fstatvfs(&self.state)?;
+        let available = stats.f_bavail.saturating_mul(stats.f_frsize);
+        if available < required {
+            return Err(CaptureSessionError::Generation(
+                crate::generation::GenerationError::InsufficientSpace {
+                    required_bytes: required,
+                    available_bytes: available,
+                },
+            ));
+        }
+        self.revalidate()
+    }
+
     pub fn verify_inventory(&self, manifest: &RecoveryManifest) -> Result<()> {
         self.revalidate()?;
         if manifest.account_principal() != Some(&self.account.principal) {
@@ -339,11 +383,12 @@ impl NativeCaptureSession {
         &self,
         request: InstalledCaptureRequest,
         bundle: &VerifiedProfileBundle,
-        declarations: &[crate::ryogami_assets::AssetPath],
+        scope: &crate::ryogami_assets::AssetScope,
     ) -> Result<RecoveryManifest> {
         self.revalidate()?;
         let inventory =
             InstalledInventory::for_home(&self.home).map_err(CaptureSessionError::Capture)?;
+        scope.validate().map_err(|_| CaptureSessionError::UnsafeBoundary)?;
         crate::installed_capture::capture_installed_configuration_with_sources_checked(
             &self.store,
             &inventory,
@@ -357,7 +402,7 @@ impl NativeCaptureSession {
             crate::capture::capture_inventory,
             crate::installed_capture::InstalledCaptureSources {
                 bundle: Some(bundle),
-                assets: Some(declarations),
+                assets: Some((scope.paths(), scope.limits())),
             },
             || self.revalidate().map_err(|_| GenerationCaptureError::CoordinationLost),
         )

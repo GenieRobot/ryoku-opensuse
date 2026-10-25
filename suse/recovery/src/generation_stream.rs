@@ -256,7 +256,7 @@ impl VerifiedGeneration {
             || stat.st_nlink != 1
             || stat.st_size != 0
             || stat.st_mode & 0o7777 != 0o600
-            || stat.st_uid != rustix::process::geteuid().as_raw()
+            || (stat.st_uid != rustix::process::geteuid().as_raw() && stat.st_uid != account.uid)
         {
             return Err(GenerationError::InvalidEntryType);
         }

@@ -550,7 +550,7 @@ fn capture_installed_configuration_using_profile(
 
 pub(crate) struct InstalledCaptureSources<'a> {
     pub bundle: Option<&'a crate::installed_profiles::VerifiedProfileBundle>,
-    pub assets: Option<&'a [crate::ryogami_assets::AssetPath]>,
+    pub assets: Option<(&'a [crate::ryogami_assets::AssetPath], crate::capture::CaptureLimits)>,
 }
 
 pub(crate) fn capture_installed_configuration_checked(
@@ -697,13 +697,13 @@ pub(crate) fn capture_installed_configuration_with_sources_checked(
                 account_principal: Some(roots.account.principal.clone()),
                 assets: sources
                     .assets
-                    .map(|declarations| {
+                    .map(|(declarations, limits)| {
                         let home = roots.account_home.ok_or(InventoryError::MissingRoot)?;
                         let captured = crate::ryogami_assets::capture_assets(
                             home,
                             &roots.account,
                             declarations,
-                            crate::ryogami_assets::MAX_CAPTURE_LIMITS,
+                            limits,
                         )
                         .map_err(|_| GenerationCaptureError::VerificationMismatch)?;
                         checked_boundary()?;

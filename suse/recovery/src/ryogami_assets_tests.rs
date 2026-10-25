@@ -236,3 +236,83 @@ fn metadata_identity_and_absence_changes_affect_asset_fingerprint() {
             .unwrap();
     assert!(second.inventory.require_account(&other).is_err());
 }
+
+#[test]
+fn reviewed_asset_scope_binds_paths_limits_content_absence_and_preferences() {
+    let fixture = Fixture::new();
+    let model = path(AssetNamespace::SemanticModels, "fixture.onnx");
+    let absent = path(AssetNamespace::SemanticModels, "missing.onnx");
+    fixture.write(&model, b"local fixture");
+    let scope = AssetScope::new(vec![model.clone(), absent.clone()], 1024, 4096).unwrap();
+    let captured = scope.capture(&fixture.home, &fixture.account).unwrap();
+    let preferences = Sha256::new("a".repeat(64)).unwrap();
+    let original = scope.bind_fingerprint(&preferences, captured.inventory()).unwrap();
+    assert_eq!(
+        AssetScope::new(vec![absent.clone(), model.clone()], 1024, 4096)
+            .unwrap()
+            .bind_fingerprint(&preferences, captured.inventory())
+            .unwrap(),
+        original
+    );
+    let different_limits = AssetScope::new(scope.paths().to_vec(), 2048, 4096).unwrap();
+    assert_ne!(
+        different_limits.bind_fingerprint(&preferences, captured.inventory()).unwrap(),
+        original
+    );
+    assert_ne!(
+        scope
+            .bind_fingerprint(&Sha256::new("b".repeat(64)).unwrap(), captured.inventory())
+            .unwrap(),
+        original
+    );
+    let missing_path = AssetScope::new(vec![model.clone()], 1024, 4096).unwrap();
+    assert!(missing_path.bind_fingerprint(&preferences, captured.inventory()).is_err());
+    fixture.write(&absent, b"appeared");
+    assert_ne!(
+        scope
+            .bind_fingerprint(
+                &preferences,
+                scope.capture(&fixture.home, &fixture.account).unwrap().inventory()
+            )
+            .unwrap(),
+        original
+    );
+    fixture.write(&model, b"changed");
+    assert_ne!(
+        scope
+            .bind_fingerprint(
+                &preferences,
+                scope.capture(&fixture.home, &fixture.account).unwrap().inventory()
+            )
+            .unwrap(),
+        original
+    );
+}
+
+#[test]
+fn reviewed_asset_scope_refuses_invalid_bounds_duplicate_and_oversized_current_state() {
+    let fixture = Fixture::new();
+    let model = path(AssetNamespace::SemanticModels, "fixture.onnx");
+    for (paths, file, total) in [
+        (vec![], 1, 1),
+        (vec![model.clone(), model.clone()], 1, 1),
+        (vec![model.clone()], 0, 1),
+        (vec![model.clone()], 2, 1),
+        (
+            vec![model.clone()],
+            MAX_CAPTURE_LIMITS.max_file_bytes + 1,
+            MAX_CAPTURE_LIMITS.max_total_bytes,
+        ),
+        (vec![model.clone()], 1, MAX_CAPTURE_LIMITS.max_total_bytes + 1),
+    ] {
+        assert!(AssetScope::new(paths, file, total).is_err());
+    }
+    fixture.write(&model, b"larger than quota");
+    let scope = AssetScope::new(vec![model], 1, 1).unwrap();
+    assert!(scope.capture(&fixture.home, &fixture.account).is_err());
+    let mut wire = serde_json::to_value(&scope).unwrap();
+    wire["max_total_bytes"] = 0.into();
+    let parsed: AssetScope = serde_json::from_value(wire).unwrap();
+    assert!(parsed.validate().is_err());
+    assert!(parsed.capture(&fixture.home, &fixture.account).is_err());
+}

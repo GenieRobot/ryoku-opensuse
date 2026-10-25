@@ -111,6 +111,20 @@ pub(crate) struct CapturedInventory {
     pub source_bytes: u64,
 }
 
+// The large-asset path raises content bounds, never metadata allocation bounds.
+// This also preserves every historical 256-path metadata combination.
+const MAX_CAPTURE_METADATA_BYTES: usize = 64 * 1024 * 1024;
+fn extend_metadata(
+    target: &mut BTreeMap<Sha256, Vec<u8>>,
+    source: BTreeMap<Sha256, Vec<u8>>,
+) -> Result<(), CaptureError> {
+    target.extend(source);
+    if target.values().map(Vec::len).sum::<usize>() > MAX_CAPTURE_METADATA_BYTES {
+        return Err(CaptureError::TotalCaptureTooLarge);
+    }
+    Ok(())
+}
+
 pub(crate) fn capture_inventory(
     root_fd: &File,
     root: StateRoot,
@@ -318,7 +332,7 @@ fn capture_inventory_bounded(
             if total_bytes > limits.max_total_bytes {
                 return Err(CaptureError::TotalCaptureTooLarge);
             }
-            metadata_payloads.extend(metadata.payloads);
+            extend_metadata(&mut metadata_payloads, metadata.payloads)?;
             captured.push(Captured {
                 record: FileRecord::new(
                     root,
@@ -353,7 +367,7 @@ fn capture_inventory_bounded(
             return Err(CaptureError::TotalCaptureTooLarge);
         }
         let metadata_before = metadata_capture.entry;
-        metadata_payloads.extend(metadata_capture.payloads);
+        extend_metadata(&mut metadata_payloads, metadata_capture.payloads)?;
         let entry_kind = match kind {
             FileType::Directory => EntryKind::Directory { metadata: metadata_before.clone() },
             FileType::RegularFile => {
