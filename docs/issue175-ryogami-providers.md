@@ -400,6 +400,43 @@ remain native acceptance gates. General model trees, import/delete, all retained
 source/Steam/library actions and configured external/cache enrollment remain
 required; this route does not complete #175.
 
+## Complete directory-tree enrollment checkpoint
+
+`ryogami_trees::inspect_scope` now enumerates only an explicit provider-owned
+model, Workshop, preview/thumbnail or configured-library tree under the bound
+account home. Descriptor-relative traversal refuses links, other owners, unsafe
+modes, mount crossings and executable/nonregular payloads. It bounds total files,
+path depth, individual and total bytes, supports cancellation during enumeration,
+and checks directory identities around child traversal. Additional declared
+future paths remain explicit absences; no unrelated home directory is scanned.
+
+An asset scope can now declare nonoverlapping complete tree roots. Their
+membership is checked before payload capture and after capture/readback,
+including publication revalidation and native-session inventory verification.
+An added child is an error even if all previously listed files are unchanged.
+Present children require declared directory ancestors. Tree-bearing asset
+inventories use nested inventory schema 2 inside the existing schema-3 recovery
+manifest; flat asset inventories remain schema 1 with byte-identical omitted
+`trees` fields. Historical top-level schema-1/2 preference behavior is unchanged.
+The trusted native capture path now passes the full scope rather than reducing
+it to a path list and losing the complete-tree claim.
+
+Seven focused fixtures pass: complete topology/future absence/privacy,
+changed children and malformed topology, absent tree versus legacy flat bytes,
+owner/link/mode/size/count/depth limits, cancellation/race/overlap refusal, and
+installed linked generation publication/readback with retraction when a child
+appears after capture. Full offline all-feature workspace passes: recovery
+291/6 existing ignored, console 26, service 179/2 ignored, VM 90. Strict Clippy,
+formatting, whitespace and cached dependency review pass. The receipt is
+[issue175-local-tree-enrollment-20261025.toml](../upstream/evidence/ryoku-v1.0/issue175-local-tree-enrollment-20261025.toml).
+
+This is complete-membership capture evidence, not destination tree restoration.
+The existing exact-file coordinator explicitly refuses tree directories. Model
+import/install/delete and other complete-tree actions remain gated until the
+journaled tree restore path and its interruption/trash recovery are implemented.
+No new picker action, native Snapper operation or download is enabled by this
+capture checkpoint.
+
 ## Remaining acceptance gates
 
 1. Install asset-aware complete linked pre/post capture and offline restore,

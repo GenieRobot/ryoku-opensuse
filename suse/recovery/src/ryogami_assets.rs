@@ -183,8 +183,13 @@ pub struct AssetInventory {
     uid: u32,
     gid: u32,
     entries: Vec<AssetRecord>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    trees: Vec<AssetPath>,
 }
 impl AssetInventory {
+    pub fn trees(&self) -> &[AssetPath] {
+        &self.trees
+    }
     pub fn principal(&self) -> &AccountPrincipal {
         &self.principal
     }
@@ -192,7 +197,7 @@ impl AssetInventory {
         &self.entries
     }
     pub fn validate(&self) -> Result<(), AssetError> {
-        if self.schema_version != 1
+        if self.schema_version != if self.trees.is_empty() { 1 } else { 2 }
             || self.uid == 0
             || self.uid == u32::MAX
             || self.gid == u32::MAX
@@ -239,6 +244,7 @@ impl AssetInventory {
         {
             return Err(AssetError::Bounds);
         }
+        crate::ryogami_trees::validate_inventory(self)?;
         Ok(())
     }
     pub fn fingerprint(&self) -> Result<Sha256, AssetError> {
@@ -265,6 +271,8 @@ pub struct AssetScope {
     paths: Vec<AssetPath>,
     max_file_bytes: u64,
     max_total_bytes: u64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    trees: Vec<AssetPath>,
 }
 impl AssetScope {
     pub fn new(
@@ -273,7 +281,7 @@ impl AssetScope {
         max_total_bytes: u64,
     ) -> Result<Self, AssetError> {
         paths.sort();
-        let scope = Self { paths, max_file_bytes, max_total_bytes };
+        let scope = Self { paths, max_file_bytes, max_total_bytes, trees: vec![] };
         scope.validate()?;
         Ok(scope)
     }
@@ -291,7 +299,26 @@ impl AssetScope {
         for path in &self.paths {
             path.validate()?;
         }
+        crate::ryogami_trees::validate_roots(&self.trees, &self.paths)?;
         Ok(())
+    }
+    pub fn trees(&self) -> &[AssetPath] {
+        &self.trees
+    }
+    pub(crate) fn with_trees(mut self, mut trees: Vec<AssetPath>) -> Result<Self, AssetError> {
+        trees.sort();
+        self.trees = trees;
+        self.validate()?;
+        Ok(self)
+    }
+    pub(crate) fn from_inventory(inventory: &AssetInventory) -> Result<Self, AssetError> {
+        inventory.validate()?;
+        Self::new(
+            inventory.entries().iter().map(|entry| entry.path.clone()).collect(),
+            MAX_CAPTURE_LIMITS.max_file_bytes,
+            MAX_CAPTURE_LIMITS.max_total_bytes,
+        )?
+        .with_trees(inventory.trees.clone())
     }
     pub fn paths(&self) -> &[AssetPath] {
         &self.paths
@@ -309,7 +336,13 @@ impl AssetScope {
         account: &CaptureAccount,
     ) -> Result<CapturedAssets, AssetError> {
         self.validate()?;
-        capture_assets(home, account, &self.paths, self.limits())
+        crate::ryogami_trees::verify_declared(home, account, self)?;
+        let mut captured = capture_assets(home, account, &self.paths, self.limits())?;
+        captured.inventory.trees = self.trees.clone();
+        captured.inventory.schema_version = if self.trees.is_empty() { 1 } else { 2 };
+        captured.inventory.validate()?;
+        crate::ryogami_trees::verify_inventory(home, account, &captured.inventory)?;
+        Ok(captured)
     }
     pub fn bind_fingerprint(
         &self,
@@ -318,7 +351,9 @@ impl AssetScope {
     ) -> Result<Sha256, AssetError> {
         self.validate()?;
         assets.validate()?;
-        if assets.entries().iter().map(|entry| &entry.path).ne(self.paths.iter()) {
+        if assets.entries().iter().map(|entry| &entry.path).ne(self.paths.iter())
+            || assets.trees() != self.trees()
+        {
             return Err(AssetError::Path);
         }
         let bytes =
@@ -345,9 +380,7 @@ impl CapturedAssets {
             gid: self.inventory.gid,
             principal: self.inventory.principal.clone(),
         };
-        let paths =
-            self.inventory.entries.iter().map(|entry| entry.path.clone()).collect::<Vec<_>>();
-        let current = capture_assets(home, &account, &paths, MAX_CAPTURE_LIMITS)?;
+        let current = AssetScope::from_inventory(&self.inventory)?.capture(home, &account)?;
         if current.inventory != self.inventory || current.metadata != self.metadata {
             return Err(AssetError::Changed);
         }
@@ -398,6 +431,7 @@ pub enum AssetError {
     Bounds,
     Ownership,
     Changed,
+    Interrupted,
     Manifest,
     Capture(CaptureError),
     Filesystem(rustix::io::Errno),
@@ -409,6 +443,7 @@ impl std::fmt::Display for AssetError {
             Self::Bounds => "asset inventory exceeds its bound",
             Self::Ownership => "asset account or ownership mismatch",
             Self::Changed => "asset inventory changed during capture",
+            Self::Interrupted => "asset tree enrollment interrupted",
             Self::Manifest => "invalid asset inventory",
             Self::Capture(_) => "asset content or metadata capture failed",
             Self::Filesystem(_) => "asset filesystem check failed",
@@ -472,11 +507,12 @@ pub fn capture_assets(
         uid: account.uid,
         gid: account.gid,
         entries,
+        trees: vec![],
     };
     inventory.require_account(account)?;
     Ok(CapturedAssets { inventory, metadata: before.metadata_payloads })
 }
-fn check_home(home: &File, account: &CaptureAccount) -> Result<(), AssetError> {
+pub(crate) fn check_home(home: &File, account: &CaptureAccount) -> Result<(), AssetError> {
     let stat = fs::fstat(home)?;
     if account.uid == 0
         || stat.st_uid != account.uid

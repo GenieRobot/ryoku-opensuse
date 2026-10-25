@@ -1,0 +1,68 @@
+schema_version = 1
+issue = 175
+status = "partial-complete-tree-capture-destination-restore-pending"
+branch = "codex/issue175-ryogami-library-providers"
+previous_checkpoint = "6f194e05d641a96ed08967725990775e8f2a31c2"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+
+[storage]
+worktree_filesystem = "/dev/sdd"
+cargo_target_filesystem = "/dev/sdd"
+fixture_filesystem = "tmpfs"
+provider_endpoint_calls = 0
+media_downloads = 0
+model_downloads = 0
+native_snapper_launches = 0
+
+[implementation]
+explicit_complete_owned_tree_scope = true
+bounded_descriptor_relative_read_only_enumeration = true
+cancellation_during_enumeration = true
+nonoverlapping_tree_roots = true
+present_children_require_declared_directory_ancestors = true
+exact_tree_membership_revalidated_during_publication = true
+native_session_inventory_verifies_tree_membership = true
+installed_capture_preserves_full_typed_scope = true
+flat_asset_inventory_schema1_bytes_unchanged = true
+tree_asset_inventory_schema = 2
+outer_asset_recovery_manifest_schema = 3
+historical_preference_schema1_schema2_unchanged = true
+unsupported_directory_restore_explicitly_refused = true
+
+[validation]
+focused_tree_tests_passed = 7
+complete_tree = "pass; nested directories/files/future absence and unrelated-private sentinel exclusion"
+membership = "pass; added child, missing directory topology and incomplete claimed membership refuse"
+legacy = "pass; absent complete tree explicit; flat inventory has no trees field; schema mismatch refuses"
+limits = "pass; account ownership, symlink/hardlink, mode, file/total bytes, 4096-path bound and depth"
+interruption = "pass; cancellation and concurrent enumeration change leave no writes"
+publication = "pass; actual installed capture sealed readback retains membership; added child retracts publication"
+workspace_all_features_offline_locked = "pass"
+recovery_tests_passed = 291
+recovery_tests_existing_ignored = 6
+console_tests_passed = 26
+service_tests_passed = 179
+service_tests_ignored = 2
+vm_lab_tests_passed = 90
+strict_clippy_all_targets_all_features = "pass"
+formatting = "pass"
+whitespace = "pass"
+dependency_advisories = "pass-cached-offline"
+dependency_bans = "pass-cached-offline"
+dependency_licenses = "pass-cached-offline"
+dependency_sources = "pass-cached-offline"
+corrections = "inspection uses the global path-count bound rather than a one-root provisional count; all focused/full runs passed"
+
+[acceptance]
+general_tree_restore = false
+model_import_install_delete_complete = false
+new_picker_actions_enabled = false
+native_combined_candidate_test = false
+issue_complete = false
+remaining = [
+  "journaled destination tree staging/replacement/removal and interrupted recovery",
+  "missing provider-directory creation and metadata recovery",
+  "model import/install/delete with #176 selection/orphan callback transaction",
+  "all retained source/Steam/library/media operations",
+  "configured cache/external-owned-root enrollment and native combined acceptance"
+]

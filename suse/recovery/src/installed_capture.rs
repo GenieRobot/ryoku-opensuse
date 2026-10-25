@@ -518,10 +518,7 @@ pub fn capture_with_installed_profile_bundle_assets(
         roots,
         request,
         capture_inventory,
-        InstalledCaptureSources {
-            bundle: Some(bundle),
-            assets: Some((scope.paths(), scope.limits())),
-        },
+        InstalledCaptureSources { bundle: Some(bundle), assets: Some(scope) },
         || Ok(()),
     )
 }
@@ -576,7 +573,7 @@ fn capture_installed_configuration_using_profile(
 
 pub(crate) struct InstalledCaptureSources<'a> {
     pub bundle: Option<&'a crate::installed_profiles::VerifiedProfileBundle>,
-    pub assets: Option<(&'a [crate::ryogami_assets::AssetPath], crate::capture::CaptureLimits)>,
+    pub assets: Option<&'a crate::ryogami_assets::AssetScope>,
 }
 
 pub(crate) fn capture_installed_configuration_checked(
@@ -723,15 +720,11 @@ pub(crate) fn capture_installed_configuration_with_sources_checked(
                 account_principal: Some(roots.account.principal.clone()),
                 assets: sources
                     .assets
-                    .map(|(declarations, limits)| {
+                    .map(|scope| {
                         let home = roots.account_home.ok_or(InventoryError::MissingRoot)?;
-                        let captured = crate::ryogami_assets::capture_assets(
-                            home,
-                            &roots.account,
-                            declarations,
-                            limits,
-                        )
-                        .map_err(|_| GenerationCaptureError::VerificationMismatch)?;
+                        let captured = scope
+                            .capture(home, &roots.account)
+                            .map_err(|_| GenerationCaptureError::VerificationMismatch)?;
                         checked_boundary()?;
                         Ok::<_, GenerationCaptureError>((captured, home.try_clone()?))
                     })

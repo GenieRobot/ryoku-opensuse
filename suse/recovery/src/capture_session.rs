@@ -176,15 +176,9 @@ impl NativeCaptureSession {
             assets
                 .require_account(&self.account)
                 .map_err(|_| CaptureSessionError::UnsafeBoundary)?;
-            let paths =
-                assets.entries().iter().map(|record| record.path.clone()).collect::<Vec<_>>();
-            let current = crate::ryogami_assets::capture_assets(
-                &self.home,
-                &self.account,
-                &paths,
-                crate::ryogami_assets::MAX_CAPTURE_LIMITS,
-            )
-            .map_err(|_| CaptureSessionError::UnsafeBoundary)?;
+            let current = crate::ryogami_assets::AssetScope::from_inventory(assets)
+                .and_then(|scope| scope.capture(&self.home, &self.account))
+                .map_err(|_| CaptureSessionError::UnsafeBoundary)?;
             if current.inventory() != assets {
                 return Err(CaptureSessionError::UnsafeBoundary);
             }
@@ -402,7 +396,7 @@ impl NativeCaptureSession {
             crate::capture::capture_inventory,
             crate::installed_capture::InstalledCaptureSources {
                 bundle: Some(bundle),
-                assets: Some((scope.paths(), scope.limits())),
+                assets: Some(scope),
             },
             || self.revalidate().map_err(|_| GenerationCaptureError::CoordinationLost),
         )
