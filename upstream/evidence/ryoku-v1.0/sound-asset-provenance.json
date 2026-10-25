@@ -1,0 +1,2000 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "scope": "73 selected source audio paths:63 direct UI assets plus10 embedded IPC .oga; metadata/header reads only, no playback/decoder/network",
+  "cached_freedesktop_archive": {
+    "sha256": "cb518b20eef05ec2e82dda1fa89a292c1760dc023aba91b8aa69bafac85e8a14",
+    "bytes": 478237,
+    "source_url": "https://people.freedesktop.org/~mccann/dist/sound-theme-freedesktop-0.8.tar.bz2",
+    "credits_package_copy_identical": true,
+    "credits_sha256": "ed8cd7965340940551f37ef96b32aaa7d76b677c30fb912412ddb50bc02e0dc3",
+    "copying_member": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "empty": true
+    },
+    "readme_member": {
+      "bytes": 1210,
+      "sha256": "e2ed9da8e268cb297f05b0321d201b2be5deb938c3a2d4e233191f62233b5d7b",
+      "empty": false
+    }
+  },
+  "typing_manifest": {
+    "source": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+    "sha256": "544a4e0427844065e36db43df51f5e448f0837d2d0084b0b765a9fc983770c07",
+    "declared_upstream": "monkeytypegame/monkeytype",
+    "declared_upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41",
+    "declared_license": "GPL-3.0-only",
+    "matched_selected_audio_files": 32
+  },
+  "assets": [
+    {
+      "source": "ryoku/shell/ipc/assets/battery-full.oga",
+      "git_blob": "7d34954d5519420edeca30b79a60b2812210af81",
+      "git_mode": "100644",
+      "bytes": 21073,
+      "sha256": "f06d2f85aa1b4c66c2ce5c9cc98459b80a7850cc7454d369529001ca66978199",
+      "group": "freedesktop-ipc",
+      "cached_freedesktop_members_same_bytes": [
+        "sound-theme-freedesktop-0.8/stereo/complete.oga"
+      ],
+      "embedded_metadata": {
+        "container": "Ogg/Vorbis",
+        "rights_fields": [],
+        "vorbis_comment_keys": [],
+        "vorbis_comment_count": 0
+      },
+      "source2_payloads": [],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "packaging/licenses/ryoku-v1.0/sound-theme-freedesktop-CREDITS",
+        "original_sound": "complete",
+        "line_start": 29,
+        "line_end": 32,
+        "license_statement": "CC-BY Attribution 3.0 Unported",
+        "attribution_lines": [
+          "Copyright: Dr. Richard Boulanger et al",
+          "URL: http://www.archive.org/details/Berklee44v11"
+        ]
+      },
+      "rights_limit": "CREDITS declaration preserved; CC-BY-SA version absent where stated; no version/grant inferred from package header or empty COPYING"
+    },
+    {
+      "source": "ryoku/shell/ipc/assets/battery-low.oga",
+      "git_blob": "734cae773b3d6ab2171ef0746afa0c43828423ce",
+      "git_mode": "100644",
+      "bytes": 12182,
+      "sha256": "5eeef8230c3969453c019ab4289a95705254c502d664f42769a71ee73f484cc1",
+      "group": "freedesktop-ipc",
+      "cached_freedesktop_members_same_bytes": [
+        "sound-theme-freedesktop-0.8/stereo/dialog-warning.oga"
+      ],
+      "embedded_metadata": {
+        "container": "Ogg/Vorbis",
+        "rights_fields": [],
+        "vorbis_comment_keys": [],
+        "vorbis_comment_count": 0
+      },
+      "source2_payloads": [],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "packaging/licenses/ryoku-v1.0/sound-theme-freedesktop-CREDITS",
+        "original_sound": "dialog-warning",
+        "line_start": 54,
+        "line_end": 57,
+        "license_statement": "CC-BY-SA",
+        "attribution_lines": [
+          "Copyright: Ivica Bukvic",
+          "URL: http://gnome-look.org/content/show.php/%22Borealis%22+sound+theme?content=12584"
+        ]
+      },
+      "rights_limit": "CREDITS declaration preserved; CC-BY-SA version absent where stated; no version/grant inferred from package header or empty COPYING"
+    },
+    {
+      "source": "ryoku/shell/ipc/assets/device-added.oga",
+      "git_blob": "c5ad86b6edd87fb66823cdbee4b780d5600f9939",
+      "git_mode": "100644",
+      "bytes": 8748,
+      "sha256": "e066519309a1534cee4969453868044752edf62d3455edeb90f693cc14a493bb",
+      "group": "freedesktop-ipc",
+      "cached_freedesktop_members_same_bytes": [
+        "sound-theme-freedesktop-0.8/stereo/device-added.oga"
+      ],
+      "embedded_metadata": {
+        "container": "Ogg/Vorbis",
+        "rights_fields": [],
+        "vorbis_comment_keys": [],
+        "vorbis_comment_count": 0
+      },
+      "source2_payloads": [],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "packaging/licenses/ryoku-v1.0/sound-theme-freedesktop-CREDITS",
+        "original_sound": "device-added",
+        "line_start": 46,
+        "line_end": 57,
+        "license_statement": "CC-BY-SA",
+        "attribution_lines": [
+          "Copyright: Ivica Bukvic",
+          "URL: http://gnome-look.org/content/show.php/%22Borealis%22+sound+theme?content=12584"
+        ]
+      },
+      "rights_limit": "CREDITS declaration preserved; CC-BY-SA version absent where stated; no version/grant inferred from package header or empty COPYING"
+    },
+    {
+      "source": "ryoku/shell/ipc/assets/device-removed.oga",
+      "git_blob": "abfd60cf4c5814a2d699a8a00c542ace124892a6",
+      "git_mode": "100644",
+      "bytes": 8500,
+      "sha256": "544a4a6ed935170c7770f513995e2d2f0de158634ee5776484b34a3803829510",
+      "group": "freedesktop-ipc",
+      "cached_freedesktop_members_same_bytes": [
+        "sound-theme-freedesktop-0.8/stereo/device-removed.oga"
+      ],
+      "embedded_metadata": {
+        "container": "Ogg/Vorbis",
+        "rights_fields": [],
+        "vorbis_comment_keys": [],
+        "vorbis_comment_count": 0
+      },
+      "source2_payloads": [],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "packaging/licenses/ryoku-v1.0/sound-theme-freedesktop-CREDITS",
+        "original_sound": "device-removed",
+        "line_start": 47,
+        "line_end": 57,
+        "license_statement": "CC-BY-SA",
+        "attribution_lines": [
+          "Copyright: Ivica Bukvic",
+          "URL: http://gnome-look.org/content/show.php/%22Borealis%22+sound+theme?content=12584"
+        ]
+      },
+      "rights_limit": "CREDITS declaration preserved; CC-BY-SA version absent where stated; no version/grant inferred from package header or empty COPYING"
+    },
+    {
+      "source": "ryoku/shell/ipc/assets/notification-critical.oga",
+      "git_blob": "734cae773b3d6ab2171ef0746afa0c43828423ce",
+      "git_mode": "100644",
+      "bytes": 12182,
+      "sha256": "5eeef8230c3969453c019ab4289a95705254c502d664f42769a71ee73f484cc1",
+      "group": "freedesktop-ipc",
+      "cached_freedesktop_members_same_bytes": [
+        "sound-theme-freedesktop-0.8/stereo/dialog-warning.oga"
+      ],
+      "embedded_metadata": {
+        "container": "Ogg/Vorbis",
+        "rights_fields": [],
+        "vorbis_comment_keys": [],
+        "vorbis_comment_count": 0
+      },
+      "source2_payloads": [],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "packaging/licenses/ryoku-v1.0/sound-theme-freedesktop-CREDITS",
+        "original_sound": "dialog-warning",
+        "line_start": 54,
+        "line_end": 57,
+        "license_statement": "CC-BY-SA",
+        "attribution_lines": [
+          "Copyright: Ivica Bukvic",
+          "URL: http://gnome-look.org/content/show.php/%22Borealis%22+sound+theme?content=12584"
+        ]
+      },
+      "rights_limit": "CREDITS declaration preserved; CC-BY-SA version absent where stated; no version/grant inferred from package header or empty COPYING"
+    },
+    {
+      "source": "ryoku/shell/ipc/assets/notification.oga",
+      "git_blob": "e6bdd7ad2aa827cb615613602c69d253ea426b59",
+      "git_mode": "100644",
+      "bytes": 22733,
+      "sha256": "500dbfffb6d6b7cac73cc0b230f077d60a8ce18c94e38e0cc664c3d678fa26f0",
+      "group": "freedesktop-ipc",
+      "cached_freedesktop_members_same_bytes": [
+        "sound-theme-freedesktop-0.8/stereo/message-new-instant.oga"
+      ],
+      "embedded_metadata": {
+        "container": "Ogg/Vorbis",
+        "rights_fields": [],
+        "vorbis_comment_keys": [],
+        "vorbis_comment_count": 0
+      },
+      "source2_payloads": [],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "packaging/licenses/ryoku-v1.0/sound-theme-freedesktop-CREDITS",
+        "original_sound": "message-new-instant",
+        "line_start": 60,
+        "line_end": 67,
+        "license_statement": "GPLv2+",
+        "attribution_lines": [
+          "Copyright: Damien Sandras",
+          "URL: http://git.gnome.org/cgit/ekiga/tree/sounds"
+        ]
+      },
+      "rights_limit": "CREDITS declaration preserved; CC-BY-SA version absent where stated; no version/grant inferred from package header or empty COPYING"
+    },
+    {
+      "source": "ryoku/shell/ipc/assets/power-plug.oga",
+      "git_blob": "c5ad86b6edd87fb66823cdbee4b780d5600f9939",
+      "git_mode": "100644",
+      "bytes": 8748,
+      "sha256": "e066519309a1534cee4969453868044752edf62d3455edeb90f693cc14a493bb",
+      "group": "freedesktop-ipc",
+      "cached_freedesktop_members_same_bytes": [
+        "sound-theme-freedesktop-0.8/stereo/device-added.oga"
+      ],
+      "embedded_metadata": {
+        "container": "Ogg/Vorbis",
+        "rights_fields": [],
+        "vorbis_comment_keys": [],
+        "vorbis_comment_count": 0
+      },
+      "source2_payloads": [],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "packaging/licenses/ryoku-v1.0/sound-theme-freedesktop-CREDITS",
+        "original_sound": "device-added",
+        "line_start": 46,
+        "line_end": 57,
+        "license_statement": "CC-BY-SA",
+        "attribution_lines": [
+          "Copyright: Ivica Bukvic",
+          "URL: http://gnome-look.org/content/show.php/%22Borealis%22+sound+theme?content=12584"
+        ]
+      },
+      "rights_limit": "CREDITS declaration preserved; CC-BY-SA version absent where stated; no version/grant inferred from package header or empty COPYING"
+    },
+    {
+      "source": "ryoku/shell/ipc/assets/power-unplug.oga",
+      "git_blob": "abfd60cf4c5814a2d699a8a00c542ace124892a6",
+      "git_mode": "100644",
+      "bytes": 8500,
+      "sha256": "544a4a6ed935170c7770f513995e2d2f0de158634ee5776484b34a3803829510",
+      "group": "freedesktop-ipc",
+      "cached_freedesktop_members_same_bytes": [
+        "sound-theme-freedesktop-0.8/stereo/device-removed.oga"
+      ],
+      "embedded_metadata": {
+        "container": "Ogg/Vorbis",
+        "rights_fields": [],
+        "vorbis_comment_keys": [],
+        "vorbis_comment_count": 0
+      },
+      "source2_payloads": [],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "packaging/licenses/ryoku-v1.0/sound-theme-freedesktop-CREDITS",
+        "original_sound": "device-removed",
+        "line_start": 47,
+        "line_end": 57,
+        "license_statement": "CC-BY-SA",
+        "attribution_lines": [
+          "Copyright: Ivica Bukvic",
+          "URL: http://gnome-look.org/content/show.php/%22Borealis%22+sound+theme?content=12584"
+        ]
+      },
+      "rights_limit": "CREDITS declaration preserved; CC-BY-SA version absent where stated; no version/grant inferred from package header or empty COPYING"
+    },
+    {
+      "source": "ryoku/shell/ipc/assets/shutter.oga",
+      "git_blob": "b51a467e67285a1817ff32a2546039f3fea8ced5",
+      "git_mode": "100644",
+      "bytes": 23142,
+      "sha256": "72dbfcb2e4f25f9ff4855358127d8268dcecf8f133ac01509502be4b1746933f",
+      "group": "freedesktop-ipc",
+      "cached_freedesktop_members_same_bytes": [
+        "sound-theme-freedesktop-0.8/stereo/camera-shutter.oga"
+      ],
+      "embedded_metadata": {
+        "container": "Ogg/Vorbis",
+        "rights_fields": [],
+        "vorbis_comment_keys": [],
+        "vorbis_comment_count": 0
+      },
+      "source2_payloads": [],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "packaging/licenses/ryoku-v1.0/sound-theme-freedesktop-CREDITS",
+        "original_sound": "camera-shutter",
+        "line_start": 40,
+        "line_end": 44,
+        "license_statement": "CC-BY-SA (relicensed with permission from author)",
+        "attribution_lines": [
+          "Copyright: freesound user horsthorstensen",
+          "URL: http://www.freesound.org/samplesViewSingle.php?id=72714"
+        ]
+      },
+      "rights_limit": "CREDITS declaration preserved; CC-BY-SA version absent where stated; no version/grant inferred from package header or empty COPYING"
+    },
+    {
+      "source": "ryoku/shell/ipc/assets/volume-change.oga",
+      "git_blob": "e4a33dc5a862b63a981f47203e30b07feb8b96b3",
+      "git_mode": "100644",
+      "bytes": 5596,
+      "sha256": "3eb23e630296a34bbaf391b4d0079f525545c7e524293fd127fc7eee3b9452b5",
+      "group": "freedesktop-ipc",
+      "cached_freedesktop_members_same_bytes": [
+        "sound-theme-freedesktop-0.8/stereo/audio-volume-change.oga"
+      ],
+      "embedded_metadata": {
+        "container": "Ogg/Vorbis",
+        "rights_fields": [],
+        "vorbis_comment_keys": [],
+        "vorbis_comment_count": 0
+      },
+      "source2_payloads": [],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "packaging/licenses/ryoku-v1.0/sound-theme-freedesktop-CREDITS",
+        "original_sound": "audio-volume-change",
+        "line_start": 19,
+        "line_end": 22,
+        "license_statement": "CC-BY-SA (relicensed with permission from author)",
+        "attribution_lines": [
+          "Copyright: Lucas McCallister",
+          "URL: http://www.freesound.org/samplesViewSingle.php?id=67091"
+        ]
+      },
+      "rights_limit": "CREDITS declaration preserved; CC-BY-SA version absent where stated; no version/grant inferred from package header or empty COPYING"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click1/1.wav",
+      "git_blob": "0aa332124fe89ab7e313267a4bd67f04baaefc5e",
+      "git_mode": "100644",
+      "bytes": 3688,
+      "sha256": "277c14fafcae29bda552322bbc63b763898457d1abd0771c99a5c006b8a18cbf",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": [
+          {
+            "tag": "IART",
+            "text": "Anton Porsche"
+          }
+        ]
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click1/1.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click1/2.wav",
+      "git_blob": "3539954d1bb8a46dfa70357088fdb60db5a2b906",
+      "git_mode": "100644",
+      "bytes": 3684,
+      "sha256": "b6bb66f0d328129eff4d5bba7fd1da83ead9756322c79e0f75c6c89e8a688ff3",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": [
+          {
+            "tag": "IART",
+            "text": "Anton Porsche"
+          }
+        ]
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click1/2.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click1/3.wav",
+      "git_blob": "be6989c54e9976894454bf5c1d2c12204b221eec",
+      "git_mode": "100644",
+      "bytes": 3684,
+      "sha256": "41016900e3479883062f4f01d4c160ef8c60ab049309940f39aa7feca8a22de1",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": [
+          {
+            "tag": "IART",
+            "text": "Anton Porsche"
+          }
+        ]
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click1/3.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click2/1.wav",
+      "git_blob": "221a25137d32fcd5a8fb77c415b5c05bce8766c4",
+      "git_mode": "100644",
+      "bytes": 10222,
+      "sha256": "a5b6a1e5f70213206aa6b75347ce7faa72edbbf0115799b7ad8e1177b077902c",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click2/1.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click2/2.wav",
+      "git_blob": "45d929feccd6b1d6228dd4bfa8a8d0993babd8d2",
+      "git_mode": "100644",
+      "bytes": 10222,
+      "sha256": "61525c3b5379799a6f737a5c4e3653cae315920733e226a1f0a8da074e4bca63",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click2/2.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click2/3.wav",
+      "git_blob": "a08a2cf071c6e1e6c511845fec9b20149f7b4de6",
+      "git_mode": "100644",
+      "bytes": 10222,
+      "sha256": "d883b6c83c51c0dda062d24a871989a9e578f9fa881c9fb223fe27bcf2c76792",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click2/3.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click3/1.wav",
+      "git_blob": "d9df93e87676bbe63bc51dfa848d19b85081adaf",
+      "git_mode": "100644",
+      "bytes": 6938,
+      "sha256": "7365c042885b1150d66075400263d31863e04bd9f61412f84b2fe53436f92b0f",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click3/1.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click3/2.wav",
+      "git_blob": "7217a1be77493a622076d002166969faab224791",
+      "git_mode": "100644",
+      "bytes": 6938,
+      "sha256": "35f39a87bdfd87112bfb8504744dfb1d3450e90268d3d1675e0bf4d4966d0b58",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click3/2.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click3/3.wav",
+      "git_blob": "e46c6b7a5963d68da256a944176cd8a902ef5ff7",
+      "git_mode": "100644",
+      "bytes": 6938,
+      "sha256": "4d56b0ca0a65a203b7f9bbd1bd948c443d8f409bfc043c015b8917fc3d3189f8",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click3/3.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click4/1.wav",
+      "git_blob": "b03acd4db3729cffeee28af5e505d6d502c4a263",
+      "git_mode": "100644",
+      "bytes": 28070,
+      "sha256": "da3bce6bac1b5de4c3c36e6a5a31eacbaf231d9273d375c2a4685db3cac0b998",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click4/1.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click4/2.wav",
+      "git_blob": "e8af2f633575968f46d05a7e5e1c57af46362b8a",
+      "git_mode": "100644",
+      "bytes": 29062,
+      "sha256": "0c2a7bbcc41649dc0da5e89fa1b0b5eecadd8cfa262aac1edcbe25941269d311",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click4/2.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click4/3.wav",
+      "git_blob": "604449d5df77dcbc09177731a330cbaf1ffb333a",
+      "git_mode": "100644",
+      "bytes": 30926,
+      "sha256": "4a1cf47d4ea29aaafc9343d1553a2d01949cad0151dabe0789d0882eb31c640f",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click4/3.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click4/4.wav",
+      "git_blob": "b2939d493ef3bd1ca4f90cfdfaf289af052c3f61",
+      "git_mode": "100644",
+      "bytes": 29062,
+      "sha256": "4961aaaae6c17ca3b4866bf8b8aa5b688f88f335dadc525284b9ccc5b017fb13",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click4/4.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click4/5.wav",
+      "git_blob": "145976c7c6c3ed72c432dc007f17db02be223a83",
+      "git_mode": "100644",
+      "bytes": 29470,
+      "sha256": "f42a6d5371574ecf1933d32d3edcfc25923a35392a713d5a83f52b2e5403ba93",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click4/5.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click4/6.wav",
+      "git_blob": "ec0d5379ad15702a9daab1fe32754c77f4746931",
+      "git_mode": "100644",
+      "bytes": 36378,
+      "sha256": "f8e011ccaabbc797f715fd6dfeca3a451dcfceee1f1f03d10535395dd623735f",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click4/6.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click5/1.wav",
+      "git_blob": "5051ae1bec1f1824625fbb670fad63a994631a0d",
+      "git_mode": "100644",
+      "bytes": 40526,
+      "sha256": "cbfbfcec01811d66862e7728a2443aa58fbc21dd7a34cb2896dad42f077b47af",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click5/1.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click5/2.wav",
+      "git_blob": "a34e3025c280c49ae5658da29dada1d7c047758a",
+      "git_mode": "100644",
+      "bytes": 46158,
+      "sha256": "48d623bd45818e1deef785bcb16f4534b547bfd8835202d28677ef01d43e56fb",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click5/2.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click5/3.wav",
+      "git_blob": "e365207f495e3ca1a2951a90f48be1d6ebc27982",
+      "git_mode": "100644",
+      "bytes": 45134,
+      "sha256": "7cdd5d585ef8a29501dd38bfc497126d9bd9f48a939cebe2d8becb904ecb9fd6",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click5/3.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click5/4.wav",
+      "git_blob": "a6536ff9ee01fe7447624124676c1c148dea6383",
+      "git_mode": "100644",
+      "bytes": 53326,
+      "sha256": "14695995b3119c9596e8c32bd010783ff048dbd4910bb5001d2911558b8a7239",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click5/4.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click5/5.wav",
+      "git_blob": "7182d01b7d7121a8a81edb6b50b64490ec8c61f5",
+      "git_mode": "100644",
+      "bytes": 56718,
+      "sha256": "8b801cf88729966ff8d58f22c6c0d38ff70075a055e8d8e0f881a036e0a6c8a0",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click5/5.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click5/6.wav",
+      "git_blob": "60a2b3a13906880218d26f778692575314ad5627",
+      "git_mode": "100644",
+      "bytes": 41102,
+      "sha256": "012d97edce36c5e9a395abd334e2ab37a591977058e322247362b10fdc29ecb4",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click5/6.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click6/1.wav",
+      "git_blob": "aacf41a62b3dab4ea4599064c0d8e8cf89729e71",
+      "git_mode": "100644",
+      "bytes": 23374,
+      "sha256": "f20f2fb9de9863227e65c89540b5174a4edaa659216879681fdb01e2dbdc531e",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click6/1.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click6/2.wav",
+      "git_blob": "aacf41a62b3dab4ea4599064c0d8e8cf89729e71",
+      "git_mode": "100644",
+      "bytes": 23374,
+      "sha256": "f20f2fb9de9863227e65c89540b5174a4edaa659216879681fdb01e2dbdc531e",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click6/2.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click6/3.wav",
+      "git_blob": "aacf41a62b3dab4ea4599064c0d8e8cf89729e71",
+      "git_mode": "100644",
+      "bytes": 23374,
+      "sha256": "f20f2fb9de9863227e65c89540b5174a4edaa659216879681fdb01e2dbdc531e",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click6/3.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click7/1.wav",
+      "git_blob": "1521655b95b9012a839a87b948a6f0b0ea4c9ad2",
+      "git_mode": "100644",
+      "bytes": 11214,
+      "sha256": "9a5aacafeda62fd45e7e1b87060d888bd21b3ff4ec9086b54aa3ffad9f7008c3",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click7/1.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click7/2.wav",
+      "git_blob": "1521655b95b9012a839a87b948a6f0b0ea4c9ad2",
+      "git_mode": "100644",
+      "bytes": 11214,
+      "sha256": "9a5aacafeda62fd45e7e1b87060d888bd21b3ff4ec9086b54aa3ffad9f7008c3",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click7/2.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/click7/3.wav",
+      "git_blob": "1521655b95b9012a839a87b948a6f0b0ea4c9ad2",
+      "git_mode": "100644",
+      "bytes": 11214,
+      "sha256": "9a5aacafeda62fd45e7e1b87060d888bd21b3ff4ec9086b54aa3ffad9f7008c3",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/click7/3.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/error1/1.wav",
+      "git_blob": "3479db58a1ad191e2129cb9f8444330d79a38dde",
+      "git_mode": "100644",
+      "bytes": 12076,
+      "sha256": "7e550d2a032cbeff5d049632121b23bd260ef2e55fd0e095cb4fc25ed30be1f4",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/error1/1.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/error2/1.wav",
+      "git_blob": "2414d2bd6cd843703fbe01684576bbf8f5d4e718",
+      "git_mode": "100644",
+      "bytes": 16624,
+      "sha256": "95e45892961ff8a03303782f78bbeb088775d94e0a173930aaf88ade1900b839",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": [
+          {
+            "tag": "IART",
+            "text": "W0LFB0MB"
+          }
+        ]
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/error2/1.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/error3/1.wav",
+      "git_blob": "00f11691be44e2ebe844ab6099152735d49e4401",
+      "git_mode": "100644",
+      "bytes": 16518,
+      "sha256": "e5ab44b0d5f7be890d2bb193b2a7554f972ea80a870c2fe87e8778aa9fd1fcf0",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": [
+          {
+            "tag": "IART",
+            "text": "W0LFB0MB"
+          }
+        ]
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/error3/1.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/error4/1.wav",
+      "git_blob": "fa554501e3264876d9013c76f77c43ee27c0d9e9",
+      "git_mode": "100644",
+      "bytes": 33154,
+      "sha256": "2046eec841336b26cde821bc50a9dfd2c48dfc1fef14bd768ebaf876086a43ae",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/error4/1.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds/error4/2.wav",
+      "git_blob": "d9025157da81040ee8081aeaca32bfaa5f67d963",
+      "git_mode": "100644",
+      "bytes": 33154,
+      "sha256": "593abf41041ecf327dae1d5a15c7512384bca0957f6b2b9b893705d6b83df72a",
+      "group": "monkeytype-typing",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "typing_manifest_sha256_match": true,
+      "source2_payloads": [
+        "shell/quickshell/keys/typing/assets/sounds/error4/2.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+        "license_statement": "GPL-3.0-only",
+        "upstream_commit": "91bd24bb8513785c7364cbea29296ff7adafac41"
+      },
+      "rights_limit": "All32 selected hashes match pinned source manifest; embedded artist labels are not separate grants; upstream declared licensing is recorded without an external refetch"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/guide/barconfig/in.wav",
+      "git_blob": "5d2da9dedbf403ed11c99988cca2c543755a2ae0",
+      "git_mode": "100644",
+      "bytes": 83378,
+      "sha256": "94448e17f4969db1f0a62b4b2c3d28f3b8610035295e44f5b287488424960288",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": [
+          {
+            "tag": "IART",
+            "text": "Brukowskij"
+          }
+        ]
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/guide/barconfig/in.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/guide/barconfig/out.wav",
+      "git_blob": "5c1f33503dad9c10071ca40a036980f17e2b8102",
+      "git_mode": "100644",
+      "bytes": 88334,
+      "sha256": "5a49799f10e6ea59da06d24c3167523462f95e71c74b8c3bed32c369cf0d2404",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": [
+          {
+            "tag": "IART",
+            "text": "Brukowskij"
+          }
+        ]
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/guide/barconfig/out.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/musicpopup/swoosh.wav",
+      "git_blob": "9afb980e27296b301e4929b38d58857be2d0dd55",
+      "git_mode": "100644",
+      "bytes": 466124,
+      "sha256": "d751ba2a06e28018eb3b1ba981eff6a8a7679eb0f352de2a7988335d2f47ccce",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/musicpopup/swoosh.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/network/connect.wav",
+      "git_blob": "7cea1a66d979b58541eee2d209b0aa02051efa25",
+      "git_mode": "100644",
+      "bytes": 159856,
+      "sha256": "64489c39f5394e8a4c5902b4b17eee0d57b0008c03ffff5abfc87ced1a869cae",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/network/connect.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/network/disconnect.wav",
+      "git_blob": "36d668b07ffb114c573525a8645b9390fd941a51",
+      "git_mode": "100644",
+      "bytes": 364110,
+      "sha256": "7c6ea71b8033a43f67720c0c5d80b0d88876adae86fa0d3586eb18a4ca6d61e9",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/network/disconnect.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/network/power_off.wav",
+      "git_blob": "16ceffd5609ad73fe566a931e1a55a02a966b1df",
+      "git_mode": "100644",
+      "bytes": 589902,
+      "sha256": "ef2759f4004f1fe5c917a4f8f3c6dfd0548f3e652cab57232cee0f662294523b",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/network/power_off.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/network/power_on.wav",
+      "git_blob": "c18be8da9dc456e68a72cdd2fc2128685b88d9de",
+      "git_mode": "100644",
+      "bytes": 442446,
+      "sha256": "6f9bc1f059ea2b329ff4b82d19af8d067b5b4807eef2e73dfda09c52acb9285c",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/network/power_on.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/network/switch.wav",
+      "git_blob": "fcc3ab2cae18feb2f40725330a4252609f9d9e34",
+      "git_mode": "100644",
+      "bytes": 41550,
+      "sha256": "a4e3508434a00b87ca8499a2c89a079ac4f369d35ae7be277e5a7d05748a375d",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/network/switch.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/notifications/Botanica.wav",
+      "git_blob": "6f66237fd74274c3487684e44d4b6b4516bef362",
+      "git_mode": "100644",
+      "bytes": 302296,
+      "sha256": "2a428633bfe0aa26654dc1e7febc81026b06baa7cbf712dfe2d2756f3d6eb1f6",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/notifications/Botanica.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/notifications/Curious.mp3",
+      "git_blob": "ac99891f29f66ff6c9bc3046bc51d0710e1da8de",
+      "git_mode": "100644",
+      "bytes": 68352,
+      "sha256": "58636839c8198c51ca89e8c3f8f205dc7f53c6eabee7a5b6aaee33fa3683b02c",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "MPEG audio frame header",
+        "rights_fields": [],
+        "leading_ID3v2": false,
+        "trailing_ID3v1": false,
+        "inspection_limit": "Frame header and absence of leading ID3v2/trailing ID3v1 only; no payload decoding or inferred rights"
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/notifications/Curious.mp3"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/notifications/Progress.wav",
+      "git_blob": "36bc0cdc7b1795f693b11c7593b8e043d8e26076",
+      "git_mode": "100644",
+      "bytes": 132344,
+      "sha256": "d178edc6cc7d2bc405b048df21d23adf666ba817f70979280ab6fde65a1d8637",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/notifications/Progress.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/notifications/Sine.wav",
+      "git_blob": "67cd07a5fd60a17fca5cd16cf7f68e1682ec0b65",
+      "git_mode": "100644",
+      "bytes": 715690,
+      "sha256": "9b421eadc12fc65d90f773a215a0c8f32fe3fbfb647cd4a807a7c9ed7f7bb04a",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/notifications/Sine.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/notifications/Sneak.mp3",
+      "git_blob": "1da7ff34174a6d39d9728cb6d26154f4bc1e2e6e",
+      "git_mode": "100644",
+      "bytes": 103653,
+      "sha256": "4032c1aeaf41f12f2d93e4de4e6592cb2fd8191898b77ec792661c21496d05bb",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "MPEG audio frame header",
+        "rights_fields": [],
+        "leading_ID3v2": false,
+        "trailing_ID3v1": false,
+        "inspection_limit": "Frame header and absence of leading ID3v2/trailing ID3v1 only; no payload decoding or inferred rights"
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/notifications/Sneak.mp3"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/notifications/WakeUp.mp3",
+      "git_blob": "71d80c709e4d68eb838e11a31ac2956576a2fc60",
+      "git_mode": "100644",
+      "bytes": 56842,
+      "sha256": "748e6d03a559ac909d04b9fa907fca3424c6bf00aa45bcad3f6a07238e58f6cb",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "MPEG audio frame header",
+        "rights_fields": [],
+        "leading_ID3v2": false,
+        "trailing_ID3v1": false,
+        "inspection_limit": "Frame header and absence of leading ID3v2/trailing ID3v1 only; no payload decoding or inferred rights"
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/notifications/WakeUp.mp3"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/notifications/Wobbly.mp3",
+      "git_blob": "ff9d81c0031756a4990cb55abcc42424f9f1a665",
+      "git_mode": "100644",
+      "bytes": 62693,
+      "sha256": "1f00f6568532a3e94a73a806a5383ef61e63cc27cf692580cb28bdfa203c6d8d",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "MPEG audio frame header",
+        "rights_fields": [],
+        "leading_ID3v2": false,
+        "trailing_ID3v1": false,
+        "inspection_limit": "Frame header and absence of leading ID3v2/trailing ID3v1 only; no payload decoding or inferred rights"
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/notifications/Wobbly.mp3"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/quickactions/usage.wav",
+      "git_blob": "63df1faf490b22fb150cc438b37cbdd56709a11f",
+      "git_mode": "100644",
+      "bytes": 3006084,
+      "sha256": "08bab077f156ff15cf218150cddca5cba0ee8d145bcbd9d1021c3c00a15f9a4d",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/quickactions/usage.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/clickbutton/click.wav",
+      "git_blob": "f7435488bfa8415646b8812615137c43fbaad14d",
+      "git_mode": "100644",
+      "bytes": 4686,
+      "sha256": "0dea4d30acdb3c5d5c3c9cccea70e2634efd9a90a04f0ca0253c3eca9d8fd2e2",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/clickbutton/click.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/clickbutton/click2.wav",
+      "git_blob": "0b5611d85efc7b06f97560d2ed0ec1cb5a335fb3",
+      "git_mode": "100644",
+      "bytes": 8840,
+      "sha256": "bf4c5ffc136d66ace461fe55106a562f4d49c9d2427b52320ca6913d497cbe13",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/clickbutton/click2.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/draggable/tick.wav",
+      "git_blob": "35e868d8485c01c076e2ff89224ea0011818ace3",
+      "git_mode": "100644",
+      "bytes": 176478,
+      "sha256": "01cb08b0d7c277991f36a9f29894e9cd78c3acc4ecd16b853b71c68a706b6cee",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/draggable/tick.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/dropdown/click.wav",
+      "git_blob": "f7435488bfa8415646b8812615137c43fbaad14d",
+      "git_mode": "100644",
+      "bytes": 4686,
+      "sha256": "0dea4d30acdb3c5d5c3c9cccea70e2634efd9a90a04f0ca0253c3eca9d8fd2e2",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/dropdown/click.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/dropdown/list.wav",
+      "git_blob": "c7d926144255cd404c5371365c510a268041983a",
+      "git_mode": "100644",
+      "bytes": 84828,
+      "sha256": "b8ef826eda42f157132e3eb298a68e9c028a0e7158d0d78ed838c09dac3cf611",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/dropdown/list.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/fillbutton/button.wav",
+      "git_blob": "4d2984a25ff2ada91656e39d4c84fc333dd97050",
+      "git_mode": "100644",
+      "bytes": 952,
+      "sha256": "7be1ed6f4aa95c52de731a5e934ec395dcb0c1cc4613abdf13fb8e1e0d3a0ad5",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/fillbutton/button.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/fillbutton/charge_loop.wav",
+      "git_blob": "440b61ba0a94f365e4c1e22f54981635ebcd979f",
+      "git_mode": "100644",
+      "bytes": 551262,
+      "sha256": "8904a0c4b80c2d2fd8c9a0fa72edd6c64b61c377e42c72e1d925d4e5f5560d5f",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/fillbutton/charge_loop.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/fillbutton/charge_loop2.wav",
+      "git_blob": "b1dbe6c349b5c6016e029e01c71eb37333b8fe45",
+      "git_mode": "100644",
+      "bytes": 104870,
+      "sha256": "2bc08a59b7f7c767a37994c50b73d2d2f63c4951a24efcb9e53919def24a61ca",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": [
+          {
+            "tag": "IART",
+            "text": "Brukowskij"
+          }
+        ]
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/fillbutton/charge_loop2.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/iconbutton/click.wav",
+      "git_blob": "f7435488bfa8415646b8812615137c43fbaad14d",
+      "git_mode": "100644",
+      "bytes": 4686,
+      "sha256": "0dea4d30acdb3c5d5c3c9cccea70e2634efd9a90a04f0ca0253c3eca9d8fd2e2",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/iconbutton/click.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/input/type.wav",
+      "git_blob": "c971704f113ff93e94ee9e278b42f3ab99b11842",
+      "git_mode": "100644",
+      "bytes": 740,
+      "sha256": "0649e34f48c709198ae7392e12f233acd186bd79434a261ae997ec1bc50a4c5a",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/input/type.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/switch/sfx.wav",
+      "git_blob": "83ef23aa42865df892218f1d3871e52af730bad7",
+      "git_mode": "100644",
+      "bytes": 8864,
+      "sha256": "3de70aaf46e4d3f4191e53fc47a82d0ec2a36089a30505071d78a5742a1102e8",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/switch/sfx.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/toggle/sfx.wav",
+      "git_blob": "2b93194a352404b52fdb4849214100714983eb02",
+      "git_mode": "100644",
+      "bytes": 89778,
+      "sha256": "b092eec92bc09c208766ac171c338aee336719cccb424f93f75f15fc8634badf",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": [
+          {
+            "tag": "IART",
+            "text": "Brukowskij"
+          }
+        ]
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/reusables/toggle/sfx.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/system/quick_click.wav",
+      "git_blob": "61980e301009bbde576b21b0a3c1a37e5e946cf3",
+      "git_mode": "100644",
+      "bytes": 176444,
+      "sha256": "9ed3369b07b571ddbdd125bde50de3b8896610beaa4617f5c75712b7cb5b0b00",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/system/quick_click.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/tutorial/tip.wav",
+      "git_blob": "43a63674f11eeb97cbed603c037a36ee2275e28b",
+      "git_mode": "100644",
+      "bytes": 535868,
+      "sha256": "14455267b2e71835e7a15cf6ddbb690ec290b1dbf7b1447a5d9db5a45e7d131c",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/tutorial/tip.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/tutorial/tip_guide.wav",
+      "git_blob": "33641dd926fb0d7570f9bde8778c906943c07e44",
+      "git_mode": "100644",
+      "bytes": 586670,
+      "sha256": "406b6528357a2051a6d40ad0b1f8273f32d588ae6cbd886eb018e8bfd71bad00",
+      "group": "python-bar-style",
+      "cached_freedesktop_members_same_bytes": [],
+      "embedded_metadata": {
+        "container": "RIFF/WAVE",
+        "rights_fields": []
+      },
+      "source2_payloads": [
+        "shell/quickshell/shell/modules/bar/barstyles/python/assets/sounds/tutorial/tip_guide.wav"
+      ],
+      "source3_selected": true,
+      "retained_feature_owners": "#25/#180",
+      "source_declaration": {
+        "reference": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+        "license_statement": "AGPL-3.0-or-later for ported component portions",
+        "declared_origin": "Serpantinum cfdd810 (past2.2.12)"
+      },
+      "rights_limit": "No separate per-sample origin/license manifest was found in this pinned component; source component declaration does not establish independent third-party rights for each media file"
+    }
+  ],
+  "limits": "Embedded tags and source declarations are evidence, not a legal determination or inferred grant; absent/unversioned/conflicting metadata remains unresolved; all paths/features retained.",
+  "notice_and_runtime_source_records": [
+    {
+      "source": "NOTICE",
+      "git_mode": "100644",
+      "git_blob": "6e769a5f3828f5eee0a39a160e04d6c11e9b9295",
+      "sha256": "fa40700e93a3621ae793193a2f3ec16f21375afc85a319325ea4b95148878c24",
+      "bytes": 9105
+    },
+    {
+      "source": "ryoku/shell/quickshell/keys/typing/assets/sounds-manifest.json",
+      "git_mode": "100644",
+      "git_blob": "09c16884b206528072dbd174cd9b8f51f4419579",
+      "sha256": "544a4e0427844065e36db43df51f5e448f0837d2d0084b0b765a9fc983770c07",
+      "bytes": 4988
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/NOTICE",
+      "git_mode": "100644",
+      "git_blob": "01263ed5b064e92df26d060fa1227c664c01c462",
+      "sha256": "80b3db1e0c29d5b087303d78f285736446687a177f704e7ace03b06c03685967",
+      "bytes": 2195
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/LICENSE",
+      "git_mode": "100755",
+      "git_blob": "c6f01c63aecd27fb7545403e13727b7b88502593",
+      "sha256": "00352ab19865e23bb0ab7e0f45332206aba6a66d75b3f3cc962fdd6508d63ea4",
+      "bytes": 34260
+    },
+    {
+      "source": "ryoku/shell/ipc/sounds.go",
+      "git_mode": "100644",
+      "git_blob": "5a7a7f7ed0e4b738502cd5b2a41896bb5fe6c728",
+      "sha256": "6f9a6ce073efe491c298e9567d65a6dd42c86c12aae970fb809876551386fe1f",
+      "bytes": 9821
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/bar/barstyles/python/singletons/audio/Sounds.qml",
+      "git_mode": "100644",
+      "git_blob": "ba2ba466cd624c337630368acdd481694c9fb7b8",
+      "sha256": "ee580dabca84c22738e84630f1cff012ccc9cb3a6fe4a834b233289f443c4451",
+      "bytes": 4706
+    }
+  ],
+  "metadata_inspection": "RIFF LIST/INFO rights fields; Ogg/Vorbis comment rights fields; MPEG frame header with no leadingID3v2/trailingID3v1. No audio payload decoding/playback.",
+  "redistribution_gate": "Unspecified CC-BY-SA version and independently unmapped Python-bar sample terms remain unresolved. No source component declaration, artist label, package header or empty COPYING is elevated into a fabricated grant. All 73 source audio paths and 63 direct UI audio assets stay retained; any future licensed-equivalent replacement needs separate review preserving user-visible choices."
+}

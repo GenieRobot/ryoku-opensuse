@@ -1,17 +1,55 @@
 # Upstream source inventory
 
-This is the reviewed source baseline for the openSUSE port. The immutable pin,
-repository identity, observed ref, and inspection date are recorded in
+This inventory tracks the latest reviewed upstream release and the separate
+source revision currently represented by packaged runtime artifacts. The
+immutable source review pin, repository identity, observed ref, and inspection date are recorded in
 [`upstream/ryoku.source.toml`](../upstream/ryoku.source.toml). The inventory
 links below point at that exact commit; links to upstream's moving `main`
-branch are not source pins.
+branch are not source pins. The detailed component table below is the
+historical 0.75.5 inventory. Its immutable links and package observations
+describe that baseline; use the release delta and current manifests below for
+v1.0.0 packaging decisions.
 
-## Inspected source and provenance
+## Ryoku Amaterasu 1.0 review (24 October 2026)
+
+The current source review pin is v1.0.0 commit
+[`a59d051f0e8080052216f6c7b9eb7e5928935ce8`](https://github.com/Ryoku-dev/ryoku/commit/a59d051f0e8080052216f6c7b9eb7e5928935ce8),
+tree `06b2962f82f43118c3a98372c2a4b435b689b725`. The 2026-10-24 Arch and
+CachyOS ISO filenames both carry this source prefix. Those distribution images
+are provenance clues only; this project continues to target openSUSE Tumbleweed.
+The complete base-to-release path diff, directory scope, and openSUSE
+disposition are recorded in [the Ryoku 1.0 delta inventory](ryoku-v1.0-delta.md)
+and its [machine-readable path ledger](../upstream/ryoku-v1.0-path-delta.tsv).
+
+The release adds Fedora 44/45 RPM packaging and a `QtQuick3D` import in
+`ryoku/shell/quickshell/shell/modules/stage/StageSpatialScene.qml`. Fedora's
+specs are useful for package split and dependency discovery, but include Fedora
+scriptlets, package-manager assumptions, and privileged host workflows. They
+are not port implementations. The openSUSE desktop spec now declares the Qt
+Quick 3D build and QML runtime dependencies; exact package resolution and
+runtime import validation remain part of issue #173.
+
+The v1.0 release also changes the SDDM session wrapper, setup path, shell
+session startup, and adds a greeter guard. These files require a fresh security
+and compatibility review against this project's Rust service, authenticated
+recovery, and KDE fallback requirements. The store/backend and updater changes
+remain future adapter work; no upstream package actuator is imported.
+
+The runtime manifest and generated Source2/Source3 candidate archives now
+target this v1.0.0 pin. Source3 is checked against the complete upstream tree
+manifest; Source2 includes the expanded shared QML/native sources and pinned
+font assets. The issue 18 launch patch has been rebased to the v1 helper paths.
+Those are source refreshes, not completed package acceptance: issue #173 tracks
+semantic/write-site review, exact Tumbleweed dependency resolution, native
+build/load checks, and fresh VM acceptance. Preserve the old #23 package
+result as historical evidence for its exact inputs.
+
+## Previous package baseline and provenance
 
 - Repository: [Ryoku-dev/ryoku](https://github.com/Ryoku-dev/ryoku), the
   upstream project's single-source-of-truth repository for an Arch-based
   distribution, desktop, system definition, and installer.
-- Inspected revision:
+- Previously inspected package revision:
   [`98a0368253d9628be72b853985878a5db90e1547`](https://github.com/Ryoku-dev/ryoku/commit/98a0368253d9628be72b853985878a5db90e1547),
   the `main`/HEAD observed on 2026-10-12. This commit's parent is
   `f863d5ba52a08aef0f0af164f4cd45140f7f47ab`; its subject is

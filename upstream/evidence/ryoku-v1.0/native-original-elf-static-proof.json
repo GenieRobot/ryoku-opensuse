@@ -1,0 +1,244 @@
+{
+  "source_commit": "8985d22698e3f73d77a9ee2e9305d438c5f9f6b0",
+  "runtime_rpm_sha256": "252f4adcc3d233888ef199e654336ebbb541a37f2e26f5283144832c242b1697",
+  "collection_metadata_sha256": "ef20d455566c3cb3e4df33072fe689f8906769ce70d0cb80609a2c0aca33fe97",
+  "validated_ELF_count": 11,
+  "validated_ELF_bytes": 99944639,
+  "ELF": [
+    {
+      "path": "/usr/bin/ryogami-live",
+      "bytes": 39048,
+      "sha256": "b5d93187a5bd1f159719146c68562f8fb701afd84f94c0c4d7f80b5f07b68bc1",
+      "DT_NEEDED": [
+        "libwayland-client.so.0",
+        "libm.so.6",
+        "libavformat.so.63",
+        "libavcodec.so.63",
+        "libswscale.so.10",
+        "libavutil.so.61",
+        "libc.so.6"
+      ],
+      "RPATH_RUNPATH": [],
+      "SONAME": [],
+      "readelf_dynamic_sha256": "85ad5393f23a079649111b245db0c492c42a53d320ef0ce450b2d31c2b0faa1d",
+      "readelf_header_sha256": "5ccdc40c449bf412ac4eb1d9a9c21bab7ecb2b4e6c78c6f8736b915c2e4687b3"
+    },
+    {
+      "path": "/usr/lib64/qt6/qml/Ryoku/Blobs/libryoku-blobs.so",
+      "bytes": 881336,
+      "sha256": "2d4a85bd75f646a9964e66baf3d74d91a67a23676e2d488dfbd3bd6574ffe816",
+      "DT_NEEDED": [
+        "libQt6Quick.so.6",
+        "libQt6Multimedia.so.6",
+        "libQt6OpenGL.so.6",
+        "libQt6Qml.so.6",
+        "libQt6Network.so.6",
+        "libQt6Gui.so.6",
+        "libGLX.so.0",
+        "libOpenGL.so.0",
+        "libQt6Core.so.6",
+        "libstdc++.so.6",
+        "libm.so.6",
+        "libgcc_s.so.1",
+        "libc.so.6"
+      ],
+      "RPATH_RUNPATH": [],
+      "SONAME": [
+        "libryoku-blobs.so"
+      ],
+      "readelf_dynamic_sha256": "fb70048424f383bc0939631df0daa4c7b9dd0a583c2db34754bfbcf1d9452352",
+      "readelf_header_sha256": "a14ca237a34b4986352f80e2aa92bc3671602b3e179783a565a33a64902f06b8"
+    },
+    {
+      "path": "/usr/lib64/qt6/qml/Ryoku/Blobs/libryoku-blobsplugin.so",
+      "bytes": 25568,
+      "sha256": "d60062f5d3ee02e9cbe4669c8e4afbe97a6fccbd38a70acaec81835411cad67f",
+      "DT_NEEDED": [
+        "libryoku-blobs.so",
+        "libQt6Qml.so.6",
+        "libQt6Network.so.6",
+        "libQt6Core.so.6",
+        "libstdc++.so.6",
+        "libm.so.6",
+        "libgcc_s.so.1",
+        "libc.so.6"
+      ],
+      "RPATH_RUNPATH": [
+        "$ORIGIN"
+      ],
+      "SONAME": [],
+      "readelf_dynamic_sha256": "7817d1cef9a609d655169b8a159f4f8f93c2627f10a458c5972d13fba1a614d5",
+      "readelf_header_sha256": "7476f297d925922f37381e9f70c80c6a2f513feb92e0dde5b8b5a86b71708b6b"
+    },
+    {
+      "path": "/usr/lib64/qt6/qml/Ryoku/Ryogami/libryogami-picker.so",
+      "bytes": 48899408,
+      "sha256": "47c51817480c4cdcee777bbec92a1a9175a1e06eb037c96b82a29d64377457dc",
+      "DT_NEEDED": [
+        "libQt6Quick.so.6",
+        "libQt6Multimedia.so.6",
+        "libQt6OpenGL.so.6",
+        "libQt6Qml.so.6",
+        "libQt6Network.so.6",
+        "libQt6Gui.so.6",
+        "libGLX.so.0",
+        "libOpenGL.so.0",
+        "libQt6Core.so.6",
+        "libxkbcommon.so.0",
+        "libstdc++.so.6",
+        "libm.so.6",
+        "libgcc_s.so.1",
+        "libc.so.6"
+      ],
+      "RPATH_RUNPATH": [],
+      "SONAME": [
+        "libryogami-picker.so"
+      ],
+      "readelf_dynamic_sha256": "d1f6442c01ad1cdbbe733c660dbc8a35a448cbcb41ef1b1d0bd28ef6f6f75499",
+      "readelf_header_sha256": "cf892f22a0cdf7e3182b2fde15b2d64459de198e8dcf2714a66afafcde0f0f4c"
+    },
+    {
+      "path": "/usr/lib64/qt6/qml/Ryoku/Ryogami/libryogami-pickerplugin.so",
+      "bytes": 25624,
+      "sha256": "5c6361c6c487d1f2edf036c9a66396fdef0473ea7d98960265dd75befd7aa435",
+      "DT_NEEDED": [
+        "libryogami-picker.so",
+        "libQt6Qml.so.6",
+        "libQt6Network.so.6",
+        "libQt6Core.so.6",
+        "libstdc++.so.6",
+        "libm.so.6",
+        "libgcc_s.so.1",
+        "libc.so.6"
+      ],
+      "RPATH_RUNPATH": [
+        "$ORIGIN"
+      ],
+      "SONAME": [],
+      "readelf_dynamic_sha256": "5f00ef6219ddd535c4bacd4d1959ff6022e41bc63c24d0efccd10b66d8e87a1e",
+      "readelf_header_sha256": "0f137fd057e5f342a89b3aff73a70952442d35e2acec248038559a4c289e0a1e"
+    },
+    {
+      "path": "/usr/lib64/qt6/qml/Ryoku/Spatial3D/libryoku-spatial3d.so",
+      "bytes": 129360,
+      "sha256": "8ff2ff91858e300e9d5585228d147b6b9cccd4c84feb85a8a4d82fb95bbea615",
+      "DT_NEEDED": [
+        "libQt6Quick3D.so.6",
+        "libQt6Quick3DRuntimeRender.so.6",
+        "libQt6Concurrent.so.6",
+        "libQt6Quick3DUtils.so.6",
+        "libQt6Quick.so.6",
+        "libQt6OpenGL.so.6",
+        "libQt6Qml.so.6",
+        "libQt6Network.so.6",
+        "libQt6ShaderTools.so.6",
+        "libQt6Gui.so.6",
+        "libGLX.so.0",
+        "libOpenGL.so.0",
+        "libQt6Core.so.6",
+        "libstdc++.so.6",
+        "libm.so.6",
+        "libgcc_s.so.1",
+        "libc.so.6"
+      ],
+      "RPATH_RUNPATH": [],
+      "SONAME": [
+        "libryoku-spatial3d.so"
+      ],
+      "readelf_dynamic_sha256": "783f49d79c9187a3031380cae59879b668bede67ee59eff7c607f4f7add7fc66",
+      "readelf_header_sha256": "ecb7b82b3094b5d985fa79836889bf3ddbba27aecfac9fe595077fc1f066418b"
+    },
+    {
+      "path": "/usr/lib64/qt6/qml/Ryoku/Spatial3D/libryoku-spatial3dplugin.so",
+      "bytes": 25672,
+      "sha256": "999878f659e139094b6e3577dba9e7752cf4254329ae6554685574f3a1e14f01",
+      "DT_NEEDED": [
+        "libryoku-spatial3d.so",
+        "libQt6Qml.so.6",
+        "libQt6Network.so.6",
+        "libQt6Core.so.6",
+        "libstdc++.so.6",
+        "libm.so.6",
+        "libgcc_s.so.1",
+        "libc.so.6"
+      ],
+      "RPATH_RUNPATH": [
+        "$ORIGIN"
+      ],
+      "SONAME": [],
+      "readelf_dynamic_sha256": "144fd443eb260735ed5c15e3df21afd8077d32cad1ab97e10d4e201d6f2bcac7",
+      "readelf_header_sha256": "597f2385f56e1cf6acc93b9930ded016ff7d5db796bc64e1a03f35add1931ecc"
+    },
+    {
+      "path": "/usr/libexec/ryoku/upstream/ryogami",
+      "bytes": 13731714,
+      "sha256": "fddfe4d7bdc48ad82a881d27e83d339afa931af7d9c3e18fff6adc7c1c0e5652",
+      "DT_NEEDED": [],
+      "RPATH_RUNPATH": [],
+      "SONAME": [],
+      "readelf_dynamic_sha256": "8f440b11aa34c5145152189d4391ece1272b24d2739a2a33ebcdb30fa0d8d29d",
+      "readelf_header_sha256": "e9f6c8800e1f3a71fd6caf13e14d76d7fd3d54fe2544cde085ca8424633126c3"
+    },
+    {
+      "path": "/usr/libexec/ryoku/upstream/ryoku-hub",
+      "bytes": 13594811,
+      "sha256": "19d3a1de168c278ffb1bde04982f2db21f2b6b1c6b921483a91219258b6fcdeb",
+      "DT_NEEDED": [],
+      "RPATH_RUNPATH": [],
+      "SONAME": [],
+      "readelf_dynamic_sha256": "8f440b11aa34c5145152189d4391ece1272b24d2739a2a33ebcdb30fa0d8d29d",
+      "readelf_header_sha256": "4369cd2c29dc6c3bdcf71d2cd75723578a47a1439eea6bbca9d39af9d1f1515f"
+    },
+    {
+      "path": "/usr/libexec/ryoku/upstream/ryoku-shell",
+      "bytes": 15807538,
+      "sha256": "5f9db8eb1d66e8366a776363de7ee645a54bebf46cf01dc10d985723a7c72b1e",
+      "DT_NEEDED": [],
+      "RPATH_RUNPATH": [],
+      "SONAME": [],
+      "readelf_dynamic_sha256": "8f440b11aa34c5145152189d4391ece1272b24d2739a2a33ebcdb30fa0d8d29d",
+      "readelf_header_sha256": "6add066051a278572e851c4a4efc013e16e5f6fa5edbfa929fc70ecd803510a1"
+    },
+    {
+      "path": "/usr/libexec/ryoku/upstream/ryoku-wm-hyprland",
+      "bytes": 6784560,
+      "sha256": "911d8a1eeab889bcdae0c188e09ed0209587aa5ce246e5b626107729748d9377",
+      "DT_NEEDED": [],
+      "RPATH_RUNPATH": [],
+      "SONAME": [],
+      "readelf_dynamic_sha256": "8f440b11aa34c5145152189d4391ece1272b24d2739a2a33ebcdb30fa0d8d29d",
+      "readelf_header_sha256": "f6e4f40f240476889c806ce5597d888fd25ea3434212a58657e16eea9bd3b2dd"
+    }
+  ],
+  "same_directory_plugin_pairs": [
+    {
+      "backing": "libryoku-blobs.so",
+      "plugin": "libryoku-blobsplugin.so",
+      "search": "$ORIGIN",
+      "same_RPM": true
+    },
+    {
+      "backing": "libryoku-spatial3d.so",
+      "plugin": "libryoku-spatial3dplugin.so",
+      "search": "$ORIGIN",
+      "same_RPM": true
+    },
+    {
+      "backing": "libryogami-picker.so",
+      "plugin": "libryogami-pickerplugin.so",
+      "search": "$ORIGIN",
+      "same_RPM": true
+    }
+  ],
+  "scope": "Original8985d22 native build static payload/readelf evidence. No candidate execution/loading/install; correctedRPM rebuild, external/transitive solver, symbol-version/load/ABI and functional acceptance remain open.",
+  "Source2_sha256": "8aeff20645c14af76f3d341e5d4e7c31923fd249f6671caa704c8b23a6c84e65",
+  "Source3_sha256": "387d829860ba844ad32ecdd5982678707665f3251e41bbb43c6fd6f87dc7eee0",
+  "source_install_contract": "upstream/evidence/ryoku-v1.0/native-module-install-contract.json",
+  "method": [
+    "Require original candidate RPM SHA256 and SHA256 FILEDIGESTALGO; select exactly11 regular ELF entries totalling99,944,639bytes.",
+    "Stream rpm2cpio to cpio restricted to11 exact payload paths in tmpfs; require successful subprocesses, exact file sizes and matching header/build/payload SHA256.",
+    "Run readelf only (no ldd/plugin/command execution); compare DT_NEEDED and RPATH/RUNPATH with original build receipt and require ELF64 x86-64.",
+    "Require each backing SONAME to equal its actual plugin DT_NEEDED and each plugin RUNPATH to be exactly $ORIGIN, with both files owned by the same runtime RPM.",
+    "Confirm actual livewall FFmpeg SONAME63/63/61/10 and actual Spatial3D Quick3D/Concurrent links. This does not resolve external or transitive providers/symbol versions."
+  ]
+}

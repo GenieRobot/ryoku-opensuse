@@ -1,0 +1,22 @@
+[
+  {
+    "git_blob": "ae3e3155331e9ec0e33248ef89b1b4475baea8de",
+    "git_mode": "120000",
+    "link_object_sha256": "dfcdf47e70a568be435399e6398a497af018ccaba49b6c971d972cf4c6981e15",
+    "link_text": "../../assets/brand/rashin-mark.svg",
+    "resolved_git_blob": "07a13764498256cec08d0396c9d2a7cd13b299e2",
+    "resolved_mode": "644",
+    "resolved_source": "ryoku/assets/brand/rashin-mark.svg",
+    "source": "ryoku/rashin/app/logo.svg"
+  },
+  {
+    "git_blob": "bd0d05b9f8fa6d6d461319791a17b10aa32218a8",
+    "git_mode": "120000",
+    "link_object_sha256": "feb4762e851a17111a4c3c4856140ae742b943d17a93607c2a8bd049b4c862df",
+    "link_text": "../../../assets/brand/rashin-mark-small.svg",
+    "resolved_git_blob": "548158f83b69cbd968a190747da7f909c8439768",
+    "resolved_mode": "644",
+    "resolved_source": "ryoku/assets/brand/rashin-mark-small.svg",
+    "source": "ryoku/rashin/web/public/favicon.svg"
+  }
+]

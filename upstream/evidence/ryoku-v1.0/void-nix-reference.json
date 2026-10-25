@@ -1,0 +1,5748 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "prior_commit": "98a0368253d9628be72b853985878a5db90e1547",
+  "project_base_commit": "ecf6fed4f3947976f51c6cf682393e6d10af79f8",
+  "scope": "Cached source reference only; no Nix evaluation, Void script/template execution, installer execution, fetch, import or native acceptance.",
+  "recipe_declarations": [
+    {
+      "source": "nix/packages/default.nix",
+      "git_mode": "100644",
+      "git_blob": "d7b48134d3183d56b60bd861664a65dc6419a126",
+      "bytes": 6714,
+      "sha256": "5ecabae5c4452bed3d354bd8bda2d7d0dbed764b32bfe1c6dfaf63f0f4bff242",
+      "declaration_sites": [
+        {
+          "line": 40,
+          "text": "    patches = (old.patches or [ ]) ++ ["
+        },
+        {
+          "line": 133,
+          "text": "    src = hyprglassSrc;"
+        },
+        {
+          "line": 137,
+          "text": "    pname = \"ryoku-imgborders\";"
+        },
+        {
+          "line": 138,
+          "text": "    version = \"unstable\";"
+        },
+        {
+          "line": 139,
+          "text": "    src = imgbordersSrc;"
+        },
+        {
+          "line": 176,
+          "text": "      version = \"unstable\";"
+        },
+        {
+          "line": 177,
+          "text": "      src = src + sourcePath;"
+        },
+        {
+          "line": 181,
+          "text": "      installPhase = ''"
+        },
+        {
+          "line": 194,
+          "text": "      meta = {"
+        },
+        {
+          "line": 196,
+          "text": "        homepage = \"https://github.com/Ryoku-dev/ryoku-arch\";"
+        },
+        {
+          "line": 197,
+          "text": "        license = pkgs.lib.licenses.gpl3Only;"
+        },
+        {
+          "line": 198,
+          "text": "        platforms = [ \"x86_64-linux\" ];"
+        },
+        {
+          "line": 203,
+          "text": "    pname = \"ryoku-ui\";"
+        },
+        {
+          "line": 210,
+          "text": "    pname = \"ryoku-plugin-kit\";"
+        },
+        {
+          "line": 217,
+          "text": "    pname = \"ryoku-framebars\";"
+        },
+        {
+          "line": 224,
+          "text": "    pname = \"ryoku-wm-hyprland-qml\";"
+        },
+        {
+          "line": 231,
+          "text": "    meta = {"
+        },
+        {
+          "line": 233,
+          "text": "      homepage = \"https://github.com/Ryoku-dev/ryoku-arch\";"
+        },
+        {
+          "line": 234,
+          "text": "      license = pkgs.lib.licenses.gpl3Only;"
+        },
+        {
+          "line": 235,
+          "text": "      platforms = [ \"x86_64-linux\" ];"
+        },
+        {
+          "line": 267,
+          "text": "    meta = {"
+        },
+        {
+          "line": 269,
+          "text": "      homepage = \"https://github.com/Ryoku-dev/ryoku-arch\";"
+        },
+        {
+          "line": 270,
+          "text": "      license = pkgs.lib.licenses.gpl3Only;"
+        },
+        {
+          "line": 271,
+          "text": "      platforms = [ \"x86_64-linux\" ];"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "nix/packages/prowl-agent.nix",
+      "git_mode": "100644",
+      "git_blob": "2baf797a651a3e4d143eaa8602e27214b7465204",
+      "bytes": 1407,
+      "sha256": "cefd8cc44ce0b94855444698179993213f555ea09869a6d884bef8fc0cedeb63",
+      "declaration_sites": [
+        {
+          "line": 4,
+          "text": "  pname = \"prowl\";"
+        },
+        {
+          "line": 5,
+          "text": "  version = \"0.17.2\";"
+        },
+        {
+          "line": 7,
+          "text": "  src ="
+        },
+        {
+          "line": 15,
+          "text": "  vendorHash = \"sha256-EB+usU80HUIdhzg1MXAj/2uE/bOKqWVyX4A9Xk9NVUs=\";"
+        },
+        {
+          "line": 22,
+          "text": "  buildInputs = ["
+        },
+        {
+          "line": 47,
+          "text": "  meta = {"
+        },
+        {
+          "line": 51,
+          "text": "    homepage ="
+        },
+        {
+          "line": 57,
+          "text": "    platforms ="
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 8,
+          "text": "    pkgs.fetchFromGitHub {"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/qmk-hid.nix",
+      "git_mode": "100644",
+      "git_blob": "c3cb31c5cf006e69e90f2c4124ea623128716340",
+      "bytes": 943,
+      "sha256": "4699edcb0c84d8b57609036e9e5510be3007f4946351357fc55adced9f67e28a",
+      "declaration_sites": [
+        {
+          "line": 6,
+          "text": "  src = pkgs.fetchzip {"
+        },
+        {
+          "line": 12,
+          "text": "  pname = \"qmk-hid\";"
+        },
+        {
+          "line": 13,
+          "text": "  version = \"0.1.13\";"
+        },
+        {
+          "line": 25,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 29,
+          "text": "  buildInputs = ["
+        },
+        {
+          "line": 33,
+          "text": "  meta = {"
+        },
+        {
+          "line": 35,
+          "text": "    homepage = \"https://github.com/FrameworkComputer/qmk_hid\";"
+        },
+        {
+          "line": 36,
+          "text": "    license = pkgs.lib.licenses.bsd3;"
+        },
+        {
+          "line": 37,
+          "text": "    platforms = pkgs.lib.platforms.linux;"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "nix/packages/ryoku-blobs.nix",
+      "git_mode": "100644",
+      "git_blob": "781d904d74d1dad6e8e23597058bd5dbf4d80b9f",
+      "bytes": 1023,
+      "sha256": "854270e5b3b968327cd98e63390830cb9bc7226a48355c866f9bb1b00234ae09",
+      "declaration_sites": [
+        {
+          "line": 4,
+          "text": "  pname = \"ryoku-blobs\";"
+        },
+        {
+          "line": 5,
+          "text": "  version = \"unstable\";"
+        },
+        {
+          "line": 9,
+          "text": "  src = src + \"/ryoku/shell/plugin\";"
+        },
+        {
+          "line": 11,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 19,
+          "text": "  buildInputs = ["
+        },
+        {
+          "line": 31,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 47,
+          "text": "  meta = {"
+        },
+        {
+          "line": 49,
+          "text": "    homepage = \"https://github.com/Ryoku-dev/ryoku-arch\";"
+        },
+        {
+          "line": 50,
+          "text": "    license = pkgs.lib.licenses.gpl3Only;"
+        },
+        {
+          "line": 51,
+          "text": "    platforms = [ \"x86_64-linux\" ];"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "nix/packages/ryoku-cli.nix",
+      "git_mode": "100644",
+      "git_blob": "aea0cd1c3ef9badb01853166baaf3a3ce1c89da8",
+      "bytes": 1924,
+      "sha256": "435d5c95e074af7aa304bb895a124f935156f2bc5044d22a3ac15afda09340e2",
+      "declaration_sites": [
+        {
+          "line": 10,
+          "text": "  pname = \"ryoku-cli\";"
+        },
+        {
+          "line": 13,
+          "text": "  src = src + \"/ryoku/cli\";"
+        },
+        {
+          "line": 15,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 20,
+          "text": "  postPatch = ''"
+        },
+        {
+          "line": 28,
+          "text": "  buildPhase = ''"
+        },
+        {
+          "line": 50,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 81,
+          "text": "  meta = {"
+        },
+        {
+          "line": 83,
+          "text": "    homepage = \"https://github.com/Ryoku-dev/ryoku-arch\";"
+        },
+        {
+          "line": 84,
+          "text": "    license = pkgs.lib.licenses.gpl3Only;"
+        },
+        {
+          "line": 85,
+          "text": "    platforms = [ \"x86_64-linux\" ];"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 17,
+          "text": "    pkgs.makeWrapper"
+        },
+        {
+          "line": 22,
+          "text": "    substituteInPlace internal/doctor/reconcile_vesktop_palette.go \\"
+        },
+        {
+          "line": 23,
+          "text": "      --replace-fail \\"
+        },
+        {
+          "line": 63,
+          "text": "    makeWrapper \\"
+        },
+        {
+          "line": 66,
+          "text": "      --set RYOKU_HOST_PLATFORM nixos"
+        },
+        {
+          "line": 68,
+          "text": "    makeWrapper \\"
+        },
+        {
+          "line": 71,
+          "text": "      --set RYOKU_CONFIG_BASE \"${desktopData}/share/ryoku/config\" \\"
+        },
+        {
+          "line": 72,
+          "text": "      --set RYOKU_I18N_DIR \"${desktopData}/share/ryoku/i18n\" \\"
+        },
+        {
+          "line": 73,
+          "text": "      --set RYOKU_NOMARCHY_SOURCE \"${desktopData}/share/ryoku/nomarchy\" \\"
+        },
+        {
+          "line": 74,
+          "text": "      --set RYOKU_UPDATE_BACKEND nix \\"
+        },
+        {
+          "line": 75,
+          "text": "      --set RYOKU_NIX_VERSION \"${version}\" \\"
+        },
+        {
+          "line": 76,
+          "text": "      --set RYOKU_NIX_CHANNEL nix"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-cursor-material.nix",
+      "git_mode": "100644",
+      "git_blob": "1a61b1c48b755ae6f2e51a7e695749adbaac9056",
+      "bytes": 3304,
+      "sha256": "814cdb060b3f3c6ecd472fe660de1181d01e38b266c0b7643e4e2045b37eb5cb",
+      "declaration_sites": [
+        {
+          "line": 4,
+          "text": "  pname = \"ryoku-cursor-material\";"
+        },
+        {
+          "line": 5,
+          "text": "  version = \"1.0.0\";"
+        },
+        {
+          "line": 7,
+          "text": "  src = ryokuSrc;"
+        },
+        {
+          "line": 9,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 18,
+          "text": "  buildPhase = ''"
+        },
+        {
+          "line": 77,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 118,
+          "text": "  meta = {"
+        },
+        {
+          "line": 120,
+          "text": "    homepage = \"https://github.com/SakibShahariar/material-bibata-cursor\";"
+        },
+        {
+          "line": 121,
+          "text": "    license = with pkgs.lib.licenses; [ gpl3Plus mit ];"
+        },
+        {
+          "line": 122,
+          "text": "    platforms = pkgs.lib.platforms.linux;"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 10,
+          "text": "    pkgs.makeWrapper"
+        },
+        {
+          "line": 102,
+          "text": "    substituteInPlace \"$out/bin/ryoku-cursor-material-recolor\" \\"
+        },
+        {
+          "line": 103,
+          "text": "      --replace-fail \\"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-desktop-data.nix",
+      "git_mode": "100644",
+      "git_blob": "281bba040bc683acb43001a0323f3febb561d877",
+      "bytes": 23773,
+      "sha256": "11ea953d39af09fe32e53f1b4e89bfb08170ae61fe7f6a3f8b97da174284863e",
+      "declaration_sites": [
+        {
+          "line": 7,
+          "text": "  pname = \"ryoku-desktop-data\";"
+        },
+        {
+          "line": 8,
+          "text": "  version = \"unstable\";"
+        },
+        {
+          "line": 12,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 19,
+          "text": "  buildInputs = ["
+        },
+        {
+          "line": 27,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 543,
+          "text": "  meta = {"
+        },
+        {
+          "line": 545,
+          "text": "    homepage = \"https://github.com/Ryoku-dev/ryoku-arch\";"
+        },
+        {
+          "line": 546,
+          "text": "    license = pkgs.lib.licenses.gpl3Only;"
+        },
+        {
+          "line": 547,
+          "text": "    platforms = [ \"x86_64-linux\" ];"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 45,
+          "text": "    substituteInPlace \"$cfg/hypr/modules/env.lua\" \\"
+        },
+        {
+          "line": 46,
+          "text": "      --replace-fail \\"
+        },
+        {
+          "line": 58,
+          "text": "    substituteInPlace \"$cfg/hypr/modules/autostart.lua\" \\"
+        },
+        {
+          "line": 59,
+          "text": "      --replace-fail \\"
+        },
+        {
+          "line": 63,
+          "text": "    substituteInPlace \"$cfg/niri/autostart.kdl\" \\"
+        },
+        {
+          "line": 64,
+          "text": "      --replace-fail \\"
+        },
+        {
+          "line": 73,
+          "text": "    # it through RYOKU_I18N_DIR."
+        },
+        {
+          "line": 89,
+          "text": "      substituteInPlace \"$file\" \\"
+        },
+        {
+          "line": 103,
+          "text": "    substituteInPlace \"$shell_exec\" \\"
+        },
+        {
+          "line": 104,
+          "text": "      --replace-fail '\"/usr/bin/fish\"' '\"${pkgs.fish}/bin/fish\"' \\"
+        },
+        {
+          "line": 105,
+          "text": "      --replace-fail '\"/usr/bin/bash\"' '\"${pkgs.bash}/bin/bash\"' \\"
+        },
+        {
+          "line": 106,
+          "text": "      --replace-fail '\"/usr/bin/systemd-run\"' '\"${pkgs.systemd}/bin/systemd-run\"' \\"
+        },
+        {
+          "line": 107,
+          "text": "      --replace-fail '\"/usr/bin/gtk-launch\"' '\"${pkgs.gtk3}/bin/gtk-launch\"' \\"
+        },
+        {
+          "line": 108,
+          "text": "      --replace-fail '[\"/usr/bin/test\",' '[\"${pkgs.coreutils}/bin/test\",' \\"
+        },
+        {
+          "line": 109,
+          "text": "      --replace-fail '[ -x /usr/bin/systemctl ]' '[ -x ${pkgs.systemd}/bin/systemctl ]' \\"
+        },
+        {
+          "line": 110,
+          "text": "      --replace-fail '[ -x /usr/bin/timeout ]' '[ -x ${pkgs.coreutils}/bin/timeout ]' \\"
+        },
+        {
+          "line": 111,
+          "text": "      --replace-fail '/usr/bin/timeout 3s /usr/bin/systemctl' '${pkgs.coreutils}/bin/timeout 3s ${pkgs.systemd}/bin/systemctl'"
+        },
+        {
+          "line": 300,
+          "text": "    substituteInPlace \"$out/bin/ryoku-cmd-caffeine\" \\"
+        },
+        {
+          "line": 301,
+          "text": "      --replace-fail \\"
+        },
+        {
+          "line": 321,
+          "text": "      substituteInPlace \"$out/bin/$(basename \"$helper\")\" \\"
+        },
+        {
+          "line": 322,
+          "text": "        --replace-fail '#!/usr/bin/env python3' '#!${pkgs.python3}/bin/python3'"
+        },
+        {
+          "line": 351,
+          "text": "    substituteInPlace \"$out/share/ryoku/lockscreen/install-qylock\" \\"
+        },
+        {
+          "line": 352,
+          "text": "      --replace-fail \\"
+        },
+        {
+          "line": 356,
+          "text": "      --replace-fail \\"
+        },
+        {
+          "line": 360,
+          "text": "      --replace-fail \\"
+        },
+        {
+          "line": 410,
+          "text": "    # The Hub reads these through RYOKU_SYSTEM_RICES_DIR. Applying a rice"
+        },
+        {
+          "line": 422,
+          "text": "        substituteInPlace \"$rice/fastfetch.jsonc\" \\"
+        },
+        {
+          "line": 423,
+          "text": "          --replace-quiet 'a hand-built Arch desktop' 'a hand-built {$RYOKU_BASE_OS} desktop'"
+        },
+        {
+          "line": 426,
+          "text": "        substituteInPlace \"$rice/rice.json\" \\"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-helpers.nix",
+      "git_mode": "100644",
+      "git_blob": "5a55f7d1be5f9f44a10291836cedd06c3a60b10c",
+      "bytes": 9640,
+      "sha256": "0296158cfcdb476ba7afdd55f02ed3206c0415e737ed63337d6d6345dae70549",
+      "declaration_sites": [
+        {
+          "line": 17,
+          "text": "  pname = \"ryoku-helpers\";"
+        },
+        {
+          "line": 18,
+          "text": "  version = \"unstable\";"
+        },
+        {
+          "line": 22,
+          "text": "  nativeBuildInputs = [ pkgs.makeWrapper ];"
+        },
+        {
+          "line": 26,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 349,
+          "text": "  meta = {"
+        },
+        {
+          "line": 351,
+          "text": "    homepage = \"https://github.com/Ryoku-dev/ryoku-arch\";"
+        },
+        {
+          "line": 352,
+          "text": "    license = pkgs.lib.licenses.gpl3Only;"
+        },
+        {
+          "line": 353,
+          "text": "    platforms = [ \"x86_64-linux\" ];"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 22,
+          "text": "  nativeBuildInputs = [ pkgs.makeWrapper ];"
+        },
+        {
+          "line": 62,
+          "text": "      substituteInPlace \"$out/bin/ryoku-power-cutover\" \\"
+        },
+        {
+          "line": 63,
+          "text": "        --replace-fail \\"
+        },
+        {
+          "line": 66,
+          "text": "        --replace-fail \\"
+        },
+        {
+          "line": 69,
+          "text": "        --replace-fail \\"
+        },
+        {
+          "line": 80,
+          "text": "    substituteInPlace \"$out/bin/ryoku-qylock-activate\" \\"
+        },
+        {
+          "line": 81,
+          "text": "      --replace-fail \\"
+        },
+        {
+          "line": 115,
+          "text": "    substituteInPlace \"$out/bin/ryoku-idle\" \\"
+        },
+        {
+          "line": 116,
+          "text": "      --replace-fail '@BASH@' \"${pkgs.bash}/bin/bash\" \\"
+        },
+        {
+          "line": 117,
+          "text": "      --replace-fail '@REAL@' \"$out/libexec/ryoku-idle\" \\"
+        },
+        {
+          "line": 118,
+          "text": "      --replace-fail '@SYSTEMCTL@' \"${pkgs.systemd}/bin/systemctl\""
+        },
+        {
+          "line": 237,
+          "text": "    substituteInPlace \"$out/bin/ryostage\" \\"
+        },
+        {
+          "line": 238,
+          "text": "      --replace-fail '@REAL@' \"$out/libexec/ryostage\" \\"
+        },
+        {
+          "line": 239,
+          "text": "      --replace-fail '@PYTHON@' \"${stagePython}/bin/python3\" \\"
+        },
+        {
+          "line": 240,
+          "text": "      --replace-fail '@BASH@' \"${pkgs.bash}/bin/bash\" \\"
+        },
+        {
+          "line": 241,
+          "text": "      --replace-fail '@STAGE_BIN@' \"${stagePython}/bin\" \\"
+        },
+        {
+          "line": 242,
+          "text": "      --replace-fail '@FINDUTILS_BIN@' \"${pkgs.findutils}/bin\" \\"
+        },
+        {
+          "line": 243,
+          "text": "      --replace-fail '@COREUTILS_BIN@' \"${pkgs.coreutils}/bin\""
+        },
+        {
+          "line": 268,
+          "text": "    substituteInPlace \"$out/bin/ryoku-eq\" \\"
+        },
+        {
+          "line": 269,
+          "text": "      --replace-fail '@BASH@' \"${pkgs.bash}/bin/bash\" \\"
+        },
+        {
+          "line": 270,
+          "text": "      --replace-fail '@REAL@' \"$out/libexec/ryoku-eq\" \\"
+        },
+        {
+          "line": 271,
+          "text": "      --replace-fail '@EQ_PATH@' \"${pkgs.lib.makeBinPath ["
+        },
+        {
+          "line": 296,
+          "text": "    substituteInPlace \"$out/bin/ryoku-reload-cover\" \\"
+        },
+        {
+          "line": 297,
+          "text": "      --replace-fail \\"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-hub.nix",
+      "git_mode": "100644",
+      "git_blob": "5b6d081e9567886b2cc11760f4b7c08b19e3b3cc",
+      "bytes": 1767,
+      "sha256": "b10da896670eb53299ed4244fb7f55a0fbc9d32fc711e326a61e7d9700f15d30",
+      "declaration_sites": [
+        {
+          "line": 9,
+          "text": "  pname = \"ryoku-hub\";"
+        },
+        {
+          "line": 10,
+          "text": "  version = \"unstable\";"
+        },
+        {
+          "line": 12,
+          "text": "  src = src + \"/ryoku/hub/backend\";"
+        },
+        {
+          "line": 14,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 19,
+          "text": "  postPatch = ''"
+        },
+        {
+          "line": 32,
+          "text": "  buildPhase = ''"
+        },
+        {
+          "line": 48,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 67,
+          "text": "  meta = {"
+        },
+        {
+          "line": 69,
+          "text": "    homepage = \"https://github.com/Ryoku-dev/ryoku-arch\";"
+        },
+        {
+          "line": 70,
+          "text": "    license = pkgs.lib.licenses.gpl3Only;"
+        },
+        {
+          "line": 71,
+          "text": "    platforms = [ \"x86_64-linux\" ];"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 16,
+          "text": "    pkgs.makeWrapper"
+        },
+        {
+          "line": 20,
+          "text": "    substituteInPlace shellpref.go \\"
+        },
+        {
+          "line": 21,
+          "text": "      --replace-fail '\"/usr/bin/fish\"' '\"/run/current-system/sw/bin/fish\"' \\"
+        },
+        {
+          "line": 22,
+          "text": "      --replace-fail '\"/usr/bin/bash\"' '\"/run/current-system/sw/bin/bash\"' \\"
+        },
+        {
+          "line": 23,
+          "text": "      --replace-fail '\"/usr/bin/zsh\"' '\"/run/current-system/sw/bin/zsh\"'"
+        },
+        {
+          "line": 25,
+          "text": "    substituteInPlace desktop_enum.go \\"
+        },
+        {
+          "line": 26,
+          "text": "      --replace-fail '\"/usr/local/share:/usr/share\"' '\"/run/current-system/sw/share:/usr/local/share:/usr/share\"'"
+        },
+        {
+          "line": 28,
+          "text": "    substituteInPlace palettebridge.go \\"
+        },
+        {
+          "line": 29,
+          "text": "      --replace-fail '\"/usr/share/ryoku/palette-bridge\"' '\"${paletteBridge}/share/ryoku/palette-bridge\"'"
+        },
+        {
+          "line": 57,
+          "text": "    makeWrapper \\"
+        },
+        {
+          "line": 60,
+          "text": "      --set RYOKU_XKB_RULES_DIR \"${pkgs.xkeyboard_config}/share/X11/xkb/rules\" \\"
+        },
+        {
+          "line": 62,
+          "text": "      --set-default RYOKU_SYSTEM_RICES_DIR \"${desktopData}/share/ryoku/rices\""
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-hypr-plugins.nix",
+      "git_mode": "100644",
+      "git_blob": "2f9c25bec523b8fa15242e628a0a5fb75ade0ffd",
+      "bytes": 3859,
+      "sha256": "74e2ef8f5cd97892f46e6bbc18c3c0537a5b281a97decb2aeafd552eda770c98",
+      "declaration_sites": [
+        {
+          "line": 10,
+          "text": "    nativeBuildInputs = ["
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "nix/packages/ryoku-hyprglass.nix",
+      "git_mode": "100644",
+      "git_blob": "f2cf8d83c88fb921d9e7f39985a728db80cf045e",
+      "bytes": 755,
+      "sha256": "3a5eb1b59a1d4698b456d7fe7fdb272111ef5f7ba74d41b4a05a053daa20a0aa",
+      "declaration_sites": [
+        {
+          "line": 5,
+          "text": "  version = \"0.7.0\";"
+        },
+        {
+          "line": 11,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 15,
+          "text": "  buildInputs = ["
+        },
+        {
+          "line": 23,
+          "text": "  buildPhase = ''"
+        },
+        {
+          "line": 29,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 39,
+          "text": "  meta = {"
+        },
+        {
+          "line": 41,
+          "text": "    homepage = \"https://github.com/hyprnux/hyprglass\";"
+        },
+        {
+          "line": 42,
+          "text": "    license = pkgs.lib.licenses.bsd3;"
+        },
+        {
+          "line": 43,
+          "text": "    platforms = pkgs.lib.platforms.linux;"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "nix/packages/ryoku-keysounds.nix",
+      "git_mode": "100644",
+      "git_blob": "899b9e8450d18e6cb4fb2c9a376e4dd3ab40b656",
+      "bytes": 3207,
+      "sha256": "35e0a6113997e9c10bc45af64718417c03d8f15b8ab30ef9a09a5516e60c9b29",
+      "declaration_sites": [
+        {
+          "line": 21,
+          "text": "  version = \"1.0\";"
+        },
+        {
+          "line": 23,
+          "text": "  src ="
+        },
+        {
+          "line": 28,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 35,
+          "text": "  buildInputs = ["
+        },
+        {
+          "line": 39,
+          "text": "  postPatch = ''"
+        },
+        {
+          "line": 66,
+          "text": "  buildPhase = ''"
+        },
+        {
+          "line": 80,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 127,
+          "text": "  meta = {"
+        },
+        {
+          "line": 131,
+          "text": "    homepage ="
+        },
+        {
+          "line": 134,
+          "text": "    license = ["
+        },
+        {
+          "line": 139,
+          "text": "    platforms = ["
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 7,
+          "text": "  mechvibesSrc = pkgs.fetchFromGitHub {"
+        },
+        {
+          "line": 31,
+          "text": "    pkgs.makeWrapper"
+        },
+        {
+          "line": 48,
+          "text": "    substituteInPlace \\"
+        },
+        {
+          "line": 50,
+          "text": "      --replace-fail \\"
+        },
+        {
+          "line": 59,
+          "text": "    substituteInPlace \\"
+        },
+        {
+          "line": 61,
+          "text": "      --replace-fail \\"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-livewall.nix",
+      "git_mode": "100644",
+      "git_blob": "d5ee41cc2c3890156c8bcb22f3289d2f6a3b25d6",
+      "bytes": 962,
+      "sha256": "b08d63640dcbb9dfd055cf5bd415185f96a89b454ef8cd80a58056c5869890d5",
+      "declaration_sites": [
+        {
+          "line": 4,
+          "text": "  pname = \"ryoku-livewall\";"
+        },
+        {
+          "line": 5,
+          "text": "  version = \"unstable\";"
+        },
+        {
+          "line": 7,
+          "text": "  src = src + \"/ryoku/shell/livewall\";"
+        },
+        {
+          "line": 9,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 19,
+          "text": "  buildInputs = ["
+        },
+        {
+          "line": 24,
+          "text": "  buildPhase = ''"
+        },
+        {
+          "line": 32,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 42,
+          "text": "  meta = {"
+        },
+        {
+          "line": 44,
+          "text": "    homepage = \"https://github.com/Ryoku-dev/ryoku-arch\";"
+        },
+        {
+          "line": 45,
+          "text": "    license = pkgs.lib.licenses.gpl3Plus;"
+        },
+        {
+          "line": 46,
+          "text": "    platforms = [ \"x86_64-linux\" ];"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "nix/packages/ryoku-maple-mono-nf.nix",
+      "git_mode": "100644",
+      "git_blob": "23ffcd2f20bd549ffd1170f63023d23a160c8cc9",
+      "bytes": 873,
+      "sha256": "021b6f44013aace42e1b797ae4712f63864c94f7d126b3053ca04345fa29a696",
+      "declaration_sites": [
+        {
+          "line": 4,
+          "text": "  pname = \"ryoku-maple-mono-nf\";"
+        },
+        {
+          "line": 5,
+          "text": "  version = \"7.9\";"
+        },
+        {
+          "line": 7,
+          "text": "  src = pkgs.fetchurl {"
+        },
+        {
+          "line": 12,
+          "text": "  nativeBuildInputs = [ pkgs.unzip ];"
+        },
+        {
+          "line": 20,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 27,
+          "text": "  meta = {"
+        },
+        {
+          "line": 29,
+          "text": "    homepage = \"https://github.com/subframe7536/maple-font\";"
+        },
+        {
+          "line": 30,
+          "text": "    license = pkgs.lib.licenses.ofl;"
+        },
+        {
+          "line": 31,
+          "text": "    platforms = pkgs.lib.platforms.all;"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 7,
+          "text": "  src = pkgs.fetchurl {"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-palette-bridge.nix",
+      "git_mode": "100644",
+      "git_blob": "6a896167cf33a20048c83e446799134ac1fde411",
+      "bytes": 3008,
+      "sha256": "71798ba8f10687fe941e5c115e4595c4749a59f86be25427e7ee22a3e38d2396",
+      "declaration_sites": [
+        {
+          "line": 4,
+          "text": "  pname = \"ryoku-palette-bridge\";"
+        },
+        {
+          "line": 5,
+          "text": "  version = \"unstable\";"
+        },
+        {
+          "line": 7,
+          "text": "  src = src + \"/ryoku/palette-bridge\";"
+        },
+        {
+          "line": 9,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 14,
+          "text": "  postPatch = ''"
+        },
+        {
+          "line": 26,
+          "text": "  buildPhase = ''"
+        },
+        {
+          "line": 45,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 108,
+          "text": "  meta = {"
+        },
+        {
+          "line": 111,
+          "text": "    homepage ="
+        },
+        {
+          "line": 113,
+          "text": "    license = pkgs.lib.licenses.mit;"
+        },
+        {
+          "line": 114,
+          "text": "    platforms = [ \"x86_64-linux\" ];"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 11,
+          "text": "    pkgs.makeWrapper"
+        },
+        {
+          "line": 84,
+          "text": "    makeWrapper \\"
+        },
+        {
+          "line": 94,
+          "text": "    makeWrapper \\"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-rashin.nix",
+      "git_mode": "100644",
+      "git_blob": "da370410035b2998e3ff7b4e29180204f0e7d506",
+      "bytes": 2133,
+      "sha256": "3c6da37dfaf50fd056edb43be771bd1b704a81ff18015d5950b5c50950bc660f",
+      "declaration_sites": [
+        {
+          "line": 29,
+          "text": "  pname = \"ryoku-rashin\";"
+        },
+        {
+          "line": 30,
+          "text": "  version = \"unstable\";"
+        },
+        {
+          "line": 32,
+          "text": "  src = repoSrc + \"/ryoku/rashin/backend\";"
+        },
+        {
+          "line": 34,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 39,
+          "text": "  buildPhase = ''"
+        },
+        {
+          "line": 61,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 101,
+          "text": "  meta = {"
+        },
+        {
+          "line": 103,
+          "text": "    homepage = \"https://github.com/Ryoku-dev/ryoku-arch\";"
+        },
+        {
+          "line": 104,
+          "text": "    license = pkgs.lib.licenses.gpl3Plus;"
+        },
+        {
+          "line": 105,
+          "text": "    platforms = [ \"x86_64-linux\" ];"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 36,
+          "text": "    pkgs.makeWrapper"
+        },
+        {
+          "line": 86,
+          "text": "    makeWrapper \\"
+        },
+        {
+          "line": 89,
+          "text": "      --set RYOKU_PACKAGE_BACKEND nix \\"
+        },
+        {
+          "line": 90,
+          "text": "      --set RYOKU_RASHIN_NIXOS 1 \\"
+        },
+        {
+          "line": 91,
+          "text": "      --set RYOKU_CONFIG_BASE \"${desktopData}/share/ryoku/config\" \\"
+        },
+        {
+          "line": 92,
+          "text": "      --set RYOKU_RASHIN_SHIPPED \"$out/share/ryoku/rashin/ryoku-repo.md\" \\"
+        },
+        {
+          "line": 93,
+          "text": "      --set RYOKU_RASHIN_WIKI \"$out/share/ryoku/rashin/wiki\" \\"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-ryogami.nix",
+      "git_mode": "100644",
+      "git_blob": "a1acbbe0b6510261dd32c6a7e142cf08841e58af",
+      "bytes": 5238,
+      "sha256": "d601195861649b954df84e6189bfefaae163a7140b21c26812846bedb1dbe372",
+      "declaration_sites": [
+        {
+          "line": 32,
+          "text": "  pname = \"ryoku-ryogami\";"
+        },
+        {
+          "line": 33,
+          "text": "  version = \"unstable\";"
+        },
+        {
+          "line": 35,
+          "text": "  src = src + \"/ryoku/shell/ryogami\";"
+        },
+        {
+          "line": 40,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 51,
+          "text": "  buildInputs = ["
+        },
+        {
+          "line": 62,
+          "text": "  postPatch = ''"
+        },
+        {
+          "line": 87,
+          "text": "  buildPhase = ''"
+        },
+        {
+          "line": 134,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 202,
+          "text": "  meta = {"
+        },
+        {
+          "line": 205,
+          "text": "    homepage ="
+        },
+        {
+          "line": 207,
+          "text": "    license = pkgs.lib.licenses.gpl3Plus;"
+        },
+        {
+          "line": 208,
+          "text": "    platforms = [ \"x86_64-linux\" ];"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 42,
+          "text": "    pkgs.makeWrapper"
+        },
+        {
+          "line": 65,
+          "text": "    substituteInPlace daemon/upscale.go \\"
+        },
+        {
+          "line": 66,
+          "text": "      --replace-fail \\"
+        },
+        {
+          "line": 71,
+          "text": "    substituteInPlace daemon/palette_bridge.go \\"
+        },
+        {
+          "line": 72,
+          "text": "      --replace-fail \\"
+        },
+        {
+          "line": 80,
+          "text": "    substituteInPlace picker/CMakeLists.txt \\"
+        },
+        {
+          "line": 81,
+          "text": "      --replace-fail \\"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-ryomotion.nix",
+      "git_mode": "100644",
+      "git_blob": "499ea12962d31374aff154f15058cabd964012e1",
+      "bytes": 5561,
+      "sha256": "cd1babfcadadd106019039e5c40efde12e181547d170e239df640f85cb806d7f",
+      "declaration_sites": [
+        {
+          "line": 22,
+          "text": "    pname = \"npm\";"
+        },
+        {
+          "line": 23,
+          "text": "    version = \"10.9.4\";"
+        },
+        {
+          "line": 25,
+          "text": "    src = pkgs.fetchurl {"
+        },
+        {
+          "line": 30,
+          "text": "    nativeBuildInputs = ["
+        },
+        {
+          "line": 34,
+          "text": "    installPhase = ''"
+        },
+        {
+          "line": 78,
+          "text": "  pname = \"ryomotion\";"
+        },
+        {
+          "line": 79,
+          "text": "  version = \"1.5.0\";"
+        },
+        {
+          "line": 81,
+          "text": "  src = pkgs.fetchFromGitHub {"
+        },
+        {
+          "line": 107,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 156,
+          "text": "  buildPhase = ''"
+        },
+        {
+          "line": 168,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 219,
+          "text": "  meta = {"
+        },
+        {
+          "line": 221,
+          "text": "    homepage = \"https://github.com/neur0map/ryomotion\";"
+        },
+        {
+          "line": 222,
+          "text": "    license = lib.licenses.mit;"
+        },
+        {
+          "line": 226,
+          "text": "    platforms = ["
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 25,
+          "text": "    src = pkgs.fetchurl {"
+        },
+        {
+          "line": 31,
+          "text": "      pkgs.makeWrapper"
+        },
+        {
+          "line": 42,
+          "text": "      makeWrapper ${node}/bin/node \"$out/bin/npm\" \\"
+        },
+        {
+          "line": 45,
+          "text": "      makeWrapper ${node}/bin/node \"$out/bin/npx\" \\"
+        },
+        {
+          "line": 81,
+          "text": "  src = pkgs.fetchFromGitHub {"
+        },
+        {
+          "line": 109,
+          "text": "    pkgs.makeWrapper"
+        },
+        {
+          "line": 133,
+          "text": "    substituteInPlace package.json \\"
+        },
+        {
+          "line": 134,
+          "text": "      --replace-fail \\"
+        },
+        {
+          "line": 194,
+          "text": "    makeWrapper \"${electron}/bin/electron\" \"$out/bin/ryomotion\" \\"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-ryostore.nix",
+      "git_mode": "100644",
+      "git_blob": "aa828fa1e20a57fa27299fd38fcda572d9f0803d",
+      "bytes": 794,
+      "sha256": "35a2889350c7b13b3f460b6ec6cbbe58eb2ab5fadf2cb31cead64c8dc125ddb7",
+      "declaration_sites": [
+        {
+          "line": 4,
+          "text": "  pname = \"ryoku-ryostore\";"
+        },
+        {
+          "line": 5,
+          "text": "  version = \"unstable\";"
+        },
+        {
+          "line": 7,
+          "text": "  src = src + \"/ryoku/apps/ryostore/backend\";"
+        },
+        {
+          "line": 9,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 13,
+          "text": "  buildPhase = ''"
+        },
+        {
+          "line": 28,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 40,
+          "text": "  meta = {"
+        },
+        {
+          "line": 42,
+          "text": "    homepage = \"https://github.com/Ryoku-dev/ryoku-arch\";"
+        },
+        {
+          "line": 43,
+          "text": "    license = pkgs.lib.licenses.gpl3Plus;"
+        },
+        {
+          "line": 44,
+          "text": "    platforms = [ \"x86_64-linux\" ];"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "nix/packages/ryoku-ryotunes.nix",
+      "git_mode": "100644",
+      "git_blob": "3bbb8b8206f748ff282bbde4c316c10ccfe4c455",
+      "bytes": 987,
+      "sha256": "3206f61b4f400d243ecd3f9661b8376ad3833cd82ec823921fc682716b29ace8",
+      "declaration_sites": [
+        {
+          "line": 29,
+          "text": "  nativeBuildInputs = [ pkgs.makeWrapper ];"
+        },
+        {
+          "line": 38,
+          "text": "  meta = ryotunesUnwrapped.meta // {"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 29,
+          "text": "  nativeBuildInputs = [ pkgs.makeWrapper ];"
+        },
+        {
+          "line": 32,
+          "text": "    makeWrapper ${pkgs.quickshell}/bin/qs \"$out/bin/ryotunes-qml\" \\"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-ryovm-helpers.nix",
+      "git_mode": "100644",
+      "git_blob": "c5f9758ed79a251f20d55795f20f5fc21160c8a5",
+      "bytes": 1234,
+      "sha256": "391d49e268c91a2c55eda813ea6d1e2c8255d97ccf3b899c1731f34f2e36cbbf",
+      "declaration_sites": [
+        {
+          "line": 10,
+          "text": "  pname = \"ryoku-ryovm-helpers\";"
+        },
+        {
+          "line": 11,
+          "text": "  version = \"unstable\";"
+        },
+        {
+          "line": 13,
+          "text": "  src = src + \"/ryoku/apps/ryovm\";"
+        },
+        {
+          "line": 15,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 19,
+          "text": "  buildPhase = ''"
+        },
+        {
+          "line": 48,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 66,
+          "text": "  meta = {"
+        },
+        {
+          "line": 68,
+          "text": "    homepage = \"https://github.com/Ryoku-dev/ryoku-arch\";"
+        },
+        {
+          "line": 69,
+          "text": "    license = pkgs.lib.licenses.gpl3Plus;"
+        },
+        {
+          "line": 70,
+          "text": "    platforms = [ \"x86_64-linux\" ];"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "nix/packages/ryoku-shell.nix",
+      "git_mode": "100644",
+      "git_blob": "1016999e92d69e1e9621a9bd16197682a2c24cee",
+      "bytes": 1485,
+      "sha256": "0c7e49e56f6a190dbc78ab3097207e32251def04deabb0bd67bab905a27eda3a",
+      "declaration_sites": [
+        {
+          "line": 11,
+          "text": "  pname = \"ryoku-shell\";"
+        },
+        {
+          "line": 12,
+          "text": "  version = \"unstable\";"
+        },
+        {
+          "line": 14,
+          "text": "  src = src + \"/ryoku/shell/ipc\";"
+        },
+        {
+          "line": 16,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 20,
+          "text": "  postPatch = ''"
+        },
+        {
+          "line": 33,
+          "text": "  buildPhase = ''"
+        },
+        {
+          "line": 49,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 58,
+          "text": "  meta = {"
+        },
+        {
+          "line": 60,
+          "text": "    homepage = \"https://github.com/Ryoku-dev/ryoku-arch\";"
+        },
+        {
+          "line": 61,
+          "text": "    license = pkgs.lib.licenses.gpl3Only;"
+        },
+        {
+          "line": 62,
+          "text": "    platforms = [ \"x86_64-linux\" ];"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 27,
+          "text": "    substituteInPlace polkit.go \\"
+        },
+        {
+          "line": 28,
+          "text": "      --replace-fail \\"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-wm-provider.nix",
+      "git_mode": "100644",
+      "git_blob": "e521d89f9faaed22c9612a9dd646aa84d80ffd28",
+      "bytes": 1123,
+      "sha256": "efe337fdd8a5140391e746a10465d816006e731225c794a5abb74facbc09dbc9",
+      "declaration_sites": [
+        {
+          "line": 8,
+          "text": "  pname = \"ryoku-wm-${provider}\";"
+        },
+        {
+          "line": 9,
+          "text": "  version = \"unstable\";"
+        },
+        {
+          "line": 13,
+          "text": "  nativeBuildInputs = [ pkgs.go ];"
+        },
+        {
+          "line": 15,
+          "text": "  buildPhase = ''"
+        },
+        {
+          "line": 37,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 47,
+          "text": "  meta = {"
+        },
+        {
+          "line": 49,
+          "text": "    homepage = \"https://github.com/Ryoku-dev/ryoku-arch\";"
+        },
+        {
+          "line": 50,
+          "text": "    license = pkgs.lib.licenses.gpl3Only;"
+        },
+        {
+          "line": 51,
+          "text": "    platforms = [ \"x86_64-linux\" ];"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "nix/packages/ryomanager.nix",
+      "git_mode": "100644",
+      "git_blob": "442c25b60e45c66a7e5fcd066e7ffb114c852d07",
+      "bytes": 1581,
+      "sha256": "f9e424242b13356eab0fe6b30c64b84ac2fbb7a98bf66611cf626141ef503263",
+      "declaration_sites": [
+        {
+          "line": 7,
+          "text": "  pname = \"ryomanager\";"
+        },
+        {
+          "line": 8,
+          "text": "  version = \"0.1.0\";"
+        },
+        {
+          "line": 10,
+          "text": "  src = ryomanagerSrc;"
+        },
+        {
+          "line": 12,
+          "text": "  vendorHash = \"sha256-wmLUsQlA705xwX1WAgmsA4pQiAqA3Esa/0EoB8GASbo=\";"
+        },
+        {
+          "line": 16,
+          "text": "    src = \"${src}/frontend\";"
+        },
+        {
+          "line": 20,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 27,
+          "text": "  buildInputs = ["
+        },
+        {
+          "line": 35,
+          "text": "    nativeBuildInputs = pkgs.lib.filter (drv: drv != pkgs.npmHooks.npmConfigHook) oldAttrs.nativeBuildInputs;"
+        },
+        {
+          "line": 67,
+          "text": "  meta = {"
+        },
+        {
+          "line": 69,
+          "text": "    homepage = \"https://github.com/aethctl/ryomanager\";"
+        },
+        {
+          "line": 70,
+          "text": "    license = pkgs.lib.licenses.gpl3Plus;"
+        },
+        {
+          "line": 71,
+          "text": "    platforms = [ \"x86_64-linux\" ];"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "nix/packages/ryotunes-unwrapped.nix",
+      "git_mode": "100644",
+      "git_blob": "00952ae4e6ed85733e1301aa34a8d941b4e136a0",
+      "bytes": 5231,
+      "sha256": "fdaefbd4c596c77e7a3f1e8e1814d1e37e6cb0ba67ced5c254363bb1f8e14d8a",
+      "declaration_sites": [
+        {
+          "line": 7,
+          "text": "  pname = \"ryotunes-unwrapped\";"
+        },
+        {
+          "line": 8,
+          "text": "  version = \"1.2.0\";"
+        },
+        {
+          "line": 10,
+          "text": "  src = ryotunesSrc;"
+        },
+        {
+          "line": 12,
+          "text": "  patches = ["
+        },
+        {
+          "line": 27,
+          "text": "    pname = \"ryotunes-ui\";"
+        },
+        {
+          "line": 30,
+          "text": "    src = ryotunesSrc + \"/ui\";"
+        },
+        {
+          "line": 39,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 51,
+          "text": "  buildInputs = ["
+        },
+        {
+          "line": 101,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 228,
+          "text": "  meta = {"
+        },
+        {
+          "line": 232,
+          "text": "    homepage ="
+        },
+        {
+          "line": 235,
+          "text": "    license = pkgs.lib.licenses.gpl3Plus;"
+        },
+        {
+          "line": 237,
+          "text": "    platforms = ["
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "nix/packages/waifu2x-ncnn-vulkan.nix",
+      "git_mode": "100644",
+      "git_blob": "308569e24c8a58945bc2bba78063b9778b899013",
+      "bytes": 2336,
+      "sha256": "2d83f5cf2443bb4bec7785399270c85b356670d9bbb95f28fbebb9186e243912",
+      "declaration_sites": [
+        {
+          "line": 4,
+          "text": "  version = \"20250915\";"
+        },
+        {
+          "line": 7,
+          "text": "  pname = \"waifu2x-ncnn-vulkan\";"
+        },
+        {
+          "line": 10,
+          "text": "  src = pkgs.fetchurl {"
+        },
+        {
+          "line": 15,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 25,
+          "text": "  buildInputs = ["
+        },
+        {
+          "line": 37,
+          "text": "  runtimeDependencies = ["
+        },
+        {
+          "line": 54,
+          "text": "  installPhase = ''"
+        },
+        {
+          "line": 103,
+          "text": "  meta = {"
+        },
+        {
+          "line": 105,
+          "text": "    homepage = \"https://github.com/nihui/waifu2x-ncnn-vulkan\";"
+        },
+        {
+          "line": 106,
+          "text": "    license = pkgs.lib.licenses.mit;"
+        },
+        {
+          "line": 107,
+          "text": "    platforms = [ \"x86_64-linux\" ];"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 10,
+          "text": "  src = pkgs.fetchurl {"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/xwayland-satellite.nix",
+      "git_mode": "100644",
+      "git_blob": "0ecb7356bb17e0837c24ae61e27badd1821a1bda",
+      "bytes": 1271,
+      "sha256": "f6ea48ac94f946f981c568b3b599caa171d210d94921cb5690d59388ecafaced",
+      "declaration_sites": [
+        {
+          "line": 4,
+          "text": "  pname = \"xwayland-satellite\";"
+        },
+        {
+          "line": 5,
+          "text": "  version = \"0.8.2.r13.gadd2795\";"
+        },
+        {
+          "line": 7,
+          "text": "  src = pkgs.fetchFromGitHub {"
+        },
+        {
+          "line": 21,
+          "text": "  nativeBuildInputs = ["
+        },
+        {
+          "line": 28,
+          "text": "  buildInputs = ["
+        },
+        {
+          "line": 38,
+          "text": "  postPatch = \"substituteInPlace resources/xwayland-satellite.service --replace-fail \\\"/usr/local/bin\\\" \\\"$out/bin\\\"\";"
+        },
+        {
+          "line": 44,
+          "text": "  meta = pkgs.xwayland-satellite.meta // {"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 7,
+          "text": "  src = pkgs.fetchFromGitHub {"
+        },
+        {
+          "line": 38,
+          "text": "  postPatch = \"substituteInPlace resources/xwayland-satellite.service --replace-fail \\\"/usr/local/bin\\\" \\\"$out/bin\\\"\";"
+        }
+      ]
+    },
+    {
+      "source": "void/packages/srcpkgs/adw-gtk-theme/template",
+      "git_mode": "100644",
+      "git_blob": "51351a296dafb76cb6f575e1f977c799124eff66",
+      "bytes": 554,
+      "sha256": "27000c4588ebbf5c00d39b5641c66d5c81c7c48bd05c5362c3c7a83c1ea3a63d",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=adw-gtk-theme"
+        },
+        {
+          "line": 3,
+          "text": "version=6.5"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "short_desc=\"Libadwaita-style theme for GTK 3 and GTK 4 applications\""
+        },
+        {
+          "line": 8,
+          "text": "license=\"LGPL-2.1-only\""
+        },
+        {
+          "line": 9,
+          "text": "homepage=\"https://github.com/lassekongo83/adw-gtk3\""
+        },
+        {
+          "line": 10,
+          "text": "distfiles=\"${homepage}/releases/download/v${version}/adw-gtk3v${version}.tar.xz\""
+        },
+        {
+          "line": 11,
+          "text": "checksum=a81780fadfc432be0fc3d89c4ebb41aa28e4f032d42c36f9789c57dd10cfa41c"
+        },
+        {
+          "line": 14,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/apple_cursor/template",
+      "git_mode": "100644",
+      "git_blob": "812ed20574073ec969faba8b02b498145499b88a",
+      "bytes": 505,
+      "sha256": "44e2b73bc7851aaa2635cb94da4db659024eab89c072ec3d2782b34ff0397dd3",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=apple_cursor"
+        },
+        {
+          "line": 3,
+          "text": "version=2.0.1"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "short_desc=\"Open source macOS cursor themes\""
+        },
+        {
+          "line": 8,
+          "text": "license=\"GPL-3.0-only\""
+        },
+        {
+          "line": 9,
+          "text": "homepage=\"https://github.com/ful1e5/apple_cursor\""
+        },
+        {
+          "line": 10,
+          "text": "distfiles=\"${homepage}/releases/download/v${version}/macOS.tar.xz\""
+        },
+        {
+          "line": 11,
+          "text": "checksum=9c6e5e13b068ce51a9e90a9abd6ce232ec7d25d4ceb05aa8ac76efbb99c76762"
+        },
+        {
+          "line": 14,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/blesh/template",
+      "git_mode": "100644",
+      "git_blob": "e31e154bf4c967b10e811a1568803cf47623b556",
+      "bytes": 576,
+      "sha256": "49464c50686f2ee92487ce0456e1d1fce164974586dda2b5778c874afdf03bdc",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=blesh"
+        },
+        {
+          "line": 3,
+          "text": "version=0.4.0devel3"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 7,
+          "text": "depends=\"bash\""
+        },
+        {
+          "line": 8,
+          "text": "short_desc=\"Bash Line Editor with highlighting and autosuggestions\""
+        },
+        {
+          "line": 10,
+          "text": "license=\"BSD-3-Clause\""
+        },
+        {
+          "line": 11,
+          "text": "homepage=\"https://github.com/akinomyoga/ble.sh\""
+        },
+        {
+          "line": 12,
+          "text": "distfiles=\"${homepage}/releases/download/v${_upstream}/ble-${_upstream}-2.tar.xz\""
+        },
+        {
+          "line": 13,
+          "text": "checksum=bdcdcfff216495403adf82a701fe41675f64b64644dc77caabd3e015871ebd61"
+        },
+        {
+          "line": 15,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/catppuccin-cursors-mocha/template",
+      "git_mode": "100644",
+      "git_blob": "a7a8e0c045b49a90868f0a6c73457769cbb2c33a",
+      "bytes": 2710,
+      "sha256": "1a7dc16418f90736857d93ab9d86254a4455d0ed91f4d01564e3a1a3f51c8696",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=catppuccin-cursors-mocha"
+        },
+        {
+          "line": 3,
+          "text": "version=2.0.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "short_desc=\"Catppuccin Mocha cursor themes\""
+        },
+        {
+          "line": 8,
+          "text": "license=\"GPL-2.0-only\""
+        },
+        {
+          "line": 9,
+          "text": "homepage=\"https://github.com/catppuccin/cursors\""
+        },
+        {
+          "line": 10,
+          "text": "distfiles=\""
+        },
+        {
+          "line": 27,
+          "text": "checksum=\""
+        },
+        {
+          "line": 46,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/dualsensectl/template",
+      "git_mode": "100644",
+      "git_blob": "5240b11dc844e9a9df09aafaa213715b1c5731d7",
+      "bytes": 563,
+      "sha256": "f86cdffe2026bce9dc30258b8594511e27bf7b984403ff99a93d91ac5587f414",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=dualsensectl"
+        },
+        {
+          "line": 3,
+          "text": "version=0.7"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "build_style=meson"
+        },
+        {
+          "line": 7,
+          "text": "hostmakedepends=\"pkg-config\""
+        },
+        {
+          "line": 8,
+          "text": "makedepends=\"dbus-devel hidapi-devel libusb-devel\""
+        },
+        {
+          "line": 9,
+          "text": "depends=\"dbus hidapi libusb\""
+        },
+        {
+          "line": 10,
+          "text": "short_desc=\"Linux tool for controlling PS5 DualSense controllers\""
+        },
+        {
+          "line": 12,
+          "text": "license=\"GPL-2.0-only\""
+        },
+        {
+          "line": 13,
+          "text": "homepage=\"https://github.com/nowrep/dualsensectl\""
+        },
+        {
+          "line": 14,
+          "text": "distfiles=\"${homepage}/archive/v${version}.tar.gz\""
+        },
+        {
+          "line": 15,
+          "text": "checksum=a615304596925738b12d0a499f31e1fe0cc3653da230edfe7c68637098ce6b72"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/game-devices-udev/template",
+      "git_mode": "100644",
+      "git_blob": "d0e7d7fa6e0251ddc2c85b90e85d9b19ce317878",
+      "bytes": 519,
+      "sha256": "5dc10986d5a065a4f681ac2b7c315dcdbbd23fbd966ab59a0086239ea8b2128e",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=game-devices-udev"
+        },
+        {
+          "line": 3,
+          "text": "version=1.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "build_style=meson"
+        },
+        {
+          "line": 7,
+          "text": "depends=\"eudev\""
+        },
+        {
+          "line": 8,
+          "text": "short_desc=\"Udev rules for game controllers\""
+        },
+        {
+          "line": 10,
+          "text": "license=\"MIT\""
+        },
+        {
+          "line": 11,
+          "text": "homepage=\"https://codeberg.org/fabiscafe/game-devices-udev\""
+        },
+        {
+          "line": 12,
+          "text": "distfiles=\"${homepage}/archive/${version}.tar.gz\""
+        },
+        {
+          "line": 13,
+          "text": "checksum=ac733ea6babb6623e1ac76eceac9b494255ae312d1e7c3fde011ac50ee99f6c5"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/gpk/template",
+      "git_mode": "100644",
+      "git_blob": "45c0270810ea39d2b9c2ccdbc2ffff9568e9ab0f",
+      "bytes": 619,
+      "sha256": "e1426b157c2aa044d1e07957002d24360fff52c26325583121feeb72f503af28",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=gpk"
+        },
+        {
+          "line": 3,
+          "text": "version=0.6.10"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 8,
+          "text": "short_desc=\"GlazePKG package manager dashboard\""
+        },
+        {
+          "line": 10,
+          "text": "license=\"GPL-3.0-or-later\""
+        },
+        {
+          "line": 11,
+          "text": "homepage=\"https://github.com/neur0map/glazepkg\""
+        },
+        {
+          "line": 12,
+          "text": "distfiles=\"${homepage}/releases/download/v${version}/gpk-linux-amd64\""
+        },
+        {
+          "line": 13,
+          "text": "checksum=b4e43c2428a3c680f9ce97855d44522e18cfce4bb933e5e622c52d3db17a7be3"
+        },
+        {
+          "line": 17,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/gpu-screen-recorder/template",
+      "git_mode": "100644",
+      "git_blob": "ee9c9fa9a0b561afa61a9d6a665dff7ba206b3ae",
+      "bytes": 849,
+      "sha256": "62e8e072ff2b9672029e1e9e7e8c1ab5ec512e1b501cc42ff0cbe00a4724ba88",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=gpu-screen-recorder"
+        },
+        {
+          "line": 3,
+          "text": "version=6.1.3"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 5,
+          "text": "build_style=meson"
+        },
+        {
+          "line": 7,
+          "text": "hostmakedepends=\"meson ninja pkg-config wayland-devel\""
+        },
+        {
+          "line": 8,
+          "text": "makedepends=\"ffmpeg6-devel libcap-devel libdrm-devel libglvnd-devel"
+        },
+        {
+          "line": 12,
+          "text": "depends=\"libcap-progs libjpeg-turbo\""
+        },
+        {
+          "line": 13,
+          "text": "short_desc=\"Extremely fast screen recorder for Linux\""
+        },
+        {
+          "line": 15,
+          "text": "license=\"GPL-3.0-only\""
+        },
+        {
+          "line": 16,
+          "text": "homepage=\"https://git.dec05eba.com/gpu-screen-recorder/about\""
+        },
+        {
+          "line": 17,
+          "text": "distfiles=\"https://dec05eba.com/snapshot/gpu-screen-recorder.git.${version}.tar.gz\""
+        },
+        {
+          "line": 18,
+          "text": "checksum=7932921ccb52a32c324c1718fc4f982a9cbe59c11f99a22255791a8eb41214ce"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/limine-snapper-sync/template",
+      "git_mode": "100644",
+      "git_blob": "ff29140f8fffd429081c6c2a5d496fbf48062a7b",
+      "bytes": 3139,
+      "sha256": "00bc76f51bbd7f238909dbb4e16de1128572436b1026d47c9fd7802c7698f5fb",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=limine-snapper-sync"
+        },
+        {
+          "line": 3,
+          "text": "version=1.32.1"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "hostmakedepends=\"mandrel gettext\""
+        },
+        {
+          "line": 7,
+          "text": "makedepends=\"zlib-devel\""
+        },
+        {
+          "line": 8,
+          "text": "depends=\"bash limine snapper btrfs-progs inotify-tools libnotify util-linux coreutils procps-ng\""
+        },
+        {
+          "line": 9,
+          "text": "short_desc=\"Integrates Limine boot entries with Snapper snapshots\""
+        },
+        {
+          "line": 11,
+          "text": "license=\"GPL-3.0-only\""
+        },
+        {
+          "line": 12,
+          "text": "homepage=\"https://gitlab.com/Zesko/limine-snapper-sync\""
+        },
+        {
+          "line": 13,
+          "text": "distfiles=\"https://gitlab.com/Zesko/limine-snapper-sync/-/archive/${version}/limine-snapper-sync-${version}.tar.gz"
+        },
+        {
+          "line": 17,
+          "text": "checksum=\"29bcd51503a0168ca836023efb4cdbd63b6ec4578eb69fb959a33dfa48aa844c"
+        },
+        {
+          "line": 22,
+          "text": "conf_files=\"/etc/limine-snapper-sync.conf\""
+        },
+        {
+          "line": 25,
+          "text": "do_build() {"
+        },
+        {
+          "line": 60,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/localsend-bin/template",
+      "git_mode": "100644",
+      "git_blob": "22ea708d63e6b8c332a149ce9b13c88c37370282",
+      "bytes": 1218,
+      "sha256": "993604e34b73d831ebe467e3a11ed769aba093fccf4cc1dc2caa3977cdd1641b",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=localsend-bin"
+        },
+        {
+          "line": 3,
+          "text": "version=1.18.2"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 8,
+          "text": "hostmakedepends=\"libarchive\""
+        },
+        {
+          "line": 9,
+          "text": "depends=\"fuse xdg-user-dirs libayatana-appindicator libayatana-indicator\""
+        },
+        {
+          "line": 10,
+          "text": "short_desc=\"Cross-platform local network file sharing\""
+        },
+        {
+          "line": 12,
+          "text": "license=\"Apache-2.0\""
+        },
+        {
+          "line": 13,
+          "text": "homepage=\"https://github.com/localsend/localsend\""
+        },
+        {
+          "line": 14,
+          "text": "distfiles=\"${homepage}/releases/download/v${version}/LocalSend-${version}-linux-x86-64.deb"
+        },
+        {
+          "line": 16,
+          "text": "checksum=\"cc42a4f3eacdcb25ec31f0016b1272acb003145ab30484db8965450e20c72cd2"
+        },
+        {
+          "line": 23,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/nvibrant/template",
+      "git_mode": "100644",
+      "git_blob": "bc68a4d7bb3cb162fcfc984e974888ff193f9f58",
+      "bytes": 1139,
+      "sha256": "c43c3b850cc12f004926f44091e1ca8a4740955bb24932340ef4109d7fc499d9",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=nvibrant"
+        },
+        {
+          "line": 3,
+          "text": "version=1.3.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 8,
+          "text": "hostmakedepends=\"python3-installer\""
+        },
+        {
+          "line": 9,
+          "text": "depends=\"python3 python3-packaging\""
+        },
+        {
+          "line": 10,
+          "text": "short_desc=\"NVIDIA digital vibrance and dithering on Wayland\""
+        },
+        {
+          "line": 12,
+          "text": "license=\"MIT\""
+        },
+        {
+          "line": 13,
+          "text": "homepage=\"https://github.com/Tremeschin/nvibrant\""
+        },
+        {
+          "line": 14,
+          "text": "distfiles=\"${homepage}/releases/download/v${version}/nvibrant-${version}-py3-none-manylinux_2_17_x86_64.whl"
+        },
+        {
+          "line": 16,
+          "text": "checksum=\"d60a080b52e4a16e16d16a7d4b6405a32a3fe1b8ee0df65dc3685213ef0393e8"
+        },
+        {
+          "line": 27,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/otf-space-grotesk/template",
+      "git_mode": "100644",
+      "git_blob": "7c7609a1e04ccf40dd32f06852cecb17a0b7c191",
+      "bytes": 678,
+      "sha256": "412b487327b25ded15b06adb6cb7e7bb4a44e9aaad014e30284e503805780651",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=otf-space-grotesk"
+        },
+        {
+          "line": 3,
+          "text": "version=2.0.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 7,
+          "text": "short_desc=\"Space Grotesk OTF for the Ryoku shell and Hub\""
+        },
+        {
+          "line": 9,
+          "text": "license=\"OFL-1.1\""
+        },
+        {
+          "line": 10,
+          "text": "homepage=\"https://github.com/floriankarsten/space-grotesk\""
+        },
+        {
+          "line": 11,
+          "text": "distfiles=\"${homepage}/releases/download/${version}/SpaceGrotesk-${version}.zip\""
+        },
+        {
+          "line": 12,
+          "text": "checksum=53b415577d4139248555300710bea0d268c7a5be67b93de53b716a9736cabffd"
+        },
+        {
+          "line": 14,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/phinger-cursors/template",
+      "git_mode": "100644",
+      "git_blob": "5c3762639a5c81ec64e0b99454e803124e449663",
+      "bytes": 686,
+      "sha256": "038f9eaddb9ced0ec3be50f80f6b28432bd6588d919550034bee0350726c8b6a",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=phinger-cursors"
+        },
+        {
+          "line": 3,
+          "text": "version=2.2"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 7,
+          "text": "short_desc=\"Phinger XCursor themes\""
+        },
+        {
+          "line": 9,
+          "text": "license=\"CC-BY-SA-4.0\""
+        },
+        {
+          "line": 10,
+          "text": "homepage=\"https://github.com/phisch/phinger-cursors\""
+        },
+        {
+          "line": 11,
+          "text": "distfiles=\"${homepage}/releases/download/v${version}/phinger-cursors-variants.tar.bz2"
+        },
+        {
+          "line": 13,
+          "text": "checksum=\"46d4cfc30a38c19cada3339027b5a78f7b0bf74f3220eba7001c4fdd9d5a6e56"
+        },
+        {
+          "line": 17,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/prowl/template",
+      "git_mode": "100644",
+      "git_blob": "76deaff5348a9230ef6132c9f1513c0f5af6f277",
+      "bytes": 1066,
+      "sha256": "dff101a2b3ea98c8f87871bce1e4bfdfc1155ed6a247dafabb845307c8161e2a",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=prowl"
+        },
+        {
+          "line": 3,
+          "text": "version=0.17.2"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 8,
+          "text": "hostmakedepends=\"go\""
+        },
+        {
+          "line": 9,
+          "text": "makedepends=\"sqlite-devel\""
+        },
+        {
+          "line": 10,
+          "text": "depends=\"glibc libgcc\""
+        },
+        {
+          "line": 11,
+          "text": "short_desc=\"Prowl model gateway and code intelligence for Ryoku Rashin\""
+        },
+        {
+          "line": 13,
+          "text": "license=\"MIT\""
+        },
+        {
+          "line": 14,
+          "text": "homepage=\"https://github.com/neur0map/prowl\""
+        },
+        {
+          "line": 15,
+          "text": "distfiles=\"https://github.com/neur0map/prowl/archive/${_commit}.tar.gz\""
+        },
+        {
+          "line": 16,
+          "text": "checksum=08fbd327fccd1210b19b621914f134e38eaf196ea216f11f9036e83c40c0212f"
+        },
+        {
+          "line": 21,
+          "text": "do_build() {"
+        },
+        {
+          "line": 31,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/qmk_hid/template",
+      "git_mode": "100644",
+      "git_blob": "8bb97458d4016881e8ca7829b7bfbad72a79136f",
+      "bytes": 809,
+      "sha256": "7d620a726437b255bb09aac69da45a9759eb3438099491d7d802aefda12e8526",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=qmk_hid"
+        },
+        {
+          "line": 3,
+          "text": "version=0.1.11"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 8,
+          "text": "hostmakedepends=\"unzip\""
+        },
+        {
+          "line": 9,
+          "text": "short_desc=\"Framework QMK keyboard HID command utility\""
+        },
+        {
+          "line": 11,
+          "text": "license=\"BSD-3-Clause\""
+        },
+        {
+          "line": 12,
+          "text": "homepage=\"https://github.com/FrameworkComputer/qmk_hid\""
+        },
+        {
+          "line": 13,
+          "text": "distfiles=\"${homepage}/releases/download/v${version}/qmk_hid_linux_v${version}.zip"
+        },
+        {
+          "line": 15,
+          "text": "checksum=\"57460728df3777d0abd2f2b464dea898c1fdc1cc6524ede1c2854fa9c8f027dc"
+        },
+        {
+          "line": 19,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/quickemu/template",
+      "git_mode": "100644",
+      "git_blob": "4903ee6a5e54e1c9966c87f727511d1ea0571725",
+      "bytes": 717,
+      "sha256": "385a7d9dd3f24c1d08a7cdfa19c60e3a57f19290fb42956c39a017fd90b3a4c1",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=quickemu"
+        },
+        {
+          "line": 3,
+          "text": "version=4.9.9"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "depends=\"bash qemu coreutils grep jq procps-ng python3 cdrtools usbutils util-linux sed spice-gtk swtpm wget xrandr zsync edk2-ovmf xdg-user-dirs socat\""
+        },
+        {
+          "line": 7,
+          "text": "short_desc=\"Create and run optimized desktop virtual machines\""
+        },
+        {
+          "line": 9,
+          "text": "license=\"MIT\""
+        },
+        {
+          "line": 10,
+          "text": "homepage=\"https://github.com/quickemu-project/quickemu\""
+        },
+        {
+          "line": 11,
+          "text": "distfiles=\"${homepage}/archive/refs/tags/${version}.tar.gz\""
+        },
+        {
+          "line": 12,
+          "text": "checksum=ef5c5015e91c4fef6797c4961c400d18e1ae8191a8d1eae6e3512823dd2ff2a8"
+        },
+        {
+          "line": 15,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/ryogami/template",
+      "git_mode": "100644",
+      "git_blob": "305f55aafd0fb49f9926e8a7190fb120e40b4a21",
+      "bytes": 1223,
+      "sha256": "f14cbcd221e069d7fe77c1abc15f4844a6ecafc6cfda6736152142895d83bfd2",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryogami"
+        },
+        {
+          "line": 3,
+          "text": "version=0.2.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "short_desc=\"Ryoku wallpaper daemon and Qt Quick picker\""
+        },
+        {
+          "line": 8,
+          "text": "license=\"GPL-3.0-or-later\""
+        },
+        {
+          "line": 9,
+          "text": "homepage=\"https://ryoku.dev\""
+        },
+        {
+          "line": 10,
+          "text": "hostmakedepends=\"go cmake ninja pkg-config wayland-devel wayland-protocols"
+        },
+        {
+          "line": 12,
+          "text": "makedepends=\"wayland-devel ffmpeg6-devel qt6-base-private-devel"
+        },
+        {
+          "line": 16,
+          "text": "depends=\"ImageMagick ffmpeg6 quickshell qt6-base>=6.11.2"
+        },
+        {
+          "line": 19,
+          "text": "distfiles=\"https://repo.ryoku.dev/sources/ryoku-${version}.tar.gz\""
+        },
+        {
+          "line": 20,
+          "text": "checksum=SKIP"
+        },
+        {
+          "line": 34,
+          "text": "do_build() {"
+        },
+        {
+          "line": 38,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 25,
+          "text": "\tRYOKU_SRC=\"$wrksrc\" \\"
+        },
+        {
+          "line": 26,
+          "text": "\tRYOKU_BUILD_DIR=\"${wrksrc%/*}/${pkgname}-payload-build\" \\"
+        },
+        {
+          "line": 27,
+          "text": "\tRYOKU_PKGVER=\"$version\" \\"
+        },
+        {
+          "line": 28,
+          "text": "\tRYOKU_RELEASE=\"$version\" \\"
+        },
+        {
+          "line": 29,
+          "text": "\tRYOKU_CHANNEL=\"${RYOKU_CHANNEL:-stable}\" \\"
+        },
+        {
+          "line": 30,
+          "text": "\tRYOKU_NAME=\"${RYOKU_NAME:-Ryoku}\" \\"
+        }
+      ]
+    },
+    {
+      "source": "void/packages/srcpkgs/ryoku-blobs/template",
+      "git_mode": "100644",
+      "git_blob": "8f73cbf4e54142dfba65de8c6dd40f7f2db91581",
+      "bytes": 1131,
+      "sha256": "3cc2120d2b3cd4c9ebad2b12344170120f6a7935ad7d369981f52eb6d76d2e00",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryoku-blobs"
+        },
+        {
+          "line": 3,
+          "text": "version=0.1.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "short_desc=\"Ryoku.Blobs and Ryoku.Spatial3D: the frame and Stage 3D QML plugins\""
+        },
+        {
+          "line": 8,
+          "text": "license=\"GPL-3.0-or-later\""
+        },
+        {
+          "line": 9,
+          "text": "homepage=\"https://ryoku.dev\""
+        },
+        {
+          "line": 10,
+          "text": "hostmakedepends=\"cmake ninja qt6-base qt6-declarative-devel qt6-shadertools\""
+        },
+        {
+          "line": 11,
+          "text": "makedepends=\"qt6-base-devel qt6-declarative-devel qt6-multimedia-devel"
+        },
+        {
+          "line": 14,
+          "text": "depends=\"qt6-base>=6.11.2 qt6-declarative>=6.11.2"
+        },
+        {
+          "line": 16,
+          "text": "distfiles=\"https://repo.ryoku.dev/sources/ryoku-${version}.tar.gz\""
+        },
+        {
+          "line": 17,
+          "text": "checksum=SKIP"
+        },
+        {
+          "line": 31,
+          "text": "do_build() {"
+        },
+        {
+          "line": 35,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 22,
+          "text": "\tRYOKU_SRC=\"$wrksrc\" \\"
+        },
+        {
+          "line": 23,
+          "text": "\tRYOKU_BUILD_DIR=\"${wrksrc%/*}/${pkgname}-payload-build\" \\"
+        },
+        {
+          "line": 24,
+          "text": "\tRYOKU_PKGVER=\"$version\" \\"
+        },
+        {
+          "line": 25,
+          "text": "\tRYOKU_RELEASE=\"$version\" \\"
+        },
+        {
+          "line": 26,
+          "text": "\tRYOKU_CHANNEL=\"${RYOKU_CHANNEL:-stable}\" \\"
+        },
+        {
+          "line": 27,
+          "text": "\tRYOKU_NAME=\"${RYOKU_NAME:-Ryoku}\" \\"
+        }
+      ]
+    },
+    {
+      "source": "void/packages/srcpkgs/ryoku-cursor-material/template",
+      "git_mode": "100644",
+      "git_blob": "fdbaa420fd6765a3b0a6c9a638f8f9f64c112da1",
+      "bytes": 1494,
+      "sha256": "dcdb96449e1042c9d00c66ab4e8c77a6a430e13b4b3f6287f8b0f7262e5e68dc",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryoku-cursor-material"
+        },
+        {
+          "line": 3,
+          "text": "version=1.0.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 8,
+          "text": "hostmakedepends=\"fish-shell jq python3 librsvg-utils xcursorgen\""
+        },
+        {
+          "line": 9,
+          "text": "depends=\"python3 librsvg librsvg-utils xcursorgen\""
+        },
+        {
+          "line": 11,
+          "text": "short_desc=\"Material Bibata cursor following the Ryoku accent\""
+        },
+        {
+          "line": 13,
+          "text": "license=\"GPL-3.0-or-later, MIT\""
+        },
+        {
+          "line": 14,
+          "text": "homepage=\"https://github.com/SakibShahariar/material-bibata-cursor\""
+        },
+        {
+          "line": 15,
+          "text": "distfiles=\"https://github.com/rtgiskard/bibata_cursor/archive/${_bibata_commit}.tar.gz\""
+        },
+        {
+          "line": 16,
+          "text": "checksum=32f053a4b155106e3d1305e597a409d0e7ce85aa84b0ebe31b909ffbf7e80417"
+        },
+        {
+          "line": 18,
+          "text": "do_build() {"
+        },
+        {
+          "line": 29,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/ryoku-cursors/template",
+      "git_mode": "100644",
+      "git_blob": "be5088abbb047701913fee25e4d2962ddd8bab3f",
+      "bytes": 745,
+      "sha256": "080d994c4396cae952b304761846eab834e8f07c5e87d45a39ebcc8e2fe9c32a",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryoku-cursors"
+        },
+        {
+          "line": 3,
+          "text": "version=2.0.7"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "short_desc=\"Bibata XCursor themes used by the Ryoku desktop\""
+        },
+        {
+          "line": 8,
+          "text": "license=\"GPL-3.0-or-later\""
+        },
+        {
+          "line": 9,
+          "text": "homepage=\"https://github.com/ful1e5/Bibata_Cursor\""
+        },
+        {
+          "line": 10,
+          "text": "distfiles=\"${homepage}/releases/download/v${version}/Bibata.tar.xz\""
+        },
+        {
+          "line": 11,
+          "text": "checksum=172e33c4ae415278384dcecc7d1a9b7a024266bc944bc751fd86532be1cc6251"
+        },
+        {
+          "line": 17,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/ryoku-desktop-niri/template",
+      "git_mode": "100644",
+      "git_blob": "98ff9b097464c93ef4c918442bc1a8bf747f7730",
+      "bytes": 1043,
+      "sha256": "42cf87151ae7b34177048beaf9f9c244f03606008523578dc5823a5af7a3ac5e",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryoku-desktop-niri"
+        },
+        {
+          "line": 3,
+          "text": "version=0.1.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "hostmakedepends=\"go\""
+        },
+        {
+          "line": 8,
+          "text": "depends=\"niri xwayland-satellite xdg-desktop-portal-gnome wlsunset\""
+        },
+        {
+          "line": 10,
+          "text": "short_desc=\"Ryoku niri compositor, portal, X11 bridge, and WM provider\""
+        },
+        {
+          "line": 12,
+          "text": "license=\"GPL-3.0-or-later\""
+        },
+        {
+          "line": 13,
+          "text": "homepage=\"https://ryoku.dev\""
+        },
+        {
+          "line": 14,
+          "text": "distfiles=\"https://repo.ryoku.dev/sources/ryoku-${version}.tar.gz\""
+        },
+        {
+          "line": 15,
+          "text": "checksum=SKIP"
+        },
+        {
+          "line": 29,
+          "text": "do_build() {"
+        },
+        {
+          "line": 33,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 20,
+          "text": "\tRYOKU_SRC=\"$wrksrc\" \\"
+        },
+        {
+          "line": 21,
+          "text": "\tRYOKU_PKGVER=\"$version\" \\"
+        },
+        {
+          "line": 22,
+          "text": "\tRYOKU_RELEASE=\"${RYOKU_RELEASE:-local-${version}}\" \\"
+        },
+        {
+          "line": 23,
+          "text": "\tRYOKU_CHANNEL=\"${RYOKU_CHANNEL:-local}\" \\"
+        },
+        {
+          "line": 24,
+          "text": "\tRYOKU_NAME=\"${RYOKU_NAME:-Ryoku}\" \\"
+        },
+        {
+          "line": 25,
+          "text": "\tRYOKU_BUILD_DIR=\"$wrksrc/.xbps-build/ryoku-desktop-niri\" \\"
+        }
+      ]
+    },
+    {
+      "source": "void/packages/srcpkgs/ryoku-desktop/template",
+      "git_mode": "100644",
+      "git_blob": "846b16db7440a71887ccfdb775a34da6c682d795",
+      "bytes": 2419,
+      "sha256": "58c0b93aa32f0333b006c4087e7f4c3814873a038a314c982d495d86689a8c12",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryoku-desktop"
+        },
+        {
+          "line": 3,
+          "text": "version=0.1.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "hostmakedepends=\"go cmake ninja pkg-config\""
+        },
+        {
+          "line": 7,
+          "text": "makedepends=\"gtk+3-devel libwebkit2gtk41-devel\""
+        },
+        {
+          "line": 8,
+          "text": "depends=\""
+        },
+        {
+          "line": 90,
+          "text": "short_desc=\"Ryoku compositor-neutral desktop payload and runtime\""
+        },
+        {
+          "line": 92,
+          "text": "license=\"GPL-3.0-or-later, AGPL-3.0-or-later, MIT\""
+        },
+        {
+          "line": 93,
+          "text": "homepage=\"https://ryoku.dev\""
+        },
+        {
+          "line": 94,
+          "text": "distfiles=\"https://repo.ryoku.dev/sources/ryoku-${version}.tar.gz\""
+        },
+        {
+          "line": 95,
+          "text": "checksum=SKIP"
+        },
+        {
+          "line": 98,
+          "text": "conf_files=\""
+        },
+        {
+          "line": 123,
+          "text": "do_build() {"
+        },
+        {
+          "line": 127,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 113,
+          "text": "\tRYOKU_SRC=\"$wrksrc\" \\"
+        },
+        {
+          "line": 114,
+          "text": "\tRYOKU_PKGVER=\"$version\" \\"
+        },
+        {
+          "line": 115,
+          "text": "\tRYOKU_RELEASE=\"${RYOKU_RELEASE:-local-${version}}\" \\"
+        },
+        {
+          "line": 116,
+          "text": "\tRYOKU_CHANNEL=\"${RYOKU_CHANNEL:-local}\" \\"
+        },
+        {
+          "line": 117,
+          "text": "\tRYOKU_NAME=\"${RYOKU_NAME:-Ryoku}\" \\"
+        },
+        {
+          "line": 118,
+          "text": "\tRYOKU_COMMIT=\"${RYOKU_COMMIT:-}\" \\"
+        },
+        {
+          "line": 119,
+          "text": "\tRYOKU_BUILD_DIR=\"$wrksrc/.xbps-build/ryoku-desktop\" \\"
+        }
+      ]
+    },
+    {
+      "source": "void/packages/srcpkgs/ryoku-hub/template",
+      "git_mode": "100644",
+      "git_blob": "9d54c2be768abcfba33b22439fb6356096cab153",
+      "bytes": 781,
+      "sha256": "9be74ad9374520dcb0b0b664ded791b2b83428c56ea832039ce0e18b26be86be",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryoku-hub"
+        },
+        {
+          "line": 3,
+          "text": "version=0.1.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "short_desc=\"Ryoku Hub backend: keybind legend and config service\""
+        },
+        {
+          "line": 8,
+          "text": "license=\"GPL-3.0-or-later\""
+        },
+        {
+          "line": 9,
+          "text": "homepage=\"https://ryoku.dev\""
+        },
+        {
+          "line": 10,
+          "text": "hostmakedepends=\"go\""
+        },
+        {
+          "line": 11,
+          "text": "distfiles=\"https://repo.ryoku.dev/sources/ryoku-${version}.tar.gz\""
+        },
+        {
+          "line": 12,
+          "text": "checksum=SKIP"
+        },
+        {
+          "line": 26,
+          "text": "do_build() {"
+        },
+        {
+          "line": 30,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 17,
+          "text": "\tRYOKU_SRC=\"$wrksrc\" \\"
+        },
+        {
+          "line": 18,
+          "text": "\tRYOKU_BUILD_DIR=\"${wrksrc%/*}/${pkgname}-payload-build\" \\"
+        },
+        {
+          "line": 19,
+          "text": "\tRYOKU_PKGVER=\"$version\" \\"
+        },
+        {
+          "line": 20,
+          "text": "\tRYOKU_RELEASE=\"$version\" \\"
+        },
+        {
+          "line": 21,
+          "text": "\tRYOKU_CHANNEL=\"${RYOKU_CHANNEL:-stable}\" \\"
+        },
+        {
+          "line": 22,
+          "text": "\tRYOKU_NAME=\"${RYOKU_NAME:-Ryoku}\" \\"
+        }
+      ]
+    },
+    {
+      "source": "void/packages/srcpkgs/ryoku-keyring/template",
+      "git_mode": "100644",
+      "git_blob": "f86180f56ed8809b644ad837e38a851eee26fe0e",
+      "bytes": 780,
+      "sha256": "bae526bee312196832773b7772448198603e279be3216f98eb6988be36ebb6be",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryoku-keyring"
+        },
+        {
+          "line": 3,
+          "text": "version=20261010"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 5,
+          "text": "short_desc=\"Ryoku XBPS repository signing keys and stable repository configuration\""
+        },
+        {
+          "line": 7,
+          "text": "license=\"CC0-1.0\""
+        },
+        {
+          "line": 8,
+          "text": "homepage=\"https://ryoku.dev\""
+        },
+        {
+          "line": 11,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/ryoku-keysounds-niri/template",
+      "git_mode": "100644",
+      "git_blob": "d83d9ccf4a23c36b2642714d7ee8561c2bc51f81",
+      "bytes": 860,
+      "sha256": "cf9ec877eecd5cb32f02ee57a2bc8c48eb46a43d7dae446e5c7b72f2382ccd23",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryoku-keysounds-niri"
+        },
+        {
+          "line": 3,
+          "text": "version=0.1.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "hostmakedepends=\"rust\""
+        },
+        {
+          "line": 7,
+          "text": "makedepends=\"libcanberra-devel\""
+        },
+        {
+          "line": 8,
+          "text": "depends=\"ryoku-keysounds-profiles libcanberra\""
+        },
+        {
+          "line": 9,
+          "text": "short_desc=\"Ryoku niri key-press sounds (evdev + libcanberra engine)\""
+        },
+        {
+          "line": 11,
+          "text": "license=\"GPL-3.0-or-later\""
+        },
+        {
+          "line": 12,
+          "text": "homepage=\"https://ryoku.dev\""
+        },
+        {
+          "line": 13,
+          "text": "distfiles=\"https://repo.ryoku.dev/sources/ryoku-${version}.tar.gz\""
+        },
+        {
+          "line": 14,
+          "text": "checksum=SKIP"
+        },
+        {
+          "line": 27,
+          "text": "do_build() {"
+        },
+        {
+          "line": 31,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 18,
+          "text": "\tRYOKU_SRC=\"$wrksrc\" \\"
+        },
+        {
+          "line": 19,
+          "text": "\tRYOKU_BUILD_DIR=\"${wrksrc%/*}/${pkgname}-payload-build\" \\"
+        },
+        {
+          "line": 20,
+          "text": "\tRYOKU_PKGVER=\"$version\" \\"
+        },
+        {
+          "line": 21,
+          "text": "\tRYOKU_RELEASE=\"$version\" \\"
+        },
+        {
+          "line": 22,
+          "text": "\tRYOKU_CHANNEL=\"${RYOKU_CHANNEL:-stable}\" \\"
+        },
+        {
+          "line": 23,
+          "text": "\tRYOKU_NAME=\"${RYOKU_NAME:-Ryoku}\" \\"
+        }
+      ]
+    },
+    {
+      "source": "void/packages/srcpkgs/ryoku-keysounds-profiles/template",
+      "git_mode": "100644",
+      "git_blob": "5c9fe5290c10ad73a3dca2c81423d05dd65850c8",
+      "bytes": 806,
+      "sha256": "60eda77a783556db071b500cd5d9663ec8f106e671fa2384f654563e24aa1e02",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryoku-keysounds-profiles"
+        },
+        {
+          "line": 3,
+          "text": "version=0.1.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "hostmakedepends=\"git python3 ffmpeg6\""
+        },
+        {
+          "line": 7,
+          "text": "short_desc=\"Ryoku key-sound sample profiles and the Mechvibes importer\""
+        },
+        {
+          "line": 9,
+          "text": "license=\"GPL-3.0-or-later\""
+        },
+        {
+          "line": 10,
+          "text": "homepage=\"https://ryoku.dev\""
+        },
+        {
+          "line": 11,
+          "text": "distfiles=\"https://repo.ryoku.dev/sources/ryoku-${version}.tar.gz\""
+        },
+        {
+          "line": 12,
+          "text": "checksum=SKIP"
+        },
+        {
+          "line": 25,
+          "text": "do_build() {"
+        },
+        {
+          "line": 29,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 16,
+          "text": "\tRYOKU_SRC=\"$wrksrc\" \\"
+        },
+        {
+          "line": 17,
+          "text": "\tRYOKU_BUILD_DIR=\"${wrksrc%/*}/${pkgname}-payload-build\" \\"
+        },
+        {
+          "line": 18,
+          "text": "\tRYOKU_PKGVER=\"$version\" \\"
+        },
+        {
+          "line": 19,
+          "text": "\tRYOKU_RELEASE=\"$version\" \\"
+        },
+        {
+          "line": 20,
+          "text": "\tRYOKU_CHANNEL=\"${RYOKU_CHANNEL:-stable}\" \\"
+        },
+        {
+          "line": 21,
+          "text": "\tRYOKU_NAME=\"${RYOKU_NAME:-Ryoku}\" \\"
+        }
+      ]
+    },
+    {
+      "source": "void/packages/srcpkgs/ryoku-oh-my-zsh/template",
+      "git_mode": "100644",
+      "git_blob": "6a78509849cd416d4f93631397da3d04af686cb0",
+      "bytes": 790,
+      "sha256": "363ec21fd1c4bfa9231bc0ca84bb9b46d6e796ce649a9f13160ddba90031a803",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryoku-oh-my-zsh"
+        },
+        {
+          "line": 3,
+          "text": "version=0.1.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 7,
+          "text": "depends=\"zsh\""
+        },
+        {
+          "line": 8,
+          "text": "short_desc=\"Oh My Zsh framework for the Ryoku Zsh integration\""
+        },
+        {
+          "line": 10,
+          "text": "license=\"MIT\""
+        },
+        {
+          "line": 11,
+          "text": "homepage=\"https://github.com/ohmyzsh/ohmyzsh\""
+        },
+        {
+          "line": 12,
+          "text": "distfiles=\"${homepage}/archive/${_commit}.tar.gz\""
+        },
+        {
+          "line": 13,
+          "text": "checksum=0cfb8057b7d7b1985f4390280ddedd5c9d00917b8bf2ba8e6774a08829786c8c"
+        },
+        {
+          "line": 19,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/ryoku-palette-bridge/template",
+      "git_mode": "100644",
+      "git_blob": "e5db9fcd1d65b40f043cbdf27055ea33dad13433",
+      "bytes": 1096,
+      "sha256": "5fa13a7d6ffc93a28cb4cc84ddb0728f20e1f416c04f07fc09e8995fce5a5c6a",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryoku-palette-bridge"
+        },
+        {
+          "line": 3,
+          "text": "version=0.1.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "short_desc=\"Ryoku wallpaper palette event bridge\""
+        },
+        {
+          "line": 8,
+          "text": "license=\"MIT\""
+        },
+        {
+          "line": 9,
+          "text": "homepage=\"https://ryoku.dev\""
+        },
+        {
+          "line": 10,
+          "text": "hostmakedepends=\"go\""
+        },
+        {
+          "line": 11,
+          "text": "depends=\"bash curl jq matugen ryoku\""
+        },
+        {
+          "line": 12,
+          "text": "distfiles=\"https://repo.ryoku.dev/sources/ryoku-${version}.tar.gz\""
+        },
+        {
+          "line": 13,
+          "text": "checksum=SKIP"
+        },
+        {
+          "line": 27,
+          "text": "do_build() {"
+        },
+        {
+          "line": 31,
+          "text": "do_check() {"
+        },
+        {
+          "line": 43,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 18,
+          "text": "\tRYOKU_SRC=\"$wrksrc\" \\"
+        },
+        {
+          "line": 19,
+          "text": "\tRYOKU_BUILD_DIR=\"${wrksrc%/*}/${pkgname}-payload-build\" \\"
+        },
+        {
+          "line": 20,
+          "text": "\tRYOKU_PKGVER=\"$version\" \\"
+        },
+        {
+          "line": 21,
+          "text": "\tRYOKU_RELEASE=\"$version\" \\"
+        },
+        {
+          "line": 22,
+          "text": "\tRYOKU_CHANNEL=\"${RYOKU_CHANNEL:-stable}\" \\"
+        },
+        {
+          "line": 23,
+          "text": "\tRYOKU_NAME=\"${RYOKU_NAME:-Ryoku}\" \\"
+        }
+      ]
+    },
+    {
+      "source": "void/packages/srcpkgs/ryoku-rashin/template",
+      "git_mode": "100644",
+      "git_blob": "f3c8710f5cfb42c9583f283775d8f2306f4da262",
+      "bytes": 941,
+      "sha256": "e1fddb3dd210a6e92c3664ffb9dfbfc56b78aeb32972e42c1fe300d5cbfb95fb",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryoku-rashin"
+        },
+        {
+          "line": 3,
+          "text": "version=0.1.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "short_desc=\"Ryoku Rashin: local agent OS daemon and dashboard\""
+        },
+        {
+          "line": 8,
+          "text": "license=\"GPL-3.0-or-later\""
+        },
+        {
+          "line": 9,
+          "text": "homepage=\"https://ryoku.dev\""
+        },
+        {
+          "line": 10,
+          "text": "hostmakedepends=\"go cmake ninja pkg-config\""
+        },
+        {
+          "line": 11,
+          "text": "makedepends=\"gtk+3-devel libwebkit2gtk41-devel\""
+        },
+        {
+          "line": 12,
+          "text": "depends=\"ryoku-desktop>=${version} uv nodejs gcc prowl gtk+3 libwebkit2gtk41 python3\""
+        },
+        {
+          "line": 13,
+          "text": "distfiles=\"https://repo.ryoku.dev/sources/ryoku-${version}.tar.gz\""
+        },
+        {
+          "line": 14,
+          "text": "checksum=SKIP"
+        },
+        {
+          "line": 28,
+          "text": "do_build() {"
+        },
+        {
+          "line": 32,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 19,
+          "text": "\tRYOKU_SRC=\"$wrksrc\" \\"
+        },
+        {
+          "line": 20,
+          "text": "\tRYOKU_BUILD_DIR=\"${wrksrc%/*}/${pkgname}-payload-build\" \\"
+        },
+        {
+          "line": 21,
+          "text": "\tRYOKU_PKGVER=\"$version\" \\"
+        },
+        {
+          "line": 22,
+          "text": "\tRYOKU_RELEASE=\"$version\" \\"
+        },
+        {
+          "line": 23,
+          "text": "\tRYOKU_CHANNEL=\"${RYOKU_CHANNEL:-stable}\" \\"
+        },
+        {
+          "line": 24,
+          "text": "\tRYOKU_NAME=\"${RYOKU_NAME:-Ryoku}\" \\"
+        }
+      ]
+    },
+    {
+      "source": "void/packages/srcpkgs/ryoku-shell/template",
+      "git_mode": "100644",
+      "git_blob": "3f9218644a9ff804a4a9918440ebbd5d9b8bc13e",
+      "bytes": 1068,
+      "sha256": "6cb757dfd42871e70a8f6ad2370ab829ea12020bd2a2c043fb6d36c631981cbb",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryoku-shell"
+        },
+        {
+          "line": 3,
+          "text": "version=0.1.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "short_desc=\"Ryoku shell IPC daemon: supervises the Quickshell desktop\""
+        },
+        {
+          "line": 8,
+          "text": "license=\"GPL-3.0-or-later\""
+        },
+        {
+          "line": 9,
+          "text": "homepage=\"https://ryoku.dev\""
+        },
+        {
+          "line": 10,
+          "text": "hostmakedepends=\"go pkg-config wayland-devel wayland-protocols\""
+        },
+        {
+          "line": 11,
+          "text": "makedepends=\"wayland-devel ffmpeg6-devel\""
+        },
+        {
+          "line": 12,
+          "text": "depends=\"quickshell ffmpeg6 wayland jq python3 uv socat gum qrencode upower"
+        },
+        {
+          "line": 15,
+          "text": "distfiles=\"https://repo.ryoku.dev/sources/ryoku-${version}.tar.gz\""
+        },
+        {
+          "line": 16,
+          "text": "checksum=SKIP"
+        },
+        {
+          "line": 30,
+          "text": "do_build() {"
+        },
+        {
+          "line": 34,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 21,
+          "text": "\tRYOKU_SRC=\"$wrksrc\" \\"
+        },
+        {
+          "line": 22,
+          "text": "\tRYOKU_BUILD_DIR=\"${wrksrc%/*}/${pkgname}-payload-build\" \\"
+        },
+        {
+          "line": 23,
+          "text": "\tRYOKU_PKGVER=\"$version\" \\"
+        },
+        {
+          "line": 24,
+          "text": "\tRYOKU_RELEASE=\"$version\" \\"
+        },
+        {
+          "line": 25,
+          "text": "\tRYOKU_CHANNEL=\"${RYOKU_CHANNEL:-stable}\" \\"
+        },
+        {
+          "line": 26,
+          "text": "\tRYOKU_NAME=\"${RYOKU_NAME:-Ryoku}\" \\"
+        }
+      ]
+    },
+    {
+      "source": "void/packages/srcpkgs/ryoku/template",
+      "git_mode": "100644",
+      "git_blob": "fa6e7c61f234ecdab2a443dbfec79f800579e495",
+      "bytes": 854,
+      "sha256": "35c23b0d8b7b19bebe26551777ce0b8bc64e144533afd07717f2a411c35c35f9",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryoku"
+        },
+        {
+          "line": 3,
+          "text": "version=0.1.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "short_desc=\"Ryoku control CLI: updates, rollback, snapshots, materialize\""
+        },
+        {
+          "line": 8,
+          "text": "license=\"GPL-3.0-or-later\""
+        },
+        {
+          "line": 9,
+          "text": "homepage=\"https://ryoku.dev\""
+        },
+        {
+          "line": 10,
+          "text": "hostmakedepends=\"go\""
+        },
+        {
+          "line": 11,
+          "text": "distfiles=\"https://repo.ryoku.dev/sources/ryoku-${version}.tar.gz\""
+        },
+        {
+          "line": 12,
+          "text": "checksum=SKIP"
+        },
+        {
+          "line": 27,
+          "text": "do_build() {"
+        },
+        {
+          "line": 31,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": [
+        {
+          "line": 18,
+          "text": "\tRYOKU_SRC=\"$wrksrc\" \\"
+        },
+        {
+          "line": 19,
+          "text": "\tRYOKU_BUILD_DIR=\"${wrksrc%/*}/${pkgname}-payload-build\" \\"
+        },
+        {
+          "line": 20,
+          "text": "\tRYOKU_PKGVER=\"$version\" \\"
+        },
+        {
+          "line": 21,
+          "text": "\tRYOKU_RELEASE=\"$version\" \\"
+        },
+        {
+          "line": 22,
+          "text": "\tRYOKU_CHANNEL=\"${RYOKU_CHANNEL:-stable}\" \\"
+        },
+        {
+          "line": 23,
+          "text": "\tRYOKU_NAME=\"${RYOKU_NAME:-Ryoku}\" \\"
+        }
+      ]
+    },
+    {
+      "source": "void/packages/srcpkgs/ryomanager/template",
+      "git_mode": "100644",
+      "git_blob": "b7c3fef16ecbc7ac04d952dbe0424454166725da",
+      "bytes": 1274,
+      "sha256": "322d7e21cf7617febe937a60e3c244e83b235d1dc2d87e12736b7af2b4c328e2",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryomanager"
+        },
+        {
+          "line": 3,
+          "text": "version=0.1.0.r27.g459c671"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 8,
+          "text": "hostmakedepends=\"go nodejs pkg-config\""
+        },
+        {
+          "line": 9,
+          "text": "makedepends=\"gtk+3-devel libwebkit2gtk41-devel\""
+        },
+        {
+          "line": 10,
+          "text": "depends=\"desktop-file-utils gtk+3 hicolor-icon-theme libwebkit2gtk41\""
+        },
+        {
+          "line": 11,
+          "text": "short_desc=\"System monitor and process manager for Ryoku\""
+        },
+        {
+          "line": 13,
+          "text": "license=\"GPL-3.0-only\""
+        },
+        {
+          "line": 14,
+          "text": "homepage=\"https://github.com/Ryoku-dev/ryomanager\""
+        },
+        {
+          "line": 15,
+          "text": "distfiles=\"${homepage}/archive/${_commit}.tar.gz\""
+        },
+        {
+          "line": 16,
+          "text": "checksum=60b83e0663166035a5f81fa456d543ceb324d6286b9699f37d8a47fa460c39f7"
+        },
+        {
+          "line": 21,
+          "text": "do_build() {"
+        },
+        {
+          "line": 35,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/ryotunes/template",
+      "git_mode": "100644",
+      "git_blob": "1f5d04e357ed909be2e38789848ea66314d3fdff",
+      "bytes": 2506,
+      "sha256": "b9900964aa60fcfc0fb0b83a60ff9e70614e08fe23e80bb5cc3aab8a5ad5ba36",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ryotunes"
+        },
+        {
+          "line": 3,
+          "text": "version=1.2.1"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "build_style=cargo"
+        },
+        {
+          "line": 7,
+          "text": "hostmakedepends=\"pkg-config\""
+        },
+        {
+          "line": 8,
+          "text": "makedepends=\"gtk+3-devel libwebkit2gtk41-devel mpv-devel openssl-devel\""
+        },
+        {
+          "line": 9,
+          "text": "depends=\"desktop-file-utils ffmpeg6 gtk+3 hicolor-icon-theme libayatana-appindicator"
+        },
+        {
+          "line": 12,
+          "text": "short_desc=\"Ryoku music client, playback daemon, and sync server\""
+        },
+        {
+          "line": 14,
+          "text": "license=\"GPL-3.0-or-later\""
+        },
+        {
+          "line": 15,
+          "text": "homepage=\"https://github.com/Ryoku-dev/ryotunes\""
+        },
+        {
+          "line": 16,
+          "text": "distfiles=\"${homepage}/releases/download/v${version}/ryotunes-${version}.tar.gz\""
+        },
+        {
+          "line": 17,
+          "text": "checksum=36be6f5891acc74df35681b9927e4202867dd2f1d29824188ec42c8d7311a5d5"
+        },
+        {
+          "line": 25,
+          "text": "do_build() {"
+        },
+        {
+          "line": 32,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/skwd-paper-bin/template",
+      "git_mode": "100644",
+      "git_blob": "a446ceabb0d3af08cdcc13812e917e5c09627680",
+      "bytes": 2149,
+      "sha256": "2edce96d10e040dbb4b6ce0bb76ce1fae934f01d98225fe20b3c198b8f71ed30",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=skwd-paper-bin"
+        },
+        {
+          "line": 3,
+          "text": "version=1.0.0beta23"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "build_style=cargo"
+        },
+        {
+          "line": 11,
+          "text": "hostmakedepends=\"cargo-auditable clang curl nasm patchelf pkg-config tar xz\""
+        },
+        {
+          "line": 12,
+          "text": "makedepends=\"Vulkan-Headers alsa-lib-devel libdav1d-devel libdrm-devel"
+        },
+        {
+          "line": 15,
+          "text": "depends=\"alsa-lib libdav1d libdrm libgcc libglvnd libpulseaudio pulseaudio-utils"
+        },
+        {
+          "line": 17,
+          "text": "short_desc=\"Wallpaper Engine renderer backend for Ryogami\""
+        },
+        {
+          "line": 19,
+          "text": "license=\"GPL-3.0-or-later\""
+        },
+        {
+          "line": 20,
+          "text": "homepage=\"https://github.com/liixini/skwd-paper\""
+        },
+        {
+          "line": 21,
+          "text": "distfiles=\"https://github.com/liixini/skwd-paper/archive/${_paper_commit}.tar.gz"
+        },
+        {
+          "line": 23,
+          "text": "checksum=\"b725b2d1322cd26da8ae2b43c2fa0d50cd27578a980db30af951d7ca396d0063"
+        },
+        {
+          "line": 29,
+          "text": "do_build() {"
+        },
+        {
+          "line": 42,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/ttf-firacode-nerd/template",
+      "git_mode": "100644",
+      "git_blob": "da9c5d15f1a0d7a116e504f83a2a8d21102282b0",
+      "bytes": 529,
+      "sha256": "16a98d090907e31467ef7f00f306d90591c537d91c6166e1f42a0b8b522527fd",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ttf-firacode-nerd"
+        },
+        {
+          "line": 3,
+          "text": "version=3.5.1"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "short_desc=\"Fira Code Nerd Font monospace face\""
+        },
+        {
+          "line": 8,
+          "text": "license=\"OFL-1.1\""
+        },
+        {
+          "line": 9,
+          "text": "homepage=\"https://github.com/ryanoasis/nerd-fonts\""
+        },
+        {
+          "line": 10,
+          "text": "distfiles=\"${homepage}/releases/download/v${version}/FiraCode.tar.xz\""
+        },
+        {
+          "line": 11,
+          "text": "checksum=68e3bd6164864b8b514605bc34e3a87ac401c8c48682fcce6478c70263340207"
+        },
+        {
+          "line": 13,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/ttf-fraunces-variable/template",
+      "git_mode": "100644",
+      "git_blob": "77dfef31351898730ab9755bbd68f3c3115929d0",
+      "bytes": 815,
+      "sha256": "ca55762cdfe2477d5b96b50dbf4af12ca01500aa02145ebdbb4676be34b4b225",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ttf-fraunces-variable"
+        },
+        {
+          "line": 3,
+          "text": "version=1.000"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "hostmakedepends=\"unzip\""
+        },
+        {
+          "line": 7,
+          "text": "short_desc=\"Fraunces variable display typeface\""
+        },
+        {
+          "line": 9,
+          "text": "license=\"OFL-1.1\""
+        },
+        {
+          "line": 10,
+          "text": "homepage=\"https://github.com/undercasetype/Fraunces\""
+        },
+        {
+          "line": 11,
+          "text": "distfiles=\"${homepage}/releases/download/${version}/UnderCaseType_Fraunces_${version}.zip\""
+        },
+        {
+          "line": 12,
+          "text": "checksum=8d8b81dfaeb89433f5c908e1d8d0a4b202bd627bd80d4cd5ff56f311fdcad19f"
+        },
+        {
+          "line": 16,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/ttf-hack-nerd/template",
+      "git_mode": "100644",
+      "git_blob": "20cdea5148b4d0e105c1682ed76e47f59a6d049c",
+      "bytes": 522,
+      "sha256": "080e8c263940c3e022926306afbdec6b80f7eeb8b2ebebaccd633c44e1f64321",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ttf-hack-nerd"
+        },
+        {
+          "line": 3,
+          "text": "version=3.5.1"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "short_desc=\"Hack Nerd Font monospace face\""
+        },
+        {
+          "line": 8,
+          "text": "license=\"MIT AND Bitstream-Vera\""
+        },
+        {
+          "line": 9,
+          "text": "homepage=\"https://github.com/ryanoasis/nerd-fonts\""
+        },
+        {
+          "line": 10,
+          "text": "distfiles=\"${homepage}/releases/download/v${version}/Hack.tar.xz\""
+        },
+        {
+          "line": 11,
+          "text": "checksum=cdd389472e10e2261520140ff1b382b4f8a226af5fd0b2735b975d31151d9c3c"
+        },
+        {
+          "line": 13,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/ttf-jetbrains-mono-nerd/template",
+      "git_mode": "100644",
+      "git_blob": "ba94b28c9bc334fdb79aa92ba789b45ad426cb01",
+      "bytes": 563,
+      "sha256": "d939cb6d946994f005384fc9421b2b9c5a5355c19135eb93f4a536b89cb0c684",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ttf-jetbrains-mono-nerd"
+        },
+        {
+          "line": 3,
+          "text": "version=3.5.1"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "short_desc=\"JetBrains Mono Nerd Font monospace face\""
+        },
+        {
+          "line": 8,
+          "text": "license=\"OFL-1.1\""
+        },
+        {
+          "line": 9,
+          "text": "homepage=\"https://github.com/ryanoasis/nerd-fonts\""
+        },
+        {
+          "line": 10,
+          "text": "distfiles=\"${homepage}/releases/download/v${version}/JetBrainsMono.tar.xz\""
+        },
+        {
+          "line": 11,
+          "text": "checksum=04d5e8f903693f9dd13e16f867e994834e681eb3c72c0d337a770dcda09010cf"
+        },
+        {
+          "line": 13,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/ttf-maple-mono-nf/template",
+      "git_mode": "100644",
+      "git_blob": "f38a46acd35805927024c91bbdc0e929c1772c79",
+      "bytes": 536,
+      "sha256": "acd73639faf9736efd6660a76397d5e2a89adcf22a4406e8d9d330f824110e33",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ttf-maple-mono-nf"
+        },
+        {
+          "line": 3,
+          "text": "version=7.9"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 6,
+          "text": "short_desc=\"Maple Mono Nerd Font monospace face\""
+        },
+        {
+          "line": 8,
+          "text": "license=\"OFL-1.1\""
+        },
+        {
+          "line": 9,
+          "text": "homepage=\"https://github.com/subframe7536/maple-font\""
+        },
+        {
+          "line": 10,
+          "text": "distfiles=\"${homepage}/releases/download/v${version}/MapleMono-NF.zip\""
+        },
+        {
+          "line": 11,
+          "text": "checksum=59098b87c895d871635d37680e88000ae2b2b25b55428195b228ec589e35fb89"
+        },
+        {
+          "line": 13,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/ttf-material-symbols-variable/template",
+      "git_mode": "100644",
+      "git_blob": "927a1fbf4504dee45b444d25ebbdf23918f8cd35",
+      "bytes": 1736,
+      "sha256": "e85aac2d4aec8cce2bf4e5b99ce103afc5ab42ee48b465a24f1a334d976f060b",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ttf-material-symbols-variable"
+        },
+        {
+          "line": 3,
+          "text": "version=2.874"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 8,
+          "text": "short_desc=\"Google Material Symbols four-axis variable fonts\""
+        },
+        {
+          "line": 10,
+          "text": "license=\"Apache-2.0\""
+        },
+        {
+          "line": 11,
+          "text": "homepage=\"https://github.com/google/material-design-icons\""
+        },
+        {
+          "line": 12,
+          "text": "distfiles=\""
+        },
+        {
+          "line": 17,
+          "text": "checksum=\""
+        },
+        {
+          "line": 24,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/ttf-readex-pro/template",
+      "git_mode": "100644",
+      "git_blob": "354f79258102950a41208dad67997771bb10a89f",
+      "bytes": 570,
+      "sha256": "48f2a5812ea2f3ef51788d0e4baaaa29573f592948ed3a9b6f8af4efedea4b65",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ttf-readex-pro"
+        },
+        {
+          "line": 3,
+          "text": "version=1.204"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 7,
+          "text": "short_desc=\"Readex Pro variable TTF used for Shima titles\""
+        },
+        {
+          "line": 9,
+          "text": "license=\"OFL-1.1\""
+        },
+        {
+          "line": 10,
+          "text": "homepage=\"https://github.com/ThomasJockin/readexpro\""
+        },
+        {
+          "line": 11,
+          "text": "distfiles=\"${homepage}/archive/${_commit}.tar.gz\""
+        },
+        {
+          "line": 12,
+          "text": "checksum=128848eba1ae8fe0454f279a367f5ef0e932949e131382f7b3e26b9373c9a7e4"
+        },
+        {
+          "line": 14,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/ttf-rubik-vf/template",
+      "git_mode": "100644",
+      "git_blob": "11d60fe118e50572da8f9529d54df5d7fdb24d74",
+      "bytes": 1048,
+      "sha256": "b37cd83de421a135086d63579a3e85e53e953dec316946f61dfd6d465d6b9cba",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=ttf-rubik-vf"
+        },
+        {
+          "line": 3,
+          "text": "version=2.3.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 8,
+          "text": "short_desc=\"Rubik variable TTF used for Shima numerals\""
+        },
+        {
+          "line": 10,
+          "text": "license=\"OFL-1.1\""
+        },
+        {
+          "line": 11,
+          "text": "homepage=\"https://github.com/googlefonts/rubik\""
+        },
+        {
+          "line": 12,
+          "text": "distfiles=\""
+        },
+        {
+          "line": 16,
+          "text": "checksum=\""
+        },
+        {
+          "line": 21,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/vimix-cursors/template",
+      "git_mode": "100644",
+      "git_blob": "9e7ec307d069a05fcbc4e592e7b45f75aa46963e",
+      "bytes": 635,
+      "sha256": "416e65b61937eace61cb9e6d68f2b689a461fd907910b5a53fc75f6a29cc462c",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=vimix-cursors"
+        },
+        {
+          "line": 3,
+          "text": "version=2020.02.24"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 7,
+          "text": "short_desc=\"Material-inspired XCursor theme\""
+        },
+        {
+          "line": 9,
+          "text": "license=\"GPL-3.0-or-later\""
+        },
+        {
+          "line": 10,
+          "text": "homepage=\"https://github.com/vinceliuice/Vimix-cursors\""
+        },
+        {
+          "line": 11,
+          "text": "distfiles=\"${homepage}/archive/${_upstream}.tar.gz\""
+        },
+        {
+          "line": 12,
+          "text": "checksum=69298d02264b5b15239c340f8fa899f91574c0eac49ad5745e8e588315423618"
+        },
+        {
+          "line": 14,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/voxtype/template",
+      "git_mode": "100644",
+      "git_blob": "ecc92626795f3b06877e1dac49a8a209ad0505f3",
+      "bytes": 1138,
+      "sha256": "24e7add948909957b8e1bb3ed5178113980cd4452b6499d39576c40c8a859c89",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=voxtype"
+        },
+        {
+          "line": 3,
+          "text": "version=1.1.0"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 8,
+          "text": "hostmakedepends=\"libarchive\""
+        },
+        {
+          "line": 9,
+          "text": "depends=\"alsa-lib curl glibc alsa-pipewire\""
+        },
+        {
+          "line": 10,
+          "text": "short_desc=\"Push-to-talk voice-to-text for Wayland compositors\""
+        },
+        {
+          "line": 12,
+          "text": "license=\"MIT\""
+        },
+        {
+          "line": 13,
+          "text": "homepage=\"https://github.com/peteonrails/voxtype\""
+        },
+        {
+          "line": 14,
+          "text": "distfiles=\"${homepage}/releases/download/v${version}/voxtype-${version}-1.x86_64.rpm\""
+        },
+        {
+          "line": 15,
+          "text": "checksum=bec4afe2e4c0a75e2453931eea276bbf736b10bae14479ca2019a252263447f4"
+        },
+        {
+          "line": 18,
+          "text": "conf_files=\"/etc/voxtype/config.toml\""
+        },
+        {
+          "line": 30,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    },
+    {
+      "source": "void/packages/srcpkgs/waifu2x-ncnn-vulkan/template",
+      "git_mode": "100644",
+      "git_blob": "007b4ddb93aa25d50a50f0824fe6f9d2e775667c",
+      "bytes": 814,
+      "sha256": "c9448969a250939db8051facfe6e73e713b6cfae23779b92ee1a517800e6f6ad",
+      "declaration_sites": [
+        {
+          "line": 2,
+          "text": "pkgname=waifu2x-ncnn-vulkan"
+        },
+        {
+          "line": 3,
+          "text": "version=20250915"
+        },
+        {
+          "line": 4,
+          "text": "revision=1"
+        },
+        {
+          "line": 7,
+          "text": "depends=\"vulkan-loader\""
+        },
+        {
+          "line": 8,
+          "text": "short_desc=\"NCNN implementation of the waifu2x converter\""
+        },
+        {
+          "line": 10,
+          "text": "license=\"MIT\""
+        },
+        {
+          "line": 11,
+          "text": "homepage=\"https://github.com/nihui/waifu2x-ncnn-vulkan\""
+        },
+        {
+          "line": 12,
+          "text": "distfiles=\"${homepage}/releases/download/${version}/waifu2x-ncnn-vulkan-${version}-linux.zip\""
+        },
+        {
+          "line": 13,
+          "text": "checksum=848e0fba55657d34da90b775b8139e9806dc754798b029f95e106ba8850a731f"
+        },
+        {
+          "line": 17,
+          "text": "do_install() {"
+        }
+      ],
+      "edition_interface_sites": []
+    }
+  ],
+  "api_sources": [
+    {
+      "source": "void/README.md",
+      "git_mode": "100644",
+      "git_blob": "5902c8f3684f25c432eb9cc5e3302232d4928c61",
+      "bytes": 8245,
+      "sha256": "4090936c1a65ded3d5db3c52b9626f6cfcbe00ed54e9512853ba5de58cc9a45a",
+      "anchors": [
+        {
+          "line": 3,
+          "text": "This directory contains the experimental x86_64 glibc Void edition. It uses"
+        },
+        {
+          "line": 5,
+          "text": "here; runtime code reaches it through `ryoku-host`."
+        },
+        {
+          "line": 123,
+          "text": "activation and order. `ryoku-host svc reconcile` writes the per-user roster;"
+        },
+        {
+          "line": 129,
+          "text": "service during installation. `ryoku-host session ensure` and doctor repair"
+        },
+        {
+          "line": 7,
+          "text": "Hyprland is not shipped. Ryoku requires Hyprland 0.55+, which requires GCC 15"
+        },
+        {
+          "line": 54,
+          "text": "Every `ryoku update`, including `ryoku update --system`, takes a snapper pre/post"
+        }
+      ]
+    },
+    {
+      "source": "void/init/polkit/README.md",
+      "git_mode": "100644",
+      "git_blob": "90626fd875d81b0cdafa8984d19ed163b86ebc92",
+      "bytes": 353,
+      "sha256": "0c6c78d4846830080b3a0cda3f6f1150c283b6649466fa7f3a54466295ecdee7",
+      "anchors": [
+        {
+          "line": 5,
+          "text": "the `supervise/control` pipe and its filesystem permissions, so"
+        },
+        {
+          "line": 6,
+          "text": "`system/hardware/bluetooth/54-ryoku-bluetooth-a2dp.rules` is not translated."
+        }
+      ]
+    },
+    {
+      "source": "void/init/session/session-start",
+      "git_mode": "100755",
+      "git_blob": "d7fdab04954a6516373683a3536ad89dcf249b54",
+      "bytes": 2158,
+      "sha256": "911096196f17722ee3d4500ab2b217ec2553281428453fede06489061d589bfc",
+      "anchors": [
+        {
+          "line": 24,
+          "text": "umask 077"
+        },
+        {
+          "line": 30,
+          "text": "\t\tprintf '%s' \"$value\" > \"$ENV_DIR/$name\" || log \"could not publish $name\""
+        },
+        {
+          "line": 36,
+          "text": "if ! dbus-update-activation-environment --all; then"
+        },
+        {
+          "line": 45,
+          "text": "if ! ryoku-host session ensure --user; then"
+        },
+        {
+          "line": 48,
+          "text": "if ! ryoku-host svc reconcile --user; then"
+        }
+      ]
+    },
+    {
+      "source": "void/init/env/environment-d",
+      "git_mode": "100755",
+      "git_blob": "75b3b9144d957447f8fcdff1df7748fc05e4af24",
+      "bytes": 1153,
+      "sha256": "2a8f2f2a0262691815860535f3ddbf5c155ead72a349341654a3d55ce3d1c4c4",
+      "anchors": [
+        {
+          "line": 12,
+          "text": "\t\t\t# Reject shell syntax before eval; environment.d expands variables but runs no commands."
+        },
+        {
+          "line": 25,
+          "text": "\t\t\teval \"export $_ryoku_envd_key=\\\"$_ryoku_envd_val\\\"\""
+        }
+      ]
+    },
+    {
+      "source": "void/init/user/ryoku-rashin/run",
+      "git_mode": "100755",
+      "git_blob": "006dd054ca0748161f1f5b968b3d54f209c54bbc",
+      "bytes": 380,
+      "sha256": "294e3d1a9432dc46d1f3038e63d81e9470977b665944cf9615b7fd25a0a80b0c",
+      "anchors": [
+        {
+          "line": 12,
+          "text": "\tsv up \"$_here/../ryoku-prowl\" >/dev/null 2>&1 || true"
+        },
+        {
+          "line": 15,
+          "text": "exec \"$BIN/ryoku-rashin\" serve --if-enabled"
+        }
+      ]
+    },
+    {
+      "source": "void/init/user/ryoku-rashin/finish",
+      "git_mode": "100755",
+      "git_blob": "1cbaf17dd39969e0b37e5f610b344a787854d6e9",
+      "bytes": 203,
+      "sha256": "0c46537a03227d4dd6425ab848387d18af1071bf8f75127244b3a29dd83834ba",
+      "anchors": [
+        {
+          "line": 5,
+          "text": "sv down \"$_here/../ryoku-prowl\" >/dev/null 2>&1 || true"
+        },
+        {
+          "line": 6,
+          "text": "[ \"$1\" -eq 0 ] && [ \"${2:-0}\" -eq 0 ] && exec sv down ."
+        }
+      ]
+    },
+    {
+      "source": "void/init/user/ryoku-prowl/run",
+      "git_mode": "100755",
+      "git_blob": "4ccc5db0e2801620716ea04274801dcfb60c6e6e",
+      "bytes": 519,
+      "sha256": "306d282d87084877b2dc9d0be445ffd0db51d6e1d35c9e036e4c12f10c194e5f",
+      "anchors": [
+        {
+          "line": 13,
+          "text": "\"$BIN/prowl\" gateway down --port \"${RYOKU_PROWL_PORT:-8788}\" >/dev/null 2>&1 || true"
+        },
+        {
+          "line": 15,
+          "text": "exec \"$BIN/prowl\" gateway serve --port \"${RYOKU_PROWL_PORT:-8788}\""
+        }
+      ]
+    },
+    {
+      "source": "void/init/system/ryoku-network-kill-guard/run",
+      "git_mode": "100755",
+      "git_blob": "6248b7d269e009884e61da843eb2b2612ea018db",
+      "bytes": 365,
+      "sha256": "b281c812a0c2965b900be34c2b9c85ecbec698b867541fbd9a82a17d43f92ac0",
+      "anchors": [
+        {
+          "line": 2,
+          "text": "# Runit cannot order this before NetworkManager; the fast oneshot limits the race."
+        },
+        {
+          "line": 10,
+          "text": "/usr/bin/ryoku-network-kill boot || true"
+        }
+      ]
+    },
+    {
+      "source": "void/init/system/ryoku-boot-guard/run",
+      "git_mode": "100755",
+      "git_blob": "2e03176b8828b6dd27681b1509a762109aa20964",
+      "bytes": 508,
+      "sha256": "087144061ff342c77b4dbabb10d734a42036bffae0dcebcaf4b5961b7bef4ea1",
+      "anchors": [
+        {
+          "line": 3,
+          "text": "exec 2>&1"
+        },
+        {
+          "line": 11,
+          "text": "wait_file /var/lib/ryoku/update-pending.json \"${RYOKU_WAIT_PENDING:-10}\" || exec sv down ."
+        },
+        {
+          "line": 19,
+          "text": "exec sv down ."
+        }
+      ]
+    },
+    {
+      "source": "void/packages/srcpkgs/ryoku-desktop/INSTALL",
+      "git_mode": "100755",
+      "git_blob": "ec297db22031b04d4bc7e3c25e83e90a5aa109b3",
+      "bytes": 2220,
+      "sha256": "3a322d326666129238422983374b4d2aed4ead7d44bcd95624ae55792eb951d7",
+      "anchors": [
+        {
+          "line": 50,
+          "text": "\t\tif [ \"${RYOKU_MANAGED_UPDATE:-0}\" != 1 ] &&"
+        },
+        {
+          "line": 67,
+          "text": "\t\tif [ \"${RYOKU_MANAGED_UPDATE:-0}\" != 1 ]; then"
+        },
+        {
+          "line": 57,
+          "text": "\t\tif [ -x /usr/bin/ryoku-polkit-reload ] &&"
+        },
+        {
+          "line": 58,
+          "text": "\t\t   ! /usr/bin/ryoku-polkit-reload; then"
+        },
+        {
+          "line": 64,
+          "text": "\t\t\tRYOKU_HOST_INIT=runit /usr/bin/ryoku-host svc reconcile --system >/dev/null 2>&1 || true"
+        },
+        {
+          "line": 25,
+          "text": "\t\t\tsv restart /etc/sv/bluetoothd >/dev/null 2>&1 || true"
+        }
+      ]
+    },
+    {
+      "source": "void/packages/srcpkgs/ryoku-desktop/REMOVE",
+      "git_mode": "100755",
+      "git_blob": "5086214126d0d6f5db6690fac52330ce6ecc4187",
+      "bytes": 1334,
+      "sha256": "0acc37193b62ecfd91f0273009bd3c6fc1abdbdec35cdb007445ac392141ca60",
+      "anchors": [
+        {
+          "line": 19,
+          "text": "remove_service_link() {"
+        },
+        {
+          "line": 41,
+          "text": "\t\t\tremove_service_link \"$name\""
+        },
+        {
+          "line": 44,
+          "text": "\t\t\t/var/lib/ryoku/update-pending.json"
+        }
+      ]
+    },
+    {
+      "source": "void/packages/repo/build-repo.sh",
+      "git_mode": "100755",
+      "git_blob": "75c8484ac9def47ae937f6aa588bc526351d28e3",
+      "bytes": 13171,
+      "sha256": "7df3f40d1d380153c0e18e43c47ce419921802a461eda0b1ae127032fc653c89",
+      "anchors": [
+        {
+          "line": 34,
+          "text": "\t[[ -n $KEY ]] || die \"production builds require RYOKU_XBPS_KEY\""
+        },
+        {
+          "line": 27,
+          "text": "for command in cmp git tar zstd sha256sum xbps-rindex; do"
+        },
+        {
+          "line": 151,
+          "text": "\t\tXBPS_TARGET_ARCH=$ARCH xbps-rindex --add \"${host_packages[@]}\""
+        },
+        {
+          "line": 328,
+          "text": "XBPS_TARGET_ARCH=$ARCH xbps-rindex --add \"${packages[@]}\""
+        },
+        {
+          "line": 16,
+          "text": "SOURCE_ARCHIVE=${RYOKU_XBPS_SOURCE_ARCHIVE:-}"
+        },
+        {
+          "line": 51,
+          "text": "if [[ -z $SOURCE_ARCHIVE && ${RYOKU_XBPS_WORKTREE:-0} == 1 ]]; then"
+        },
+        {
+          "line": 187,
+          "text": "elif [[ -n $SOURCE_ARCHIVE ]]; then"
+        },
+        {
+          "line": 27,
+          "text": "for command in cmp git tar zstd sha256sum xbps-rindex; do"
+        },
+        {
+          "line": 67,
+          "text": "\tsource_hash=$(sha256sum \"$canonical_archive\" | awk '{print $1}')"
+        },
+        {
+          "line": 195,
+          "text": "archive_sha=$(sha256sum \"$archive\" | awk '{print $1}')"
+        }
+      ]
+    },
+    {
+      "source": "void/packages/repo/container-runner.sh",
+      "git_mode": "100755",
+      "git_blob": "95b1bba9a6f8cd2bc2e7b83794a7413095fdba63",
+      "bytes": 7349,
+      "sha256": "b6be5940e5cfdefc0fd5e7d032a621d15171be6115cd494c23b2425143ce5f65",
+      "anchors": [
+        {
+          "line": 125,
+          "text": "\trun+=( -v \"$(cd \"$(dirname \"$RYOKU_XBPS_KEY\")\" && pwd -P)/$(basename \"$RYOKU_XBPS_KEY\"):/run/ryoku-private.pem:ro\" )"
+        },
+        {
+          "line": 6,
+          "text": "ENGINE=${RYOKU_CONTAINER_ENGINE:-docker}"
+        },
+        {
+          "line": 112,
+          "text": "\t-e \"RYOKU_XBPS_SOURCE_ARCHIVE=/run/ryoku-source.tar.gz\""
+        },
+        {
+          "line": 170,
+          "text": "\t\tRYOKU_XBPS_SOURCE_ARCHIVE=\"$RYOKU_XBPS_SOURCE_ARCHIVE\" \\"
+        }
+      ]
+    },
+    {
+      "source": "void/packages/repo/new-signing-key",
+      "git_mode": "100755",
+      "git_blob": "febade9c3ad95a9d0ec5853779e024b4f565f5aa",
+      "bytes": 2820,
+      "sha256": "9c6de3d082b95784e801497b475038147c82195b0b5352c3b14d23d26b5680b8",
+      "anchors": [
+        {
+          "line": 27,
+          "text": "\tssh-keygen -q -t rsa -b 4096 -m PEM -f \"$private_key\""
+        },
+        {
+          "line": 36,
+          "text": "\topenssl pkey -in \"$private_key\" -passin env:XBPS_PASSPHRASE -pubout -out \"$work/public.pem\""
+        },
+        {
+          "line": 38,
+          "text": "\topenssl pkey -in \"$private_key\" -pubout -out \"$work/public.pem\""
+        }
+      ]
+    },
+    {
+      "source": "void/iso/build.sh",
+      "git_mode": "100755",
+      "git_blob": "0eac464a93623c8105a7322895462c421b7132bf",
+      "bytes": 11088,
+      "sha256": "a6a4f41be2a289f89a7c12c20a4050348250dc74f3fa539c1483f9731da2e8cb",
+      "anchors": [
+        {
+          "line": 227,
+          "text": "xbps-install -Suy xbps >/dev/null"
+        },
+        {
+          "line": 228,
+          "text": "xbps-install -y bash curl ca-certificates patch tar xz lzo kmod outils dosfstools e2fsprogs xorriso >/dev/null"
+        },
+        {
+          "line": 249,
+          "text": "XBPS_ARCH=x86_64 xbps-install \\"
+        },
+        {
+          "line": 230,
+          "text": "mount -t tmpfs -o size=64g,mode=0755 ryoku-verify /verify"
+        },
+        {
+          "line": 189,
+          "text": "\t-e RYOKU_ISO_ROOT_REPO=/spool/offline-repo"
+        },
+        {
+          "line": 234,
+          "text": "rm -rf /spool/offline-repo /spool/offline-work /spool/keys"
+        },
+        {
+          "line": 235,
+          "text": "mkdir -p /spool/offline-repo /spool/keys"
+        }
+      ]
+    },
+    {
+      "source": "void/iso/backend/ryoku-install",
+      "git_mode": "100755",
+      "git_blob": "9679f707c5baf74fd9c9f6f1725e7254433fdc5a",
+      "bytes": 7332,
+      "sha256": "b1bd70663fcf8508c2648b53d391bfbc2e681789897738d81aeec21510c4773f",
+      "anchors": [
+        {
+          "line": 7,
+          "text": "SHARED_LIB_DIR=${RYOKU_SHARED_BACKEND_LIB:-$BACKEND_DIR/shared}"
+        },
+        {
+          "line": 8,
+          "text": "if [[ ! -d $SHARED_LIB_DIR ]]; then"
+        },
+        {
+          "line": 11,
+          "text": "    SHARED_LIB_DIR=$source_checkout/installation/backend/lib"
+        },
+        {
+          "line": 30,
+          "text": "# shellcheck source=installation/backend/lib/disk.sh"
+        },
+        {
+          "line": 31,
+          "text": "source \"$SHARED_LIB_DIR/disk.sh\""
+        },
+        {
+          "line": 34,
+          "text": "# shellcheck source=installation/backend/lib/luks.sh"
+        },
+        {
+          "line": 35,
+          "text": "source \"$SHARED_LIB_DIR/luks.sh\""
+        },
+        {
+          "line": 36,
+          "text": "# shellcheck source=installation/backend/lib/filesystem.sh"
+        },
+        {
+          "line": 37,
+          "text": "source \"$SHARED_LIB_DIR/filesystem.sh\""
+        }
+      ]
+    },
+    {
+      "source": "void/iso/backend/lib/base.sh",
+      "git_mode": "100755",
+      "git_blob": "ca80ed442b35550d5d258d8ed169adf2e3636802",
+      "bytes": 1719,
+      "sha256": "8356c58e636cf25e81282c9aa932a03521eab703fc3ef32b8faf458a7173b25d",
+      "anchors": [
+        {
+          "line": 41,
+          "text": "  run env XBPS_ARCH=x86_64 xbps-install -r /mnt -R \"$RYOKU_OFFLINE_REPO\" -i -Sy \"${packages[@]}\""
+        }
+      ]
+    },
+    {
+      "source": "void/iso/backend/lib/bootloader.sh",
+      "git_mode": "100755",
+      "git_blob": "c0b8a5f0438e0a2a07c406c423312a40f54d6b35",
+      "bytes": 6049,
+      "sha256": "cf9b0299c897b7ec403dea0b46cb770556bfc07ef31f54567e40c0123e209186",
+      "anchors": [
+        {
+          "line": 60,
+          "text": "    chroot /mnt \"$hook\"; then"
+        },
+        {
+          "line": 65,
+          "text": "    bios) void_install_limine_bios ;;"
+        },
+        {
+          "line": 66,
+          "text": "    uefi) void_install_limine_uefi ;;"
+        },
+        {
+          "line": 133,
+          "text": "void_install_limine_uefi() {"
+        }
+      ]
+    },
+    {
+      "source": "void/iso/backend/lib/configure.sh",
+      "git_mode": "100755",
+      "git_blob": "920d93b630f0a85b2067185ca283056dc63ee4e6",
+      "bytes": 1978,
+      "sha256": "0dd5884738ce6ce35d9b9483997e0c7bf60cab6f0ad43d33364a27c333cbafb5",
+      "anchors": [
+        {
+          "line": 25,
+          "text": "  run_sh \"if grep -q '^KEYMAP=' /mnt/etc/rc.conf; then sed -i 's|^KEYMAP=.*|KEYMAP=$RYOKU_KEYMAP|' /mnt/etc/rc.conf; else printf '\\\\nKEYMAP=%s\\\\n' '$RYOKU_KEYMAP' >> /mnt/etc/rc.conf; fi\""
+        },
+        {
+          "line": 20,
+          "text": "  void_chroot xbps-reconfigure -f glibc-locales"
+        },
+        {
+          "line": 49,
+          "text": "  void_chroot hwclock --systohc || true"
+        }
+      ]
+    },
+    {
+      "source": "void/iso/backend/lib/deploy.sh",
+      "git_mode": "100755",
+      "git_blob": "d290997ee48f55893e577cc3775a31a9a88bf7b3",
+      "bytes": 6300,
+      "sha256": "55aef3a907fb5b58337f32582e5b0d1b3efa74267a81d06a5b078a7a0a527e20",
+      "anchors": [
+        {
+          "line": 33,
+          "text": "    xbps-install -r /mnt -R \"$RYOKU_OFFLINE_REPO\" -i -Sy \"${packages[@]}\""
+        },
+        {
+          "line": 81,
+          "text": "      \"RYOKU_HOST_INIT=runit\" ryoku-host session ensure --user"
+        },
+        {
+          "line": 84,
+          "text": "      \"RYOKU_HOST_INIT=runit\" ryoku-host svc reconcile --user"
+        },
+        {
+          "line": 91,
+          "text": "  run chroot /mnt env RYOKU_HOST_INIT=runit ryoku-host session ensure --system"
+        }
+      ]
+    },
+    {
+      "source": "void/iso/backend/lib/snapshots.sh",
+      "git_mode": "100755",
+      "git_blob": "336722a96f198649ee69f44e5a86778820c03cdf",
+      "bytes": 1168,
+      "sha256": "4ca0fa60aa99c70578f3ddfa7643c8f8dc8701071d019c91950a80e75c0d8e3c",
+      "anchors": [
+        {
+          "line": 35,
+          "text": "  void_snapshot_service snapper-cleanup"
+        },
+        {
+          "line": 36,
+          "text": "  void_snapshot_service limine-snapper-sync"
+        }
+      ]
+    },
+    {
+      "source": "nix/README.md",
+      "git_mode": "100644",
+      "git_blob": "d940e08d9b9ab1c0f180d9413536e2bb8bc4f53d",
+      "bytes": 870,
+      "sha256": "f0c9e743b11c1da4d3d753105589494d128dbb8a2531c880dd9ea774128ff1fc",
+      "anchors": [
+        {
+          "line": 8,
+          "text": "This is the **initial packaging extraction**, not a validated release. The"
+        },
+        {
+          "line": 6,
+          "text": "hardware policy and update workflow remain in `Ryoku-dev/Ryoku-on-NixOS`."
+        }
+      ]
+    },
+    {
+      "source": "flake.nix",
+      "git_mode": "100644",
+      "git_blob": "6bfe497e000d64bdc2b8a8ff1802dad0eb246528",
+      "bytes": 3126,
+      "sha256": "7bcb6e0c95c51e61338f8c15f8ceaf5e7715a2cb477f14a9631e73551aaf8dbb",
+      "anchors": [
+        {
+          "line": 7,
+          "text": "    nixpkgs.url = \"github:NixOS/nixpkgs/56c02bc00adcf003215cc4bd996d6efaf4cff188\";"
+        },
+        {
+          "line": 48,
+          "text": "              url = \"https://github.com/quickshell-mirror/quickshell/commit/851ab0eac6bdfa9201a1a50e7bc3a6d29af25949.patch\";"
+        },
+        {
+          "line": 66,
+          "text": "      ryokuSource = builtins.path {"
+        },
+        {
+          "line": 78,
+          "text": "              || builtins.elem relative [ \"flake.nix\" \"flake.lock\" ]);"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-desktop-data.nix",
+      "git_mode": "100644",
+      "git_blob": "281bba040bc683acb43001a0323f3febb561d877",
+      "bytes": 23773,
+      "sha256": "11ea953d39af09fe32e53f1b4e89bfb08170ae61fe7f6a3f8b97da174284863e",
+      "anchors": [
+        {
+          "line": 44,
+          "text": "    # Qt QML modules are exposed through the system profile on NixOS."
+        },
+        {
+          "line": 94,
+          "text": "      echo \"phone QML still calls a bare python3\" >&2"
+        },
+        {
+          "line": 438,
+          "text": "    # Upstream iNiR is developed on FHS distributions and many QML Process{}"
+        },
+        {
+          "line": 48,
+          "text": "        'os.getenv(\"HOME\") .. \"/.local/lib/qt6/qml:/run/current-system/sw/lib/qt-6/qml\"'"
+        },
+        {
+          "line": 521,
+          "text": "    rewrite_runtime_path '/usr/share/applications' '/run/current-system/sw/share/applications'"
+        },
+        {
+          "line": 522,
+          "text": "    rewrite_runtime_path '/usr/share/icons' '/run/current-system/sw/share/icons'"
+        },
+        {
+          "line": 45,
+          "text": "    substituteInPlace \"$cfg/hypr/modules/env.lua\" \\"
+        },
+        {
+          "line": 58,
+          "text": "    substituteInPlace \"$cfg/hypr/modules/autostart.lua\" \\"
+        },
+        {
+          "line": 63,
+          "text": "    substituteInPlace \"$cfg/niri/autostart.kdl\" \\"
+        },
+        {
+          "line": 272,
+          "text": "    # through nix/modules/ryoku.nix. Do not materialize upstream"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-shell.nix",
+      "git_mode": "100644",
+      "git_blob": "1016999e92d69e1e9621a9bd16197682a2c24cee",
+      "bytes": 1485,
+      "sha256": "0c7e49e56f6a190dbc78ab3097207e32251def04deabb0bd67bab905a27eda3a",
+      "anchors": [
+        {
+          "line": 29,
+          "text": "        'var polkitHelperPath = \"/usr/lib/polkit-1/polkit-agent-helper-1\"' \\"
+        },
+        {
+          "line": 30,
+          "text": "        'var polkitHelperPath = \"${polkitOut}/lib/polkit-1/polkit-agent-helper-1\"'"
+        },
+        {
+          "line": 22,
+          "text": "    test -x \\"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-cli.nix",
+      "git_mode": "100644",
+      "git_blob": "aea0cd1c3ef9badb01853166baaf3a3ce1c89da8",
+      "bytes": 1924,
+      "sha256": "435d5c95e074af7aa304bb895a124f935156f2bc5044d22a3ac15afda09340e2",
+      "anchors": [
+        {
+          "line": 66,
+          "text": "      --set RYOKU_HOST_PLATFORM nixos"
+        },
+        {
+          "line": 74,
+          "text": "      --set RYOKU_UPDATE_BACKEND nix \\"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-rashin.nix",
+      "git_mode": "100644",
+      "git_blob": "da370410035b2998e3ff7b4e29180204f0e7d506",
+      "bytes": 2133,
+      "sha256": "3c6da37dfaf50fd056edb43be771bd1b704a81ff18015d5950b5c50950bc660f",
+      "anchors": [
+        {
+          "line": 48,
+          "text": "      -mod=vendor \\"
+        },
+        {
+          "line": 54,
+          "text": "      repo-index \\"
+        },
+        {
+          "line": 89,
+          "text": "      --set RYOKU_PACKAGE_BACKEND nix \\"
+        },
+        {
+          "line": 90,
+          "text": "      --set RYOKU_RASHIN_NIXOS 1 \\"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-ryogami.nix",
+      "git_mode": "100644",
+      "git_blob": "a1acbbe0b6510261dd32c6a7e142cf08841e58af",
+      "bytes": 5238,
+      "sha256": "d601195861649b954df84e6189bfefaae163a7140b21c26812846bedb1dbe372",
+      "anchors": [
+        {
+          "line": 18,
+          "text": "    pkgs.ffmpeg"
+        },
+        {
+          "line": 173,
+          "text": "      picker/LICENSE \\"
+        },
+        {
+          "line": 174,
+          "text": "      \"$out/share/licenses/ryogami/LICENSE\""
+        },
+        {
+          "line": 177,
+          "text": "      picker/NOTICE \\"
+        },
+        {
+          "line": 178,
+          "text": "      \"$out/share/licenses/ryogami/NOTICE\""
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/ryoku-ryostore.nix",
+      "git_mode": "100644",
+      "git_blob": "aa828fa1e20a57fa27299fd38fcda572d9f0803d",
+      "bytes": 794,
+      "sha256": "35a2889350c7b13b3f460b6ec6cbbe58eb2ab5fadf2cb31cead64c8dc125ddb7",
+      "anchors": [
+        {
+          "line": 7,
+          "text": "  src = src + \"/ryoku/apps/ryostore/backend\";"
+        },
+        {
+          "line": 20,
+          "text": "    go build \\"
+        },
+        {
+          "line": 21,
+          "text": "      -trimpath \\"
+        }
+      ]
+    },
+    {
+      "source": "nix/packages/default.nix",
+      "git_mode": "100644",
+      "git_blob": "d7b48134d3183d56b60bd861664a65dc6419a126",
+      "bytes": 6714,
+      "sha256": "5ecabae5c4452bed3d354bd8bda2d7d0dbed764b32bfe1c6dfaf63f0f4bff242",
+      "anchors": [
+        {
+          "line": 41,
+          "text": "      ../patches/niri-output-layer-cleanup.patch"
+        },
+        {
+          "line": 264,
+          "text": "  bundle = pkgs.symlinkJoin {"
+        }
+      ]
+    }
+  ],
+  "init_translation_source": {
+    "source": "void/init/translations.tsv",
+    "git_mode": "100644",
+    "git_blob": "453a7d36aee20f65c2092d2401eee2e8c8cb709a",
+    "bytes": 6134,
+    "sha256": "1bfc513a64bdcc1d70456937a575b29cf5620112dd2a72f5c3d3a124413aa045"
+  },
+  "init_translations": [
+    {
+      "source": "ryoku/shell/systemd/user/ryoku-shell.service",
+      "verdict": "translated",
+      "translation": "void/init/user/ryoku-shell",
+      "notes": "ExecStartPre/Post and ExecStop move into run/finish; StartLimitBurst is an accepted loss (doctor-side detection instead); KillMode=process is natural under runsv",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 3
+    },
+    {
+      "source": "ryoku/shell/systemd/user/ryogami.service",
+      "verdict": "translated",
+      "translation": "void/init/user/ryogami",
+      "notes": "same StartLimitBurst loss; MALLOC_CONF exported in run",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 2
+    },
+    {
+      "source": "ryoku/shell/systemd/user/ryoku-idle.service",
+      "verdict": "translated",
+      "translation": "void/init/user/ryoku-idle",
+      "notes": "Restart=on-failure becomes a finish script (exit 0 parks, non-zero restarts)",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 3
+    },
+    {
+      "source": "ryoku/shell/systemd/user/ryoku-clamshell.service",
+      "verdict": "translated",
+      "translation": "void/init/user/ryoku-clamshell",
+      "notes": "same on-failure finish translation; TimeoutStopSec has no runit analogue (sv down waits for the run child)",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 3
+    },
+    {
+      "source": "ryoku/shell/systemd/user/ryoku-eq.service",
+      "verdict": "translated",
+      "translation": "void/init/user/ryoku-eq",
+      "notes": "PartOf=pipewire becomes a dbus-name wait plus finish downs the service when pipewire is gone",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 3
+    },
+    {
+      "source": "ryoku/shell/systemd/user/ryoku-bt-agent.service",
+      "verdict": "translated",
+      "translation": "void/init/user/ryoku-bt-agent",
+      "notes": "After/Wants/PartOf=bluetooth becomes a dbus-name wait for org.freedesktop.DBus plus a bluetoothd readiness check; the tail -f stdin hold is kept",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 3
+    },
+    {
+      "source": "ryoku/rashin/systemd/ryoku-ai-usage.service",
+      "verdict": "translated",
+      "translation": "void/init/user/ryoku-ai-usage",
+      "notes": "loop service: the timer's schedule becomes a run loop with env-overridable delays",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 2
+    },
+    {
+      "source": "ryoku/rashin/systemd/ryoku-ai-usage.timer",
+      "verdict": "translated",
+      "translation": "void/init/user/ryoku-ai-usage",
+      "notes": "OnBootSec/OnUnitActiveSec/Persistent fold into the loop service above; runit has no timer units",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 2
+    },
+    {
+      "source": "ryoku/shell/systemd/user/ryoku-bootstrap.service",
+      "verdict": "translated",
+      "translation": "void/init/user/ryoku-bootstrap",
+      "notes": "oneshot: run does the work then exec sv down; ConditionPathExists markers kept; the session entrypoint restarts it before the rest of the user-service roster",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 3
+    },
+    {
+      "source": "ryoku/shell/systemd/user/ryoku-session.target",
+      "verdict": "translated",
+      "translation": "system/services/manifest.tsv",
+      "notes": "runit has no targets; session activation rows define the ordered roster that ryoku-host writes for each user",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 1
+    },
+    {
+      "source": "ryoku/shell/systemd/user/niri.service.d/ryoku-bootstrap.conf",
+      "verdict": "translated",
+      "translation": "void/init/user/ryoku-bootstrap",
+      "notes": "the drop-in's Wants/After=ryoku-bootstrap is folded into the roster ordering, where bootstrap runs first",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 3
+    },
+    {
+      "source": "ryoku/shell/systemd/user/xdg-desktop-portal-gnome.service.d/10-ryoku.conf",
+      "verdict": "accepted-loss",
+      "translation": "-",
+      "notes": "UnsetEnvironment=GDK_BACKEND is a systemd drop-in on a foreign unit; Void portals are D-Bus activated and do not use this user-manager drop-in",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 0
+    },
+    {
+      "source": "ryoku/shell/systemd/user-environment-generators/60-ryoku-xdg-dirs",
+      "verdict": "translated",
+      "translation": "void/init/env/xdg-dirs",
+      "notes": "environment-generator protocol replaced by a Turnstile envdir renderer",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 1
+    },
+    {
+      "source": "ryoku/shell/environment.d/ryoku-session.conf",
+      "verdict": "translated",
+      "translation": "void/init/env/environment-d",
+      "notes": "the user manager's environment.d reader becomes a profile.d hook (/etc/profile.d/ryoku-environment-d.sh) that SDDM's session script sources before the compositor; command substitution, quotes and backslashes are rejected because the hook runs in every login shell",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 1
+    },
+    {
+      "source": "ryoku/rashin/systemd/ryoku-rashin.service",
+      "verdict": "translated",
+      "translation": "void/init/user/ryoku-rashin",
+      "notes": "StartLimitIntervalSec=0 (retry forever) is runit's default; NoNewPrivileges has no runit analogue (accepted loss, the daemon drops its own privileges)",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 3
+    },
+    {
+      "source": "ryoku/rashin/systemd/ryoku-prowl.service",
+      "verdict": "translated",
+      "translation": "void/init/user/ryoku-prowl",
+      "notes": "BindsTo=ryoku-rashin becomes finish-side down propagation in ryoku-rashin's finish",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 3
+    },
+    {
+      "source": "ryoku/palette-bridge/packaging/systemd/ryoku-palette-bridge.service",
+      "verdict": "translated",
+      "translation": "void/init/user/ryoku-palette-bridge",
+      "notes": "After=graphical-session becomes a WAYLAND_DISPLAY wait; user service (the systemd original is per-user despite living under packaging/)",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 3
+    },
+    {
+      "source": "/usr/lib/systemd/user/voxtype.service",
+      "verdict": "translated",
+      "translation": "void/init/user/voxtype",
+      "notes": "graphical-session and PipeWire ordering become bounded waits; Restart=on-failure becomes a finish script and the service stays on demand",
+      "source_in_pinned_tree": false,
+      "translation_tree_entries": 3
+    },
+    {
+      "source": "ryoku/cli/systemd/ryoku-boot-guard.service",
+      "verdict": "translated",
+      "translation": "void/init/system/ryoku-boot-guard",
+      "notes": "DefaultDependencies=no plus After=local-fs/network: runit stage 2 already implies local-fs; the network wait stays (nm-online inside boot-guard itself); Before=display-manager has no runit analogue (accepted loss: runit starts sddm in parallel, the guard is idempotent)",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 3
+    },
+    {
+      "source": "ryoku/lockscreen/sddm/ryoku-greeter-guard.service",
+      "verdict": "translated",
+      "translation": "void/init/system/ryoku-greeter-guard",
+      "notes": "After=display-manager has no runit analogue; the guard acts only once the sddm daemon is running, so starting beside it is equivalent",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 2
+    },
+    {
+      "source": "ryoku/cli/systemd/ryoku.tmpfiles.conf",
+      "verdict": "translated",
+      "translation": "void/init/system/ryoku-var-state",
+      "notes": "oneshot service that creates the /var/lib/ryoku tree with the same modes; Void has no tmpfiles.d",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 2
+    },
+    {
+      "source": "/usr/lib/systemd/system/snapper-cleanup.timer",
+      "verdict": "translated",
+      "translation": "void/init/system/snapper-cleanup",
+      "notes": "OnBootSec=10min and OnUnitActiveSec=1d become a loop around Void snapper's packaged cron cleanup",
+      "source_in_pinned_tree": false,
+      "translation_tree_entries": 1
+    },
+    {
+      "source": "system/hardware/network/ryoku-network-kill-guard.service",
+      "verdict": "translated",
+      "translation": "void/init/system/ryoku-network-kill-guard",
+      "notes": "Before=network-pre/NetworkManager has no runit analogue; the guard runs as early as stage 2 allows and the residual race is recorded (firewall up before NM's first interface bind in practice)",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 2
+    },
+    {
+      "source": "system/hardware/network/ryoku-network-kill-disconnect.service",
+      "verdict": "translated",
+      "translation": "void/init/system/ryoku-network-kill-disconnect",
+      "notes": "Requires=guard becomes a wait on the guard's parked supervise state; WantedBy=NetworkManager.service is dropped (runit has no wants)",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 2
+    },
+    {
+      "source": "system/hardware/bluetooth/ryoku-bluetooth-reset.service",
+      "verdict": "translated",
+      "translation": "void/init/user/ryoku-bluetooth-reset",
+      "notes": "the shared reset helper selects sv restart bluetoothd on runit, then restores the user's saved radio state; Void lacks systemd-rfkill boot restore, so the state is restored at session start",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 3
+    },
+    {
+      "source": "system/hardware/bluetooth/54-ryoku-bluetooth-a2dp.rules",
+      "verdict": "accepted-loss",
+      "translation": "-",
+      "notes": "org.freedesktop.systemd1.manage-units does not exist under runit; the Void path restarts bluetoothd via sv as root from the session wrapper, no polkit grant needed",
+      "source_in_pinned_tree": true,
+      "translation_tree_entries": 0
+    },
+    {
+      "source": "installation/iso/airootfs/etc/systemd/system/*",
+      "verdict": "accepted-loss",
+      "translation": "-",
+      "notes": "archiso live-image units (pacman-init, firstboot, timesyncd, getty, NetworkManager); the Void ISO has its own runit live-image service set",
+      "source_in_pinned_tree": false,
+      "translation_tree_entries": 0
+    }
+  ],
+  "package_translation_source": {
+    "source": "void/packages/translations.tsv",
+    "git_mode": "100644",
+    "git_blob": "9c508f33fd94150d67f888d41d47e0e76ce5e29d",
+    "bytes": 12358,
+    "sha256": "c9e32a3f1e139915689b1bb48b371e51220d6c4b5c7604cb415683e8dfaa192e"
+  },
+  "package_translation_counts": {
+    "rows": 300,
+    "unmapped_target_rows": 37
+  },
+  "flake_lock_source": {
+    "source": "flake.lock",
+    "git_mode": "100644",
+    "git_blob": "a33a99f535a069046315d5ca9b92e91ed228b03f",
+    "bytes": 4266,
+    "sha256": "5519254abf2d12d7d7d5456a19e3bfa7181685ac37500f4878102d43ff36baef"
+  },
+  "flake_lock": {
+    "nodes": {
+      "bibataMaterialSrc": {
+        "flake": false,
+        "locked": {
+          "lastModified": 1738046050,
+          "narHash": "sha256-p36pHyoVOcDPm/tbk8YKsL+ItTaVKrGTfQ8zp022mGA=",
+          "owner": "rtgiskard",
+          "repo": "bibata_cursor",
+          "rev": "f4ccfe8abb63fddc7b3ce51a866fd8378395cb3d",
+          "type": "github"
+        },
+        "original": {
+          "owner": "rtgiskard",
+          "repo": "bibata_cursor",
+          "rev": "f4ccfe8abb63fddc7b3ce51a866fd8378395cb3d",
+          "type": "github"
+        }
+      },
+      "hyprglassSrc": {
+        "flake": false,
+        "locked": {
+          "lastModified": 1784579282,
+          "narHash": "sha256-x/584kY+XXlU/OWKtZAFo89VtowjLXs1DiP9PC0o0Os=",
+          "owner": "hyprnux",
+          "repo": "hyprglass",
+          "rev": "5bc835dcc909cef6980291688143048cf16942b5",
+          "type": "github"
+        },
+        "original": {
+          "owner": "hyprnux",
+          "ref": "v0.7.0",
+          "repo": "hyprglass",
+          "type": "github"
+        }
+      },
+      "imgbordersSrc": {
+        "flake": false,
+        "locked": {
+          "lastModified": 1786876215,
+          "narHash": "sha256-O+896T2qrisxiWTotB5HlzKw8XEJqPDTgSUHAAVUD18=",
+          "ref": "master",
+          "rev": "08be22236144d3c91607bcfa955ed0d457f4f50b",
+          "revCount": 76,
+          "type": "git",
+          "url": "https://codeberg.org/zacoons/imgborders.git"
+        },
+        "original": {
+          "ref": "master",
+          "type": "git",
+          "url": "https://codeberg.org/zacoons/imgborders.git"
+        }
+      },
+      "nixpkgs": {
+        "locked": {
+          "lastModified": 1787498568,
+          "narHash": "sha256-9i/VTdusq/+NM/tz+J1Re+ojkMB8MBf0QshnYfzHz30=",
+          "owner": "NixOS",
+          "repo": "nixpkgs",
+          "rev": "56c02bc00adcf003215cc4bd996d6efaf4cff188",
+          "type": "github"
+        },
+        "original": {
+          "owner": "NixOS",
+          "repo": "nixpkgs",
+          "rev": "56c02bc00adcf003215cc4bd996d6efaf4cff188",
+          "type": "github"
+        }
+      },
+      "nixpkgs_2": {
+        "locked": {
+          "lastModified": 1787736819,
+          "narHash": "sha256-cV5xEJJK3BvhU8rEd4mC9UsmDi5qscv/kzGPhBRC5WA=",
+          "owner": "NixOS",
+          "repo": "nixpkgs",
+          "rev": "9fbb54b33e91ee4ca368e35a78e0613c720600b3",
+          "type": "github"
+        },
+        "original": {
+          "owner": "NixOS",
+          "ref": "nixos-unstable",
+          "repo": "nixpkgs",
+          "type": "github"
+        }
+      },
+      "root": {
+        "inputs": {
+          "bibataMaterialSrc": "bibataMaterialSrc",
+          "hyprglassSrc": "hyprglassSrc",
+          "imgbordersSrc": "imgbordersSrc",
+          "nixpkgs": "nixpkgs",
+          "ryomanagerSrc": "ryomanagerSrc",
+          "ryotunesSrc": "ryotunesSrc",
+          "skwdWall": "skwdWall"
+        }
+      },
+      "ryomanagerSrc": {
+        "flake": false,
+        "locked": {
+          "lastModified": 1792184455,
+          "narHash": "sha256-69+vyEh4V/YqqAGNScnjA0I92qdSyxHeQJqcNIbgMMg=",
+          "owner": "aethctl",
+          "repo": "ryomanager",
+          "rev": "459c6714e31276f73025369e722cf4ab48eccbc3",
+          "type": "github"
+        },
+        "original": {
+          "owner": "aethctl",
+          "repo": "ryomanager",
+          "rev": "459c6714e31276f73025369e722cf4ab48eccbc3",
+          "type": "github"
+        }
+      },
+      "ryotunesSrc": {
+        "flake": false,
+        "locked": {
+          "lastModified": 1791950985,
+          "narHash": "sha256-pFguZ3ZSQ7DLI9wDukjhUklt54jUOc6mEn5XBVpsolY=",
+          "owner": "Ryoku-dev",
+          "repo": "ryotunes",
+          "rev": "ade86b744651b908f3946b6769853e5084a59ce1",
+          "type": "github"
+        },
+        "original": {
+          "owner": "Ryoku-dev",
+          "repo": "ryotunes",
+          "rev": "ade86b744651b908f3946b6769853e5084a59ce1",
+          "type": "github"
+        }
+      },
+      "skwdWall": {
+        "inputs": {
+          "nixpkgs": "nixpkgs_2"
+        },
+        "locked": {
+          "lastModified": 1792102654,
+          "narHash": "sha256-dNISNxw7+ehLeaA+XBJzUjV24ik6Oibce6C0RxzzZns=",
+          "owner": "liixini",
+          "repo": "skwd-wall",
+          "rev": "d9142ad9e23bf33390e3fea38a5ce45a6fc286da",
+          "type": "github"
+        },
+        "original": {
+          "owner": "liixini",
+          "ref": "nix",
+          "repo": "skwd-wall",
+          "type": "github"
+        }
+      }
+    },
+    "root": "root",
+    "version": 7
+  },
+  "supporting_source_identities": [
+    {
+      "source": "system/packages/resolve",
+      "git_mode": "100755",
+      "git_blob": "bdc89c41720660e3bc7e724b433ab187c3bd2611",
+      "bytes": 4723,
+      "sha256": "0bd179464f854ce45d479307926b432305b24e5c0917d1223ee5a42fe300ed25"
+    },
+    {
+      "source": "system/services/manifest.tsv",
+      "git_mode": "100644",
+      "git_blob": "5f2024ada988ace064fe03479f504a4fa7f4184d",
+      "bytes": 3061,
+      "sha256": "082e8c9ee65355d2999f96726bc7edf745ab0da23b24c4ed87201d5ab6adfd07"
+    },
+    {
+      "source": "release/packages/ryoku-desktop/payload.sh",
+      "git_mode": "100755",
+      "git_blob": "40c2c8132974f0e392f59386b835faedba4d63a1",
+      "bytes": 36129,
+      "sha256": "9ec2410cd8def8ae8fb2b8f27c37e8644c7de36ce401e06c469014053c2a4678"
+    },
+    {
+      "source": "installation/backend/lib/disk.sh",
+      "git_mode": "100755",
+      "git_blob": "b8eeab68af2e62aef5674d462d73959723a0749b",
+      "bytes": 51249,
+      "sha256": "e729166cba210729f1b64e625b51d49a0fbf4fb8f3e10234427881e81ba8622c"
+    },
+    {
+      "source": "installation/backend/lib/luks.sh",
+      "git_mode": "100755",
+      "git_blob": "86265ccf8b32029b714838d039db91d6ffa9c960",
+      "bytes": 2059,
+      "sha256": "8629cebc0711bdea7b30ce80f0df7d331a2837b40ef1fdb37a37fd23c51a7389"
+    },
+    {
+      "source": "installation/backend/lib/filesystem.sh",
+      "git_mode": "100755",
+      "git_blob": "625a1b98d36dbb7edcf012494936efb467579bdd",
+      "bytes": 7335,
+      "sha256": "e5cc95783c130e0d2e66166cd5649b315ed3b829ddc5b9f15c649acdf34d8782"
+    },
+    {
+      "source": "LICENSE",
+      "git_mode": "100644",
+      "git_blob": "f288702d2fa16d3cdf0035b15a9fcbc552cd88e7",
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "source": "NOTICE",
+      "git_mode": "100644",
+      "git_blob": "6e769a5f3828f5eee0a39a160e04d6c11e9b9295",
+      "bytes": 9105,
+      "sha256": "fa40700e93a3621ae793193a2f3ec16f21375afc85a319325ea4b95148878c24"
+    }
+  ],
+  "unknowns": [
+    "Raw declarations/candidates are not evaluated shell/Nix syntax or resolved transitive dependencies.",
+    "Flake locked rev/narHash and template checksums are pinned declarations, not independently fetched-content or publisher-trust validation.",
+    "Edition accepted-loss and omitted package rows do not remove Tumbleweed target features; native equivalents remain owned work.",
+    "Per-asset/transitive license and native lifecycle/authorization/checkpoint acceptance remain open."
+  ]
+}

@@ -21,6 +21,16 @@ const PACKAGES: &[&str] = &[
 ];
 const FILE_QUERY: &str =
     "[%{FILENAMES:json}\t%{FILEMODES}\t%{FILEUSERNAME:json}\t%{FILEGROUPNAME:json}\t%{FILECAPS}\n]";
+const PICKER_LICENSES: &[&str] = &[
+    "ryogami-picker-LICENSE",
+    "ryogami-picker-NOTICE",
+    "ryogami-picker-RobotoCondensed-LICENSE-Apache-2.0.txt",
+    "ryogami-picker-SymbolsNerdFont-LICENSE-MIT.txt",
+];
+const INIR_FONT_LICENSES: &[&str] =
+    &["inir-inter-OFL-1.1.txt", "inir-montserrat-OFL-1.1.txt", "inir-rubik-OFL-1.1.txt"];
+const WAVECAPTURE_COMMANDS: &[(&str, &str)] =
+    &[("pactl", "pulseaudio-utils"), ("pw-record", "pipewire-tools")];
 
 fn require(condition: bool, message: &str) -> Result<()> {
     if condition { Ok(()) } else { Err(message.into()) }
@@ -99,22 +109,121 @@ fn main() {
     }
 }
 
+fn provided_capability_name(line: &str) -> Option<&str> {
+    let fields: Vec<_> = line.split_whitespace().collect();
+    match fields.as_slice() {
+        [name] | [name, "=", _] => Some(name),
+        _ => None,
+    }
+}
+
 fn qml_imports(requires: &str, provides: &BTreeSet<String>) -> Result<()> {
-    for required in
-        ["qt6qmlimport(QtQuick)", "qt6qmlimport(QtMultimedia)", "qt6qmlimport(Quickshell)"]
-    {
+    // These selected v1.0 consumers must survive native RPM dependency scanning.
+    // An ELF SONAME or similarly named module cannot stand in for a QML import.
+    for module in [
+        "QtQuick",
+        "QtMultimedia",
+        "Quickshell",
+        "QtQuick3D",
+        "Qt.labs.platform",
+        "QtQuick.Controls.Material",
+        "QtQuick.Window",
+        "QtQuick.Dialogs",
+        "Quickshell.Services.SystemTray",
+        "Quickshell.Services.UPower",
+        "Ryoku.Blobs",
+        // The pinned consumer explicitly imports 1.0; qml.req encodes its major.
+        "Ryoku.Spatial3D.1",
+    ] {
+        let required = format!("qt6qmlimport({module})");
         require(
             requires.lines().any(|line| line == required),
-            "Qt6 import scanner output is absent or incomplete",
+            &format!("Qt6 import scanner output omits retained v1.0 module: {module}"),
         )?;
     }
+    let provider_names: BTreeSet<_> =
+        provides.iter().filter_map(|line| provided_capability_name(line)).collect();
     for line in requires.lines() {
         if ["qt6qmlimport(Quickshell", "qt6qmlimport(Ryoku.", "qt6qmlimport(shell."]
             .iter()
             .any(|prefix| line.starts_with(prefix))
         {
-            require(provides.contains(line), &format!("unresolved internal QML import: {line}"))?;
+            require(
+                line.split_whitespace().count() == 1,
+                "constrained internal QML import requires separate native solver validation",
+            )?;
+            require(
+                provider_names.contains(line),
+                &format!("unresolved internal QML import: {line}"),
+            )?;
         }
+    }
+    Ok(())
+}
+
+fn native_modules(records: &[FileRecord]) -> Result<()> {
+    for (module, target) in [("Blobs", "ryoku-blobs"), ("Spatial3D", "ryoku-spatial3d")] {
+        for name in [
+            "qmldir".to_owned(),
+            format!("{target}.qmltypes"),
+            format!("lib{target}.so"),
+            format!("lib{target}plugin.so"),
+        ] {
+            let path = format!("/usr/lib64/qt6/qml/Ryoku/{module}/{name}");
+            let mut matches = records.iter().filter(|record| record.path == path);
+            require(
+                matches.next().is_some_and(|record| record.mode & 0o170000 == 0o100000)
+                    && matches.next().is_none(),
+                &format!("missing, non-regular or ambiguous native module payload: {path}"),
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn component_licenses(records: &[FileRecord]) -> Result<()> {
+    for name in PICKER_LICENSES.iter().chain(INIR_FONT_LICENSES) {
+        let mut matching = records.iter().filter(|record| {
+            let path = Path::new(&record.path);
+            path.starts_with("/usr/share/licenses/ryoku-desktop-runtime")
+                && path.file_name().is_some_and(|value| value == *name)
+        });
+        require(
+            matching.next().is_some_and(|record| record.mode & 0o170000 == 0o100000)
+                && matching.next().is_none(),
+            &format!("missing or ambiguous installed component license: {name}"),
+        )?;
+    }
+    Ok(())
+}
+
+fn runtime_license(license: &str) -> Result<()> {
+    for required in ["GPL-3.0-or-later", "OFL-1.1"] {
+        require(
+            license.split_whitespace().any(|term| term == required),
+            &format!("runtime license omits the pinned component identity: {required}"),
+        )?;
+    }
+    Ok(())
+}
+
+fn wavecapture_requires(requires: &str) -> Result<()> {
+    for (_, package) in WAVECAPTURE_COMMANDS {
+        require(
+            requires.lines().any(|line| line.split_whitespace().next() == Some(*package)),
+            &format!("runtime omits WaveCapture command provider: {package}"),
+        )?;
+    }
+    Ok(())
+}
+
+fn retained_runtime_requires(requires: &str) -> Result<()> {
+    wavecapture_requires(requires)?;
+    for package in ["cava", "upower"] {
+        require(
+            requires.lines().any(|line| line.split_whitespace().next() == Some(package)),
+            &format!("runtime omits retained command/system-bus provider: {package}"),
+        )?;
     }
     Ok(())
 }
@@ -147,7 +256,15 @@ fn run() -> Result<()> {
     for (name, path) in &packages {
         let identity = query(path, &["--qf", "%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n"])?;
         let inventory = query(path, &["--qf", FILE_QUERY])?;
-        insert_paths(name, &files(&inventory)?, &mut owners)?;
+        let records = files(&inventory)?;
+        if name == "ryoku-desktop-runtime" {
+            native_modules(&records)?;
+            component_licenses(&records)?;
+            let license = query(path, &["--qf", "%{LICENSE}\n"])?;
+            runtime_license(&license)?;
+            evidence.insert("ryoku-desktop-runtime-license.txt".into(), license);
+        }
+        insert_paths(name, &records, &mut owners)?;
         let scripts = query(path, &["--scripts", "--triggers", "--filetriggers"])?;
         require(scripts.trim().is_empty(), "project RPM contains a scriptlet or trigger")?;
         evidence.insert(format!("{name}-identity.txt"), identity);
@@ -162,6 +279,7 @@ fn run() -> Result<()> {
         .flat_map(|(_, value)| value.lines().map(str::to_owned))
         .collect();
     qml_imports(&evidence["ryoku-desktop-runtime-requires.txt"], &provides)?;
+    retained_runtime_requires(&evidence["ryoku-desktop-runtime-requires.txt"])?;
     fs::create_dir(&output)?;
     for (name, bytes) in evidence {
         fs::write(output.join(name), bytes)?;
@@ -183,16 +301,611 @@ mod tests {
     }
 
     #[test]
-    fn qml_metadata_rejects_silent_scanner_failure_and_missing_internal_providers() {
-        let required = "qt6qmlimport(QtQuick)\nqt6qmlimport(QtMultimedia)\nqt6qmlimport(Quickshell)\nqt6qmlimport(Ryoku.Ui.Singletons)\n";
-        let mut provided = BTreeSet::from(["qt6qmlimport(Quickshell)".into()]);
-        assert!(qml_imports("libQt6Qml.so.6()(64bit)\n", &provided).is_err());
-        assert!(qml_imports(required, &provided).is_err());
-        provided.insert("qt6qmlimport(Ryoku.Ui.Singletons)".into());
+    fn native_modules_require_both_complete_regular_file_sets() {
+        // Explicit expected output paths, independent of the validator's construction.
+        let paths = [
+            "/usr/lib64/qt6/qml/Ryoku/Blobs/qmldir",
+            "/usr/lib64/qt6/qml/Ryoku/Blobs/ryoku-blobs.qmltypes",
+            "/usr/lib64/qt6/qml/Ryoku/Blobs/libryoku-blobs.so",
+            "/usr/lib64/qt6/qml/Ryoku/Blobs/libryoku-blobsplugin.so",
+            "/usr/lib64/qt6/qml/Ryoku/Spatial3D/qmldir",
+            "/usr/lib64/qt6/qml/Ryoku/Spatial3D/ryoku-spatial3d.qmltypes",
+            "/usr/lib64/qt6/qml/Ryoku/Spatial3D/libryoku-spatial3d.so",
+            "/usr/lib64/qt6/qml/Ryoku/Spatial3D/libryoku-spatial3dplugin.so",
+        ];
+        let contract: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/native-module-install-contract.json"
+        ))
+        .unwrap();
+        assert_eq!(contract["expected_runtime_regular_files"], serde_json::json!(paths));
+        let source = &contract["source"];
+        let manifest =
+            include_str!("../../../upstream/evidence/ryoku-v1.0/runtime-source-manifest.tsv");
+        assert!(manifest.lines().any(|line| {
+            let fields: Vec<_> = line.split('\t').collect();
+            fields[0] == source["Source2_payload"].as_str().unwrap()
+                && fields[1] == source["path"].as_str().unwrap()
+                && fields[2] == source["git_blob"].as_str().unwrap()
+                && fields[3] == "644"
+        }));
+        let spec = include_str!("../../../packaging/rpm/ryoku-desktop.spec");
+        for anchor in contract["recipe"]["anchors"].as_array().unwrap() {
+            assert!(spec.contains(anchor.as_str().unwrap()));
+        }
+        let inventory: String = paths.iter().map(|path| row(path, 0o100644)).collect();
+        assert!(native_modules(&files(&inventory).unwrap()).is_ok());
+        for index in 0..paths.len() {
+            let mut records = files(&inventory).unwrap();
+            records.remove(index);
+            assert!(native_modules(&records).is_err(), "{}", paths[index]);
+            for mode in [0o120777, 0o040755] {
+                let mut records = files(&inventory).unwrap();
+                records[index].mode = mode;
+                assert!(native_modules(&records).is_err());
+            }
+            let mut records = files(&inventory).unwrap();
+            records[index].path.push_str(".lookalike");
+            assert!(native_modules(&records).is_err());
+            let mut records = files(&inventory).unwrap();
+            records.push(FileRecord { path: paths[index].into(), mode: 0o100644 });
+            assert!(native_modules(&records).is_err());
+        }
+        let historical = files(include_str!(
+            "../../../infra/tumbleweed-lab/evidence/issue23-native-20261021/runtime-manifests/ryoku-desktop-runtime-files.tsv"
+        ))
+        .unwrap();
+        for path in paths.iter().take(4) {
+            assert!(historical.iter().any(|record| record.path == *path));
+        }
+        assert!(native_modules(&historical).is_err());
+    }
+
+    #[test]
+    fn component_license_inventory_rejects_missing_links_wrong_locations_and_duplicates() {
+        let inventory: String = PICKER_LICENSES
+            .iter()
+            .chain(INIR_FONT_LICENSES)
+            .map(|name| {
+                row(
+                    &format!("/usr/share/licenses/ryoku-desktop-runtime/ryoku-v1.0/{name}"),
+                    0o100644,
+                )
+            })
+            .collect();
+        let records = files(&inventory).unwrap();
+        assert!(component_licenses(&records).is_ok());
+        for index in 0..(PICKER_LICENSES.len() + INIR_FONT_LICENSES.len()) {
+            let mut records = files(&inventory).unwrap();
+            records.remove(index);
+            assert!(component_licenses(&records).is_err());
+        }
+        let mut records = files(&inventory).unwrap();
+        records[0].mode = 0o120777;
+        assert!(component_licenses(&records).is_err());
+        records[0].mode = 0o100644;
+        records[0].path = "/usr/share/doc/ryogami-picker-LICENSE".into();
+        assert!(component_licenses(&records).is_err());
+        let mut records = files(&inventory).unwrap();
+        records.push(FileRecord {
+            path: "/usr/share/licenses/ryoku-desktop-runtime/other/ryogami-picker-LICENSE".into(),
+            mode: 0o100644,
+        });
+        assert!(component_licenses(&records).is_err());
+        records.last_mut().unwrap().mode = 0o120777;
+        assert!(component_licenses(&records).is_err());
+    }
+
+    #[test]
+    fn picker_license_copies_match_pinned_source_and_selected_writer_inputs() {
+        use sha2::{Digest, Sha256};
+
+        let evidence: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/picker-license-provenance.json"
+        ))
+        .unwrap();
+        let selected: BTreeMap<_, _> =
+            include_str!("../../../upstream/evidence/ryoku-v1.0/writer-source-manifest.tsv")
+                .lines()
+                .skip(1)
+                .map(|line| {
+                    let fields: Vec<_> = line.split('\t').collect();
+                    (fields[0], (fields[1], fields[2]))
+                })
+                .collect();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let copies = evidence["license_copies"].as_array().unwrap();
+        assert_eq!(copies.len(), PICKER_LICENSES.len());
+        let mut basenames = BTreeSet::new();
+        for entry in copies {
+            let source = entry["source"].as_str().unwrap();
+            let blob = entry["git_blob"].as_str().unwrap();
+            assert_eq!(selected.get(source), Some(&(blob, "644")));
+            assert_eq!(entry["git_mode"], "100644");
+            let copy = root.join(entry["package_copy"].as_str().unwrap());
+            assert!(fs::symlink_metadata(&copy).unwrap().is_file());
+            let bytes = fs::read(copy).unwrap();
+            assert_eq!(u64::try_from(bytes.len()).unwrap(), entry["bytes"].as_u64().unwrap());
+            assert_eq!(format!("{:x}", Sha256::digest(bytes)), entry["sha256"]);
+            basenames.insert(entry["installed_basename"].as_str().unwrap());
+        }
+        assert_eq!(basenames, PICKER_LICENSES.iter().copied().collect());
+        let fonts = evidence["embedded_fonts"].as_array().unwrap();
+        let embedded: BTreeSet<_> =
+            fonts.iter().map(|font| font["source"].as_str().unwrap()).collect();
+        let selected_fonts = selected
+            .keys()
+            .copied()
+            .filter(|source| {
+                source.starts_with("ryoku/shell/ryogami/picker/qml/theme/fonts/")
+                    && source.ends_with(".ttf")
+            })
+            .collect();
+        assert_eq!(embedded, selected_fonts);
+        for font in fonts {
+            assert_eq!(
+                selected.get(font["source"].as_str().unwrap()),
+                Some(&(font["git_blob"].as_str().unwrap(), "644"))
+            );
+            assert!(copies.iter().any(|copy| copy["source"] == font["license_source"]));
+        }
+        let spec = include_str!("../../../packaging/rpm/ryoku-desktop.spec");
+        assert!(spec.contains("%license packaging/licenses/ryoku-v1.0/\n"));
+        assert!(!spec.contains("%license upstream-writers/ryoku/shell/ryogami/picker/"));
+    }
+
+    #[test]
+    fn inir_font_license_copies_cover_every_selected_family_and_font() {
+        use sha2::{Digest, Sha256};
+
+        let evidence: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/inir-font-license-provenance.json"
+        ))
+        .unwrap();
+        let selected: BTreeMap<_, _> =
+            include_str!("../../../upstream/evidence/ryoku-v1.0/writer-source-manifest.tsv")
+                .lines()
+                .skip(1)
+                .map(|line| {
+                    let fields: Vec<_> = line.split('\t').collect();
+                    (fields[0], (fields[1], fields[2]))
+                })
+                .collect();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let families = evidence["families"].as_array().unwrap();
+        assert_eq!(families.len(), INIR_FONT_LICENSES.len());
+        let mut copies = BTreeSet::new();
+        let mut fonts = BTreeSet::new();
+        for family in families {
+            assert_eq!(family["license_identity"], "OFL-1.1");
+            assert_eq!(family["git_mode"], "100644");
+            assert_eq!(
+                selected.get(family["source"].as_str().unwrap()),
+                Some(&(family["git_blob"].as_str().unwrap(), "644"))
+            );
+            let copy = root.join(family["package_copy"].as_str().unwrap());
+            assert!(fs::symlink_metadata(&copy).unwrap().is_file());
+            let bytes = fs::read(&copy).unwrap();
+            assert_eq!(u64::try_from(bytes.len()).unwrap(), family["bytes"].as_u64().unwrap());
+            assert_eq!(format!("{:x}", Sha256::digest(&bytes)), family["sha256"]);
+            assert!(
+                String::from_utf8(bytes).unwrap().contains("SIL OPEN FONT LICENSE Version 1.1")
+            );
+            copies.insert(copy.file_name().unwrap().to_string_lossy().into_owned());
+            let directory = Path::new(family["source"].as_str().unwrap()).parent().unwrap();
+            for font in family["fonts"].as_array().unwrap() {
+                let source = font["source"].as_str().unwrap();
+                assert_eq!(Path::new(source).parent(), Some(directory));
+                assert_eq!(font["git_mode"], "100644");
+                assert_eq!(
+                    selected.get(source),
+                    Some(&(font["git_blob"].as_str().unwrap(), "644"))
+                );
+                assert!(fonts.insert(source));
+            }
+        }
+        assert_eq!(copies, INIR_FONT_LICENSES.iter().map(|name| (*name).to_owned()).collect());
+        assert_eq!(fonts.len(), 22);
+        assert_eq!(
+            fonts,
+            selected
+                .keys()
+                .copied()
+                .filter(|source| {
+                    source.starts_with("ryoku/shell/quickshell/inir/assets/fonts/")
+                        && source.ends_with(".ttf")
+                })
+                .collect()
+        );
+    }
+
+    #[test]
+    fn runtime_license_requires_picker_and_inir_font_identities() {
+        assert!(runtime_license("GPL-3.0-only AND GPL-3.0-or-later AND OFL-1.1").is_ok());
+        for missing in ["GPL-3.0-or-later", "OFL-1.1", "GPL-3.0-or-later AND OFL-1.10"] {
+            assert!(runtime_license(missing).is_err());
+        }
+        let spec = include_str!("../../../packaging/rpm/ryoku-desktop.spec");
+        let runtime = spec.split("%package runtime\n").nth(1).unwrap();
+        let license = runtime.lines().find_map(|line| line.strip_prefix("License:")).unwrap();
+        assert!(runtime_license(license).is_ok());
+    }
+
+    #[test]
+    fn wavecapture_process_commands_match_signed_primary_files_and_rpm_requirements() {
+        use sha2::{Digest, Sha256};
+
+        assert!(wavecapture_requires("pulseaudio-utils\npipewire-tools\n").is_ok());
+        for missing in
+            ["pulseaudio-utils\n", "pipewire-tools\n", "pulseaudio-utils-devel\npipewire-tools\n"]
+        {
+            assert!(wavecapture_requires(missing).is_err());
+        }
+        let evidence: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/wavecapture-providers.json"
+        ))
+        .unwrap();
+        let source = &evidence["source"];
+        assert_eq!(source["path"], "ryoku/shell/plugin/wavecapture.cpp");
+        let source_row = format!(
+            "{}\t{}\t{}\t644",
+            source["source2_payload"].as_str().unwrap(),
+            source["path"].as_str().unwrap(),
+            source["git_blob"].as_str().unwrap()
+        );
+        assert!(
+            include_str!("../../../upstream/evidence/ryoku-v1.0/runtime-source-manifest.tsv")
+                .lines()
+                .any(|line| line == source_row)
+        );
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let packages = evidence["packages"].as_array().unwrap();
+        let fragments: BTreeMap<_, _> = packages
+            .iter()
+            .map(|package| {
+                let fragment = fs::read(root.join(package["fragment"].as_str().unwrap())).unwrap();
+                assert_eq!(
+                    u64::try_from(fragment.len()).unwrap(),
+                    package["fragment_bytes"].as_u64().unwrap()
+                );
+                assert_eq!(format!("{:x}", Sha256::digest(&fragment)), package["fragment_sha256"]);
+                let fragment = String::from_utf8(fragment).unwrap();
+                let name = package["name"].as_str().unwrap();
+                assert!(fragment.contains(&format!("<name>{name}</name>")));
+                assert!(fragment.contains(package["rpm_checksum"].as_str().unwrap()));
+                (name, fragment)
+            })
+            .collect();
+        assert_eq!(fragments.len(), 3);
+        assert_eq!(
+            format!(
+                "{:x}",
+                Sha256::digest(include_bytes!("../../../upstream/evidence/ryoku-v1.0/repomd.xml"))
+            ),
+            evidence["repository"]["repomd_sha256"]
+        );
+        let spec = include_str!("../../../packaging/rpm/ryoku-desktop.spec");
+        let requires: String = spec
+            .lines()
+            .filter_map(|line| line.strip_prefix("Requires:"))
+            .map(|line| format!("{}\n", line.trim()))
+            .collect();
+        assert!(wavecapture_requires(&requires).is_ok());
+        for (command, package) in WAVECAPTURE_COMMANDS {
+            let package = packages.iter().find(|entry| entry["name"] == *package).unwrap();
+            let binary = format!("/usr/bin/{command}");
+            assert_eq!(package["binary"], binary);
+            assert!(
+                package["primary_files"].as_array().unwrap().iter().any(|file| file == &binary)
+            );
+            let fragment = &fragments[package["name"].as_str().unwrap()];
+            assert!(fragment.contains(&format!("<file>{binary}</file>")));
+            assert!(
+                fragment.contains(&format!("<name>{}</name>", package["name"].as_str().unwrap()))
+            );
+            assert!(source["command_anchors"].as_array().unwrap().iter().any(|anchor| {
+                anchor["source_text"]
+                    .as_str()
+                    .unwrap()
+                    .contains(&format!("QStringLiteral(\"{command}\")"))
+            }));
+        }
+        let pulse = packages.iter().find(|entry| entry["name"] == "pipewire-pulseaudio").unwrap();
+        for (field, name) in [("provides", "pulseaudio-daemon"), ("requires", "pulseaudio-utils")] {
+            assert!(pulse[field].as_array().unwrap().iter().any(|entry| entry["name"] == name));
+        }
+        assert!(
+            pulse["conflicts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["name"] == "pulseaudio")
+        );
+    }
+
+    #[test]
+    fn retained_cava_upower_consumers_require_exact_signed_package_names() {
+        use sha2::{Digest, Sha256};
+
+        let complete = "pulseaudio-utils\npipewire-tools\ncava\nupower\n";
+        assert!(retained_runtime_requires(complete).is_ok());
+        for package in ["cava", "upower"] {
+            let missing = complete.replace(&format!("{package}\n"), "");
+            assert!(retained_runtime_requires(&missing).is_err());
+            assert!(retained_runtime_requires(&format!("{missing}{package}-devel\n")).is_err());
+        }
+        let evidence: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/cava-upower-providers.json"
+        ))
+        .unwrap();
+        let packages = evidence["packages"].as_array().unwrap();
+        assert_eq!(packages.len(), 2);
+        for (name, binary) in [("cava", "/usr/bin/cava"), ("upower", "/usr/bin/upower")] {
+            let package = packages.iter().find(|package| package["name"] == name).unwrap();
+            assert!(package["files"].as_array().unwrap().iter().any(|file| file == binary));
+            let xml = package["raw_primary_xml"].as_str().unwrap();
+            assert!(xml.contains(&format!("<name>{name}</name>")));
+            assert!(xml.contains(&format!("<file>{binary}</file>")));
+            assert_eq!(
+                format!("{:x}", Sha256::digest(xml.as_bytes())),
+                package["raw_primary_sha256"]
+            );
+        }
+        let writer =
+            include_str!("../../../upstream/evidence/ryoku-v1.0/writer-source-manifest.tsv");
+        let runtime_sources =
+            include_str!("../../../upstream/evidence/ryoku-v1.0/runtime-source-manifest.tsv");
+        for source in evidence["source_consumers"].as_array().unwrap() {
+            let in_writer = source["source3_selected"].as_bool().unwrap();
+            let payload = source["source2_payload"].as_str();
+            assert!(in_writer || payload.is_some());
+            if in_writer {
+                let prefix = format!(
+                    "{}\t{}\t",
+                    source["source"].as_str().unwrap(),
+                    source["git_blob"].as_str().unwrap()
+                );
+                assert!(writer.lines().any(|line| line.starts_with(&prefix)));
+            }
+            if let Some(payload) = payload {
+                let prefix = format!(
+                    "{payload}\t{}\t{}\t",
+                    source["source"].as_str().unwrap(),
+                    source["git_blob"].as_str().unwrap()
+                );
+                assert!(runtime_sources.lines().any(|line| line.starts_with(&prefix)));
+            }
+        }
+        let quickshell: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/quickshell-systemtray-source.json"
+        ))
+        .unwrap();
+        assert_eq!(evidence["quickshell"]["archive_sha256"], quickshell["archive_sha256"]);
+        assert_eq!(evidence["quickshell"]["module"], "Quickshell.Services.UPower");
+        let spec = include_str!("../../../packaging/rpm/ryoku-desktop.spec");
+        let runtime = spec.split_once("%package runtime\n").unwrap().1;
+        let runtime = runtime.split_once("%description runtime\n").unwrap().0;
+        let requires: String = runtime
+            .lines()
+            .filter_map(|line| line.strip_prefix("Requires:"))
+            .map(|line| format!("{}\n", line.trim()))
+            .collect();
+        assert!(retained_runtime_requires(&requires).is_ok());
+        assert!(!requires.lines().any(|line| {
+            matches!(line.split_whitespace().next(), Some("power-profiles-daemon" | "ppd-service"))
+        }));
+        assert_eq!(evidence["power_profile_choice"]["spec_requirement_added"], false);
+    }
+
+    #[test]
+    fn qml_metadata_requires_the_major_source_delta_and_exact_internal_providers() {
+        // This independent candidate fixture includes the new 1.0 imports,
+        // plus a pre-existing private singleton.
+        let required = "qt6qmlimport(QtQuick)\nqt6qmlimport(QtMultimedia)\nqt6qmlimport(Quickshell)\nqt6qmlimport(QtQuick3D)\nqt6qmlimport(Qt.labs.platform)\nqt6qmlimport(QtQuick.Controls.Material)\nqt6qmlimport(QtQuick.Window)\nqt6qmlimport(QtQuick.Dialogs)\nqt6qmlimport(Quickshell.Services.SystemTray)\nqt6qmlimport(Quickshell.Services.UPower)\nqt6qmlimport(Ryoku.Blobs)\nqt6qmlimport(Ryoku.Spatial3D.1)\nqt6qmlimport(Ryoku.Ui.Singletons)\n";
+        let provided: BTreeSet<String> = required
+            .lines()
+            .filter(|line| {
+                line.starts_with("qt6qmlimport(Quickshell")
+                    || line.starts_with("qt6qmlimport(Ryoku.")
+            })
+            .map(|line| {
+                if line == "qt6qmlimport(Ryoku.Spatial3D.1)" {
+                    format!("{line} = 0")
+                } else {
+                    line.to_owned()
+                }
+            })
+            .collect();
         assert!(qml_imports(required, &provided).is_ok());
+        assert!(qml_imports("libQt6Qml.so.6()(64bit)\n", &provided).is_err());
+        // Historical native success cannot satisfy the 1.0 import gate.
+        let historical = include_str!(
+            "../../../infra/tumbleweed-lab/evidence/issue23-native-20261021/runtime-manifests/ryoku-desktop-runtime-requires.txt"
+        );
+        assert!(qml_imports(historical, &provided).is_err());
+        let imports = include_str!("../../../upstream/evidence/ryoku-v1.0/qml-import-names.txt");
+        let scanner: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/qml-import-scanner.json"
+        ))
+        .unwrap();
+        for capability in required.lines().take(12) {
+            let module =
+                capability.strip_prefix("qt6qmlimport(").unwrap().strip_suffix(')').unwrap();
+            let uri = if module == "Ryoku.Spatial3D.1" { "Ryoku.Spatial3D" } else { module };
+            assert!(imports.lines().any(|name| name == uri), "{uri}");
+            assert!(scanner.as_array().unwrap().iter().any(|entry| {
+                entry["name"] == uri && (uri != "Ryoku.Spatial3D" || entry["version"] == "1.0")
+            }));
+            let missing = required.replace(&format!("{capability}\n"), "");
+            assert!(qml_imports(&missing, &provided).is_err(), "{capability}");
+            for substitute in
+                [format!("{capability}.lookalike"), format!("lib{module}.so.6()(64bit)")]
+            {
+                assert!(qml_imports(&format!("{missing}{substitute}\n"), &provided).is_err());
+            }
+        }
+        for capability in &provided {
+            let mut missing = provided.clone();
+            missing.remove(capability);
+            assert!(qml_imports(required, &missing).is_err(), "{capability}");
+            let name = capability.split_whitespace().next().unwrap();
+            missing.insert(format!("{name}.lookalike"));
+            assert!(qml_imports(required, &missing).is_err(), "{capability}");
+        }
+        let mut wrong_abi = provided.clone();
+        wrong_abi.remove("qt6qmlimport(Ryoku.Spatial3D.1) = 0");
+        wrong_abi.insert("qt6qmlimport(Ryoku.Spatial3D.2) = 0".into());
+        assert!(qml_imports(required, &wrong_abi).is_err());
         assert!(
             qml_imports(&format!("{required}qt6qmlimport(shell.unknown)\n"), &provided).is_err()
         );
+    }
+
+    #[test]
+    fn exact_native_major_import_matches_versioned_provide_without_dropping_abi() {
+        let required = include_str!("../../tests/fixtures/issue173-runtime-requires.txt");
+        let provided: BTreeSet<_> =
+            include_str!("../../tests/fixtures/issue173-candidate-provides.txt")
+                .lines()
+                .map(str::to_owned)
+                .collect();
+        assert!(required.lines().any(|line| line == "qt6qmlimport(Ryoku.Spatial3D.1)"));
+        assert!(provided.contains("qt6qmlimport(Ryoku.Spatial3D.1) = 0"));
+        // Preserve the original failing native header fixture. It also exposes
+        // the two private namespaces omitted by the original RPM metadata.
+        assert!(qml_imports(required, &provided).is_err());
+        let evidence: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/private-qml-providers.json"
+        ))
+        .unwrap();
+        let mut provided = provided;
+        for module in evidence["modules"].as_array().unwrap() {
+            provided.insert(format!("qt6qmlimport({})", module["uri"].as_str().unwrap()));
+        }
+        assert!(qml_imports(required, &provided).is_ok());
+        let mut bad = provided.clone();
+        bad.remove("qt6qmlimport(Ryoku.Spatial3D.1) = 0");
+        assert!(qml_imports(required, &bad).is_err());
+        bad.insert("qt6qmlimport(Ryoku.Spatial3D.2) = 0".into());
+        assert!(qml_imports(required, &bad).is_err());
+        bad.remove("qt6qmlimport(Ryoku.Spatial3D.2) = 0");
+        bad.insert("qt6qmlimport(Ryoku.Spatial3D.1) >= 0".into());
+        assert!(qml_imports(required, &bad).is_err());
+        assert!(
+            qml_imports(&format!("{required}qt6qmlimport(shell.future) >= 1\n"), &provided)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn private_shell_provides_match_pinned_selected_qmldirs_and_runtime_subpackage() {
+        use sha2::{Digest, Sha256};
+        let evidence: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../upstream/evidence/ryoku-v1.0/private-qml-providers.json"
+        ))
+        .unwrap();
+        let selected: BTreeMap<_, _> =
+            include_str!("../../../upstream/evidence/ryoku-v1.0/writer-source-manifest.tsv")
+                .lines()
+                .skip(1)
+                .map(|line| {
+                    let fields: Vec<_> = line.split('\t').collect();
+                    (fields[0], (fields[1], fields[2]))
+                })
+                .collect();
+        let spec = include_str!("../../../packaging/rpm/ryoku-desktop.spec");
+        let runtime = spec
+            .split("%package runtime")
+            .nth(1)
+            .unwrap()
+            .split("%description runtime")
+            .next()
+            .unwrap();
+        let provided: BTreeSet<_> = runtime
+            .lines()
+            .filter_map(|line| line.strip_prefix("Provides:"))
+            .map(str::trim)
+            .collect();
+        for module in evidence["modules"].as_array().unwrap() {
+            let path = module["source"].as_str().unwrap();
+            assert_eq!(selected[path], (module["git_blob"].as_str().unwrap(), "644"));
+            let qmldir = module["qmldir"].as_str().unwrap();
+            assert_eq!(
+                qmldir.lines().next().unwrap(),
+                format!("module {}", module["uri"].as_str().unwrap())
+            );
+            assert_eq!(format!("{:x}", Sha256::digest(qmldir.as_bytes())), module["sha256"]);
+            assert!(
+                provided.contains(
+                    format!("qt6qmlimport({})", module["uri"].as_str().unwrap()).as_str()
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn parsed_selected_quickshell_modules_have_real_static_rpm_providers() {
+        let imports: BTreeSet<_> =
+            include_str!("../../../upstream/evidence/ryoku-v1.0/qml-import-names.txt")
+                .lines()
+                .filter(|name| name.starts_with("Quickshell"))
+                .map(|name| format!("qt6qmlimport({name})"))
+                .collect();
+        let spec = include_str!("../../../packaging/rpm/ryoku-quickshell.spec");
+        let provided: BTreeSet<_> = spec
+            .lines()
+            .filter_map(|line| line.strip_prefix("Provides:"))
+            .map(str::trim)
+            .filter(|name| name.starts_with("qt6qmlimport(Quickshell"))
+            .map(str::to_owned)
+            .collect();
+        assert_eq!(imports, provided);
+        assert!(spec.lines().any(|line| {
+            line.strip_prefix("Release:").is_some_and(|value| value.trim() == "3%{?dist}")
+        }));
+        assert!(include_str!("../../../packaging/rpm/ryoku-desktop.spec").lines().any(|line| {
+            line.strip_prefix("Requires:")
+                .is_some_and(|value| value.trim() == "ryoku-quickshell = 0.3.2-3")
+        }));
+    }
+
+    #[test]
+    #[ignore = "requires native rpmspec; verifies parsed spec metadata, not a built RPM"]
+    fn native_spec_parser_preserves_runtime_contracts() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../packaging/rpm");
+        for (file, query, expected) in [
+            ("ryoku-quickshell.spec", "--provides", "qt6qmlimport(Quickshell.Services.SystemTray)"),
+            ("ryoku-quickshell.spec", "--provides", "ryoku-quickshell = 0.3.2-3"),
+            ("ryoku-desktop.spec", "--requires", "ryoku-quickshell = 0.3.2-3"),
+        ] {
+            let output = Command::new("rpmspec")
+                .args(["-q", "--rpms", query])
+                .arg(root.join(file))
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+            assert!(
+                String::from_utf8(output.stdout).unwrap().lines().any(|line| line == expected),
+                "{file}: {expected}"
+            );
+        }
+        let output = Command::new("rpmspec")
+            .args(["-q", "--rpms", "--qf", "%{NAME}\t%{LICENSE}\n"])
+            .arg(root.join("ryoku-desktop.spec"))
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        let metadata = String::from_utf8(output.stdout).unwrap();
+        let mut licenses =
+            metadata.lines().filter_map(|line| line.strip_prefix("ryoku-desktop-runtime\t"));
+        assert!(runtime_license(licenses.next().unwrap()).is_ok());
+        assert!(licenses.next().is_none());
+        let output = Command::new("rpmspec")
+            .args(["-q", "--rpms", "--requires"])
+            .arg(root.join("ryoku-desktop.spec"))
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        assert!(retained_runtime_requires(&String::from_utf8(output.stdout).unwrap()).is_ok());
     }
 
     #[test]

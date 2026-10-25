@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "project_base_commit": "024fcb42ffe1a0239e263dd26f6bc3e327ded858",
+  "completion_scope": "Issue173 acceptance-note/roadmap documentation row only; public #25/#26/#1 notes must also be linked before checking it.",
+  "operational_acceptance_claimed": false,
+  "upstream_revision": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "upstream_tree": "06b2962f82f43118c3a98372c2a4b435b689b725",
+  "input_sha256": {
+    "docs/ryoku-v1.0-acceptance-gates.md": "63885484d56f5e22e32be7519c79eb7e647d7b8ff6ac0edaa6812c57a4521129",
+    "docs/ryoku-v1.0-source-review.md": "2e950dd59564310ebcc3e63dac5367d42010bbb6308aaf27d870914d80d52636",
+    "packaging/rpm/README.md": "32fecb15ab7e28f15342d743eace70965dd398076bd364c14ad44fbb13269473",
+    "upstream/ryoku.source.toml": "56cf8a56393c207a0cc5878f0a5b66ad259545ba254a14b1e603f3fb2ae5390f",
+    "upstream/ryoku-runtime.toml": "81fd4b1fac52dc099ac605f48672a3e01e6027191b0b8b18a195b2725bb336b2",
+    "upstream/evidence/ryoku-v1.0/export.json": "9123754b9f674d3796c02f8de258993fadba3dec4112cedf7d4d9f92863163e8",
+    "packaging/rpm/ryoku-desktop.spec": "564b0ffbbff1d95601f136f51cad57d05702b22363925945769a7661c04196e9",
+    "packaging/rpm/ryoku-helper.spec": "907226609003310cb85db22f3777c8a0ea956f4b97f014b7869d207a141aa65d",
+    "packaging/rpm/ryoku-profile-defaults.spec": "511243ea00437cc74c65dc1a496fd830b711c7f62c79fd1e801418ac858d25e7",
+    "packaging/rpm/ryoku-quickshell.spec": "a3d6e291dac2bc16eec209bf0648a4d7cde07260ec8cd566bf578b0c342d2c06",
+    "packaging/rpm/ryoku-tools.spec": "82ba0f6f5ee45b2a818c9f05be4f0c2d0c9533a2110eb2a3981361fa08431937",
+    "packaging/rpm/ryoku-ui-proof.spec": "3353edb87bb85a7f829c53654009b54039d5b925749f2ac594bf3c94f9adce37"
+  },
+  "checked_current_archives": [
+    {
+      "name": "ryoku-runtime-a59d051.tar.gz",
+      "sha256": "8aeff20645c14af76f3d341e5d4e7c31923fd249f6671caa704c8b23a6c84e65",
+      "bytes": 54073125
+    },
+    {
+      "name": "ryoku-writers-a59d051.tar.xz",
+      "sha256": "387d829860ba844ad32ecdd5982678707665f3251e41bbb43c6fd6f87dc7eee0",
+      "bytes": 34625504
+    }
+  ],
+  "parsed_current_spec_metadata": [
+    {
+      "name": "ryoku-desktop",
+      "version": "0.1.0",
+      "release": "8",
+      "arch": "x86_64"
+    },
+    {
+      "name": "ryoku-desktop-runtime",
+      "version": "0.1.0",
+      "release": "8",
+      "arch": "x86_64"
+    },
+    {
+      "name": "ryoku-desktop-fonts",
+      "version": "0.1.0",
+      "release": "8",
+      "arch": "noarch"
+    },
+    {
+      "name": "ryoku-helper",
+      "version": "0.1.0",
+      "release": "8",
+      "arch": "x86_64"
+    },
+    {
+      "name": "ryoku-profile-defaults",
+      "version": "0.1.0",
+      "release": "8",
+      "arch": "noarch"
+    },
+    {
+      "name": "ryoku-quickshell",
+      "version": "0.3.2",
+      "release": "3",
+      "arch": "x86_64"
+    },
+    {
+      "name": "ryoku-tools",
+      "version": "0.1.0",
+      "release": "8",
+      "arch": "x86_64"
+    },
+    {
+      "name": "ryoku-tools-state-init",
+      "version": "0.1.0",
+      "release": "8",
+      "arch": "x86_64"
+    },
+    {
+      "name": "ryoku-tools-launcher-status",
+      "version": "0.1.0",
+      "release": "8",
+      "arch": "x86_64"
+    },
+    {
+      "name": "ryoku-ui-proof",
+      "version": "0.1.0",
+      "release": "5",
+      "arch": "x86_64"
+    }
+  ],
+  "historical_receipts": [
+    {
+      "path": "infra/tumbleweed-lab/evidence/issue23-native-acceptance-20261021.toml",
+      "sha256": "5324aaf24ec7ab6788dfce94729a4367955bc68363acb866de376f3901397d78",
+      "classification": "historical for original recorded tuple; cannot satisfy refreshed 1.0 acceptance"
+    },
+    {
+      "path": "infra/tumbleweed-lab/evidence/issue24-native-20261022/run10.txt",
+      "sha256": "28c40f8be6d6a2c11dde1d83734c5bf4df08e1199bf2e52be8883d6af7e14ed7",
+      "classification": "historical for original recorded tuple; cannot satisfy refreshed 1.0 acceptance"
+    }
+  ],
+  "checks": {
+    "current_source_archive_identity_consistency": "passed",
+    "current_specs_parsed": 6,
+    "current_package_metadata_records": 10,
+    "historical_receipt_immutability_and_tuple_mismatch": "passed",
+    "required_fresh_native_session_recovery_contract": "documented; not executed",
+    "local_links": "passed",
+    "source2_source3_manifests_unchanged": true,
+    "executable_and_specs_unchanged": true,
+    "native_vm_access_or_mutation_performed": false
+  }
+}

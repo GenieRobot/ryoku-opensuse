@@ -1,0 +1,2409 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "prior_commit": "98a0368253d9628be72b853985878a5db90e1547",
+  "project_base_commit": "e1afedf12df9c981db2e404f22dd59f82d0195fc",
+  "bounded_inventory": {
+    "complete_roots": [
+      "installation/",
+      "ryoku-shell-installer/",
+      "release/"
+    ],
+    "workflow_basename_prefixes": [
+      "build-iso",
+      "publish-repo",
+      "stable-release",
+      "testing-gate",
+      "r2-retention",
+      "install-backend-tests",
+      "install-chroot-safety",
+      "install-mirrors",
+      "install-test",
+      "unstable-version-bump"
+    ],
+    "bin_basenames": [
+      "ryoku-channel-status",
+      "ryoku-checked-pointer",
+      "ryoku-ci-gate",
+      "ryoku-dev-verify-delivery",
+      "ryoku-edition-parity",
+      "ryoku-iso-manifest",
+      "ryoku-r2-config",
+      "ryoku-recovery",
+      "ryoku-release-bump",
+      "ryoku-release-ledger",
+      "ryoku-release-notes",
+      "ryoku-release-version",
+      "ryoku-track"
+    ],
+    "docs_metadata_paths": [
+      "docs/install-without-iso.md",
+      "docs/installation-hardware.md",
+      "docs/preinstalled.md",
+      "docs/updates.md",
+      "README.md",
+      "LICENSE",
+      "NOTICE",
+      "VERSION"
+    ]
+  },
+  "scope": "Cached source identity/operation/reference review only. No upstream executable/script/workflow/publisher/installer or dry-run was executed, no remote input acquired, no native behavior accepted.",
+  "api_sources": [
+    {
+      "source": "ryoku-shell-installer/install.sh",
+      "git_mode": "100644",
+      "git_blob": "4cf50f1153b5e960d0ddf179d25493a8a92cd543",
+      "bytes": 4429,
+      "sha256": "667cbddfd7fbedfd40597b2a765d0824d1bb4b4f5f6d7ad8e44c6e8ea5559a04",
+      "anchors": [
+        {
+          "line": 17,
+          "text": "  local ref=\"${RYOKU_SHELL_REF:-main}\""
+        },
+        {
+          "line": 49,
+          "text": "    die \"unsupported distribution: Ryoku installs on Arch-based, Debian-based, Void and Fedora systems\""
+        },
+        {
+          "line": 28,
+          "text": "  [[ $(id -u) -ne 0 ]] || die \"run as your normal user, not root (sudo is used when needed)\""
+        },
+        {
+          "line": 60,
+          "text": "    sudo xbps-install -Sy curl git"
+        },
+        {
+          "line": 63,
+          "text": "    sudo \"$dnf_cmd\" install -y curl git"
+        },
+        {
+          "line": 88,
+          "text": "  (cd \"$work\" && sha256sum --check --quiet ryoku-shell-install.sha256) \\"
+        },
+        {
+          "line": 96,
+          "text": "    RYOKU_SHELL_REF=\"$ref\" \"$work/ryoku-shell-install\" \"$@\" < /dev/tty || rc=$?"
+        },
+        {
+          "line": 98,
+          "text": "    RYOKU_SHELL_REF=\"$ref\" \"$work/ryoku-shell-install\" \"$@\" || rc=$?"
+        }
+      ]
+    },
+    {
+      "source": "ryoku-shell-installer/main.go",
+      "git_mode": "100644",
+      "git_blob": "62951ce171471be66b5e4dd39b29f415ee76a748",
+      "bytes": 45232,
+      "sha256": "203d5ca43a55da6709289f7ddae059a9676792736b2a39d601d3490d543924e0",
+      "anchors": [
+        {
+          "line": 5,
+          "text": "// headless. --dry-run prints every command instead of running it."
+        },
+        {
+          "line": 1234,
+          "text": "\tuninstall := flag.Bool(\"uninstall\", false, i18n.T(\"remove the ryoku packages and restore the backup chain\"))"
+        }
+      ]
+    },
+    {
+      "source": "ryoku-shell-installer/engine.go",
+      "git_mode": "100644",
+      "git_blob": "736e4a0195dbe4f005008152297f60610fb8b6c3",
+      "bytes": 115571,
+      "sha256": "fbc1e584b575654e2c8644d4c55d84392e3faf19cbd504334b114fb3bfd879c5",
+      "anchors": [
+        {
+          "line": 664,
+          "text": "func (e *engine) cmd(dir string, env []string, name string, args ...string) error {"
+        },
+        {
+          "line": 745,
+          "text": "func (e *engine) sudoSh(script string) error {"
+        },
+        {
+          "line": 736,
+          "text": "\treturn append([]string{\"env\", \"OMARCHY_ALLOW_DIRECT_PACMAN=1\"}, args...)"
+        },
+        {
+          "line": 1076,
+          "text": "func stepPayload(e *engine) error {"
+        },
+        {
+          "line": 1167,
+          "text": "func stepBackup(e *engine) error {"
+        },
+        {
+          "line": 1663,
+          "text": "func stepRepo(e *engine) error {"
+        },
+        {
+          "line": 1924,
+          "text": "func stepPackages(e *engine) error {"
+        },
+        {
+          "line": 2380,
+          "text": "func stepSession(e *engine) error {"
+        },
+        {
+          "line": 2660,
+          "text": "func stepConfigs(e *engine) error {"
+        },
+        {
+          "line": 2799,
+          "text": "func stepAUR(e *engine) error {"
+        },
+        {
+          "line": 2863,
+          "text": "func (e *engine) writeProvisionedLedger() error {"
+        },
+        {
+          "line": 3116,
+          "text": "\tif err := e.writeProvisionedLedger(); err != nil {"
+        },
+        {
+          "line": 3115,
+          "text": "func stepPreferences(e *engine) error {"
+        },
+        {
+          "line": 3134,
+          "text": "func stepLoginShell(e *engine) error {"
+        },
+        {
+          "line": 3244,
+          "text": "func stepVerify(e *engine) error {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku-shell-installer/distro.go",
+      "git_mode": "100644",
+      "git_blob": "1c5c2b6b88736943f42f5698fc2eeb39db741863",
+      "bytes": 9639,
+      "sha256": "6ca5b4e67227392bfc9abd517302c98019c0fbcbc736dcd322e7e81cd50f3e33",
+      "anchors": [
+        {
+          "line": 49,
+          "text": "\tinstallCmd: []string{\"pacman\", \"-Syu\", \"--needed\", \"--noconfirm\"},"
+        },
+        {
+          "line": 61,
+          "text": "\tinstallCmd: []string{\"apt-get\", \"-y\", \"install\"},"
+        },
+        {
+          "line": 126,
+          "text": "\tinstallCmd:         []string{\"xbps-install\", \"-Sy\"},"
+        },
+        {
+          "line": 162,
+          "text": "func detectDistro(id, like string) *distro {"
+        },
+        {
+          "line": 134,
+          "text": "func fedoraDNFCommand() string {"
+        },
+        {
+          "line": 142,
+          "text": "\tdnf := fedoraDNFCommand()"
+        }
+      ]
+    },
+    {
+      "source": "ryoku-shell-installer/fedora_release.go",
+      "git_mode": "100644",
+      "git_blob": "10c3d1292a1dd7c8aa15be1e66ea03dccf27829a",
+      "bytes": 5003,
+      "sha256": "6c4b52b4651b70bc1c4ee535946e3d6e08d1ed33f6ea2a1b01486d2de4fc4a63",
+      "anchors": [
+        {
+          "line": 18,
+          "text": "const fedoraReleasesURL = \"https://repo.ryoku.dev/stable/fedora/releases\""
+        },
+        {
+          "line": 96,
+          "text": "\tresp, err := httpStatusOK(client, http.MethodGet, fedoraReleasesURL)"
+        },
+        {
+          "line": 159,
+          "text": "\t\treturn fmt.Errorf(i18n.T(\"Ryoku does not publish packages for Fedora %s yet. Supported releases could not be read from %s: %v\"), release, fedoraReleasesURL, listErr)"
+        },
+        {
+          "line": 142,
+          "text": "func fedoraReleaseGate(client httpDoer, ref, osReleasePath string) error {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku-shell-installer/edition.go",
+      "git_mode": "100644",
+      "git_blob": "07b806396d92694a01902b758669d66d6a9ec17e",
+      "bytes": 5720,
+      "sha256": "665b4b4a39e10fdc11256e4ae150255ff0c4a8d4bcda0d0f834a23fe646cc729",
+      "anchors": [
+        {
+          "line": 56,
+          "text": "func validateEditionChoice(kind, id string, plan editionCompositorPlan) error {"
+        },
+        {
+          "line": 72,
+          "text": "\tif err := validateEditionChoice(installerplan.Browser, overrides.browser, plan); err != nil {"
+        },
+        {
+          "line": 79,
+          "text": "\t\tif err := validateEditionChoice(installerplan.LoginShell, overrides.shell, plan); err != nil {"
+        },
+        {
+          "line": 68,
+          "text": "func validateEditionFlags(overrides planOverrides, plan editionCompositorPlan) error {"
+        },
+        {
+          "line": 91,
+          "text": "\tif err := validateComponentFlag(\"rashin\", overrides.rashin, plan); err != nil {"
+        },
+        {
+          "line": 142,
+          "text": "\tp.setComponent(\"rashin\", overrides.rashin)"
+        }
+      ]
+    },
+    {
+      "source": "ryoku-shell-installer/lifecycle.go",
+      "git_mode": "100644",
+      "git_blob": "be12ea8752e9b00abeb5ae3b5ea82efd13bf55ed",
+      "bytes": 10532,
+      "sha256": "9cfb4f01fe6256555aed72589d6bb316fb403005a8aa14f8d6bc38e18dacf82b",
+      "anchors": [
+        {
+          "line": 167,
+          "text": "func runUninstall(yes, dry bool) int {"
+        },
+        {
+          "line": 133,
+          "text": "\t\t_ = os.WriteFile(p, append(b, '\\n'), 0o644)"
+        },
+        {
+          "line": 254,
+          "text": "\t\t\tif untrust := fedoraKeyUntrustCommand(probeCommand); untrust != nil {"
+        },
+        {
+          "line": 307,
+          "text": "// fedoraKeyUntrustCommand is the command that drops the pinned Ryoku key from"
+        },
+        {
+          "line": 311,
+          "text": "func fedoraKeyUntrustCommand(probe func(string, ...string) (string, error)) []string {"
+        }
+      ]
+    },
+    {
+      "source": "installation/installerplan/plan.go",
+      "git_mode": "100644",
+      "git_blob": "768b2b0e1d9b65070481e2d15196101dfc6d0d8b",
+      "bytes": 9549,
+      "sha256": "cf47f31e57a2d82d729e17750f82e6515f2f3f78f9638639a80870241432f36b",
+      "anchors": [
+        {
+          "line": 21,
+          "text": "//go:embed choices.tsv"
+        },
+        {
+          "line": 71,
+          "text": "func parseManifest(data []byte) (definition, error) {"
+        },
+        {
+          "line": 258,
+          "text": "func ResolveEdition(data []byte) (EditionPlan, error) {"
+        },
+        {
+          "line": 333,
+          "text": "func DropPackagesFor(kind, selected string) []string {"
+        },
+        {
+          "line": 343,
+          "text": "func DropPackages(browser, shell string) []string {"
+        },
+        {
+          "line": 344,
+          "text": "\tdrop := DropPackagesFor(Browser, browser)"
+        }
+      ]
+    },
+    {
+      "source": "installation/installerplan/components.go",
+      "git_mode": "100644",
+      "git_blob": "690115827b700a1cfc7aace51613592636f10b3a",
+      "bytes": 7990,
+      "sha256": "ea7e798d13a4e1d02621b471de5fce28958f8a3f6c3b9cf0984d352be83fcd3b",
+      "anchors": [
+        {
+          "line": 41,
+          "text": "//go:embed components.tsv"
+        },
+        {
+          "line": 52,
+          "text": "\t\tsharedComponents, componentsErr = parseComponents(componentsData)"
+        },
+        {
+          "line": 57,
+          "text": "func parseComponents(data []byte) ([]Component, error) {"
+        },
+        {
+          "line": 254,
+          "text": "func (p EditionPlan) HiddenDesktopIDs(selected map[string]bool) []string {"
+        },
+        {
+          "line": 239,
+          "text": "func (p EditionPlan) DropComponentPackages(selected map[string]bool) []string {"
+        }
+      ]
+    },
+    {
+      "source": "installation/backend/ryoku-install",
+      "git_mode": "100755",
+      "git_blob": "e16ac34bbfa7194f76bb4ce7aecb06fe104cc24a",
+      "bytes": 11420,
+      "sha256": "ba4671236c9c46dc31bacc5d702d6a1a2902d5ea61e5e5920aec1055f2c2c8f2",
+      "anchors": [
+        {
+          "line": 30,
+          "text": "# shellcheck source=lib/disk.sh"
+        },
+        {
+          "line": 34,
+          "text": "# shellcheck source=lib/luks.sh"
+        },
+        {
+          "line": 36,
+          "text": "# shellcheck source=lib/filesystem.sh"
+        },
+        {
+          "line": 12,
+          "text": "#   @@RYOKU_DONE        printed once after the final stage succeeds"
+        },
+        {
+          "line": 13,
+          "text": "# any failure exits non-zero (set -e) without @@RYOKU_DONE."
+        },
+        {
+          "line": 259,
+          "text": "  printf '@@RYOKU_DONE\\n'"
+        },
+        {
+          "line": 15,
+          "text": "# RYOKU_DRYRUN=1 prints every destructive command (prefixed \"DRYRUN: \") instead"
+        },
+        {
+          "line": 140,
+          "text": ": \"${RYOKU_DRYRUN:=}\""
+        },
+        {
+          "line": 161,
+          "text": "  [[ -z $RYOKU_DRYRUN || $RYOKU_ESP_MODE != auto ]] \\"
+        }
+      ]
+    },
+    {
+      "source": "installation/backend/lib/disk.sh",
+      "git_mode": "100755",
+      "git_blob": "b8eeab68af2e62aef5674d462d73959723a0749b",
+      "bytes": 51249,
+      "sha256": "e729166cba210729f1b64e625b51d49a0fbf4fb8f3e10234427881e81ba8622c",
+      "anchors": [
+        {
+          "line": 217,
+          "text": "  run wipefs --all \"$target\""
+        },
+        {
+          "line": 287,
+          "text": "  run wipefs --all \"$ESP_DEV\""
+        },
+        {
+          "line": 288,
+          "text": "  (( bios_mib == 0 )) || run wipefs --all \"$RYOKU_BIOS_PART\""
+        },
+        {
+          "line": 260,
+          "text": "  run parted --script \"$disk\" mklabel gpt"
+        },
+        {
+          "line": 261,
+          "text": "  run parted --script \"$disk\" mkpart ESP fat32 1MiB \"${esp_end}MiB\""
+        },
+        {
+          "line": 262,
+          "text": "  run parted --script \"$disk\" set 1 esp on"
+        },
+        {
+          "line": 253,
+          "text": "  run sgdisk --zap-all \"$disk\""
+        },
+        {
+          "line": 383,
+          "text": "  run sgdisk \\"
+        },
+        {
+          "line": 509,
+          "text": "  run sgdisk \"${delargs[@]}\" \"$disk\""
+        }
+      ]
+    },
+    {
+      "source": "installation/backend/lib/luks.sh",
+      "git_mode": "100755",
+      "git_blob": "86265ccf8b32029b714838d039db91d6ffa9c960",
+      "bytes": 2059,
+      "sha256": "8629cebc0711bdea7b30ce80f0df7d331a2837b40ef1fdb37a37fd23c51a7389",
+      "anchors": [
+        {
+          "line": 33,
+          "text": "  # cryptsetup built with a different default can't silently weaken the KDF."
+        },
+        {
+          "line": 35,
+          "text": "    \"cryptsetup luksFormat --type luks2 --pbkdf argon2id --batch-mode $LUKS_PART (passphrase via stdin)\" \\"
+        },
+        {
+          "line": 36,
+          "text": "    cryptsetup luksFormat --type luks2 --pbkdf argon2id --batch-mode \"$LUKS_PART\""
+        }
+      ]
+    },
+    {
+      "source": "installation/backend/lib/filesystem.sh",
+      "git_mode": "100755",
+      "git_blob": "625a1b98d36dbb7edcf012494936efb467579bdd",
+      "bytes": 7335,
+      "sha256": "e5cc95783c130e0d2e66166cd5649b315ed3b829ddc5b9f15c649acdf34d8782",
+      "anchors": [
+        {
+          "line": 26,
+          "text": "  run mkfs.vfat -F32 -n \"$boot_label\" \"$ESP_DEV\""
+        },
+        {
+          "line": 27,
+          "text": "  run mkfs.btrfs -f -L ryoku \"$ROOT_DEV\""
+        },
+        {
+          "line": 3,
+          "text": "# format the partitions, lay out the Btrfs subvolumes, mount it all under"
+        },
+        {
+          "line": 5,
+          "text": "# \"filesystems\" stage, ryoku_mount (mounts + swapfile) in the \"mount\" stage."
+        },
+        {
+          "line": 30,
+          "text": "  run mount \"$ROOT_DEV\" /mnt"
+        }
+      ]
+    },
+    {
+      "source": "installation/backend/lib/pacstrap.sh",
+      "git_mode": "100755",
+      "git_blob": "a0706988da790039943b6c755ad9610d21d4630b",
+      "bytes": 10847,
+      "sha256": "b335667e05183bf5e3c639c7e3c73582df31eeb42367b455d7e8563ca9cb1148",
+      "anchors": [
+        {
+          "line": 3,
+          "text": "# Install the base system with pacstrap, then write fstab. package set ="
+        },
+        {
+          "line": 19,
+          "text": "# pacstrap. pacman-init.service is a oneshot that builds it at boot, so we block"
+        },
+        {
+          "line": 22,
+          "text": "# pacstrap fails to verify packages (public keyring not found / failed to"
+        }
+      ]
+    },
+    {
+      "source": "installation/backend/lib/bootloader.sh",
+      "git_mode": "100755",
+      "git_blob": "5009ff5afb3ec3b44e246b7762c66974a2690cb2",
+      "bytes": 38933,
+      "sha256": "bd4e188f794fef3cd8311400e2f26ffa20b0c9a008e7189123ec9ab98b2658c5",
+      "anchors": [
+        {
+          "line": 8,
+          "text": "# layout contract (matches limine-entry-tool, the stack behind"
+        },
+        {
+          "line": 9,
+          "text": "# limine-mkinitcpio-hook and limine-snapper-sync):"
+        },
+        {
+          "line": 10,
+          "text": "#   /boot/limine.conf              THE config. branding globals + entries."
+        }
+      ]
+    },
+    {
+      "source": "installation/backend/lib/accounts.sh",
+      "git_mode": "100644",
+      "git_blob": "2e94b3653c4bba32f3569b7983a2d3fe34d70b0b",
+      "bytes": 10197,
+      "sha256": "c2022f756bc06234098ed76982eac148ea398bb1b157bf2af7159faf10d7cc86",
+      "anchors": [
+        {
+          "line": 216,
+          "text": "  local -a useradd_args=(-M -U -d \"/home/$name\" -s \"$login_shell\")"
+        },
+        {
+          "line": 221,
+          "text": "    useradd_args+=(-G \"$groups_csv\")"
+        },
+        {
+          "line": 225,
+          "text": "  [[ -z $full_name ]] || useradd_args+=(-c \"$full_name\")"
+        },
+        {
+          "line": 72,
+          "text": "  [[ -r /mnt/etc/passwd ]] || return 1"
+        },
+        {
+          "line": 75,
+          "text": "  done </mnt/etc/passwd"
+        },
+        {
+          "line": 235,
+          "text": "    \"$RYOKU_TARGET_CHROOT /mnt chpasswd -e (account:hash via stdin)\" \\"
+        }
+      ]
+    },
+    {
+      "source": "release/packages/README.md",
+      "git_mode": "100644",
+      "git_blob": "011edd37270931e5a61a92cee380ad7679c9b2cb",
+      "bytes": 5407,
+      "sha256": "19ec4607d59361941d76eacc7abd6428ddf95c25abfff829972e0975e7249567",
+      "anchors": [
+        {
+          "line": 3,
+          "text": "The Ryoku desktop ships as signed pacman packages served from the `[ryoku]`"
+        },
+        {
+          "line": 5,
+          "text": "package; the publish CI builds every `PKGBUILD` and pushes the results to the"
+        },
+        {
+          "line": 12,
+          "text": "  own PKGBUILD; the only package that is not built from the source tree.)"
+        },
+        {
+          "line": 46,
+          "text": "Most of these PKGBUILDs build from the checked-out monorepo, not from release tarballs."
+        },
+        {
+          "line": 6,
+          "text": "repo. Packages publish only from `main` release tags, never from `unstable-dev`."
+        }
+      ]
+    },
+    {
+      "source": "release/repo/build-repo.sh",
+      "git_mode": "100755",
+      "git_blob": "20750f0d91232c70952cd163fac2d72d6b365570",
+      "bytes": 12379,
+      "sha256": "efe0dffe6e0fe6fa2cc0a984df49bf50776b3fdf349b931d6d3b6e9e692f188b",
+      "anchors": [
+        {
+          "line": 55,
+          "text": "gpg --list-secret-keys \"$KEY_ID\" >/dev/null 2>&1 \\"
+        },
+        {
+          "line": 158,
+          "text": "    gpg --batch --yes --detach-sign -u \"$KEY_ID\" -o \"$ARCH_DIR/$(basename \"$f\").sig\" \"$ARCH_DIR/$(basename \"$f\")\""
+        },
+        {
+          "line": 196,
+          "text": "  gpg --batch --yes --detach-sign -u \"$KEY_ID\" -o \"$pkg.sig\" \"$pkg\""
+        },
+        {
+          "line": 4,
+          "text": "# walks release/packages/*/PKGBUILD, makepkg-builds each, signs with the ryoku"
+        },
+        {
+          "line": 20,
+          "text": "# makepkg runs --nodeps on purpose: runtime depends (and AUR depends) aren't"
+        },
+        {
+          "line": 48,
+          "text": "# 0. preflight. makepkg refuses root; everything else just wants the pacman"
+        },
+        {
+          "line": 248,
+          "text": "manifest_bin=\"$(mktemp -d)/ryoku-manifest\""
+        },
+        {
+          "line": 249,
+          "text": "( cd \"$manifest_src\" && go build -mod=vendor -o \"$manifest_bin\" ./cmd/ryoku-manifest ) \\"
+        },
+        {
+          "line": 251,
+          "text": "\"$manifest_bin\" -repo \"$RELEASE_DIR/..\" -release \"$RYOKU_RELEASE\" -version \"$RYOKU_PKGVER\" \\"
+        }
+      ]
+    },
+    {
+      "source": "release/repo/import-ryotunes.sh",
+      "git_mode": "100755",
+      "git_blob": "d2086399f9085d5955f6c7c19469224519415f65",
+      "bytes": 8887,
+      "sha256": "011c0f62f5be7ffaddb1f0be01a064db240daefbb610e0ef682e85f7b50cc4c8",
+      "anchors": [
+        {
+          "line": 19,
+          "text": "#   - a sha256 sidecar asset sits beside it: <asset>.sha256 (\"HEX\u2420\u2420filename\")"
+        },
+        {
+          "line": 27,
+          "text": "#       sha256), verify its .PKGINFO identity/epoch, place it in <OUT_DIR>, sign"
+        },
+        {
+          "line": 59,
+          "text": "for tool in curl jq bsdtar sha256sum; do"
+        },
+        {
+          "line": 6,
+          "text": "# the download / epoch / checksum rules live in exactly one place."
+        },
+        {
+          "line": 11,
+          "text": "# .PKGINFO (its real depends, including quickshell, and its epoch=1 version)"
+        },
+        {
+          "line": 18,
+          "text": "#   - the package's own .PKGINFO version carries epoch=1: 1:<pkgver>-<pkgrel>"
+        }
+      ]
+    },
+    {
+      "source": "bin/ryoku-checked-pointer",
+      "git_mode": "100755",
+      "git_blob": "bf9919a1bc9ac5e597562fc7b00c3e829718918d",
+      "bytes": 2858,
+      "sha256": "471db622f90355058618e7c939b14307a55ed6817e26cad4d2323cd4d8a12431",
+      "anchors": [
+        {
+          "line": 14,
+          "text": "Write channels/testing/checked.json, carrying the most recent passed commit"
+        },
+        {
+          "line": 77,
+          "text": "destination=\"$remote/channels/testing/checked.json\""
+        },
+        {
+          "line": 104,
+          "text": "rclone copyto \"$out\" \"$destination\" \\"
+        }
+      ]
+    },
+    {
+      "source": "bin/ryoku-release-ledger",
+      "git_mode": "100755",
+      "git_blob": "ae42f6cdf32d894a9651141c15c023f0eba9ba3f",
+      "bytes": 7376,
+      "sha256": "bc14e292bf4d71b94fa87ff8cbaaa67fed429aa7f8cfa11e61ce7c58df2635e3",
+      "anchors": [
+        {
+          "line": 191,
+          "text": "rclone copyto \"$tmp/index.json\" \"$remote/$ledger_root/index.json\" --header-upload \"Cache-Control: no-cache, must-revalidate\""
+        },
+        {
+          "line": 4,
+          "text": "# Stable ledgers are derived from <prefix>releases/<tag>/x86_64/release.json"
+        },
+        {
+          "line": 6,
+          "text": "# <prefix>channels/testing/builds/<dir>/x86_64/release.json and never include"
+        },
+        {
+          "line": 149,
+          "text": "  if ! rclone cat \"$remote/$release_root/$directory/x86_64/release.json\" > \"$metadata\" 2>/dev/null || [[ ! -s \"$metadata\" ]]; then"
+        },
+        {
+          "line": 67,
+          "text": "# collect_iso_images: emit {\"<tag>\":{\"<variant>\":{iso,manifest,sha256,signature,url,date}}}"
+        },
+        {
+          "line": 68,
+          "text": "# from the per-ISO manifests at the bucket root. The manifest list is fetched"
+        },
+        {
+          "line": 71,
+          "text": "# not parse as an ISO manifest is skipped with a message on stderr rather than"
+        }
+      ]
+    },
+    {
+      "source": "bin/ryoku-iso-manifest",
+      "git_mode": "100755",
+      "git_blob": "2e274400520726ab4240971425ed50a55479cc3b",
+      "bytes": 4858,
+      "sha256": "7f99b018ed19266c5fc1091338572169642b4605b61642802b1f7b1ca2fb4c27",
+      "anchors": [
+        {
+          "line": 84,
+          "text": "(cd \"$iso_dir\" && sha256sum \"$iso_name\" \"$sig_name\" >\"$sha_name\")"
+        },
+        {
+          "line": 85,
+          "text": "iso_sha=$(sha256sum \"$iso\" | awk '{print $1}')"
+        },
+        {
+          "line": 86,
+          "text": "sig_sha=$(sha256sum \"$sig\" | awk '{print $1}')"
+        },
+        {
+          "line": 38,
+          "text": "  echo \"ryoku-iso-manifest: signature not found: $sig\" >&2"
+        },
+        {
+          "line": 50,
+          "text": "  installer_ref=${BASH_REMATCH[3]}"
+        },
+        {
+          "line": 112,
+          "text": "  \"installer_ref\": $(json_string \"$installer_ref\"),"
+        }
+      ]
+    },
+    {
+      "source": "bin/ryoku-release-version",
+      "git_mode": "100755",
+      "git_blob": "9ce425dc20bae91d77d078f4a8a6b681a90fbc6c",
+      "bytes": 1908,
+      "sha256": "643e87141783a29635a06aa06019a27e31dd42d40bb5a33b1fc9f2b6cd9f2e47",
+      "anchors": [
+        {
+          "line": 25,
+          "text": "    --pkgver) pkgver_mode=1; shift ;;"
+        },
+        {
+          "line": 30,
+          "text": "# --pkgver = a pacman-valid, strictly increasing, commit-identifiable version"
+        },
+        {
+          "line": 3,
+          "text": "# the repo root VERSION file (X.Y.Z)."
+        },
+        {
+          "line": 6,
+          "text": "#       -> v<VERSION>                       (e.g. v0.1.0)"
+        },
+        {
+          "line": 8,
+          "text": "#       -> v<VERSION>.dev.<N>+g<short-sha>  (e.g. v0.1.0.dev.42+gabc1234)"
+        }
+      ]
+    },
+    {
+      "source": "bin/ryoku-track",
+      "git_mode": "100755",
+      "git_blob": "ec1bd229c0fa2be48b5539e0ee6539f7cd41058f",
+      "bytes": 4673,
+      "sha256": "abfcbbe237aef777748ea8ec1e29d3eca6ecf52e01acb5cf8d1effb7cf19c21c",
+      "anchors": [
+        {
+          "line": 92,
+          "text": "  git clone -b \"$CHANNEL\" \"$REPO_URL\" \"$REPO\""
+        },
+        {
+          "line": 89,
+          "text": "  git -C \"$REPO\" checkout \"$CHANNEL\""
+        }
+      ]
+    },
+    {
+      "source": ".github/workflows/stable-release.yml",
+      "git_mode": "100644",
+      "git_blob": "89f0bc1bd5e1757295c4177cc86797e67f7f7ac7",
+      "bytes": 4656,
+      "sha256": "825b69634a3f9706f165ac580e276ba2a000f821220f68141de04a9e6633c659",
+      "anchors": [
+        {
+          "line": 28,
+          "text": "  contents: write"
+        },
+        {
+          "line": 29,
+          "text": "  actions: write"
+        },
+        {
+          "line": 38,
+          "text": "    if: github.ref == 'refs/heads/main'"
+        },
+        {
+          "line": 75,
+          "text": "          tag=\"v$version\""
+        },
+        {
+          "line": 84,
+          "text": "            echo \"tag=$tag\""
+        }
+      ]
+    },
+    {
+      "source": ".github/workflows/testing-gate.yml",
+      "git_mode": "100644",
+      "git_blob": "e11e8703d9631e004eed0a9ab1db3f3ca7c7e0ae",
+      "bytes": 5760,
+      "sha256": "3ec00d99ff845eb63172e84d242e248aaefb4baec7ea1c4b8577f6910b727a5a",
+      "anchors": [
+        {
+          "line": 49,
+          "text": "        run: bin/ryoku-checked-pointer \"Ryoku:$R2_BUCKET\" checking \"$GITHUB_SHA\" --run \"$RUN_URL\""
+        },
+        {
+          "line": 61,
+          "text": "          bin/ryoku-checked-pointer \"Ryoku:$R2_BUCKET\" passed \"$GITHUB_SHA\" \\"
+        },
+        {
+          "line": 77,
+          "text": "          bin/ryoku-checked-pointer \"Ryoku:$R2_BUCKET\" failed \"$GITHUB_SHA\" \\"
+        }
+      ]
+    },
+    {
+      "source": ".github/workflows/publish-repo.yml",
+      "git_mode": "100644",
+      "git_blob": "0f2fbbf8ba6279dcce67a2f80cb0a7ec04149b1e",
+      "bytes": 32553,
+      "sha256": "e66759710b30d55d37036a7dfda9bd239a73bed6d9ab997f049338ed3199f30b",
+      "anchors": [
+        {
+          "line": 9,
+          "text": "#   releases/<tag>/x86_64/          one frozen, immutable copy per release tag"
+        },
+        {
+          "line": 537,
+          "text": "          frozen=\"$REMOTE/channels/testing/builds/$directory/x86_64\""
+        },
+        {
+          "line": 540,
+          "text": "          rclone sync \"$src\" \"$frozen/\" --exclude 'release.json' -P"
+        },
+        {
+          "line": 101,
+          "text": "        run: pacman -Sy --noconfirm --needed git rclone jq"
+        },
+        {
+          "line": 215,
+          "text": "            if [[ -n \"$(rclone lsf \"Ryoku:$R2_BUCKET/$PREFIX/x86_64/\" 2>/dev/null | head -n1)\" ]]; then"
+        },
+        {
+          "line": 232,
+          "text": "          rclone copy \"Ryoku:$R2_BUCKET/$PREFIX/x86_64/\" \"$mirror/\" --include '*.pkg.tar.zst' || true"
+        },
+        {
+          "line": 363,
+          "text": "  # key's signatures exactly as a user's pacman does."
+        },
+        {
+          "line": 378,
+          "text": "        # very first -Sy fails on the image's OWN repo signature (\"signature"
+        },
+        {
+          "line": 390,
+          "text": "            # repo's rotated signing key (\"signature ... is invalid\", not"
+        },
+        {
+          "line": 20,
+          "text": "# on the container-install smoke test below: the repo is signed and uploaded"
+        }
+      ]
+    },
+    {
+      "source": ".github/workflows/publish-repo-fedora.yml",
+      "git_mode": "100644",
+      "git_blob": "22f5b76f8e5d34d8dd3b0d299f27bf71387e7b1a",
+      "bytes": 27669,
+      "sha256": "849ebc7b277497e6b32c04eae23b3fadb51b7cd35068a78f8f785393b1039b07",
+      "anchors": [
+        {
+          "line": 269,
+          "text": "          gpgcheck=1"
+        },
+        {
+          "line": 270,
+          "text": "          repo_gpgcheck=0"
+        },
+        {
+          "line": 271,
+          "text": "          gpgkey=https://download.copr.fedorainfracloud.org/results/$owner/$project/pubkey.gpg"
+        },
+        {
+          "line": 136,
+          "text": "        run: dnf install -y git tar gzip curl rclone jq"
+        },
+        {
+          "line": 187,
+          "text": "            rclone copy \"Ryoku:$R2_BUCKET/fedora/${{ matrix.release }}/x86_64/\" \"$mirror/\" \\"
+        },
+        {
+          "line": 193,
+          "text": "            rclone copy \"Ryoku:$R2_BUCKET/fedora/${{ matrix.release }}/channels/testing/x86_64/\" \"$mirror/\" \\"
+        }
+      ]
+    },
+    {
+      "source": ".github/workflows/publish-repo-void.yml",
+      "git_mode": "100644",
+      "git_blob": "3bb53474a3144227f9246f5dd683e8fa8ea6b509",
+      "bytes": 22143,
+      "sha256": "aefb923e21428b2e0b1351429d19c2b821ef8f985ede337b67789282a8935e30",
+      "anchors": [
+        {
+          "line": 94,
+          "text": "          sudo apt-get install -y rclone jq"
+        },
+        {
+          "line": 159,
+          "text": "            existing=$(rclone lsf \"Ryoku:$R2_BUCKET/$PREFIX/x86_64/\" 2>/dev/null || true)"
+        },
+        {
+          "line": 169,
+          "text": "            rclone copy \"Ryoku:$R2_BUCKET/void/x86_64/\" \"$mirror/\" --include '*.xbps' || true"
+        },
+        {
+          "line": 30,
+          "text": "    name: Build and sign the XBPS repository"
+        },
+        {
+          "line": 114,
+          "text": "      - name: Verify the production signing key"
+        },
+        {
+          "line": 115,
+          "text": "        id: signing"
+        }
+      ]
+    },
+    {
+      "source": ".github/workflows/build-iso-reusable.yml",
+      "git_mode": "100644",
+      "git_blob": "e6a6cd20f6809cb5674d7bc0e3ed5394a9e7548c",
+      "bytes": 22353,
+      "sha256": "d48fa05693e1bf45a7230ad8dcf87a41a88daa3a843b9a6b180e43e0184dc7b3",
+      "anchors": [
+        {
+          "line": 390,
+          "text": "          echo \"$GPG_PRIVATE_KEY\" | gpg --batch --import"
+        },
+        {
+          "line": 394,
+          "text": "            echo \"$GPG_PASSPHRASE\" | gpg --batch --pinentry-mode loopback \\"
+        },
+        {
+          "line": 397,
+          "text": "            gpg --batch --output \"$iso.sig\" --detach-sign \"$iso\""
+        },
+        {
+          "line": 417,
+          "text": "      - name: Install rclone"
+        },
+        {
+          "line": 419,
+          "text": "          curl -fsSL https://rclone.org/install.sh | sudo bash"
+        },
+        {
+          "line": 441,
+          "text": "          rclone copy \"$iso\"           \"Ryoku:$dest/\" -P"
+        }
+      ]
+    },
+    {
+      "source": "release/r2-retention/src/index.js",
+      "git_mode": "100644",
+      "git_blob": "a91de7e172952382dec786bcb67db8be80b62f66",
+      "bytes": 9538,
+      "sha256": "a37cfc49b63ea9c9b4531fccd45d1e5670c450800a9a89a4f4af7e04fdf473e4",
+      "anchors": [
+        {
+          "line": 223,
+          "text": "export async function runRetention(env) {"
+        },
+        {
+          "line": 250,
+          "text": "        await operations.run(() => env.BUCKET.delete(batch));"
+        },
+        {
+          "line": 177,
+          "text": "function logPlan(plan, facts, dryRun, operations) {"
+        },
+        {
+          "line": 184,
+          "text": "      dry_run: dryRun,"
+        },
+        {
+          "line": 197,
+          "text": "      dry_run: dryRun,"
+        }
+      ]
+    },
+    {
+      "source": "release/r2-retention/src/planner.js",
+      "git_mode": "100644",
+      "git_blob": "c8dd977b4507d3038ab00e8fa183e49071767279",
+      "bytes": 9634,
+      "sha256": "48664005174b69408e0da9d650dad9c728ab062872c3235ca6cf1a35c4aa3b04",
+      "anchors": [
+        {
+          "line": 106,
+          "text": "export function planRetention(facts, options = {}) {"
+        },
+        {
+          "line": 123,
+          "text": "  const deleteKeys = new Set();"
+        },
+        {
+          "line": 142,
+          "text": "          for (const key of keys) deleteKeys.add(key);"
+        },
+        {
+          "line": 163,
+          "text": "      for (const object of version.objects) deleteKeys.add(object.key);"
+        },
+        {
+          "line": 231,
+          "text": "  const ledgerEdits = [];"
+        },
+        {
+          "line": 234,
+          "text": "    if (edit) ledgerEdits.push(edit);"
+        },
+        {
+          "line": 244,
+          "text": "    ledgerEdits,"
+        }
+      ]
+    },
+    {
+      "source": "docs/install-without-iso.md",
+      "git_mode": "100644",
+      "git_blob": "e666dee29801ccc4ed427bb8d66e028152ceebd5",
+      "bytes": 6873,
+      "sha256": "3c5aa5af1c0d881df36f8d6a2e15ba8eaa05bf95386327bb649e9552eb551131",
+      "anchors": [
+        {
+          "line": 14,
+          "text": "curl -fsSL https://raw.githubusercontent.com/Ryoku-dev/ryoku/main/ryoku-shell-installer/install.sh | bash -s -- --dry-run"
+        },
+        {
+          "line": 69,
+          "text": "sudo xbps-install -S curl git"
+        },
+        {
+          "line": 81,
+          "text": "curl -fsSL https://raw.githubusercontent.com/Ryoku-dev/ryoku/main/ryoku-shell-installer/install.sh | bash"
+        },
+        {
+          "line": 163,
+          "text": "## Existing Fedora 44 or 45"
+        },
+        {
+          "line": 165,
+          "text": "Ryoku supports mutable `x86_64` Fedora 44 and 45 Workstation, KDE Plasma,"
+        },
+        {
+          "line": 166,
+          "text": "Server and spins. Atomic and other rpm-ostree systems are not supported. Fedora"
+        }
+      ]
+    },
+    {
+      "source": "docs/updates.md",
+      "git_mode": "100644",
+      "git_blob": "b460cb807a83644f0e241832a0454976958250fd",
+      "bytes": 52226,
+      "sha256": "ce3616f7fcd3c87e6fbd76b5f4b22dca3af15d919347c02be75d8327981b9bd9",
+      "anchors": [
+        {
+          "line": 25,
+          "text": "- **A release has to be reversible.** `ryoku rollback` puts the Ryoku set back;"
+        },
+        {
+          "line": 115,
+          "text": "again. Package rollback and the boot guard still use DNF downgrades for the"
+        },
+        {
+          "line": 194,
+          "text": "The Hub offers one-click rollback only when snapshots are supported and the run"
+        },
+        {
+          "line": 36,
+          "text": "`sudo dnf5 upgrade --refresh` on Fedora. XBPS has no transaction snapshot"
+        },
+        {
+          "line": 38,
+          "text": "update covered by Ryoku's pre/post snapshots. Fedora snapshots every dnf"
+        },
+        {
+          "line": 77,
+          "text": "ISO installs create `@snapshots` at `/.snapshots`, use the shared snapper root"
+        }
+      ]
+    }
+  ],
+  "shared_plan_tables": [
+    {
+      "source": "installation/installerplan/choices.tsv",
+      "git_mode": "100644",
+      "git_blob": "58259abd3e36a1195b8154a2eaf2608490dd748f",
+      "bytes": 2527,
+      "sha256": "5eb6328c297ae79db287f7cf451f0c619facac857d98c7fc1c477b26640f5694",
+      "rows": [
+        {
+          "record": "choice",
+          "kind": "browser",
+          "id": "firefox",
+          "label": "Firefox",
+          "packages": "firefox",
+          "executable": "-",
+          "fresh": "-",
+          "existing": "-",
+          "show_unavailable_iso": "false",
+          "tui_hint": "Recommended \u00b7 official repo \u00b7 the Gecko engine",
+          "shell_detail": "Private and compatible, from the official repository.",
+          "flags": "-"
+        },
+        {
+          "record": "choice",
+          "kind": "browser",
+          "id": "chromium",
+          "label": "Chromium",
+          "packages": "chromium",
+          "executable": "-",
+          "fresh": "-",
+          "existing": "-",
+          "show_unavailable_iso": "false",
+          "tui_hint": "official repo \u00b7 fast and familiar",
+          "shell_detail": "Open-source Chromium from the official repository.",
+          "flags": "-"
+        },
+        {
+          "record": "choice",
+          "kind": "browser",
+          "id": "zen",
+          "label": "Zen",
+          "packages": "zen-browser-bin",
+          "executable": "-",
+          "fresh": "-",
+          "existing": "-",
+          "show_unavailable_iso": "false",
+          "tui_hint": "vertical tabs \u00b7 AUR build",
+          "shell_detail": "Focused Firefox-based browsing; requires the AUR step.",
+          "flags": "-"
+        },
+        {
+          "record": "choice",
+          "kind": "browser",
+          "id": "none",
+          "label": "None",
+          "packages": "-",
+          "executable": "-",
+          "fresh": "-",
+          "existing": "-",
+          "show_unavailable_iso": "false",
+          "tui_hint": "bring your own \u00b7 nothing is installed",
+          "shell_detail": "Ryoku installs no browser; set your own as the default afterwards.",
+          "flags": "none"
+        },
+        {
+          "record": "choice",
+          "kind": "login-shell",
+          "id": "fish",
+          "label": "Fish",
+          "packages": "fish",
+          "executable": "/usr/bin/fish",
+          "fresh": "-",
+          "existing": "-",
+          "show_unavailable_iso": "false",
+          "tui_hint": "Recommended \u00b7 autosuggestions, abbreviations",
+          "shell_detail": "Friendly defaults and autosuggestions.",
+          "flags": "-"
+        },
+        {
+          "record": "choice",
+          "kind": "login-shell",
+          "id": "zsh",
+          "label": "Zsh",
+          "packages": "zsh,zsh-autosuggestions,zsh-history-substring-search,zsh-syntax-highlighting,ryoku-oh-my-zsh",
+          "executable": "/usr/bin/zsh",
+          "fresh": "-",
+          "existing": "-",
+          "show_unavailable_iso": "false",
+          "tui_hint": "Oh My Zsh with Ryoku's plugins",
+          "shell_detail": "Oh My Zsh with history and syntax highlighting.",
+          "flags": "-"
+        },
+        {
+          "record": "choice",
+          "kind": "login-shell",
+          "id": "bash",
+          "label": "Bash",
+          "packages": "blesh",
+          "executable": "/usr/bin/bash",
+          "fresh": "-",
+          "existing": "-",
+          "show_unavailable_iso": "false",
+          "tui_hint": "the classic shell \u00b7 ble.sh editing",
+          "shell_detail": "Familiar Bash with Blesh editing and Ryoku's prompt.",
+          "flags": "-"
+        },
+        {
+          "record": "choice",
+          "kind": "file-manager",
+          "id": "nautilus",
+          "label": "Files (Nautilus)",
+          "packages": "nautilus,nautilus-python",
+          "executable": "/usr/bin/nautilus",
+          "fresh": "-",
+          "existing": "-",
+          "show_unavailable_iso": "false",
+          "tui_hint": "Recommended \u00b7 Ryoku's stash menu",
+          "shell_detail": "GNOME file manager with Ryoku's stash actions.",
+          "flags": "-"
+        },
+        {
+          "record": "choice",
+          "kind": "file-manager",
+          "id": "dolphin",
+          "label": "Dolphin",
+          "packages": "dolphin",
+          "executable": "/usr/bin/dolphin",
+          "fresh": "-",
+          "existing": "-",
+          "show_unavailable_iso": "false",
+          "tui_hint": "KDE file manager",
+          "shell_detail": "KDE's file manager.",
+          "flags": "-"
+        },
+        {
+          "record": "choice",
+          "kind": "file-manager",
+          "id": "thunar",
+          "label": "Thunar",
+          "packages": "thunar",
+          "executable": "/usr/bin/thunar",
+          "fresh": "-",
+          "existing": "-",
+          "show_unavailable_iso": "false",
+          "tui_hint": "light Xfce file manager",
+          "shell_detail": "Xfce's lightweight file manager.",
+          "flags": "-"
+        },
+        {
+          "record": "choice",
+          "kind": "compositor",
+          "id": "hyprland",
+          "label": "Hyprland",
+          "packages": "ryoku-desktop-hyprland",
+          "executable": "-",
+          "fresh": "-",
+          "existing": "-",
+          "show_unavailable_iso": "true",
+          "tui_hint": "dynamic tiling, the Ryoku default",
+          "shell_detail": "Installs the Hyprland Ryoku desktop variant.",
+          "flags": "-"
+        },
+        {
+          "record": "choice",
+          "kind": "compositor",
+          "id": "niri",
+          "label": "niri",
+          "packages": "ryoku-desktop-niri",
+          "executable": "-",
+          "fresh": "-",
+          "existing": "-",
+          "show_unavailable_iso": "false",
+          "tui_hint": "scrollable tiling",
+          "shell_detail": "Installs the niri Ryoku desktop variant.",
+          "flags": "-"
+        },
+        {
+          "record": "choice",
+          "kind": "compositor",
+          "id": "wayfire",
+          "label": "Wayfire",
+          "packages": "ryoku-desktop-wayfire",
+          "executable": "-",
+          "fresh": "-",
+          "existing": "-",
+          "show_unavailable_iso": "false",
+          "tui_hint": "experimental floating windows and depth deck",
+          "shell_detail": "Installs the experimental Wayfire Ryoku desktop variant.",
+          "flags": "experimental"
+        },
+        {
+          "record": "policy",
+          "kind": "browser",
+          "id": "fresh",
+          "label": "-",
+          "packages": "-",
+          "executable": "-",
+          "fresh": "firefox",
+          "existing": "-",
+          "show_unavailable_iso": "-",
+          "tui_hint": "-",
+          "shell_detail": "-",
+          "flags": "-"
+        },
+        {
+          "record": "policy",
+          "kind": "browser",
+          "id": "existing",
+          "label": "-",
+          "packages": "-",
+          "executable": "-",
+          "fresh": "-",
+          "existing": "firefox",
+          "show_unavailable_iso": "-",
+          "tui_hint": "-",
+          "shell_detail": "-",
+          "flags": "-"
+        },
+        {
+          "record": "policy",
+          "kind": "login-shell",
+          "id": "fresh",
+          "label": "-",
+          "packages": "-",
+          "executable": "-",
+          "fresh": "fish",
+          "existing": "-",
+          "show_unavailable_iso": "-",
+          "tui_hint": "-",
+          "shell_detail": "-",
+          "flags": "-"
+        },
+        {
+          "record": "policy",
+          "kind": "login-shell",
+          "id": "existing",
+          "label": "-",
+          "packages": "-",
+          "executable": "-",
+          "fresh": "-",
+          "existing": "keep-supported-else-fish",
+          "show_unavailable_iso": "-",
+          "tui_hint": "-",
+          "shell_detail": "-",
+          "flags": "-"
+        },
+        {
+          "record": "policy",
+          "kind": "file-manager",
+          "id": "fresh",
+          "label": "-",
+          "packages": "-",
+          "executable": "-",
+          "fresh": "nautilus",
+          "existing": "-",
+          "show_unavailable_iso": "-",
+          "tui_hint": "-",
+          "shell_detail": "-",
+          "flags": "-"
+        },
+        {
+          "record": "policy",
+          "kind": "file-manager",
+          "id": "existing",
+          "label": "-",
+          "packages": "-",
+          "executable": "-",
+          "fresh": "-",
+          "existing": "keep-supported-else-nautilus",
+          "show_unavailable_iso": "-",
+          "tui_hint": "-",
+          "shell_detail": "-",
+          "flags": "-"
+        },
+        {
+          "record": "policy",
+          "kind": "compositor",
+          "id": "fresh",
+          "label": "-",
+          "packages": "-",
+          "executable": "-",
+          "fresh": "first-available",
+          "existing": "-",
+          "show_unavailable_iso": "-",
+          "tui_hint": "-",
+          "shell_detail": "-",
+          "flags": "-"
+        },
+        {
+          "record": "policy",
+          "kind": "compositor",
+          "id": "existing",
+          "label": "-",
+          "packages": "-",
+          "executable": "-",
+          "fresh": "-",
+          "existing": "first-available",
+          "show_unavailable_iso": "-",
+          "tui_hint": "-",
+          "shell_detail": "-",
+          "flags": "-"
+        }
+      ]
+    },
+    {
+      "source": "installation/installerplan/components.tsv",
+      "git_mode": "100644",
+      "git_blob": "b389cd125d2d5380e84f362de2cbf6a9be1c6cde",
+      "bytes": 3856,
+      "sha256": "84cc193233daaa4df8af4f9f009de03a85cdc7cfd6ad5c2795f293e00ff5a72b",
+      "rows": [
+        {
+          "id": "ryotunes",
+          "label": "Ryotunes",
+          "group": "ryoku-apps",
+          "group_label": "Ryoku apps",
+          "packages": "ryotunes",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "music player"
+        },
+        {
+          "id": "ryoport",
+          "label": "Ryoport",
+          "group": "ryoku-apps",
+          "group_label": "Ryoku apps",
+          "packages": "-",
+          "desktop_ids": "ryovm.desktop",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "VMs, SSH and serial consoles in one dashboard"
+        },
+        {
+          "id": "ryomanager",
+          "label": "RyoManager",
+          "group": "ryoku-apps",
+          "group_label": "Ryoku apps",
+          "packages": "ryomanager",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "system monitor and task manager"
+        },
+        {
+          "id": "terminal",
+          "label": "Kitty",
+          "group": "required",
+          "group_label": "System (required)",
+          "packages": "kitty",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "*",
+          "lock_reason": "the Ryoku terminal role: the launcher, Settings, and open in terminal use it",
+          "detail": "-"
+        },
+        {
+          "id": "editor",
+          "label": "Neovim",
+          "group": "required",
+          "group_label": "System (required)",
+          "packages": "neovim",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "*",
+          "lock_reason": "the Ryoku editor role: the launcher opens kitty -e nvim",
+          "detail": "-"
+        },
+        {
+          "id": "monitor",
+          "label": "btop monitor",
+          "group": "required",
+          "group_label": "System (required)",
+          "packages": "btop",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "*",
+          "lock_reason": "the CPU, GPU, and battery panels open it in the terminal",
+          "detail": "-"
+        },
+        {
+          "id": "prompt",
+          "label": "Starship prompt",
+          "group": "terminal",
+          "group_label": "Terminal",
+          "packages": "starship",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "the Ryoku shell prompt"
+        },
+        {
+          "id": "fastfetch",
+          "label": "Fastfetch",
+          "group": "terminal",
+          "group_label": "Terminal",
+          "packages": "fastfetch",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "system summary card in the launcher and RyoStore covers"
+        },
+        {
+          "id": "yazi",
+          "label": "Yazi",
+          "group": "terminal",
+          "group_label": "Terminal",
+          "packages": "yazi",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "terminal file manager"
+        },
+        {
+          "id": "cli-tools",
+          "label": "Modern CLI tools",
+          "group": "terminal",
+          "group_label": "Terminal",
+          "packages": "eza,bat,fzf,zoxide",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "ls and cat replacements; fuzzy history and directory search"
+        },
+        {
+          "id": "git-tools",
+          "label": "Git tools",
+          "group": "terminal",
+          "group_label": "Terminal",
+          "packages": "github-cli,lazygit",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "the gh CLI and lazygit terminal UI"
+        },
+        {
+          "id": "pavucontrol",
+          "label": "PulseAudio GUI",
+          "group": "media",
+          "group_label": "Media & tools",
+          "packages": "pavucontrol",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "the mixer the bar's audio button opens"
+        },
+        {
+          "id": "songrec",
+          "label": "Songrec",
+          "group": "media",
+          "group_label": "Media & tools",
+          "packages": "songrec",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "Recognize Music in the launcher"
+        },
+        {
+          "id": "openrgb",
+          "label": "OpenRGB",
+          "group": "media",
+          "group_label": "Media & tools",
+          "packages": "openrgb",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "keyboard and mouse lighting follows the wallpaper palette"
+        },
+        {
+          "id": "upscale",
+          "label": "AI upscale",
+          "group": "media",
+          "group_label": "Media & tools",
+          "packages": "waifu2x-ncnn-vulkan",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "ryoshot Beautify HD and ryowalls Enhance"
+        },
+        {
+          "id": "localsend",
+          "label": "LocalSend",
+          "group": "media",
+          "group_label": "Media & tools",
+          "packages": "localsend-bin",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "arch,cachyos",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "LAN file sharing; AUR"
+        },
+        {
+          "id": "voxtype",
+          "label": "Voxtype",
+          "group": "media",
+          "group_label": "Media & tools",
+          "packages": "voxtype-bin",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "arch,cachyos",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "voice dictation on Super+`; AUR"
+        },
+        {
+          "id": "gamescope",
+          "label": "Gamescope",
+          "group": "gaming",
+          "group_label": "Gaming",
+          "packages": "gamescope",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "nested gaming micro-compositor"
+        },
+        {
+          "id": "gamemode",
+          "label": "GameMode",
+          "group": "gaming",
+          "group_label": "Gaming",
+          "packages": "gamemode",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "performance governor used by Steam"
+        },
+        {
+          "id": "mangohud",
+          "label": "MangoHud",
+          "group": "gaming",
+          "group_label": "Gaming",
+          "packages": "mangohud",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "in-game FPS and frametime overlay"
+        },
+        {
+          "id": "controllers",
+          "label": "Game controllers",
+          "group": "gaming",
+          "group_label": "Gaming",
+          "packages": "xpadneo-dkms,game-devices-udev",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "wireless Xbox pads and controller access rules"
+        },
+        {
+          "id": "vm",
+          "label": "Virtual machines",
+          "group": "services",
+          "group_label": "System services",
+          "packages": "qemu-desktop,edk2-ovmf,virglrenderer",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "the VM behind Ryoku Settings > GPU > Machine"
+        },
+        {
+          "id": "docker",
+          "label": "Docker",
+          "group": "services",
+          "group_label": "System services",
+          "packages": "docker",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "the Cobalt engine the file stash uses"
+        },
+        {
+          "id": "flatpak",
+          "label": "Flatpak",
+          "group": "services",
+          "group_label": "System services",
+          "packages": "flatpak",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "portable app channel"
+        },
+        {
+          "id": "go",
+          "label": "Go toolchain",
+          "group": "developer",
+          "group_label": "Developer toolchains",
+          "packages": "go",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "-"
+        },
+        {
+          "id": "node",
+          "label": "Node.js + npm",
+          "group": "developer",
+          "group_label": "Developer toolchains",
+          "packages": "nodejs,npm",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "-"
+        },
+        {
+          "id": "pytools",
+          "label": "Python pip + pipx",
+          "group": "developer",
+          "group_label": "Developer toolchains",
+          "packages": "python-pip,python-pipx",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "-"
+        },
+        {
+          "id": "mise",
+          "label": "mise",
+          "group": "developer",
+          "group_label": "Developer toolchains",
+          "packages": "mise",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "apps",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "language and version manager"
+        },
+        {
+          "id": "rashin",
+          "label": "Rashin",
+          "group": "rashin",
+          "group_label": "Rashin",
+          "packages": "ryoku-rashin",
+          "desktop_ids": "-",
+          "default": "on",
+          "step": "rashin",
+          "needs_network": "false",
+          "editions": "*",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "Ryoku's AI agent"
+        },
+        {
+          "id": "cachyos-layer",
+          "label": "Gaming with CachyOS",
+          "group": "gaming",
+          "group_label": "Gaming",
+          "packages": "linux-cachyos,linux-cachyos-headers,cachyos-settings,scx-scheds,cachyos-gaming-meta,steam",
+          "desktop_ids": "-",
+          "default": "off",
+          "step": "gaming",
+          "needs_network": "true",
+          "editions": "arch",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "CachyOS kernel, tuning, sched-ext, Steam and CachyOS gaming packages"
+        },
+        {
+          "id": "cachyos-gaming",
+          "label": "Gaming",
+          "group": "gaming",
+          "group_label": "Gaming",
+          "packages": "steam,cachyos-gaming-meta",
+          "desktop_ids": "-",
+          "default": "off",
+          "step": "gaming",
+          "needs_network": "false",
+          "editions": "cachyos",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "Steam and CachyOS gaming packages"
+        },
+        {
+          "id": "void-gaming",
+          "label": "Gaming",
+          "group": "gaming",
+          "group_label": "Gaming",
+          "packages": "steam,lib32-mesa,lib32-vulkan-icd-loader,lib32-gcc-libs,lib32-libglvnd,lib32-libdrm,lib32-libva",
+          "desktop_ids": "-",
+          "default": "off",
+          "step": "gaming",
+          "needs_network": "false",
+          "editions": "void",
+          "lock_editions": "-",
+          "lock_reason": "-",
+          "detail": "Steam with 32-bit graphics support"
+        }
+      ]
+    }
+  ],
+  "bootstrap_binary": {
+    "source": "ryoku-shell-installer/ryoku-shell-install",
+    "git_mode": "100755",
+    "git_blob": "df20103fb3ebe1ab5ded519b88392c414efda732",
+    "bytes": 42173394,
+    "sha256": "2accb9948c01088a65008620cd9c8e9dd8bee5f655b70e7387271ae1592a6e35",
+    "elf_magic": "7f454c46",
+    "checksum_sidecar": {
+      "source": "ryoku-shell-installer/ryoku-shell-install.sha256",
+      "git_mode": "100644",
+      "git_blob": "7233fdd1754dd82b98601837e0dcd8454da9eaf9",
+      "bytes": 86,
+      "sha256": "779c020b9a3b5e74dffdd86a5fb192434b5a1ff359543438aaf3a9426eb70574"
+    },
+    "declared_filename": "ryoku-shell-install",
+    "checksum_matches": true,
+    "limits": "Same-ref sidecar equality binds these cached bytes only; not independent signing authority, source-to-binary build provenance or release approval."
+  },
+  "literal_git_links": [
+    {
+      "source": "installation/iso/airootfs/etc/localtime",
+      "git_mode": "120000",
+      "git_blob": "0e35b576ba3960a87850bfef5bc5f7a01d7b63fc",
+      "target": "/usr/share/zoneinfo/UTC"
+    },
+    {
+      "source": "installation/iso/airootfs/etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service",
+      "git_mode": "120000",
+      "git_blob": "ba861c0b5d9f68e5a594b8159085ffee9963971e",
+      "target": "/usr/lib/systemd/system/serial-getty@.service"
+    },
+    {
+      "source": "installation/iso/airootfs/etc/systemd/system/multi-user.target.wants/NetworkManager.service",
+      "git_mode": "120000",
+      "git_blob": "e874a9b370d5ac418fb161cab8de04b23e7938df",
+      "target": "/usr/lib/systemd/system/NetworkManager.service"
+    },
+    {
+      "source": "installation/iso/airootfs/etc/systemd/system/multi-user.target.wants/pacman-init.service",
+      "git_mode": "120000",
+      "git_blob": "d09eec68ba0b893041345fcde9e08480b51eabbd",
+      "target": "../pacman-init.service"
+    },
+    {
+      "source": "installation/iso/airootfs/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service",
+      "git_mode": "120000",
+      "git_blob": "cd004113fcf3f0b3c3d344321de164a83d231ae5",
+      "target": "/usr/lib/systemd/system/systemd-timesyncd.service"
+    },
+    {
+      "source": "installation/iso/airootfs/etc/systemd/system/systemd-firstboot.service",
+      "git_mode": "120000",
+      "git_blob": "dc1dc0cde0f7dff7b7f7c9347fff75936d705cb8",
+      "target": "/dev/null"
+    }
+  ],
+  "unknowns": [
+    "Complete per-operation authorization/capture/restore and all transitive helper/installer semantics remain open.",
+    "Publisher workflow/signature/checksum references are source declarations, not executed CI/artifact/publisher-trust proof.",
+    "Existing upstream tests and dry-run branches are not native Tumbleweed/physical disk acceptance.",
+    "Per-binary/Gradle JAR/plugin/asset license/provenance closure and source-only archive coverage remain open."
+  ],
+  "relocations": [
+    {
+      "prior_source": "release/packages/ryomotion/ryomotion-logo.png",
+      "prior_mode": "100644",
+      "prior_blob": "5f9ceb5f6ccc70e5f465a541fa637f9336efcd44",
+      "current_source": "nix/assets/ryomotion-logo.png",
+      "current_mode": "100644",
+      "current_blob": "5f9ceb5f6ccc70e5f465a541fa637f9336efcd44"
+    }
+  ],
+  "release_delta_rows": [
+    {
+      "status": "R100",
+      "path_before": "release/packages/ryomotion/ryomotion-logo.png",
+      "path_after": "nix/assets/ryomotion-logo.png"
+    },
+    {
+      "status": "M",
+      "path_before": "release/CHANGELOG.md",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/graalvm-reachability-metadata/1.1.14/graalvm-reachability-metadata-1.1.14.jar",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/graalvm-reachability-metadata/1.1.14/graalvm-reachability-metadata-1.1.14.module",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/graalvm-reachability-metadata/1.1.14/graalvm-reachability-metadata-1.1.14.pom",
+      "path_after": ""
+    },
+    {
+      "status": "D",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/graalvm-reachability-metadata/1.1.3/graalvm-reachability-metadata-1.1.3.jar",
+      "path_after": ""
+    },
+    {
+      "status": "D",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/graalvm-reachability-metadata/1.1.3/graalvm-reachability-metadata-1.1.3.module",
+      "path_after": ""
+    },
+    {
+      "status": "D",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/graalvm-reachability-metadata/1.1.3/graalvm-reachability-metadata-1.1.3.pom",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/native-gradle-plugin/1.1.14/native-gradle-plugin-1.1.14.jar",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/native-gradle-plugin/1.1.14/native-gradle-plugin-1.1.14.module",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/native-gradle-plugin/1.1.14/native-gradle-plugin-1.1.14.pom",
+      "path_after": ""
+    },
+    {
+      "status": "D",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/native-gradle-plugin/1.1.3/native-gradle-plugin-1.1.3.jar",
+      "path_after": ""
+    },
+    {
+      "status": "D",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/native-gradle-plugin/1.1.3/native-gradle-plugin-1.1.3.module",
+      "path_after": ""
+    },
+    {
+      "status": "D",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/native-gradle-plugin/1.1.3/native-gradle-plugin-1.1.3.pom",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/native/org.graalvm.buildtools.native.gradle.plugin/1.1.14/org.graalvm.buildtools.native.gradle.plugin-1.1.14.pom",
+      "path_after": ""
+    },
+    {
+      "status": "D",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/native/org.graalvm.buildtools.native.gradle.plugin/1.1.3/org.graalvm.buildtools.native.gradle.plugin-1.1.3.pom",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/utils/1.1.14/utils-1.1.14.jar",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/utils/1.1.14/utils-1.1.14.module",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/utils/1.1.14/utils-1.1.14.pom",
+      "path_after": ""
+    },
+    {
+      "status": "D",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/utils/1.1.3/utils-1.1.3.jar",
+      "path_after": ""
+    },
+    {
+      "status": "D",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/utils/1.1.3/utils-1.1.3.module",
+      "path_after": ""
+    },
+    {
+      "status": "D",
+      "path_before": "release/gradle-offline/repo/org/graalvm/buildtools/utils/1.1.3/utils-1.1.3.pom",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/names.md",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/README.md",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/hyprgrass/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/limine-mkinitcpio-hook/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/limine-snapper-sync/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "D",
+      "path_before": "release/packages/prowl-agent/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/prowl/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/ryogami/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryogami/payload.sh",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/ryoku-blobs/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryoku-blobs/payload.sh",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/ryoku-desktop-hyprland/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryoku-desktop-hyprland/payload.sh",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/ryoku-desktop-niri/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryoku-desktop-niri/payload.sh",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryoku-desktop-wayfire/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryoku-desktop-wayfire/depthdeck.bundle",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/ryoku-desktop/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryoku-desktop/payload.sh",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/ryoku-desktop/ryoku-desktop.install",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/ryoku-hub/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryoku-hub/payload.sh",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/ryoku-hypr-plugins/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/ryoku-keyring/README.md",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryoku-keysounds-niri/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryoku-keysounds-niri/payload.sh",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryoku-keysounds-profiles/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryoku-keysounds-profiles/payload.sh",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/ryoku-keysounds/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/ryoku-palette-bridge/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryoku-palette-bridge/payload.sh",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/ryoku-rashin/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryoku-rashin/payload.sh",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryoku-rashin/ryoku-rashin.install",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/ryoku-shell/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryoku-shell/payload.sh",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/packages/ryoku/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryoku/payload.sh",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryomanager/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ryomanager/ryomanager.desktop",
+      "path_after": ""
+    },
+    {
+      "status": "D",
+      "path_before": "release/packages/ryomotion/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/skwd-paper-bin/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ttf-readex-pro/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/packages/ttf-rubik-vf/PKGBUILD",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/r2-retention/.gitignore",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/r2-retention/README.md",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/r2-retention/package.json",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/r2-retention/src/index.js",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/r2-retention/src/planner.js",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/r2-retention/test/fixtures/isos.json",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/r2-retention/test/ledger.test.js",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/r2-retention/test/planner.test.js",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/r2-retention/test/worker.test.js",
+      "path_after": ""
+    },
+    {
+      "status": "A",
+      "path_before": "release/r2-retention/wrangler.jsonc",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/repo/build-repo.sh",
+      "path_after": ""
+    },
+    {
+      "status": "M",
+      "path_before": "release/repo/build-toolchain.packages",
+      "path_after": ""
+    }
+  ]
+}

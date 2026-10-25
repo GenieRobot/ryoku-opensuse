@@ -1,5 +1,5 @@
 schema_version = 1
-upstream_revision = "98a0368253d9628be72b853985878a5db90e1547"
+upstream_revision = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
 wrapper = "/usr/libexec/ryoku/ryoku-writer"
 quickshell = "/usr/libexec/ryoku/quickshell/qs"
 requires_user_namespace_initialization = true
@@ -38,3 +38,7 @@ qml = "/usr/share/ryoku/shell/quickshell/ryoshot"
 [[surfaces]]
 writer_role = "welcome"
 qml = "/usr/share/ryoku/shell/quickshell/welcome"
+
+[[surfaces]]
+writer_role = "keys-hint"
+qml = "/usr/share/ryoku/shell/quickshell/keys-hint"

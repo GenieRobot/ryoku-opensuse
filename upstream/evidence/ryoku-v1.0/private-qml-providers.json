@@ -1,0 +1,45 @@
+{
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "built_source_commit": "8985d22698e3f73d77a9ee2e9305d438c5f9f6b0",
+  "modules": [
+    {
+      "uri": "shell.modules.phone",
+      "source": "ryoku/shell/quickshell/shell/modules/phone/qmldir",
+      "git_blob": "0497d63b4c9d6043629f10f59e6363c7980e81b2",
+      "git_mode": "100644",
+      "qmldir": "module shell.modules.phone\nsingleton PhoneState 1.0 PhoneState.qml\nsingleton KdeConnectService 1.0 KdeConnectService.qml\nsingleton PhoneScrcpyService 1.0 PhoneScrcpyService.qml\nPhoneBridge 1.0 PhoneBridge.qml\nsingleton PhoneAlarmService 1.0 PhoneAlarmService.qml\nsingleton PhoneContactsService 1.0 PhoneContactsService.qml\nsingleton PhoneAppIconService 1.0 PhoneAppIconService.qml\nsingleton PhoneCameraService 1.0 PhoneCameraService.qml\nsingleton PhoneMicService 1.0 PhoneMicService.qml\nsingleton PhoneCallService 1.0 PhoneCallService.qml\n",
+      "sha256": "a844dc13dd26a97127be10f09d03897359069fcff3c333c07d0b47ff59f9dc28",
+      "RPM_path": "/usr/share/ryoku/shell/quickshell/shell/modules/phone/qmldir"
+    },
+    {
+      "uri": "shell.modules.stage.frame",
+      "source": "ryoku/shell/quickshell/shell/modules/stage/frame/qmldir",
+      "git_blob": "67f94f8c69f37cca795a3eaaad44cd9b84afaef9",
+      "git_mode": "100644",
+      "qmldir": "module shell.modules.stage.frame\nsingleton StageFrame 1.0 StageFrame.qml\nStageFramedLayer 1.0 StageFramedLayer.qml\n",
+      "sha256": "bdab73ecf450fe655dde811ef9ab6e81310c5168ec5b4f5f74ed60fc33e650bf",
+      "RPM_path": "/usr/share/ryoku/shell/quickshell/shell/modules/stage/frame/qmldir"
+    }
+  ],
+  "scope": "Two selected/shipped private QML namespaces outside /qt6/qml; exact metadata Provides only, not phone/editor runtime acceptance.",
+  "original_runtime_rpm": {
+    "name": "ryoku-desktop-runtime-0.1.0-8.x86_64.rpm",
+    "sha256": "252f4adcc3d233888ef199e654336ebbb541a37f2e26f5283144832c242b1697"
+  },
+  "native_headers": {
+    "requires": {
+      "path": "automation/tests/fixtures/issue173-runtime-requires.txt",
+      "sha256": "febe8555e1d94033b917ea9a71a567e24f550100b57c7042b9e657dcd2503223"
+    },
+    "aggregate_provides": {
+      "path": "automation/tests/fixtures/issue173-candidate-provides.txt",
+      "sha256": "2b87996dd295f4dd711a827913a615a9a185916673040238e78cfd369d603a59"
+    }
+  },
+  "verifier_contract": {
+    "required_spatial3d_capability": "qt6qmlimport(Ryoku.Spatial3D.1)",
+    "native_provide": "qt6qmlimport(Ryoku.Spatial3D.1) = 0",
+    "meaning": "An unconstrained capability requirement matches the identical provider name, retaining the source-import major. Constrained internal requirements fail closed pending native solver validation."
+  },
+  "validation_limit": "Original native headers reproduce both missing private Provides. Source/spec regressions pass; corrected native RPM rebuild, production audit, solver and runtime loading remain open."
+}

@@ -1,0 +1,360 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "source": {
+    "path": "ryoku/shell/plugin/wavecapture.cpp",
+    "git_blob": "8dc1c62ec266f5262f1636e8383e2ead9d882aec",
+    "git_mode": "100644",
+    "sha256": "0c90a7cd62b7490f437ed566c7660938e95e358557d51ea55970ebc01ea38da6",
+    "source2_payload": "native/ryoku-blobs/wavecapture.cpp",
+    "command_anchors": [
+      {
+        "line": 97,
+        "source_text": "m_resolver.setProgram(QStringLiteral(\"pactl\"));"
+      },
+      {
+        "line": 120,
+        "source_text": "m_resolver.setProgram(QStringLiteral(\"pactl\"));"
+      },
+      {
+        "line": 161,
+        "source_text": "m_capture.setProgram(QStringLiteral(\"pw-record\"));"
+      }
+    ]
+  },
+  "repository": {
+    "snapshot": "openSUSE Tumbleweed OSS20261016",
+    "repomd_sha256": "1d891e33c8abd582b71e579118e6b4c94e5e57ecdc1b77a2a7fc1abf7cc930a0",
+    "signer_fingerprint": "AD485664E901B867051AB15F35A2F86E29B700A4",
+    "signature_validation": "gpgv reverified locally; Good signature from openSUSE Project Signing Key",
+    "primary_location": "repodata/00c8e15be77a2a6e1f49e58f3c1c66142e2987fda576cceec54c9db0e9a7f789e43233f12f463d0d5313f941f665928aa45e79cba73de6699b847d560cc454ad-primary.xml.zst",
+    "primary_bytes": 17340729,
+    "primary_sha512": "00c8e15be77a2a6e1f49e58f3c1c66142e2987fda576cceec54c9db0e9a7f789e43233f12f463d0d5313f941f665928aa45e79cba73de6699b847d560cc454ad",
+    "primary_open_bytes": 173040206,
+    "primary_open_sha512": "b78e3942f0585d06a9c1d10115e78d23f357b31cc23a95d550b4de46be090a670782c0d23fa10e21bbcfe7f485b1f85250700f6a77b203021c728e22913605df",
+    "repomd_signature_sha256": "ec4ea2579b347505d4f85dbd596b55033d229eba1e810597f6ec2d5cc3fb598a"
+  },
+  "packages": [
+    {
+      "name": "pipewire-tools",
+      "arch": "x86_64",
+      "version": {
+        "epoch": "0",
+        "ver": "1.6.9",
+        "rel": "2.1"
+      },
+      "rpm_checksum_type": "sha512",
+      "rpm_checksum": "fa5665444a0d806fc408081c2cdff151b2d56aeff3a0e49f3a29e54bcab114180919f25d25faa5e411ad2baffa0529901b15a707a269bd32fbd7bf53f843d660",
+      "location": "x86_64/pipewire-tools-1.6.9-2.1.x86_64.rpm",
+      "binary": "/usr/bin/pw-record",
+      "primary_files": [
+        "/usr/bin/pw-cat",
+        "/usr/bin/pw-cli",
+        "/usr/bin/pw-config",
+        "/usr/bin/pw-container",
+        "/usr/bin/pw-dot",
+        "/usr/bin/pw-dsdplay",
+        "/usr/bin/pw-dump",
+        "/usr/bin/pw-encplay",
+        "/usr/bin/pw-link",
+        "/usr/bin/pw-loopback",
+        "/usr/bin/pw-metadata",
+        "/usr/bin/pw-midi2play",
+        "/usr/bin/pw-midi2record",
+        "/usr/bin/pw-mididump",
+        "/usr/bin/pw-midiplay",
+        "/usr/bin/pw-midirecord",
+        "/usr/bin/pw-mon",
+        "/usr/bin/pw-play",
+        "/usr/bin/pw-profiler",
+        "/usr/bin/pw-record",
+        "/usr/bin/pw-reserve",
+        "/usr/bin/pw-sysex",
+        "/usr/bin/pw-top",
+        "/usr/bin/pw-v4l2"
+      ],
+      "provides": [
+        {
+          "name": "pipewire-tools",
+          "flags": "EQ",
+          "epoch": "0",
+          "ver": "1.6.9",
+          "rel": "2.1"
+        },
+        {
+          "name": "pipewire-tools(x86-64)",
+          "flags": "EQ",
+          "epoch": "0",
+          "ver": "1.6.9",
+          "rel": "2.1"
+        }
+      ],
+      "requires": [
+        {
+          "name": "/bin/sh"
+        },
+        {
+          "name": "libdbus-1.so.3()(64bit)"
+        },
+        {
+          "name": "libdbus-1.so.3(LIBDBUS_1_3)(64bit)"
+        },
+        {
+          "name": "libm.so.6()(64bit)"
+        },
+        {
+          "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+        },
+        {
+          "name": "libm.so.6(GLIBC_2.29)(64bit)"
+        },
+        {
+          "name": "libncursesw.so.6()(64bit)"
+        },
+        {
+          "name": "libncursesw.so.6(NCURSESTW6_5.7.20081102)(64bit)"
+        },
+        {
+          "name": "libpipewire-0.3.so.0()(64bit)"
+        },
+        {
+          "name": "libreadline.so.8()(64bit)"
+        },
+        {
+          "name": "libsndfile.so.1()(64bit)"
+        },
+        {
+          "name": "libsndfile.so.1(libsndfile.so.1.0)(64bit)"
+        },
+        {
+          "name": "libtinfo.so.6()(64bit)"
+        },
+        {
+          "name": "libtinfo.so.6(NCURSES6_TINFO_5.0.19991023)(64bit)"
+        },
+        {
+          "name": "libtinfo.so.6(NCURSES6_TINFO_5.7.20081102)(64bit)"
+        },
+        {
+          "name": "libc.so.6(GLIBC_2.38)(64bit)"
+        }
+      ],
+      "conflicts": [],
+      "obsoletes": [],
+      "fragment": "upstream/evidence/ryoku-v1.0/wavecapture-pipewire-tools.xml.fragment",
+      "fragment_bytes": 3055,
+      "fragment_sha256": "0a5da0d7b741286ee5d503320b607cbda588ed71209ed461de1c679955c2656d"
+    },
+    {
+      "name": "pulseaudio-utils",
+      "arch": "x86_64",
+      "version": {
+        "epoch": "0",
+        "ver": "17.0",
+        "rel": "7.6"
+      },
+      "rpm_checksum_type": "sha512",
+      "rpm_checksum": "064e16c2d8f234f5ec8b4b53acf6762f9bcda63713d174207742210859ccb0e311bb8432766d03a57f61bf84393360b0ebf7c66da3966a9eebdeee1af716d1e2",
+      "location": "x86_64/pulseaudio-utils-17.0-7.6.x86_64.rpm",
+      "binary": "/usr/bin/pactl",
+      "primary_files": [
+        "/usr/bin/pa-info",
+        "/usr/bin/pacat",
+        "/usr/bin/pacmd",
+        "/usr/bin/pactl",
+        "/usr/bin/padsp",
+        "/usr/bin/pamon",
+        "/usr/bin/paplay",
+        "/usr/bin/parec",
+        "/usr/bin/parecord",
+        "/usr/bin/pasuspender",
+        "/usr/bin/pax11publish"
+      ],
+      "provides": [
+        {
+          "name": "libpulsedsp.so()(64bit)"
+        },
+        {
+          "name": "pulseaudio-utils",
+          "flags": "EQ",
+          "epoch": "0",
+          "ver": "17.0",
+          "rel": "7.6"
+        },
+        {
+          "name": "pulseaudio-utils(x86-64)",
+          "flags": "EQ",
+          "epoch": "0",
+          "ver": "17.0",
+          "rel": "7.6"
+        }
+      ],
+      "requires": [
+        {
+          "name": "/bin/bash"
+        },
+        {
+          "name": "/bin/sh"
+        },
+        {
+          "name": "libpulse-mainloop-glib0",
+          "flags": "EQ",
+          "epoch": "0",
+          "ver": "17.0"
+        },
+        {
+          "name": "libpulse.so.0()(64bit)"
+        },
+        {
+          "name": "libpulse.so.0(PULSE_0)(64bit)"
+        },
+        {
+          "name": "libpulse0",
+          "flags": "EQ",
+          "epoch": "0",
+          "ver": "17.0"
+        },
+        {
+          "name": "libpulsecommon-17.0.so()(64bit)"
+        },
+        {
+          "name": "libsndfile.so.1()(64bit)"
+        },
+        {
+          "name": "libsndfile.so.1(libsndfile.so.1.0)(64bit)"
+        },
+        {
+          "name": "libxcb.so.1()(64bit)"
+        },
+        {
+          "name": "pulseaudio-daemon"
+        },
+        {
+          "name": "libc.so.6(GLIBC_2.38)(64bit)"
+        }
+      ],
+      "conflicts": [],
+      "obsoletes": [],
+      "fragment": "upstream/evidence/ryoku-v1.0/wavecapture-pulseaudio-utils.xml.fragment",
+      "fragment_bytes": 2616,
+      "fragment_sha256": "95d5167ac324ebe3b4a280e1de590ef8d6baf118097f8feb4608115f22d895ed"
+    },
+    {
+      "name": "pipewire-pulseaudio",
+      "arch": "x86_64",
+      "version": {
+        "epoch": "0",
+        "ver": "1.6.9",
+        "rel": "2.1"
+      },
+      "rpm_checksum_type": "sha512",
+      "rpm_checksum": "9eacb6ed8740623732abf9aa0c95c24fff21e1e4e005f7528b0d3a870c4e27c8ff828194d9ede41679cd1833302054802ec42e3ea3ba9fdd2b4ce1fa91501eb4",
+      "location": "x86_64/pipewire-pulseaudio-1.6.9-2.1.x86_64.rpm",
+      "binary": null,
+      "primary_files": [
+        "/usr/bin/pipewire-pulse"
+      ],
+      "provides": [
+        {
+          "name": "libpipewire-module-protocol-pulse.so()(64bit)"
+        },
+        {
+          "name": "pipewire-pulseaudio",
+          "flags": "EQ",
+          "epoch": "0",
+          "ver": "1.6.9",
+          "rel": "2.1"
+        },
+        {
+          "name": "pipewire-pulseaudio(x86-64)",
+          "flags": "EQ",
+          "epoch": "0",
+          "ver": "1.6.9",
+          "rel": "2.1"
+        },
+        {
+          "name": "pulseaudio-daemon"
+        }
+      ],
+      "requires": [
+        {
+          "name": "/bin/sh",
+          "pre": "1"
+        },
+        {
+          "name": "/bin/sh"
+        },
+        {
+          "name": "libavahi-client.so.3()(64bit)"
+        },
+        {
+          "name": "libavahi-common.so.3()(64bit)"
+        },
+        {
+          "name": "libdbus-1.so.3()(64bit)"
+        },
+        {
+          "name": "libdbus-1.so.3(LIBDBUS_1_3)(64bit)"
+        },
+        {
+          "name": "libgio-2.0.so.0()(64bit)"
+        },
+        {
+          "name": "libglib-2.0.so.0()(64bit)"
+        },
+        {
+          "name": "libgobject-2.0.so.0()(64bit)"
+        },
+        {
+          "name": "libm.so.6()(64bit)"
+        },
+        {
+          "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+        },
+        {
+          "name": "libpipewire-0.3.so.0()(64bit)"
+        },
+        {
+          "name": "libpipewire-0_3-0",
+          "flags": "GE",
+          "epoch": "0",
+          "ver": "1.6.9",
+          "rel": "2.1"
+        },
+        {
+          "name": "pipewire",
+          "flags": "GE",
+          "epoch": "0",
+          "ver": "1.6.9",
+          "rel": "2.1"
+        },
+        {
+          "name": "pulseaudio-utils"
+        },
+        {
+          "name": "libc.so.6(GLIBC_2.38)(64bit)"
+        }
+      ],
+      "conflicts": [
+        {
+          "name": "pipewire-modules",
+          "flags": "LT",
+          "epoch": "0",
+          "ver": "1.0.0"
+        },
+        {
+          "name": "pulseaudio"
+        },
+        {
+          "name": "pulseaudio-daemon"
+        }
+      ],
+      "obsoletes": [],
+      "fragment": "upstream/evidence/ryoku-v1.0/wavecapture-pipewire-pulseaudio.xml.fragment",
+      "fragment_bytes": 2621,
+      "fragment_sha256": "b2b4f7a89e286fa35a36d150ca83ac8954e2a6d246c531377f99c23d7bf4558d"
+    }
+  ],
+  "scope": "Exact executable file entries and dependency/conflict/obsolete facts from checksum/signature-verified primary XML; fragments are literal original bytes, not standalone XML documents; no RPM payload, Zypper transaction, service/installer or native runtime acceptance",
+  "pipewire_daemon_compatibility": "pipewire-pulseaudio itself requires pulseaudio-utils and provides pulseaudio-daemon; selecting the client does not require selecting the PulseAudio server. Actual installed-system solver/native acceptance remains open."
+}

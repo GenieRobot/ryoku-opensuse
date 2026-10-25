@@ -1,0 +1,370 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "project_base_commit": "613c0e6b242123d47f6026f1433794b90db3aa26",
+  "scope": "Conditional source/API evidence, not executed mutation/purity acceptance; no executable behavior change",
+  "route": [
+    "desktop",
+    "plugins",
+    "list"
+  ],
+  "classification": "accepted-by-current-Hub-argv-table-but-not-query-pure",
+  "feature_target": "Retain discovery, My sounds, plugin load/unload/configuration, inspect/download/build/install/update/removal and their status affordances",
+  "owners": {
+    "#180": "Hub user/appearance query purity, refresh triggers, explicit activation/settings/metadata authorization",
+    "#182": "Plugin source/cache/build/install/update/removal; immutable trust and bounded execution; #25/#173/#20/#27/#28 prerequisites",
+    "#25": "protected appearance/session transport and #18/#20 capture/checkpoint prerequisites"
+  },
+  "sources": [
+    {
+      "source": "ryoku/hub/quickshell/pages/PluginsPage.qml",
+      "git_mode": "100644",
+      "git_blob": "4ccca8f831f8cc55fb61763a5f87cb92a4d795bb",
+      "sha256": "2f4dbd2aec4df4fa08c4f33d6214731afe561d5a285f814d0ed1b3cabd561a09"
+    },
+    {
+      "source": "ryoku/hub/backend/desktop.go",
+      "git_mode": "100644",
+      "git_blob": "4a6b873e4ae9c6cc1ae1fc4810580aab51966233",
+      "sha256": "0996a83c183639540d0aeca6fa9cb3bf829babb1dfcf8483e26cfc4da011e2b2"
+    },
+    {
+      "source": "ryoku/wm/client.go",
+      "git_mode": "100644",
+      "git_blob": "5b8f126725f281c92c1daaf2abbaec5d141549c9",
+      "sha256": "8d93c08be106e7a0ffcdd22a953bc94f4b855e831933e49ecf66d5798f51204a"
+    },
+    {
+      "source": "ryoku/wm/hyprland/config_plugins.go",
+      "git_mode": "100644",
+      "git_blob": "30d57757f3d59c6cb0d400523635594161a569df",
+      "sha256": "badbed4348e7bcd606e4ad2e4736e429619e712e50fa1e59dabe4bd09fc02fd4"
+    },
+    {
+      "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+      "git_mode": "100644",
+      "git_blob": "8bda9a91d12191d9121e3b254502650e36b4637d",
+      "sha256": "cb90d4ea56c32ce0bbd87e07d009ef381fdfff1586fa271090976aa9fe060024"
+    },
+    {
+      "source": "ryoku/wm/hyprland/config_store.go",
+      "git_mode": "100644",
+      "git_blob": "ca463ca4b2d6f72d775130284f7d2ca245182793",
+      "sha256": "4458ee786f374d41448d7176f17536e8dc8d5707a6f663137da15d728ed79501"
+    }
+  ],
+  "entrypoints": [
+    {
+      "source": "ryoku/hub/quickshell/pages/PluginsPage.qml",
+      "lines": [
+        50
+      ],
+      "text": "function refresh() { listProc.running = true }"
+    },
+    {
+      "source": "ryoku/hub/quickshell/pages/PluginsPage.qml",
+      "lines": [
+        232
+      ],
+      "text": "command: [\"ryoku-hub\", \"desktop\", \"plugins\", \"list\"]"
+    },
+    {
+      "source": "ryoku/hub/quickshell/pages/PluginsPage.qml",
+      "lines": [
+        233
+      ],
+      "text": "running: true"
+    },
+    {
+      "source": "ryoku/hub/quickshell/pages/PluginsPage.qml",
+      "lines": [
+        252
+      ],
+      "text": "function onSavePage() { afterSave.restart(); }"
+    },
+    {
+      "source": "ryoku/hub/quickshell/pages/PluginsPage.qml",
+      "lines": [
+        254
+      ],
+      "text": "interval: 1500; onTriggered: pg.refresh()"
+    },
+    {
+      "source": "ryoku/hub/backend/desktop.go",
+      "lines": [
+        370
+      ],
+      "text": "func pluginsDesktop(args []string)"
+    },
+    {
+      "source": "ryoku/hub/backend/desktop.go",
+      "lines": [
+        371
+      ],
+      "text": "desktopClient().Plugins(args...)"
+    },
+    {
+      "source": "ryoku/wm/client.go",
+      "lines": [
+        336
+      ],
+      "text": "func (c *Client) Plugins(args ...string)"
+    },
+    {
+      "source": "ryoku/wm/hyprland/config_plugins.go",
+      "lines": [
+        25
+      ],
+      "text": "return printJSON(pluginRosterNow())"
+    },
+    {
+      "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+      "lines": [
+        739,
+        746,
+        755
+      ],
+      "text": "roster.Plugins = append(roster.Plugins, describePlugin"
+    }
+  ],
+  "effects": [
+    {
+      "id": "keysounds-directory-and-readme",
+      "predicate": "d.ID == \"keysounds\"; before installed-copy lookup, including missing/disabled plugin",
+      "writes": [
+        "$XDG_DATA_HOME/ryoku/keysounds/ (fallback $HOME/.local/share/ryoku/keysounds/)",
+        "same directory/README if fileExists returns false"
+      ],
+      "runtime": [
+        "os.MkdirAll(dir, 0755)",
+        "os.WriteFile(README, bytes, 0644)"
+      ],
+      "anchors": [
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            789
+          ],
+          "text": "if d.ID == \"keysounds\""
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            790
+          ],
+          "text": "info.UserSounds = keysoundsUserDir()"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            114
+          ],
+          "text": "os.MkdirAll(dir, 0o755)"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            118
+          ],
+          "text": "if !fileExists(readme)"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            119
+          ],
+          "text": "_ = os.WriteFile(readme"
+        }
+      ],
+      "acceptance": "Absent user data remains absent after repeated discovery, including missing/disabled keysounds; explicit My sounds creation remains available as separately authorized mutation."
+    },
+    {
+      "id": "loaded-extra-receipt-refresh",
+      "predicate": "selected copy exists; !bundled && hasReceipt && isLoaded && !settingsEqual(receipt.Settings, info.Settings); does not require info.Enabled",
+      "writes": [
+        "$HOME/.local/lib/hyprland/plugins/<id>.json",
+        "parent directory and sibling .tmp-* during atomicWrite"
+      ],
+      "runtime": [
+        "detectSettings reads .so keys; loaded settings query hyprctl getoption",
+        "writeReceipt -> atomicWrite -> MkdirAll/CreateTemp/Write/Chmod/Rename"
+      ],
+      "anchors": [
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            830
+          ],
+          "text": "if hasReceipt && isLoaded && !settingsEqual"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            831,
+            860
+          ],
+          "text": "receipt.Settings = info.Settings"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            832,
+            861
+          ],
+          "text": "_ = writeReceipt(receipt)"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            593
+          ],
+          "text": "return filepath.Join(userPluginDir(), id+\".json\")"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_store.go",
+          "lines": [
+            636
+          ],
+          "text": "func atomicWrite("
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_store.go",
+          "lines": [
+            640
+          ],
+          "text": "os.CreateTemp(filepath.Dir(path), \".tmp-*\")"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_store.go",
+          "lines": [
+            659
+          ],
+          "text": "return os.Rename(tmp, path)"
+        }
+      ],
+      "acceptance": "Existing receipt bytes/mode remain unchanged by discovery even when live settings differ; authorized metadata reconciliation captures exact owned paths before writing."
+    },
+    {
+      "id": "enabled-extra-or-bundled-code-load",
+      "predicate": "selected copy exists; !isLoaded && !stale && info.Enabled && target.ok(); switch ordering excludes already-loaded/stale copies",
+      "writes": [
+        "live compositor address space and generated plugin configuration"
+      ],
+      "runtime": [
+        "hyprctl plugin load <selected .so> executes user-account plugin code",
+        "on successful load: pushEval(genPluginConfig(o)) -> ctl(\"eval\", lua)"
+      ],
+      "anchors": [
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            837
+          ],
+          "text": "case isLoaded:"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            839
+          ],
+          "text": "case stale:"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            841
+          ],
+          "text": "case info.Enabled && target.ok():"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            842
+          ],
+          "text": "if err := hyprctlPluginLoad(c.Path)"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            851
+          ],
+          "text": "pushEval(genPluginConfig(o))"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            420
+          ],
+          "text": "ctl(\"plugin\", \"load\", path)"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins.go",
+          "lines": [
+            83
+          ],
+          "text": "_, _ = ctl(\"eval\", lua)"
+        }
+      ],
+      "acceptance": "Repeated inventory never sends load/unload/eval even when a compatible enabled plugin is not loaded; explicit activation retains status/error/ABI feedback with typed authorization and bounded state protection."
+    },
+    {
+      "id": "post-load-extra-receipt-refresh",
+      "predicate": "preceding load succeeds && !bundled; hasReceipt additionally gates persistence",
+      "writes": [
+        "$HOME/.local/lib/hyprland/plugins/<id>.json (same atomic temporary/parent paths)"
+      ],
+      "runtime": [
+        "loadedPlugins query selects newly reported name into receipt.Loaded",
+        "detectSettings(c.Path,true,...) and writeReceipt"
+      ],
+      "anchors": [
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            853
+          ],
+          "text": "for name := range loadedPlugins()"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            855
+          ],
+          "text": "receipt.Loaded = name"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            858
+          ],
+          "text": "info.Settings = detectSettings(c.Path, true, info.Settings)"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            812,
+            859
+          ],
+          "text": "if hasReceipt {"
+        },
+        {
+          "source": "ryoku/wm/hyprland/config_plugins_tier.go",
+          "lines": [
+            832,
+            861
+          ],
+          "text": "_ = writeReceipt(receipt)"
+        }
+      ],
+      "acceptance": "Discovery cannot activate code to learn settings or persist its results; separately authorized activation records linked pre/post receipts, denied/tampered/recovery cases and preserves user data."
+    }
+  ],
+  "limits": [
+    "Source branches do not establish exploitability or successful native execution.",
+    "Errors in mkdir/write/receipt refresh can be ignored; list success does not prove state unchanged.",
+    "Hub exact arity guards argv, not effect scope. Provider/private binary routes require the same owner contract.",
+    "Authentication and writer coordination alone do not provide bounded write scope or linked recovery.",
+    "No root execution is established: plugin .so and build actions use user-account data access.",
+    "Other accepted query routes still need per-operation review; this is one operation only."
+  ]
+}

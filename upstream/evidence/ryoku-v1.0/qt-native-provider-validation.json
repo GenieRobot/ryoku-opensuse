@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "project_base_commit": "42ef0c1a8f64dc8383bb7711a93da7a61df60870",
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "input_sha256": {
+    "docs/ryoku-v1.0-qt-native-providers.md": "b44bd0d3b7363f1b2fd4f42cd069fc835ff0053fbdf04b0f93f4fb393f27bc60",
+    "upstream/evidence/ryoku-v1.0/qt-native-provider-proof.json": "e159d417146a7e9757db9591eaa4c566ca302b196ff07d28789a7ec11e290200",
+    "upstream/evidence/ryoku-v1.0/qt-native-primary-records.json": "b4f0938cc375755eb6b8f2bceaf86647d61a8329fd6f0bf33268951f0ce1d8ff",
+    "packaging/rpm/ryoku-desktop.spec": "564b0ffbbff1d95601f136f51cad57d05702b22363925945769a7661c04196e9",
+    "packaging/rpm/ryoku-quickshell.spec": "a3d6e291dac2bc16eec209bf0648a4d7cde07260ec8cd566bf578b0c342d2c06"
+  },
+  "checks": {
+    "raw_signed_primary_records": 49,
+    "total_primary_records_verified": 52976,
+    "signed_cached_rpm_payloads": 7,
+    "rpm_file_digest_matched_plugins": 6,
+    "rpm_file_digest_matched_qmldirs": 6,
+    "unique_direct_sonames": 10,
+    "native_executable_file_records": 5,
+    "source_contracts": 3,
+    "archive_verified_upower_contracts": 4,
+    "static_plugin_link_anchors": 2,
+    "build_capability_bindings": 3,
+    "separate_declarative_capability_helper": "verified",
+    "qt_ffmpeg8_and_cli_sdk_ffmpeg9_distinct": "verified",
+    "source2_source3_and_runtime_specs_unchanged": true,
+    "source_signature_header_selection_provider_anchor_and_link_integrity": "passed"
+  },
+  "scope": "Direct signed-source/provider/ELF header facts only; no extraction, loading/execution, native build/solver/service/VM acceptance or feature exclusion."
+}

@@ -1,0 +1,56 @@
+<package type="rpm">
+  <name>pulseaudio-utils</name>
+  <arch>x86_64</arch>
+  <version epoch="0" ver="17.0" rel="7.6"/>
+  <checksum type="sha512" pkgid="YES">064e16c2d8f234f5ec8b4b53acf6762f9bcda63713d174207742210859ccb0e311bb8432766d03a57f61bf84393360b0ebf7c66da3966a9eebdeee1af716d1e2</checksum>
+  <summary>PulseAudio utilities</summary>
+  <description>pulseaudio is a networked sound server for Linux and other Unix like
+operating systems and Microsoft Windows. It is intended to be an
+improved drop-in replacement for the Enlightened Sound Daemon (ESOUND).
+
+This package provides utilies for making use of the PulseAudio sound
+server.</description>
+  <packager>https://bugs.opensuse.org</packager>
+  <url>https://www.freedesktop.org/wiki/Software/PulseAudio/</url>
+  <time file="1789150833" build="1776932652"/>
+  <size package="96231" installed="275810" archive="279128"/>
+  <location href="x86_64/pulseaudio-utils-17.0-7.6.x86_64.rpm"/>
+  <format>
+    <rpm:license>GPL-2.0-or-later AND LGPL-2.1-or-later</rpm:license>
+    <rpm:vendor>openSUSE</rpm:vendor>
+    <rpm:group>System/Sound Daemons</rpm:group>
+    <rpm:buildhost>reproducible</rpm:buildhost>
+    <rpm:sourcerpm>pulseaudio-17.0-7.6.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="15617"/>
+    <rpm:provides>
+      <rpm:entry name="libpulsedsp.so()(64bit)"/>
+      <rpm:entry name="pulseaudio-utils" flags="EQ" epoch="0" ver="17.0" rel="7.6"/>
+      <rpm:entry name="pulseaudio-utils(x86-64)" flags="EQ" epoch="0" ver="17.0" rel="7.6"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="/bin/bash"/>
+      <rpm:entry name="/bin/sh"/>
+      <rpm:entry name="libpulse-mainloop-glib0" flags="EQ" epoch="0" ver="17.0"/>
+      <rpm:entry name="libpulse.so.0()(64bit)"/>
+      <rpm:entry name="libpulse.so.0(PULSE_0)(64bit)"/>
+      <rpm:entry name="libpulse0" flags="EQ" epoch="0" ver="17.0"/>
+      <rpm:entry name="libpulsecommon-17.0.so()(64bit)"/>
+      <rpm:entry name="libsndfile.so.1()(64bit)"/>
+      <rpm:entry name="libsndfile.so.1(libsndfile.so.1.0)(64bit)"/>
+      <rpm:entry name="libxcb.so.1()(64bit)"/>
+      <rpm:entry name="pulseaudio-daemon"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.38)(64bit)"/>
+    </rpm:requires>
+    <file>/usr/bin/pa-info</file>
+    <file>/usr/bin/pacat</file>
+    <file>/usr/bin/pacmd</file>
+    <file>/usr/bin/pactl</file>
+    <file>/usr/bin/padsp</file>
+    <file>/usr/bin/pamon</file>
+    <file>/usr/bin/paplay</file>
+    <file>/usr/bin/parec</file>
+    <file>/usr/bin/parecord</file>
+    <file>/usr/bin/pasuspender</file>
+    <file>/usr/bin/pax11publish</file>
+  </format>
+</package>
