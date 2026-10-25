@@ -46,7 +46,14 @@ jobs:
       - name: Check lints
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
+      - name: Verify the exact staged test executable profile and success path
+        env:
+          RYOKU_CI_APPARMOR_PROFILE: ryoku-hook-ci-userns
+        run: cargo test -p ryoku-recovery --locked staged_root_pinned_bash_exec_preserves_home_cwd_uid_and_two_outputs -- --nocapture
+
       - name: Run tests
+        env:
+          RYOKU_CI_APPARMOR_PROFILE: ryoku-hook-ci-userns
         run: cargo test --workspace --all-features --locked
 
       - name: Install dependency review tool
@@ -59,6 +66,7 @@ jobs:
         if: always()
         shell: bash
         run: |
+          set -euo pipefail
           ryoku_profile_file="$RUNNER_TEMP/ryoku-hook-ci-userns.apparmor"
           if test -f "$ryoku_profile_file"; then
             sudo apparmor_parser --remove "$ryoku_profile_file"

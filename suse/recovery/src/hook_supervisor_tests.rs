@@ -220,6 +220,11 @@ fn staged_data_cannot_become_executable_through_the_elf_loader() {
 }
 #[test]
 fn staged_root_pinned_bash_exec_preserves_home_cwd_uid_and_two_outputs() {
+    if let Ok(expected_profile) = std::env::var("RYOKU_CI_APPARMOR_PROFILE") {
+        let actual = std::fs::read_to_string("/proc/self/attr/current").unwrap();
+        eprintln!("exact staged integration test executable AppArmor label: {actual}");
+        assert_eq!(actual.trim(), format!("{expected_profile} (unconfined)"));
+    }
     let mut fixture = Fixture::new(
         "exec /usr/bin/bash --noprofile --norc -c 'IFS= read -r previous < .config/kitty/user.conf || :; printf \"%s:%s:%s:%s:%s:%s\" \"$HOME\" \"$PWD\" \"$UID\" \"$EUID\" \"${GROUPS[0]}\" \"$previous\" > .config/kitty/user.conf; printf fish-after > .config/fish/user.fish'",
     );
