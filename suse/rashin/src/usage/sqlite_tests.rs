@@ -248,3 +248,69 @@ fn sqlite_deadline_and_source_size_limits_refuse_without_partial_claims() {
         Err(Error::Limit)
     ));
 }
+
+#[test]
+fn sqlite_model_rows_keep_sql_session_hints_without_exposing_ids() {
+    let directory = Directory::new();
+    let writer = directory.old();
+    let at = now();
+    for session in ["PRIVATE_SQL_SESSION_A", "PRIVATE_SQL_SESSION_A", "PRIVATE_SQL_SESSION_B"] {
+        writer.execute(&format!(
+            "INSERT INTO message VALUES('{session}',{},{},'{}')",
+            at * 1000,
+            at * 1000,
+            record(at, 42)
+        ));
+    }
+    drop(writer);
+    let report = collect_dir(&directory);
+    assert_eq!(report.models[0]["sessions"], 2);
+    assert_eq!(report.models[0]["total"], 126);
+    assert_eq!(report.models[0]["totalWithCacheRead"], 2826);
+    assert_eq!(report.models[0]["sessions_status"], "source_identified");
+    assert!(!serde_json::to_string(&report).unwrap().contains("PRIVATE_SQL"));
+    let directory = Directory::new();
+    let writer = Writer::create(&directory.0.join("opencode.db"));
+    writer.execute(
+        "CREATE TABLE session_message(role TEXT,created_at INTEGER,sessionID TEXT,data TEXT)",
+    );
+    let row = json!({"model":{"id":"v2","providerID":"test"},"tokens":{"input":9},"cost":0.0})
+        .to_string();
+    writer.execute(&format!(
+        "INSERT INTO session_message VALUES('assistant',{},'PRIVATE_V2_SESSION','{row}')",
+        at * 1000
+    ));
+    drop(writer);
+    let report = collect_dir(&directory);
+    assert_eq!(report.models[0]["sessions"], 1);
+    assert_eq!(report.models[0]["cost_status"], "local_reported");
+    assert_eq!(report.models[0]["costLabel"], "");
+    assert!(!serde_json::to_string(&report).unwrap().contains("PRIVATE_V2"));
+}
+
+#[test]
+fn unknown_sql_sessions_are_labeled_and_model_counter_overflow_is_refused() {
+    let directory = Directory::new();
+    let writer = Writer::create(&directory.0.join("opencode.db"));
+    let at = now();
+    writer.execute("CREATE TABLE session_message(role TEXT,time_created INTEGER,data TEXT)");
+    writer.execute(&format!(
+        "INSERT INTO session_message VALUES('assistant',{},'{}')",
+        at * 1000,
+        record(at, 42)
+    ));
+    drop(writer);
+    let report = collect_dir(&directory);
+    assert_eq!(report.models[0]["sessions"], 1);
+    assert_eq!(report.models[0]["sessions_status"], "includes_unknown");
+    let directory = Directory::new();
+    let writer = directory.old();
+    writer.execute(&format!(
+        "INSERT INTO message VALUES('s',{},{},'{}')",
+        at * 1000,
+        at * 1000,
+        record(at, u64::MAX)
+    ));
+    drop(writer);
+    assert!(matches!(collect(&directory.enroll(), at), Err(Error::Limit)));
+}

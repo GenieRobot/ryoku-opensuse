@@ -192,6 +192,22 @@ Private state is not exported as diagnostics or committed evidence. The offline
 tests contain synthetic text/keys only. **Atomic private state publication and
 these failure semantics are not linked Snapper/configuration recovery.**
 
+## ACP process and authorization boundary
+
+The retained `backend/acp.go` speaks newline-delimited JSON-RPC over adapter
+stdio: initialize, capability negotiation, session new/load/prompt/cancel and
+model/config-option selection. `ws.go` supplies protocol-v3 replay and
+`acptools.go` carries tool/diff/permission state. This runtime does not yet spawn
+those harnesses. A same-UID generic child can access its account's files, so an
+ACP process by itself is not a restricted identity or a protected mutation
+provider. The live bridge must receive an authenticated restricted capability
+without owner credentials, and tools that change covered state must use typed
+per-action authorization plus the #25 state/writer/linked-recovery seam.
+Adapter lifecycle, transport and native execution need a concrete isolation
+contract before exposing that production path. All retained harnesses, UI and
+terminal behavior remain required; this records an integration boundary without
+removing those features.
+
 ## Full Ryoku 1.0 acceptance map
 
 The 338-path source ledger, 34 upstream HTTP/WebSocket registrations, 89 Prowl
@@ -206,7 +222,7 @@ No row in the original inventory is removed by this slice.
 | Agent wire/unwire | Effective built-in Agent instructions | Exact external marker/skill/MCP wiring, preservation of unrelated config, harness readiness/default/model operations |
 | Index/vault/memory/wiki/skills | SHA-256-verified uploaded local document retrieval | System/package/desktop/source/user/habits maps, bounded source mirrors, registered projects, vault/memory/journal enrollment and complete offline skills/wiki |
 | Provider/model/network | Local/fixture and configured HTTPS completion, private keys, catalog selection, unavailable-pick retention | Every individual Prowl provider/sign-in/model/profile/fallback/cache/network/project/harness/skill operation, adapter/source integrity and full settings UI |
-| Usage | Completion activity plus enrolled Claude/Codex/opencode JSON/SQLite activity, committed WAL snapshots, costs/soft caps, local/UTC days, five-minute scheduling and source failure statuses | Live OAuth/RPC/session-limit quota, complete model/session rows, separate timer and original shell/cache UI |
+| Usage | Completion activity plus enrolled Claude/Codex/opencode JSON/SQLite activity, committed WAL snapshots, costs/soft caps, opencode model component/session-count rows, local/UTC days, five-minute scheduling and source failure statuses | Live OAuth/RPC/session-limit quota, complete model/session rows, separate timer and original shell/cache UI |
 | Web/app/API | Tested authenticated owner Rust HTTP/Unix boundary and basic browser console; AskClient is library policy only | Retained upstream Svelte console/native app and all source routes/sheets, theme/vitals/system/vault content and shell/Hub bridges; authenticated restricted role assignment on the live assistant bridge |
 | Terminal | Typed JSON CLI, no arbitrary command execution | Upstream proposed-command tiers, command buffer confirmation, continuation/run feedback/recipes and shell integrations |
 | Lifecycle | Explicit optional standalone process, restart and stale socket recovery | Optional RPM install/remove, enable-now/login/linger/disable choices, Prowl lifecycle, no implicit reinstallation and registered writer coordination |

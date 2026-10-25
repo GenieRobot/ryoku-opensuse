@@ -200,6 +200,15 @@ struct Event {
     cost_reported: bool,
     model: String,
     provider: String,
+    opencode: Option<OpencodeDetail>,
+}
+struct OpencodeDetail {
+    session_key: Option<String>,
+    input: u64,
+    output: u64,
+    reasoning: u64,
+    cache_write: u64,
+    time_ms: i64,
 }
 
 pub fn collect(enrollment: &Enrollment, now: u64) -> Result<Report> {
@@ -240,7 +249,7 @@ pub fn collect(enrollment: &Enrollment, now: u64) -> Result<Report> {
             .map_err(|_| Error::InvalidRequest)?
             .saturating_sub(8 * 86400)
             .saturating_mul(1000);
-        reader.rows(cutoff, |bytes, role, time| {
+        reader.rows(cutoff, |bytes, role, time, session| {
             let Ok(mut value) = serde_json::from_slice::<Value>(bytes) else {
                 scan.partial = true;
                 return Ok(false);
@@ -255,6 +264,11 @@ pub fn collect(enrollment: &Enrollment, now: u64) -> Result<Report> {
                     return Ok(false);
                 };
                 object.insert("role".into(), Value::String(role.into()));
+            }
+            if object.get("sessionID").and_then(Value::as_str).is_none_or(str::is_empty)
+                && let Some(session) = session.and_then(|bytes| std::str::from_utf8(bytes).ok())
+            {
+                object.insert("sessionID".into(), Value::String(session.into()));
             }
             let model = object.get("model").cloned().unwrap_or(Value::Null);
             if object.get("modelID").and_then(Value::as_str).is_none_or(str::is_empty) {
@@ -383,7 +397,21 @@ fn scan_directory(
         }
         if tool == Tool::Opencode {
             match serde_json::from_slice::<Value>(&bytes) {
-                Ok(value) => parse_opencode(&value, scan),
+                Ok(mut value) => {
+                    if !value.is_object() {
+                        scan.partial = true;
+                        continue;
+                    }
+                    if value["sessionID"].as_str().is_none_or(str::is_empty)
+                        && let Some(session) = relative
+                            .parent()
+                            .and_then(Path::file_name)
+                            .and_then(|name| name.to_str())
+                    {
+                        value["sessionID"] = json!(session);
+                    }
+                    parse_opencode(&value, scan);
+                }
                 Err(_) => scan.partial = true,
             }
         } else {
@@ -434,7 +462,7 @@ fn stamp(value: &Value) -> Option<i64> {
     value.as_str()?.parse::<Timestamp>().ok().map(Timestamp::as_second)
 }
 fn push(scan: &mut Scan, event: Event) {
-    if event.tokens > 0 || event.cache_read > 0 || event.cost > 0.0 {
+    if event.opencode.is_some() || event.tokens > 0 || event.cache_read > 0 || event.cost > 0.0 {
         if scan.events.len() >= MAX_EVENTS {
             scan.partial = true;
         } else {
@@ -471,6 +499,7 @@ fn parse_claude(value: &Value, scan: &mut Scan) {
             cost_reported: false,
             model: label(message["model"].as_str()),
             provider: "anthropic".into(),
+            opencode: None,
         },
     );
 }
@@ -514,6 +543,7 @@ fn parse_codex(value: &Value, previous: &mut Option<u64>, tailed: bool, scan: &m
             cost_reported: false,
             model: label(payload["model"].as_str()),
             provider: "openai".into(),
+            opencode: None,
         },
     );
 }
@@ -565,6 +595,17 @@ fn parse_opencode(value: &Value, scan: &mut Scan) {
                 .is_some_and(|cost| cost.is_finite() && cost >= 0.0),
             model: label(value["modelID"].as_str()),
             provider: label(value["providerID"].as_str()),
+            opencode: Some(OpencodeDetail {
+                session_key: value["sessionID"]
+                    .as_str()
+                    .filter(|id| !id.is_empty())
+                    .map(|id| crate::digest(id.as_bytes())),
+                input: number(usage, "input"),
+                output: number(usage, "output"),
+                reasoning: number(usage, "reasoning"),
+                cache_write: number(cache, "write"),
+                time_ms: time,
+            }),
         },
     );
 }
@@ -597,7 +638,7 @@ fn aggregate(tool: Tool, now: u64, soft_caps: &SoftCaps, scan: Scan) -> Result<R
     report.updated_at = Some(now as u64);
     report.files_scanned = scan.files;
     report.calendar = if tool == Tool::Claude { "UTC" } else { "system-local" }.into();
-    let mut models: BTreeMap<(String, String), (u64, u64, f64)> = BTreeMap::new();
+    let mut models: BTreeMap<(String, String), ModelUsage> = BTreeMap::new();
     for event in scan.events {
         if event.time > now + 120 || event.time < now - 8 * 86400 {
             continue;
@@ -637,10 +678,26 @@ fn aggregate(tool: Tool, now: u64, soft_caps: &SoftCaps, scan: Scan) -> Result<R
             continue;
         }
         let model = models.entry(key).or_default();
-        model.0 = model.0.checked_add(event.tokens).ok_or(Error::Limit)?;
-        model.1 = model.1.checked_add(event.cache_read).ok_or(Error::Limit)?;
-        model.2 += event.cost;
-        if !model.2.is_finite() {
+        model.tokens = model.tokens.checked_add(event.tokens).ok_or(Error::Limit)?;
+        model.cache_read = model.cache_read.checked_add(event.cache_read).ok_or(Error::Limit)?;
+        model.cost += event.cost;
+        model.cost_reported |= event.cost_reported;
+        if let Some(detail) = event.opencode {
+            model.sessions.insert(detail.session_key);
+            for (total, value) in [
+                (&mut model.input, detail.input),
+                (&mut model.output, detail.output),
+                (&mut model.reasoning, detail.reasoning),
+                (&mut model.cache_write, detail.cache_write),
+            ] {
+                *total = total.checked_add(value).ok_or(Error::Limit)?;
+            }
+            model.last_seen = model.last_seen.max(detail.time_ms);
+            if date == today {
+                model.today = model.today.checked_add(event.tokens).ok_or(Error::Limit)?;
+            }
+        }
+        if !model.cost.is_finite() {
             return Err(Error::Limit);
         }
     }
@@ -649,11 +706,73 @@ fn aggregate(tool: Tool, now: u64, soft_caps: &SoftCaps, scan: Scan) -> Result<R
     }
     report.recent_days =
         daily.into_iter().map(|(date, tokens)| json!({"date":date,"tokens":tokens})).collect();
-    report.models = models.into_iter().take(128).map(|((provider, model), (tokens, cache_read, cost))| json!({"provider":provider,"model":model,"tokens":tokens,"cache_read":cache_read,"cache_read_available":tool != Tool::Codex,"cost":cost})).collect();
+    let mut models = models.into_iter().collect::<Vec<_>>();
+    if tool == Tool::Opencode {
+        // Stable provider/model tie-break makes filesystem enumeration order
+        // irrelevant; the retained collector displays six most recent rows.
+        models.sort_by(|a, b| b.1.last_seen.cmp(&a.1.last_seen).then_with(|| a.0.cmp(&b.0)));
+        models.truncate(6);
+    }
+    let max_tokens = models.iter().map(|(_, usage)| usage.tokens).max().unwrap_or_default();
+    report.models = models.into_iter().map(|((provider, model), usage)| {
+        let mut row = json!({"provider":provider,"model":model,"tokens":usage.tokens,"cache_read":usage.cache_read,"cache_read_available":tool != Tool::Codex,"cost":usage.cost});
+        if tool == Tool::Opencode {
+            let total_with_cache_read = usage.tokens.checked_add(usage.cache_read).ok_or(Error::Limit)?;
+            let name = if provider.is_empty() || provider == "unknown" { model } else { format!("{model} ({provider})") };
+            let extra = json!({"name":name,"sessions":usage.sessions.len(),"sessions_status":if usage.sessions.contains(&None) { "includes_unknown" } else { "source_identified" },
+                "input":usage.input,"output":usage.output,"reasoning":usage.reasoning,"cache_write":usage.cache_write,"today":usage.today,
+                "total":usage.tokens,"totalLabel":token_label(usage.tokens),"inputLabel":token_label(usage.input),"outputLabel":token_label(usage.output),
+                "reasoningLabel":token_label(usage.reasoning),"cacheReadLabel":token_label(usage.cache_read),"cacheWriteLabel":token_label(usage.cache_write),
+                "todayLabel":token_label(usage.today),"costLabel":if usage.cost>0.0 { format!("${:.2}",usage.cost) } else { String::new() },
+                "cost_status":if usage.cost_reported { "local_reported" } else { "unavailable" },"lastSeen":usage.last_seen,
+                "totalWithCacheRead":total_with_cache_read,"totalWithCacheReadLabel":token_label(total_with_cache_read),"pct":relative_percent(usage.tokens,max_tokens)});
+            row.as_object_mut().ok_or(Error::Integrity)?.extend(extra.as_object().ok_or(Error::Integrity)?.clone());
+        }
+        Ok(row)
+    }).collect::<Result<_>>()?;
     if tool == Tool::Opencode {
         report.soft_caps = Some(
             json!({"source":"local_soft_caps","five_hour_limit":soft_caps.five_hour_limit,"seven_day_limit":soft_caps.seven_day_limit,"five_hour_utilization":(report.five_hour_tokens as f64 / soft_caps.five_hour_limit as f64).min(1.0),"seven_day_utilization":(report.seven_day_tokens as f64 / soft_caps.seven_day_limit as f64).min(1.0),"provider_quota":false}),
         );
     }
     Ok(report)
+}
+
+#[derive(Default)]
+struct ModelUsage {
+    tokens: u64,
+    cache_read: u64,
+    cost: f64,
+    cost_reported: bool,
+    sessions: BTreeSet<Option<String>>,
+    input: u64,
+    output: u64,
+    reasoning: u64,
+    cache_write: u64,
+    today: u64,
+    last_seen: i64,
+}
+fn token_label(tokens: u64) -> String {
+    if tokens >= 1_000_000 {
+        format!("{:.1}M", tokens as f64 / 1_000_000.0)
+    } else if tokens >= 1_000 {
+        format!("{:.1}K", tokens as f64 / 1_000.0)
+    } else {
+        tokens.to_string()
+    }
+}
+fn relative_percent(tokens: u64, maximum: u64) -> u64 {
+    if maximum == 0 {
+        return 0;
+    }
+    // Match Python round's ties-to-even, using exact integer arithmetic rather
+    // than lossy floating-point ratios. Multiplication fits u128 for any u64.
+    let numerator = u128::from(tokens) * 100;
+    let denominator = u128::from(maximum);
+    let whole = numerator / denominator;
+    let remainder = numerator % denominator;
+    (whole
+        + u128::from(
+            remainder * 2 > denominator || (remainder * 2 == denominator && whole % 2 == 1),
+        )) as u64
 }

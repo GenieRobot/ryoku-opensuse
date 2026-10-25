@@ -308,7 +308,7 @@ mod tests {
             Reader::new(replay(db.clone(), &converted, deadline()).unwrap(), deadline()).unwrap();
         let mut tokens = 0;
         reader
-            .rows(0, |bytes, _, _| {
+            .rows(0, |bytes, _, _, _| {
                 let value: serde_json::Value = serde_json::from_slice(bytes).unwrap();
                 tokens += value["tokens"]["input"].as_u64().unwrap_or_default();
                 Ok(true)
@@ -319,7 +319,7 @@ mod tests {
         broken[100] = 0xff;
         let refused = match Reader::new(broken, deadline()) {
             Err(_) => true,
-            Ok(reader) => reader.rows(0, |_, _, _| Ok(true)).is_err(),
+            Ok(reader) => reader.rows(0, |_, _, _, _| Ok(true)).is_err(),
         };
         assert!(refused);
     }
@@ -351,7 +351,7 @@ mod tests {
         fs::remove_file(directory.0.join("opencode.db-journal")).unwrap();
         let image = capture(&directory.root(), 64 * 1024 * 1024, deadline()).unwrap();
         let reader = Reader::new(image.bytes, deadline()).unwrap();
-        assert!(matches!(reader.rows(0, |_, _, _| Ok(true)), Err(Error::ProviderUnavailable)));
+        assert!(matches!(reader.rows(0, |_, _, _, _| Ok(true)), Err(Error::ProviderUnavailable)));
     }
 
     #[test]

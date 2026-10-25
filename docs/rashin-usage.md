@@ -60,13 +60,36 @@ are not inferred from local activity. Quota stays unavailable here. Opencode's
 default local caps are 1,000,000 tokens/five hours and 20,000,000/seven days.
 Typed opencode enrollment can set `soft_caps` fields `five_hour_limit` and
 `seven_day_limit`. Caps are explicitly local estimates, never provider quota.
-Live quota, complete model/session rows, the separate timer and
-the original shell/cache UI remain required #183 acceptance work.
+Opencode `models` now preserves the retained collector's six most recently
+active provider/model rows. Each includes distinct session count, input/output/
+reasoning/cache-write breakdown, cache reads, today/total tokens, reported cost,
+millisecond `lastSeen`, compact labels, cache-inclusive totals and relative
+percentage. Existing `provider`, `model`, `tokens`, `cache_read` and `cost` fields
+remain available. The upstream display fields (`name`, `totalLabel`, `inputLabel`,
+`outputLabel`, `reasoningLabel`, `cacheReadLabel`, `cacheWriteLabel`, `todayLabel`,
+`costLabel`, `totalWithCacheRead`, `totalWithCacheReadLabel`, `pct`) are retained.
+All totals still cover the bounded activity horizon; limiting the displayed
+rows to six does not reduce overall usage or soft-cap totals. Equal timestamps
+use provider/model lexical order for deterministic fixtures. Percentages round
+ties to even as in the retained collector.
+
+Session identity comes from message `sessionID`, then the JSON parent directory
+or static SQL `session_id`/`sessionID` projection. Only a transient SHA-256 key is
+kept to deduplicate sessions; neither raw IDs nor hashes enter reports/state.
+An absent identity preserves the upstream unknown session bucket and adds
+`sessions_status=includes_unknown`. Known rows say `source_identified`. Zero-token
+assistant records remain eligible session activity. Per-row `cost_status`
+distinguishes missing cost from known zero. Transcript content is never retained.
+These behaviors follow pinned `opencode-usage` `parse_message`/`model_rows`, blob
+`7282aef9c35772cb896eddc51ac5c91ca588d40f`.
+
+Live quota, other provider/session reporting, the separate timer and original
+shell/cache UI remain required #183 acceptance work.
 
 Readers pin directory descriptors, reject symlinks/hardlinks and unsafe
 owners/write modes, revalidate enrolled identity, and never read root credential
 files. Limits are two seconds/scan, 4096 selected files, 512 directories, depth
-eight, 4 MiB/file, 64 MiB total, 100,000 activity events and 128 model rows.
+eight, 4 MiB/file, 64 MiB total, 100,000 activity events and 128 aggregated models (six displayed opencode rows).
 Transcript/credential fields are not retained in reports, assistant context,
 state cache or diagnostics. Root enrollments and private aggregate caches join
 the pending #183 linked recovery and writer-coordination contract.

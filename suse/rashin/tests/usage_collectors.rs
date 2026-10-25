@@ -455,3 +455,89 @@ fn local_day_boundaries_follow_system_timezone_and_claude_stays_utc() {
     assert_eq!(first["today_tokens"], second["today_tokens"]);
     assert_eq!(first["calendar"], "UTC");
 }
+
+#[test]
+fn opencode_model_rows_keep_source_breakdown_distinct_sessions_and_private_identifiers() {
+    let source = Fixture::new();
+    let now = current();
+    let record = |session: &str, time: u64, input: u64| json!({"role":"assistant","sessionID":session,"modelID":"model-a","providerID":"provider-a","time":time,"tokens":{"input":input,"output":4,"reasoning":2,"cache":{"read":1000,"write":3}},"cost":0.25,"content":"PRIVATE_TRANSCRIPT"});
+    source.write(
+        "storage/message/path-session/a.json",
+        record("PRIVATE_SESSION_A", now * 1000, 1000).to_string().as_bytes(),
+    );
+    source.write(
+        "storage/message/path-session/b.json",
+        record("PRIVATE_SESSION_A", now * 1000 + 1, 1000).to_string().as_bytes(),
+    );
+    source.write(
+        "storage/session/message/other/c.json",
+        record("PRIVATE_SESSION_B", now * 1000 + 2, 1000).to_string().as_bytes(),
+    );
+    let report = usage::collect(&source.enrollment(Tool::Opencode), now).unwrap();
+    let row = &report.models[0];
+    assert_eq!(row["sessions"], 2);
+    assert_eq!(row["sessions_status"], "source_identified");
+    assert_eq!(row["name"], "model-a (provider-a)");
+    assert_eq!(row["input"], 3000);
+    assert_eq!(row["output"], 12);
+    assert_eq!(row["reasoning"], 6);
+    assert_eq!(row["cache_write"], 9);
+    assert_eq!(row["total"], 3027);
+    assert_eq!(row["totalLabel"], "3.0K");
+    assert_eq!(row["inputLabel"], "3.0K");
+    assert_eq!(row["cache_read"], 3000);
+    assert_eq!(row["totalWithCacheRead"], 6027);
+    assert_eq!(row["totalWithCacheReadLabel"], "6.0K");
+    assert_eq!(row["today"], 3027);
+    assert_eq!(row["todayLabel"], "3.0K");
+    assert_eq!(row["costLabel"], "$0.75");
+    assert_eq!(row["lastSeen"], now * 1000 + 2);
+    assert_eq!(row["pct"], 100);
+    assert_eq!(row["cost_status"], "local_reported");
+    assert_eq!(report.five_hour_tokens, 3027);
+    assert!(!serde_json::to_string(&report).unwrap().contains("PRIVATE_"));
+}
+
+#[test]
+fn opencode_model_rows_select_six_latest_and_preserve_directory_session_fallback() {
+    let source = Fixture::new();
+    let now = current();
+    for n in 0..8 {
+        let row = json!({"role":"assistant","modelID":format!("model-{n}"),"providerID":"","time":now*1000+n,"tokens":{"input":(n+1)*1000}});
+        source.write(
+            &format!("storage/message/PRIVATE_FALLBACK_{n}/a.json"),
+            row.to_string().as_bytes(),
+        );
+    }
+    let report = usage::collect(&source.enrollment(Tool::Opencode), now).unwrap();
+    assert_eq!(report.models.len(), 6);
+    assert_eq!(report.models[0]["model"], "model-7");
+    assert_eq!(report.models[5]["model"], "model-2");
+    assert_eq!(report.models[0]["sessions"], 1);
+    assert_eq!(report.models[0]["costLabel"], "");
+    assert_eq!(report.models[0]["cost_status"], "unavailable");
+    assert_eq!(report.models[0]["name"], "model-7");
+    assert_eq!(report.models[5]["pct"], 38); // round(3000/8000*100), ties to even
+    assert_eq!(report.five_hour_tokens, 36000); // display truncation never loses overall usage
+    assert!(!serde_json::to_string(&report).unwrap().contains("PRIVATE_FALLBACK"));
+}
+
+#[test]
+fn opencode_zero_usage_sessions_and_scalar_records_are_handled_without_false_cost_claims() {
+    let source = Fixture::new();
+    let now = current();
+    source.write(
+        "storage/message/PRIVATE_ZERO_SESSION/a.json",
+        json!({"role":"assistant","modelID":"zero-model","time":now*1000,"tokens":{}})
+            .to_string()
+            .as_bytes(),
+    );
+    source.write("storage/message/PRIVATE_ZERO_SESSION/scalar.json", b"7");
+    let report = usage::collect(&source.enrollment(Tool::Opencode), now).unwrap();
+    assert_eq!(report.source_status, "partial");
+    assert_eq!(report.models[0]["sessions"], 1);
+    assert_eq!(report.models[0]["total"], 0);
+    assert_eq!(report.models[0]["pct"], 0);
+    assert_eq!(report.models[0]["cost_status"], "unavailable");
+    assert!(!serde_json::to_string(&report).unwrap().contains("PRIVATE_ZERO_SESSION"));
+}

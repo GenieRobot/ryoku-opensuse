@@ -355,7 +355,7 @@ impl Reader {
     pub(super) fn rows(
         &self,
         cutoff: i64,
-        mut visit: impl FnMut(&[u8], Option<&[u8]>, Option<i64>) -> Result<bool>,
+        mut visit: impl FnMut(&[u8], Option<&[u8]>, Option<i64>, Option<&[u8]>) -> Result<bool>,
     ) -> Result<usize> {
         let mut processed = 0;
         for table in ["session_message", "message"] {
@@ -383,6 +383,7 @@ impl Reader {
             };
             let role = pick(&["type", "role"]);
             let time = pick(&["time_updated", "updated_at", "time_created", "created_at"]);
+            let session = pick(&["session_id", "sessionid"]);
             // Identifiers come only from the static candidate lists, never from
             // schema text. No API accepts SQL or arbitrary table/column names.
             let projection = |column: Option<&str>| {
@@ -392,9 +393,10 @@ impl Reader {
                 .map(|name| format!(" WHERE \"{name}\" >= ?1 ORDER BY \"{name}\" ASC"))
                 .unwrap_or_default();
             let sql = CString::new(format!(
-                "SELECT \"{blob}\",{},{} FROM \"{table}\"{where_time} LIMIT 100001",
+                "SELECT \"{blob}\",{},{},{} FROM \"{table}\"{where_time} LIMIT 100001",
                 projection(role),
-                projection(time)
+                projection(time),
+                projection(session)
             ))
             .map_err(|_| Error::Integrity)?;
             let mut statement = self.prepare(&sql, time.map(|_| cutoff), true)?;
@@ -408,7 +410,7 @@ impl Reader {
                 let time = statement
                     .bytes(2)?
                     .and_then(|bytes| std::str::from_utf8(&bytes).ok()?.parse::<i64>().ok());
-                if visit(&blob, role.as_deref(), time)? {
+                if visit(&blob, role.as_deref(), time, statement.bytes(3)?.as_deref())? {
                     count += 1;
                 }
                 processed += 1;
