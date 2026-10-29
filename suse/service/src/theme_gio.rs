@@ -6,7 +6,6 @@ use crate::theme_settings::{
     ThemeSettingChange, ThemeSettingKey, ThemeSettingState, ThemeSettingsActor,
     ThemeSettingsBinding,
 };
-#[cfg(test)]
 use std::path::Path;
 use std::{
     ffi::{CStr, CString, c_char, c_void},
@@ -20,11 +19,8 @@ type KeyGet = unsafe extern "C" fn(Ptr, *const c_char) -> Ptr;
 struct Api {
     handle: NonNull<c_void>,
     _image: File,
-    source_default: unsafe extern "C" fn() -> Ptr,
-    #[cfg(test)]
     source_directory: unsafe extern "C" fn(*const c_char, Ptr, i32, *mut Ptr) -> Ptr,
     source_lookup: unsafe extern "C" fn(Ptr, *const c_char, i32) -> Ptr,
-    #[cfg(test)]
     source_unref: unsafe extern "C" fn(Ptr),
     schema_has_key: unsafe extern "C" fn(Ptr, *const c_char) -> i32,
     schema_unref: unsafe extern "C" fn(Ptr),
@@ -43,7 +39,6 @@ struct Api {
     variant_type: unsafe extern "C" fn(Ptr) -> *const c_char,
     variant_string: unsafe extern "C" fn(Ptr, *mut usize) -> *const c_char,
     variant_unref: unsafe extern "C" fn(Ptr),
-    #[cfg(test)]
     error_free: unsafe extern "C" fn(Ptr),
     #[cfg(test)]
     memory_backend: unsafe extern "C" fn() -> Ptr,
@@ -95,11 +90,6 @@ impl Api {
         Ok(Self {
             handle,
             _image: image,
-            source_default: symbol!(
-                "g_settings_schema_source_get_default",
-                unsafe extern "C" fn() -> Ptr
-            ),
-            #[cfg(test)]
             source_directory: symbol!(
                 "g_settings_schema_source_new_from_directory",
                 unsafe extern "C" fn(*const c_char, Ptr, i32, *mut Ptr) -> Ptr
@@ -108,7 +98,6 @@ impl Api {
                 "g_settings_schema_source_lookup",
                 unsafe extern "C" fn(Ptr, *const c_char, i32) -> Ptr
             ),
-            #[cfg(test)]
             source_unref: symbol!("g_settings_schema_source_unref", unsafe extern "C" fn(Ptr)),
             schema_has_key: symbol!(
                 "g_settings_schema_has_key",
@@ -151,7 +140,6 @@ impl Api {
                 unsafe extern "C" fn(Ptr, *mut usize) -> *const c_char
             ),
             variant_unref: symbol!("g_variant_unref", unsafe extern "C" fn(Ptr)),
-            #[cfg(test)]
             error_free: symbol!("g_error_free", unsafe extern "C" fn(Ptr)),
             #[cfg(test)]
             memory_backend: symbol!("g_memory_settings_backend_new", unsafe extern "C" fn() -> Ptr),
@@ -258,10 +246,42 @@ impl GioThemeSettingsActor {
             ));
         }
         let api = Api::open()?;
-        // SAFETY: borrowed process-default schema source lives for the GIO runtime lifetime.
-        let source = unsafe { (api.source_default)() };
-        let settings = Self::new_settings(&api, source, std::ptr::null_mut())?;
+        // Use only the exact compiled bundle pinned by CaptureScope. GIO's
+        // process-default search chain could otherwise prefer a different
+        // /usr/local or environment-provided schema that was never approved.
+        let settings = Self::from_schema_directory(
+            &api,
+            Path::new("/usr/share/glib-2.0/schemas"),
+            std::ptr::null_mut(),
+        )?;
         Ok(Self { api, settings, expected, guard })
+    }
+    fn from_schema_directory(
+        api: &Api,
+        directory: &Path,
+        backend: Ptr,
+    ) -> io::Result<NonNull<c_void>> {
+        let directory = CString::new(directory.as_os_str().as_encoded_bytes())?;
+        let mut error = std::ptr::null_mut();
+        // SAFETY: the production path is fixed and pinned by CaptureScope;
+        // the test path is its private fixture. No parent/default source is used.
+        let source = unsafe {
+            (api.source_directory)(directory.as_ptr(), std::ptr::null_mut(), 0, &mut error)
+        };
+        if source.is_null() {
+            if !error.is_null() {
+                unsafe {
+                    (api.error_free)(error);
+                }
+            }
+            return Err(io::Error::other("exact pinned schema bundle could not be opened"));
+        }
+        let settings = Self::new_settings(api, source, backend);
+        // SAFETY: new_settings retains its schema reference when successful.
+        unsafe {
+            (api.source_unref)(source);
+        }
+        settings
     }
     fn new_settings(api: &Api, source: Ptr, backend: Ptr) -> io::Result<NonNull<c_void>> {
         if source.is_null() {
@@ -319,26 +339,14 @@ impl GioThemeSettingsActor {
     #[cfg(test)]
     fn memory(directory: &Path, expected: ThemeSettingsBinding) -> io::Result<Self> {
         let api = Api::open()?;
-        let directory = CString::new(directory.as_os_str().as_encoded_bytes())?;
-        let mut error = std::ptr::null_mut();
-        // SAFETY: isolated test directory is a compiled schema fixture, trusted=false validates it.
-        let source = unsafe {
-            (api.source_directory)(directory.as_ptr(), std::ptr::null_mut(), 0, &mut error)
-        };
-        if source.is_null() {
-            if !error.is_null() {
-                unsafe {
-                    (api.error_free)(error);
-                }
-            }
-            return Err(io::Error::other("test schema could not be opened"));
-        }
         // SAFETY: explicit private memory backend never contacts the desktop bus or dconf database.
         let backend = unsafe { (api.memory_backend)() };
-        let settings = Self::new_settings(&api, source, backend);
-        // SAFETY: new_settings retains backend/schema references when successful.
+        if backend.is_null() {
+            return Err(io::Error::other("private memory backend unavailable"));
+        }
+        let settings = Self::from_schema_directory(&api, directory, backend);
+        // SAFETY: settings retains the backend reference when successful.
         unsafe {
-            (api.source_unref)(source);
             (api.object_unref)(backend);
         }
         let settings = settings?;

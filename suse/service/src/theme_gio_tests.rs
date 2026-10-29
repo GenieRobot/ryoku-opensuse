@@ -116,3 +116,12 @@ fn real_gio_guard_loss_prevents_setting_or_restore_dispatch() {
     active.set(true);
     assert_eq!(actor.read(ThemeSettingKey::GtkTheme).unwrap().user_value, None);
 }
+
+#[test]
+fn missing_exact_schema_bundle_never_falls_back_to_process_defaults() {
+    let binding = actor().expected.clone();
+    let missing = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/issue176-gsettings/absent-schema-directory");
+    let error = GioThemeSettingsActor::memory(&missing, binding).err().unwrap();
+    assert!(error.to_string().contains("exact pinned schema bundle"));
+}

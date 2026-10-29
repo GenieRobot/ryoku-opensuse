@@ -82,8 +82,10 @@ The theme contract now represents only the four retained desktop-interface keys:
 the original user override separately from its effective and default values;
 restoring an unset override means reset, even if the default equals an explicitly
 stored value. The GTK nudge preserves the original placeholder/target sequence.
-Values use typed GIO strings without shell or GVariant text parsing. The whole
-desired batch is range-checked before any write, and a missing acknowledgement,
+Values use typed GIO strings without shell or GVariant text parsing. The
+actor loads only the exact pinned `/usr/share/glib-2.0/schemas` bundle with no
+process-default or parent schema search chain. Missing bundle data refuses.
+The whole desired batch is range-checked before any write, and a missing acknowledgement,
 changed guard or unexpected read-back cannot attest success. These primitives
 are tested against real installed GIO with a private memory backend and schema;
 they do not activate native theme writes.
