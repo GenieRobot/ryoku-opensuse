@@ -149,6 +149,10 @@ struct Job {
     needs_agent_reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     fallback: Option<FallbackAttempt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    thought: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    thought_omitted: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -326,6 +330,13 @@ fn state_payload(state: &State) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 fn fit_tool_activity(state: &mut State, id: &str) -> Result<()> {
+    if state.jobs.get(id).is_some_and(|job| job.thought.is_some())
+        && state_payload(state) == Err(Error::Limit)
+    {
+        let job = state.jobs.get_mut(id).ok_or(Error::NotFound)?;
+        job.thought = None;
+        job.thought_omitted = true;
+    }
     if state.jobs.get(id).is_some_and(|job| !job.tool_activity.is_empty())
         && state_payload(state) == Err(Error::Limit)
     {
@@ -343,6 +354,7 @@ struct ActiveJob {
     tools: Vec<crate::prowl::activity::Record>,
     ask_progress: Option<crate::ask::Progress>,
     tools_truncated: bool,
+    thought: String,
 }
 
 pub struct Engine {
@@ -413,6 +425,13 @@ impl Engine {
                 return Err(Error::Integrity);
             }
             if job.tool_activity.len() > 32 {
+                return Err(Error::Integrity);
+            }
+            if job
+                .thought
+                .as_ref()
+                .is_some_and(|thought| thought.len() > 32 * 1024 || thought.contains('\0'))
+            {
                 return Err(Error::Integrity);
             }
             for (index, record) in job.tool_activity.iter().enumerate() {
@@ -1149,11 +1168,12 @@ impl Engine {
                         let live = self.in_flight.lock().map_err(|_| Error::Storage)?;
                         let active = live.get(&id).filter(|active| job.status == JobStatus::Running && active.generation == job.generation);
                         let progress = active.map(|active| active.text.clone());
+                        let thought_progress = active.map(|active| active.thought.clone());
                         let mut view = serde_json::to_value(job).map_err(|_|Error::Storage)?;
                         view["needs_agent"] = json!(job.needs_agent);
                         view["needs_agent_reason"] = json!(job.needs_agent_reason);
                         view["tool_activity"] = serde_json::to_value(active.map(|active| &active.tools).unwrap_or(&job.tool_activity)).map_err(|_|Error::Storage)?;
-                        Ok(json!({"id":id,"job":view,"progress":progress}))
+                        Ok(json!({"id":id,"job":view,"progress":progress,"thought_progress":thought_progress}))
                     }
                     Request::Jobs {} => {
                         let mut jobs = state.jobs.iter().collect::<Vec<_>>();
@@ -1369,6 +1389,7 @@ impl Engine {
             );
             offset = worker.tools.len() as u8;
             worker.text.clear();
+            worker.thought.clear();
             if let Some(progress) = &mut worker.ask_progress {
                 progress.next_round();
             }
@@ -1383,15 +1404,14 @@ impl Engine {
         result: Result<Completion>,
         fixture: bool,
     ) {
-        let (tools, truncated) = self
+        let (tools, truncated, thought) = self
             .in_flight
             .lock()
             .ok()
             .and_then(|active| {
-                active
-                    .get(job_id)
-                    .filter(|worker| worker.generation == generation)
-                    .map(|worker| (worker.tools.clone(), worker.tools_truncated))
+                active.get(job_id).filter(|worker| worker.generation == generation).map(|worker| {
+                    (worker.tools.clone(), worker.tools_truncated, worker.thought.clone())
+                })
             })
             .unwrap_or_default();
         let (phase, error) = match &result {
@@ -1412,6 +1432,9 @@ impl Engine {
             job.tool_activity_truncated |= truncated;
             match result {
                 Ok(mut completion) => {
+                    if !thought.is_empty() {
+                        job.thought = Some(thought);
+                    }
                     if job.lane == Lane::Ask {
                         job.needs_agent_reason =
                             crate::ask::reason(&mut completion.text).or(completion.handoff_reason);
@@ -1678,7 +1701,7 @@ impl Engine {
                 messages.extend(conversation.messages.clone());
             }
             messages.push(Message { role: Role::User, content: prompt.clone() });
-            state.jobs.insert(id.clone(), Job { operation:if catalog_revision.is_some() {JobOperation::CatalogRefresh} else {JobOperation::Completion},catalog_count:None, fingerprint, lane, session, prompt, status: JobStatus::Running, answer: None, error: None, provider: route.provider, model: route.model.clone(), started: now(), generation, handoff: handoff.clone(), stop_reason: None, actual_model: None, tool_activity:Vec::new(), tool_activity_truncated:false, needs_agent:false, needs_agent_reason:None,fallback:fallback.as_ref().map(|task|FallbackAttempt{route:task.route.clone(),used:false,reason:None}) });
+            state.jobs.insert(id.clone(), Job { operation:if catalog_revision.is_some() {JobOperation::CatalogRefresh} else {JobOperation::Completion},catalog_count:None, fingerprint, lane, session, prompt, status: JobStatus::Running, answer: None, error: None, provider: route.provider, model: route.model.clone(), started: now(), generation, handoff: handoff.clone(), stop_reason: None, actual_model: None, tool_activity:Vec::new(), tool_activity_truncated:false, needs_agent:false, needs_agent_reason:None,fallback:fallback.as_ref().map(|task|FallbackAttempt{route:task.route.clone(),used:false,reason:None}),thought:None,thought_omitted:false });
             self.active.try_update(Ordering::AcqRel, Ordering::Acquire, |active| (active < 4).then_some(active + 1)).map_err(|_| Error::Busy)?;
             let permit = ProviderPermit(Arc::clone(&self.active));
             if let Some(token) = options.evidence_approval.and_then(|approval| approval.token) {
@@ -1707,7 +1730,7 @@ impl Engine {
             // Install cancellation/progress before publishing Running under
             // the state lock: Cancel can never observe an accepted job without
             // its flag, even if it arrives before the worker thread starts.
-            if let Some(old)=self.in_flight.lock().map_err(|_|Error::Storage)?.insert(id.clone(),ActiveJob {generation,cancelled:Arc::clone(&cancelled),text:String::new(),tools:Vec::new(),ask_progress:if lane==Lane::Ask {Some(crate::ask::Progress::default())} else {None},tools_truncated:false}) {
+            if let Some(old)=self.in_flight.lock().map_err(|_|Error::Storage)?.insert(id.clone(),ActiveJob {generation,cancelled:Arc::clone(&cancelled),text:String::new(),tools:Vec::new(),ask_progress:if lane==Lane::Ask {Some(crate::ask::Progress::default())} else {None},tools_truncated:false,thought:String::new()}) {
                 old.cancelled.store(true,Ordering::Release);
             }
             registered=true;
@@ -1788,6 +1811,24 @@ impl Engine {
                     };
                     let mut emit_tool =
                         |event| engine.record_tool_event(&job_id, generation, event);
+                    let mut emit_thought = |delta: &str| {
+                        if cancelled.load(Ordering::Acquire) {
+                            return Err(Error::Cancelled);
+                        }
+                        if delta.contains('\0') {
+                            return Err(Error::ProviderFailed);
+                        }
+                        let mut active = engine.in_flight.lock().map_err(|_| Error::Storage)?;
+                        let worker = active
+                            .get_mut(&job_id)
+                            .filter(|worker| worker.generation == generation)
+                            .ok_or(Error::Cancelled)?;
+                        if worker.thought.len().saturating_add(delta.len()) > 32 * 1024 {
+                            return Err(Error::Limit);
+                        }
+                        worker.thought.push_str(delta);
+                        Ok(())
+                    };
                     let result = if let Err(error) = &provider {
                         Err(*error)
                     } else if let Ok(Provider::Acp { config, .. }) = &provider {
@@ -1804,6 +1845,7 @@ impl Engine {
                             crate::acp::bridge::Options {
                                 runner: &engine.adapter_runner,
                                 ask: lane == Lane::Ask,
+                                thought: &mut emit_thought,
                             },
                         )
                     } else if read_only_tools.enabled() {
@@ -1886,6 +1928,7 @@ impl Engine {
                                         crate::acp::bridge::Options {
                                             runner: &engine.adapter_runner,
                                             ask: true,
+                                            thought: &mut emit_thought,
                                         },
                                     )
                                 });
@@ -2401,6 +2444,10 @@ mod evidence_tests {
             let generation = engine.state.lock().unwrap().jobs["activity-quota"].generation;
             engine.in_flight.lock().unwrap().get_mut("activity-quota").unwrap().tools =
                 (0..32).map(activity_record).collect();
+            if !cancel {
+                engine.in_flight.lock().unwrap().get_mut("activity-quota").unwrap().thought =
+                    "x".repeat(32 * 1024);
+            }
             engine
                 .transaction(|state| {
                     state.instructions = Some(String::new());
@@ -2440,6 +2487,8 @@ mod evidence_tests {
             if !cancel {
                 assert_eq!(job.answer.as_deref(), Some("retained answer"));
                 assert_eq!(state.usage.len(), 1);
+                assert!(job.thought.is_none());
+                assert!(job.thought_omitted);
             }
             drop(state);
             let until = std::time::Instant::now() + Duration::from_secs(3);

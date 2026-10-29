@@ -118,6 +118,21 @@ fn main() -> std::io::Result<()> {
                     .and_then(|row| row["content"].as_str())
                     .unwrap_or(text);
 
+                if text == "show thought" || text == "thought then wait" {
+                    update(&session, "agent_thought_chunk", "Private <thinking> Δ")?;
+                    if text == "thought then wait" {
+                        pending = Some((id, "waiting".into()));
+                    } else {
+                        answer(&session, id, "Thought complete")?;
+                    }
+                    continue;
+                }
+                if text == "excessive thought" {
+                    update(&session, "agent_thought_chunk", &"x".repeat(32 * 1024 + 1))?;
+                    answer(&session, id, "Thought complete")?;
+                    continue;
+                }
+
                 if text == "model update" {
                     send(
                         json!({"jsonrpc":"2.0","method":"session/update","params":{"sessionId":session,"update":{"sessionUpdate":"current_model_update","currentModelId":"fixture/dynamic"}}}),

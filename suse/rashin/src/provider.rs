@@ -402,6 +402,7 @@ impl Provider {
                 crate::acp::bridge::Options {
                     runner: &std::env::current_exe().map_err(|_| Error::ProviderUnavailable)?,
                     ask: true,
+                    thought: &mut |_| Ok(()),
                 },
             ),
             Self::Fixture { delay_millis, outcome, .. } => {

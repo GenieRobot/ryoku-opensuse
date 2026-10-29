@@ -231,6 +231,112 @@ fn done(engine: &Arc<ryoku_rashin::runtime::Engine>, id: &str) -> Value {
     }
 }
 #[test]
+#[ignore = "requires real namespace runner; private ACP thinking host proof"]
+fn acp_thinking_is_live_private_bounded_and_persisted_only_on_completion() {
+    use ryoku_rashin::{
+        api::{Lane, Request},
+        authorization::Access,
+        runtime::Engine,
+        store::Store,
+    };
+    use std::{fs, os::unix::fs::PermissionsExt};
+    let root = std::env::temp_dir().join(format!("rashin-acp-thought-{}", std::process::id()));
+    fs::create_dir(&root).unwrap();
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+    let runner = std::path::PathBuf::from(env!("CARGO_BIN_EXE_ryoku-rashin"));
+    let engine =
+        Engine::open_with_adapter_runner(Store::open(&root).unwrap(), runner.clone()).unwrap();
+    engine
+        .dispatch(Request::EnrollAcpProvider {
+            id: "adapter".into(),
+            path: env!("CARGO_BIN_EXE_ryoku-rashin-acp-fixture").into(),
+            models: vec!["fixture/default".into()],
+            arguments: Arguments::Stdio,
+            network: false,
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Chat,
+            provider: "adapter".into(),
+            model: "fixture/default".into(),
+        })
+        .unwrap();
+    engine.dispatch(Request::NewSession { id: "chat".into(), lane: Lane::Chat }).unwrap();
+    engine
+        .dispatch(Request::Prompt {
+            id: "thinking-cancel".into(),
+            session: "chat".into(),
+            prompt: "thought then wait".into(),
+        })
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(6);
+    loop {
+        let view = engine.dispatch(Request::Job { id: "thinking-cancel".into() }).unwrap();
+        if view["thought_progress"] == "Private <thinking> Δ" {
+            break;
+        }
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(!fs::read_to_string(root.join("state.json")).unwrap().contains("Private <thinking>"));
+    assert_eq!(
+        engine.dispatch_as(Access::AskClient, Request::Job { id: "thinking-cancel".into() }),
+        Err(Error::Unauthorized)
+    );
+    engine.dispatch(Request::Cancel { id: "thinking-cancel".into() }).unwrap();
+    let view = engine.dispatch(Request::Job { id: "thinking-cancel".into() }).unwrap();
+    assert!(view["thought_progress"].is_null());
+    assert!(view["job"]["thought"].is_null());
+    engine
+        .dispatch(Request::Prompt {
+            id: "thinking-complete".into(),
+            session: "chat".into(),
+            prompt: "show thought".into(),
+        })
+        .unwrap();
+    let job = done(&engine, "thinking-complete");
+    assert_eq!(job["thought"], "Private <thinking> Δ");
+    assert_eq!(job["answer"], "Thought complete");
+    let gateway = ryoku_rashin::http::Gateway::new(
+        engine.clone(),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    let html = browser(&gateway, "GET", "/job/thinking-complete", "");
+    assert!(html.contains("Private &lt;thinking&gt; Δ"));
+    assert!(!html.contains("Private <thinking> Δ"));
+    engine
+        .dispatch(Request::Prompt {
+            id: "thinking-limit".into(),
+            session: "chat".into(),
+            prompt: "excessive thought".into(),
+        })
+        .unwrap();
+    let limited = done(&engine, "thinking-limit");
+    assert_eq!(limited["error"], "limit");
+    assert!(limited["thought"].is_null());
+    drop(gateway);
+    drop(engine);
+    let deadline = Instant::now() + Duration::from_secs(6);
+    let engine = loop {
+        match Store::open(&root) {
+            Ok(store) => break Engine::open_with_adapter_runner(store, runner.clone()).unwrap(),
+            Err(Error::Busy) if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(5))
+            }
+            Err(error) => panic!("reopen: {error:?}"),
+        }
+    };
+    assert_eq!(
+        engine.dispatch(Request::Job { id: "thinking-complete".into() }).unwrap()["job"]["thought"],
+        "Private <thinking> Δ"
+    );
+    drop(engine);
+    fs::remove_dir_all(root).unwrap();
+}
+#[test]
 #[ignore = "requires real namespace runner; explicit Ask fallback host proof"]
 fn ask_fallback_captures_route_and_grants_suppresses_marker_and_accounts_both_attempts() {
     use ryoku_rashin::{

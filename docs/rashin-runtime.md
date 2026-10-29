@@ -370,7 +370,7 @@ No row in the original inventory is removed by this slice.
 | Fast-lane read-only tools | All5 execute through real model/tool-result rounds: system_query, read_file, list_dir, search_code, fetch_url; four rounds then final no-tools, explicit owner grants, path/Store/DNS guards, cancellation, bounded actual native/network fixtures and live/saved tool status in job API/browser | Complete retained activity details/diff/approval UI, escalation semantics, native default root discovery and full ACP tool/permission/process integration |
 | Provider/model/network | Private key CRUD/retention, opaque IDs, explicit saved/unavailable lane picks, async generation-bound catalog refresh, HTTPS and real authenticated Prowl Ask/Agent/Chat; four typed management reads (profiles/active/profile-models/presets) | Remaining retained Prowl provider/profile CRUD and selection, sign-in/OAuth/device flows, fallback/cache/network/project/harness/skill operations, all adapter model/config options and full native settings UI; actual packaged endpoint/provider acceptance |
 | Usage | Completion activity plus enrolled Claude/Codex/opencode JSON/SQLite activity, committed WAL snapshots, costs/cache/reset/soft caps, opencode model/session-component rows, local/UTC windows, one five-minute daemon schedule and labeled source failures | Real OAuth/RPC/session-limit quota, remaining provider/model/session detail, original separate timer/cache/shell UI and service integration |
-| ACP/process/harness | Configured captured ELF adapter→real isolated stdio lifecycle, initialize/new/load/model/prompt/text notifications/cancel and bounded replay contract tested; actual API/browser jobs, descriptor-granted file read broker and permission denial/approved jailed kernel probe | Full native/shared sessions/load/replay and model/config options, all retained harness/interpreter/runtime and sign-in support, tools/approvals/images/thinking/full terminal/UI integration; no full ACP parity claim |
+| ACP/process/harness | Configured captured ELF adapter→real isolated stdio lifecycle, initialize/new/load/model/prompt/text notifications/cancel and bounded replay contract tested; actual API/browser jobs, private bounded thinking, descriptor-granted file read broker and permission denial/approved jailed kernel probe | Full native/shared sessions/load/replay and model/config options, all retained harness/interpreter/runtime and sign-in support, tools/approvals/images/full terminal/UI integration; no full ACP parity claim |
 | Web/native app/API | Owner Unix/HTTP API, scoped Ask bridge, cookie-free Basic/exact-Origin browser, real Ask/Agent/Chat/provider/model/job/handoff/Fix/usage/Wiki/root/tool permission forms | Retained Svelte/native app routes/sheets, theme/vitals/system/vault content, launcher/shell/Hub bridges, isolated credential delivery and real WebKit/native browser behavior |
 | Terminal | Typed request/logs CLI and bounded fixed native read probes | Upstream proposed-command tiers, command-buffer confirmation, continuation/run feedback/recipes, terminal sessions and shell integrations |
 | Service/lifecycle | Optional explicitly started development daemon/web process, private state lease/atomic persistence, interrupted restart handling, cancellation and source/provider failure states | Packaged install/remove and native launch, enable-now/login/linger/disable choices, real Prowl start/stop/health/recovery/version inventory, service failure/recovery/removal/KDE tests and registered writer coordination |
@@ -1021,6 +1021,15 @@ approval, diff or protected native mutation implementation. Ask denials produce
 a typed Agent-needed reason while preserving the answer; Agent/Chat stay separate.
 Bounded `acp_tool` status uses fingerprints and typed errors, with no raw paths,
 URLs, inputs or outputs in activity metadata.
+
+Text thinking notifications are displayed separately from the answer in the
+authenticated job page. Live thinking is held in memory, limited to 32 KiB and
+discarded on cancellation or failure. Completed thinking is stored in private
+job state and survives restart; it is omitted if necessary to preserve the
+answer and usage at the state size limit. Browser output is escaped. The real
+ACP fixture verifies live visibility, cancellation, bounds, scoped access,
+completed persistence and restart. This does not claim complete native replay
+or all upstream thinking controls.
 
 Network-enabled ACP Fix uses the existing exact finding/configuration-bound,
 expiring, single-use review contract. Tools are disabled for Fix. An independent

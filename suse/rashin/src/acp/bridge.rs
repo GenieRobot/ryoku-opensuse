@@ -20,6 +20,7 @@ use std::{
 pub(crate) struct Options<'a> {
     pub runner: &'a Path,
     pub ask: bool,
+    pub thought: &'a mut dyn FnMut(&str) -> Result<()>,
 }
 struct Surface<'a, 'b> {
     context: &'a ReadTools,
@@ -32,6 +33,7 @@ struct Surface<'a, 'b> {
     ask: bool,
     denied: bool,
     actual_model: Option<String>,
+    thought: &'a mut dyn FnMut(&str) -> Result<()>,
 }
 impl Surface<'_, '_> {
     fn read(&self, params: &Value) -> Result<String> {
@@ -170,8 +172,16 @@ impl Handler for Surface<'_, '_> {
                     .ok_or(Error::ProviderFailed)?;
                 self.actual_model = Some(super::protocol::opaque(model)?);
             }
-            "agent_thought_chunk"
-            | "user_message_chunk"
+            "agent_thought_chunk" => {
+                if update["content"]["type"] != "text" {
+                    return Err(Error::ProviderUnavailable);
+                }
+                let text = update["content"]["text"].as_str().ok_or(Error::ProviderFailed)?;
+                if self.collecting {
+                    (self.thought)(text)?;
+                }
+            }
+            "user_message_chunk"
             | "current_mode_update"
             | "available_commands_update"
             | "config_option_update"
@@ -204,6 +214,7 @@ pub(crate) fn complete(
         ask: options.ask,
         denied: false,
         actual_model: None,
+        thought: options.thought,
     };
     let mut client = Client::connect(config, options.runner, deadline, cancelled, &mut surface)?;
     client.new_session(deadline, cancelled, &mut surface)?;

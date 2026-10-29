@@ -750,6 +750,19 @@ pub(super) fn job(engine: &Arc<Engine>, id: &str) -> Result<String> {
     if let Some(progress) = value["progress"].as_str().filter(|text| !text.is_empty()) {
         body += &format!("<h3>Receiving response</h3><pre>{}</pre>", escape(progress));
     }
+    if let Some(thought) = value["thought_progress"]
+        .as_str()
+        .or_else(|| job["thought"].as_str())
+        .filter(|text| !text.is_empty())
+    {
+        body += &format!(
+            "<details><summary>Provider thinking</summary><pre>{}</pre></details>",
+            escape(thought)
+        );
+    }
+    if job["thought_omitted"] == true {
+        body += "<p>Provider thinking was omitted to preserve space for the answer.</p>";
+    }
     if let Some(records) = job["tool_activity"].as_array().filter(|rows| !rows.is_empty()) {
         body += "<h3>Tool activity</h3><table><thead><tr><th>Tool</th><th>Status</th><th>Error</th></tr></thead><tbody>";
         for record in records {
