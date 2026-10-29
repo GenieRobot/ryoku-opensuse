@@ -120,6 +120,7 @@ mkdir upstream-writers
 tar -xJf %{SOURCE3} -C upstream-writers
 patch --batch --forward --fuzz=0 -p1 -d upstream-writers < upstream/patches/issue18-writer-launch.patch
 patch --batch --forward --fuzz=0 -p1 -d upstream-writers < upstream/patches/issue25-ryogami-broker.patch
+patch --batch --forward --fuzz=0 -p1 -d upstream-writers < upstream/patches/issue176-configured-hooks.patch
 
 %build
 CARGO_NET_OFFLINE=true cargo \

@@ -1,0 +1,151 @@
+--- a/ryoku/shell/ryogami/daemon/hooks.go
++++ b/ryoku/shell/ryogami/daemon/hooks.go
+@@ -49,6 +49,12 @@
+ }
+ 
+ func (d *daemon) runStartHooks() {
++	// Configured commands have their own exact policy; group permission is
++	// never an execution grant. Rust independently resolves the saved event.
++	if d.settingBool("postProcessOnRestore") {
++		if ev, ok := d.restoredApplyEvent(); ok { go d.runPostProcessing(ev, true) }
++	}
++	// The other retained registrations require their individual effect policies.
+ 	if !brokerAutomaticAllowed("hooks.start") {
+ 		return
+ 	}
+@@ -69,6 +75,9 @@
+ 
+ // Hooks run on their own goroutine so a slow one never delays the reply.
+ func (d *daemon) runAfterApply(ev applyEvent) {
++	if !restoreLikeApply(ev.Reason) {
++		go d.runPostProcessing(ev, false)
++	}
+ 	if !brokerAutomaticAllowed("hooks.after-apply") {
+ 		return
+ 	}
+--- a/ryoku/shell/ryogami/daemon/postapply.go
++++ b/ryoku/shell/ryogami/daemon/postapply.go
+@@ -1,8 +1,10 @@
+ package main
+ 
+ import (
++	"crypto/sha256"
+ 	"errors"
+-	"os/exec"
++	"fmt"
++	"os"
+ 	"path/filepath"
+ 	"sort"
+ 	"strings"
+@@ -32,39 +34,23 @@
+ 		return nil
+ 	})
+ 
+-	// Restore-like reasons run from the onStart hook below, so nothing runs twice.
+-	afterApply(func(d *daemon, ev applyEvent) {
+-		if restoreLikeApply(ev.Reason) {
+-			return
+-		}
+-		d.runPostProcessing(ev, false)
+-	})
+-
+-	onStart(func(d *daemon) {
+-		if !d.settingBool("postProcessOnRestore") {
+-			return
+-		}
+-		if ev, ok := d.restoredApplyEvent(); ok {
+-			d.runPostProcessing(ev, true)
+-		}
+-	})
++	// The port's exact command handoff is called independently by runStartHooks
++	// and runAfterApply; no grouped registration can run it a second time.
+ }
+ 
+ func (d *daemon) runPostProcessing(ev applyEvent, restoring bool) {
+ 	cmds := d.postProcessCommands()
+-	if len(cmds) == 0 {
+-		return
+-	}
+-	thumb := ""
+-	if e, ok := d.store.get(ev.Key); ok {
+-		thumb = e.Thumb
+-	}
+-	for _, c := range cmds {
++	for index, c := range cmds {
+ 		if c.typ != "all" && c.typ != ev.Type {
+ 			continue
+ 		}
+-		resolved := expandPostPlaceholders(c.command, ev.Type, ev.Name, ev.Path, thumb)
+-		runDetachedShell(resolved)
++		// Rust independently resolves this configured index and saved output.
++		// Success means the hook already finished its linked pre/post operation.
++		if !brokerAutomaticRequest(map[string]interface{}{
++			"action": "hook.postprocess", "postprocess": map[string]interface{}{
++				"index": index, "command_sha256": fmt.Sprintf("%x", sha256.Sum256([]byte(c.command))), "restoring": restoring, "path": ev.Path, "kind": ev.Type,
++			},
++		}) { fmt.Fprintf(os.Stderr, "configured hook %d refused: use ryoku-hook inspect/authorize; inspect linked operation history\n", index) }
+ 	}
+ }
+ 
+@@ -109,16 +95,6 @@
+ 	return "'" + strings.ReplaceAll(text, "'", `'\''`) + "'"
+ }
+ 
+-// Fully detached so a long-running setter neither blocks the reply nor dies with the daemon.
+-func runDetachedShell(command string) {
+-	wrapped := "nohup setsid sh -c " + shellQuote(command) + " </dev/null >/dev/null 2>&1 &"
+-	cmd := exec.Command("sh", "-c", wrapped)
+-	if err := cmd.Start(); err != nil {
+-		return
+-	}
+-	go func() { _ = cmd.Wait() }()
+-}
+-
+ func (d *daemon) restoredApplyEvent() (applyEvent, bool) {
+ 	state := map[string]map[string]interface{}{}
+ 	loadJSON(filepath.Join(d.config().cacheDir(), "outputs.json"), &state)
+--- a/ryoku/shell/ryogami/daemon/daemon.go
++++ b/ryoku/shell/ryogami/daemon/daemon.go
+@@ -156,6 +156,9 @@
+ 		return false
+ 	}
+ 	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
++	if params["action"] == "hook.postprocess" {
++		_ = conn.SetDeadline(time.Now().Add(120 * time.Second))
++	}
+ 	request, _ := json.Marshal(map[string]interface{}{"method": "broker.automatic", "params": params, "id": 0})
+ 	if _, err = fmt.Fprintf(conn, "%s\n", request); err != nil {
+ 		return false
+@@ -434,6 +437,14 @@
+ 		return err
+ 	}
+ 	defer control.Close()
++	// The Rust owner binds the public handoff before releasing native startup.
++	// This byte grants no hook/action permission; every invocation is reviewed.
++	_ = control.SetReadDeadline(time.Now().Add(5 * time.Second))
++	var ready [1]byte
++	if _, err := io.ReadFull(control, ready[:]); err != nil || ready[0] != 'Y' {
++		return fmt.Errorf("Rust appearance broker did not finish startup")
++	}
++	_ = control.SetReadDeadline(time.Time{})
+ 	cfg := loadConfig()
+ 	d := &daemon{
+ 		cfg:            cfg,
+@@ -498,6 +509,9 @@
+ 	// Publish the empty snapshot so a subscriber before the first set sees a
+ 	// defined frame, then restore the last wallpaper and rescan the catalog.
+ 	d.surface.publishCurrent()
++	// Restore-hook policy is independent of startup migration/scan authority.
++	// The Rust owner resolves saved outputs; this starts no unapproved native hook.
++	go d.runStartHooks()
+ 	if brokerAutomaticAllowed("startup.restore-and-scan") {
+ 		go func() {
+ 			d.healAnimatedWebp()
+@@ -521,7 +535,6 @@
+ 			d.rescan(false)
+ 			d.playlists.resumeAll()
+ 			d.broadcast("ryogami.wall.scan_done", map[string]interface{}{})
+-			d.runStartHooks()
+ 		}()
+ 	}
+ 	if brokerAutomaticAllowed("watch.settings") {

@@ -836,7 +836,7 @@ fn lost_writer_lease_before_publication_cannot_create_a_mutation_ready_generatio
         fixture.roots(),
         request("lost-writer-lease"),
         collect,
-        None,
+        InstalledCaptureContext::default(),
         || {
             checks.set(checks.get() + 1);
             if checks.get() == 1 { Ok(()) } else { Err(GenerationCaptureError::CoordinationLost) }
@@ -845,6 +845,112 @@ fn lost_writer_lease_before_publication_cannot_create_a_mutation_ready_generatio
     assert!(matches!(result, Err(GenerationCaptureError::CoordinationLost)));
     assert_eq!(checks.get(), 2);
     fixture.no_publication("lost-writer-lease");
+}
+
+fn logical_capsule(fixture: &Fixture) -> crate::logical_settings::ThemeSettingsCapsule {
+    use crate::logical_settings::*;
+    let sha = || crate::Sha256::new("11".repeat(32)).unwrap();
+    ThemeSettingsCapsule {
+        version: 1,
+        native_receipt: crate::theme_settings_actor::test_native_receipt(),
+        binding: ThemeSettingsBinding {
+            account: fixture.account.principal.clone(),
+            uid: fixture.account.uid,
+            executable_sha256: sha(),
+            schema_sha256: sha(),
+            session_service_sha256: sha(),
+        },
+        approved_policy_sha256: sha(),
+        plan_sha256: sha(),
+        changes_sha256: sha(),
+        keys: [(
+            ThemeSettingKey::ColorScheme,
+            ThemeSettingState {
+                user_value: None,
+                effective_value: "default".into(),
+                default_value: "default".into(),
+                writable: true,
+            },
+        )]
+        .into(),
+    }
+}
+
+#[test]
+fn logical_capture_is_sealed_with_the_file_image_before_generation_publication() {
+    let fixture = Fixture::new();
+    let capsule = logical_capsule(&fixture);
+    let mut req = request("logical-file-image");
+    req.snapshot = VerifiedSnapshotLink::from_native_receipt(capsule.native_receipt.clone());
+    let calls = std::cell::Cell::new(0);
+    let capture = || {
+        calls.set(calls.get() + 1);
+        Ok(capsule.clone())
+    };
+    let manifest = capture_installed_configuration_checked(
+        &fixture.store,
+        &plan(),
+        fixture.roots(),
+        req,
+        collect,
+        InstalledCaptureContext { bundle: None, logical_settings: Some(&capture) },
+        || Ok(()),
+    )
+    .unwrap();
+    assert_eq!(calls.get(), 1);
+    assert_eq!(manifest.schema_version, 3);
+    assert!(!manifest.files().is_empty());
+    let reopened = fixture
+        .store
+        .open_verified_transaction(&Identifier::new("logical-file-image").unwrap())
+        .unwrap();
+    assert_eq!(reopened.manifest().logical_settings(), Some(&capsule));
+    assert_eq!(reopened.manifest().files(), manifest.files());
+}
+
+#[test]
+fn logical_capture_failure_foreign_binding_or_lease_loss_never_publishes() {
+    for fault in 0..4 {
+        let fixture = Fixture::new();
+        let mut capsule = logical_capsule(&fixture);
+        let mut req = request("logical-refusal");
+        req.snapshot = VerifiedSnapshotLink::from_native_receipt(capsule.native_receipt.clone());
+        if fault == 1 {
+            capsule.binding.account =
+                crate::AccountPrincipal::from_account(1001, 1001, "other", "/home/other").unwrap();
+        } else if fault == 2 {
+            let mut receipt = serde_json::to_value(&capsule.native_receipt).unwrap();
+            receipt["subvolume_id"] = 301.into();
+            capsule.native_receipt = serde_json::from_value(receipt).unwrap();
+        }
+        let captured = std::cell::Cell::new(false);
+        let capture = || {
+            captured.set(true);
+            if fault == 0 {
+                Err(GenerationCaptureError::CoordinationLost)
+            } else {
+                Ok(capsule.clone())
+            }
+        };
+        let result = capture_installed_configuration_checked(
+            &fixture.store,
+            &plan(),
+            fixture.roots(),
+            req,
+            collect,
+            InstalledCaptureContext { bundle: None, logical_settings: Some(&capture) },
+            || {
+                if fault == 3 && captured.get() {
+                    Err(GenerationCaptureError::CoordinationLost)
+                } else {
+                    Ok(())
+                }
+            },
+        );
+        assert!(result.is_err(), "fault {fault}");
+        assert!(captured.get());
+        fixture.no_publication("logical-refusal");
+    }
 }
 
 #[test]
@@ -858,7 +964,7 @@ fn lost_writer_lease_during_publication_retracts_generation_and_allows_retry() {
             fixture.roots(),
             request("publication-lease"),
             collect,
-            None,
+            InstalledCaptureContext::default(),
             || {
                 checks.set(checks.get() + 1);
                 if checks.get() == fail_at {
@@ -927,7 +1033,7 @@ fn managed_namespace_changes_after_capture_or_during_publication_are_rejected() 
                 roots,
                 req,
                 collect,
-                Some(&bundle),
+                InstalledCaptureContext { bundle: Some(&bundle), logical_settings: None },
                 || {
                     checks.set(checks.get() + 1);
                     if checks.get() == change_at {

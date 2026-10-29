@@ -1,0 +1,45 @@
+issue = 176
+status = "operational-staged-configured-hook-class-not-full-theme-acceptance"
+parent = "9b93da37ec78812dae0b50bb9b1eba9c228e26ff"
+parent_ci = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40212525546"
+parent_ci_result = "completed success"
+upstream = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+all_hooks_accepted = false
+native_theme_execution_accepted = false
+vm_or_download = false
+build_storage = "existing worktree target on /dev/sdd; private stage is quota-bounded /tmp tmpfs"
+
+[execution]
+entry = "retained startup/postapply configured hook -> typed helper policy -> linked Applying/preproof -> single-use writer H -> Rust supervisor -> staged exact commit -> held-writer verification -> installed post-capture -> durable Complete"
+selection = "ryoku-hook authorize INDEX SHA SECONDS apply|restore [kitty_user] [fish_user] staged"
+authority = "explicit staged_outputs enum in account/content/runtime/write-set approval and plan fingerprint; default direct_write_only does not acquire staging"
+namespace = "same literal HOME/cwd/UID/EUID/primary GID; private user/mount/network namespaces; recursively read-only root; private noexec/nosuid/nodev 64 MiB, 256 inode computation HOME"
+execution_boundary = "exact root-pinned Bash/loader/runtime; no fork/network/process-control/capability or identity mutation; fixed deadline/CPU/memory/FD/file limits; child observed dead before commit/refreeze"
+publication = "complete exact stage membership; revalidate real inode+captured preimage; prepare all replacement inodes with preserved metadata; atomic names and directory sync; failed publication compensates from exact preimages and remains failed/recoverable"
+
+[checks]
+focused = "session28531 exit0:15 recovery hook tests plus 1 matching service test and 1 isolated frozen-writer subprocess; subsequent whole suite also covers explicit staged-policy serialization test"
+focused_log_sha256 = "71d272bb34a91557638bdc3efd3e59a4b956ace74d01479d59bc60fe4b69a7a4"
+workspace = "session98476 exit0: cargo test --workspace --all-features --locked --offline;707 top-level passed, 8 existing ignored, 25 isolated subprocess passes, 0 failures"
+workspace_log_sha256 = "3404eee4ced0cfb8f896af42e43079e4207145796287b8f4bfe75a3eacc048c6"
+clippy = "session93438 exit0: cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings"
+clippy_log_sha256 = "cd5496abbf7195b229d26136d7331c05841768b8c7b5f5985ca030ceea62f551"
+formatting = "cargo fmt --all -- --check:exit0"
+dependencies = "cargo deny --all-features --offline check: advisories/bans/licenses/sources ok"
+dependencies_log_sha256 = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+whitespace = "git diff --check:exit0"
+
+[regressions]
+success = "literal HOME; exact installed Bash exec; numeric UID 1000/EUID 1000/primary GID 1000; same cwd; declared preimage read; two-file content/mode/UID/GID; unrelated sentinel unchanged; held writers stay frozen"
+refusals = "undeclared stage entry; parent namespace path escape; staged ELF through installed loader on noexec mount; changed real inode/content; cancellation; deadline; 16 MiB file limit; 256 inode quota; real second rename failure with exact content/metadata compensation"
+identity_failure_log = "target/issue176-staging-hardening.log"
+identity_failure_log_sha256 = "e52e6d2a5556a565a8326a5e12c7b73b8fb4d25a31a50ba61f8cc17f080b7b42"
+identity_failure = "session54687:13 passed, 1 failed; installed Bash re-exec reported UID 4294967295 instead of 1000"
+identity_fix = "narrow read-only getresuid/getresgid syscall allowance; no set-ID operation or broader proc read grant; exact fixture34496 then full prior set12142 and stronger focused28531 passed"
+lint_correction = "session39047 found cleanup collapsible_if style lint; corrected before successful93438"
+
+[remaining]
+theme = "actual root-pinned matugen and complete dynamic template/input/output/reload policy; HOME-preserving staged theme worker; selection-through-templates/reloads effect tests"
+recovery = "distinct account+approved-digest exact-output/absence/new-parent and safe-owned-link seam coordinated with175; logical key-level GSettings capture/restore, not whole dconf user database"
+runtime = "all remaining startup/restore/watch/timer classes and warmAvailability; complete per-hook tests; supplementary groups and broader approved environment/input behavior"
+native = "actual matugen unavailable in current installed/cached local artifacts; refreshed Tumbleweed candidate under26 still requires startup/restore/theme lifecycle proof"

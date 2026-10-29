@@ -20,7 +20,25 @@ jobs:
         run: sudo apt-get update
 
       - name: Install GTK4 build dependencies
-        run: sudo apt-get install --no-install-recommends --yes libgtk-4-dev
+        run: sudo apt-get install --no-install-recommends --yes libgtk-4-dev dconf-gsettings-backend
+
+      - name: Permit user namespaces for the isolated Rust regression harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Ubuntu 24.04 restricts capabilities after unconfined userns creation.
+          # Attach only to this checkout's recovery test executable; production
+          # launcher confinement and global AppArmor/sysctl settings are unchanged.
+          ryoku_profile_file="$RUNNER_TEMP/ryoku-hook-ci-userns.apparmor"
+          cat > "$ryoku_profile_file" <<EOF
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile ryoku-hook-ci-userns "$GITHUB_WORKSPACE/target/debug/deps/ryoku_recovery-*" flags=(unconfined) {
+            userns,
+          }
+          EOF
+          sudo apparmor_parser --replace "$ryoku_profile_file"
+          sudo grep -F 'ryoku-hook-ci-userns' /sys/kernel/security/apparmor/profiles
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -28,14 +46,40 @@ jobs:
       - name: Check lints
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
+      - name: Verify the exact staged test executable profile and success path
+        env:
+          RYOKU_CI_APPARMOR_PROFILE: ryoku-hook-ci-userns
+        run: cargo test -p ryoku-recovery --locked staged_root_pinned_bash_exec_preserves_home_cwd_uid_and_two_outputs -- --nocapture
+
       - name: Run tests
+        env:
+          RYOKU_CI_APPARMOR_PROFILE: ryoku-hook-ci-userns
         run: cargo test --workspace --all-features --locked
+
+      - name: Verify root-peer capture transport to an ordinary account worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          ryoku_theme_test="$(cargo test -p ryoku-recovery --lib --locked --no-run --message-format=json | jq -r 'select(.reason == "compiler-artifact" and .target.name == "ryoku_recovery" and .profile.test == true) | .executable')"
+          test -n "$ryoku_theme_test"
+          install -m 0755 "$ryoku_theme_test" "$RUNNER_TEMP/ryoku-theme-root-peer-tests"
+          sudo -- "$RUNNER_TEMP/ryoku-theme-root-peer-tests" --ignored --exact theme_actor::tests::root_peer_capture_binds_the_native_receipt_and_rejects_account_mismatch --nocapture
 
       - name: Install dependency review tool
         run: cargo install cargo-deny --locked --version 0.20.2
 
       - name: Review dependencies
         run: cargo deny --all-features check
+
+      - name: Remove the isolated regression harness namespace profile
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          ryoku_profile_file="$RUNNER_TEMP/ryoku-hook-ci-userns.apparmor"
+          if test -f "$ryoku_profile_file"; then
+            sudo apparmor_parser --remove "$ryoku_profile_file"
+          fi
 
   gtk-proof-artifact:
     name: Build GTK proof artifact from main

@@ -39,7 +39,7 @@ impl RootSnapshotReceipt {
 
     /// Structural validation only. Provenance comes from the protected sealed
     /// generation, and availability still requires live kernel verification.
-    pub(crate) fn validate(&self) -> Result<(), NativeCheckpointError> {
+    pub fn validate(&self) -> Result<(), NativeCheckpointError> {
         let nil = "00000000-0000-0000-0000-000000000000";
         validate_link(&self.link)?;
         if self.schema != 1
