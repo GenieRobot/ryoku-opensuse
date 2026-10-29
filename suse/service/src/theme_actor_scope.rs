@@ -1,16 +1,14 @@
 //! OS-backed runtime/schema/session guard for the one-use capture worker.
 //! A root-provided receipt is structural data here; native checkpoint
 //! availability and durable enrollment are verified by the root coordinator.
-use crate::{
-    theme_actor::{CaptureRequest, control_lifetime},
-    theme_gio::GioThemeSettingsActor,
-    theme_settings::ThemeSettingsActor,
-};
+use crate::theme_gio::GioThemeSettingsActor;
 use ryoku_recovery::{
     Sha256,
-    wallpaper_protocol::{ActorIdentity, digest},
+    logical_settings::SessionWitness,
+    theme_actor::{CaptureRequest, control_lifetime},
+    theme_settings_actor::ThemeSettingsActor,
+    wallpaper_protocol::digest,
 };
-use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     fs::File,
@@ -21,27 +19,6 @@ use std::{
     },
     path::{Path, PathBuf},
 };
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RuntimeFile {
-    pub path: String,
-    pub sha256: Sha256,
-}
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SessionWitness {
-    pub device: u64,
-    pub inode: u64,
-    pub uid: u32,
-    pub process: ActorIdentity,
-    pub executable_sha256: Sha256,
-}
-impl SessionWitness {
-    pub fn digest(&self) -> io::Result<Sha256> {
-        Sha256::new(digest(&serde_json::to_vec(self)?))
-            .map_err(|_| io::Error::other("invalid session witness digest"))
-    }
-}
 struct Pin {
     file: File,
     identity: (u64, u64, u64, i64, i64, i64, i64),

@@ -1,11 +1,20 @@
 //! These run real installed GIO/GSettings, with a private explicit memory
 //! backend and fixture schema. They never contact the desktop bus or DConf.
 use super::*;
-use crate::theme_settings::{apply, capture, restore_changes, test_native_receipt};
+use ryoku_recovery::theme_settings_actor::{apply, capture, restore_changes};
 use ryoku_recovery::{AccountPrincipal, Sha256};
 use std::{cell::Cell, collections::BTreeMap, rc::Rc};
 fn sha(byte: &str) -> Sha256 {
     Sha256::new(byte.repeat(32)).unwrap()
+}
+fn test_native_receipt() -> ryoku_recovery::native_checkpoint::RootSnapshotReceipt {
+    ryoku_recovery::RecoveryManifest::parse_verified_json(include_bytes!(
+        "../../recovery/tests/fixtures/issue176-logical/legacy-v2.json"
+    ))
+    .unwrap()
+    .root_snapshot_receipt()
+    .unwrap()
+    .clone()
 }
 fn actor() -> GioThemeSettingsActor {
     let binding = ThemeSettingsBinding {
@@ -24,7 +33,7 @@ fn actor() -> GioThemeSettingsActor {
 fn image(
     actor: &mut GioThemeSettingsActor,
     changes: &BTreeMap<ThemeSettingKey, ThemeSettingChange>,
-) -> crate::theme_settings::ThemeSettingsCapsule {
+) -> ryoku_recovery::logical_settings::ThemeSettingsCapsule {
     capture(actor, &actor.expected.clone(), &test_native_receipt(), sha("11"), sha("22"), changes)
         .unwrap()
 }

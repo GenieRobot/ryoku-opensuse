@@ -1,0 +1,44 @@
+issue = 176
+parent = "34a32db7c98292909bff2d550123ed9f6c56f31a"
+status = "capture-only-logical-state-in-the-held-writer-and-generation-path"
+all_hooks_accepted = false
+native_theme_execution_accepted = false
+native_dconf_session_capture_accepted = false
+vm_or_download = false
+
+[live_path]
+entry = "trusted NativeCaptureSession::capture_with_theme_settings -> existing machine lock/all writer holds -> confirmed file image -> root-created control descriptor over original lease -> bounded same-account worker -> exact capsule reply plus observed child death/writer proof -> same schema3 generation seal/publication/read-back"
+authority = "capture-only; no settings-write opcode; original root helper capabilities and writer lease stay unchanged"
+identity = "before launch: bounded version/account/session/runtime request, fresh account principal and exact native receipt match; after reply: nonce/runtime/account/policy/plan/desired-key/checkpoint match plus one-shot EOF"
+failure = "capture failure, foreign receipt/account or boundary loss prevents file/key generation publication; legacy full configuration restore still refuses logical state until its guarded restore actor is integrated"
+packaging = "fixed actor binary plus explicit libgio-2.0.so.0()(64bit) and gsettings-desktop-schemas requirements; local installed RPM metadata confirms those providers"
+
+[checks]
+workspace = "frozen serialized cargo test --workspace --all-features --offline --locked:743 top-level passed,27 isolated subprocess passes,9 ignored,zero failures"
+workspace_log_sha256 = "b0e847aff59fb616c88989e97a433299d6b98eaab3686853c032463d51c00b98"
+clippy = "frozen strict workspace/all-target/all-feature/offline/locked Clippy passed"
+clippy_log_sha256 = "99f71393b9903dca098310bb446022a4bdee195ea9996f351a787195555210a6"
+format_and_whitespace = "cargo fmt --all -- --check and git diff --check passed"
+rpm = "helper RPM parses with the installed capture binary and explicit runtime dependencies"
+rpm_log_sha256 = "40a94bc84cb7db97cf710eeeedf9058e9b9a46031b6d8e6b10805dec1d08f451"
+generation = "actual installed-capture pipeline preserves capsule+files in sealed read-back; capture failure, foreign account/native receipt and post-capture lease loss publish no generation"
+transport = "nonroot descriptor refusal; exact reply nonce/native receipt/runtime/policy/plan/desired-key scope; extra-frame, duplicate/runtime/oversize request refusal"
+lifecycle = "success, confined thread/fork/exec/network/write behavior, failure, deadline, live blocked-I/O cancellation, prelaunch cancellation and invalid deadline; owned Child PID is checked after observed reaping"
+lifecycle_log_sha256 = "f43088265adad0bd68cb6c4c135bb2249e696e82c4e7b6fa351e64f2fa1ba05e"
+
+[test_observations]
+initial_workspace = "preserved-player guardian ESRCH did not recur in six exact isolated runs; no production writer-freeze code changed"
+fixture_correction = "a timed-out process may not reach its first fixture instruction; reaping now uses the OS-owned Child PID instead of requiring a child-reported PID. Live cancellation separately waits for readiness. Production limits remain unchanged"
+final = "the frozen full sequence above is the accepted local result"
+
+[hosted_gate]
+parent_run = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40901847470"
+parent_result = "all code/root-peer/staged checks passed; refreshed dependency review failed on the existing zstd chain"
+dependency_advisories = ["RUSTSEC-2026-0391", "RUSTSEC-2026-0398", "RUSTSEC-2026-0403", "RUSTSEC-2026-0410"]
+ordering = "175 owns the shared dependency correction; no partial175 code was copied into176"
+root_peer = "updated explicit recovery-library CI harness exercises the transferred root descriptor, actual ordinary UID, matching/mismatching account and missing descriptor; new exact-commit result remains required"
+
+[remaining]
+theme = "real native DConf/backend/session capture, complete dynamic file/parent/link/tree enrollment and matugen execution, guarded logical restore actor, reload/signal/IPC actors and combined durable completion"
+automatic = "all other startup/watch/timer/restore behavior and FFmpeg/weather availability probes still require exact per-hook policies/tests"
+acceptance = "complete wallpaper-to-template/reload accounting and refreshed Tumbleweed lifecycle under26 remain open"

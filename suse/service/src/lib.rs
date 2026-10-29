@@ -16,11 +16,8 @@ pub mod native_mutation;
 pub mod protected_state;
 pub mod runtime;
 mod runtime_paths;
-pub mod theme_actor;
-pub mod theme_actor_sandbox;
 pub mod theme_actor_scope;
 pub mod theme_gio;
-pub mod theme_settings;
 pub mod wallpaper;
 mod workspace_selection;
 

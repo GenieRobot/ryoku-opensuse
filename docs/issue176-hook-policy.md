@@ -114,10 +114,28 @@ coordinator must independently verify native checkpoint provenance/availability,
 retain all writer holds and durably enroll pre/post state before any settings
 write can be enabled.
 
+`NativeCaptureSession::capture_with_theme_settings` now joins this read-only
+capture to generation publication. The root coordinator creates a separate
+one-shot socket and passes its descriptor over the existing authenticated writer
+lease. The account wrapper keeps the original lease and native writer stops,
+launches the fixed worker, and acknowledges only after observed worker death
+and renewed writer/lock checks. The separate descriptor preserves real root
+peer credentials without adding a helper capability or changing account
+identity. The root side validates the nonce, account, policy, plan, desired keys
+and exact native receipt, then waits for the wrapper's completion status.
+
+The logical capture runs after the file image has passed its exact read-back
+checks and before that same generation is sealed/published. A failed worker,
+foreign account/receipt, extra reply, lost writer hold or failed publication
+aborts the whole generation. Pure transaction, transport and process ownership
+code live in recovery; GIO/session attestation remains in service. The helper RPM
+declares the dynamically loaded GIO ABI and desktop schema dependencies.
+
 Actual-binary tests prove private invocation and nonroot-peer refusal. The
-hosted root-only transport harness separately verifies a real root connection
-to an ordinary-account capture worker and exact native receipt return using a
-read-only injected backend. It is not evidence of native DConf/session success.
+hosted root-only transport harness separately verifies a root-created descriptor
+crossing into an ordinary-account capture worker, missing-descriptor refusal
+and exact native receipt return using a read-only injected backend. It is not
+evidence of native DConf/session success.
 Native root/session capture, logical restore execution and combined
 file/key/reload completion remain required before activating theme execution.
 

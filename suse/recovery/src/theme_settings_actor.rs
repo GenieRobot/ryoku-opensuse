@@ -5,15 +5,15 @@
 //! capsule in its linked pre/post generation and retain all writer holds. An
 //! observation returned here is not a durable completion receipt.
 #[cfg(test)]
-use ryoku_recovery::AccountPrincipal;
-use ryoku_recovery::Sha256;
-pub use ryoku_recovery::logical_settings::*;
+use crate::AccountPrincipal;
+use crate::Sha256;
+pub use crate::logical_settings::*;
 use std::{collections::BTreeMap, io};
 
 #[cfg(test)]
-pub(crate) fn test_native_receipt() -> ryoku_recovery::native_checkpoint::RootSnapshotReceipt {
-    ryoku_recovery::RecoveryManifest::parse_verified_json(include_bytes!(
-        "../../recovery/tests/fixtures/issue176-logical/legacy-v2.json"
+pub(crate) fn test_native_receipt() -> crate::native_checkpoint::RootSnapshotReceipt {
+    crate::RecoveryManifest::parse_verified_json(include_bytes!(
+        "../tests/fixtures/issue176-logical/legacy-v2.json"
     ))
     .unwrap()
     .root_snapshot_receipt()
@@ -70,7 +70,7 @@ pub struct ThemeSettingsObservation {
 pub fn capture(
     actor: &mut (impl ThemeSettingsActor + ?Sized),
     expected: &ThemeSettingsBinding,
-    native_receipt: &ryoku_recovery::native_checkpoint::RootSnapshotReceipt,
+    native_receipt: &crate::native_checkpoint::RootSnapshotReceipt,
     approved_policy_sha256: Sha256,
     plan_sha256: Sha256,
     changes: &BTreeMap<ThemeSettingKey, ThemeSettingChange>,
@@ -226,5 +226,5 @@ pub fn restore_changes(
 }
 
 #[cfg(test)]
-#[path = "theme_settings_tests.rs"]
+#[path = "theme_settings_actor_tests.rs"]
 mod tests;

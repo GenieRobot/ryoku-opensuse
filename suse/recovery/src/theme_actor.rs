@@ -1,24 +1,131 @@
 //! One-shot, capture-only account-worker transport. No write operation exists
 //! on this wire. Logical restore/enrollment is separate from file output receipts.
 #![allow(unsafe_code)] // The child-only lifecycle callback uses Linux prctl/rlimit/FD syscalls.
-use crate::theme_settings::{
+use crate::theme_settings_actor::{
     self, ThemeSettingChange, ThemeSettingKey, ThemeSettingsActor, ThemeSettingsBinding,
     ThemeSettingsCapsule,
 };
-use ryoku_recovery::{Identifier, Sha256};
+use crate::{Identifier, Sha256};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     fs::File,
     io::{self, Read, Write},
     os::{
-        fd::AsRawFd,
+        fd::{AsFd, AsRawFd},
         unix::{fs::MetadataExt, net::UnixStream, process::CommandExt},
     },
     process::{Command, Stdio},
     time::{Duration, Instant},
 };
 const MAX_FRAME: usize = 64 * 1024;
+
+/// Pass a separately root-created one-shot channel to the frozen account
+/// wrapper. The original lease remains independent of the worker connection.
+pub(crate) fn send_root_control(carrier: &UnixStream, control: &UnixStream) -> io::Result<()> {
+    use rustix::net::{SendAncillaryBuffer, SendAncillaryMessage, SendFlags, sendmsg};
+    use std::{io::IoSlice, mem::MaybeUninit};
+    if rustix::process::geteuid().as_raw() != 0
+        || rustix::net::sockopt::socket_peercred(control)?.uid.as_raw() != 0
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "capture channel was not created by root",
+        ));
+    }
+    let mut space = [MaybeUninit::uninit(); rustix::cmsg_space!(ScmRights(1))];
+    let mut ancillary = SendAncillaryBuffer::new(&mut space);
+    let descriptors = [control.as_fd()];
+    if !ancillary.push(SendAncillaryMessage::ScmRights(&descriptors)) {
+        return Err(io::Error::other("capture descriptor does not fit its bounded envelope"));
+    }
+    if sendmsg(carrier, &[IoSlice::new(b"C")], &mut ancillary, SendFlags::NOSIGNAL)? != 1 {
+        return Err(io::Error::other("capture descriptor transfer was incomplete"));
+    }
+    Ok(())
+}
+
+pub(crate) fn receive_root_control(carrier: &UnixStream) -> io::Result<UnixStream> {
+    use rustix::net::{RecvAncillaryBuffer, RecvAncillaryMessage, RecvFlags, recvmsg};
+    use std::{io::IoSliceMut, mem::MaybeUninit};
+    if rustix::net::sockopt::socket_peercred(carrier)?.uid.as_raw() != 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "capture carrier peer is not root",
+        ));
+    }
+    let mut byte = [0];
+    let mut space = [MaybeUninit::uninit(); rustix::cmsg_space!(ScmRights(1))];
+    let mut ancillary = RecvAncillaryBuffer::new(&mut space);
+    let result = recvmsg(
+        carrier,
+        &mut [IoSliceMut::new(&mut byte)],
+        &mut ancillary,
+        RecvFlags::CMSG_CLOEXEC,
+    )?;
+    let mut descriptors = Vec::new();
+    for message in ancillary.drain() {
+        match message {
+            RecvAncillaryMessage::ScmRights(received) => descriptors.extend(received),
+            _ => return Err(io::Error::other("unexpected capture ancillary message")),
+        }
+    }
+    if result.bytes != 1
+        || byte != *b"C"
+        || descriptors.len() != 1
+        || result
+            .flags
+            .intersects(rustix::net::ReturnFlags::TRUNC | rustix::net::ReturnFlags::CTRUNC)
+    {
+        return Err(io::Error::other("incomplete or ambiguous capture descriptor"));
+    }
+    let control = UnixStream::from(descriptors.pop().expect("one checked descriptor"));
+    if rustix::net::sockopt::socket_type(&control)? != rustix::net::SocketType::STREAM
+        || rustix::net::sockopt::socket_peercred(&control)?.uid.as_raw() != 0
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "capture descriptor does not preserve the root peer",
+        ));
+    }
+    Ok(control)
+}
+
+pub(crate) fn request_capture(
+    mut control: UnixStream,
+    request: &CaptureRequest,
+) -> io::Result<CaptureReply> {
+    request.validate()?;
+    let mut bytes = serde_json::to_vec(request)?;
+    bytes.push(b'\n');
+    if bytes.len() > MAX_FRAME {
+        return Err(io::Error::other("capture request exceeds its bound"));
+    }
+    control.set_read_timeout(Some(Duration::from_secs(10)))?;
+    control.set_write_timeout(Some(Duration::from_secs(5)))?;
+    control.write_all(&bytes)?;
+    let reply: CaptureReply = serde_json::from_slice(&read_frame(&mut control)?)?;
+    if reply.version != 1
+        || reply.nonce != request.nonce
+        || !reply.capsule.validate()
+        || reply.capsule.binding != request.binding
+        || reply.capsule.native_receipt != request.native_receipt
+        || reply.capsule.approved_policy_sha256 != request.approved_policy_sha256
+        || reply.capsule.plan_sha256 != request.plan_sha256
+        || reply.capsule.changes_sha256
+            != crate::logical_settings::changes_digest(&request.desired)?
+        || reply.capsule.keys.keys().ne(request.desired.keys())
+    {
+        return Err(io::Error::other(
+            "capture reply differs from the exact requested checkpoint/scope",
+        ));
+    }
+    let mut trailing = [0];
+    if control.read(&mut trailing)? != 0 {
+        return Err(io::Error::other("capture worker returned an extra frame"));
+    }
+    Ok(reply)
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -28,11 +135,38 @@ pub struct CaptureRequest {
     pub binding: ThemeSettingsBinding,
     pub approved_policy_sha256: Sha256,
     pub plan_sha256: Sha256,
-    #[serde(deserialize_with = "ryoku_recovery::logical_settings::deserialize_setting_changes")]
+    #[serde(deserialize_with = "crate::logical_settings::deserialize_setting_changes")]
     pub desired: BTreeMap<ThemeSettingKey, ThemeSettingChange>,
-    pub native_receipt: ryoku_recovery::native_checkpoint::RootSnapshotReceipt,
-    pub session: crate::theme_actor_scope::SessionWitness,
-    pub runtime_files: Vec<crate::theme_actor_scope::RuntimeFile>,
+    pub native_receipt: crate::native_checkpoint::RootSnapshotReceipt,
+    pub session: crate::logical_settings::SessionWitness,
+    pub runtime_files: Vec<crate::logical_settings::RuntimeFile>,
+}
+impl CaptureRequest {
+    pub fn validate(&self) -> io::Result<()> {
+        self.native_receipt.validate().map_err(io::Error::other)?;
+        crate::logical_settings::changes_digest(&self.desired)?;
+        let mut paths = std::collections::BTreeSet::new();
+        if self.version != 1
+            || !self.binding.validate()
+            || self.session.uid != self.binding.uid
+            || self.session.process.pid == 0
+            || self.session.digest()? != self.binding.session_service_sha256
+            || self.runtime_files.is_empty()
+            || self.runtime_files.len() > 128
+            || self.runtime_files.iter().any(|entry| {
+                entry.path.len() > 512
+                    || !entry.path.starts_with('/')
+                    || entry.path.chars().any(char::is_control)
+                    || !paths.insert(entry.path.as_str())
+            })
+        {
+            return Err(io::Error::other("invalid capture account/session/runtime declaration"));
+        }
+        if serde_json::to_vec(self)?.len() >= MAX_FRAME {
+            return Err(io::Error::other("capture request exceeds its bound"));
+        }
+        Ok(())
+    }
 }
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -40,6 +174,13 @@ pub struct CaptureReply {
     pub version: u16,
     pub nonce: Identifier,
     pub capsule: ThemeSettingsCapsule,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct CaptureWorkerStatus {
+    pub completed: bool,
+    pub refusal: Option<String>,
 }
 
 /// Consume one root-authenticated inherited connection. The factory must add
@@ -69,10 +210,10 @@ pub fn serve_capture(
             "theme capture version/account mismatch",
         ));
     }
-    request.native_receipt.validate().map_err(io::Error::other)?;
+    request.validate()?;
     reject_extra_request(&control)?;
     let mut actor = factory(&request, control.try_clone()?)?;
-    let capsule = theme_settings::capture(
+    let capsule = theme_settings_actor::capture(
         &mut *actor,
         &request.binding,
         &request.native_receipt,
@@ -159,7 +300,7 @@ pub fn capture_worker(
     run_owned(command, control, timeout, &mut cancelled)
 }
 fn run_owned(
-    mut command: Command,
+    command: Command,
     control: &UnixStream,
     timeout: Duration,
     cancelled: &mut impl FnMut() -> bool,
@@ -170,10 +311,18 @@ fn run_owned(
     if cancelled() {
         return Err(io::Error::other("actor cancelled before launch"));
     }
+    let child = spawn_owned(command, control)?;
+    wait_owned(child, timeout, cancelled)
+}
+fn spawn_owned(mut command: Command, control: &UnixStream) -> io::Result<std::process::Child> {
     let inherited = control.try_clone()?;
     let fd = inherited.as_raw_fd();
     let parent = std::process::id() as i32;
     command.current_dir("/").stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    // Unit fixtures retain early test-harness/startup diagnostics. Production
+    // workers keep their fixed null streams and expose only typed responses.
+    #[cfg(test)]
+    command.stderr(Stdio::inherit());
     // SAFETY: only raw lifecycle/limit/descriptor syscalls run in the fork child.
     unsafe {
         command.pre_exec(move || {
@@ -203,7 +352,13 @@ fn run_owned(
             Ok(())
         });
     }
-    let mut child = command.spawn()?;
+    command.spawn()
+}
+fn wait_owned(
+    mut child: std::process::Child,
+    timeout: Duration,
+    cancelled: &mut impl FnMut() -> bool,
+) -> io::Result<()> {
     let deadline = Instant::now() + timeout;
     let mut failure = None;
     loop {
@@ -226,10 +381,16 @@ fn run_owned(
                 ))
             };
         }
-        if failure.is_none() && (cancelled() || Instant::now() >= deadline) {
-            failure = Some(
-                "theme capture worker cancelled/timed out; owned process reaped before return",
-            );
+        if failure.is_none() {
+            failure = if cancelled() {
+                Some("theme capture worker cancelled; owned process reaped before return")
+            } else if Instant::now() >= deadline {
+                Some("theme capture worker timed out; owned process reaped before return")
+            } else {
+                None
+            };
+        }
+        if failure.is_some() {
             let _ = child.kill();
         }
         std::thread::sleep(Duration::from_millis(5));

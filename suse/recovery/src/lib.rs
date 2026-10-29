@@ -27,6 +27,9 @@ pub mod hook_protocol;
 mod hook_staging;
 mod hook_supervisor;
 pub mod logical_settings;
+pub mod theme_actor;
+pub mod theme_actor_sandbox;
+pub mod theme_settings_actor;
 pub use hook_supervisor::shell_digest as hook_shell_digest;
 #[cfg(target_os = "linux")]
 pub mod inode_metadata;

@@ -91,6 +91,14 @@ fn package_installs_units_without_enabling_the_privileged_socket() {
     assert!(files.iter().any(|line| line.ends_with("/ryoku.conf")));
     assert!(files.iter().any(|line| line.ends_with("/ryoku-helper")));
     assert!(files.contains(&"%attr(0755,root,root) %{_libexecdir}/ryoku/ryoku-theme-actor"));
+    for runtime in ["libgio-2.0.so.0()(64bit)", "gsettings-desktop-schemas"] {
+        assert!(
+            RPM_SPEC.lines().any(|line| line
+                .strip_prefix("Requires:")
+                .is_some_and(|value| value.trim() == runtime)),
+            "the dynamically loaded capture runtime must have a declared RPM dependency: {runtime}"
+        );
+    }
     assert!(
         section(HELPER_SOCKET, "Install").iter().any(|line| { *line == "WantedBy=sockets.target" })
     );

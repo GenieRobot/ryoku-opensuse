@@ -12,6 +12,8 @@ BuildRequires:  systemd-rpm-macros
 Requires:       systemd
 Requires:       rpm >= 4.19
 Requires:       /usr/bin/bash
+Requires:       libgio-2.0.so.0()(64bit)
+Requires:       gsettings-desktop-schemas
 
 # Tumbleweed systemd processes this group-only sysusers declaration through
 # its distribution-owned transaction trigger. All payload files are root-owned;

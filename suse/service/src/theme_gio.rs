@@ -2,7 +2,7 @@
 //! the supplied guard must authenticate its exact root-owned dispatch, session
 //! service and writer hold. This adapter is not a launcher or approval source.
 #![allow(unsafe_code)] // Narrow dynamically loaded GIO ABI, checked handles and explicit ownership.
-use crate::theme_settings::{
+use ryoku_recovery::theme_settings_actor::{
     ThemeSettingChange, ThemeSettingKey, ThemeSettingState, ThemeSettingsActor,
     ThemeSettingsBinding,
 };

@@ -36,6 +36,134 @@ fn capture_wire_has_no_apply_or_restore_operation_and_rejects_oversized_input() 
 }
 
 #[test]
+fn an_ordinary_account_cannot_create_or_receive_a_root_capture_descriptor() {
+    let (carrier, _peer) = UnixStream::pair().unwrap();
+    let (control, _root) = UnixStream::pair().unwrap();
+    assert_eq!(
+        send_root_control(&carrier, &control).unwrap_err().kind(),
+        io::ErrorKind::PermissionDenied
+    );
+    assert_eq!(receive_root_control(&carrier).unwrap_err().kind(), io::ErrorKind::PermissionDenied);
+}
+
+#[test]
+fn capture_reply_requires_the_exact_nonce_checkpoint_policy_plan_and_key_scope() {
+    use crate::{
+        AccountPrincipal,
+        logical_settings::{RuntimeFile, SessionWitness, ThemeSettingState},
+        wallpaper_protocol::ActorIdentity,
+    };
+    let sha = |pair: &str| Sha256::new(pair.repeat(32)).unwrap();
+    let uid = rustix::process::geteuid().as_raw();
+    let session = SessionWitness {
+        device: 1,
+        inode: 1,
+        uid,
+        process: ActorIdentity { pid: 1, start_time: 1 },
+        executable_sha256: sha("11"),
+    };
+    let request = CaptureRequest {
+        version: 1,
+        nonce: Identifier::new("capture-exact-reply").unwrap(),
+        binding: ThemeSettingsBinding {
+            account: AccountPrincipal::from_account(uid, uid, "fixture", "/home/fixture").unwrap(),
+            uid,
+            executable_sha256: sha("11"),
+            schema_sha256: sha("11"),
+            session_service_sha256: session.digest().unwrap(),
+        },
+        approved_policy_sha256: sha("11"),
+        plan_sha256: sha("11"),
+        desired: [(ThemeSettingKey::ColorScheme, ThemeSettingChange::Set("prefer-light".into()))]
+            .into(),
+        native_receipt: crate::theme_settings_actor::test_native_receipt(),
+        session,
+        runtime_files: vec![RuntimeFile {
+            path: "/usr/libexec/ryoku/ryoku-theme-actor".into(),
+            sha256: sha("11"),
+        }],
+    };
+    for fault in 0..10 {
+        let (client, mut server) = UnixStream::pair().unwrap();
+        let mut reply = CaptureReply {
+            version: 1,
+            nonce: request.nonce.clone(),
+            capsule: ThemeSettingsCapsule {
+                version: 1,
+                native_receipt: request.native_receipt.clone(),
+                binding: request.binding.clone(),
+                approved_policy_sha256: request.approved_policy_sha256.clone(),
+                plan_sha256: request.plan_sha256.clone(),
+                changes_sha256: crate::logical_settings::changes_digest(&request.desired).unwrap(),
+                keys: [(
+                    ThemeSettingKey::ColorScheme,
+                    ThemeSettingState {
+                        user_value: None,
+                        effective_value: "default".into(),
+                        default_value: "default".into(),
+                        writable: true,
+                    },
+                )]
+                .into(),
+            },
+        };
+        match fault {
+            0 | 9 => {}
+            1 => reply.version = 2,
+            2 => reply.nonce = Identifier::new("other-call").unwrap(),
+            3 => reply.capsule.binding.uid += 1,
+            4 => {
+                let mut receipt = serde_json::to_value(&reply.capsule.native_receipt).unwrap();
+                receipt["subvolume_id"] = 301.into();
+                reply.capsule.native_receipt = serde_json::from_value(receipt).unwrap();
+            }
+            5 => reply.capsule.approved_policy_sha256 = sha("22"),
+            6 => reply.capsule.plan_sha256 = sha("22"),
+            7 => reply.capsule.changes_sha256 = sha("22"),
+            8 => {
+                reply.capsule.keys.insert(
+                    ThemeSettingKey::GtkTheme,
+                    reply.capsule.keys[&ThemeSettingKey::ColorScheme].clone(),
+                );
+            }
+            _ => unreachable!(),
+        }
+        let sender = std::thread::spawn(move || {
+            read_frame(&mut server).unwrap();
+            let mut bytes = serde_json::to_vec(&reply).unwrap();
+            bytes.push(b'\n');
+            if fault == 9 {
+                bytes.extend_from_slice(b"{}\n");
+            }
+            server.write_all(&bytes).unwrap();
+        });
+        assert_eq!(request_capture(client, &request).is_ok(), fault == 0, "fault {fault}");
+        sender.join().unwrap();
+    }
+    for fault in 0..4 {
+        let mut invalid = request.clone();
+        match fault {
+            0 => invalid.version = 2,
+            1 => invalid.desired.clear(),
+            2 => invalid.runtime_files.push(invalid.runtime_files[0].clone()),
+            3 => {
+                invalid.runtime_files = (0..128)
+                    .map(|index| RuntimeFile {
+                        path: format!("/usr/lib/{index:03}/{}", "x".repeat(490)),
+                        sha256: sha("11"),
+                    })
+                    .collect()
+            }
+            _ => unreachable!(),
+        }
+        let error = invalid.validate().unwrap_err();
+        if fault == 3 {
+            assert!(error.to_string().contains("exceeds its bound"));
+        }
+    }
+}
+
+#[test]
 fn owned_worker_success_failure_timeout_and_cancellation_are_reaped() {
     const FIXTURE: &str =
         "theme_actor::tests::owned_worker_success_failure_timeout_and_cancellation_are_reaped";
@@ -77,6 +205,11 @@ fn owned_worker_success_failure_timeout_and_cancellation_are_reaped() {
             "spin" => loop {
                 std::hint::spin_loop();
             },
+            "wait" => {
+                let mut byte = [0];
+                control.read_exact(&mut byte).expect("cancellation fixture keeps its control peer");
+                panic!("cancellation fixture received an unexpected request");
+            }
             _ => panic!("unknown fixture role"),
         }
     }
@@ -85,32 +218,70 @@ fn owned_worker_success_failure_timeout_and_cancellation_are_reaped() {
         ("confinement", false),
         ("failure", false),
         ("spin", false),
-        ("spin", true),
+        ("wait", true),
     ] {
         let (worker, mut root) = UnixStream::pair().unwrap();
-        root.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+        root.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
         let mut command = Command::new(std::env::current_exe().unwrap());
         command.args(["--exact", FIXTURE, "--nocapture"]).env(ROLE, role);
         let write_target = std::env::temp_dir()
             .join(format!("ryoku-theme-readonly-{}-{role}-{cancel}", std::process::id()));
         std::fs::write(&write_target, b"before").unwrap();
         command.env("RYOKU_THEME_WRITE_TARGET", &write_target);
-        let mut ticks = 0;
         let start = Instant::now();
-        let result = run_owned(command, &worker, Duration::from_millis(200), &mut || {
-            ticks += 1;
-            cancel && ticks > 5
-        });
+        let child = spawn_owned(command, &worker).unwrap();
+        // Identity comes from the owned OS child, so a deadline before its
+        // first fixture instruction still proves exact process reaping.
+        let pid = child.id();
+        if cancel {
+            let bytes =
+                read_frame(&mut root).expect("wait fixture must be blocked before cancellation");
+            assert_eq!(std::str::from_utf8(&bytes).unwrap().trim().parse::<u32>().unwrap(), pid);
+        }
+        let timeout =
+            if role == "spin" { Duration::from_millis(200) } else { Duration::from_secs(3) };
+        let result = wait_owned(child, timeout, &mut || cancel);
         assert_eq!(result.is_ok(), matches!(role, "success" | "confinement"), "{role}: {result:?}");
-        assert!(start.elapsed() < Duration::from_secs(2));
-        let bytes = read_frame(&mut root).unwrap();
-        let pid = std::str::from_utf8(&bytes).unwrap().trim().parse::<u32>().unwrap();
+        if role == "failure" {
+            assert!(result.as_ref().unwrap_err().to_string().contains("worker failed"));
+        }
+        if role == "spin" {
+            assert!(result.as_ref().unwrap_err().to_string().contains("timed out"));
+        }
+        if cancel {
+            assert!(result.as_ref().unwrap_err().to_string().contains("cancelled"));
+        }
+        assert!(start.elapsed() < Duration::from_secs(4));
+        drop(worker);
+        if matches!(role, "success" | "confinement" | "failure") {
+            let bytes = read_frame(&mut root).unwrap();
+            assert_eq!(std::str::from_utf8(&bytes).unwrap().trim().parse::<u32>().unwrap(), pid);
+        }
         assert!(
             !std::path::Path::new(&format!("/proc/{pid}")).exists(),
             "owned worker remained alive"
         );
         assert_eq!(std::fs::read(&write_target).unwrap(), b"before");
         std::fs::remove_file(write_target).unwrap();
+    }
+    let (worker, _peer) = UnixStream::pair().unwrap();
+    let error = run_owned(
+        Command::new("/does-not-exist/ryoku-never-launched"),
+        &worker,
+        Duration::from_secs(1),
+        &mut || true,
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("cancelled before launch"));
+    for timeout in [Duration::ZERO, Duration::from_secs(31)] {
+        let error = run_owned(
+            Command::new("/does-not-exist/ryoku-never-launched"),
+            &worker,
+            timeout,
+            &mut || false,
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("deadline"));
     }
 }
 
@@ -120,8 +291,8 @@ fn owned_worker_success_failure_timeout_and_cancellation_are_reaped() {
 #[test]
 #[ignore = "requires a root parent that launches the worker as uid65534"]
 fn root_peer_capture_binds_the_native_receipt_and_rejects_account_mismatch() {
-    use crate::theme_settings::ThemeSettingState;
-    use ryoku_recovery::{AccountPrincipal, wallpaper_protocol::ActorIdentity};
+    use crate::theme_settings_actor::ThemeSettingState;
+    use crate::{AccountPrincipal, wallpaper_protocol::ActorIdentity};
     const ROLE: &str = "RYOKU_THEME_ROOT_CAPTURE_CASE";
     const TEST: &str = "theme_actor::tests::root_peer_capture_binds_the_native_receipt_and_rejects_account_mismatch";
     struct ReadOnlyActor {
@@ -166,8 +337,16 @@ fn root_peer_capture_binds_the_native_receipt_and_rejects_account_mismatch() {
         }
         assert_eq!(rustix::process::geteuid().as_raw(), 65534);
         crate::theme_actor_sandbox::harden_worker().unwrap();
-        // SAFETY: run_owned passes this sole inherited one-shot connection.
-        let worker = unsafe { UnixStream::from_raw_fd(3) };
+        // SAFETY: run_owned passes the root-authenticated lease carrier. Its
+        // separately transferred descriptor must retain the root peer after
+        // crossing into this ordinary account.
+        let carrier = unsafe { UnixStream::from_raw_fd(3) };
+        let received = receive_root_control(&carrier);
+        if role == "missing-fd" {
+            assert!(received.unwrap_err().to_string().contains("incomplete or ambiguous"));
+            return;
+        }
+        let worker = received.unwrap();
         let result = serve_capture(worker, |request, _control| {
             assert_eq!(role, "matching");
             Ok(Box::new(ReadOnlyActor { binding: request.binding.clone() }))
@@ -181,10 +360,18 @@ fn root_peer_capture_binds_the_native_receipt_and_rejects_account_mismatch() {
     }
     assert_eq!(rustix::process::geteuid().as_raw(), 0, "run this ignored harness as root");
     let sha = || Sha256::new("11".repeat(32)).unwrap();
-    for mismatch in [false, true] {
+    for role in ["matching", "mismatching", "missing-fd"] {
+        let mismatch = role == "mismatching";
         let (worker, mut caller) = UnixStream::pair().unwrap();
+        let (carrier_sender, carrier_receiver) = UnixStream::pair().unwrap();
+        if role == "missing-fd" {
+            (&carrier_sender).write_all(b"C").unwrap();
+        } else {
+            send_root_control(&carrier_sender, &worker).unwrap();
+        }
+        drop(worker);
         caller.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
-        let request = CaptureRequest {
+        let mut request = CaptureRequest {
             version: 1,
             nonce: Identifier::new("capture-root-peer-fixture").unwrap(),
             binding: ThemeSettingsBinding {
@@ -202,26 +389,30 @@ fn root_peer_capture_binds_the_native_receipt_and_rejects_account_mismatch() {
                 ThemeSettingChange::Set("prefer-light".into()),
             )]
             .into(),
-            native_receipt: crate::theme_settings::test_native_receipt(),
-            session: crate::theme_actor_scope::SessionWitness {
+            native_receipt: crate::theme_settings_actor::test_native_receipt(),
+            session: crate::logical_settings::SessionWitness {
                 device: 1,
                 inode: 1,
                 uid: 65534,
                 process: ActorIdentity { pid: 1, start_time: 1 },
                 executable_sha256: sha(),
             },
-            runtime_files: vec![],
+            runtime_files: vec![crate::logical_settings::RuntimeFile {
+                path: "/usr/libexec/ryoku/ryoku-theme-actor".into(),
+                sha256: sha(),
+            }],
         };
+        request.binding.session_service_sha256 = request.session.digest().unwrap();
         let mut bytes = serde_json::to_vec(&request).unwrap();
         bytes.push(b'\n');
-        caller.write_all(&bytes).unwrap();
+        if role != "missing-fd" {
+            caller.write_all(&bytes).unwrap();
+        }
         let mut command = Command::new(std::env::current_exe().unwrap());
-        command
-            .args(["--ignored", "--exact", TEST, "--nocapture"])
-            .env(ROLE, if mismatch { "mismatching" } else { "matching" });
-        run_owned(command, &worker, Duration::from_secs(2), &mut || false).unwrap();
-        drop(worker);
-        if mismatch {
+        command.args(["--ignored", "--exact", TEST, "--nocapture"]).env(ROLE, role);
+        run_owned(command, &carrier_receiver, Duration::from_secs(2), &mut || false).unwrap();
+        drop(carrier_receiver);
+        if role != "matching" {
             let mut byte = [0];
             assert_eq!(caller.read(&mut byte).unwrap(), 0);
         } else {

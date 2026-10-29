@@ -6,6 +6,29 @@ use std::{collections::BTreeMap, io};
 #[path = "logical_settings_tests.rs"]
 mod tests;
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeFile {
+    pub path: String,
+    pub sha256: Sha256,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionWitness {
+    pub device: u64,
+    pub inode: u64,
+    pub uid: u32,
+    pub process: crate::wallpaper_protocol::ActorIdentity,
+    pub executable_sha256: Sha256,
+}
+impl SessionWitness {
+    pub fn digest(&self) -> io::Result<Sha256> {
+        Sha256::new(crate::wallpaper_protocol::digest(&serde_json::to_vec(self)?))
+            .map_err(|_| io::Error::other("invalid session witness digest"))
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ThemeSettingKey {

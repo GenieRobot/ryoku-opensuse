@@ -60,7 +60,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ryoku_theme_test="$(cargo test -p ryoku-service --lib --locked --no-run --message-format=json | jq -r 'select(.reason == "compiler-artifact" and .target.name == "ryoku_service" and .profile.test == true) | .executable')"
+          ryoku_theme_test="$(cargo test -p ryoku-recovery --lib --locked --no-run --message-format=json | jq -r 'select(.reason == "compiler-artifact" and .target.name == "ryoku_recovery" and .profile.test == true) | .executable')"
           test -n "$ryoku_theme_test"
           install -m 0755 "$ryoku_theme_test" "$RUNNER_TEMP/ryoku-theme-root-peer-tests"
           sudo -- "$RUNNER_TEMP/ryoku-theme-root-peer-tests" --ignored --exact theme_actor::tests::root_peer_capture_binds_the_native_receipt_and_rejects_account_mismatch --nocapture

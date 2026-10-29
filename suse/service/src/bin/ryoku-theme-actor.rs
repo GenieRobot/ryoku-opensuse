@@ -16,11 +16,11 @@ fn run() -> io::Result<()> {
             "private capture worker requires its inherited control descriptor",
         ));
     }
-    ryoku_service::theme_actor_sandbox::harden_worker()?;
+    ryoku_recovery::theme_actor_sandbox::harden_worker()?;
     // SAFETY: the fixed parent launcher duplicates its owned one-shot stream
     // to descriptor3; peer credentials are checked before any packet/GIO work.
     let control = unsafe { UnixStream::from_raw_fd(3) };
-    ryoku_service::theme_actor::serve_capture(
+    ryoku_recovery::theme_actor::serve_capture(
         control,
         ryoku_service::theme_actor_scope::native_factory,
     )
