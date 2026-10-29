@@ -90,6 +90,7 @@ fn package_installs_units_without_enabling_the_privileged_socket() {
     assert!(files.iter().any(|line| line.ends_with("/ryoku-helper.socket")));
     assert!(files.iter().any(|line| line.ends_with("/ryoku.conf")));
     assert!(files.iter().any(|line| line.ends_with("/ryoku-helper")));
+    assert!(files.contains(&"%attr(0755,root,root) %{_libexecdir}/ryoku/ryoku-theme-actor"));
     assert!(
         section(HELPER_SOCKET, "Install").iter().any(|line| { *line == "WantedBy=sockets.target" })
     );

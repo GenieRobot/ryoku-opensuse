@@ -1,6 +1,6 @@
 Name:           ryoku-helper
 Version:        0.1.0
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        Typed protected helper boundary for Ryoku
 License:        GPL-3.0-only
 URL:            https://github.com/GenieRobot/ryoku-opensuse
@@ -37,7 +37,7 @@ CARGO_NET_OFFLINE=true cargo \
     --config 'source.crates-io.replace-with="vendored-sources"' \
     --config 'source.vendored-sources.directory="vendor"' \
     build --offline --locked --release \
-    -p ryoku-service --bin ryoku-helper --bin ryoku-service --bin ryoku-hook
+    -p ryoku-service --bin ryoku-helper --bin ryoku-service --bin ryoku-hook --bin ryoku-theme-actor
 
 %install
 install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-helper" \
@@ -46,6 +46,8 @@ install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-service" \
     %{buildroot}%{_libexecdir}/ryoku/ryoku-service
 install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-hook" \
     %{buildroot}%{_bindir}/ryoku-hook
+install -D -m 0755 "${CARGO_TARGET_DIR:-target}/release/ryoku-theme-actor" \
+    %{buildroot}%{_libexecdir}/ryoku/ryoku-theme-actor
 install -D -m 0644 packaging/rpm/systemd/ryoku-helper.service \
     %{buildroot}%{_unitdir}/ryoku-helper.service
 install -D -m 0644 packaging/rpm/systemd/ryoku-helper.socket \
@@ -60,6 +62,7 @@ install -D -m 0644 packaging/rpm/sysusers.d/ryoku.conf \
 %attr(0755,root,root) %{_libexecdir}/ryoku/ryoku-helper
 %attr(0755,root,root) %{_libexecdir}/ryoku/ryoku-service
 %attr(0755,root,root) %{_bindir}/ryoku-hook
+%attr(0755,root,root) %{_libexecdir}/ryoku/ryoku-theme-actor
 %attr(0644,root,root) %{_unitdir}/ryoku-helper.service
 %attr(0644,root,root) %{_unitdir}/ryoku-helper.socket
 %attr(0644,root,root) %{_userunitdir}/ryoku-service.service

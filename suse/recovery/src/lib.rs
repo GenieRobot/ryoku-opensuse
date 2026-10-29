@@ -26,6 +26,7 @@ pub mod hook_client;
 pub mod hook_protocol;
 mod hook_staging;
 mod hook_supervisor;
+pub mod logical_settings;
 pub use hook_supervisor::shell_digest as hook_shell_digest;
 #[cfg(target_os = "linux")]
 pub mod inode_metadata;
@@ -481,7 +482,8 @@ impl FileRecord {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryManifest {
-    /// Schema 1 is legacy; schema 2 requires an original native root receipt.
+    /// Schema 1 is legacy; schema 2 requires an original native root receipt;
+    /// schema 3 additionally enrolls a separately typed logical settings capsule.
     pub schema_version: u16,
     /// Idempotency identity for the operation.
     pub transaction_id: Identifier,
@@ -503,6 +505,8 @@ pub struct RecoveryManifest {
     /// when the only per-user records describe absent files.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     account_principal: Option<AccountPrincipal>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    logical_settings: Option<logical_settings::ThemeSettingsCapsule>,
     /// Operation reason and bounded RFC3339 UTC creation time.
     pub reason: OperationReason,
     pub created_utc: String,
@@ -550,6 +554,7 @@ impl RecoveryManifest {
             filesystem_uuid: snapshot.filesystem_uuid,
             root_snapshot_receipt: None,
             account_principal: None,
+            logical_settings: None,
             reason,
             created_utc,
             package_revisions: Vec::new(),
@@ -571,6 +576,27 @@ impl RecoveryManifest {
     pub fn account_principal(&self) -> Option<&AccountPrincipal> {
         self.account_principal.as_ref()
     }
+    pub fn logical_settings(&self) -> Option<&logical_settings::ThemeSettingsCapsule> {
+        self.logical_settings.as_ref()
+    }
+    /// Attach already captured exact key state. This records recovery data,
+    /// never approval or proof of actor execution. Native source/account linkage
+    /// remains mandatory and every legacy restore runner must refuse this family.
+    pub fn attach_logical_settings(
+        &mut self,
+        capsule: logical_settings::ThemeSettingsCapsule,
+    ) -> Result<(), ValidationError> {
+        if !capsule.validate()
+            || self.root_snapshot_receipt.as_ref() != Some(&capsule.native_receipt)
+            || self.account_principal.as_ref() != Some(&capsule.binding.account)
+        {
+            return Err(ValidationError::InvalidLogicalSettings);
+        }
+        self.logical_settings = Some(capsule);
+        self.schema_version = 3;
+        self.manifest_sha256 = None;
+        self.validate()
+    }
 
     /// Capture-only association; never filled from later restore observations.
     pub(crate) fn attach_account_principal(&mut self, principal: AccountPrincipal) {
@@ -582,7 +608,7 @@ impl RecoveryManifest {
         &mut self,
         receipt: native_checkpoint::RootSnapshotReceipt,
     ) -> Result<(), ValidationError> {
-        self.schema_version = 2;
+        self.schema_version = if self.logical_settings.is_some() { 3 } else { 2 };
         self.root_snapshot_receipt = Some(receipt);
         self.manifest_sha256 = None;
         self.validate()
@@ -645,7 +671,7 @@ impl RecoveryManifest {
 
     /// Indicates all currently modeled pre-mutation prerequisites are present.
     pub fn is_mutation_ready(&self) -> bool {
-        !self.files.is_empty()
+        (!self.files.is_empty() || self.logical_settings.is_some())
             && self.capture_status == VerificationStatus::Verified
             && self.linkage_status == VerificationStatus::Verified
             && self.verification_status == VerificationStatus::Verified
@@ -677,17 +703,25 @@ impl RecoveryManifest {
     /// Validates the supported schemas and their cross-field invariants.
     /// This validates the typed value after construction or parsing.
     pub fn validate(&self) -> Result<(), ValidationError> {
-        if !matches!(self.schema_version, 1 | 2) {
+        if !matches!(self.schema_version, 1..=3) {
             return Err(ValidationError::UnsupportedSchemaVersion);
         }
         match (self.schema_version, &self.root_snapshot_receipt) {
             (1, None) => {}
-            (2, Some(receipt))
+            (2 | 3, Some(receipt))
                 if receipt.validate().is_ok()
                     && receipt.link().snapper_config == self.snapper_config
                     && receipt.link().snapper_snapshot_id == self.snapper_snapshot_id
                     && receipt.link().filesystem_uuid == self.filesystem_uuid => {}
             _ => return Err(ValidationError::InvalidSnapshotReceipt),
+        }
+        match (self.schema_version, &self.logical_settings) {
+            (1 | 2, None) => {}
+            (3, Some(capsule))
+                if capsule.validate()
+                    && self.root_snapshot_receipt.as_ref() == Some(&capsule.native_receipt)
+                    && self.account_principal.as_ref() == Some(&capsule.binding.account) => {}
+            _ => return Err(ValidationError::InvalidLogicalSettings),
         }
         if self.snapper_snapshot_id.is_empty()
             || !self.snapper_snapshot_id.bytes().all(|byte| byte.is_ascii_digit())
@@ -798,6 +832,8 @@ pub const REQUIRED_CAPTURE_RULES: [CaptureRule; 5] = [
 /// Validation failures for untrusted or malformed manifest input.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ValidationError {
+    /// Logical state is malformed, cross-account or inconsistent with its outer schema.
+    InvalidLogicalSettings,
     /// Identifier violates the canonical bounded syntax.
     InvalidIdentifier,
     /// Manifest schema version is not supported by this writer.
@@ -1306,7 +1342,7 @@ mod tests {
     #[test]
     fn manifest_serialization_revalidates_mutable_schema_fields() {
         let mut manifest = manifest();
-        manifest.schema_version = 3;
+        manifest.schema_version = 4;
         assert_eq!(manifest.validate(), Err(ValidationError::UnsupportedSchemaVersion));
         assert!(matches!(
             manifest.seal(),

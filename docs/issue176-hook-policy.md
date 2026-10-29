@@ -75,6 +75,50 @@ Logical GSettings keys need their own capture/restore actor: replacing the entir
 `.config/dconf/user` database would overwrite unrelated preferences. Exact
 symlink, absent-target and new-parent ownership declarations remain required.
 
+## Logical GSettings capture and recovery enrollment
+
+The theme contract now represents only the four retained desktop-interface keys:
+`color-scheme`, `accent-color`, `gtk-theme` and `icon-theme`. A capsule preserves
+the original user override separately from its effective and default values;
+restoring an unset override means reset, even if the default equals an explicitly
+stored value. The GTK nudge preserves the original placeholder/target sequence.
+Values use typed GIO strings without shell or GVariant text parsing. The whole
+desired batch is range-checked before any write, and a missing acknowledgement,
+changed guard or unexpected read-back cannot attest success. These primitives
+are tested against real installed GIO with a private memory backend and schema;
+they do not activate native theme writes.
+
+The separately versioned capsule binds the exact account, worker, schema,
+session-service, approved policy, desired changes, plan and native pre-checkpoint.
+Outer `RecoveryManifest` schema 3 enrolls that capsule only when its account and
+native receipt exactly match the manifest. Legacy schemas 1 and 2 retain their
+original bytes and digests. Immutable generation read-back retains the complete
+logical image. Existing configuration and complete-linked restore planning
+refuses schema-3 key state before creating a journal or changing targets until
+the guarded key restore actor joins the full restore barrier. A file-only
+runner therefore cannot silently report a complete logical restore.
+
+The packaged `/usr/libexec/ryoku/ryoku-theme-actor` entrypoint currently exposes
+one capture-only operation over an inherited connection from a real root peer.
+It rejects duplicate keys, other accounts, extra/replayed packets, unknown
+operations and disconnects. The launcher uses the fixed root-owned executable,
+clean environment, a bounded deadline, parent-death protection and observed
+child reaping. Landlock denies filesystem writes and seccomp denies later
+exec/fork and non-Unix networking while permitting required GIO threads.
+The live scope pins declared root-owned runtime/schema files, checks executable
+mappings and the exact session socket/process, and checks the held pidfd for
+process death on each guard check. The receipt is structural linkage; the root
+coordinator must independently verify native checkpoint provenance/availability,
+retain all writer holds and durably enroll pre/post state before any settings
+write can be enabled.
+
+Actual-binary tests prove private invocation and nonroot-peer refusal. The
+hosted root-only transport harness separately verifies a real root connection
+to an ordinary-account capture worker and exact native receipt return using a
+read-only injected backend. It is not evidence of native DConf/session success.
+Native root/session capture, logical restore execution and combined
+file/key/reload completion remain required before activating theme execution.
+
 The first slice's deliberately narrow execution policy is an initial supported
 policy class, not permanent removal of commands, children, custom roots or
 networked hooks. Extending it requires a new reviewed policy class with complete
