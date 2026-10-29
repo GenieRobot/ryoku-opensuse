@@ -1,0 +1,77 @@
+schema_version = 1
+issue = 175
+status = "partial-provider-discovery-complete-source-mutations-and-native-acceptance-pending"
+branch = "codex/issue175-ryogami-library-providers"
+previous_checkpoint = "2c7f4e39859cdf21b850a516410ccbc88ef88ad5"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+
+[implementation]
+existing_method = "source.providers"
+public_parameters = "null or empty object only"
+public_channel = "existing Rust proxy checks the kernel session UID; native read descriptor remains inside Rust"
+native_method = "source_registry.go::providers"
+retained_provider_count = 10
+retained_fields = ["key", "label", "media", "searchable", "available", "unavailableReason"]
+credential_values_in_reply = false
+process_launches = 0
+provider_endpoint_calls = 0
+cache_writes = 0
+library_writes = 0
+settings_writes = 0
+new_query_authority = "exact provider-discovery method only; source search/preview/download/cancel and prepared source frames still cannot use the query channel"
+picker_callers = [
+  "picker/qml/browser/BrowserPanel.qml",
+  "picker/qml/chrome/filterbar/DownloadMenu.qml"
+]
+picker_controls_removed = false
+
+[validation]
+rust_toolchain = "rustc1.99.0 b940084d7"
+go_toolchain = "go1.26.9 linux/amd64; cached SDK and modules, GOPROXY/GOSUMDB off"
+rust_public_protocol = "pass: empty/null parameters, parameter injection refusal and distinct source mutation authority"
+native_discovery = "pass: actual daemon query channel, all ten retained identities/order/labels/media/searchability, configured availability, disabled provider, credential privacy, subsequent same-connection source mutations refused and unchanged settings bytes"
+native_discovery_session = "2317"
+initial_fixture_correction = "the source registry is explicitly initialized as it is during normal daemon startup; the earlier minimal model fixture did not initialize sources"
+go_broker_test_selection = "TestE2EBroker|TestBroker"
+go_broker_tests_passed = 11
+go_bridge_entrypoints_skipped_in_standalone_go_selection = 2
+go_broker_session = "86047"
+explicit_rust_to_fresh_cached_go_bridge_tests_passed = 2
+explicit_rust_to_go_session = "24775"
+explicit_bridge_scope = "model durable persistence/reopen/refusals and media delete/protected-list/selected-restore/failure retention"
+patch_baseline = "existing exact pinned #18 then #25 source baseline"
+patch_fuzz = 0
+patched_files_byte_equal_to_tested_source = 13
+patch_replay_session = "62164"
+full_frozen_workspace_and_strict_clippy_session = "34378"
+recovery_tests_passed = 331
+recovery_existing_ignored = 6
+service_tests_passed = 189
+service_existing_ignored = 3
+console_tests_passed = 26
+metadata_tests_passed = 6
+vm_lab_harness_tests_passed = 90
+other_workspace_suites = "pass"
+strict_clippy_all_targets_all_features = "pass"
+format_and_whitespace = "pass"
+cached_current_dependency_review = "advisories/bans/licenses/sources pass; session62238"
+additional_test_observation_correction = "inherited-manual-pause second detach now waits for the same completed T state as the first detach, checking no first player instruction throughout, before constructing the next pin"
+focused_inherited_pause_session = "79901"
+production_writer_behavior_changed = false
+native_vm_launches = 0
+downloads = 0
+
+[acceptance]
+provider_discovery_complete = true
+source_search_download_preview_cancel_complete = false
+steam_workshop_complete = false
+model_import_install_remove_complete = false
+library_maintenance_complete = false
+native_tumbleweed_package_ui_snapper_acceptance_complete = false
+issue_complete = false
+remaining = [
+  "account-bound source-result receipts and protected search/thumbnail/acquisition/preview/cancellation flow",
+  "Steam Workshop and complete model operations with ordered issue176 callbacks",
+  "library transforms, progress, cumulative quotas, configured cache/external roots and complete rescan handoff",
+  "refreshed native Tumbleweed package/picker/Snapper acceptance under issue26"
+]

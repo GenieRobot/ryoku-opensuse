@@ -1,5 +1,14 @@
 --- a/ryoku/shell/ryogami/daemon/daemon.go
 +++ b/ryoku/shell/ryogami/daemon/daemon.go
+@@ -207,7 +207,7 @@
+ 
+ func brokerQuery(method string) bool {
+ 	switch method {
+-	case "subscribe", "status", "wm.focusedOutput", "state.get", "wall.list", "wall.outputs", "wall.workspaces", "effects.list", "optimize.status", "wall.rotation_status", "playlist.list", "playlist.members", "playlist.memberships", "upscale.status":
++	case "subscribe", "status", "wm.focusedOutput", "state.get", "wall.list", "wall.outputs", "wall.workspaces", "effects.list", "optimize.status", "wall.rotation_status", "playlist.list", "playlist.members", "playlist.memberships", "upscale.status", "source.providers":
+ 		return true
+ 	}
+ 	return false
 @@ -260,16 +260,26 @@
  		return
  	}
@@ -1522,4 +1531,87 @@
 +            }
 +        }
 +    }
++}
+--- /dev/null
++++ b/ryoku/shell/ryogami/daemon/broker_sources_test.go
+@@ -0,0 +1,80 @@
++package main
++
++import (
++	"bufio"
++	"encoding/json"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++)
++
++func TestE2EBrokerSourceDiscoveryRetainsProvidersAndCredentialPrivacyWithoutWriteAuthority(t *testing.T) {
++	d := startDaemon(t)
++	resetSettingsState()
++	t.Cleanup(resetSettingsState)
++	d.native.sources = newSources(d.native)
++	settings := filepath.Join(d.root, ".config/ryoku/ryogami.json")
++	if err := os.MkdirAll(filepath.Dir(settings), 0700); err != nil {
++		t.Fatal(err)
++	}
++	original := []byte(`{"features":{"wallhaven":true,"steam":true},"sources":{"unsplash":{"enabled":true,"accessKey":"fixture-unsplash-private"},"pexels":{"enabled":true,"apiKey":"fixture-pexels-private"},"youtube":{"enabled":false},"bing":{"enabled":true}}}`)
++	if err := os.WriteFile(settings, original, 0600); err != nil {
++		t.Fatal(err)
++	}
++	client := d.channel(false)
++	defer client.Close()
++	reader := bufio.NewReader(client)
++	if _, err := client.Write([]byte("{\"id\":91,\"method\":\"source.providers\",\"params\":{}}\n")); err != nil {
++		t.Fatal(err)
++	}
++	reply, err := reader.ReadString('\n')
++	if err != nil {
++		t.Fatal(err)
++	}
++	if strings.Contains(reply, "fixture-unsplash-private") || strings.Contains(reply, "fixture-pexels-private") {
++		t.Fatal("provider discovery exposed a credential")
++	}
++	var decoded struct {
++		ID     int `json:"id"`
++		Result []struct {
++			Key               string `json:"key"`
++			Label             string `json:"label"`
++			Media             string `json:"media"`
++			Searchable        bool   `json:"searchable"`
++			Available         bool   `json:"available"`
++			UnavailableReason string `json:"unavailableReason"`
++		} `json:"result"`
++	}
++	if json.Unmarshal([]byte(reply), &decoded) != nil || decoded.ID != 91 || len(decoded.Result) != len(providerTable) {
++		t.Fatalf("invalid provider discovery: %s", reply)
++	}
++	for index, item := range decoded.Result {
++		expected := providerTable[index]
++		if item.Key != expected.key || item.Label != expected.label || item.Media != expected.media || item.Searchable != expected.searchable {
++			t.Fatal("provider identity/order/behavior changed")
++		}
++		if item.Key == "youtube" {
++			if item.Available || item.UnavailableReason != "Disabled" {
++				t.Fatal("disabled provider availability changed")
++			}
++		} else if !item.Available || item.UnavailableReason != "" {
++			t.Fatalf("configured provider %s unavailable", item.Key)
++		}
++	}
++	// Discovery on an existing query connection grants no subsequent network,
++	// file, cancellation, subprocess or privately prepared actor authority.
++	for _, method := range []string{"source.search", "source.preview", "source.download", "source.cancel", "broker.source-search"} {
++		if _, err := client.Write([]byte("{\"id\":92,\"method\":\"" + method + "\",\"params\":{}}\n")); err != nil {
++			t.Fatal(err)
++		}
++		reply, err := reader.ReadString('\n')
++		if err != nil || !strings.Contains(reply, `"error"`) {
++			t.Fatalf("discovery granted %s authority: %s %v", method, reply, err)
++		}
++	}
++	actual, err := os.ReadFile(settings)
++	if err != nil || string(actual) != string(original) {
++		t.Fatal("provider discovery or refused calls changed settings")
++	}
 +}

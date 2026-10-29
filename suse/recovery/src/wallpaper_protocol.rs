@@ -164,6 +164,12 @@ pub fn parse_public(bytes: &[u8]) -> Result<PublicRequest, WallpaperProtocolErro
     if request.id < 0 || !(request.params.is_object() || request.params.is_null()) {
         return Err(WallpaperProtocolError::InvalidFrame);
     }
+    if request.method == "source.providers"
+        && !request.params.is_null()
+        && !request.params.as_object().is_some_and(serde_json::Map::is_empty)
+    {
+        return Err(WallpaperProtocolError::InvalidFrame);
+    }
     if request.method == "wall.trash.list" {
         let (id, query) = crate::ryogami_media_protocol::parse_trash_query(bytes)?;
         return Ok(PublicRequest::MediaTrash { id, query });
@@ -336,6 +342,7 @@ pub fn query_method(method: &str) -> bool {
             | "playlist.members"
             | "playlist.memberships"
             | "upscale.status"
+            | "source.providers"
     )
 }
 
@@ -1005,5 +1012,37 @@ mod tests {
         let mut reused = query.to_vec();
         reused.extend(action().frame(1).unwrap());
         assert!(parse_public(&reused).is_err());
+    }
+
+    #[test]
+    fn provider_discovery_is_a_closed_read_without_search_or_download_authority() {
+        for params in [serde_json::Value::Null, serde_json::json!({})] {
+            let mut frame = serde_json::to_vec(&serde_json::json!({
+                "id": 5, "method": "source.providers", "params": params
+            }))
+            .unwrap();
+            frame.push(b'\n');
+            assert!(matches!(parse_public(&frame), Ok(PublicRequest::Query { id: Some(5), .. })));
+        }
+        for params in [
+            serde_json::json!({"url":"https://fixture.invalid"}),
+            serde_json::json!({"source":"wallhaven"}),
+            serde_json::json!({"command":"fixture"}),
+        ] {
+            let mut frame = serde_json::to_vec(&serde_json::json!({
+                "id": 5, "method": "source.providers", "params": params
+            }))
+            .unwrap();
+            frame.push(b'\n');
+            assert_eq!(parse_public(&frame).unwrap_err(), WallpaperProtocolError::InvalidFrame);
+        }
+        for method in ["source.search", "source.preview", "source.download", "source.cancel"] {
+            let mut frame = serde_json::to_vec(&serde_json::json!({
+                "id": 6, "method": method, "params": {}
+            }))
+            .unwrap();
+            frame.push(b'\n');
+            assert_eq!(parse_public(&frame).unwrap_err(), WallpaperProtocolError::UnownedAction);
+        }
     }
 }
