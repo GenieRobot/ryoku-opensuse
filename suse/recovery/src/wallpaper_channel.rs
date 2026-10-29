@@ -20,6 +20,7 @@ pub(crate) struct NativeActor {
     uid: u32,
     executable: crate::writer_freeze::ExecutablePin,
     manual_paused: std::sync::atomic::AtomicBool,
+    metadata_readers: std::sync::atomic::AtomicUsize,
 }
 
 impl NativeActor {
@@ -46,6 +47,7 @@ impl NativeActor {
             uid,
             executable,
             manual_paused: std::sync::atomic::AtomicBool::new(false),
+            metadata_readers: std::sync::atomic::AtomicUsize::new(0),
         })
     }
 
@@ -161,6 +163,35 @@ impl NativeActor {
         self.connection(ChannelKind::ReadOnly)
     }
 
+    /// Root-authenticated source metadata only. This separate private channel
+    /// cannot carry an ActorCall or any native mutation. The Go receiver uses
+    /// an immutable settings snapshot and the HTTP-only source dispatcher.
+    pub(crate) fn source_metadata(
+        &self,
+        call: &crate::ryogami_sources_protocol::SourceMetadataCall,
+        home: &str,
+    ) -> io::Result<crate::ryogami_sources_protocol::SourceMetadataResponse> {
+        use std::sync::atomic::Ordering;
+        const MAX_READERS: usize = 4;
+        self.metadata_readers
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |count| {
+                (count < MAX_READERS).then_some(count + 1)
+            })
+            .map_err(|_| io::Error::new(io::ErrorKind::WouldBlock, "source metadata is busy"))?;
+        struct Reader<'a>(&'a std::sync::atomic::AtomicUsize);
+        impl Drop for Reader<'_> {
+            fn drop(&mut self) {
+                self.0.fetch_sub(1, Ordering::AcqRel);
+            }
+        }
+        let _reader = Reader(&self.metadata_readers);
+        call.validate(&self.identity()?, home).map_err(io::Error::other)?;
+        let connection = self.connection(ChannelKind::SourceMetadata)?;
+        let response = exchange_source_metadata(connection, call)?;
+        self.identity()?;
+        Ok(response)
+    }
+
     /// Called only by the authenticated root writer-control handler after its
     /// one-call permit is validated and the selected actor has been resumed.
     pub(crate) fn apply(&self, call: &ActorCall) -> io::Result<Vec<u8>> {
@@ -223,6 +254,57 @@ impl NativeActor {
     }
 }
 
+fn exchange_source_metadata(
+    mut connection: UnixStream,
+    call: &crate::ryogami_sources_protocol::SourceMetadataCall,
+) -> io::Result<crate::ryogami_sources_protocol::SourceMetadataResponse> {
+    call.query.validate().map_err(io::Error::other)?;
+    connection.set_write_timeout(Some(Duration::from_secs(5)))?;
+    let mut request = serde_json::to_vec(call).map_err(io::Error::other)?;
+    request.push(b'\n');
+    bounded_line(&request, crate::ryogami_sources_protocol::MAX_FRAME_BYTES)
+        .map_err(io::Error::other)?;
+    connection.write_all(&request)?;
+    connection.shutdown(std::net::Shutdown::Write)?;
+    let maximum = crate::ryogami_sources_protocol::MAX_METADATA_RESULT_BYTES + 4096;
+    let deadline = Instant::now() + Duration::from_secs(30);
+    let mut reply = Vec::new();
+    loop {
+        connection.set_read_timeout(Some(
+            deadline.checked_duration_since(Instant::now()).ok_or_else(|| {
+                io::Error::new(io::ErrorKind::TimedOut, "source metadata deadline exceeded")
+            })?,
+        ))?;
+        let mut chunk = [0; 4096];
+        let count = connection.read(&mut chunk)?;
+        if count == 0 || reply.len().saturating_add(count) > maximum {
+            return Err(io::Error::other("missing or oversized source metadata reply"));
+        }
+        let newline = chunk[..count].iter().position(|byte| *byte == b'\n');
+        if newline.is_some_and(|index| index + 1 != count) {
+            return Err(io::Error::other("source metadata returned multiple frames"));
+        }
+        reply.extend_from_slice(&chunk[..count]);
+        if newline.is_some() {
+            break;
+        }
+    }
+    bounded_line(&reply, maximum).map_err(io::Error::other)?;
+    let response: crate::ryogami_sources_protocol::SourceMetadataResponse =
+        serde_json::from_slice(&reply).map_err(io::Error::other)?;
+    response.validate(call).map_err(io::Error::other)?;
+    let mut trailing = [0];
+    connection.set_read_timeout(Some(
+        deadline.checked_duration_since(Instant::now()).ok_or_else(|| {
+            io::Error::new(io::ErrorKind::TimedOut, "source metadata deadline exceeded")
+        })?,
+    ))?;
+    if connection.read(&mut trailing)? != 0 {
+        return Err(io::Error::other("source metadata channel was reused"));
+    }
+    Ok(response)
+}
+
 /// Kernel process identity is checked independently of caller-provided hashes.
 /// The only accepted actor is the fixed native child created by this broker.
 fn process_identity(pid: u32, parent: u32, uid: u32) -> io::Result<ActorIdentity> {
@@ -256,6 +338,7 @@ fn process_identity(pid: u32, parent: u32, uid: u32) -> io::Result<ActorIdentity
 pub(crate) enum ChannelKind {
     ReadOnly,
     Approved,
+    SourceMetadata,
 }
 
 impl ChannelKind {
@@ -263,6 +346,7 @@ impl ChannelKind {
         match self {
             Self::ReadOnly => b'R',
             Self::Approved => b'A',
+            Self::SourceMetadata => b'S',
         }
     }
 }
@@ -344,5 +428,110 @@ mod tests {
         assert_eq!(&bytes, b"second id=1\n");
         assert!(native_first.local_addr().unwrap().as_pathname().is_none());
         assert!(native_second.local_addr().unwrap().as_pathname().is_none());
+    }
+
+    fn metadata_call() -> crate::ryogami_sources_protocol::SourceMetadataCall {
+        use crate::ryogami_sources_protocol::*;
+        SourceMetadataCall {
+            actor: ActorIdentity { pid: 42, start_time: 77 },
+            account_home_sha256: crate::Sha256::new("a".repeat(64)).unwrap(),
+            request_id: crate::Identifier::new("source-channel-fixture").unwrap(),
+            query: PreparedSourceMetadataQuery {
+                expected_settings: None,
+                query: SourceMetadataQuery {
+                    source: Source::Bing,
+                    search: Search {
+                        query: "fixture".into(),
+                        page: 1,
+                        generation: 9,
+                        filters: SearchFilters::Bing { market: "en-US".into() },
+                    },
+                },
+            },
+            rpc_id: 12,
+        }
+    }
+
+    #[test]
+    fn source_metadata_has_an_independent_one_use_descriptor_and_correlated_reply() {
+        use crate::ryogami_sources_protocol::*;
+        let (broker, daemon) = UnixStream::pair().unwrap();
+        let (connection, native) = UnixStream::pair().unwrap();
+        transfer_connection(&broker, &native, ChannelKind::SourceMetadata).unwrap();
+        drop(native);
+        let (kind, mut native) = receive(&daemon);
+        assert_eq!(kind, b'S');
+        let call = metadata_call();
+        std::thread::scope(|scope| {
+            let server = scope.spawn(|| {
+                let mut bytes = Vec::new();
+                native.read_to_end(&mut bytes).unwrap();
+                assert_eq!(serde_json::from_slice::<SourceMetadataCall>(&bytes).unwrap(), call);
+                let response = SourceMetadataResponse {
+                    id: call.rpc_id,
+                    request_id: call.request_id.clone(),
+                    error: None,
+                    result: Some(SourceMetadataPage {
+                        results: vec![],
+                        last_page: 1,
+                        current_page: 1,
+                        next_cursor: String::new(),
+                    }),
+                };
+                let mut bytes = serde_json::to_vec(&response).unwrap();
+                bytes.push(b'\n');
+                native.write_all(&bytes).unwrap();
+                native.shutdown(std::net::Shutdown::Both).unwrap();
+            });
+            let response = exchange_source_metadata(connection, &call).unwrap();
+            assert_eq!(response.id, 12);
+            assert!(response.result.unwrap().results.is_empty());
+            server.join().unwrap();
+        });
+    }
+
+    #[test]
+    fn source_metadata_refuses_mismatched_oversized_and_reused_responses() {
+        let call = metadata_call();
+        for fault in ["id", "nonce", "multiple", "reuse", "oversize", "truncated"] {
+            let (connection, mut native) = UnixStream::pair().unwrap();
+            std::thread::scope(|scope| {
+                let server = scope.spawn(|| {
+                    let mut request = Vec::new();
+                    native.read_to_end(&mut request).unwrap();
+                    let mut response = serde_json::json!({
+                        "id":call.rpc_id,"request_id":call.request_id,
+                        "error":"provider_unavailable"
+                    });
+                    if fault == "id" {
+                        response["id"] = serde_json::json!(13);
+                    }
+                    if fault == "nonce" {
+                        response["request_id"] = serde_json::json!("source-other");
+                    }
+                    let mut bytes = serde_json::to_vec(&response).unwrap();
+                    if fault != "truncated" {
+                        bytes.push(b'\n');
+                    }
+                    if fault == "multiple" {
+                        bytes.extend_from_slice(b"{}\n");
+                    }
+                    if fault == "oversize" {
+                        bytes = vec![
+                            b' ';
+                            crate::ryogami_sources_protocol::MAX_METADATA_RESULT_BYTES
+                                + 4097
+                        ];
+                    }
+                    let _ = native.write_all(&bytes);
+                    if fault == "reuse" {
+                        let _ = native.write_all(b"{}");
+                    }
+                    let _ = native.shutdown(std::net::Shutdown::Both);
+                });
+                assert!(exchange_source_metadata(connection, &call).is_err(), "{fault}");
+                server.join().unwrap();
+            });
+        }
     }
 }

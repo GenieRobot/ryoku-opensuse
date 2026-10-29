@@ -421,6 +421,82 @@ impl Drop for CaptureWriterLease {
     }
 }
 
+/// A root-authenticated read from the already running native Ryogami actor.
+/// No writer is resumed, process launched or mutation/capture permit created.
+/// The helper must authorize the operator and persist its remote-request
+/// receipt before calling; the metadata remains untrusted provider data.
+pub struct SourceMetadataRead {
+    pub actor: crate::wallpaper_protocol::ActorIdentity,
+    pub response: crate::ryogami_sources_protocol::SourceMetadataResponse,
+}
+pub fn read_source_metadata(
+    account: &crate::installed_capture::CaptureAccount,
+    home: &File,
+    request_id: crate::Identifier,
+    query: crate::ryogami_sources_protocol::PreparedSourceMetadataQuery,
+    rpc_id: i64,
+) -> Result<SourceMetadataRead> {
+    if rustix::process::geteuid().as_raw() != 0 || account.uid == 0 || rpc_id < 0 {
+        return Err(Error::Unsupported);
+    }
+    query.validate().map_err(|_| Error::Unsupported)?;
+    source_metadata_using(
+        Namespace::native(account.uid, account.gid, false)?,
+        home,
+        request_id,
+        query,
+        rpc_id,
+    )
+}
+fn source_metadata_using(
+    namespace: Namespace,
+    home: &File,
+    request_id: crate::Identifier,
+    query: crate::ryogami_sources_protocol::PreparedSourceMetadataQuery,
+    rpc_id: i64,
+) -> Result<SourceMetadataRead> {
+    let home = std::fs::read_link(format!("/proc/self/fd/{}", home.as_raw_fd()))?;
+    let home =
+        home.to_str().filter(|path| !path.ends_with(" (deleted)")).ok_or(Error::UnsafeBoundary)?;
+    let lock = namespace.open_lock(false)?;
+    let names = namespace.sockets()?;
+    let actors: Vec<_> = names.iter().filter(|(name, _)| name.starts_with("ryogami-")).collect();
+    let [(name, pid)] = actors.as_slice() else { return Err(Error::WriterUnavailable) };
+    let mut stream = UnixStream::connect(namespace.path(name))?;
+    let peer = socket_peercred(&stream)?;
+    if peer.uid.as_raw() != namespace.uid || peer.pid.as_raw_pid() != *pid {
+        return Err(Error::UnsafeBoundary);
+    }
+    stream.set_read_timeout(Some(TIMEOUT))?;
+    stream.set_write_timeout(Some(TIMEOUT))?;
+    stream.write_all(&metadata_hello(home))?;
+    let actor: crate::wallpaper_protocol::ActorIdentity = read_actor_wire(&mut stream)?;
+    let call = crate::ryogami_sources_protocol::SourceMetadataCall {
+        actor: actor.clone(),
+        account_home_sha256: crate::Sha256::new(crate::wallpaper_protocol::digest(home.as_bytes()))
+            .map_err(|_| Error::Unsupported)?,
+        request_id,
+        query,
+        rpc_id,
+    };
+    call.validate(&actor, home).map_err(|_| Error::Unsupported)?;
+    write_actor_wire(&mut stream, &call)?;
+    stream.shutdown(std::net::Shutdown::Write)?;
+    stream.set_read_timeout(Some(Duration::from_secs(35)))?;
+    let response: crate::ryogami_sources_protocol::SourceMetadataResponse =
+        read_actor_wire(&mut stream)?;
+    response.validate(&call).map_err(|_| Error::Unsupported)?;
+    let mut trailing = [0];
+    if stream.read(&mut trailing)? != 0 {
+        return Err(Error::Unsupported);
+    }
+    namespace.check_lock(&lock)?;
+    if namespace.sockets()? != names {
+        return Err(Error::WriterUnavailable);
+    }
+    Ok(SourceMetadataRead { actor, response })
+}
+
 /// Own a fixed supported upstream process and all of its descendants. The
 /// wrapper never runs as root and forwards no commands through the helper.
 pub fn run_writer(kind: WriterKind, arguments: &[std::ffi::OsString]) -> Result<i32> {
@@ -466,7 +542,7 @@ impl Endpoint {
         mut stream: UnixStream,
         lock: &File,
         helper_uid: u32,
-        actor: Option<&crate::wallpaper_channel::NativeActor>,
+        actor: Option<&Arc<crate::wallpaper_channel::NativeActor>>,
     ) -> Result<()> {
         let peer = socket_peercred(&stream)?;
         if peer.uid.as_raw() != helper_uid {
@@ -478,6 +554,27 @@ impl Endpoint {
         let expected = hello(&home);
         let mut request = vec![0; expected.len()];
         stream.read_exact(&mut request)?;
+        if request == metadata_hello(&home) {
+            self.namespace.check_lock(lock)?;
+            let actor = Arc::clone(actor.ok_or(Error::Unsupported)?);
+            write_actor_wire(&mut stream, &actor.identity()?)?;
+            let call: crate::ryogami_sources_protocol::SourceMetadataCall =
+                read_actor_wire(&mut stream)?;
+            call.validate(&actor.identity()?, &home).map_err(|_| Error::Unsupported)?;
+            let mut trailing = [0];
+            if stream.read(&mut trailing)? != 0 {
+                return Err(Error::Unsupported);
+            }
+            // Metadata uses its own HTTP-only channel and immutable settings;
+            // capture connections remain available while a request is in flight.
+            thread::Builder::new().name("ryogami-source-metadata".into()).spawn(move || {
+                let result = actor.source_metadata(&call, &home);
+                if let Ok(response) = result {
+                    let _ = write_actor_wire(&mut stream, &response);
+                }
+            })?;
+            return Ok(());
+        }
         if request != expected {
             return Err(Error::Unsupported);
         }
@@ -725,7 +822,7 @@ fn run_using(
         }
         match endpoint.listener.accept() {
             Ok((stream, _)) => {
-                let result = endpoint.serve(stream, &lock, helper_uid, actor.as_deref());
+                let result = endpoint.serve(stream, &lock, helper_uid, actor.as_ref());
                 #[cfg(test)]
                 if let Err(error) = &result {
                     eprintln!("fixture writer lease failed: {error}");
@@ -799,6 +896,11 @@ fn hello(home: &str) -> Vec<u8> {
     let hash: String =
         Sha256::digest(home.as_bytes()).iter().map(|byte| format!("{byte:02x}")).collect();
     format!("RYOKU-CAPTURE-1 {hash}\n").into_bytes()
+}
+fn metadata_hello(home: &str) -> Vec<u8> {
+    let mut request = hello(home);
+    request[..15].copy_from_slice(b"RYOKU-METADATA1");
+    request
 }
 #[allow(unsafe_code)] // Reap only this wrapper's exited natural children, outside trace sessions.
 fn reap_orphans() -> Result<()> {

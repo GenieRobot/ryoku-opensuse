@@ -5,6 +5,74 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 static NEXT: AtomicU64 = AtomicU64::new(0);
+
+#[test]
+fn metadata_uses_a_distinct_owner_handshake_without_taking_the_writer_freeze_lock() {
+    use crate::ryogami_sources_protocol::*;
+    use std::os::unix::fs::PermissionsExt;
+    let fixture = Fixture::new();
+    let namespace = fixture.namespace();
+    let lock = namespace.open_lock(false).unwrap();
+    fs::flock(&lock, FlockOperation::NonBlockingLockShared).unwrap();
+    let socket = fixture.namespace_path.join(format!("ryogami-{}.sock", std::process::id()));
+    let listener = UnixListener::bind(&socket).unwrap();
+    std::fs::set_permissions(&socket, std::fs::Permissions::from_mode(0o666)).unwrap();
+    let request_id = crate::Identifier::new("source-owner-fixture").unwrap();
+    let query = PreparedSourceMetadataQuery {
+        expected_settings: None,
+        query: SourceMetadataQuery {
+            source: Source::Bing,
+            search: Search {
+                query: "fixture".into(),
+                page: 1,
+                generation: 3,
+                filters: SearchFilters::Bing { market: "en-US".into() },
+            },
+        },
+    };
+    let actor = crate::wallpaper_protocol::ActorIdentity { pid: 42, start_time: 77 };
+    std::thread::scope(|scope| {
+        let server = scope.spawn(|| {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+            let expected = metadata_hello(fixture.path.to_str().unwrap());
+            let mut hello = vec![0; expected.len()];
+            stream.read_exact(&mut hello).unwrap();
+            assert_eq!(hello, expected);
+            assert_ne!(hello, super::hello(fixture.path.to_str().unwrap()));
+            write_actor_wire(&mut stream, &actor).unwrap();
+            let call: SourceMetadataCall = read_actor_wire(&mut stream).unwrap();
+            assert_eq!(call.actor, actor);
+            assert_eq!(call.query, query);
+            assert_eq!(call.request_id, request_id);
+            assert_eq!(call.rpc_id, 9);
+            let mut trailing = [0];
+            assert_eq!(stream.read(&mut trailing).unwrap(), 0);
+            write_actor_wire(
+                &mut stream,
+                &SourceMetadataResponse {
+                    id: 9,
+                    request_id: request_id.clone(),
+                    result: None,
+                    error: Some(SourceMetadataFailure::ProviderUnavailable),
+                },
+            )
+            .unwrap();
+        });
+        let response = source_metadata_using(
+            namespace,
+            &File::open(&fixture.path).unwrap(),
+            request_id.clone(),
+            query.clone(),
+            9,
+        )
+        .unwrap();
+        assert_eq!(response.actor, actor);
+        assert_eq!(response.response.error, Some(SourceMetadataFailure::ProviderUnavailable));
+        server.join().unwrap();
+    });
+    fs::flock(&lock, FlockOperation::Unlock).unwrap();
+}
 const TEST: &str =
     "writer_protocol::tests::leases_cover_children_start_races_and_abrupt_owner_death";
 const ROLE: &str = "RYOKU_LEASE_TEST_ROLE";

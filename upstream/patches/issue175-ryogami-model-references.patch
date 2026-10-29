@@ -1615,3 +1615,710 @@
 +		t.Fatal("provider discovery or refused calls changed settings")
 +	}
 +}
+--- a/ryoku/shell/ryogami/daemon/daemon.go
++++ b/ryoku/shell/ryogami/daemon/daemon.go
+@@ -601,6 +601,8 @@
+ 			go func() { defer conn.Close(); d.handle(conn) }()
+ 		case 'A':
+ 			go d.brokerApproved(conn)
++		case 'S':
++			go d.brokerSourceMetadata(conn)
+ 		default:
+ 			conn.Close()
+ 			return fmt.Errorf("invalid appearance channel kind")
+--- a/ryoku/shell/ryogami/daemon/source_registry.go
++++ b/ryoku/shell/ryogami/daemon/source_registry.go
+@@ -18,8 +18,10 @@
+ }
+ 
+ type sources struct {
+-	d    *daemon
+-	http *httpStack
++	metadataSettings    map[string]interface{}
++	metadataGithubToken string
++	d                   *daemon
++	http                *httpStack
+ 
+ 	previews *gate
+ 	images   *gate
+@@ -174,22 +176,35 @@
+ 	return err == nil
+ }
+ 
++func (s *sources) setting(key string) interface{} {
++	if s.metadataSettings != nil {
++		if value, ok := s.metadataSettings[key]; ok {
++			return value
++		}
++		if spec, ok := specFor(key); ok {
++			return spec.Default
++		}
++		return nil
++	}
++	return s.d.setting(key)
++}
++
+ func (s *sources) str(key string) string {
+-	if v, ok := s.d.setting(key).(string); ok {
++	if v, ok := s.setting(key).(string); ok {
+ 		return v
+ 	}
+ 	return ""
+ }
+ 
+ func (s *sources) flag(key string) bool {
+-	if v, ok := s.d.setting(key).(bool); ok {
++	if v, ok := s.setting(key).(bool); ok {
+ 		return v
+ 	}
+ 	return false
+ }
+ 
+ func (s *sources) num(key string) int64 {
+-	switch v := s.d.setting(key).(type) {
++	switch v := s.setting(key).(type) {
+ 	case float64:
+ 		return int64(v)
+ 	case int64:
+--- a/ryoku/shell/ryogami/daemon/source_ryowalls.go
++++ b/ryoku/shell/ryogami/daemon/source_ryowalls.go
+@@ -425,7 +425,11 @@
+ 		return sourcePage{}, fmt.Errorf("no repo")
+ 	}
+ 	header := http.Header{"Accept": []string{"application/vnd.github+json"}}
+-	if tok := os.Getenv("GITHUB_TOKEN"); tok != "" {
++	tok := os.Getenv("GITHUB_TOKEN")
++	if s.metadataSettings != nil {
++		tok = s.metadataGithubToken
++	}
++	if tok != "" {
+ 		header.Set("Authorization", "Bearer "+tok)
+ 	}
+ 	if branch == "" {
+--- a/ryoku/shell/ryogami/daemon/broker_source_metadata.go
++++ b/ryoku/shell/ryogami/daemon/broker_source_metadata.go
+@@ -0,0 +1,274 @@
++package main
++
++// HTTP metadata has a distinct private owner channel. It never calls
++// buildResult, queues thumbnails, launches a tool, or changes local files.
++// Local cache/content publication remains a separately captured transaction.
++import (
++	"bufio"
++	"bytes"
++	"context"
++	"crypto/sha256"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"io"
++	"net"
++	"os"
++	"strconv"
++	"strings"
++	"syscall"
++	"time"
++	"unicode"
++)
++
++type brokerMetadataSearch struct {
++	Query      string                     `json:"query"`
++	Page       uint32                     `json:"page"`
++	Generation uint64                     `json:"generation"`
++	Filters    map[string]json.RawMessage `json:"filters"`
++}
++type brokerMetadataQuery struct {
++	Source string               `json:"source"`
++	Search brokerMetadataSearch `json:"search"`
++}
++type brokerPreparedMetadata struct {
++	ExpectedSettings *string             `json:"expected_settings"`
++	Query            brokerMetadataQuery `json:"query"`
++}
++type brokerMetadataCall struct {
++	Actor     brokerPlayerPin        `json:"actor"`
++	HomeSHA   string                 `json:"account_home_sha256"`
++	RequestID string                 `json:"request_id"`
++	Query     brokerPreparedMetadata `json:"query"`
++	RPCID     int64                  `json:"rpc_id"`
++}
++type brokerMetadataItem struct {
++	ID             string `json:"id"`
++	FullURL        string `json:"fullUrl"`
++	ThumbURL       string `json:"thumbUrl"`
++	Resolution     string `json:"resolution"`
++	FileSize       uint64 `json:"fileSize"`
++	Title          string `json:"title,omitempty"`
++	TrackURL       string `json:"trackUrl,omitempty"`
++	Attribution    string `json:"attribution,omitempty"`
++	AttributionURL string `json:"attributionUrl,omitempty"`
++	DurationSecs   uint64 `json:"durationSecs,omitempty"`
++	Purity         string `json:"purity,omitempty"`
++	Category       string `json:"category,omitempty"`
++}
++type brokerMetadataPage struct {
++	Results     []brokerMetadataItem `json:"results"`
++	LastPage    int                  `json:"lastPage"`
++	CurrentPage int                  `json:"currentPage"`
++	NextCursor  string               `json:"nextCursor,omitempty"`
++}
++type brokerMetadataResponse struct {
++	ID        int64               `json:"id"`
++	RequestID string              `json:"request_id"`
++	Result    *brokerMetadataPage `json:"result,omitempty"`
++	Error     string              `json:"error,omitempty"`
++}
++
++func brokerMetadataText(value string, maximum int) bool {
++	return len(value) <= maximum && !strings.ContainsFunc(value, unicode.IsControl)
++}
++func brokerMetadataID(value string) bool {
++	if len(value) < 1 || len(value) > 96 || value[0] < 'a' || value[0] > 'z' || strings.Contains(value, "--") || value[len(value)-1] == '-' {
++		return false
++	}
++	for _, c := range value {
++		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-') {
++			return false
++		}
++	}
++	return true
++}
++func (query brokerMetadataQuery) params() (map[string]interface{}, bool) {
++	var allowed []string
++	switch query.Source {
++	case "wallhaven":
++		allowed = []string{"categories", "purity", "sorting", "order", "top_range", "atleast", "atmost", "resolutions", "ratios", "colors", "collection"}
++	case "unsplash":
++		allowed = []string{"order_by", "content_filter", "orientation", "color"}
++	case "pexels":
++		allowed = []string{"orientation", "size", "color"}
++	case "bing":
++		allowed = []string{"market"}
++	case "moewalls", "motionbgs", "ryostore":
++		allowed = []string{}
++	case "repos":
++		allowed = []string{"repository", "branch", "path", "media"}
++	default:
++		return nil, false
++	}
++	if !brokerMetadataText(query.Search.Query, 512) || query.Search.Page < 1 || query.Search.Page > 10000 || query.Search.Generation > uint64(1<<63-1) || len(query.Search.Filters) != len(allowed)+1 {
++		return nil, false
++	}
++	var provider string
++	if json.Unmarshal(query.Search.Filters["provider"], &provider) != nil || provider != query.Source {
++		return nil, false
++	}
++	params := map[string]interface{}{"query": query.Search.Query, "page": int64(query.Search.Page), "generation": int64(query.Search.Generation)}
++	for _, key := range allowed {
++		var value string
++		if json.Unmarshal(query.Search.Filters[key], &value) != nil || !brokerMetadataText(value, 256) {
++			return nil, false
++		}
++		field := key
++		switch key {
++		case "top_range":
++			field = "topRange"
++		case "repository":
++			field = "repo"
++		case "media":
++			field = "type"
++		}
++		params[field] = value
++	}
++	return params, true
++}
++
++func brokerMetadataSettings(root *os.File) ([]byte, error) {
++	if _, err := brokerModelOwned(root, true); err != nil {
++		return nil, err
++	}
++	config, err := brokerModelOpen(root, ".config", true)
++	if errors.Is(err, syscall.ENOENT) {
++		return nil, nil
++	}
++	if err != nil {
++		return nil, err
++	}
++	defer config.Close()
++	parent, err := brokerModelOpen(config, "ryoku", true)
++	if errors.Is(err, syscall.ENOENT) {
++		return nil, nil
++	}
++	if err != nil {
++		return nil, err
++	}
++	defer parent.Close()
++	file, data, _, err := brokerModelRead(parent)
++	if errors.Is(err, syscall.ENOENT) {
++		return nil, nil
++	}
++	if err != nil {
++		return nil, err
++	}
++	file.Close()
++	return data, nil
++}
++
++func newMetadataSources(d *daemon, tree map[string]interface{}) *sources {
++	source := newSources(d)
++	source.metadataSettings = flattenSettings(tree)
++	source.metadataGithubToken = os.Getenv("GITHUB_TOKEN")
++	if source.metadataSettings == nil {
++		source.metadataSettings = map[string]interface{}{}
++	}
++	if d.sources != nil {
++		source.http = d.sources.http
++		source.searchHook = d.sources.searchHook
++	}
++	return source
++}
++
++func (d *daemon) sourceMetadata(call brokerMetadataCall) brokerMetadataResponse {
++	response := brokerMetadataResponse{ID: call.RPCID, RequestID: call.RequestID}
++	fail := func(code string) brokerMetadataResponse { response.Error = code; return response }
++	params, valid := call.Query.Query.params()
++	if !valid || call.RPCID < 0 || !brokerMetadataID(call.RequestID) || !d.brokerLayoutMatches(call.HomeSHA) {
++		return fail("configuration")
++	}
++	settingsMu.Lock()
++	pending := len(settingsPending) != 0
++	settingsMu.Unlock()
++	if pending {
++		return fail("configuration")
++	}
++	root, err := os.Open(home())
++	if err != nil {
++		return fail("configuration")
++	}
++	defer root.Close()
++	data, err := brokerMetadataSettings(root)
++	if err != nil || (data == nil) != (call.Query.ExpectedSettings == nil) {
++		return fail("configuration")
++	}
++	if data != nil && (!brokerModelDigest(*call.Query.ExpectedSettings) || fmt.Sprintf("%x", sha256.Sum256(data)) != *call.Query.ExpectedSettings) {
++		return fail("configuration")
++	}
++	tree := map[string]interface{}{}
++	if data != nil && (json.Unmarshal(data, &tree) != nil || tree == nil) {
++		return fail("configuration")
++	}
++	// Every source setting and credential is read from this immutable snapshot,
++	// without pending/global settings or callbacks changing a running request.
++	source := newMetadataSources(d, tree)
++	available, reason := source.providerAvailability(call.Query.Query.Source)
++	if !available {
++		if reason == "MissingCredentials" {
++			return fail("missing_credentials")
++		}
++		return fail("disabled")
++	}
++	ctx, cancel := context.WithTimeout(context.Background(), searchFetchTimeout)
++	defer cancel()
++	page, err := source.runSearch(ctx, call.Query.Query.Source, params)
++	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
++		return fail("timeout")
++	}
++	if err != nil {
++		return fail("provider_unavailable")
++	}
++	if len(page.results) > 256 || page.currentPage < 1 || page.lastPage < 0 || len(page.nextCursor) > 4096 {
++		return fail("invalid_response")
++	}
++	result := &brokerMetadataPage{Results: make([]brokerMetadataItem, 0, len(page.results)), LastPage: page.lastPage, CurrentPage: page.currentPage, NextCursor: page.nextCursor}
++	for _, item := range page.results {
++		result.Results = append(result.Results, brokerMetadataItem{ID: item.id, FullURL: item.fullURL, ThumbURL: item.thumbURL, Resolution: item.resolution, FileSize: item.fileSize, Title: item.title, TrackURL: item.trackURL, Attribution: item.attribution, AttributionURL: item.attributionURL, DurationSecs: item.durationSecs, Purity: item.purity, Category: item.category})
++	}
++	encoded, err := json.Marshal(result)
++	if err != nil || len(encoded) > 256*1024 {
++		return fail("invalid_response")
++	}
++	response.Result = result
++	return response
++}
++
++func (d *daemon) brokerSourceMetadata(conn net.Conn) {
++	defer conn.Close()
++	_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
++	reader := bufio.NewReader(io.LimitReader(conn, 65537))
++	line, err := reader.ReadBytes('\n')
++	if err != nil || len(line) > 65536 {
++		return
++	}
++	if _, err = reader.ReadByte(); err != io.EOF {
++		return
++	}
++	var call brokerMetadataCall
++	decoder := json.NewDecoder(bytes.NewReader(line))
++	decoder.DisallowUnknownFields()
++	if decoder.Decode(&call) != nil || decoder.Decode(new(interface{})) != io.EOF || call.Actor.PID != os.Getpid() {
++		return
++	}
++	stat, err := os.ReadFile("/proc/self/stat")
++	if err != nil {
++		return
++	}
++	end := strings.LastIndex(string(stat), ") ")
++	if end < 0 {
++		return
++	}
++	fields := strings.Fields(string(stat)[end+2:])
++	if len(fields) < 20 {
++		return
++	}
++	start, err := strconv.ParseUint(fields[19], 10, 64)
++	if err != nil || start != call.Actor.Start {
++		return
++	}
++	response := d.sourceMetadata(call)
++	_ = json.NewEncoder(conn).Encode(response)
++}
+--- a/ryoku/shell/ryogami/daemon/broker_source_metadata_test.go
++++ b/ryoku/shell/ryogami/daemon/broker_source_metadata_test.go
+@@ -0,0 +1,347 @@
++package main
++
++import (
++	"context"
++	"crypto/sha256"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"io"
++	"net"
++	"net/http"
++	"os"
++	"path/filepath"
++	"reflect"
++	"strconv"
++	"strings"
++	"syscall"
++	"testing"
++	"time"
++)
++
++type metadataTransport func(*http.Request) (*http.Response, error)
++
++func (f metadataTransport) RoundTrip(request *http.Request) (*http.Response, error) {
++	return f(request)
++}
++
++func metadataHTTP(t *testing.T, d *testDaemon, source string) *int {
++	t.Helper()
++	calls := new(int)
++	transport := metadataTransport(func(request *http.Request) (*http.Response, error) {
++		*calls++
++		if request.URL.Scheme != "https" || request.Method != http.MethodGet {
++			t.Fatal("metadata did not preserve its HTTPS read operation")
++		}
++		var body string
++		switch source {
++		case "wallhaven":
++			if request.URL.Host != "wallhaven.cc" || request.URL.Query().Get("apikey") != "fixture-wallhaven-private" {
++				t.Fatal("wallhaven endpoint or credential changed")
++			}
++			body = `{"data":[{"id":"abc123","path":"https://w.wallhaven.cc/full/ab/wallhaven-abc123.jpg","resolution":"3840x2160","file_size":42,"thumbs":{"large":"https://th.wallhaven.cc/lg/ab/abc123.jpg"}}],"meta":{"current_page":1,"last_page":2}}`
++		case "unsplash":
++			if request.URL.Host != "api.unsplash.com" || request.Header.Get("Authorization") != "Client-ID fixture-unsplash-private" {
++				t.Fatal("unsplash endpoint or credential changed")
++			}
++			body = `{"total_pages":2,"results":[{"id":"u1","width":3840,"height":2160,"urls":{"full":"https://images.unsplash.com/full1","small":"https://images.unsplash.com/small1"},"links":{"download_location":"https://api.unsplash.com/photos/u1/download"},"user":{"name":"Fixture","links":{"html":"https://unsplash.com/@fixture"}}}]}`
++		case "pexels":
++			if request.URL.Host != "api.pexels.com" || request.Header.Get("Authorization") != "fixture-pexels-private" {
++				t.Fatal("pexels endpoint or credential changed")
++			}
++			body = `{"total_results":1,"photos":[{"id":42,"width":1920,"height":1080,"photographer":"Fixture","src":{"original":"https://images.pexels.com/photos/42/orig.jpg","large":"https://images.pexels.com/photos/42/large.jpg"},"alt":"Fixture"}]}`
++		case "bing":
++			if request.URL.Host != "www.bing.com" {
++				t.Fatal("bing endpoint changed")
++			}
++			body = `{"images":[{"urlbase":"/th?id=OHR.Fixture_EN-US1234","startdate":"20261029","title":"Fixture"}]}`
++		case "moewalls":
++			if request.URL.Host != "moewalls.com" {
++				t.Fatal("moewalls endpoint changed")
++			}
++			body = `<article class="post"><a title="Fixture Live Wallpaper" class="g1-frame" href="https://moewalls.com/fixture-post/"><img class="resolutions-1920x1080" src="https://moewalls.com/wp-content/uploads/2026/01/fixture-thumb-400x225.jpg"></a></article>`
++		case "motionbgs":
++			if request.URL.Host != "motionbgs.com" {
++				t.Fatal("motionbgs endpoint changed")
++			}
++			body = `<a title="Fixture live wallpaper" href=/fixture><img src=/i/c/546x308/media/8626/fixture.3840x2160.jpg><span class=ttl>Fixture</span><span class=frm> 4K </span></a>`
++		case "ryostore", "repos":
++			if source == "repos" && request.URL.Host == "api.github.com" {
++				if request.Header.Get("Authorization") != "Bearer fixture-github-private" {
++					t.Fatal("repository credential changed")
++				}
++				body = `{"tree":[{"path":"registry.json","type":"blob","sha":"fixture"}]}`
++			} else {
++				if request.URL.Host != "raw.githubusercontent.com" || request.Header.Get("Authorization") != "" {
++					t.Fatal("registry endpoint or credential isolation changed")
++				}
++				body = `{"wallpapers":[{"id":"w1","name":"fixture-query","poster":"posters/w1.jpg","video":"videos/w1.mp4","author":"Fixture"}]}`
++			}
++		default:
++			t.Fatal("unexpected provider")
++		}
++		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body)), Request: request}, nil
++	})
++	d.native.sources.http = &httpStack{client: &http.Client{Transport: transport}, noRedirect: &http.Client{Transport: transport}}
++	return calls
++}
++
++func metadataChannel(t *testing.T, d *testDaemon) *net.UnixConn {
++	t.Helper()
++	fds, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM|syscall.SOCK_CLOEXEC, 0)
++	if err != nil {
++		t.Fatal(err)
++	}
++	connections := make([]*net.UnixConn, 2)
++	for index, fd := range fds {
++		file := os.NewFile(uintptr(fd), "source-metadata-fixture")
++		connection, err := net.FileConn(file)
++		file.Close()
++		if err != nil {
++			t.Fatal(err)
++		}
++		connections[index] = connection.(*net.UnixConn)
++		connections[index].SetDeadline(time.Now().Add(3 * time.Second))
++	}
++	go d.native.brokerSourceMetadata(connections[0])
++	return connections[1]
++}
++
++func TestBrokerMetadataUsesActualHTTPProvidersWithoutPublishingThumbnails(t *testing.T) {
++	t.Setenv("GITHUB_TOKEN", "fixture-github-private")
++	for _, source := range []string{"wallhaven", "unsplash", "pexels", "bing", "moewalls", "motionbgs", "ryostore", "repos"} {
++		t.Run(source, func(t *testing.T) {
++			d, call := metadataFixture(t, source)
++			calls := metadataHTTP(t, d, source)
++			before := metadataFiles(t, d.root)
++			result := d.native.sourceMetadata(call)
++			if result.Error != "" || result.Result == nil || len(result.Result.Results) != 1 || *calls == 0 {
++				t.Fatalf("actual provider failed: %#v", result)
++			}
++			if !reflect.DeepEqual(before, metadataFiles(t, d.root)) {
++				t.Fatal("metadata wrote local state")
++			}
++		})
++	}
++}
++
++func TestBrokerMetadataPrivateChannelRequiresExactActorAndOneBoundedFrame(t *testing.T) {
++	for _, fault := range []string{"success", "actor", "start", "unknown", "two-frames", "oversize"} {
++		t.Run(fault, func(t *testing.T) {
++			d, call := metadataFixture(t, "bing")
++			calls := metadataHTTP(t, d, "bing")
++			if fault == "actor" {
++				call.Actor.PID++
++			}
++			if fault == "start" {
++				call.Actor.Start++
++			}
++			encoded, _ := json.Marshal(call)
++			if fault == "unknown" {
++				encoded = append(encoded[:len(encoded)-1], []byte(`,"output":"injected"}`)...)
++			}
++			encoded = append(encoded, '\n')
++			if fault == "two-frames" {
++				encoded = append(encoded, []byte("{}\n")...)
++			}
++			if fault == "oversize" {
++				encoded = []byte(strings.Repeat(" ", 65537) + "\n")
++			}
++			connection := metadataChannel(t, d)
++			defer connection.Close()
++			if _, err := connection.Write(encoded); err != nil {
++				t.Fatal(err)
++			}
++			connection.CloseWrite()
++			reply, err := io.ReadAll(connection)
++			if err != nil && !(fault == "oversize" && errors.Is(err, syscall.ECONNRESET)) {
++				t.Fatal(err)
++			}
++			if fault == "success" {
++				var response brokerMetadataResponse
++				if json.Unmarshal(reply, &response) != nil || response.ID != call.RPCID || response.RequestID != call.RequestID || response.Result == nil || *calls != 1 {
++					t.Fatal("metadata channel did not execute the actual provider")
++				}
++			} else if len(reply) != 0 || *calls != 0 {
++				t.Fatal("invalid frame reached the provider")
++			}
++		})
++	}
++}
++
++func metadataFixture(t *testing.T, source string) (*testDaemon, brokerMetadataCall) {
++	t.Helper()
++	d := startDaemon(t)
++	resetSettingsState()
++	t.Cleanup(resetSettingsState)
++	d.native.sources = newSources(d.native)
++	settings := []byte(`{"wallhaven":{"apiKey":"fixture-wallhaven-private"},"sources":{"unsplash":{"enabled":true,"accessKey":"fixture-unsplash-private"},"pexels":{"enabled":true,"apiKey":"fixture-pexels-private"},"bing":{"enabled":true}}}`)
++	target := filepath.Join(d.root, ".config/ryoku/ryogami.json")
++	if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(target, settings, 0600); err != nil {
++		t.Fatal(err)
++	}
++	filters := map[string]string{"provider": source}
++	switch source {
++	case "wallhaven":
++		for key, value := range map[string]string{"categories": "111", "purity": "100", "sorting": "toplist", "order": "desc", "top_range": "1M", "atleast": "", "atmost": "", "resolutions": "", "ratios": "", "colors": "", "collection": ""} {
++			filters[key] = value
++		}
++	case "unsplash":
++		for key, value := range map[string]string{"order_by": "relevant", "content_filter": "high", "orientation": "", "color": ""} {
++			filters[key] = value
++		}
++	case "pexels":
++		for _, key := range []string{"orientation", "size", "color"} {
++			filters[key] = ""
++		}
++	case "bing":
++		filters["market"] = ""
++	case "repos":
++		filters["repository"] = "owner/wallpapers"
++		filters["branch"] = "main"
++		filters["path"] = ""
++		filters["media"] = "all"
++	}
++	raw := map[string]json.RawMessage{}
++	for key, value := range filters {
++		raw[key], _ = json.Marshal(value)
++	}
++	stat, err := os.ReadFile("/proc/self/stat")
++	if err != nil {
++		t.Fatal(err)
++	}
++	fields := strings.Fields(string(stat)[strings.LastIndex(string(stat), ") ")+2:])
++	start, err := strconv.ParseUint(fields[19], 10, 64)
++	if err != nil {
++		t.Fatal(err)
++	}
++	digest := fmt.Sprintf("%x", sha256.Sum256(settings))
++	return d, brokerMetadataCall{Actor: brokerPlayerPin{PID: os.Getpid(), Start: start}, HomeSHA: fmt.Sprintf("%x", sha256.Sum256([]byte(d.root))), RequestID: "source-fixture-1", Query: brokerPreparedMetadata{ExpectedSettings: &digest, Query: brokerMetadataQuery{Source: source, Search: brokerMetadataSearch{Query: "fixture-query", Page: 1, Generation: 2, Filters: raw}}}, RPCID: 3}
++}
++
++func metadataFiles(t *testing.T, root string) map[string]string {
++	t.Helper()
++	files := map[string]string{}
++	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
++		if err != nil {
++			return err
++		}
++		info, err := entry.Info()
++		if err != nil {
++			return err
++		}
++		if info.Mode().IsRegular() {
++			data, err := os.ReadFile(path)
++			if err != nil {
++				return err
++			}
++			files[path] = fmt.Sprintf("%o:%x", info.Mode().Perm(), sha256.Sum256(data))
++		} else {
++			files[path] = info.Mode().String()
++		}
++		return nil
++	})
++	if err != nil {
++		t.Fatal(err)
++	}
++	return files
++}
++
++func TestBrokerMetadataAllHTTPProvidersReturnBoundedPrivateDataWithoutLocalEffects(t *testing.T) {
++	for _, source := range []string{"wallhaven", "unsplash", "pexels", "bing", "moewalls", "motionbgs", "ryostore", "repos"} {
++		t.Run(source, func(t *testing.T) {
++			d, call := metadataFixture(t, source)
++			before := metadataFiles(t, d.root)
++			calls := 0
++			d.native.sources.searchHook = func(_ context.Context, actual string, params map[string]interface{}) (sourcePage, error) {
++				calls++
++				if actual != source || params["query"] != "fixture-query" || params["page"] != int64(1) {
++					t.Fatal("typed query changed")
++				}
++				if source == "wallhaven" && params["topRange"] != "1M" {
++					t.Fatal("wallhaven filter changed")
++				}
++				if source == "repos" && (params["repo"] != "owner/wallpapers" || params["type"] != "all") {
++					t.Fatal("repository filters changed")
++				}
++				return sourcePage{results: []sourceResult{{id: "fixture-item", fullURL: "https://fixture.invalid/full.jpg", thumbURL: "https://fixture.invalid/thumb.jpg", title: "Fixture\nTitle", fileSize: 42}}, lastPage: 2, currentPage: 1}, nil
++			}
++			result := d.native.sourceMetadata(call)
++			if result.Error != "" || result.Result == nil || len(result.Result.Results) != 1 || calls != 1 {
++				t.Fatalf("metadata result: %#v", result)
++			}
++			encoded, _ := json.Marshal(result)
++			if strings.Contains(string(encoded), "private") || strings.Contains(string(encoded), "thumbPath") || strings.Contains(string(encoded), "downloaded") {
++				t.Fatal("metadata leaked settings or claimed cache publication")
++			}
++			if !reflect.DeepEqual(before, metadataFiles(t, d.root)) {
++				t.Fatal("metadata query changed local files")
++			}
++		})
++	}
++}
++
++func TestBrokerMetadataSnapshotDoesNotReadPendingOrReplacedSourceCredentials(t *testing.T) {
++	d, _ := metadataFixture(t, "wallhaven")
++	t.Setenv("GITHUB_TOKEN", "snapshot-github-private")
++	tree := map[string]interface{}{"wallhaven": map[string]interface{}{"apiKey": "snapshot-private"}}
++	source := newMetadataSources(d.native, tree)
++	t.Setenv("GITHUB_TOKEN", "replaced-github-private")
++	settingsMu.Lock()
++	settingsPending["wallhaven.apiKey"] = "pending-private"
++	settingsMu.Unlock()
++	target := filepath.Join(d.root, ".config/ryoku/ryogami.json")
++	if err := os.WriteFile(target, []byte(`{"wallhaven":{"apiKey":"replaced-private"}}`), 0600); err != nil {
++		t.Fatal(err)
++	}
++	if source.str("wallhaven.apiKey") != "snapshot-private" {
++		t.Fatal("metadata read mutable credentials")
++	}
++	if source.metadataGithubToken != "snapshot-github-private" {
++		t.Fatal("metadata read mutable repository credentials")
++	}
++	if !source.flag("features.wallhaven") {
++		t.Fatal("schema default changed")
++	}
++}
++
++func TestBrokerMetadataRefusesProcessProvidersInjectionAndChangedSettingsBeforeSearch(t *testing.T) {
++	for _, kind := range []string{"steam", "youtube", "url", "command", "wrong-provider", "wrong-digest", "pending", "home"} {
++		t.Run(kind, func(t *testing.T) {
++			d, call := metadataFixture(t, "wallhaven")
++			calls := 0
++			d.native.sources.searchHook = func(context.Context, string, map[string]interface{}) (sourcePage, error) {
++				calls++
++				return sourcePage{}, nil
++			}
++			switch kind {
++			case "steam", "youtube":
++				call.Query.Query.Source = kind
++			case "url", "command":
++				call.Query.Query.Search.Filters[kind] = json.RawMessage(`"fixture"`)
++			case "wrong-provider":
++				call.Query.Query.Search.Filters["provider"] = json.RawMessage(`"pexels"`)
++			case "wrong-digest":
++				value := strings.Repeat("0", 64)
++				call.Query.ExpectedSettings = &value
++			case "pending":
++				settingsMu.Lock()
++				settingsPending["wallhaven.apiKey"] = "pending-private"
++				settingsMu.Unlock()
++			case "home":
++				call.HomeSHA = strings.Repeat("0", 64)
++			}
++			before := metadataFiles(t, d.root)
++			result := d.native.sourceMetadata(call)
++			if result.Error != "configuration" || result.Result != nil || calls != 0 {
++				t.Fatal("metadata preflight did not refuse")
++			}
++			if !reflect.DeepEqual(before, metadataFiles(t, d.root)) {
++				t.Fatal("refused query changed files")
++			}
++		})
++	}
++}

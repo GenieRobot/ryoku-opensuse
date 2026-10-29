@@ -212,6 +212,32 @@ fn trash_via_helper(
     exchange_mutation_helper(id, "list_media_trash", "media_trash_listed", serde_json::to_value(query).map_err(io::Error::other)?)
         .or_else(|_| Ok(error_reply(id, "Trash authorization or protected recovery history is unavailable; retry or inspect recovery history")))
 }
+fn source_metadata_via_helper(
+    id: i64,
+    query: &crate::ryogami_sources_protocol::SourceMetadataQuery,
+) -> io::Result<Vec<u8>> {
+    query.validate().map_err(io::Error::other)?;
+    exchange_mutation_helper(id, "query_source_metadata", "source_metadata_queried",
+        serde_json::to_value(query).map_err(io::Error::other)?)
+        .or_else(|_| Ok(error_reply(id, "Source metadata authorization or protected request storage is unavailable; check source access and retry")))
+}
+fn source_metadata_page_via_helper(
+    id: i64,
+    query: &crate::ryogami_sources_protocol::SourceMetadataCursorQuery,
+) -> io::Result<Vec<u8>> {
+    exchange_mutation_helper(
+        id,
+        "list_source_metadata",
+        "source_metadata_listed",
+        serde_json::to_value(query).map_err(io::Error::other)?,
+    )
+    .or_else(|_| {
+        Ok(error_reply(
+            id,
+            "Stored source metadata is unavailable or changed; refresh the source search",
+        ))
+    })
+}
 fn exchange_mutation_helper(
     id: i64,
     operation: &str,
@@ -276,6 +302,26 @@ fn exchange_mutation_helper(
         .get("outcome")
         .ok_or_else(|| io::Error::other("missing wallpaper helper outcome"))?;
     if outcome.get("result").and_then(serde_json::Value::as_str) != Some(expected_outcome) {
+        if matches!(operation, "query_source_metadata" | "list_source_metadata") {
+            let detail = outcome
+                .get("error")
+                .and_then(|error| error.get("detail"))
+                .and_then(serde_json::Value::as_str);
+            return Ok(error_reply(
+                id,
+                match detail {
+                    Some("source_history_capacity") => {
+                        "Protected source request history is at capacity; check recovery storage before retrying"
+                    }
+                    Some("source_settings_unavailable") => {
+                        "Source settings are unavailable or changed; review source settings and retry"
+                    }
+                    _ => {
+                        "Source metadata authorization or protected request storage is unavailable; check source access and retry"
+                    }
+                },
+            ));
+        }
         if operation == "change_model_references" {
             let detail = outcome
                 .get("error")
@@ -383,6 +429,40 @@ fn relay_authenticated_providers(
 }
 fn relay_authenticated_trash(
     client: UnixStream,
+    native: UnixStream,
+    apply: &mut impl FnMut(i64, &WallpaperChange) -> io::Result<Vec<u8>>,
+    models: &mut impl FnMut(
+        i64,
+        &crate::ryogami_models_protocol::ModelReferenceIntent,
+    ) -> io::Result<Vec<u8>>,
+    media: &mut impl FnMut(i64, &crate::ryogami_media_protocol::MediaIntent) -> io::Result<Vec<u8>>,
+    trash: &mut impl FnMut(i64, &crate::ryogami_media_protocol::MediaTrashQuery) -> io::Result<Vec<u8>>,
+) -> io::Result<()> {
+    relay_authenticated_sources(
+        client,
+        native,
+        apply,
+        models,
+        media,
+        trash,
+        SourceReaders {
+            query: &mut source_metadata_via_helper,
+            page: &mut source_metadata_page_via_helper,
+        },
+    )
+}
+struct SourceReaders<'a> {
+    query: &'a mut dyn FnMut(
+        i64,
+        &crate::ryogami_sources_protocol::SourceMetadataQuery,
+    ) -> io::Result<Vec<u8>>,
+    page: &'a mut dyn FnMut(
+        i64,
+        &crate::ryogami_sources_protocol::SourceMetadataCursorQuery,
+    ) -> io::Result<Vec<u8>>,
+}
+fn relay_authenticated_sources(
+    client: UnixStream,
     mut native: UnixStream,
     apply: &mut impl FnMut(i64, &WallpaperChange) -> io::Result<Vec<u8>>,
     models: &mut impl FnMut(
@@ -391,6 +471,7 @@ fn relay_authenticated_trash(
     ) -> io::Result<Vec<u8>>,
     media: &mut impl FnMut(i64, &crate::ryogami_media_protocol::MediaIntent) -> io::Result<Vec<u8>>,
     trash: &mut impl FnMut(i64, &crate::ryogami_media_protocol::MediaTrashQuery) -> io::Result<Vec<u8>>,
+    sources: SourceReaders<'_>,
 ) -> io::Result<()> {
     let output = Mutex::new(client.try_clone()?);
     let closed = AtomicBool::new(false);
@@ -464,6 +545,14 @@ fn relay_authenticated_trash(
                     }
                     Ok(PublicRequest::MediaTrash { id, query }) => {
                         let reply = mutation_reply(id, trash(id, &query))?;
+                        write_public(&output, &reply)?;
+                    }
+                    Ok(PublicRequest::SourceMetadata { id, query }) => {
+                        let reply = mutation_reply(id, (sources.query)(id, &query))?;
+                        write_public(&output, &reply)?;
+                    }
+                    Ok(PublicRequest::SourceMetadataPage { id, query }) => {
+                        let reply = mutation_reply(id, (sources.page)(id, &query))?;
                         write_public(&output, &reply)?;
                     }
                     Ok(PublicRequest::Media { id, action }) => {
@@ -645,6 +734,80 @@ mod tests {
     use super::*;
     use crate::wallpaper_protocol::WallpaperApply;
     use std::{collections::BTreeMap, io::Read, sync::atomic::AtomicUsize};
+
+    #[test]
+    fn metadata_routes_to_typed_helper_and_cannot_reuse_native_query_authority() {
+        use crate::ryogami_sources_protocol::*;
+        let (mut client, proxy) = UnixStream::pair().unwrap();
+        client.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let (native, mut backend) = UnixStream::pair().unwrap();
+        backend.set_read_timeout(Some(Duration::from_millis(50))).unwrap();
+        let queries = AtomicUsize::new(0);
+        let pages = AtomicUsize::new(0);
+        let cursor = crate::Sha256::new("a".repeat(64)).unwrap();
+        std::thread::scope(|scope| {
+            let worker = scope.spawn(|| {
+                relay_authenticated_sources(
+                    proxy, native,
+                    &mut |_, _| panic!("metadata reached wallpaper mutation"),
+                    &mut |_, _| panic!("metadata reached model mutation"),
+                    &mut |_, _| panic!("metadata reached media mutation"),
+                    &mut |_, _| panic!("metadata reached trash history"),
+                    SourceReaders {
+                        query: &mut |id, query| {
+                            queries.fetch_add(1, Ordering::Relaxed);
+                            assert_eq!(query.source, Source::Bing);
+                            assert_eq!(query.search.generation, 8);
+                            Ok(format!("{{\"id\":{id},\"result\":{{\"results\":[],\"next_cursor\":null}}}}\n").into_bytes())
+                        },
+                        page: &mut |id, query| {
+                            pages.fetch_add(1, Ordering::Relaxed);
+                            assert_eq!(query.cursor, cursor);
+                            Ok(format!("{{\"id\":{id},\"result\":{{\"results\":[],\"next_cursor\":null}}}}\n").into_bytes())
+                        },
+                    },
+                )
+            });
+            let mut reader = BufReader::new(client.try_clone().unwrap());
+            let query = SourceMetadataQuery {
+                source: Source::Bing,
+                search: Search {
+                    query: "fixture".into(),
+                    page: 1,
+                    generation: 8,
+                    filters: SearchFilters::Bing { market: "en-US".into() },
+                },
+            };
+            for (id, method, params) in [
+                (8, "source.metadata", serde_json::to_value(query).unwrap()),
+                (9, "source.metadata.page", serde_json::json!({"cursor":cursor})),
+                (
+                    10,
+                    "source.download",
+                    serde_json::json!({"source":"bing","url":"file:///private"}),
+                ),
+                (11, "source.metadata", serde_json::json!({"source":"bing","actor":"injected"})),
+            ] {
+                let mut bytes = serde_json::to_vec(
+                    &serde_json::json!({"id":id,"method":method,"params":params}),
+                )
+                .unwrap();
+                bytes.push(b'\n');
+                client.write_all(&bytes).unwrap();
+                let mut reply = String::new();
+                reader.read_line(&mut reply).unwrap();
+                let value: serde_json::Value = serde_json::from_str(&reply).unwrap();
+                assert_eq!(value["id"], id);
+                assert_eq!(value.get("error").is_some(), id >= 10);
+            }
+            assert_eq!(queries.load(Ordering::Relaxed), 1);
+            assert_eq!(pages.load(Ordering::Relaxed), 1);
+            assert!(backend.read(&mut [0]).is_err());
+            client.shutdown(std::net::Shutdown::Both).unwrap();
+            backend.shutdown(std::net::Shutdown::Both).unwrap();
+            worker.join().unwrap().unwrap();
+        });
+    }
 
     #[test]
     fn media_trash_listing_routes_only_to_authenticated_helper_and_correlates_pages() {

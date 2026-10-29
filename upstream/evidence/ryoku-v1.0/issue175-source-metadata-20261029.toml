@@ -1,0 +1,63 @@
+schema_version = 1
+issue = 175
+status = "partial-http-metadata-receipts-source-content-and-native-acceptance-pending"
+branch = "codex/issue175-ryogami-library-providers"
+previous_checkpoint = "e67e4564f3f62414cebf4f01dd8f3514d8a9b346"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+writer_archive_sha256 = "7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be"
+
+[implementation]
+public_methods = ["source.metadata", "source.metadata.page"]
+http_sources = ["wallhaven", "unsplash", "pexels", "bing", "moewalls", "motionbgs", "ryostore", "repos"]
+process_sources_excluded_from_read_channel = ["steam", "youtube"]
+native_channel = "separate one-use SourceMetadata descriptor; root owner handshake binds exact actor, home, nonce and settings digest"
+settings = "immutable exact owned settings bytes and per-query repository-token snapshot; no pending settings or mutable global callbacks"
+request_history = "root-owned account-bound immutable write-ahead remote-request and result records; no local mutation or linked-checkpoint claim"
+public_results = "bounded display-only pages and distinct account/result/purpose-bound item and page locators; URLs, provider cursors and credentials remain private"
+quota = "64 MiB and 4096 files, including pending records and reserved result bytes/directory entries before dispatch"
+account_file_writes = 0
+thumbnail_publication = false
+process_launches = 0
+picker_search_workflow_complete = false
+
+[validation]
+rust_toolchain = "rustc 1.99.0 b940084d7"
+go_toolchain = "go1.26.9 linux/amd64; cached toolchain and committed vendor closure, GOPROXY/GOSUMDB off"
+protected_receipt_tests = "8 passed"
+typed_metadata_protocol_tests = "12 passed including retained source protocol tests"
+native_descriptor_and_reply_tests = "2 passed"
+typed_public_proxy_and_classification_tests = "2 passed"
+owner_handshake_writer_lock_independence = "1 passed"
+helper_authorization_before_account_lookup = "1 passed"
+native_http_algorithms = "all eight retained HTTP provider searches/parsers execute using deterministic HTTP transport and unchanged local file sentinels"
+native_one_use_channel = "success and wrong PID/start/unknown fields/multiple frames/oversize refusals passed"
+native_credentials = "pending/replaced source settings and repository environment token do not change the query snapshot; no credentials returned"
+patch_fuzz = 0
+patched_files_byte_equal_to_tested_source = 17
+restricted_environment_results = "initial native getsockopt and Rust socket write refusals were EPERM; actual socket success/refusal tests rerun with host permissions"
+fixture_correction = "oversized native channel closes with no reply or provider dispatch and may reset unread input; test now accepts that exact refusal"
+lint_correction = "equivalent strict helper-response bound rewritten as bytes.len() < maximum"
+full_frozen_gates = "pass: fmt/diff; strict workspace all-target/all-feature Clippy; locked offline all-feature workspace tests with one test thread; all-feature dependency advisories/bans/licenses/sources"
+full_frozen_sequence_session = "71506"
+recovery_tests_passed = 348
+recovery_existing_ignored = 6
+service_tests_passed = 188
+service_existing_ignored = 3
+console_tests_passed = 26
+other_workspace_suites = "pass"
+native_broker_tests_passed = 16
+native_bridge_entrypoints_skipped_in_standalone_selection = 2
+explicit_rust_to_rebuilt_native_bridge_tests_passed = 2
+native_regression_scope = "existing model persistence/restore and media delete/list/selected restore plus source metadata/discovery and wallpaper audio; regenerated patch source"
+exact_hosted_ci = "pending"
+native_vm_launches = 0
+large_media_or_model_downloads = 0
+
+[acceptance]
+http_metadata_api_complete = true
+source_search_thumbnail_download_preview_cancel_complete = false
+steam_workshop_complete = false
+model_import_install_remove_complete = false
+library_maintenance_complete = false
+native_tumbleweed_package_ui_snapper_acceptance_complete = false
+issue_complete = false

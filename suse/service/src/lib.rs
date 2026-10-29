@@ -22,6 +22,7 @@ pub mod ryogami_models;
 #[cfg(target_os = "linux")]
 pub mod ryogami_paths;
 pub mod ryogami_protocol;
+pub mod ryogami_sources;
 pub mod ryogami_staging;
 pub mod wallpaper;
 mod workspace_selection;
@@ -357,6 +358,14 @@ pub fn read_envelope(reader: &mut impl BufRead) -> Result<Envelope, ProtocolErro
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HelperRequest {
+    QuerySourceMetadata {
+        action: ryoku_recovery::ryogami_sources_protocol::SourceMetadataQuery,
+        rpc_id: i64,
+    },
+    ListSourceMetadata {
+        action: ryoku_recovery::ryogami_sources_protocol::SourceMetadataCursorQuery,
+        rpc_id: i64,
+    },
     ListMediaTrash {
         action: ryoku_recovery::ryogami_media_protocol::MediaTrashQuery,
         rpc_id: i64,
@@ -409,6 +418,18 @@ pub enum HelperRequest {
 impl HelperRequest {
     pub fn validate(&self) -> Result<(), ProtocolError> {
         let (transaction, manifest) = match self {
+            Self::QuerySourceMetadata { action, rpc_id } => {
+                if *rpc_id < 0 || action.validate().is_err() {
+                    return Err(ProtocolError::Malformed("invalid source metadata query"));
+                }
+                return Ok(());
+            }
+            Self::ListSourceMetadata { rpc_id, .. } => {
+                if *rpc_id < 0 {
+                    return Err(ProtocolError::Malformed("invalid source metadata cursor"));
+                }
+                return Ok(());
+            }
             Self::ListMediaTrash { action, rpc_id } => {
                 if *rpc_id < 0 || action.validate().is_err() {
                     return Err(ProtocolError::Malformed("invalid media trash query"));

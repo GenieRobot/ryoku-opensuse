@@ -10,15 +10,52 @@ pub const MAX_QUERY_REPLY_BYTES: usize = 32 * 1024 * 1024;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PublicRequest {
-    Query { id: Option<i64>, frame: Vec<u8> },
-    Apply { id: i64, action: WallpaperApply, plain: bool },
-    Audio { id: i64, action: WallpaperAudio },
-    Pause { id: i64, action: WallpaperPause },
-    Workspace { id: i64, action: crate::workspace_protocol::WorkspaceRequest, plain: bool },
-    Handoff { id: i64, action: AutomaticHandoff },
-    ModelReference { id: i64, action: crate::ryogami_models_protocol::ModelReferenceIntent },
-    MediaTrash { id: i64, query: crate::ryogami_media_protocol::MediaTrashQuery },
-    Media { id: i64, action: crate::ryogami_media_protocol::MediaIntent },
+    Query {
+        id: Option<i64>,
+        frame: Vec<u8>,
+    },
+    Apply {
+        id: i64,
+        action: WallpaperApply,
+        plain: bool,
+    },
+    Audio {
+        id: i64,
+        action: WallpaperAudio,
+    },
+    Pause {
+        id: i64,
+        action: WallpaperPause,
+    },
+    Workspace {
+        id: i64,
+        action: crate::workspace_protocol::WorkspaceRequest,
+        plain: bool,
+    },
+    Handoff {
+        id: i64,
+        action: AutomaticHandoff,
+    },
+    ModelReference {
+        id: i64,
+        action: crate::ryogami_models_protocol::ModelReferenceIntent,
+    },
+    MediaTrash {
+        id: i64,
+        query: crate::ryogami_media_protocol::MediaTrashQuery,
+    },
+    Media {
+        id: i64,
+        action: crate::ryogami_media_protocol::MediaIntent,
+    },
+    SourceMetadata {
+        id: i64,
+        query: crate::ryogami_sources_protocol::SourceMetadataQuery,
+    },
+    SourceMetadataPage {
+        id: i64,
+        query: crate::ryogami_sources_protocol::SourceMetadataCursorQuery,
+    },
 }
 
 /// Transport to issue176, not an executable permit or protected claim.
@@ -115,6 +152,13 @@ struct PublicRpc {
     params: serde_json::Value,
     id: i64,
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TypedReadRpc<T> {
+    method: String,
+    params: T,
+    id: i64,
+}
 
 /// Parse every frame on a public connection, including after a subscription.
 /// An earlier query never grants a raw/reusable native write channel.
@@ -163,6 +207,23 @@ pub fn parse_public(bytes: &[u8]) -> Result<PublicRequest, WallpaperProtocolErro
         serde_json::from_slice(bytes).map_err(|_| WallpaperProtocolError::InvalidFrame)?;
     if request.id < 0 || !(request.params.is_object() || request.params.is_null()) {
         return Err(WallpaperProtocolError::InvalidFrame);
+    }
+    if request.method == "source.metadata" {
+        let typed: TypedReadRpc<crate::ryogami_sources_protocol::SourceMetadataQuery> =
+            serde_json::from_slice(bytes).map_err(|_| WallpaperProtocolError::InvalidFrame)?;
+        if typed.method != "source.metadata" || typed.id < 0 {
+            return Err(WallpaperProtocolError::InvalidFrame);
+        }
+        typed.params.validate().map_err(|_| WallpaperProtocolError::InvalidAction)?;
+        return Ok(PublicRequest::SourceMetadata { id: typed.id, query: typed.params });
+    }
+    if request.method == "source.metadata.page" {
+        let typed: TypedReadRpc<crate::ryogami_sources_protocol::SourceMetadataCursorQuery> =
+            serde_json::from_slice(bytes).map_err(|_| WallpaperProtocolError::InvalidFrame)?;
+        if typed.method != "source.metadata.page" || typed.id < 0 {
+            return Err(WallpaperProtocolError::InvalidFrame);
+        }
+        return Ok(PublicRequest::SourceMetadataPage { id: typed.id, query: typed.params });
     }
     if request.method == "source.providers"
         && !request.params.is_null()
@@ -1044,5 +1105,54 @@ mod tests {
             frame.push(b'\n');
             assert_eq!(parse_public(&frame).unwrap_err(), WallpaperProtocolError::UnownedAction);
         }
+    }
+
+    #[test]
+    fn source_metadata_frames_are_typed_and_cannot_carry_prepared_or_mutating_authority() {
+        use crate::ryogami_sources_protocol::*;
+        let query = SourceMetadataQuery {
+            source: Source::Bing,
+            search: Search {
+                query: "fixture".into(),
+                page: 1,
+                generation: 8,
+                filters: SearchFilters::Bing { market: "en-US".into() },
+            },
+        };
+        let frame = |params| {
+            let mut bytes = serde_json::to_vec(&serde_json::json!({
+                "id":5,"method":"source.metadata","params":params
+            }))
+            .unwrap();
+            bytes.push(b'\n');
+            bytes
+        };
+        assert_eq!(
+            parse_public(&frame(serde_json::to_value(&query).unwrap())).unwrap(),
+            PublicRequest::SourceMetadata { id: 5, query: query.clone() }
+        );
+        for key in ["url", "expected_settings", "actor", "output", "checkpoint", "command"] {
+            let mut params = serde_json::to_value(&query).unwrap();
+            params[key] = serde_json::json!("injected");
+            assert!(parse_public(&frame(params)).is_err(), "{key}");
+        }
+        for source in [Source::Steam, Source::Youtube] {
+            let mut query = query.clone();
+            query.source = source;
+            assert!(parse_public(&frame(serde_json::to_value(query).unwrap())).is_err());
+        }
+        let cursor = crate::Sha256::new("a".repeat(64)).unwrap();
+        let mut bytes = serde_json::to_vec(&serde_json::json!({
+            "id":6,"method":"source.metadata.page","params":{"cursor":cursor}
+        }))
+        .unwrap();
+        bytes.push(b'\n');
+        assert!(matches!(
+            parse_public(&bytes),
+            Ok(PublicRequest::SourceMetadataPage { id: 6, .. })
+        ));
+        let mut duplicate = bytes.clone();
+        duplicate.extend_from_slice(&bytes);
+        assert!(parse_public(&duplicate).is_err());
     }
 }

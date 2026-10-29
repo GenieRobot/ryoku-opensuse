@@ -581,6 +581,42 @@ records final checks. Native QtTest remains unavailable in the cached SDK and
 native picker/Snapper validation remains pending. This completes the local
 restart-visible trash flow, not the retained source/Steam/model/library scope.
 
+## HTTP metadata and protected request receipts
+
+The typed `source.metadata` and `source.metadata.page` requests now traverse the
+authenticated Rust proxy/helper and a separate native source channel. They cover
+the eight HTTP sources using the retained upstream search algorithms. Steam and
+YouTube remain outside this read channel because their implementations can launch
+processes. An HTTP metadata query does not call the upstream result builder,
+populate thumbnails, launch a process or modify the account's files.
+
+The helper resolves the authenticated account, reads the exact owned settings
+file and persists a private immutable request before dispatch. The native actor
+checks its process/home/request identities and settings digest, then uses an
+immutable source-settings and repository-token snapshot. Replies are bounded,
+correlated and accepted once. The Rust owner limits concurrent metadata readers
+while keeping writer-freeze connections available. A metadata request never
+constructs a mutation permit or claims a linked pre-checkpoint.
+
+Private provider URLs and cursors remain in account-bound root-owned result
+receipts. Public pages contain display fields, a generation, and separate
+purpose-bound item/page locators; they expose no URL or credential. Those
+locators identify exact saved metadata and grant no authority to fetch it.
+The receipt store reserves both result bytes and a directory entry before a
+request starts, retains interrupted request/stage records, refuses replacement,
+and reports an unconfirmed remote outcome when transport completion is unknown.
+Its 64 MiB/4096-file capacity is checked before dispatch. No retention operation
+is enabled by this checkpoint.
+
+Local tests exercise the real retained HTTP provider parsers with deterministic
+HTTP responses, actual anonymous native channels, typed helper/proxy routing,
+writer-lock independence, private receipt reopen/pagination, capacity reservation,
+tampering and interrupted publication. The native patch replays after the exact
+#18/#25 baseline with zero fuzz and matches all 17 affected files. The public
+picker's original search/thumbnail/acquire/preview/cancel workflow still needs
+its captured cache/content publication path; the new metadata API does not
+satisfy that broader behavior or native Tumbleweed acceptance.
+
 ## Remaining acceptance gates
 
 1. Install asset-aware complete linked pre/post capture and offline restore,

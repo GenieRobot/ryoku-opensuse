@@ -87,6 +87,8 @@ pub enum HelperOutcome {
     ModelReferencesChanged { operation_id: crate::OperationId, reply: Vec<u8> },
     MediaChanged { operation_id: crate::OperationId, reply: Vec<u8> },
     MediaTrashListed { reply: Vec<u8> },
+    SourceMetadataQueried { reply: Vec<u8> },
+    SourceMetadataListed { reply: Vec<u8> },
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -100,12 +102,16 @@ enum HelperOutcomeWire {
     ModelReferencesChanged { operation_id: crate::OperationId, reply: Vec<u8> },
     MediaChanged { operation_id: crate::OperationId, reply: Vec<u8> },
     MediaTrashListed { reply: Vec<u8> },
+    SourceMetadataQueried { reply: Vec<u8> },
+    SourceMetadataListed { reply: Vec<u8> },
 }
 impl From<HelperOutcome> for HelperOutcomeWire {
     fn from(value: HelperOutcome) -> Self {
         match value {
             HelperOutcome::Rejected(error) => Self::Rejected { error },
             HelperOutcome::MediaTrashListed { reply } => Self::MediaTrashListed { reply },
+            HelperOutcome::SourceMetadataQueried { reply } => Self::SourceMetadataQueried { reply },
+            HelperOutcome::SourceMetadataListed { reply } => Self::SourceMetadataListed { reply },
             HelperOutcome::MediaChanged { operation_id, reply } => {
                 Self::MediaChanged { operation_id, reply }
             }
@@ -132,6 +138,12 @@ impl From<HelperOutcomeWire> for HelperOutcome {
         match value {
             HelperOutcomeWire::Rejected { error } => Self::Rejected(error),
             HelperOutcomeWire::MediaTrashListed { reply } => Self::MediaTrashListed { reply },
+            HelperOutcomeWire::SourceMetadataQueried { reply } => {
+                Self::SourceMetadataQueried { reply }
+            }
+            HelperOutcomeWire::SourceMetadataListed { reply } => {
+                Self::SourceMetadataListed { reply }
+            }
             HelperOutcomeWire::MediaChanged { operation_id, reply } => {
                 Self::MediaChanged { operation_id, reply }
             }
@@ -207,6 +219,24 @@ pub fn dispatch_operator_request(
         HelperOutcome::Rejected(ServiceError::Unauthorized)
     } else {
         match envelope.request {
+            HelperRequest::QuerySourceMetadata { action, rpc_id } => {
+                match crate::ryogami_sources::metadata(
+                    &peer,
+                    operator_gid,
+                    action,
+                    rpc_id,
+                    &envelope.request_id,
+                ) {
+                    Ok(reply) => HelperOutcome::SourceMetadataQueried { reply },
+                    Err(error) => HelperOutcome::Rejected(error),
+                }
+            }
+            HelperRequest::ListSourceMetadata { action, rpc_id } => {
+                match crate::ryogami_sources::page(&peer, operator_gid, action, rpc_id) {
+                    Ok(reply) => HelperOutcome::SourceMetadataListed { reply },
+                    Err(error) => HelperOutcome::Rejected(error),
+                }
+            }
             HelperRequest::ListMediaTrash { action, rpc_id } => {
                 match crate::ryogami_media::list(&peer, operator_gid, action, rpc_id) {
                     Ok(reply) => HelperOutcome::MediaTrashListed { reply },
@@ -478,7 +508,9 @@ pub(crate) fn check_action_availability_until(
             | HelperOutcome::WorkspaceWallpaperChanged { .. }
             | HelperOutcome::ModelReferencesChanged { .. }
             | HelperOutcome::MediaChanged { .. }
-            | HelperOutcome::MediaTrashListed { .. } => {
+            | HelperOutcome::MediaTrashListed { .. }
+            | HelperOutcome::SourceMetadataQueried { .. }
+            | HelperOutcome::SourceMetadataListed { .. } => {
                 Err(ProtocolError::Malformed("unexpected mutation response to availability probe"))
             }
         }
@@ -673,6 +705,63 @@ mod tests {
     use crate::{CheckpointId, ManagedActionKind, PackageId, authorize_helper_operator};
     use std::io::{BufRead, BufReader};
     use std::os::unix::net::UnixStream;
+
+    #[test]
+    fn source_metadata_authorizes_before_lookup_and_never_accepts_prepared_or_mutating_fields() {
+        use ryoku_recovery::ryogami_sources_protocol::{
+            Search, SearchFilters, Source, SourceMetadataCursorQuery, SourceMetadataQuery,
+        };
+        let query = SourceMetadataQuery {
+            source: Source::Bing,
+            search: Search {
+                query: "fixture".into(),
+                page: 1,
+                generation: 2,
+                filters: SearchFilters::Bing { market: "en-US".into() },
+            },
+        };
+        for request in [
+            HelperRequest::QuerySourceMetadata { action: query.clone(), rpc_id: 9 },
+            HelperRequest::ListSourceMetadata {
+                action: SourceMetadataCursorQuery {
+                    cursor: ryoku_recovery::Sha256::new("a".repeat(64)).unwrap(),
+                },
+                rpc_id: 9,
+            },
+        ] {
+            let response = dispatch_operator_request(
+                PeerIdentity { uid: 1000, gid: 1000, supplementary_gids: vec![], pid: None },
+                4242,
+                valid_envelope(request),
+            )
+            .unwrap();
+            assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
+        }
+        assert!(
+            HelperRequest::QuerySourceMetadata { action: query.clone(), rpc_id: -1 }
+                .validate()
+                .is_err()
+        );
+        for key in ["url", "actor", "expected_settings", "output", "checkpoint", "command"] {
+            let mut action = serde_json::to_value(&query).unwrap();
+            action[key] = serde_json::json!("injected");
+            assert!(serde_json::from_value::<HelperRequest>(serde_json::json!({"operation":"query_source_metadata","rpc_id":9,"action":action})).is_err(),"{key}");
+        }
+        for outcome in [
+            HelperOutcome::SourceMetadataQueried { reply: vec![255; 12 * 1024] },
+            HelperOutcome::SourceMetadataListed { reply: vec![255; 12 * 1024] },
+        ] {
+            let response = HelperResponse {
+                version: 1,
+                request_id: RequestId::new("fixture").unwrap(),
+                outcome,
+            };
+            let bytes = serde_json::to_vec(&response).unwrap();
+            assert!(bytes.len() < MAX_HELPER_RESPONSE_BYTES);
+            assert!(!String::from_utf8_lossy(&bytes).contains("operation_id"));
+            assert_eq!(serde_json::from_slice::<HelperResponse>(&bytes).unwrap(), response);
+        }
+    }
 
     #[test]
     fn media_trash_listing_authorizes_before_account_lookup_and_has_read_only_reply() {

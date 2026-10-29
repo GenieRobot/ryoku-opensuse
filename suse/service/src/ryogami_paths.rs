@@ -244,7 +244,7 @@ fn checked_root(
     }
     Ok(LibraryRoot { relative, exists })
 }
-fn settings(home: &File, account: &CaptureAccount) -> Result<Option<Vec<u8>>> {
+pub(crate) fn settings(home: &File, account: &CaptureAccount) -> Result<Option<Vec<u8>>> {
     let mut file = match fs::openat2(
         home,
         ".config/ryoku/ryogami.json",
