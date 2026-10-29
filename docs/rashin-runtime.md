@@ -1059,10 +1059,11 @@ Agent and Chat can attach PNG, JPEG, GIF or WebP images from the authenticated
 browser or typed API. Each turn accepts up to four images, 2 MiB each and 3 MiB
 in total; the same total applies to the conversation's image history. Image
 bytes are kept in private conversation state only after a completed turn and
-are replayed as ACP image blocks with their conversation positions. ACP image
+are replayed as ACP image blocks with their conversation positions or as
+OpenAI-compatible image content for Prowl and HTTPS providers. ACP image
 capability is required, and a route that cannot carry image history reports
 unavailable instead of dropping attachments. Image-only prompts are supported.
-The owner-selected adapter receives the attachments; cancelling or failing a
+The owner-selected provider receives the attachments; cancelling or failing a
 turn does not save new image bytes. The browser checks Origin/authentication,
 discards uploaded filenames, validates types from bytes and displays saved
 images from private state. The deterministic fixture verifies actual multipart

@@ -374,6 +374,92 @@ fn image_upload_reaches_capable_acp_and_private_history_survives_restart() {
         })
         .unwrap();
     assert_eq!(done(&engine, "image-followup")["answer"], "Image received");
+    {
+        use std::{
+            io::{Read, Write},
+            net::TcpListener,
+        };
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            let mut header = Vec::new();
+            while !header.ends_with(b"\r\n\r\n") {
+                let mut byte = [0];
+                stream.read_exact(&mut byte).unwrap();
+                header.push(byte[0]);
+            }
+            let header = String::from_utf8(header).unwrap();
+            let length = header
+                .lines()
+                .find_map(|line| line.strip_prefix("Content-Length: "))
+                .unwrap()
+                .parse::<usize>()
+                .unwrap();
+            let mut body = vec![0; length];
+            stream.read_exact(&mut body).unwrap();
+            let request: Value = serde_json::from_slice(&body).unwrap();
+            let response=json!({"choices":[{"message":{"content":"Prowl image answer"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1}}).to_string();
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                response.len(),
+                response
+            )
+            .unwrap();
+            request
+        });
+        engine
+            .dispatch(Request::ConfigureProwl { port, token: Some("PRIVATE_FIXTURE_TOKEN".into()) })
+            .unwrap();
+        engine
+            .dispatch(Request::ConnectProwlProvider {
+                id: "gateway".into(),
+                models: vec!["auto:fast".into()],
+                streaming: false,
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::SetRoute {
+                lane: Lane::Chat,
+                provider: "gateway".into(),
+                model: "auto:fast".into(),
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::Prompt {
+                id: "switch-prowl".into(),
+                session: "chat".into(),
+                prompt: "continue".into(),
+            })
+            .unwrap();
+        assert_eq!(done(&engine, "switch-prowl")["answer"], "Prowl image answer");
+        let request = server.join().unwrap();
+        let found = request["messages"].as_array().unwrap().iter().find_map(|message| {
+            message["content"]
+                .as_array()
+                .and_then(|blocks| blocks.iter().find(|block| block["type"] == "image_url"))
+                .and_then(|block| block["image_url"]["url"].as_str())
+        });
+        let expected = format!("data:image/png;base64,{}", image.data);
+        assert_eq!(found, Some(expected.as_str()));
+        engine
+            .dispatch(Request::SetRoute {
+                lane: Lane::Chat,
+                provider: "image-adapter".into(),
+                model: "fixture/default".into(),
+            })
+            .unwrap();
+        engine
+            .dispatch(Request::Prompt {
+                id: "switch-acp".into(),
+                session: "chat".into(),
+                prompt: "image followup".into(),
+            })
+            .unwrap();
+        assert_eq!(done(&engine, "switch-acp")["answer"], "Image received");
+    }
     engine
         .dispatch(Request::NewSession { id: "image-only-chat".into(), lane: Lane::Chat })
         .unwrap();

@@ -1818,7 +1818,7 @@ impl Engine {
             messages.push(Message { role: Role::User, content: prompt.clone(),images:options.images.clone() });
             let all_images=messages.iter().flat_map(|message|message.images.iter().cloned()).collect::<Vec<_>>();
             crate::images::validate_history(&all_images)?;
-            if !all_images.is_empty() && !matches!(&provider,Ok(Provider::Acp{..})) {return Err(Error::ProviderUnavailable);}
+            if !all_images.is_empty() && !matches!(&provider,Ok(Provider::Acp{..}|Provider::OpenAiCompatible{..}|Provider::ProwlResolved{..})) {return Err(Error::ProviderUnavailable);}
             state.jobs.insert(id.clone(), Job { operation:if catalog_revision.is_some() {JobOperation::CatalogRefresh} else {JobOperation::Completion},catalog_count:None, fingerprint, lane, session, prompt, status: JobStatus::Running, answer: None, error: None, provider: route.provider, model: route.model.clone(), started: now(), generation, handoff: handoff.clone(), stop_reason: None, actual_model: None, tool_activity:Vec::new(), tool_activity_truncated:false, needs_agent:false, needs_agent_reason:None,fallback:fallback.as_ref().map(|task|FallbackAttempt{route:task.route.clone(),used:false,reason:None}),thought:None,thought_omitted:false,context_usage:None,context_usage_omitted:false,acp_metadata:None,acp_metadata_omitted:false });
             self.active.try_update(Ordering::AcqRel, Ordering::Acquire, |active| (active < 4).then_some(active + 1)).map_err(|_| Error::Busy)?;
             let permit = ProviderPermit(Arc::clone(&self.active));

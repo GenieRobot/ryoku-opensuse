@@ -53,6 +53,7 @@ struct RoundOptions {
     streaming: bool,
     tools: bool,
     deadline: Instant,
+    max_payload: usize,
 }
 fn round(
     connection: &Connection,
@@ -62,7 +63,7 @@ fn round(
     cancelled: &AtomicBool,
     emit: &mut impl FnMut(&str) -> Result<()>,
 ) -> Result<tool_calls::Round> {
-    let RoundOptions { streaming, tools, deadline, schema } = options;
+    let RoundOptions { streaming, tools, deadline, schema, max_payload } = options;
     let mut payload = json!({"model":model,"messages":messages,"stream":streaming});
     if streaming {
         payload["stream_options"] = json!({"include_usage":true});
@@ -71,7 +72,7 @@ fn round(
         payload["tools"] = schema;
     }
     let payload = serde_json::to_vec(&payload).map_err(|_| Error::InvalidRequest)?;
-    if payload.len() > crate::api::MAX_REQUEST_BYTES {
+    if payload.len() > max_payload {
         return Err(Error::Limit);
     }
     let result = if streaming {
@@ -103,11 +104,12 @@ pub(super) fn complete(
     callbacks: &mut Callbacks<'_>,
 ) -> Result<Completion> {
     let deadline = Instant::now() + Duration::from_secs(45);
-    let mut messages = messages
-        .iter()
-        .map(serde_json::to_value)
-        .collect::<std::result::Result<Vec<_>, _>>()
-        .map_err(|_| Error::InvalidRequest)?;
+    let max_payload = if messages.iter().any(|message| !message.images.is_empty()) {
+        crate::api::MAX_IMAGE_REQUEST_BYTES
+    } else {
+        crate::api::MAX_REQUEST_BYTES
+    };
+    let mut messages = crate::provider::wire_messages(messages)?;
     let mut input = 0u64;
     let mut output = 0u64;
     let mut estimated = false;
@@ -123,7 +125,13 @@ pub(super) fn complete(
             connection,
             model,
             &messages,
-            RoundOptions { streaming, tools: index < 4, deadline, schema: schema(context) },
+            RoundOptions {
+                streaming,
+                tools: index < 4,
+                deadline,
+                schema: schema(context),
+                max_payload,
+            },
             cancelled,
             &mut |text| (callbacks.text)(text),
         )?;

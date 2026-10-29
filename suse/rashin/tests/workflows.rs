@@ -3633,7 +3633,7 @@ fn tool_gateway_with_hook<F: FnMut(&Value) + Send + 'static>(
                 .unwrap()
                 .parse::<usize>()
                 .unwrap();
-            assert!(length <= 256 * 1024);
+            assert!(length <= ryoku_rashin::api::MAX_IMAGE_REQUEST_BYTES);
             let mut bytes = vec![0; length];
             stream.read_exact(&mut bytes).unwrap();
             let body: Value = if search {
@@ -3717,6 +3717,87 @@ fn connect_tool_gateway(engine: &Arc<Engine>, port: u16, streaming: bool) {
             })
             .unwrap();
     }
+}
+#[test]
+fn prowl_conversation_preserves_image_blocks_through_tool_rounds_and_followup() {
+    use ryoku_rashin::images::Image;
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    let (port, requests, server) = tool_gateway(vec![
+        Some(tool_round_response("system_query", r#"{"topic":"kernel"}"#, "kernel")),
+        Some(tool_answer()),
+        Some(tool_answer()),
+        Some(tool_answer()),
+    ]);
+    connect_tool_gateway(&engine, port, false);
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Chat,
+            provider: "tool-gateway".into(),
+            model: "auto:fast".into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::SetReadOnlyTools { provider: "tool-gateway".into(), enabled: true })
+        .unwrap();
+    engine.dispatch(Request::NewSession { id: "vision-chat".into(), lane: Lane::Chat }).unwrap();
+    let image = Image::from_bytes(b"\x89PNG\r\n\x1a\nexample").unwrap();
+    engine
+        .dispatch(Request::PromptImages {
+            id: "vision".into(),
+            session: "vision-chat".into(),
+            prompt: "inspect".into(),
+            images: vec![image.clone()],
+        })
+        .unwrap();
+    assert_eq!(done(&engine, "vision")["answer"], "Evidence-backed tool answer");
+    let first = requests.recv_timeout(Duration::from_secs(5)).unwrap();
+    let next = requests.recv_timeout(Duration::from_secs(5)).unwrap();
+    let find_image = |request: &Value| {
+        request["messages"].as_array().unwrap().iter().find_map(|message| {
+            message["content"]
+                .as_array()
+                .and_then(|blocks| blocks.iter().find(|block| block["type"] == "image_url"))
+                .and_then(|block| block["image_url"]["url"].as_str())
+                .map(str::to_owned)
+        })
+    };
+    let expected = format!("data:image/png;base64,{}", image.data);
+    assert_eq!(find_image(&first).as_deref(), Some(expected.as_str()));
+    assert_eq!(find_image(&next).as_deref(), Some(expected.as_str()));
+    assert_eq!(next["messages"].as_array().unwrap().last().unwrap()["role"], "tool");
+    engine
+        .dispatch(Request::Prompt {
+            id: "vision-followup".into(),
+            session: "vision-chat".into(),
+            prompt: "continue".into(),
+        })
+        .unwrap();
+    assert_eq!(done(&engine, "vision-followup")["answer"], "Evidence-backed tool answer");
+    let followup = requests.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(find_image(&followup).as_deref(), Some(expected.as_str()));
+    engine
+        .dispatch(Request::SetReadOnlyTools { provider: "tool-gateway".into(), enabled: false })
+        .unwrap();
+    engine
+        .dispatch(Request::NewSession { id: "large-vision-chat".into(), lane: Lane::Chat })
+        .unwrap();
+    let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
+    bytes.resize(300_000, 0);
+    let large = Image::from_bytes(&bytes).unwrap();
+    engine
+        .dispatch(Request::PromptImages {
+            id: "large-vision".into(),
+            session: "large-vision-chat".into(),
+            prompt: "inspect".into(),
+            images: vec![large.clone()],
+        })
+        .unwrap();
+    assert_eq!(done(&engine, "large-vision")["answer"], "Evidence-backed tool answer");
+    let request = requests.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert!(request.to_string().len() > ryoku_rashin::api::MAX_REQUEST_BYTES);
+    assert_eq!(find_image(&request), Some(format!("data:image/png;base64,{}", large.data)));
+    server.join().unwrap();
 }
 #[test]
 fn tool_round_gateway_executes_real_kernel_query_only_after_owner_enablement_and_fix_stays_disabled()

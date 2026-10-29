@@ -147,12 +147,17 @@ pub(super) fn complete(
     cancelled: &AtomicBool,
     emit: &mut impl FnMut(&str) -> Result<()>,
 ) -> Result<Completion> {
-    let mut payload = serde_json::json!({"model":model,"stream":streaming,"messages":messages});
+    let mut payload = serde_json::json!({"model":model,"stream":streaming,"messages":crate::provider::wire_messages(messages)?});
     if streaming {
         payload["stream_options"] = serde_json::json!({"include_usage":true});
     }
     let payload = serde_json::to_vec(&payload).map_err(|_| Error::InvalidRequest)?;
-    if payload.len() > crate::api::MAX_REQUEST_BYTES {
+    let limit = if messages.iter().any(|message| !message.images.is_empty()) {
+        crate::api::MAX_IMAGE_REQUEST_BYTES
+    } else {
+        crate::api::MAX_REQUEST_BYTES
+    };
+    if payload.len() > limit {
         return Err(Error::Limit);
     }
     if streaming {

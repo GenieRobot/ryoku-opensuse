@@ -101,6 +101,19 @@ pub enum Role {
     User,
     Assistant,
 }
+pub(crate) fn wire_messages(messages: &[Message]) -> Result<Vec<serde_json::Value>> {
+    let images =
+        messages.iter().flat_map(|message| message.images.iter().cloned()).collect::<Vec<_>>();
+    crate::images::validate_history(&images)?;
+    messages.iter().map(|message| {
+        if message.images.is_empty() {return serde_json::to_value(message).map_err(|_|Error::InvalidRequest);}
+        if message.role!=Role::User {return Err(Error::InvalidRequest);}
+        let mut blocks=Vec::with_capacity(message.images.len()+1);
+        if !message.content.is_empty() {blocks.push(json!({"type":"text","text":message.content}));}
+        for image in &message.images {blocks.push(json!({"type":"image_url","image_url":{"url":format!("data:{};base64,{}",image.mime_type,image.data)}}));}
+        Ok(json!({"role":message.role,"content":blocks}))
+    }).collect()
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Completion {
@@ -371,9 +384,6 @@ impl Provider {
         context: &crate::prowl::ReadTools,
         callbacks: &mut crate::prowl::activity::Callbacks<'_>,
     ) -> Result<Completion> {
-        if messages.iter().any(|message| !message.images.is_empty()) {
-            return Err(Error::ProviderUnavailable);
-        }
         match self {
             Self::ProwlResolved { port, token, streaming, .. } => {
                 crate::prowl::Connection { port: *port, token: token.clone() }
@@ -390,8 +400,10 @@ impl Provider {
         emit: &mut impl FnMut(&str) -> Result<()>,
     ) -> Result<Completion> {
         self.validate()?;
-        if !matches!(self, Self::Acp { .. })
-            && messages.iter().any(|message| !message.images.is_empty())
+        if !matches!(
+            self,
+            Self::Acp { .. } | Self::OpenAiCompatible { .. } | Self::ProwlResolved { .. }
+        ) && messages.iter().any(|message| !message.images.is_empty())
         {
             return Err(Error::ProviderUnavailable);
         }
@@ -530,30 +542,34 @@ impl Provider {
                     .complete(model, messages, *streaming, cancelled, emit)
             }
             Self::OpenAiCompatible { endpoint, api_key, streaming, .. } => {
-                let mut body = json!({"model":model,"messages":messages,"stream":streaming});
+                let mut body =
+                    json!({"model":model,"messages":wire_messages(messages)?,"stream":streaming});
                 if *streaming {
                     body["stream_options"] = json!({"include_usage":true});
+                }
+                let body = body.to_string();
+                if body.len() > crate::api::MAX_IMAGE_REQUEST_BYTES {
+                    return Err(Error::Limit);
                 }
                 let config = format!(
                     "url = {}\nheader = {}\nheader = \"Content-Type: application/json\"\ndata = {}\n",
                     quote(&format!("{}/chat/completions", endpoint.trim_end_matches('/'))),
                     quote(&format!("Authorization: Bearer {api_key}")),
-                    quote(&body.to_string())
+                    quote(&body)
                 );
                 let mut child = client_command().spawn().map_err(|_| Error::ProviderUnavailable)?;
                 let result = (|| {
-                    child
-                        .stdin
-                        .take()
-                        .ok_or(Error::ProviderFailed)?
-                        .write_all(config.as_bytes())
+                    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(46);
+                    let mut stdin = child.stdin.take().ok_or(Error::ProviderFailed)?;
+                    rustix::fs::fcntl_setfl(&stdin, rustix::fs::OFlags::NONBLOCK)
                         .map_err(|_| Error::ProviderFailed)?;
+                    write_cancellable(&mut stdin, config.as_bytes(), deadline, cancelled)?;
+                    drop(stdin);
                     let mut bytes = Vec::new();
                     let mut decoder = stream::Decoder::default();
                     let mut stdout = child.stdout.take().ok_or(Error::ProviderFailed)?;
                     rustix::fs::fcntl_setfl(&stdout, rustix::fs::OFlags::NONBLOCK)
                         .map_err(|_| Error::ProviderFailed)?;
-                    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(46);
                     loop {
                         if cancelled.load(Ordering::Acquire) {
                             return Err(Error::Cancelled);
@@ -611,6 +627,36 @@ impl Provider {
             }
         }
     }
+}
+
+fn write_cancellable(
+    writer: &mut impl Write,
+    mut bytes: &[u8],
+    deadline: std::time::Instant,
+    cancelled: &AtomicBool,
+) -> Result<()> {
+    while !bytes.is_empty() {
+        if cancelled.load(Ordering::Acquire) {
+            return Err(Error::Cancelled);
+        }
+        if std::time::Instant::now() >= deadline {
+            return Err(Error::ProviderFailed);
+        }
+        match writer.write(bytes) {
+            Ok(0) => return Err(Error::ProviderFailed),
+            Ok(count) => bytes = &bytes[count..],
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::Interrupted
+                ) =>
+            {
+                std::thread::sleep(std::time::Duration::from_millis(5))
+            }
+            Err(_) => return Err(Error::ProviderFailed),
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn parse_json_completion(bytes: &[u8]) -> Result<Completion> {
@@ -792,6 +838,54 @@ fn client_command() -> Command {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn multimodal_wire_preserves_user_content_order_and_rejects_non_user_images() {
+        let image = crate::images::Image::from_bytes(b"\x89PNG\r\n\x1a\nexample").unwrap();
+        let messages = vec![
+            Message { role: Role::User, content: "describe".into(), images: vec![image.clone()] },
+            Message { role: Role::Assistant, content: "answer".into(), images: Vec::new() },
+        ];
+        let output = wire_messages(&messages).unwrap();
+        assert_eq!(output[0]["content"][0], json!({"type":"text","text":"describe"}));
+        assert_eq!(
+            output[0]["content"][1]["image_url"]["url"],
+            format!("data:image/png;base64,{}", image.data)
+        );
+        assert_eq!(output[1]["content"], "answer");
+        assert!(output[0].get("images").is_none());
+        let mut invalid = messages;
+        invalid[1].images.push(image);
+        assert_eq!(wire_messages(&invalid), Err(Error::InvalidRequest));
+    }
+    #[test]
+    fn blocked_large_provider_write_observes_cancellation() {
+        use std::{
+            os::unix::net::UnixStream,
+            sync::Arc,
+            time::{Duration, Instant},
+        };
+        let (mut writer, _reader) = UnixStream::pair().unwrap();
+        writer.set_nonblocking(true).unwrap();
+        let flag = Arc::new(AtomicBool::new(false));
+        let worker = Arc::clone(&flag);
+        let cancel = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(30));
+            worker.store(true, Ordering::Release);
+        });
+        let start = Instant::now();
+        assert_eq!(
+            write_cancellable(
+                &mut writer,
+                &vec![0; 4 * 1024 * 1024],
+                start + Duration::from_secs(3),
+                &flag
+            ),
+            Err(Error::Cancelled)
+        );
+        assert!(start.elapsed() < Duration::from_secs(2));
+        cancel.join().unwrap();
+    }
 
     #[test]
     fn https_client_has_fixed_no_shell_arguments_and_resource_limits() {

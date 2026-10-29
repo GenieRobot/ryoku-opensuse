@@ -723,7 +723,7 @@ pub(super) fn session(engine: &Arc<Engine>, id: &str) -> Result<String> {
         .replace("<form method=\"post\"", "<form enctype=\"multipart/form-data\" method=\"post\"");
     body += &hidden("id", &nonce()?);
     body += &hidden("session", id);
-    body += "<label>Message<textarea name=\"prompt\" maxlength=\"16384\"></textarea></label><label>Attach images<input type=\"file\" name=\"images\" accept=\"image/png,image/jpeg,image/gif,image/webp\" multiple></label><p>Up to four images, 2 MiB each and 3 MiB total. The selected ACP adapter must support images.</p><button>Send message</button></form>";
+    body += "<label>Message<textarea name=\"prompt\" maxlength=\"16384\"></textarea></label><label>Attach images<input type=\"file\" name=\"images\" accept=\"image/png,image/jpeg,image/gif,image/webp\" multiple></label><p>Up to four images, 2 MiB each and 3 MiB total. The selected model or adapter must support images.</p><button>Send message</button></form>";
     let jobs = engine.dispatch(Request::Jobs {})?;
     for job in
         jobs["jobs"].as_array().ok_or(Error::Integrity)?.iter().filter(|job| job["session"] == id)
