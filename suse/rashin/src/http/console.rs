@@ -398,9 +398,13 @@ pub(super) fn home(engine: &Arc<Engine>) -> Result<String> {
         let id = text(session, "id");
         let path = id_path("session", id)?;
         body += &format!(
-            "<li><a href=\"{}\">{} conversation</a> · {} messages</li>",
+            "<li><a href=\"{}\">{} conversation{}</a> · {} messages</li>",
             escape(&path),
             escape(text(session, "lane")),
+            session["title"]
+                .as_str()
+                .map(|title| format!(" · {}", escape(title)))
+                .unwrap_or_default(),
             session["messages"]
         );
     }
@@ -696,6 +700,9 @@ pub(super) fn session(engine: &Arc<Engine>, id: &str) -> Result<String> {
         "<p><a href=\"/console\">Workspace</a></p><h2>{} conversation</h2>",
         escape(text(session, "lane"))
     );
+    if let Some(title) = session["title"].as_str() {
+        body += &format!("<p>{}</p>", escape(title));
+    }
     for message in session["messages"].as_array().ok_or(Error::Integrity)? {
         body += &format!(
             "<article><h3>{}</h3><pre>{}</pre></article>",
@@ -772,6 +779,27 @@ pub(super) fn job(engine: &Arc<Engine>, id: &str) -> Result<String> {
     }
     if job["context_usage_omitted"] == true {
         body += "<p>Context usage was omitted to preserve space for the answer.</p>";
+    }
+    if let Some(title) = value["acp_metadata"]["title"].as_str().filter(|title| !title.is_empty()) {
+        body += &format!("<p>Provider session title: {}</p>", escape(title));
+    }
+    if let Some(commands) = value["acp_metadata"]["commands"].as_array() {
+        body += "<h3>Provider commands</h3><ul>";
+        for command in commands {
+            body += &format!(
+                "<li><strong>{}</strong> — {}{}</li>",
+                escape(text(command, "name")),
+                escape(text(command, "description")),
+                command["hint"]
+                    .as_str()
+                    .map(|hint| format!(" · {}", escape(hint)))
+                    .unwrap_or_default()
+            );
+        }
+        body += "</ul>";
+    }
+    if job["acp_metadata_omitted"] == true {
+        body += "<p>Provider session details were omitted to preserve space for the answer.</p>";
     }
     if let Some(records) = job["tool_activity"].as_array().filter(|rows| !rows.is_empty()) {
         body += "<h3>Tool activity</h3><table><thead><tr><th>Tool</th><th>Status</th><th>Error</th></tr></thead><tbody>";

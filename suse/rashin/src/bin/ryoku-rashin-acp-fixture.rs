@@ -122,6 +122,12 @@ fn main() -> std::io::Result<()> {
                     send(
                         json!({"jsonrpc":"2.0","method":"session/update","params":{"sessionId":session,"update":{"sessionUpdate":"usage_update","size":1000,"used":200}}}),
                     )?;
+                    send(
+                        json!({"jsonrpc":"2.0","method":"session/update","params":{"sessionId":session,"update":{"sessionUpdate":"session_info_update","title":" Private <title> "}}}),
+                    )?;
+                    send(
+                        json!({"jsonrpc":"2.0","method":"session/update","params":{"sessionId":session,"update":{"sessionUpdate":"available_commands_update","availableCommands":[{"name":"inspect","description":"Inspect <state>","input":{"hint":"target"},"privateUnknown":"discard"},{"name":"help","input":{}}]}}}),
+                    )?;
                     update(&session, "agent_thought_chunk", "Private <thinking> Δ")?;
                     if text == "thought then wait" {
                         pending = Some((id, "waiting".into()));
@@ -140,6 +146,14 @@ fn main() -> std::io::Result<()> {
                 if text == "excessive thought" {
                     update(&session, "agent_thought_chunk", &"x".repeat(32 * 1024 + 1))?;
                     answer(&session, id, "Thought complete")?;
+                    continue;
+                }
+                if text == "excessive commands" {
+                    let commands = vec![json!({"name":"x","description":""}); 65];
+                    send(
+                        json!({"jsonrpc":"2.0","method":"session/update","params":{"sessionId":session,"update":{"sessionUpdate":"available_commands_update","availableCommands":commands}}}),
+                    )?;
+                    answer(&session, id, "unexpected")?;
                     continue;
                 }
 

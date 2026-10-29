@@ -22,12 +22,42 @@ pub(crate) struct Options<'a> {
     pub ask: bool,
     pub thought: &'a mut dyn FnMut(&str) -> Result<()>,
     pub usage: &'a mut dyn FnMut(ContextUsage) -> Result<()>,
+    pub metadata: &'a mut dyn FnMut(MetadataUpdate) -> Result<()>,
 }
 #[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ContextUsage {
     pub size: u64,
     pub used: u64,
+}
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Command {
+    pub name: String,
+    pub description: String,
+    pub hint: Option<String>,
+}
+pub(crate) enum MetadataUpdate {
+    Title(String),
+    Commands(Vec<Command>),
+}
+pub(crate) fn valid_metadata_text(text: &str, max: usize) -> bool {
+    text.len() <= max && !text.chars().any(|c| c.is_control() && !matches!(c, '\n' | '\t'))
+}
+impl Command {
+    pub(crate) fn valid(&self) -> bool {
+        !self.name.trim().is_empty()
+            && valid_metadata_text(&self.name, 64)
+            && valid_metadata_text(&self.description, 512)
+            && self.hint.as_ref().is_none_or(|hint| valid_metadata_text(hint, 256))
+    }
+}
+fn metadata_text(value: &Value, max: usize) -> Result<String> {
+    let text = value.as_str().ok_or(Error::ProviderFailed)?;
+    if !valid_metadata_text(text, max) {
+        return Err(Error::ProviderFailed);
+    }
+    Ok(text.into())
 }
 struct Surface<'a, 'b> {
     context: &'a ReadTools,
@@ -42,6 +72,7 @@ struct Surface<'a, 'b> {
     actual_model: Option<String>,
     thought: &'a mut dyn FnMut(&str) -> Result<()>,
     usage: &'a mut dyn FnMut(ContextUsage) -> Result<()>,
+    metadata: &'a mut dyn FnMut(MetadataUpdate) -> Result<()>,
 }
 impl Surface<'_, '_> {
     fn read(&self, params: &Value) -> Result<String> {
@@ -194,12 +225,45 @@ impl Handler for Surface<'_, '_> {
                 let used = update["used"].as_u64().ok_or(Error::ProviderFailed)?;
                 (self.usage)(ContextUsage { size, used })?;
             }
-            "user_message_chunk"
-            | "current_mode_update"
-            | "available_commands_update"
-            | "config_option_update"
-            | "session_info_update"
-            | "plan" => {}
+            "available_commands_update" => {
+                let rows = update["availableCommands"]
+                    .as_array()
+                    .filter(|rows| rows.len() <= 64)
+                    .ok_or(Error::ProviderFailed)?;
+                let mut commands = Vec::with_capacity(rows.len());
+                for row in rows {
+                    let name = metadata_text(&row["name"], 64)?;
+                    if name.trim().is_empty() {
+                        return Err(Error::ProviderFailed);
+                    }
+                    let description = row
+                        .get("description")
+                        .filter(|value| !value.is_null())
+                        .map(|value| metadata_text(value, 512))
+                        .transpose()?
+                        .unwrap_or_default();
+                    let hint = match row.get("input").filter(|input| !input.is_null()) {
+                        Some(input) => input
+                            .as_object()
+                            .ok_or(Error::ProviderFailed)?
+                            .get("hint")
+                            .filter(|value| !value.is_null())
+                            .map(|value| metadata_text(value, 256))
+                            .transpose()?,
+                        None => None,
+                    };
+                    commands.push(Command { name, description, hint });
+                }
+                (self.metadata)(MetadataUpdate::Commands(commands))?;
+            }
+            "session_info_update" => {
+                if let Some(title) = update.get("title").filter(|value| !value.is_null()) {
+                    (self.metadata)(MetadataUpdate::Title(
+                        metadata_text(title, 256)?.trim().into(),
+                    ))?;
+                }
+            }
+            "user_message_chunk" | "current_mode_update" | "config_option_update" | "plan" => {}
             _ => return Err(Error::ProviderUnavailable),
         }
         Ok(())
@@ -228,6 +292,7 @@ pub(crate) fn complete(
         actual_model: None,
         thought: options.thought,
         usage: options.usage,
+        metadata: options.metadata,
     };
     let mut client = Client::connect(config, options.runner, deadline, cancelled, &mut surface)?;
     client.new_session(deadline, cancelled, &mut surface)?;

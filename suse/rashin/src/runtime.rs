@@ -31,6 +31,24 @@ struct Route {
 struct Session {
     lane: Lane,
     messages: Vec<Message>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    title: Option<String>,
+}
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AcpMetadata {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    commands: Option<Vec<crate::acp::bridge::Command>>,
+}
+impl AcpMetadata {
+    fn valid(&self) -> bool {
+        self.title.as_ref().is_none_or(|title| crate::acp::bridge::valid_metadata_text(title, 256))
+            && self.commands.as_ref().is_none_or(|commands| {
+                commands.len() <= 64 && commands.iter().all(|command| command.valid())
+            })
+    }
 }
 
 #[derive(Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -157,6 +175,10 @@ struct Job {
     context_usage: Option<crate::acp::bridge::ContextUsage>,
     #[serde(default, skip_serializing_if = "is_false")]
     context_usage_omitted: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    acp_metadata: Option<AcpMetadata>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    acp_metadata_omitted: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -334,6 +356,13 @@ fn state_payload(state: &State) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 fn fit_tool_activity(state: &mut State, id: &str) -> Result<()> {
+    if state.jobs.get(id).is_some_and(|job| job.acp_metadata.is_some())
+        && state_payload(state) == Err(Error::Limit)
+    {
+        let job = state.jobs.get_mut(id).ok_or(Error::NotFound)?;
+        job.acp_metadata = None;
+        job.acp_metadata_omitted = true;
+    }
     if state.jobs.get(id).is_some_and(|job| job.context_usage.is_some())
         && state_payload(state) == Err(Error::Limit)
     {
@@ -367,6 +396,7 @@ struct ActiveJob {
     tools_truncated: bool,
     thought: String,
     context_usage: Option<crate::acp::bridge::ContextUsage>,
+    acp_metadata: AcpMetadata,
 }
 
 pub struct Engine {
@@ -419,6 +449,14 @@ impl Engine {
         {
             return Err(Error::Integrity);
         }
+        if state.sessions.values().any(|session| {
+            session
+                .title
+                .as_ref()
+                .is_some_and(|title| !crate::acp::bridge::valid_metadata_text(title, 256))
+        }) {
+            return Err(Error::Integrity);
+        }
         if let Some(prowl) = &state.prowl {
             prowl.validate()?;
         }
@@ -426,6 +464,9 @@ impl Engine {
             context.validate()?;
         }
         for job in state.jobs.values() {
+            if job.acp_metadata.as_ref().is_some_and(|metadata| !metadata.valid()) {
+                return Err(Error::Integrity);
+            }
             if job.needs_agent != job.needs_agent_reason.is_some()
                 || (job.needs_agent
                     && (job.lane != Lane::Ask || job.status != JobStatus::Completed))
@@ -1141,7 +1182,7 @@ impl Engine {
                     if state.sessions.len() >= 128 {
                         return Err(Error::Limit);
                     }
-                    state.sessions.insert(id.clone(), Session { lane, messages: Vec::new() });
+                    state.sessions.insert(id.clone(), Session { lane, messages: Vec::new(),title:None });
                     Ok(json!({"id":id,"lane":lane}))
                 })
             }
@@ -1182,11 +1223,12 @@ impl Engine {
                         let progress = active.map(|active| active.text.clone());
                         let thought_progress = active.map(|active| active.thought.clone());
                         let context_usage = active.and_then(|active|active.context_usage).or(job.context_usage);
+                        let acp_metadata = active.map(|active|&active.acp_metadata).or(job.acp_metadata.as_ref());
                         let mut view = serde_json::to_value(job).map_err(|_|Error::Storage)?;
                         view["needs_agent"] = json!(job.needs_agent);
                         view["needs_agent_reason"] = json!(job.needs_agent_reason);
                         view["tool_activity"] = serde_json::to_value(active.map(|active| &active.tools).unwrap_or(&job.tool_activity)).map_err(|_|Error::Storage)?;
-                        Ok(json!({"id":id,"job":view,"progress":progress,"thought_progress":thought_progress,"context_usage":context_usage}))
+                        Ok(json!({"id":id,"job":view,"progress":progress,"thought_progress":thought_progress,"context_usage":context_usage,"acp_metadata":acp_metadata}))
                     }
                     Request::Jobs {} => {
                         let mut jobs = state.jobs.iter().collect::<Vec<_>>();
@@ -1201,7 +1243,7 @@ impl Engine {
                         json!({"asks":state.jobs.iter().filter(|(_, job)| job.lane == Lane::Ask).map(|(id, job)| json!({"id":id,"job":job})).collect::<Vec<_>>()}),
                     ),
                     Request::Sessions {} => Ok(
-                        json!({"pending_handoff":state.pending_handoff,"sessions":state.sessions.iter().map(|(id, session)| json!({"id":id,"lane":session.lane,"messages":session.messages.len()})).collect::<Vec<_>>()}),
+                        json!({"pending_handoff":state.pending_handoff,"sessions":state.sessions.iter().map(|(id, session)| json!({"id":id,"lane":session.lane,"messages":session.messages.len(),"title":session.title})).collect::<Vec<_>>()}),
                     ),
                     Request::Session { id } => Ok(
                         json!({"id":id,"session":state.sessions.get(&id).ok_or(Error::NotFound)?}),
@@ -1404,6 +1446,7 @@ impl Engine {
             worker.text.clear();
             worker.thought.clear();
             worker.context_usage = None;
+            worker.acp_metadata = AcpMetadata::default();
             if let Some(progress) = &mut worker.ask_progress {
                 progress.next_round();
             }
@@ -1418,7 +1461,7 @@ impl Engine {
         result: Result<Completion>,
         fixture: bool,
     ) {
-        let (tools, truncated, thought, context_usage) = self
+        let (tools, truncated, thought, context_usage, acp_metadata) = self
             .in_flight
             .lock()
             .ok()
@@ -1429,6 +1472,7 @@ impl Engine {
                         worker.tools_truncated,
                         worker.thought.clone(),
                         worker.context_usage,
+                        worker.acp_metadata.clone(),
                     )
                 })
             })
@@ -1443,6 +1487,7 @@ impl Engine {
         let tools = crate::prowl::activity::terminal(tools, phase, error);
         let had_tools = !tools.is_empty();
         let publication = self.transaction(|state| {
+            let mut previous_title = None;
             let job = state.jobs.get_mut(job_id).ok_or(Error::NotFound)?;
             if job.generation != generation || job.status != JobStatus::Running {
                 return Ok(Value::Null);
@@ -1452,6 +1497,9 @@ impl Engine {
             match result {
                 Ok(mut completion) => {
                     job.context_usage = context_usage;
+                    if acp_metadata.title.is_some() || acp_metadata.commands.is_some() {
+                        job.acp_metadata = Some(acp_metadata.clone());
+                    }
                     if !thought.is_empty() {
                         job.thought = Some(thought);
                     }
@@ -1463,6 +1511,11 @@ impl Engine {
                     if let Some(session) = &job.session {
                         let conversation =
                             state.sessions.get_mut(session).ok_or(Error::NotFound)?;
+                        if let Some(title) = &acp_metadata.title {
+                            previous_title = Some((session.clone(), conversation.title.clone()));
+                            conversation.title =
+                                if title.is_empty() { None } else { Some(title.clone()) };
+                        }
                         conversation
                             .messages
                             .push(Message { role: Role::User, content: job.prompt.clone() });
@@ -1503,6 +1556,11 @@ impl Engine {
                 }
             }
             fit_tool_activity(state, job_id)?;
+            if state_payload(state) == Err(Error::Limit)
+                && let Some((id, title)) = previous_title
+            {
+                state.sessions.get_mut(&id).ok_or(Error::NotFound)?.title = title;
+            }
             Ok(Value::Null)
         });
         if publication == Err(Error::Limit) {
@@ -1721,7 +1779,7 @@ impl Engine {
                 messages.extend(conversation.messages.clone());
             }
             messages.push(Message { role: Role::User, content: prompt.clone() });
-            state.jobs.insert(id.clone(), Job { operation:if catalog_revision.is_some() {JobOperation::CatalogRefresh} else {JobOperation::Completion},catalog_count:None, fingerprint, lane, session, prompt, status: JobStatus::Running, answer: None, error: None, provider: route.provider, model: route.model.clone(), started: now(), generation, handoff: handoff.clone(), stop_reason: None, actual_model: None, tool_activity:Vec::new(), tool_activity_truncated:false, needs_agent:false, needs_agent_reason:None,fallback:fallback.as_ref().map(|task|FallbackAttempt{route:task.route.clone(),used:false,reason:None}),thought:None,thought_omitted:false,context_usage:None,context_usage_omitted:false });
+            state.jobs.insert(id.clone(), Job { operation:if catalog_revision.is_some() {JobOperation::CatalogRefresh} else {JobOperation::Completion},catalog_count:None, fingerprint, lane, session, prompt, status: JobStatus::Running, answer: None, error: None, provider: route.provider, model: route.model.clone(), started: now(), generation, handoff: handoff.clone(), stop_reason: None, actual_model: None, tool_activity:Vec::new(), tool_activity_truncated:false, needs_agent:false, needs_agent_reason:None,fallback:fallback.as_ref().map(|task|FallbackAttempt{route:task.route.clone(),used:false,reason:None}),thought:None,thought_omitted:false,context_usage:None,context_usage_omitted:false,acp_metadata:None,acp_metadata_omitted:false });
             self.active.try_update(Ordering::AcqRel, Ordering::Acquire, |active| (active < 4).then_some(active + 1)).map_err(|_| Error::Busy)?;
             let permit = ProviderPermit(Arc::clone(&self.active));
             if let Some(token) = options.evidence_approval.and_then(|approval| approval.token) {
@@ -1750,7 +1808,7 @@ impl Engine {
             // Install cancellation/progress before publishing Running under
             // the state lock: Cancel can never observe an accepted job without
             // its flag, even if it arrives before the worker thread starts.
-            if let Some(old)=self.in_flight.lock().map_err(|_|Error::Storage)?.insert(id.clone(),ActiveJob {generation,cancelled:Arc::clone(&cancelled),text:String::new(),tools:Vec::new(),ask_progress:if lane==Lane::Ask {Some(crate::ask::Progress::default())} else {None},tools_truncated:false,thought:String::new(),context_usage:None}) {
+            if let Some(old)=self.in_flight.lock().map_err(|_|Error::Storage)?.insert(id.clone(),ActiveJob {generation,cancelled:Arc::clone(&cancelled),text:String::new(),tools:Vec::new(),ask_progress:if lane==Lane::Ask {Some(crate::ask::Progress::default())} else {None},tools_truncated:false,thought:String::new(),context_usage:None,acp_metadata:AcpMetadata::default()}) {
                 old.cancelled.store(true,Ordering::Release);
             }
             registered=true;
@@ -1861,6 +1919,25 @@ impl Engine {
                         worker.context_usage = Some(usage);
                         Ok(())
                     };
+                    let mut emit_metadata = |update| {
+                        if cancelled.load(Ordering::Acquire) {
+                            return Err(Error::Cancelled);
+                        }
+                        let mut active = engine.in_flight.lock().map_err(|_| Error::Storage)?;
+                        let worker = active
+                            .get_mut(&job_id)
+                            .filter(|worker| worker.generation == generation)
+                            .ok_or(Error::Cancelled)?;
+                        match update {
+                            crate::acp::bridge::MetadataUpdate::Title(title) => {
+                                worker.acp_metadata.title = Some(title)
+                            }
+                            crate::acp::bridge::MetadataUpdate::Commands(commands) => {
+                                worker.acp_metadata.commands = Some(commands)
+                            }
+                        }
+                        Ok(())
+                    };
                     let result = if let Err(error) = &provider {
                         Err(*error)
                     } else if let Ok(Provider::Acp { config, .. }) = &provider {
@@ -1879,6 +1956,7 @@ impl Engine {
                                 ask: lane == Lane::Ask,
                                 thought: &mut emit_thought,
                                 usage: &mut emit_usage,
+                                metadata: &mut emit_metadata,
                             },
                         )
                     } else if read_only_tools.enabled() {
@@ -1963,6 +2041,7 @@ impl Engine {
                                             ask: true,
                                             thought: &mut emit_thought,
                                             usage: &mut emit_usage,
+                                            metadata: &mut emit_metadata,
                                         },
                                     )
                                 });
@@ -2357,9 +2436,10 @@ mod evidence_tests {
                             content: if i % 2 == 0 { "p".into() } else { "z".repeat(65536) },
                         })
                         .collect();
-                    state
-                        .sessions
-                        .insert(format!("retained-{n}"), Session { lane: Lane::Chat, messages });
+                    state.sessions.insert(
+                        format!("retained-{n}"),
+                        Session { lane: Lane::Chat, messages, title: None },
+                    );
                 }
                 let size = serde_json::to_vec(state).unwrap().len();
                 let target = crate::store::MAX_STATE_BYTES as usize - 4096;
@@ -2483,6 +2563,18 @@ mod evidence_tests {
                     "x".repeat(32 * 1024);
                 engine.in_flight.lock().unwrap().get_mut("activity-quota").unwrap().context_usage =
                     Some(crate::acp::bridge::ContextUsage { size: 1000, used: 200 });
+                engine.in_flight.lock().unwrap().get_mut("activity-quota").unwrap().acp_metadata =
+                    AcpMetadata {
+                        title: Some("title".into()),
+                        commands: Some(vec![
+                            crate::acp::bridge::Command {
+                                name: "inspect".into(),
+                                description: "x".repeat(512),
+                                hint: None
+                            };
+                            64
+                        ]),
+                    };
             }
             engine
                 .transaction(|state| {
@@ -2527,6 +2619,8 @@ mod evidence_tests {
                 assert!(job.thought_omitted);
                 assert!(job.context_usage.is_none());
                 assert!(job.context_usage_omitted);
+                assert!(job.acp_metadata.is_none());
+                assert!(job.acp_metadata_omitted);
             }
             drop(state);
             let until = std::time::Instant::now() + Duration::from_secs(3);

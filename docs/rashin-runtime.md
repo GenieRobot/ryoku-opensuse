@@ -1039,6 +1039,14 @@ survive restart. A state-size limit may omit the update to preserve the answer.
 The real ACP fixture covers live reporting, cancellation, malformed values,
 browser display and restart.
 
+ACP session title and available-command notifications are bounded and shown in
+the authenticated job view. Titles from completed Agent or Chat turns also
+label their local conversation and survive restart; cancelled or failed turns
+do not change the saved title. Commands carry only the name, description and
+optional input hint, with unknown provider fields discarded and output escaped.
+At the state limit, optional details can be omitted to preserve the answer. This
+does not establish persistent native ACP session replay.
+
 Prowl connections retry transient connection timeouts for at most three seconds
 before sending any request or credential. Each attempt is limited to one second
 so cancellation remains observable. The established connection still requires

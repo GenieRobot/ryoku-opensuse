@@ -404,6 +404,7 @@ impl Provider {
                     ask: true,
                     thought: &mut |_| Ok(()),
                     usage: &mut |_| Ok(()),
+                    metadata: &mut |_| Ok(()),
                 },
             ),
             Self::Fixture { delay_millis, outcome, .. } => {

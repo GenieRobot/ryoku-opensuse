@@ -275,6 +275,15 @@ fn acp_thinking_is_live_private_bounded_and_persisted_only_on_completion() {
         let view = engine.dispatch(Request::Job { id: "thinking-cancel".into() }).unwrap();
         if view["thought_progress"] == "Private <thinking> Δ" {
             assert_eq!(view["context_usage"], json!({"size":1000,"used":200}));
+            assert_eq!(view["acp_metadata"]["title"], "Private <title>");
+            assert_eq!(
+                view["acp_metadata"]["commands"][0],
+                json!({"name":"inspect","description":"Inspect <state>","hint":"target"})
+            );
+            assert_eq!(
+                view["acp_metadata"]["commands"][1],
+                json!({"name":"help","description":"","hint":null})
+            );
             break;
         }
         assert!(Instant::now() < deadline);
@@ -290,6 +299,11 @@ fn acp_thinking_is_live_private_bounded_and_persisted_only_on_completion() {
     assert!(view["thought_progress"].is_null());
     assert!(view["job"]["thought"].is_null());
     assert!(view["context_usage"].is_null());
+    assert!(view["acp_metadata"].is_null());
+    assert!(
+        engine.dispatch(Request::Session { id: "chat".into() }).unwrap()["session"]["title"]
+            .is_null()
+    );
     engine
         .dispatch(Request::Prompt {
             id: "thinking-complete".into(),
@@ -301,6 +315,11 @@ fn acp_thinking_is_live_private_bounded_and_persisted_only_on_completion() {
     assert_eq!(job["thought"], "Private <thinking> Δ");
     assert_eq!(job["answer"], "Thought complete");
     assert_eq!(job["context_usage"], json!({"size":1000,"used":200}));
+    assert_eq!(job["acp_metadata"]["title"], "Private <title>");
+    assert_eq!(
+        engine.dispatch(Request::Session { id: "chat".into() }).unwrap()["session"]["title"],
+        "Private <title>"
+    );
     let gateway = ryoku_rashin::http::Gateway::new(
         engine.clone(),
         "1".repeat(64),
@@ -311,6 +330,9 @@ fn acp_thinking_is_live_private_bounded_and_persisted_only_on_completion() {
     assert!(html.contains("Private &lt;thinking&gt; Δ"));
     assert!(!html.contains("Private <thinking> Δ"));
     assert!(html.contains("Provider context usage: 200 of 1000 tokens"));
+    assert!(html.contains("Private &lt;title&gt;"));
+    assert!(html.contains("Inspect &lt;state&gt;"));
+    assert!(browser(&gateway, "GET", "/console", "").contains("Private &lt;title&gt;"));
     engine
         .dispatch(Request::Prompt {
             id: "thinking-limit".into(),
@@ -331,6 +353,16 @@ fn acp_thinking_is_live_private_bounded_and_persisted_only_on_completion() {
     let invalid = done(&engine, "invalid-usage");
     assert_eq!(invalid["error"], "provider_failed");
     assert!(invalid["context_usage"].is_null());
+    engine
+        .dispatch(Request::Prompt {
+            id: "invalid-commands".into(),
+            session: "chat".into(),
+            prompt: "excessive commands".into(),
+        })
+        .unwrap();
+    let invalid = done(&engine, "invalid-commands");
+    assert_eq!(invalid["error"], "provider_failed");
+    assert!(invalid["acp_metadata"].is_null());
     drop(gateway);
     drop(engine);
     let deadline = Instant::now() + Duration::from_secs(6);
@@ -350,6 +382,10 @@ fn acp_thinking_is_live_private_bounded_and_persisted_only_on_completion() {
     assert_eq!(
         engine.dispatch(Request::Job { id: "thinking-complete".into() }).unwrap()["context_usage"],
         json!({"size":1000,"used":200})
+    );
+    assert_eq!(
+        engine.dispatch(Request::Session { id: "chat".into() }).unwrap()["session"]["title"],
+        "Private <title>"
     );
     drop(engine);
     fs::remove_dir_all(root).unwrap();
