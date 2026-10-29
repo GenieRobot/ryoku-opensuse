@@ -109,3 +109,31 @@ remaining = [
   "configured cache and external roots and additional reviewed link contracts",
   "native Tumbleweed/RPM/QtTest/picker/Snapper acceptance"
 ]
+
+[ci_correction]
+failed_run = 40222611288
+failed_job = 121257238182
+failed_test = "ryogami_protocol::source_contract::reviewed_provider_paths_match_the_committed_v1_source_manifest"
+failure = "stale exact selected-source count: ledger58, assertion57"
+local_reproduction_session = "42709"
+new_required_path = "ryoku/shell/ryogami/picker/qml/SheetHost.qml"
+verified_upstream_blob = "3afbb4abc68cb9f22b3755d431ee17b823fca702"
+verified_upstream_git_mode = "100644"
+committed_manifest_row_exact_match = true
+required_effect = "lazy loader registers and opens the new MediaTrashSheet"
+correction = "expect58 reviewed rows and explicitly require SheetHost.qml; retain exact path/blob/mode manifest comparison for every row"
+attribution = "the worker added the source ledger row after the earlier local build began; the compiled include_str fixture therefore missed it; not a CI flake"
+correction_revalidation_date = "2026-10-29"
+full_workspace_session = "61272"
+full_workspace_result = "pass: recovery330/6 ignored, service189/3 ignored, console26, vm90, other workspace suites; corrected source contract included"
+earlier_full_recheck_failures = [
+  "inherited_manual_pause_holds_new_player_before_first_instruction_until_explicit_resume: WriterUnavailable",
+  "leases_cover_children_start_races_and_abrupt_owner_death: UnexpectedEof"
+]
+writer_reproduction = "prior isolated manual-pause passed; isolated lease session31179 passed; both also pass in the complete all-feature workspace session61272 without writer source changes; earlier failure cause unproven"
+restricted_runner_refusals = "lease fixture EPERM before writer start; cargo-deny advisory lock is read-only; required local permissions reruns passed, no tests skipped"
+dependency_revalidation_session = "36112"
+dependency_revalidation = "advisories, bans, licenses and sources pass using cached offline data"
+strict_clippy_revalidation_session = "82341"
+strict_clippy_revalidation = "workspace all-target all-feature warnings-denied pass"
+format_and_whitespace_revalidation = "pass"

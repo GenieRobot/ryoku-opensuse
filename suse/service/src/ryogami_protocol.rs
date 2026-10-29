@@ -544,7 +544,7 @@ mod source_contract {
             "../../../upstream/evidence/ryoku-v1.0/issue175-provider-source-identities.tsv"
         );
         let rows: std::collections::BTreeSet<_> = selected.lines().collect();
-        assert_eq!(rows.len(), 57);
+        assert_eq!(rows.len(), 58);
         for row in &rows {
             assert!(manifest.lines().any(|line| line == *row), "unbound source identity");
         }
@@ -555,6 +555,7 @@ mod source_contract {
             "daemon/library_trash.go",
             "daemon/source_registry.go",
             "picker/src/core/remoteresults.cpp",
+            "picker/qml/SheetHost.qml",
         ] {
             assert!(
                 rows.iter()
