@@ -1,0 +1,75 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "99a5f3086c9e335ff8794d230986174e893878e8"
+status = "host-WAL-coherence-and-external-Fix-consent-tested-native-and-full-parity-gates-open"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+new_runtime_dependencies = 0
+
+[wal_snapshot]
+contract = "https://sqlite.org/walformat.html"
+system_provider = "libsqlite3-0-3.53.2-3.1.x86_64; exact library digest and ownership in issue183-opencode-sqlite-host-oct25.toml"
+main_db_lock = "existing OFD shared reader range; blocks cooperative SQLite mode transition and cleanup/deletion"
+wal_index = "existing private descriptor, native-endian version3007000, size multiple32768; source identity and absence/presence revalidated"
+wal_index_locks = "shared OFD CKPT121 and READ_LOCK(1)124 prevent backfill/recovery/rewind while copying"
+unix_vfs_lock = "shared dead-man switch byte128 prevents first-client truncation; outside eight WAL-index locks"
+leases = "nonblocking; partial acquisitions unwind; leases released after copied source validation, before private image parsing"
+writes = "no DB/WAL/journal/SHM byte, read mark or index data is written; no checkpoint/recovery of application files"
+regressions = ["installed SQLite RESTART checkpoint BUSY during capture and successful after lease release", "birth of WAL-index during capture refused independent of source timestamps", "retained corruption/commit/reset/uncommitted/source-unchanged/SQL-denial cases"]
+limitations = "Cooperative SQLite Unix locking protocol; supported distro library remains trusted C, not an OS sandbox or memory-safety proof"
+
+[fix_external_evidence]
+preview_action = "fix_preview: Owner only; exact bounded native summary plus redacted Agent provider/endpoint/model and disclosure of supplied finding/index/instructions"
+confirmation = "fix.native_evidence_consent: random256-bit preview token; required only for external Agent route"
+lifetime = "in-memory only; at most16 previews; five-minute monotonic expiry; discarded on restart; token never enters prompt or persisted state"
+binding = "component and persisted configuration revision; any provider/credential/route mutation invalidates preview; revision rechecked atomically when capturing provider"
+evidence = "external Fix uses exact owner-previewed native summary without recollection; local/fixture Fix remains automatic"
+retry = "accepted request retry has no further egress; original no-token fingerprints retained for old local Fix jobs"
+tests = ["missing/unknown/expired confirmation denied before dispatch", "component/configuration/credential replacement denied", "route change rechecked in dispatch transaction", "AskClient preview denied", "redacted destination and exact bounded preview", "valid confirmation reaches permit boundary then rolls back with no external provider request"]
+
+[validation]
+focused_command = "cargo test --locked --offline -p ryoku-rashin"
+focused_passed = 65
+focused_failed = 0
+focused_ignored = 0
+focused_breakdown = "28 unit results,12 collector tests,25 workflow tests"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_result_rows = 54
+workspace_passed_result_sum = 644
+workspace_failed = 0
+workspace_ignored = 7
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+rpm = "rpmspec --parse and -q --requires passed; existing curl/timezone/libsqlite3-0 runtime requirements present"
+dependency = "explicit x86_64 all-features metadata graph: advisories/bans/licenses/sources ok"
+dependency_commands = ["cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu", "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path FILTERED_METADATA --all-features check"]
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers; no metered fetch"
+fixture_correction = "test-only reopen waits bounded100ms for concurrent fork/exec CLOEXEC lease inheritance to clear; never bypasses live daemon lock"
+
+[remaining]
+full_issue_complete = false
+live_role_gate = "production HTTP/Unix transports dispatch Owner; AskClient is library/test policy only; authenticated restricted assistant/shell bridge must assign trusted role without forwarding owner credential; same-UID is not separate client identity"
+gates = ["Separate unsafe ABI/lifetime/callback review before merge", "Exact-head hosted CI", "Full retained ACP/harness/Prowl/provider/model/network/terminal/UI behavior", "Live quota/RPC and complete session/model/timer/cache bridge", "Protected native mutations, complete state/writer inventory and linked recovery", "Complete RPM/vendor/native closure", "Packaged Tumbleweed install/login/interaction/usage/restart/removal/KDE VM acceptance"]
+
+[log_sha256]
+focused = "22090412564117351e0ba0fbe06b1fd18b1956f8a257979d50e44eeef233338a"
+workspace = "7026fdb3f0a3f79b7d036bbbfd1623de77d40561eda9f3f738243ca7582a4a21"
+clippy = "7c5bf72c0410f0ab47a1b208aa39d65a6fc3d324926f5d0a8abc78a3aa4013ca"
+dependency = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+
+[source_sha256]
+"suse/rashin/src/api.rs" = "74a764bff9e454a886dc1d9694c25d89e4655b90e722a6d32b2b4a1ee4b9cc3f"
+"suse/rashin/src/authorization.rs" = "062ed892584d4762c05eab5f289ec5b22a9fe668e12116c26b03b8020f06fda5"
+"suse/rashin/src/lib.rs" = "4f1d251b587b7028c6cb14023a530ac1f3215957e55ab6372a393e1cc66976ed"
+"suse/rashin/src/runtime.rs" = "56cac6fc5f1e2e11c094f447627491b22b2cb1a24cadf22997f328d7e8c2ef15"
+"suse/rashin/src/usage/sqlite.rs" = "c77b35857ceeec4166d320f82515f41526a6a1c66cacdbf3966db11115232f2b"
+"suse/rashin/src/usage/sqlite_image.rs" = "2c6df338c318f86543ca61eb33efc8e486d803f7c58f4e31de1a040049ed1933"
+"suse/rashin/tests/usage_collectors.rs" = "1cf62d835cede3107b609751216bc7034c1e979a86f0af652dbd69fd990a2315"
+"suse/rashin/tests/workflows.rs" = "a096a759c8402bea4afa52abff94d6f52e356f7efdd718d543455b4fbae1cdec"
+"docs/rashin-runtime.md" = "f6725b72a98620bc2c8c421409ac49a8fae441710681f5d7b40e0ea9992de357"
+"docs/rashin-sqlite.md" = "30df077fece77f262738fd249bef5a5b4e6c3bf1d1efe5bc33cd742f62628cb2"

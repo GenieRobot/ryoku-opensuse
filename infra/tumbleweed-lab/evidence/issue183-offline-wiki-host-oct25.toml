@@ -1,0 +1,101 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "0e485cef7f691034ade3b94eb54035c663819e1a"
+status = "offline-wiki-navigation-and-verified-assistant-index-tested-full-native-parity-pending"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+new_dependencies = 0
+
+[source_contract]
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+source_directory = "ryoku/rashin/wiki"
+regular_files = 8
+original_bytes = 25481
+pages = ["README.md", "desktop.md", "go-tools.md", "hyprland-lua.md", "linux-basics.md", "niri-kdl.md", "quickshell-qml.md", "rashin.md"]
+manifest = "upstream/evidence/rashin-v1.0/wiki-assets.json"
+provenance = "each exact original has upstream path,Git blob,SHA-256 and byte count;GPLv3 copy/source attribution retained;adaptation hashes separate"
+adaptations = "current Tumbleweed overview and Linux basics,other full guides marked upstream reference;exact originals separately readable,never silently substituted"
+primary_package_references = ["https://manpages.opensuse.org/Tumbleweed/zypper/zypper.8.en.html", "https://doc.opensuse.org/documentation/tumbleweed/updating_upgrading_reverting/"]
+
+[behavior]
+api = "owner-only wiki_pages,read_wiki,index_wiki;fixed compiled page IDs,no arbitrary path/URL/process/download"
+browser = "actual8-page navigation,readable headings/code/links,original/current-view digest display,exact upstream editions and license,explicit index form"
+rendering = "source HTML always escaped;only known Wiki targets/explicit HTTPS links become anchors;no image/script fetch;code and Unicode retained"
+index = "current-view digest verified before single-document merge;other uploaded docs preserved;identical indexing idempotent;stale digest/name conflict rejected"
+replacement = "different named document requires its exact previous digest;browser additionally requires checked named-document confirmation;stale confirmation cannot overwrite newer state"
+privacy = "only public compiled guide metadata/content in provenance;private conflicting upload content not rendered;existing owner/Origin/no-cookie policy and scoped Ask denial preserved"
+assistant = "real deterministic Ask answers with indexed Wiki source name/digest;index survives restart and continues supplying evidence;no command in guide executed"
+storage = "existing document limits/hash validation and atomic private state reused;no external state/service/native provider change"
+
+[validation]
+sequence = "set-e sequential full Rashin,workspace,strict Clippy,fmt/diff,supported-target deny,explicit two-UID proof: terminal exit0"
+focused_command = "cargo test -p ryoku-rashin --locked --offline wiki -- --nocapture"
+focused_passed = 4
+focused_failed = 0
+focused_cases = ["all8 original blobs/digests/counts,license and adaptation hashes,source/path bounds", "safe rendering of code/Unicode and rejection of HTML/javascript/path link activation", "actual browser navigation/API/index,real Ask source+digest,restart and preserved upload", "stale/conflicting replacement rejected until named explicit confirmation,private document preserved"]
+full_command = "cargo test -p ryoku-rashin --locked --offline"
+full_passed = 116
+full_failed = 0
+full_ignored = 1
+full_breakdown = "51 unit,15 collectors,50 workflows;environment-dependent two-UID proof separate"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 696
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 8
+count_scope = "sum of terminal summaries including nested subprocesses;7 existing ignores plus separately exercised two-UID prerequisite case"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed,0 warnings"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+dependency_metadata_command = "cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu"
+dependency_command = "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path FILTERED_METADATA --all-features check"
+dependency_result = "advisories,bans,licenses,sources ok for supported x86_64 all-features graph"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers;no fetch"
+two_uid_command = "unshare --user --map-auto --map-root-user target/debug/deps/ryoku_rashin-e5c84e14e6648c40 --ignored --exact prowl::transport::tests::connected_foreign_uid_receives_no_request_or_management_credential --nocapture"
+two_uid_result = "explicit host1/1 pass after final source;owner UID0 Unauthorized,foreign UID1 zero bytes;separate from default CI ignore"
+
+[storage]
+verified_paths = "resolved workspace target,HOME,Cargo/Rustup caches on/dev/sdd;all test logs/tmp artifacts on/tmp tmpfs"
+pre_suite_available = "/dev/sdd891GiB;/tmp6.7GiB"
+constraints = "no C-bound write,download,cleanup or candidate/native/VM work;host checks only on verified Linux/tmpfs paths"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact-head hosted CI", "Native app/Svelte/shell/launcher/Hub integration and complete ACP-v3 shared sessions/replay/cancellation", "All retained ACP harness/model/tools/approvals/images/thinking/terminal workflows", "Every retained Prowl/profile/provider/sign-in/fallback/network mutation and protected native state/writer/capture/recovery", "Full machine/source/vault/memory/journal/project/skills enrollment and isolated capability delivery", "Quota/RPC/original timer-cache/shell bridge", "Source/export/RPM/vendor/license/native dependency closure and packaged Tumbleweed install/login/interaction/usage/restart/removal/KDE acceptance"]
+
+[log_sha256]
+focused = "db6b28b96fcf68639b22c5d62db3d65ded2fafdee6b4caf665c181503093b519"
+full = "5dbbf34fc2df0c779b5e1bb8047d27d2ca244ea23d9e9f73fb8d96a1939a6aed"
+workspace = "09ed968ff75fa421bd3016a9dd3d1f2720687a48de25f52591edde10008d14d2"
+clippy = "1e726a2d7c03e8a081ed4e99347644db3dd7c5cf234512bb841fa3716b494bfc"
+dependency = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+two_uid = "c01488a29aeaf78263029e942318db0b549ac9b4ac866e713a88411858af122a"
+
+[source_sha256]
+"suse/rashin/src/api.rs" = "d4d804ad90c4fceab369e716fd956448a053bd7c12e18af6f94c48e5e98ab577"
+"suse/rashin/src/authorization.rs" = "f4e079bd61098e9bc30368c369c3e26210609e27ddce683d7aa40c240bd4c17b"
+"suse/rashin/src/http.rs" = "dc4c22d5f65db8fbd98f940efd3ecba4d4849e3b67e2689205478fcf01690432"
+"suse/rashin/src/http/console.rs" = "396b903e24b76dcb0f4086f92dd956b141f00fb88b3d42f4b99e96bae60789c2"
+"suse/rashin/src/http/wiki.rs" = "cc43a26611109f33d5d21e433c71a23d231d03bd1d9d1c91cc7e1a3a9b4c073d"
+"suse/rashin/src/lib.rs" = "cbe32804c2f0dfb7af2df0131806f3651e784e9129814d768b5d16af8bc36aab"
+"suse/rashin/src/runtime.rs" = "19ae5fa24d35f82bd955e15bcd5fe50006a9bfe63a631c3841f897443b8cee5a"
+"suse/rashin/src/wiki.rs" = "f0e1d8dc8831daace40f56756204b52f0f374ab42e8dfd5d053e5f813a93c2e9"
+"suse/rashin/tests/workflows.rs" = "eeff977de92005afe868f79e07f7aa44f961f0d0fe8dd41033db370ac6efa725"
+"docs/rashin-runtime.md" = "c372d8d9c41e8441a8f98ec6302d869a35ad4307f2fe88044bf2571a4359246a"
+"upstream/evidence/rashin-v1.0/wiki-assets.json" = "731bb9234dc000b7847377bfd159e3a215b36a05c67905d029d99b7edc1ff7ec"
+"suse/rashin/wiki/COPYING" = "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+"suse/rashin/wiki/NOTICE.md" = "dc15a48e652d3f0e09690ccb710bc53cd5ec1f81ebd0ccbe0a121c0995443eab"
+"suse/rashin/wiki/tumbleweed/linux-basics.md" = "0e2fd00598f200e4d37e62a26a20c145f79c92328fa87d496449f7548436a640"
+"suse/rashin/wiki/tumbleweed/overview.md" = "478c75c40c4bf2c61be09ea94bbca492d618f0bb0c3dcfd59c0a36adcb6b43a8"
+"suse/rashin/wiki/upstream/README.md" = "30954be823edee4edde1f825e2c95b802133aa896e990785d6089b30a2d4e3fe"
+"suse/rashin/wiki/upstream/desktop.md" = "b50af0c931b831cb5a005edde1d9c8f3941d9cfd9569268ba67eab2dcd36c4de"
+"suse/rashin/wiki/upstream/go-tools.md" = "e8c5d1e28e08a1294b7c53fd851d7f18312ad1b9a02f055740e1887ddf26502d"
+"suse/rashin/wiki/upstream/hyprland-lua.md" = "4ed9d87479929e632f4c13e5cb7a4151d60f8f9e1a142a19743e79c86dee22b2"
+"suse/rashin/wiki/upstream/linux-basics.md" = "c7ffe29210b3fecba24cecdd399d5d37aabf4441f846ef709cd182bb1c3f12f1"
+"suse/rashin/wiki/upstream/niri-kdl.md" = "75518052b592a5e8e20fa8e8af4648009f0af0de12606294dbe095b742c7d1e3"
+"suse/rashin/wiki/upstream/quickshell-qml.md" = "a78dbea07cdacc15d0cdf810123ab43ccf5cf97ea074fb841e1541a10142bd54"
+"suse/rashin/wiki/upstream/rashin.md" = "7c9aa23afb3e32832827973e38e9f6dc4a3e6dac15f9e3a9659cec294839e3cd"

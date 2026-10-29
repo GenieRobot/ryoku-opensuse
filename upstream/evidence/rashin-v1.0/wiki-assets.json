@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "issue": 183,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "license": "GPL-3.0-only (upstream LICENSE)",
+  "pages": [
+    {
+      "id": "overview",
+      "title": "Ryoku Wiki",
+      "upstream_path": "ryoku/rashin/wiki/README.md",
+      "git_blob": "2741c7bf98f5dec67bf79d874b6c2687fd50c5e2",
+      "sha256": "30954be823edee4edde1f825e2c95b802133aa896e990785d6089b30a2d4e3fe",
+      "bytes": 1554,
+      "local_path": "suse/rashin/wiki/upstream/README.md"
+    },
+    {
+      "id": "desktop",
+      "title": "Desktop tour",
+      "upstream_path": "ryoku/rashin/wiki/desktop.md",
+      "git_blob": "58db5a7a526182e2462cb443cb33c9b9c0939913",
+      "sha256": "b50af0c931b831cb5a005edde1d9c8f3941d9cfd9569268ba67eab2dcd36c4de",
+      "bytes": 2743,
+      "local_path": "suse/rashin/wiki/upstream/desktop.md"
+    },
+    {
+      "id": "go-tools",
+      "title": "Upstream Go tools",
+      "upstream_path": "ryoku/rashin/wiki/go-tools.md",
+      "git_blob": "c84296c8708720cdf5cba94c6583faface2e6212",
+      "sha256": "e8c5d1e28e08a1294b7c53fd851d7f18312ad1b9a02f055740e1887ddf26502d",
+      "bytes": 3360,
+      "local_path": "suse/rashin/wiki/upstream/go-tools.md"
+    },
+    {
+      "id": "hyprland-lua",
+      "title": "Hyprland Lua",
+      "upstream_path": "ryoku/rashin/wiki/hyprland-lua.md",
+      "git_blob": "906af9e91269ba54a1fe63748e56a23ec4a59596",
+      "sha256": "4ed9d87479929e632f4c13e5cb7a4151d60f8f9e1a142a19743e79c86dee22b2",
+      "bytes": 2827,
+      "local_path": "suse/rashin/wiki/upstream/hyprland-lua.md"
+    },
+    {
+      "id": "linux-basics",
+      "title": "Linux basics on Tumbleweed",
+      "upstream_path": "ryoku/rashin/wiki/linux-basics.md",
+      "git_blob": "fcd8ee8fee7d230b66dfcc46534d55c10daf56dd",
+      "sha256": "c7ffe29210b3fecba24cecdd399d5d37aabf4441f846ef709cd182bb1c3f12f1",
+      "bytes": 3306,
+      "local_path": "suse/rashin/wiki/upstream/linux-basics.md"
+    },
+    {
+      "id": "niri-kdl",
+      "title": "Niri KDL",
+      "upstream_path": "ryoku/rashin/wiki/niri-kdl.md",
+      "git_blob": "1d136e4abb9923b9d4ed3544c271326581d62cb1",
+      "sha256": "75518052b592a5e8e20fa8e8af4648009f0af0de12606294dbe095b742c7d1e3",
+      "bytes": 2548,
+      "local_path": "suse/rashin/wiki/upstream/niri-kdl.md"
+    },
+    {
+      "id": "quickshell-qml",
+      "title": "Quickshell QML",
+      "upstream_path": "ryoku/rashin/wiki/quickshell-qml.md",
+      "git_blob": "f97fa516d5e2e287c83596d2102c54e5e016f256",
+      "sha256": "a78dbea07cdacc15d0cdf810123ab43ccf5cf97ea074fb841e1541a10142bd54",
+      "bytes": 3746,
+      "local_path": "suse/rashin/wiki/upstream/quickshell-qml.md"
+    },
+    {
+      "id": "rashin",
+      "title": "Rashin",
+      "upstream_path": "ryoku/rashin/wiki/rashin.md",
+      "git_blob": "2cff66bff19f95ca1f6bbcf375c898b6993345d5",
+      "sha256": "7c9aa23afb3e32832827973e38e9f6dc4a3e6dac15f9e3a9659cec294839e3cd",
+      "bytes": 5397,
+      "local_path": "suse/rashin/wiki/upstream/rashin.md"
+    }
+  ],
+  "license_source": {
+    "upstream_path": "LICENSE",
+    "git_blob": "f288702d2fa16d3cdf0035b15a9fcbc552cd88e7",
+    "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+    "bytes": 35149,
+    "local_path": "suse/rashin/wiki/COPYING"
+  },
+  "tumbleweed_adaptations": [
+    {
+      "local_path": "suse/rashin/wiki/tumbleweed/overview.md",
+      "sha256": "478c75c40c4bf2c61be09ea94bbca492d618f0bb0c3dcfd59c0a36adcb6b43a8",
+      "bytes": 2077,
+      "disposition": "project-authored-current-view; exact original retained separately"
+    },
+    {
+      "local_path": "suse/rashin/wiki/tumbleweed/linux-basics.md",
+      "sha256": "0e2fd00598f200e4d37e62a26a20c145f79c92328fa87d496449f7548436a640",
+      "bytes": 2483,
+      "disposition": "project-authored-current-view; exact original retained separately"
+    }
+  ]
+}

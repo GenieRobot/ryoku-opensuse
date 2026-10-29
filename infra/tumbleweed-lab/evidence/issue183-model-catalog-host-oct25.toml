@@ -1,0 +1,60 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "ebedfb6c1b63e1b40a77a5d2518800ad34b49944"
+status = "owner-asynchronous-model-catalog-refresh-tested-full-parity-pending"
+protocol_reference = "https://developers.openai.com/api/reference/resources/models/methods/list"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+new_dependencies = 0
+
+[behavior]
+action = "owner refresh_models request ID/provider ID; asynchronous catalog_refresh job queried/cancelled/forgotten through existing typed actions"
+transport = "fixed authenticated GET /models on configured HTTPS endpoint; existing fixed curl/TLS/no-proxy/no-redirect/stdin-key/45-second/1MiB bounds"
+metadata = "data[].id only, at most128 rows, exact deduplication and bounded opaque IDs; no prompt/history/index/body/model-file downloads"
+configuration = "key/settings retained; saved routes never rewritten; empty/no-offered catalog is valid and unavailable picks stay saved"
+publication = "catalog and terminal job count/status publish atomically; failure/cancel preserves previous cache; no conversation or token-usage publication"
+stale = "per-provider persisted configuration generation captured under start transaction; newer key/endpoint/settings/catalog change rejects old response as Conflict"
+concurrency = "independent provider refreshes proceed concurrently; route changes preserved; existing four-worker permits, generation-bound cancellation and quota failure reserve reused"
+restart = "unfinished refresh marked Interrupted; no automatic network replay"
+fixture = "explicit cached/offered/failure catalog fixture with bounded delay; same worker/publication path, no endpoint call"
+privacy = "credentials never enter job metadata/answers or public evidence; scoped Ask clients cannot start/read/cancel catalog jobs"
+
+[validation]
+focused_command = "cargo test --locked --offline -p ryoku-rashin"
+focused_passed = 90
+focused_failed = 0
+focused_ignored = 0
+focused_breakdown = "40 unit results,15 collector tests,35 workflow tests"
+new_cases = ["success with opaque IDs and preserved unavailable pick", "empty catalog survives restart", "failure/cancellation preserves cache", "no conversation or model usage publication", "new provider key/endpoint/settings reject stale response", "independent concurrent provider refresh and route preservation", "scoped policy/live HTTP denial", "malformed/error/oversized/duplicate catalog parsing"]
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 670
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 7
+count_scope = "exact sum of terminal harness summaries, including nested subprocess summaries"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed,0 warnings"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+dependency_graph = "Cargo manifest/lock unchanged; prior supported-x86_64 offline advisories/bans/licenses/sources result applies"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers; no fetch"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact-head hosted CI and separate unsafe review", "Live configured-provider catalog/transport acceptance", "Full Prowl/provider/profile/sign-in/network and richer model metadata/catalog workflows", "Every retained ACP/harness/UI/replay/tool/approval/image/thinking/terminal workflow", "Isolated shell/ACP capability delivery, quota/RPC and original timer/cache bridge", "Protected native state/writer/linked recovery and full private inventory", "RPM/vendor/native closure and packaged Tumbleweed VM acceptance"]
+
+[log_sha256]
+focused = "37e2bf5c6c54c9255528da074b4e37242129f7e084ec361fc4dde77fcbb3e949"
+workspace = "65bdebcd3d6a2c44b4150ba4089343e2916b7114e7d6bbdfd3050490ec2edc8b"
+clippy = "730339b44c9afd3f00231f21136cae1b55f42b95f793bb3e35aad189eb506c89"
+
+[source_sha256]
+"suse/rashin/src/api.rs" = "5ab9720ba92eabecaf9cce44b70c9cd829205418d0b2264972aa666d5df52cab"
+"suse/rashin/src/authorization.rs" = "290ff680aae286076c460a1de42d9a605373784b4d22f7641719b6af919ff036"
+"suse/rashin/src/provider.rs" = "0a1d0a5702d862ead5532c4f67a8214dc1b07db9b438593e3a7f96dd83763003"
+"suse/rashin/src/runtime.rs" = "688469e13b7084350ffd9362886517466f5219af8801915664880f1c2b10a69c"
+"suse/rashin/tests/workflows.rs" = "29696016971b1d0bd5c001b0813963d7b1c41ddd34c66d068a7e577da3fad05a"
+"docs/rashin-runtime.md" = "5ac171d4657c7b8ba1be5145237687562e0022b95131533a455025caa14afec8"

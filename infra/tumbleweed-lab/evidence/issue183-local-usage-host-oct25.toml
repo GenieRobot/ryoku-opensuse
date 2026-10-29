@@ -1,0 +1,111 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+status = "host-local-usage-slice-supported-target-checks-passed-issue-incomplete"
+branch = "codex/feature/issue183-rashin-inventory"
+previous_runtime_commit = "47ec77a86f1686450a4ea1fdf4d9b138dff86a8a"
+upstream_revision = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+model_downloads = 0
+package_downloads = 0
+external_provider_requests = 0
+local_registry_downloads = 0
+vm_runs = 0
+storage_available = "905 GiB; largest collector fixture is a sparse file just over 4 MiB"
+
+[implementation]
+actions = ["enroll_usage_source", "collect_usage", "disable_usage_source", "usage"]
+cli = ["usage-claude", "usage-codex", "usage-opencode"]
+tools = ["Claude projects JSONL", "Codex sessions and archived_sessions JSONL", "opencode current and legacy message JSON"]
+scheduler_owner = "single Rust Rashin daemon, exclusive state lease and once-only scheduler; no unit/timer installed or upstream collector process started"
+interval_seconds = 300
+schedule = "persistent last-attempt times, restart catch-up, failure backoff, explicit disabled-source preservation, nonoverlapping collection lease"
+status_semantics = ["fresh bounded observed JSON", "partial malformed/truncated/budget-limited data", "stale preserved last-good data plus sanitized error", "unavailable first failure or unsupported source with no updated_at"]
+privacy = "No credential file reads; transcript/message-content fields not retained in reports, state cache, assistant context or diagnostics"
+source_boundary = "explicit account-owned mode-0700 root; pinned device/inode; descriptor-relative reads; no symlinks/hardlinks or unsafe owner/write modes; source identity checked before publication"
+recovery = "New enrollments and private aggregate caches remain part of pending full #183 linked recovery/writer integration; atomic user state is not linked recovery"
+
+[limits]
+scan_seconds = 2
+files = 4096
+directories = 512
+depth = 8
+per_file_bytes = 4194304
+total_bytes = 67108864
+events = 100000
+model_rows = 128
+
+[focused_tests]
+command = "cargo test --locked --offline -p ryoku-rashin"
+previous_passed = 45
+final_exact_tree = "45 focused tests passed within exact-tree all-features workspace run: 8 unit, 12 collector, 25 workflow"
+
+[workspace_checks]
+tests = "cargo test --workspace --all-features --locked --offline: passed; 625 summed passed results across 55 result rows, 7 existing ignored, zero failures"
+test_log_sha256 = "af6c5c604c24ca1423046bae53257ab2c7d104267d927103647b48aef415e23f"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+rpm_spec = "rpmspec --parse and --requires: passed; curl, systemd, rpm >= 4.19 and timezone present"
+
+[dependency_review]
+new_lock_entries = ["jiff 0.2.24", "jiff-static 0.2.24", "log 0.4.34", "portable-atomic 1.15.0", "portable-atomic-util 0.2.8"]
+jiff_features = ["std", "tz-system", "tzdb-zoneinfo"]
+unfiltered_offline = "unavailable: uncached target-inactive jiff-static/portable-atomic helper crates; no metered fetch performed"
+supported_target = "x86_64-unknown-linux-gnu"
+supported_target_result = "passed: advisories/bans/licenses/sources on exact x86_64 all-features metadata graph; not an unfiltered all-platform check"
+supported_target_command = "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path /tmp/issue183-cargo-metadata.json --all-features check"
+metadata_command = "cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu"
+policy_log_sha256 = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+metadata_sha256 = "318b07e334aa7ea33d5afc3eac8c1f77f96848ab87525fcaac928eccbe4bdfe0"
+vendor_gate = "Packaging source/vendor closure must be refreshed for new lock entries; target-inactive crates are not fetched on this metered host"
+
+[timezone_provider]
+package = "timezone"
+version_release = "2026c-1.1"
+architecture = "x86_64"
+owned_file = "/usr/share/zoneinfo/UTC"
+file_sha256 = "8b85846791ab2c8a5463c83a5be3c043e2570d7448434d41398969ed47e3e6f2"
+ownership_command = "rpm -q --qf NAME/VERSION-RELEASE/ARCH -f /usr/share/zoneinfo/UTC"
+runtime_requires = "timezone"
+scope = "Installed Tumbleweed host RPM/file ownership only; no package installation/download, native solving or VM acceptance"
+
+[native_app_provider_handoff]
+commit = "d2853fb5901e345b061a49cf4eb764d73b1f0891"
+records_url = "https://github.com/GenieRobot/ryoku-opensuse/blob/d2853fb5901e345b061a49cf4eb764d73b1f0891/upstream/evidence/ryoku-v1.0/rashin-native-provider-records.json"
+providers = ["pkgconfig(gtk+-3.0): gtk3-devel", "pkgconfig(webkit2gtk-4.1): webkitgtk3-devel"]
+scope = "Signed Snapshot20261016 metadata/provider/checksum/location/dependency evidence only; build/ELF/runtime/package/VM closure remains open"
+
+[prior_hosted_ci]
+head = "47ec77a86f1686450a4ea1fdf4d9b138dff86a8a"
+run_url = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40141613532"
+conclusion = "success"
+includes_dependency_review = true
+
+[remaining_acceptance]
+full_issue_complete = false
+native_linked_recovery_claimed = false
+external_quota_claimed = false
+gates = ["Claude live OAuth quota", "Codex live RPC buckets and recorded-session fallback", "opencode SQLite and complete model/session detail", "Legacy timer/cache/shell UI bridge without duplicate schedulers", "New Rust dependency vendor/source closure", "All retained ACP/harness/Prowl/provider/model/network/terminal/UI workflows", "Authenticated native protected dispatcher, full state enrollment and linked recovery", "Packaged Tumbleweed install/login/interaction/usage/restart/removal/KDE VM", "Exact-head hosted CI for collector commit"]
+
+[retained_collector_blobs]
+"ryoku/rashin/usage/claude-usage" = "b09df673c15d3166aefc59256909c80b16a85720"
+"ryoku/rashin/usage/codex-usage" = "0c8fae9b13acbd03f9a62b009a654eae8a504a56"
+"ryoku/rashin/usage/opencode-usage" = "7282aef9c35772cb896eddc51ac5c91ca588d40f"
+"ryoku/rashin/usage/ryoku-ai-usage" = "2f9f375460066b0b2944876e0f6c107d3c8c96fd"
+
+[source_sha256]
+"Cargo.lock" = "dc61a6b2b4207c67dd677310ac1ecfd71bab161862aa713d7baad983069054ab"
+"suse/rashin/Cargo.toml" = "d094d1d08281717ccf19584ca5be870eb4ff8cce8cb8b0cfed38caa0dd5bf268"
+"packaging/rpm/ryoku-desktop.spec" = "40a708dcab0d700c931853ab9946117ed8e32ca0a8079dd5e00f0fadebae34a5"
+"suse/rashin/src/api.rs" = "dcf7b92403056ee450faa2017201b41bac73037e8bf91847fcb4ec8e4eb30281"
+"suse/rashin/src/authorization.rs" = "6a8a88b84907820f7c955a7fd4600203d8adffaf610fb84a3ff40ae5aa7723f1"
+"suse/rashin/src/http.rs" = "59ad3460e600ffdcf62cfb56bd89f42ac20342445e3045c4b2de92a4e7554eb5"
+"suse/rashin/src/inspection.rs" = "30d97b925ebc0ad8c9ea54fd8e2bd50c3925ad718a4c98943b1c06f132ed3f2b"
+"suse/rashin/src/lib.rs" = "5cec430659191f82d74081ae10637337291292ee395439333f2b8e368f4d6200"
+"suse/rashin/src/main.rs" = "d29e1f36dba705fcb098c8c90641090cfb2cf8d779148b1d8dd555363c5d722a"
+"suse/rashin/src/provider.rs" = "be456d3fb0c750104e6d9c27d23c5c5cc26314f38a5eef97d7379567a78c7f75"
+"suse/rashin/src/runtime.rs" = "542be641e9852977ee995cc95836f2d6171c1652189dedd243d5446a7034b190"
+"suse/rashin/src/store.rs" = "c7ec7c531a339b75a9c1a7d6048ebd7fe03589a758e268e6a74e776dbbd01a22"
+"suse/rashin/src/usage.rs" = "cff6b8d8240caebc67082ca75651ac76511e89aa6ec49ca5bf53938d7815e056"
+"suse/rashin/tests/usage_collectors.rs" = "a64eb262fbdd27e655158a8db20b60d433b9381487aba3af0d88f30d0f55eb6b"
+"suse/rashin/tests/workflows.rs" = "5ef09631525f0a4d3f343aa7a6fdb37edf4cb9e20171e6e51a0e990b48b03993"

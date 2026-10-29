@@ -1,0 +1,53 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "83c1745d7d0f9cc3a806854f90816d716ac25366"
+status = "external-Fix-action-bound-single-use-confirmation-tested-full-parity-pending"
+external_provider_requests = 0
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+vm_runs = 0
+
+[change]
+reason = "Coordinator review found ambiguity between confirming native excerpts and the full external Fix action"
+preview = "Owner fix_preview requires and returns exact kind/component/evidence plus bounded native summary, redacted destination and disclosure"
+binding = "token stores finding digest and component/provider/route/credential revision; changes fail before provider dispatch"
+consumption = "serialized provider-capture transaction consumes token once; replay with another request ID fails; accepted same-ID retry remains idempotent"
+failed_publication = "storage failure after consumption produces no provider egress; obtaining a fresh preview is required"
+local_fix = "automatic local/fixture behavior and legacy no-token fingerprints preserved"
+privacy = "token/finding digest/preview retained only in bounded ephemeral memory, not inserted into prompt or persisted; no keys in preview"
+
+[tests]
+focused_command = "cargo test --locked --offline -p ryoku-rashin"
+focused_passed = 67
+focused_failed = 0
+focused_ignored = 0
+new_cases = ["kind/evidence mismatch rejected without consuming valid token", "single-use actual provider-capture transaction with local provider", "new-ID replay denied but accepted same-ID retry succeeds", "preview returns exact kind/evidence"]
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 647
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 7
+count_scope = "exact sum of terminal harness summaries, including any nested subprocess summaries"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+dependency_graph = "Cargo manifest and lock unchanged; supported x86_64 offline advisories/bans/licenses/sources check from previous receipt remains applicable"
+unfiltered_offline_review = "unavailable due uncached target-inactive Jiff helpers; no fetch"
+previous_hosted_ci = "83c1745 exact-head run40148431793 completed success including dependency review"
+
+[remaining]
+full_issue_complete = false
+live_bridge = "HTTP/Unix transports dispatch Owner; AskClient is library/test policy only, no live restricted identity assignment; same UID is not distinct client identity"
+gates = ["Exact-head hosted CI", "Separate unsafe ABI/lifetime/callback review", "Full retained ACP/harness/Prowl/provider/model/network/UI/terminal behavior", "Live usage quota/RPC and complete model/session/timer/cache bridge", "Protected native state/writer/linked recovery integration", "RPM/vendor/native closure and packaged Tumbleweed VM acceptance"]
+
+[log_sha256]
+focused = "e746624939fa3ee5ccad7191a95a6004477287f8d706f3053a61c08627aa0304"
+workspace = "005db690fbbd21787070029e304d84d7c9db77cc81262f18a191f443010d257b"
+clippy = "bdd84263451b64d63aad4371944b24c9e00f5017b807edd541ebb56ece6d84ec"
+
+[source_sha256]
+"suse/rashin/src/api.rs" = "4e7067f1b5e336b617073ddf6f81a558e35da3ddb4e3d2ae105d54d363264b67"
+"suse/rashin/src/runtime.rs" = "0666700cd81f026eae76264fa04be40b5ccf6af488850c4a649e6ea368684d96"
+"docs/rashin-runtime.md" = "de41b2049bd343ca0056f72e5c3a91ffe4178cd22f4aa5ff24c147552b561a50"

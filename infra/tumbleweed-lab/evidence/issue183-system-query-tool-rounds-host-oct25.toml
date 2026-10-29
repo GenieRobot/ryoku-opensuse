@@ -1,0 +1,116 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "f8377bea255b1e6ae9ddac0b2e0be7ec80d6716a"
+status = "owner-enabled-read-only-system-tool-rounds-tested-full-tool-native-parity-pending"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+new_crates = 0
+
+[source_contract]
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+round_source = "ryoku/rashin/backend/quick.go:389-429"
+round_blob = "a17fe93fc892cd504306b4e3b3948c65f823e6a0"
+tool_source = "ryoku/rashin/backend/quicktools.go:27-135"
+tool_blob = "5fd8cba88541794d467c4ed877c8fe5062b0acec"
+tool_tests = "ryoku/rashin/backend/quicktools_test.go"
+tool_test_blob = "3b5623eab5072a2bdd10cee1b317c819c4864617"
+topics = ["packages","updates","service","processes","disk","kernel","gpu","network"]
+retained_round_limit = "four tool rounds then one final no-tools answer round"
+tumbleweed_adaptations = "RPM installed package/count,cached zypper updates,user-unit properties,no-shell native process/disk/kernel/display-controller/network probes"
+
+[behavior]
+permission = "explicit owner set_read_only_tools and browser checkbox;default disabled,persisted per-provider,scoped configuration denied,captured at accepted job"
+disclosure = "browser explains native state can reach configured gateway/external provider;accepted work retains captured permission until cancelled/terminal"
+fix_boundary = "Fix always disables tool schemas/dispatch despite provider permission;reviewed bounded native evidence cannot expand through tool calls"
+wire = "JSON and fragmented UTF8/SSE function call IDs/names/arguments;assistant tool_calls and corresponding role=tool results returned to actual gateway"
+validation = "8 calls per round,16KiB arguments/call,128byte IDs,64byte function names,64KiB frames,1MiB response;duplicates/malformed/missingterminal/oversize/finalroundcalls refused"
+execution = "fixed absolute executable/argv,cleared environment except LANG/XDG_RUNTIME_DIR,stdin null,stderr suppressed;no shell,arbitrary path/command/repository refresh/install/download"
+round_budget = "one45s deadline covers all requests/probes;connect/peer bounds preserved;native probe at most8s with5ms cancellation polling,kill/wait on every path"
+results = "unknown tool/invalid args/native unavailable become bounded typed error text for model;no fake success;truncation explicit;process/network16/12line bounds"
+privacy = "intermediate tool messages/results ephemeral;only final successful answer and checked aggregate usage persisted;cancelled/failed rounds publish no partial answer/usage"
+compatibility = "disabled providers retain ordinary JSON/SSE path;normal decoder still rejects unsolicited streamed tools;no tool capability silently enabled by saved route changes"
+
+[validation]
+sequence = "full Rashin,strict workspace Clippy,full workspace,fmt/diff,supported-target deny,explicit two-UID proof:terminal exit0"
+focused_unit_command = "cargo test -p ryoku-rashin --lib --locked --offline prowl -- --nocapture"
+focused_unit_passed = 14
+focused_unit_ignored = 1
+focused_workflow_command = "cargo test -p ryoku-rashin --test workflows --locked --offline tool_round_gateway -- --nocapture"
+focused_workflow_passed = 3
+focused_workflows = ["actual kernel query->tool result reaches gateway->final answer and summed usage;default-disabled/browser permission/scoped denial/restart/Fix no-tools", "4 rounds then final no-tools success and attempted5th-call failure;unknown and malformed args become error results;real native query still succeeds", "cancel following completed tool result closes followupSSE within1s;no partial answer/usage"]
+unit_boundaries = ["fragmented UTF8 and multiple tool IDs/arguments/usage", "malformed/duplicate/oversized/missingterminal calls rejected", "fixed8topic executables and argument injection rejection", "actual host kernel and pre-spawn cancellation", "bounded output/timeout/mid-probe cancellation with reaping"]
+full_command = "cargo test -p ryoku-rashin --locked --offline"
+full_passed = 130
+full_failed = 0
+full_ignored = 1
+full_breakdown = "59unit,15collector,56workflow"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 710
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 8
+count_scope = "sum of terminal summaries including nested subprocesses;7 existing ignores plus explicitly exercised namespace prerequisite case"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings:passed,0warnings"
+format = "cargo fmt --all -- --check:passed"
+diff = "git diff --check:passed"
+spec = "rpmspec --parse and rpmspec -q --requires packaging/rpm/ryoku-desktop.spec:passed;all5 new fixed-probe package requirements visible;focused spec regression included"
+dependency_metadata_command = "cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu"
+dependency_command = "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path FILTERED_METADATA --all-features check"
+dependency_result = "advisories,bans,licenses,sources ok for supported x86_64 all-features graph"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers;no fetch"
+two_uid_command = "unshare --user --map-auto --map-root-user target/debug/deps/ryoku_rashin-e5c84e14e6648c40 --ignored --exact prowl::transport::tests::connected_foreign_uid_receives_no_request_or_management_credential --nocapture"
+two_uid_result = "explicit host1/1 pass after final source;metadataGET and completionPOST ownerUID0 Unauthorized/foreignUID1 zero bytes;separate from defaultCI prerequisite ignore"
+corrected_before_final = "closure type annotation and moved route borrow fixed during compile;Clippy collapsed conditional and RoundOptions grouping fixed without lint allows;all final gates rerun on corrected tree"
+
+[storage]
+verified_paths = "workspace target,HOME,Cargo/Rustup caches on/dev/sdd;logs/tmp artifacts on/tmp tmpfs"
+pre_suite_available_bytes_linux = 954602254336
+pre_suite_available_bytes_tmpfs = 6926807040
+constraints = "C backing volume below10GiB floor untouched;no C-bound writes/downloads/cleanup/candidate/native/VM work"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact-head hosted CI", "All retained read_file/list_dir roots and secret/path boundaries,source search_code,public fetch_url DNS/redirect checks", "Tool activity UI and TOOLS_REQUIRED isolated harness escalation", "Full retained ACP sessions,replay,cancellation,tools,approvals,images,thinking,terminal and process isolation", "Prowl/profile/provider/sign-in/fallback/network server mutations and native lifecycle", "Protected account state/writer/capture and linked mutation recovery", "Full vault/memory/journal/project/skills/source enrollment and isolated capability delivery", "Quota/RPC/original timer-cache/shell bridge", "Native app/Svelte/shell/Hub integration,source/export/RPM/vendor/license closure and packaged Tumbleweed install/login/interaction/usage/restart/removal/KDE acceptance"]
+
+[installed_providers]
+"/usr/bin/rpm" = "rpm 4.20.1-9.1 x86_64;sha256=44d3a9d98a919144a185cebf700c8c03697bbda85d7228771d2df222bf134111"
+"/usr/bin/zypper" = "zypper 1.14.98-1.2 x86_64;sha256=480f1ec155546d765599d8601f0c763b062bce3a57df69443c66b2edb6402cd9"
+"/usr/bin/systemctl" = "systemd 261.1-1.1 x86_64;sha256=8ca72ee05cd263624a0bccd27a372ebd2829900d1c69963bc062e311e9a2251b"
+"/usr/bin/ps" = "procps 4.0.6-1.3 x86_64;sha256=ca29e16e549d6c0df62cc9413e21446ab9488b86b9eef3921676219de8fe3957"
+"/usr/bin/df" = "coreutils 9.11-4.2 x86_64;sha256=b75512582eecf7a076135719596b79fb1d5ecf657ffb6cffb24aa114f6cacbe4"
+"/usr/bin/uname" = "coreutils 9.11-4.2 x86_64;sha256=eadef2ff253b3b4c292ecbc1d8ef2aaaaebf2605ae31d01127f239eb40e7c7e3"
+"/usr/sbin/lspci" = "pciutils 3.14.0-2.4 x86_64;sha256=669c3c7cc183c74f04586eb72a4fc32fdd67b5c344c3d4682650f232719c6148"
+"/usr/sbin/ip" = "iproute2 7.1-1.2 x86_64;sha256=ec2cc30869678385d19cef864bf813b5cb8a6ac8e321891b627d89c3744dc6b2"
+
+[log_sha256]
+focused_unit = "b642ad965ccb533a3cb80eb8510f73bc6c604048f0fd9486454ee5c8111c3ee5"
+focused_workflows = "5d92c5beece5b8781491f4ca356483d67b1d63f3b34f039b8aba23018a9dbeb4"
+full = "014b5e3a5a157c1d776a3be47c3cdedb6b5c8d584d87cfac29ece8f33ebd167c"
+workspace = "1bf5f03d48cafd762befe212b7d9240836adfa42aa3b8b6c0b7bcfff19eb92e3"
+clippy = "ee9f73a4f46e06e1d284ab9d240dfb66912523ce5511cf16de2c070e608d9f68"
+dependency = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+two_uid = "f1a48f02688bd5e537b68c42f6a34d11e9ccdfda2333581c709f9173c7c7de57"
+sequence = "2cce302ecc38ddbe4c446af4c4e3a7425d37418fefc895e26472f027ba8d1a39"
+spec_expanded = "fb9469acf7597330ebcaaa4c506f36fac41df834382a54437321b9822db26518"
+spec_requires = "3100260a40f805a948410737800b5303e6606f1a0ecb9ff1606c81232e261569"
+rpm_providers = "68164747303847aaaca6584b88bbd856d20b8b0dc63674565eca3f087a04eaea"
+
+[source_sha256]
+"docs/rashin-runtime.md" = "7b64a314c169738030d5e03c4994889ddf9488ba0a7b274310b272c97a07ded4"
+"packaging/rpm/ryoku-desktop.spec" = "02fa094c3d1375451fd2d1e8dcbb9a3bb4ea291721d7f533616a1bc1d17df16d"
+"suse/rashin/src/api.rs" = "632f446fc322f2f89652364be7c94258dea7da83a61bc7343f5e519d0f92569b"
+"suse/rashin/src/authorization.rs" = "633cada6666e3799f88ee9142d634b12710e7a5dc78243deef0f2b50bcc9b275"
+"suse/rashin/src/http/console.rs" = "81bcdd097f663ee0a18cd95a24867424dc2a1a4bc222dd8a1cdf4d4acd9f1a68"
+"suse/rashin/src/provider.rs" = "1e02d3304b969d44a69aa115982a70265d7f8e01d2f63b2ab74460830907b375"
+"suse/rashin/src/provider/stream.rs" = "f3e70d9902743e731495b6230b4006260b86feffd10bd651f8f9b864b9ed0d39"
+"suse/rashin/src/prowl.rs" = "a6fc212b26e6a86dc3ee65b145105fe7794cafc59f525774e57c56d089588621"
+"suse/rashin/src/prowl/completion.rs" = "71f53bd3f2a44918cd92605498ee15968914c5884db45d32cb1787a92b5bf2d1"
+"suse/rashin/src/prowl/system_query.rs" = "15a12d689ba7f8ae3b17cb50007738156a7bf797ab4fb54d53a734c0610417ae"
+"suse/rashin/src/prowl/tool_calls.rs" = "6a42cda0ca13659fc0aeae74959e42052c322340439f74f3f24c05aa579b64dc"
+"suse/rashin/src/prowl/tools.rs" = "ba23d48e7a6a0bc8ace649ea60a569a01dea8e3192a210e3cd534adcfebd108b"
+"suse/rashin/src/runtime.rs" = "6a266078062d2387ae572ceb8c53bec63ea5464d8916c2a1b70e39a20b716fb9"
+"suse/rashin/tests/workflows.rs" = "09e064a71ccaaa85a164712ac2a8bdbb66e81e2d05da091151c44929d8212fb7"
