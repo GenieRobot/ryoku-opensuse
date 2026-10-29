@@ -231,6 +231,99 @@ fn done(engine: &Arc<ryoku_rashin::runtime::Engine>, id: &str) -> Value {
     }
 }
 #[test]
+#[ignore = "requires real namespace runner; ACP config-option model proof"]
+fn configured_acp_models_support_catalog_selection_and_live_updates() {
+    use ryoku_rashin::{
+        api::{Lane, Request},
+        runtime::Engine,
+        store::Store,
+    };
+    use std::{fs, os::unix::fs::PermissionsExt};
+    let root = std::env::temp_dir().join(format!("rashin-config-model-{}", std::process::id()));
+    fs::create_dir(&root).unwrap();
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+    let engine = Engine::open_with_adapter_runner(
+        Store::open(&root).unwrap(),
+        env!("CARGO_BIN_EXE_ryoku-rashin").into(),
+    )
+    .unwrap();
+    engine
+        .dispatch(Request::EnrollAcpProvider {
+            id: "config-adapter".into(),
+            path: env!("CARGO_BIN_EXE_ryoku-rashin-acp-fixture").into(),
+            models: vec!["fixture/default".into(), "fixture/λ".into()],
+            arguments: Arguments::Acp,
+            network: false,
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::RefreshModels {
+            id: "config-catalog".into(),
+            provider: "config-adapter".into(),
+        })
+        .unwrap();
+    let catalog = done(&engine, "config-catalog");
+    assert_eq!(catalog["status"], "completed");
+    assert_eq!(catalog["catalog_count"], 2);
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Ask,
+            provider: "config-adapter".into(),
+            model: "fixture/λ".into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::Ask {
+            id: "config-selection".into(),
+            prompt: "which configured model".into(),
+        })
+        .unwrap();
+    let job = done(&engine, "config-selection");
+    assert_eq!(job["answer"], "fixture/λ");
+    assert_eq!(job["actual_model"], "fixture/λ");
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Ask,
+            provider: "config-adapter".into(),
+            model: "fixture/default".into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::Ask { id: "config-update".into(), prompt: "config model update".into() })
+        .unwrap();
+    let job = done(&engine, "config-update");
+    assert_eq!(job["answer"], "Updated config model");
+    assert_eq!(job["model"], "fixture/default");
+    assert_eq!(job["actual_model"], "fixture/λ");
+    engine
+        .dispatch(Request::EnrollAcpProvider {
+            id: "default-adapter".into(),
+            path: env!("CARGO_BIN_EXE_ryoku-rashin-acp-fixture").into(),
+            models: vec!["adapter-default".into()],
+            arguments: Arguments::Acp,
+            network: false,
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Ask,
+            provider: "default-adapter".into(),
+            model: "adapter-default".into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::Ask {
+            id: "adapter-default".into(),
+            prompt: "which configured model".into(),
+        })
+        .unwrap();
+    let job = done(&engine, "adapter-default");
+    assert_eq!(job["answer"], "fixture/default");
+    assert_eq!(job["actual_model"], "fixture/setup");
+    drop(engine);
+    fs::remove_dir_all(root).unwrap();
+}
+#[test]
 #[ignore = "requires real namespace runner; private ACP thinking host proof"]
 fn acp_thinking_is_live_private_bounded_and_persisted_only_on_completion() {
     use ryoku_rashin::{

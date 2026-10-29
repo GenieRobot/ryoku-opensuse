@@ -59,6 +59,35 @@ fn metadata_text(value: &Value, max: usize) -> Result<String> {
     }
     Ok(text.into())
 }
+fn clean_title(value: &Value) -> Result<String> {
+    let raw = metadata_text(value, 32 * 1024)?;
+    let mut title = raw.as_str();
+    while title.starts_with("[system:") {
+        let Some(end) = title.find("] ") else { return Ok(String::new()) };
+        title = &title[end + 2..];
+    }
+    if title.starts_with("[handoff from Ask]") {
+        let Some(body) = title.strip_prefix("[handoff from Ask]\nQuestion: ") else {
+            return Ok(String::new());
+        };
+        let Some((_, answer)) = body.split_once('\n') else { return Ok(String::new()) };
+        if !answer.starts_with("Answer: ") {
+            return Ok(String::new());
+        }
+        let Some((_, rest)) = answer.rsplit_once("\n[/handoff]\n\n") else {
+            return Ok(String::new());
+        };
+        title = rest;
+    }
+    if title.starts_with("[system:") || title.starts_with("[handoff from Ask]") {
+        return Ok(String::new());
+    }
+    let title = title.trim();
+    if !valid_metadata_text(title, 256) {
+        return Err(Error::ProviderFailed);
+    }
+    Ok(title.into())
+}
 struct Surface<'a, 'b> {
     context: &'a ReadTools,
     callbacks: &'a mut Callbacks<'b>,
@@ -258,12 +287,15 @@ impl Handler for Surface<'_, '_> {
             }
             "session_info_update" => {
                 if let Some(title) = update.get("title").filter(|value| !value.is_null()) {
-                    (self.metadata)(MetadataUpdate::Title(
-                        metadata_text(title, 256)?.trim().into(),
-                    ))?;
+                    (self.metadata)(MetadataUpdate::Title(clean_title(title)?))?;
                 }
             }
-            "user_message_chunk" | "current_mode_update" | "config_option_update" | "plan" => {}
+            "config_option_update" => {
+                if let Some(config) = super::protocol::config_models(update)? {
+                    self.actual_model = config.current;
+                }
+            }
+            "user_message_chunk" | "current_mode_update" | "plan" => {}
             _ => return Err(Error::ProviderUnavailable),
         }
         Ok(())
@@ -296,6 +328,11 @@ pub(crate) fn complete(
     };
     let mut client = Client::connect(config, options.runner, deadline, cancelled, &mut surface)?;
     client.new_session(deadline, cancelled, &mut surface)?;
+    // Selection is newer than model notifications emitted during setup.
+    // Notifications during selection or prompt still report the actual model.
+    if model != "adapter-default" {
+        surface.actual_model = None;
+    }
     client.set_model(model, deadline, cancelled, &mut surface)?;
     let prompt = serde_json::to_string(messages).map_err(|_| Error::InvalidRequest)?;
     surface.collecting = true;
@@ -347,4 +384,20 @@ pub(crate) fn catalog(
         models.push("adapter-default".into());
     }
     Ok(models)
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn session_titles_strip_injected_identity_and_handoff_blocks() {
+        assert_eq!(clean_title(&json!("[system: private] [handoff from Ask]\nQuestion: q\nAnswer: a\n[/handoff]\n\nVisible title")).unwrap(),"Visible title");
+        assert_eq!(
+            clean_title(&json!("[system: private] Visible title")).unwrap(),
+            "Visible title"
+        );
+        assert_eq!(clean_title(&json!("[system: malformed")).unwrap(), "");
+        assert_eq!(clean_title(&json!("[handoff from Ask] malformed")).unwrap(), "");
+        assert_eq!(clean_title(&json!("ordinary")).unwrap(), "ordinary");
+        assert!(clean_title(&json!("x".repeat(257))).is_err());
+    }
 }

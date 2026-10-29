@@ -204,6 +204,12 @@ impl Client {
                         self.deferred.push(params);
                     } else {
                         self.check_session(&params)?;
+                        if params["update"]["sessionUpdate"] == "config_option_update" {
+                            self.session
+                                .as_mut()
+                                .ok_or(Error::Integrity)?
+                                .update_config(&params["update"])?;
+                        }
                         handler.update(&params)?;
                     }
                 }
@@ -241,9 +247,12 @@ impl Client {
         self.session = Some(session.clone());
         for params in std::mem::take(&mut self.deferred) {
             self.check_session(&params)?;
+            if params["update"]["sessionUpdate"] == "config_option_update" {
+                self.session.as_mut().ok_or(Error::Integrity)?.update_config(&params["update"])?;
+            }
             handler.update(&params)?;
         }
-        Ok(session)
+        self.session.clone().ok_or(Error::Integrity)
     }
     pub fn load_session(
         &mut self,
@@ -268,9 +277,12 @@ impl Client {
         self.session = Some(session.clone());
         for params in std::mem::take(&mut self.deferred) {
             self.check_session(&params)?;
+            if params["update"]["sessionUpdate"] == "config_option_update" {
+                self.session.as_mut().ok_or(Error::Integrity)?.update_config(&params["update"])?;
+            }
             handler.update(&params)?;
         }
-        Ok(session)
+        self.session.clone().ok_or(Error::Integrity)
     }
     pub fn set_model(
         &mut self,
@@ -286,13 +298,15 @@ impl Client {
         if !session.models.iter().any(|offered| offered.id == model) {
             return Err(Error::ProviderUnavailable);
         }
-        self.call(
-            "session/set_model",
-            json!({"sessionId":session.id,"modelId":model}),
-            deadline,
-            cancelled,
-            handler,
-        )?;
+        let (method, params) = if let Some(option) = &session.model_option {
+            (
+                "session/set_config_option",
+                json!({"sessionId":session.id,"configId":option,"value":model}),
+            )
+        } else {
+            ("session/set_model", json!({"sessionId":session.id,"modelId":model}))
+        };
+        self.call(method, params, deadline, cancelled, handler)?;
         self.session.as_mut().ok_or(Error::Integrity)?.current_model = Some(model.into());
         Ok(())
     }

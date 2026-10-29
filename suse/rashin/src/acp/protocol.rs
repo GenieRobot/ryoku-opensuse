@@ -120,6 +120,53 @@ pub struct Session {
     pub id: String,
     pub models: Vec<Model>,
     pub current_model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_option: Option<String>,
+}
+pub(super) struct ConfigModels {
+    pub option: String,
+    pub models: Vec<Model>,
+    pub current: Option<String>,
+}
+pub(super) fn config_models(value: &Value) -> Result<Option<ConfigModels>> {
+    let Some(rows) = value.get("configOptions").filter(|rows| !rows.is_null()) else {
+        return Ok(None);
+    };
+    let rows = rows.as_array().filter(|rows| rows.len() <= 128).ok_or(Error::ProviderFailed)?;
+    let mut selected = None;
+    for option in rows {
+        if option["category"] != "model" || option["type"] != "select" {
+            continue;
+        }
+        if selected.is_some() {
+            return Err(Error::ProviderFailed);
+        }
+        let id = opaque(&option["id"])?;
+        let values = option["options"]
+            .as_array()
+            .filter(|rows| rows.len() <= 128)
+            .ok_or(Error::ProviderFailed)?;
+        let mut models = Vec::with_capacity(values.len());
+        for row in values {
+            let value = opaque(&row["value"])?;
+            if models.iter().any(|model: &Model| model.id == value) {
+                return Err(Error::ProviderFailed);
+            }
+            let name =
+                match row.get("name").filter(|name| !name.is_null() && name.as_str() != Some("")) {
+                    Some(name) => opaque(name)?,
+                    None => value.clone(),
+                };
+            models.push(Model { id: value, name });
+        }
+        let current = option
+            .get("currentValue")
+            .filter(|value| !value.is_null() && value.as_str() != Some(""))
+            .map(opaque)
+            .transpose()?;
+        selected = Some(ConfigModels { option: id, models, current });
+    }
+    Ok(selected)
 }
 impl Session {
     pub(super) fn decode(value: &Value, loaded: Option<&str>) -> Result<Self> {
@@ -127,6 +174,16 @@ impl Session {
             Some(id) => opaque(id)?,
             None => loaded.ok_or(Error::ProviderFailed)?.to_owned(),
         };
+        if value.get("models").is_none_or(|value| value.is_null())
+            && let Some(config) = config_models(value)?
+        {
+            return Ok(Self {
+                id,
+                models: config.models,
+                current_model: config.current,
+                model_option: Some(config.option),
+            });
+        }
         let mut models = Vec::new();
         if let Some(rows) = value["models"].get("availableModels") {
             let rows = rows.as_array().ok_or(Error::ProviderFailed)?;
@@ -146,7 +203,15 @@ impl Session {
             .filter(|id| !id.is_null())
             .map(opaque)
             .transpose()?;
-        Ok(Self { id, models, current_model })
+        Ok(Self { id, models, current_model, model_option: None })
+    }
+    pub(super) fn update_config(&mut self, update: &Value) -> Result<()> {
+        if let Some(config) = config_models(update)? {
+            self.model_option = Some(config.option);
+            self.models = config.models;
+            self.current_model = config.current;
+        }
+        Ok(())
     }
 }
 #[cfg(test)]
@@ -181,5 +246,30 @@ mod tests {
         assert_eq!(session.current_model.as_deref(), Some("unavailable/saved"));
         assert!(!serde_json::to_string(&session).unwrap().contains("PRIVATE_SECRET"));
         assert_eq!(Session::decode(&json!({}), Some("loaded-id")).unwrap().id, "loaded-id");
+    }
+    #[test]
+    fn config_model_selection_preserves_ids_and_rejects_ambiguous_or_duplicate_options() {
+        let option = json!({"id":"model/option","category":"model","type":"select","currentValue":"opaque/λ","options":[{"value":"opaque/λ","name":"Unicode"},{"value":"other","name":"Other"}]});
+        let decoded =
+            Session::decode(&json!({"sessionId":"s","configOptions":[option.clone()]}), None)
+                .unwrap();
+        assert_eq!(decoded.model_option.as_deref(), Some("model/option"));
+        assert_eq!(decoded.current_model.as_deref(), Some("opaque/λ"));
+        assert_eq!(decoded.models.len(), 2);
+        assert!(
+            Session::decode(
+                &json!({"sessionId":"s","configOptions":[option.clone(),option.clone()]}),
+                None
+            )
+            .is_err()
+        );
+        let mut duplicate = option.clone();
+        duplicate["options"][1]["value"] = json!("opaque/λ");
+        assert!(
+            Session::decode(&json!({"sessionId":"s","configOptions":[duplicate]}), None).is_err()
+        );
+        let legacy=Session::decode(&json!({"sessionId":"s","models":{"availableModels":[],"currentModelId":"legacy"},"configOptions":[option]}),None).unwrap();
+        assert!(legacy.model_option.is_none());
+        assert_eq!(legacy.current_model.as_deref(), Some("legacy"));
     }
 }

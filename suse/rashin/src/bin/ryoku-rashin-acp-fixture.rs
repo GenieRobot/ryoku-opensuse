@@ -26,6 +26,8 @@ fn main() -> std::io::Result<()> {
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
     }
+    let config_model = std::env::args().nth(1).as_deref() == Some("acp");
+    let mut selected_model = String::from("fixture/default");
     let mut session = String::new();
     let mut serial = 0u64;
     let mut pending: Option<(Value, String)> = None;
@@ -90,10 +92,23 @@ fn main() -> std::io::Result<()> {
             "session/new" => {
                 serial += 1;
                 session = format!("fixture-session-{serial}");
-                reply(
-                    id,
-                    json!({"sessionId":session,"models":{"currentModelId":"fixture/default","availableModels":[{"modelId":"fixture/default","name":"Default"},{"modelId":"fixture/λ","name":"Opaque model"}]}}),
-                )?;
+                if config_model {
+                    send(
+                        json!({"jsonrpc":"2.0","method":"session/update","params":{"sessionId":session,"update":{"sessionUpdate":"config_option_update","configOptions":[{"id":"model-option","category":"model","type":"select","currentValue":"fixture/default","options":[{"value":"fixture/default","name":"Default"},{"value":"fixture/λ","name":"Opaque model"}]}]}}}),
+                    )?;
+                    send(
+                        json!({"jsonrpc":"2.0","method":"session/update","params":{"sessionId":session,"update":{"sessionUpdate":"current_model_update","currentModelId":"fixture/setup"}}}),
+                    )?;
+                    reply(
+                        id,
+                        json!({"sessionId":session,"configOptions":[{"id":"model-option","category":"model","type":"select","currentValue":"fixture/default","options":[{"value":"fixture/default","name":"Default"},{"value":"fixture/λ","name":"Opaque model"}]}]}),
+                    )?;
+                } else {
+                    reply(
+                        id,
+                        json!({"sessionId":session,"models":{"currentModelId":"fixture/default","availableModels":[{"modelId":"fixture/default","name":"Default"},{"modelId":"fixture/λ","name":"Opaque model"}]}}),
+                    )?;
+                }
             }
             "session/load" => {
                 session =
@@ -105,6 +120,20 @@ fn main() -> std::io::Result<()> {
                 )?;
             }
             "session/set_model" => reply(id, json!({}))?,
+            "session/set_config_option" => {
+                if !config_model
+                    || params["sessionId"] != session
+                    || params["configId"] != "model-option"
+                {
+                    return Err(std::io::ErrorKind::InvalidData.into());
+                }
+                selected_model = params["value"]
+                    .as_str()
+                    .filter(|v| matches!(*v, "fixture/default" | "fixture/λ"))
+                    .ok_or(std::io::ErrorKind::InvalidData)?
+                    .into();
+                reply(id, json!({}))?;
+            }
             "session/prompt" => {
                 if params["sessionId"] != session {
                     return Err(std::io::ErrorKind::InvalidData.into());
@@ -117,6 +146,18 @@ fn main() -> std::io::Result<()> {
                     .and_then(|rows| rows.iter().rev().find(|row| row["role"] == "user"))
                     .and_then(|row| row["content"].as_str())
                     .unwrap_or(text);
+
+                if text == "which configured model" {
+                    answer(&session, id, &selected_model)?;
+                    continue;
+                }
+                if text == "config model update" && config_model {
+                    send(
+                        json!({"jsonrpc":"2.0","method":"session/update","params":{"sessionId":session,"update":{"sessionUpdate":"config_option_update","configOptions":[{"id":"model-option","category":"model","type":"select","currentValue":"fixture/λ","options":[{"value":"fixture/default","name":"Default"},{"value":"fixture/λ","name":"Opaque model"}]}]}}}),
+                    )?;
+                    answer(&session, id, "Updated config model")?;
+                    continue;
+                }
 
                 if text == "show thought" || text == "thought then wait" {
                     send(

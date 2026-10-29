@@ -1044,8 +1044,16 @@ the authenticated job view. Titles from completed Agent or Chat turns also
 label their local conversation and survive restart; cancelled or failed turns
 do not change the saved title. Commands carry only the name, description and
 optional input hint, with unknown provider fields discarded and output escaped.
+Titles remove the retained upstream identity and Ask handoff preambles before
+display or persistence.
 At the state limit, optional details can be omitted to preserve the answer. This
 does not establish persistent native ACP session replay.
+
+ACP adapters may advertise models either through the legacy model list or a
+`model` select configuration option. Catalog refresh and explicit model picks
+use the corresponding protocol method, and configuration updates update the
+actual model without rewriting the saved lane pick. The namespace fixture
+exercises catalog, selection and live updates through the real engine.
 
 Prowl connections retry transient connection timeouts for at most three seconds
 before sending any request or credential. Each attempt is limited to one second
