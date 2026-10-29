@@ -231,6 +231,215 @@ fn done(engine: &Arc<ryoku_rashin::runtime::Engine>, id: &str) -> Value {
     }
 }
 #[test]
+#[ignore = "requires real namespace runner; explicit Ask fallback host proof"]
+fn ask_fallback_captures_route_and_grants_suppresses_marker_and_accounts_both_attempts() {
+    use ryoku_rashin::{
+        api::{Lane, Request},
+        authorization::Access,
+        provider::{FixtureOutcome, Provider},
+        runtime::Engine,
+        store::Store,
+    };
+    use std::{fs, os::unix::fs::PermissionsExt};
+    let root = std::env::temp_dir().join(format!("rashin-ask-fallback-{}", std::process::id()));
+    fs::create_dir(&root).unwrap();
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+    let state = root.join("state");
+    let notes = root.join("notes");
+    for path in [&state, &notes] {
+        fs::create_dir(path).unwrap();
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    fs::write(notes.join("note.txt"), "CAPTURED CONTENT\n").unwrap();
+    let engine = Engine::open_with_adapter_runner(
+        Store::open(&state).unwrap(),
+        env!("CARGO_BIN_EXE_ryoku-rashin").into(),
+    )
+    .unwrap();
+    engine
+        .dispatch(Request::EnrollAcpProvider {
+            id: "adapter".into(),
+            path: env!("CARGO_BIN_EXE_ryoku-rashin-acp-fixture").into(),
+            models: vec!["fixture/default".into()],
+            arguments: Arguments::Stdio,
+            network: false,
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::EnrollReadRoot {
+            provider: "adapter".into(),
+            id: "notes".into(),
+            path: notes.to_str().unwrap().into(),
+        })
+        .unwrap();
+    let selection = Request::SetAskFallback {
+        provider: Some("adapter".into()),
+        model: Some("fixture/default".into()),
+    };
+    assert_eq!(engine.dispatch_as(Access::AskClient, selection), Err(Error::Unauthorized));
+    let gateway = ryoku_rashin::http::Gateway::new(
+        engine.clone(),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    let choice = json!({"provider":"adapter","model":"fixture/default"}).to_string();
+    assert!(
+        form(&gateway, &[("action", "set_ask_fallback"), ("choice", &choice)])
+            .starts_with("HTTP/1.1 303")
+    );
+    assert!(browser(&gateway, "GET", "/console", "").contains("Ask fallback ACP model"));
+    engine
+        .dispatch(Request::PutProvider {
+            id: "fast".into(),
+            provider: Provider::Fixture {
+                delay_millis: 600,
+                outcome: FixtureOutcome::Stream {
+                    chunks: vec!["TOOLS_".into(), "REQUIRED".into()],
+                    fail: false,
+                },
+                catalog: None,
+            },
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Ask,
+            provider: "fast".into(),
+            model: "fixture-v1".into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::Ask { id: "snapshot".into(), prompt: "read:notes:/note.txt".into() })
+        .unwrap();
+    engine
+        .dispatch(Request::DisableReadRoot { provider: "adapter".into(), id: "notes".into() })
+        .unwrap();
+    engine.dispatch(Request::SetAskFallback { provider: None, model: None }).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let view = engine.dispatch(Request::Job { id: "snapshot".into() }).unwrap();
+        assert!(!view["progress"].as_str().unwrap_or("").contains("TOOLS_"));
+        if view["job"]["status"] != "running" {
+            break;
+        }
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let job = done(&engine, "snapshot");
+    assert_eq!(job["answer"], "CAPTURED CONTENT\n");
+    assert_eq!(job["fallback"]["reason"], "needs_tools");
+    assert_eq!(job["fallback"]["route"]["provider"], "adapter");
+    assert!(browser(&gateway, "GET", "/job/snapshot", "").contains("Ask fallback: adapter"));
+    let usage = engine.dispatch(Request::Usage {}).unwrap();
+    let entries = usage["activity"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|row| row["job"] == "snapshot")
+        .collect::<Vec<_>>();
+    assert_eq!(entries.len(), 2);
+    assert_eq!(entries[0]["provider"], "fast");
+    assert_eq!(entries[1]["provider"], "adapter");
+    engine
+        .dispatch(Request::Ask { id: "disabled".into(), prompt: "read:notes:/note.txt".into() })
+        .unwrap();
+    assert_eq!(done(&engine, "disabled")["error"], "provider_unavailable");
+    engine
+        .dispatch(Request::SetAskFallback {
+            provider: Some("adapter".into()),
+            model: Some("fixture/default".into()),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::PutProvider {
+            id: "fast".into(),
+            provider: Provider::Fixture {
+                delay_millis: 0,
+                outcome: FixtureOutcome::Failure,
+                catalog: None,
+            },
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::Ask { id: "failure".into(), prompt: "read:notes:/note.txt".into() })
+        .unwrap();
+    let job = done(&engine, "failure");
+    assert_eq!(job["fallback"]["reason"], "fast_lane_unavailable");
+    assert_eq!(job["answer"], "Denied by client capability policy");
+    engine
+        .dispatch(Request::Ask {
+            id: "cancel-fallback".into(),
+            prompt: "wait for cancellation".into(),
+        })
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let view = engine.dispatch(Request::Job { id: "cancel-fallback".into() }).unwrap();
+        if view["job"]["fallback"]["used"] == true {
+            break;
+        }
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    engine.dispatch(Request::Cancel { id: "cancel-fallback".into() }).unwrap();
+    assert_eq!(done(&engine, "cancel-fallback")["status"], "cancelled");
+    engine.dispatch(Request::RemoveProvider { id: "fast".into() }).unwrap();
+    engine
+        .dispatch(Request::Ask { id: "missing-fast".into(), prompt: "read:notes:/note.txt".into() })
+        .unwrap();
+    let job = done(&engine, "missing-fast");
+    assert_eq!(job["fallback"]["reason"], "fast_lane_unavailable");
+    assert_eq!(job["answer"], "Denied by client capability policy");
+    engine
+        .dispatch(Request::PutProvider {
+            id: "fast".into(),
+            provider: Provider::Fixture {
+                delay_millis: 0,
+                outcome: FixtureOutcome::Answer("ordinary answer".into()),
+                catalog: None,
+            },
+        })
+        .unwrap();
+    engine.dispatch(Request::Ask { id: "ordinary".into(), prompt: "hello".into() }).unwrap();
+    let job = done(&engine, "ordinary");
+    assert_eq!(job["answer"], "ordinary answer");
+    assert_eq!(job["fallback"]["used"], false);
+    engine
+        .dispatch(Request::PutProvider {
+            id: "fast".into(),
+            provider: Provider::Fixture {
+                delay_millis: 0,
+                outcome: FixtureOutcome::Answer("TOOLS_REQUIRED".into()),
+                catalog: None,
+            },
+        })
+        .unwrap();
+    for (lane, id) in [(Lane::Agent, "agent"), (Lane::Chat, "chat")] {
+        engine
+            .dispatch(Request::SetRoute {
+                lane,
+                provider: "fast".into(),
+                model: "fixture-v1".into(),
+            })
+            .unwrap();
+        engine.dispatch(Request::NewSession { id: id.into(), lane }).unwrap();
+        engine
+            .dispatch(Request::Prompt {
+                id: format!("{id}-job"),
+                session: id.into(),
+                prompt: "hello".into(),
+            })
+            .unwrap();
+        let job = done(&engine, &format!("{id}-job"));
+        assert_eq!(job["answer"], "TOOLS_REQUIRED");
+        assert!(job["fallback"].is_null());
+    }
+    drop(gateway);
+    drop(engine);
+    fs::remove_dir_all(root).unwrap();
+}
+#[test]
 #[ignore = "requires real namespace runner;explicit configured API/runtime/browser host acceptance proof"]
 fn enrolled_acp_provider_browser_and_real_engine_execute_reads_denials_models_cancel_and_restart() {
     use ryoku_rashin::{

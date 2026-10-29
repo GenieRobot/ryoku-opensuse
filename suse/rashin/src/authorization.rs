@@ -65,7 +65,7 @@ impl Request {
             | Self::SetPublicWeb { .. }
             | Self::EnrollReadRoot { .. }
             | Self::DisableReadRoot { .. } => Action::ProviderCredentials,
-            Self::SetRoute { .. } => Action::Route,
+            Self::SetRoute { .. } | Self::SetAskFallback { .. } => Action::Route,
             Self::Index { .. } | Self::IndexWiki { .. } => Action::Index,
             Self::Fix { .. } | Self::FixPreview { .. } => Action::Fix,
             Self::Wire { .. } | Self::Unwire {} => Action::AgentInstructions,

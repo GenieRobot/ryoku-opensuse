@@ -79,6 +79,10 @@ pub enum Request {
     RemoveProvider {
         id: String,
     },
+    SetAskFallback {
+        provider: Option<String>,
+        model: Option<String>,
+    },
     SetRoute {
         lane: Lane,
         provider: String,

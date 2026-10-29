@@ -19,7 +19,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Route {
     provider: String,
@@ -96,6 +96,24 @@ enum JobOperation {
     CatalogRefresh,
 }
 
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum FallbackReason {
+    NeedsTools,
+    FastLaneUnavailable,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FallbackAttempt {
+    route: Route,
+    used: bool,
+    reason: Option<FallbackReason>,
+}
+struct FallbackTask {
+    route: Route,
+    captured: Result<(Provider, crate::prowl::ReadTools)>,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Job {
@@ -129,6 +147,8 @@ struct Job {
     needs_agent: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     needs_agent_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    fallback: Option<FallbackAttempt>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -168,6 +188,8 @@ struct State {
     #[serde(default)]
     code_search_roots: BTreeMap<String, String>,
     routes: BTreeMap<Lane, Route>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ask_fallback: Option<Route>,
     documents: Vec<Document>,
     sessions: BTreeMap<String, Session>,
     jobs: BTreeMap<String, Job>,
@@ -199,6 +221,7 @@ impl Default for State {
                 .into_iter()
                 .map(|lane| (lane, route.clone()))
                 .collect(),
+            ask_fallback: None,
             documents: Vec::new(),
             sessions: BTreeMap::new(),
             jobs: BTreeMap::new(),
@@ -319,6 +342,7 @@ struct ActiveJob {
     text: String,
     tools: Vec<crate::prowl::activity::Record>,
     ask_progress: Option<crate::ask::Progress>,
+    tools_truncated: bool,
 }
 
 pub struct Engine {
@@ -920,6 +944,7 @@ impl Engine {
                         active.cancelled.store(true, Ordering::Release);
                         active.text.clear();
                         job.tool_activity = crate::prowl::activity::terminal(active.tools.clone(), crate::prowl::activity::Phase::Cancelled, Some(Error::Cancelled));
+                        job.tool_activity_truncated |= active.tools_truncated;
                     }
                 }
                 let status=job.status;
@@ -1014,6 +1039,20 @@ impl Engine {
                 // Saved picks remain visible when their provider disappears.
                 Ok(json!({"removed":id}))
             }),
+            Request::SetAskFallback{provider,model}=>self.transaction(|state| {
+                state.ask_fallback=match(provider,model) {
+                    (None,None)=>None,
+                    (Some(provider),Some(model))=>{
+                        identifier(&provider)?;
+                        let configured=state.providers.get(&provider).ok_or(Error::ProviderUnavailable)?;
+                        if !matches!(configured,Provider::Acp{..}) || !configured.models().contains(&model) {return Err(Error::ProviderUnavailable);}
+                        Some(Route{provider,model})
+                    },
+                    _=>return Err(Error::InvalidRequest),
+                };
+                state.configuration_revision=state.configuration_revision.checked_add(1).ok_or(Error::Limit)?;
+                Ok(json!({"ask_fallback":state.ask_fallback}))
+            }),
             Request::SetRoute { lane, provider, model } => self.transaction(|state| {
                 let config = state.providers.get(&provider).ok_or(Error::NotFound)?;
                 if !config.models().contains(&model) {
@@ -1093,11 +1132,11 @@ impl Engine {
                         if matches!(access, crate::authorization::Access::AskClient) =>
                     {
                         Ok(
-                            json!({"version":1,"optional_at_login":true,"routes":{"ask":state.routes.get(&Lane::Ask)},"running":state.jobs.values().filter(|job|job.lane==Lane::Ask && job.status==JobStatus::Running).count()}),
+                            json!({"version":1,"optional_at_login":true,"routes":{"ask":state.routes.get(&Lane::Ask)},"ask_fallback":state.ask_fallback,"running":state.jobs.values().filter(|job|job.lane==Lane::Ask && job.status==JobStatus::Running).count()}),
                         )
                     }
                     Request::Status {} => Ok(
-                        json!({"version":1,"optional_at_login":true,"routes":state.routes,"wired":state.instructions.is_some(),"running":state.jobs.values().filter(|job| job.status == JobStatus::Running).count()}),
+                        json!({"version":1,"optional_at_login":true,"routes":state.routes,"ask_fallback":state.ask_fallback,"wired":state.instructions.is_some(),"running":state.jobs.values().filter(|job| job.status == JobStatus::Running).count()}),
                     ),
                     Request::Providers {} => Ok(
                         json!({"providers":state.providers.iter().map(|(id, provider)| describe_provider(&state,id,provider)).collect::<Vec<_>>()}),
@@ -1282,6 +1321,61 @@ impl Engine {
             active.remove(id);
         }
     }
+    fn begin_fallback(
+        &self,
+        id: &str,
+        generation: u64,
+        reason: FallbackReason,
+        primary: Option<&Completion>,
+        fixture: bool,
+    ) -> Result<u8> {
+        let mut offset = 0;
+        self.transaction(|state| {
+            let job = state.jobs.get_mut(id).ok_or(Error::NotFound)?;
+            if job.generation != generation || job.status != JobStatus::Running {
+                return Err(Error::Cancelled);
+            }
+            if let Some(fallback) = &mut job.fallback {
+                fallback.used = true;
+                fallback.reason = Some(reason);
+            }
+            if let Some(completion) = primary {
+                state.usage.push(Usage {
+                    job: id.into(),
+                    provider: job.provider.clone(),
+                    model: job.model.clone(),
+                    input_tokens: completion.input_tokens,
+                    output_tokens: completion.output_tokens,
+                    estimated: completion.estimated,
+                    fixture,
+                    recorded: now(),
+                    actual_model: completion.actual_model.clone(),
+                });
+                if state.usage.len() > 512 {
+                    state.usage.remove(0);
+                }
+            }
+            let mut active = self.in_flight.lock().map_err(|_| Error::Storage)?;
+            let worker = active
+                .get_mut(id)
+                .filter(|worker| {
+                    worker.generation == generation && !worker.cancelled.load(Ordering::Acquire)
+                })
+                .ok_or(Error::Cancelled)?;
+            worker.tools = crate::prowl::activity::terminal(
+                std::mem::take(&mut worker.tools),
+                crate::prowl::activity::Phase::Interrupted,
+                Some(Error::ProviderUnavailable),
+            );
+            offset = worker.tools.len() as u8;
+            worker.text.clear();
+            if let Some(progress) = &mut worker.ask_progress {
+                progress.next_round();
+            }
+            Ok(Value::Null)
+        })?;
+        Ok(offset)
+    }
     fn publish_completion(
         &self,
         job_id: &str,
@@ -1289,7 +1383,7 @@ impl Engine {
         result: Result<Completion>,
         fixture: bool,
     ) {
-        let tools = self
+        let (tools, truncated) = self
             .in_flight
             .lock()
             .ok()
@@ -1297,7 +1391,7 @@ impl Engine {
                 active
                     .get(job_id)
                     .filter(|worker| worker.generation == generation)
-                    .map(|worker| worker.tools.clone())
+                    .map(|worker| (worker.tools.clone(), worker.tools_truncated))
             })
             .unwrap_or_default();
         let (phase, error) = match &result {
@@ -1315,6 +1409,7 @@ impl Engine {
                 return Ok(Value::Null);
             }
             job.tool_activity = tools;
+            job.tool_activity_truncated |= truncated;
             match result {
                 Ok(mut completion) => {
                     if job.lane == Lane::Ask {
@@ -1337,10 +1432,17 @@ impl Engine {
                     job.answer = Some(completion.text);
                     job.stop_reason = completion.stop_reason;
                     job.actual_model = completion.actual_model.clone();
+                    let effective = job
+                        .fallback
+                        .as_ref()
+                        .filter(|fallback| fallback.used)
+                        .map(|fallback| &fallback.route);
                     state.usage.push(Usage {
                         job: job_id.to_owned(),
-                        provider: job.provider.clone(),
-                        model: job.model.clone(),
+                        provider: effective
+                            .map_or_else(|| job.provider.clone(), |route| route.provider.clone()),
+                        model: effective
+                            .map_or_else(|| job.model.clone(), |route| route.model.clone()),
                         input_tokens: completion.input_tokens,
                         output_tokens: completion.output_tokens,
                         estimated: completion.estimated,
@@ -1377,6 +1479,43 @@ impl Engine {
                 self.healthy.store(false, Ordering::Release);
             }
         }
+    }
+
+    fn record_control_completion(
+        &self,
+        id: &str,
+        generation: u64,
+        completion: &Completion,
+        fixture: bool,
+    ) -> Result<()> {
+        self.transaction(|state| {
+            let job = state.jobs.get(id).ok_or(Error::NotFound)?;
+            if job.generation != generation || job.status != JobStatus::Running {
+                return Err(Error::Cancelled);
+            }
+            let route = job
+                .fallback
+                .as_ref()
+                .filter(|fallback| fallback.used)
+                .map(|fallback| &fallback.route);
+            state.usage.push(Usage {
+                job: id.into(),
+                provider: route
+                    .map_or_else(|| job.provider.clone(), |route| route.provider.clone()),
+                model: route.map_or_else(|| job.model.clone(), |route| route.model.clone()),
+                input_tokens: completion.input_tokens,
+                output_tokens: completion.output_tokens,
+                estimated: completion.estimated,
+                fixture,
+                recorded: now(),
+                actual_model: completion.actual_model.clone(),
+            });
+            if state.usage.len() > 512 {
+                state.usage.remove(0);
+            }
+            Ok(Value::Null)
+        })?;
+        Ok(())
     }
 
     fn publish_catalog(
@@ -1500,13 +1639,20 @@ impl Engine {
                 && state.jobs.values().any(|job| job.session.as_ref() == Some(session) && job.status == JobStatus::Running) { return Err(Error::Busy); }
             if options.evidence_approval.as_ref().is_some_and(|approval| approval.revision != state.configuration_revision) { return Err(Error::EvidenceConsentRequired); }
             let route = if let Some(provider)=&catalog_provider {Route {provider:provider.clone(),model:String::new()}} else {state.routes.get(&lane).ok_or(Error::NotFound)?.clone()};
-            let provider = state.providers.get(&route.provider).ok_or(Error::ProviderUnavailable)?.resolve(state.prowl.as_ref())?;
-            if catalog_provider.is_none() && !provider.models().contains(&route.model) { return Err(Error::ProviderUnavailable); }
+            let provider = state.providers.get(&route.provider).ok_or(Error::ProviderUnavailable).and_then(|p|p.resolve(state.prowl.as_ref())).and_then(|p|if catalog_provider.is_some() || p.models().contains(&route.model) {Ok(p)} else {Err(Error::ProviderUnavailable)});
             let catalog_revision=catalog_provider.as_ref().map(|id|state.provider_revisions.get(id).copied().unwrap_or_default());
-            let read_only_tools = if options.disable_tools || catalog_provider.is_some() {crate::prowl::ReadTools::default()} else {
+            let capture_tools = |provider: &str| -> Result<crate::prowl::ReadTools> {
                 let protected=self.store.identity()?;
-                crate::prowl::ReadTools {system_queries:state.read_only_tools.contains(&route.provider),public_web:state.public_web.contains(&route.provider),code_root:state.code_search_roots.get(&route.provider).cloned(),roots:state.read_roots.get(&route.provider).into_iter().flatten().map(|root|root.capture(protected)).collect::<Result<Vec<_>>>()?}
+                Ok(crate::prowl::ReadTools {system_queries:state.read_only_tools.contains(provider),public_web:state.public_web.contains(provider),code_root:state.code_search_roots.get(provider).cloned(),roots:state.read_roots.get(provider).into_iter().flatten().map(|root|root.capture(protected)).collect::<Result<Vec<_>>>()?})
             };
+            let fallback = if lane == Lane::Ask && !options.disable_tools && catalog_provider.is_none() {
+                state.ask_fallback.clone().map(|route| {
+                    let captured = state.providers.get(&route.provider).ok_or(Error::ProviderUnavailable).and_then(|p|p.resolve(state.prowl.as_ref())).and_then(|p|if matches!(p, Provider::Acp{..}) && p.models().contains(&route.model) {Ok(p)} else {Err(Error::ProviderUnavailable)}).and_then(|p|Ok((p,capture_tools(&route.provider)?)));
+                    FallbackTask{route,captured}
+                })
+            } else {None};
+            if let Err(error) = &provider && fallback.is_none() { return Err(*error); }
+            let read_only_tools = if options.disable_tools || catalog_provider.is_some() || provider.is_err() {crate::prowl::ReadTools::default()} else {capture_tools(&route.provider)?};
             if let Some(session) = &session
                 && state.sessions.get(session).ok_or(Error::NotFound)?.lane != lane { return Err(Error::InvalidRequest); }
             let handoff = if let Some(ask_id) = options.handoff_ask {Some(self.handoff_context(state,&ask_id)?)}
@@ -1532,7 +1678,7 @@ impl Engine {
                 messages.extend(conversation.messages.clone());
             }
             messages.push(Message { role: Role::User, content: prompt.clone() });
-            state.jobs.insert(id.clone(), Job { operation:if catalog_revision.is_some() {JobOperation::CatalogRefresh} else {JobOperation::Completion},catalog_count:None, fingerprint, lane, session, prompt, status: JobStatus::Running, answer: None, error: None, provider: route.provider, model: route.model.clone(), started: now(), generation, handoff: handoff.clone(), stop_reason: None, actual_model: None, tool_activity:Vec::new(), tool_activity_truncated:false, needs_agent:false, needs_agent_reason:None });
+            state.jobs.insert(id.clone(), Job { operation:if catalog_revision.is_some() {JobOperation::CatalogRefresh} else {JobOperation::Completion},catalog_count:None, fingerprint, lane, session, prompt, status: JobStatus::Running, answer: None, error: None, provider: route.provider, model: route.model.clone(), started: now(), generation, handoff: handoff.clone(), stop_reason: None, actual_model: None, tool_activity:Vec::new(), tool_activity_truncated:false, needs_agent:false, needs_agent_reason:None,fallback:fallback.as_ref().map(|task|FallbackAttempt{route:task.route.clone(),used:false,reason:None}) });
             self.active.try_update(Ordering::AcqRel, Ordering::Acquire, |active| (active < 4).then_some(active + 1)).map_err(|_| Error::Busy)?;
             let permit = ProviderPermit(Arc::clone(&self.active));
             if let Some(token) = options.evidence_approval.and_then(|approval| approval.token) {
@@ -1551,6 +1697,7 @@ impl Engine {
                         job.status=JobStatus::Cancelled;job.error=Some(Error::Cancelled);
                         if let Some(worker)=active.get(ask_id).filter(|worker|worker.generation==job.generation) {
                             job.tool_activity = crate::prowl::activity::terminal(worker.tools.clone(), crate::prowl::activity::Phase::Cancelled, Some(Error::Cancelled));
+                            job.tool_activity_truncated |= worker.tools_truncated;
                             cancelled_asks.push((ask_id.clone(),job.generation,Arc::clone(&worker.cancelled)));
                         }
                     }
@@ -1560,11 +1707,11 @@ impl Engine {
             // Install cancellation/progress before publishing Running under
             // the state lock: Cancel can never observe an accepted job without
             // its flag, even if it arrives before the worker thread starts.
-            if let Some(old)=self.in_flight.lock().map_err(|_|Error::Storage)?.insert(id.clone(),ActiveJob {generation,cancelled:Arc::clone(&cancelled),text:String::new(),tools:Vec::new(),ask_progress:if lane==Lane::Ask {Some(crate::ask::Progress::default())} else {None}}) {
+            if let Some(old)=self.in_flight.lock().map_err(|_|Error::Storage)?.insert(id.clone(),ActiveJob {generation,cancelled:Arc::clone(&cancelled),text:String::new(),tools:Vec::new(),ask_progress:if lane==Lane::Ask {Some(crate::ask::Progress::default())} else {None},tools_truncated:false}) {
                 old.cancelled.store(true,Ordering::Release);
             }
             registered=true;
-            task = Some((provider, route.model, messages, permit,catalog_revision,read_only_tools));
+            task = Some((provider, route.model, messages, permit,catalog_revision,read_only_tools,fallback));
             Ok(json!({"id":id,"status":"running"}))
         });
         let response = match response {
@@ -1587,7 +1734,16 @@ impl Engine {
                 worker.text.clear();
             }
         }
-        if let Some((provider, model, messages, permit, catalog_revision, read_only_tools)) = task {
+        if let Some((
+            provider,
+            model,
+            messages,
+            permit,
+            catalog_revision,
+            read_only_tools,
+            fallback,
+        )) = task
+        {
             let engine = Arc::clone(self);
             let job_id = id.clone();
             if std::thread::Builder::new()
@@ -1595,19 +1751,22 @@ impl Engine {
                 .spawn(move || {
                     let _permit = permit;
                     if let Some(revision) = catalog_revision {
-                        let result = match &provider {
-                            Provider::Acp { config, .. } => crate::acp::bridge::catalog(
-                                config,
-                                &engine.adapter_runner,
-                                &cancelled,
-                            ),
-                            _ => provider.fetch_models(&cancelled),
+                        let result = match provider {
+                            Err(error) => Err(error),
+                            Ok(provider) => match &provider {
+                                Provider::Acp { config, .. } => crate::acp::bridge::catalog(
+                                    config,
+                                    &engine.adapter_runner,
+                                    &cancelled,
+                                ),
+                                _ => provider.fetch_models(&cancelled),
+                            },
                         };
                         engine.publish_catalog(&job_id, generation, revision, result);
                         engine.finish_active(&job_id, generation);
                         return;
                     }
-                    let fixture = matches!(&provider, Provider::Fixture { .. });
+                    let fixture = matches!(&provider, Ok(Provider::Fixture { .. }));
                     let mut emit = |delta: &str| {
                         if cancelled.load(Ordering::Acquire) {
                             return Err(Error::Cancelled);
@@ -1629,7 +1788,9 @@ impl Engine {
                     };
                     let mut emit_tool =
                         |event| engine.record_tool_event(&job_id, generation, event);
-                    let result = if let Provider::Acp { config, .. } = &provider {
+                    let result = if let Err(error) = &provider {
+                        Err(*error)
+                    } else if let Ok(Provider::Acp { config, .. }) = &provider {
                         crate::acp::bridge::complete(
                             config,
                             &model,
@@ -1646,7 +1807,7 @@ impl Engine {
                             },
                         )
                     } else if read_only_tools.enabled() {
-                        provider.complete_with_read_tools(
+                        provider.as_ref().unwrap().complete_with_read_tools(
                             &model,
                             &messages,
                             &cancelled,
@@ -1657,8 +1818,107 @@ impl Engine {
                             },
                         )
                     } else {
-                        provider.complete_with_progress(&model, &messages, &cancelled, &mut emit)
+                        provider
+                            .as_ref()
+                            .unwrap()
+                            .complete_with_progress(&model, &messages, &cancelled, &mut emit)
                     };
+                    let reason = match &result {
+                        Ok(completion)
+                            if crate::ask::needs_tools(&completion.text) && lane == Lane::Ask =>
+                        {
+                            Some(FallbackReason::NeedsTools)
+                        }
+                        Err(Error::ProviderUnavailable | Error::ProviderFailed)
+                            if lane == Lane::Ask =>
+                        {
+                            Some(FallbackReason::FastLaneUnavailable)
+                        }
+                        _ => None,
+                    };
+                    let (result, fixture) = if let (Some(reason), Some(fallback)) =
+                        (reason, fallback)
+                    {
+                        match engine.begin_fallback(
+                            &job_id,
+                            generation,
+                            reason,
+                            result.as_ref().ok(),
+                            fixture,
+                        ) {
+                            Err(error) => (Err(error), false),
+                            Ok(offset) => {
+                                let mut emit_fallback_tool =
+                                    |mut event: crate::prowl::activity::Record| {
+                                        let Some(ordinal) = event
+                                            .ordinal
+                                            .checked_add(offset)
+                                            .filter(|ordinal| *ordinal < 32)
+                                        else {
+                                            let mut active = engine
+                                                .in_flight
+                                                .lock()
+                                                .map_err(|_| Error::Storage)?;
+                                            let worker = active
+                                                .get_mut(&job_id)
+                                                .filter(|worker| worker.generation == generation)
+                                                .ok_or(Error::Cancelled)?;
+                                            worker.tools_truncated = true;
+                                            return Ok(());
+                                        };
+                                        event.ordinal = ordinal;
+                                        engine.record_tool_event(&job_id, generation, event)
+                                    };
+                                let result = fallback.captured.and_then(|(provider, tools)| {
+                                    let Provider::Acp { config, .. } = provider else {
+                                        return Err(Error::ProviderUnavailable);
+                                    };
+                                    crate::acp::bridge::complete(
+                                        &config,
+                                        &fallback.route.model,
+                                        &messages,
+                                        &cancelled,
+                                        &tools,
+                                        &mut crate::prowl::activity::Callbacks {
+                                            text: &mut emit,
+                                            tool: &mut emit_fallback_tool,
+                                        },
+                                        crate::acp::bridge::Options {
+                                            runner: &engine.adapter_runner,
+                                            ask: true,
+                                        },
+                                    )
+                                });
+                                (result, false)
+                            }
+                        }
+                    } else if reason.is_some_and(|_| {
+                        result.as_ref().is_ok_and(|c| crate::ask::needs_tools(&c.text))
+                    }) {
+                        let recorded = engine.begin_fallback(
+                            &job_id,
+                            generation,
+                            FallbackReason::NeedsTools,
+                            result.as_ref().ok(),
+                            fixture,
+                        );
+                        (Err(recorded.err().unwrap_or(Error::ProviderUnavailable)), fixture)
+                    } else {
+                        (result, fixture)
+                    };
+                    let result = result.and_then(|completion| {
+                        if lane == Lane::Ask && crate::ask::needs_tools(&completion.text) {
+                            engine.record_control_completion(
+                                &job_id,
+                                generation,
+                                &completion,
+                                fixture,
+                            )?;
+                            Err(Error::ProviderUnavailable)
+                        } else {
+                            Ok(completion)
+                        }
+                    });
                     engine.publish_completion(&job_id, generation, result, fixture);
                     engine.finish_active(&job_id, generation);
                 })

@@ -79,6 +79,67 @@ fn rpc(engine: &Arc<Engine>, request: Request) -> Value {
     }
 }
 
+#[test]
+fn ask_tool_marker_requires_configured_acp_and_fallback_settings_are_owner_only() {
+    use ryoku_rashin::{authorization::Access, provider::FixtureOutcome};
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    assert_eq!(
+        engine.dispatch(Request::SetAskFallback {
+            provider: Some("local".into()),
+            model: Some("local-retrieval-v1".into())
+        }),
+        Err(Error::ProviderUnavailable)
+    );
+    assert_eq!(
+        engine.dispatch(Request::SetAskFallback { provider: Some("local".into()), model: None }),
+        Err(Error::InvalidRequest)
+    );
+    assert_eq!(
+        engine.dispatch_as(
+            Access::AskClient,
+            Request::SetAskFallback { provider: None, model: None }
+        ),
+        Err(Error::Unauthorized)
+    );
+    engine
+        .dispatch(Request::PutProvider {
+            id: "fast".into(),
+            provider: Provider::Fixture {
+                delay_millis: 100,
+                outcome: FixtureOutcome::Stream {
+                    chunks: vec!["TOOLS_".into(), "REQUIRED".into()],
+                    fail: false,
+                },
+                catalog: None,
+            },
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Ask,
+            provider: "fast".into(),
+            model: "fixture-v1".into(),
+        })
+        .unwrap();
+    engine.dispatch(Request::Ask { id: "needs-tools".into(), prompt: "help".into() }).unwrap();
+    let until = Instant::now() + Duration::from_secs(3);
+    loop {
+        let value = engine.dispatch(Request::Job { id: "needs-tools".into() }).unwrap();
+        assert!(!value["progress"].as_str().unwrap_or("").contains("TOOLS_"));
+        if value["job"]["status"] != "running" {
+            assert_eq!(value["job"]["error"], "provider_unavailable");
+            assert!(value["job"]["answer"].is_null());
+            break;
+        }
+        assert!(Instant::now() < until);
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    let usage = engine.dispatch(Request::Usage {}).unwrap();
+    assert_eq!(usage["activity"][0]["job"], "needs-tools");
+    assert_eq!(usage["activity"][0]["provider"], "fast");
+}
+
 fn document() -> Document {
     let content = "Tumbleweed uses zypper for packages.\nInspect a user unit with systemctl --user status ryoku-rashin.service.".to_string();
     Document {

@@ -340,6 +340,17 @@ pub(super) fn submit(engine: &Arc<Engine>, body: &[u8]) -> Result<String> {
             })?;
             Ok("/console".into())
         }
+        "set_ask_fallback" => {
+            let choice = value(&fields, "choice")?;
+            let (provider, model) = if choice == "disabled" {
+                (None, None)
+            } else {
+                let pick: Pick = serde_json::from_str(choice).map_err(|_| Error::InvalidRequest)?;
+                (Some(pick.provider), Some(pick.model))
+            };
+            engine.dispatch(Request::SetAskFallback { provider, model })?;
+            Ok("/console".into())
+        }
         "refresh_models" => {
             let id = value(&fields, "id")?.to_owned();
             engine.dispatch(Request::RefreshModels {
@@ -465,6 +476,40 @@ pub(super) fn home(engine: &Arc<Engine>) -> Result<String> {
         body += &options;
         body += "</select></label><button>Use selected model</button></form>";
     }
+    let saved = &status["ask_fallback"];
+    body += &begin("set_ask_fallback");
+    body += "<label>Ask fallback ACP model<select name=\"choice\" required>";
+    body += &format!(
+        "<option value=\"disabled\"{}>Disabled</option>",
+        if saved.is_null() { " selected" } else { "" }
+    );
+    let mut available = saved.is_null();
+    for provider in providers["providers"].as_array().ok_or(Error::Integrity)? {
+        if provider["kind"] != "acp" || provider["available"] == false {
+            continue;
+        }
+        for model in provider["models"].as_array().ok_or(Error::Integrity)? {
+            let model = model.as_str().ok_or(Error::Integrity)?;
+            let provider_id = text(provider, "id");
+            let selected = saved["provider"] == provider_id && saved["model"] == model;
+            available |= selected;
+            body += &format!(
+                "<option value=\"{}\"{}>{} · {}</option>",
+                escape(&json!({"provider":provider_id,"model":model}).to_string()),
+                if selected { " selected" } else { "" },
+                escape(provider_id),
+                escape(model)
+            );
+        }
+    }
+    if !available {
+        body += &format!(
+            "<option value=\"\" disabled selected>Saved fallback unavailable: {} · {}</option>",
+            escape(text(saved, "provider")),
+            escape(text(saved, "model"))
+        );
+    }
+    body += "</select></label><button>Save Ask fallback</button></form><p>The selected fallback receives the Ask question and indexed context if the first provider needs tools or fails. Its configured network and read grants apply.</p>";
     body += "<h2>Providers</h2>";
     for provider in providers["providers"].as_array().ok_or(Error::Integrity)? {
         let id = text(provider, "id");
@@ -693,6 +738,14 @@ pub(super) fn job(engine: &Arc<Engine>, id: &str) -> Result<String> {
         body += &format!("<p>Model catalog refresh · offered models: {}</p>", job["catalog_count"]);
     } else {
         body += &format!("<h3>Question</h3><pre>{}</pre>", escape(text(job, "prompt")));
+    }
+    if job["fallback"]["used"] == true {
+        body += &format!(
+            "<p>Ask fallback: {} · {} ({})</p>",
+            escape(text(&job["fallback"]["route"], "provider")),
+            escape(text(&job["fallback"]["route"], "model")),
+            escape(text(&job["fallback"], "reason"))
+        );
     }
     if let Some(progress) = value["progress"].as_str().filter(|text| !text.is_empty()) {
         body += &format!("<h3>Receiving response</h3><pre>{}</pre>", escape(progress));

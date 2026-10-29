@@ -262,8 +262,8 @@ network request. No automatic refresh or provider connection is enabled here.
 Select it with `set_route` fields `lane`, `provider`, `model`. Ask, Agent and Chat
 have explicit independent routes in this slice. Removing or updating a provider
 does not silently overwrite an unavailable saved model/route. A new request then
-reports unavailable until the owner explicitly chooses an available route.
-There is no automatic fallback to a different external provider.
+reports unavailable until the owner explicitly chooses an available route, except
+for Ask's separately selected ACP fallback described below.
 Choosing an external route sends that lane's prompt, indexed evidence and its
 conversation context to the explicitly configured endpoint. Fix's automatic
 native excerpts additionally require the preview confirmation described above.
@@ -362,7 +362,7 @@ No row in the original inventory is removed by this slice.
 
 | Retained upstream capability | Implemented and host-tested in this runtime | Still required for full #183 acceptance |
 | --- | --- | --- |
-| Ask/recent/cancel/handoff | Asynchronous local/fixture/HTTPS/Prowl Ask, bounded live SSE progress, actual model/usage, cancellation/restart, canonical recorded/manual/unfinished handoff, typed NEEDS_AGENT reasons, restricted configured ACP text completion and atomic Agent Run cancelling Ask | Original launcher/shell/Hub entrypoints and shared history, TOOLS_REQUIRED isolated Ask fallback, ACP cancellation and complete WebSocket-v3 replay |
+| Ask/recent/cancel/handoff | Asynchronous local/fixture/HTTPS/Prowl Ask, bounded live SSE progress, actual model/usage, cancellation/restart, canonical recorded/manual/unfinished handoff, typed NEEDS_AGENT reasons, owner-selected isolated ACP fallback and atomic Agent Run cancelling Ask | Original launcher/shell/Hub entrypoints and shared history, complete WebSocket-v3 replay |
 | Agent/plain Chat | Independent persistent sessions/turns, load/read/delete, saved routes and explicit model picks; both JSON/SSE gateway completions | Persistent/shared ACP session and replay integration, all retained harnesses and config modes, approvals/diffs/images/thinking/terminal |
 | Fix doctor/tip/app | Typed investigation, bounded native user-unit/journal/RPM evidence, external destination/finding preview, expiring single-use exact-action consent, replay safety; tools disabled to preserve reviewed evidence | Complete upstream app/coredump/package-change context and native entrypoints, transient unit/terminal harness, actual authorized repair providers with linked recovery |
 | Agent wire/unwire | Effective owner-controlled built-in Agent instructions, separate Ask/Chat, private persistence and scoped denial | Exact external marker/skill/MCP wiring, unrelated config preservation, native harness readiness/default/model operations and protected writer enrollment |
@@ -928,8 +928,9 @@ boundaries and suppresses the control response until its final cleaned result
 is atomically published. The filter resets between actual tool rounds, so a
 later answer cannot leak a marker after an earlier tool preamble. Its memory and
 input stay within the existing128KiB progress bound. Cancellation/failure saves
-no partial reason, answer, handoff or usage; stale generations retain their
-existing guard. Agent and plain Chat keep their own text and histories.
+no partial reason, answer or handoff; a completed first call remains in usage if
+the fallback is later cancelled. Stale generations retain their existing guard.
+Agent and plain Chat keep their own text and histories.
 
 The authenticated job page labels **Agent handoff required**, escapes the
 reason, and offers the actual existing Stage/Run controls. A completed flagged
@@ -941,12 +942,20 @@ semantics. Restricted Ask clients cannot invoke owner handoff actions.
 Actual JSON/SSE gateway fixtures exercise typed reasons, a tool preamble before
 the marker, escaped browser display, explicit Agent execution, idempotent retry,
 restart and separate Chat. Deterministic streamed fixtures prove split marker
-suppression and cancellation/failure without incomplete records. Automatic
-`TOOLS_REQUIRED` or failed fast-lane fallback into the real isolated read-only
-ACP lane (`askserve.go:88–107,152–220`) remains required, together with complete
-ACP/approvals/diffs/replay/native UI and all other acceptance-map rows. Explicit
-Agent continuation implements the retained change-request branch; it does not
-substitute for the isolated Ask fallback.
+suppression and cancellation/failure without incomplete records. The owner can
+select a configured ACP model as Ask fallback. Leading `TOOLS_REQUIRED` and
+unavailable or failed fast-lane providers trigger that captured route; the
+marker is withheld from progress and answers. Without an available fallback a
+tool request fails explicitly. The route, model and enrolled read grants are
+captured when the generation starts, so subsequent configuration changes affect
+only later jobs. The fallback uses the same isolated ACP Ask boundary and its
+existing mutation denials. Completed primary and fallback calls receive separate
+usage records, and the job shows the effective fallback and reason. Cancellation
+continues to apply to the whole generation. Agent and Chat remain independent.
+The real namespace fixture covers split markers, route/grant changes, denied
+reads, unavailable fast route, cancellation, accounting and lane separation.
+Complete ACP/approvals/diffs/replay/native UI and all other acceptance-map rows
+remain required.
 
 
 ## Configured ACP adapter process
@@ -1028,8 +1037,7 @@ session per job and supplies the explicit conversation context. The real client
 load/replay contract is tested, but runtime shared/persistent native ACP session
 resume still requires integration. All original harnesses, interpreter/runtime
 closure, authentication/config options, image/thinking/plan/tool details, full
-terminal and approval/diff/replay UI remain required. Automatic `TOOLS_REQUIRED`
-or unavailable-fast-lane fallback into isolated Ask ACP is still required.
+terminal and approval/diff/replay UI remain required.
 NSS/default state, installed inventory/writer leases and linked recovery for
 covered effects, remaining Prowl/provider/usage workflows, native app/shell/Hub,
 full package closure and Tumbleweed acceptance remain in the full issue scope.

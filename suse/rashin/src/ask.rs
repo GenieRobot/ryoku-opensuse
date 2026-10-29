@@ -2,6 +2,10 @@
 //! Marker parsing grants no capability and never launches an Agent itself.
 use crate::{Error, Result};
 const MARKER: &str = "NEEDS_AGENT:";
+const TOOLS_MARKER: &str = "TOOLS_REQUIRED";
+pub(crate) fn needs_tools(answer: &str) -> bool {
+    answer.trim_start().starts_with(TOOLS_MARKER)
+}
 const REASON_BYTES: usize = 500;
 
 pub(crate) fn reason(answer: &mut String) -> Option<String> {
@@ -43,12 +47,12 @@ impl Progress {
         }
         self.pending.push_str(delta);
         let content = self.pending.trim_start();
-        if content.starts_with(MARKER) {
+        if content.starts_with(MARKER) || content.starts_with(TOOLS_MARKER) {
             self.pending.clear();
             self.suppressed = true;
             return Ok(String::new());
         }
-        if MARKER.starts_with(content) {
+        if MARKER.starts_with(content) || TOOLS_MARKER.starts_with(content) {
             return Ok(String::new());
         }
         self.ordinary = true;
@@ -85,13 +89,17 @@ mod tests {
     }
     #[test]
     fn every_marker_split_is_suppressed_but_normal_text_and_new_rounds_continue() {
-        for split in 0..=MARKER.len() {
-            let mut progress = Progress::default();
-            assert!(progress.feed(" \n").unwrap().is_empty());
-            assert!(progress.feed(&MARKER[..split]).unwrap().is_empty());
-            assert!(progress.feed(&format!("{} reason", &MARKER[split..])).unwrap().is_empty());
-            assert!(progress.feed("more reason").unwrap().is_empty());
+        for marker in [MARKER, TOOLS_MARKER] {
+            for split in 0..=marker.len() {
+                let mut progress = Progress::default();
+                assert!(progress.feed(" \n").unwrap().is_empty());
+                assert!(progress.feed(&marker[..split]).unwrap().is_empty());
+                assert!(progress.feed(&format!("{} reason", &marker[split..])).unwrap().is_empty());
+                assert!(progress.feed("more reason").unwrap().is_empty());
+            }
         }
+        assert!(needs_tools("  TOOLS_REQUIRED"));
+        assert!(!needs_tools("quoted TOOLS_REQUIRED"));
         let mut progress = Progress::default();
         assert_eq!(progress.feed("N").unwrap(), "");
         assert_eq!(progress.feed("ormal answer").unwrap(), "Normal answer");
