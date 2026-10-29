@@ -1,0 +1,33 @@
+issue = 176
+parent = "0a64ab32005865a588204bad7b5b0da33a4c2e46"
+status = "refuse-dummy-backend-before-native-key-capture"
+all_hooks_accepted = false
+native_theme_execution_accepted = false
+native_dconf_session_capture_accepted = false
+vm_or_download = false
+
+[basis]
+api = "installed GIO GIR/header documents g_settings_backend_get_default as a full owned reference and a dummy memory fallback if no backend is available"
+identity = "installed native module exposes DConfSettingsBackend; GObject runtime type is checked on the owned backend rather than inferred from its environment name"
+behavior = "native actor rejects null/memory/alternate backend, rechecks its runtime/session guard after backend load and supplies the verified backend explicitly to the exact schema constructor"
+ownership = "the getter reference is released on constructor success or refusal; the settings object retains its own reference"
+
+[checks]
+service = "cargo test -p ryoku-service --all-features --offline --locked passed:152 library +5 integration +1 isolated native-backend subprocess;1 existing ignored"
+service_log_sha256 = "3b170a2ef57d6aeb835eab83a9d9929e70ca5795af4f2cea2d55fc11a16ccd4f"
+clippy = "strict all-target/all-feature offline locked service Clippy passed"
+clippy_log_sha256 = "ee1d3fffa2022e962e63e0dbe4d35c9c198450a20c29fc09030f635dbb38bfcd"
+format_and_whitespace = "cargo fmt --all -- --check and git diff --check passed"
+fallback = "real private memory backend and null pointer cannot attest native DConf state"
+positive = "real installed DConf identified in an isolated process with private HOME/config/cache/runtime and an absent test bus; no personal settings/session are used"
+hosted_runtime = "the Rust-check job declares dconf-gsettings-backend as its native-backend test dependency"
+
+[parent_hosted_gate]
+run = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40912608962"
+code = "all formatting,strict lints,full workspace,staged and transferred-root-descriptor tests passed at0a64ab3"
+dependencies = "failed only on the known shared zstd advisory chain owned by175; none of that branch was copied here"
+
+[remaining]
+native = "authenticated real session/key capture and complete Tumbleweed lifecycle remain unproven; backend identity alone is not capture acceptance"
+theme = "complete declared files/parents/links/trees,matugen,logical restore,reloads/IPC/signals and combined durable completion"
+automatic = "remaining startup/watch/timer/restore/availability policies and complete per-hook tests remain required"

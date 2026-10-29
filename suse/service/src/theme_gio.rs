@@ -25,6 +25,8 @@ struct Api {
     schema_has_key: unsafe extern "C" fn(Ptr, *const c_char) -> i32,
     schema_unref: unsafe extern "C" fn(Ptr),
     new_full: unsafe extern "C" fn(Ptr, Ptr, *const c_char) -> Ptr,
+    default_backend: unsafe extern "C" fn() -> Ptr,
+    instance_type_name: unsafe extern "C" fn(Ptr) -> *const c_char,
     object_unref: unsafe extern "C" fn(Ptr),
     get: KeyGet,
     get_user: KeyGet,
@@ -108,6 +110,14 @@ impl Api {
                 "g_settings_new_full",
                 unsafe extern "C" fn(Ptr, Ptr, *const c_char) -> Ptr
             ),
+            default_backend: symbol!(
+                "g_settings_backend_get_default",
+                unsafe extern "C" fn() -> Ptr
+            ),
+            instance_type_name: symbol!(
+                "g_type_name_from_instance",
+                unsafe extern "C" fn(Ptr) -> *const c_char
+            ),
             object_unref: symbol!("g_object_unref", unsafe extern "C" fn(Ptr)),
             get: symbol!("g_settings_get_value", KeyGet),
             get_user: symbol!("g_settings_get_user_value", KeyGet),
@@ -170,6 +180,20 @@ impl Api {
             (self.variant_unref)(value.as_ptr());
         }
         result
+    }
+    fn require_dconf_backend(&self, backend: Ptr) -> io::Result<()> {
+        if backend.is_null() {
+            return Err(io::Error::other("native DConf backend unavailable"));
+        }
+        // SAFETY: backend is an owned GSettingsBackend reference from GIO;
+        // GObject returns its permanent interned runtime type name.
+        let name = unsafe { (self.instance_type_name)(backend) };
+        if name.is_null() || unsafe { CStr::from_ptr(name) }.to_bytes() != b"DConfSettingsBackend" {
+            return Err(io::Error::other(
+                "native DConf backend unavailable; refusing memory/alternate backend fallback",
+            ));
+        }
+        Ok(())
     }
     fn with_variant<T>(
         &self,
@@ -246,14 +270,29 @@ impl GioThemeSettingsActor {
             ));
         }
         let api = Api::open()?;
+        // GIO documents a dummy memory fallback if no requested backend can
+        // load. An environment name alone cannot prove native user state.
+        // SAFETY: this getter returns a full owned backend reference.
+        let backend = unsafe { (api.default_backend)() };
+        if backend.is_null() {
+            return Err(io::Error::other("native DConf backend unavailable"));
+        }
         // Use only the exact compiled bundle pinned by CaptureScope. GIO's
         // process-default search chain could otherwise prefer a different
         // /usr/local or environment-provided schema that was never approved.
-        let settings = Self::from_schema_directory(
-            &api,
-            Path::new("/usr/share/glib-2.0/schemas"),
-            std::ptr::null_mut(),
-        )?;
+        let settings = (|| {
+            api.require_dconf_backend(backend)?;
+            if guard()? != expected {
+                return Err(io::Error::other("GSettings backend/runtime guard changed"));
+            }
+            Self::from_schema_directory(&api, Path::new("/usr/share/glib-2.0/schemas"), backend)
+        })();
+        // SAFETY: settings retains its reference on success; release exactly
+        // the getter's owned reference on both success and refusal.
+        unsafe {
+            (api.object_unref)(backend);
+        }
+        let settings = settings?;
         Ok(Self { api, settings, expected, guard })
     }
     fn from_schema_directory(

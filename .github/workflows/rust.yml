@@ -20,7 +20,7 @@ jobs:
         run: sudo apt-get update
 
       - name: Install GTK4 build dependencies
-        run: sudo apt-get install --no-install-recommends --yes libgtk-4-dev
+        run: sudo apt-get install --no-install-recommends --yes libgtk-4-dev dconf-gsettings-backend
 
       - name: Permit user namespaces for the isolated Rust regression harness
         shell: bash

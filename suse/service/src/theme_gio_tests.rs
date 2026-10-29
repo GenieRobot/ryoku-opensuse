@@ -134,3 +134,73 @@ fn missing_exact_schema_bundle_never_falls_back_to_process_defaults() {
     let error = GioThemeSettingsActor::memory(&missing, binding).err().unwrap();
     assert!(error.to_string().contains("exact pinned schema bundle"));
 }
+
+#[test]
+fn dummy_memory_backend_cannot_attest_native_dconf_state() {
+    let api = Api::open().unwrap();
+    let backend = unsafe { (api.memory_backend)() };
+    assert!(!backend.is_null());
+    let error = api.require_dconf_backend(backend).unwrap_err();
+    assert!(error.to_string().contains("refusing memory/alternate backend fallback"));
+    unsafe {
+        (api.object_unref)(backend);
+    }
+    assert!(api.require_dconf_backend(std::ptr::null_mut()).is_err());
+}
+
+#[test]
+fn actual_dconf_backend_is_identified_in_a_private_account_environment() {
+    const ROLE: &str = "RYOKU_THEME_DCONF_TYPE_FIXTURE";
+    const TEST: &str =
+        "theme_gio::tests::actual_dconf_backend_is_identified_in_a_private_account_environment";
+    if std::env::var_os(ROLE).is_some() {
+        let api = Api::open().unwrap();
+        let backend = unsafe { (api.default_backend)() };
+        let verified = api.require_dconf_backend(backend);
+        if !backend.is_null() {
+            unsafe {
+                (api.object_unref)(backend);
+            }
+        }
+        verified.expect("the declared native DConf module must be installed");
+        return;
+    }
+    use std::{
+        os::unix::fs::DirBuilderExt,
+        process::Command,
+        time::{Duration, Instant},
+    };
+    let home = std::env::temp_dir().join(format!("ryoku-dconf-type-{}", std::process::id()));
+    std::fs::DirBuilder::new().mode(0o700).create(&home).unwrap();
+    for name in ["config", "run", "cache"] {
+        std::fs::DirBuilder::new().mode(0o700).create(home.join(name)).unwrap();
+    }
+    let mut child = Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", TEST, "--nocapture", "--test-threads=1"])
+        .env_clear()
+        .env(ROLE, "1")
+        .env("HOME", &home)
+        .env("XDG_CONFIG_HOME", home.join("config"))
+        .env("XDG_RUNTIME_DIR", home.join("run"))
+        .env("XDG_CACHE_HOME", home.join("cache"))
+        .env("DBUS_SESSION_BUS_ADDRESS", format!("unix:path={}/run/absent-bus", home.display()))
+        .env("GSETTINGS_BACKEND", "dconf")
+        .env("LANG", "C")
+        .spawn()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            std::fs::remove_dir_all(&home).unwrap();
+            panic!("private native-backend fixture exceeded its deadline");
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    };
+    std::fs::remove_dir_all(home).unwrap();
+    assert!(status.success());
+}

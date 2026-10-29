@@ -90,6 +90,15 @@ changed guard or unexpected read-back cannot attest success. These primitives
 are tested against real installed GIO with a private memory backend and schema;
 they do not activate native theme writes.
 
+Native construction additionally checks the actual backend object is
+`DConfSettingsBackend`; `GSETTINGS_BACKEND=dconf` alone is insufficient because
+GIO documents a dummy memory fallback when the backend cannot load. A memory or
+alternate backend is refused before any key capture. The selected owned backend
+reference is passed explicitly to the settings object, and runtime/session
+guards are rechecked after it loads. Tests separately prove real DConf type
+identification in a private temporary environment and memory-fallback refusal;
+this backend test does not claim an authenticated desktop capture.
+
 The separately versioned capsule binds the exact account, worker, schema,
 session-service, approved policy, desired changes, plan and native pre-checkpoint.
 Outer `RecoveryManifest` schema 3 enrolls that capsule only when its account and
