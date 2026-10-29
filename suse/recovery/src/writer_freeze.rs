@@ -1580,6 +1580,12 @@ mod tests {
             .unwrap();
         guard.refreeze().unwrap();
         guard.release().unwrap();
+        let deadline = Instant::now() + TIMEOUT;
+        while read_task(player).unwrap().unwrap().state != 'T' {
+            assert!(!actor.path.join("first-player-instruction").exists());
+            assert!(Instant::now() < deadline, "recaptured player lost inherited pause");
+            thread::sleep(Duration::from_millis(2));
+        }
         assert!(!actor.path.join("first-player-instruction").exists());
         let identity = crate::wallpaper_protocol::ActorIdentity {
             pid: player as u32,
