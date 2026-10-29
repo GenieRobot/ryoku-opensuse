@@ -137,3 +137,34 @@ dependency_revalidation = "advisories, bans, licenses and sources pass using cac
 strict_clippy_revalidation_session = "82341"
 strict_clippy_revalidation = "workspace all-target all-feature warnings-denied pass"
 format_and_whitespace_revalidation = "pass"
+
+[dependency_ci_correction]
+date = "2026-10-29"
+failed_run = 40898135792
+failed_job = 123532744451
+failed_step = "Review dependencies; formatting, Clippy and workspace tests passed"
+advisories = ["RUSTSEC-2026-0391", "RUSTSEC-2026-0398", "RUSTSEC-2026-0403", "RUSTSEC-2026-0410"]
+fixed_versions = ["zstd0.14.3", "zstd-safe8.2.0", "zstd-sys2.1.2+zstd.1.5.7"]
+changed_dependency_packages = 3
+downloaded_crate_archive_bytes = 885188
+actual_runtime_usage = "rpm-md-index creates a fresh zstd read Decoder per signed metadata file; no borrowed/reused context, write Decoder, seekable API or wasm allocator path is used"
+runtime_exploit_claim = false
+default_compression_features_preserved = true
+advisory_policy_unchanged = true
+license_review = "the fixed packages declare BSD-3-Clause; inspected all three shipped LICENSE texts; version-exact per-crate allowance only; vendor archive notice preservation unchanged"
+advisory_database = "ee1a49a2769a24a596afc1c20cb33748d2769586"
+fresh_dependency_check = "all four checks pass: advisories, bans, licenses, sources; session59491"
+actual_compressed_metadata_tests = "6/6: independent valid archives and exact identities, malformed legacy/truncated/nonframe bytes, both digest mismatches, existing-output preservation, existing XML/solver validation"
+focused_metadata_session = "34944"
+writer_test_observations_corrected = [
+  "deliberately killed forbidden-exec actor: ESRCH during /proc disappearance counts as observed death; other read errors and every poison/sibling/no-write assertion retained",
+  "preserved-player pause: bounded wait for completed group stop, with unchanged player bytes checked throughout, matches the same fixture's earlier cycles"
+]
+production_writer_behavior_changed = false
+focused_writer_sessions = ["22673", "78204"]
+final_frozen_workspace_and_clippy_session = "85098"
+final_frozen_workspace = "pass: recovery330/6 existing ignored, service189/3 existing ignored, console26, metadata6, vm90 and other workspace suites"
+final_frozen_strict_clippy = "pass: workspace all-targets all-features warnings denied"
+final_format_and_whitespace = "pass"
+native_vm_launches = 0
+hosted_fixed_revision = "pending push and exact-head CI"

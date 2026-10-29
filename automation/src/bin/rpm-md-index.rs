@@ -386,6 +386,34 @@ fn select(source: &Path, destination: &Path, names: &[String], by_provide: bool)
 mod tests {
     use super::*;
 
+    struct Fixture(std::path::PathBuf);
+    impl Fixture {
+        fn new() -> Self {
+            use std::sync::atomic::{AtomicU64, Ordering};
+            static NEXT: AtomicU64 = AtomicU64::new(0);
+            let path = std::env::temp_dir().join(format!(
+                "ryoku-rpm-md-zstd-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            std::fs::create_dir(&path).unwrap();
+            Self(path)
+        }
+        fn compressed(&self, name: &str, bytes: &[u8]) -> std::path::PathBuf {
+            let path = self.0.join(name);
+            std::fs::write(&path, zstd::stream::encode_all(bytes, 1).unwrap()).unwrap();
+            path
+        }
+    }
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            std::fs::remove_dir_all(&self.0).unwrap();
+        }
+    }
+    fn sha512(bytes: &[u8]) -> String {
+        format!("{:x}", Sha512::digest(bytes))
+    }
+
     const METADATA: &str = "<metadata xmlns:rpm='rpm' packages='1'><package type='rpm'><name>qt6-example</name><arch>x86_64</arch><version epoch='0' ver='6.11.2' rel='1.1'/><checksum type='sha256'>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</checksum><location href='x86_64/example.rpm'/><format><rpm:provides><rpm:entry name='qt6qmlimport(QtQuick3D)' flags='EQ' ver='6.11'/></rpm:provides><rpm:requires><rpm:entry name='libQt6Concurrent.so.6()(64bit)'/><rpm:entry name='version &gt;= 1'/></rpm:requires></format></package></metadata>";
 
     #[test]
@@ -434,5 +462,75 @@ mod tests {
         ] {
             assert!(index(malformed.as_bytes(), &mut Vec::new()).is_err());
         }
+    }
+
+    #[test]
+    fn signed_compressed_metadata_keeps_independent_decoder_state_and_exact_package_identity() {
+        let fixture = Fixture::new();
+        for (index, name) in ["qt6-example", "separate-metadata"].into_iter().enumerate() {
+            let metadata = METADATA.replace("qt6-example", name);
+            let source = fixture.compressed(&format!("primary-{index}.zst"), metadata.as_bytes());
+            let destination = fixture.0.join(format!("index-{index}.jsonl"));
+            run(&source, &checksum(&source).unwrap(), &sha512(metadata.as_bytes()), &destination)
+                .unwrap();
+            let bytes = std::fs::read(destination).unwrap();
+            let package: Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(package["name"], name);
+            assert_eq!(package["version"]["ver"], "6.11.2");
+            assert_eq!(package["requires"][1]["name"], "version >= 1");
+            assert_eq!(bytes.iter().filter(|byte| **byte == b'\n').count(), 1);
+        }
+    }
+
+    #[test]
+    fn compressed_metadata_rejects_corrupt_frames_and_both_checksum_mismatches() {
+        let fixture = Fixture::new();
+        let valid = fixture.compressed("valid.zst", METADATA.as_bytes());
+        let compressed = std::fs::read(&valid).unwrap();
+        for (index, bytes) in [
+            vec![0x25, 0xb5, 0x2f, 0xfd, 0, 0],
+            compressed[..compressed.len() - 1].to_vec(),
+            b"not a zstd frame".to_vec(),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let source = fixture.0.join(format!("corrupt-{index}.zst"));
+            std::fs::write(&source, bytes).unwrap();
+            assert!(
+                run(
+                    &source,
+                    &checksum(&source).unwrap(),
+                    &sha512(METADATA.as_bytes()),
+                    &fixture.0.join(format!("corrupt-{index}.jsonl")),
+                )
+                .is_err()
+            );
+        }
+        let destination = fixture.0.join("bad-compressed-checksum.jsonl");
+        assert!(run(&valid, &"0".repeat(128), &sha512(METADATA.as_bytes()), &destination).is_err());
+        assert!(!destination.exists());
+        assert!(
+            run(
+                &valid,
+                &checksum(&valid).unwrap(),
+                &"0".repeat(128),
+                &fixture.0.join("bad-open-checksum.jsonl"),
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn compressed_metadata_never_replaces_an_existing_output() {
+        let fixture = Fixture::new();
+        let source = fixture.compressed("primary.zst", METADATA.as_bytes());
+        let destination = fixture.0.join("existing.jsonl");
+        std::fs::write(&destination, b"unrelated fixture sentinel").unwrap();
+        assert!(
+            run(&source, &checksum(&source).unwrap(), &sha512(METADATA.as_bytes()), &destination,)
+                .is_err()
+        );
+        assert_eq!(std::fs::read(destination).unwrap(), b"unrelated fixture sentinel");
     }
 }
