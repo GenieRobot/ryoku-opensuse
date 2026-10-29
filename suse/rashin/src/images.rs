@@ -68,7 +68,7 @@ fn kind(bytes: &[u8]) -> Option<&'static str> {
         None
     }
 }
-fn decode(data: &str) -> Result<Vec<u8>> {
+pub(crate) fn decode(data: &str) -> Result<Vec<u8>> {
     fn value(byte: u8) -> Option<u8> {
         match byte {
             b'A'..=b'Z' => Some(byte - b'A'),

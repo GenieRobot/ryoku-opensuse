@@ -348,7 +348,17 @@ fn is_false(value: &bool) -> bool {
 
 // Optional activity never displaces an accepted answer or terminal error.
 fn state_payload(state: &State) -> Result<Vec<u8>> {
-    let bytes = serde_json::to_vec(state).map_err(|_| Error::Storage)?;
+    let mut bounded = state.clone();
+    for session in bounded.sessions.values_mut() {
+        for message in &mut session.messages {
+            for image in &mut message.images {
+                if !image.data.starts_with("sha256:") {
+                    image.data = format!("sha256:{}", "0".repeat(64));
+                }
+            }
+        }
+    }
+    let bytes = serde_json::to_vec(&bounded).map_err(|_| Error::Storage)?;
     let reserve =
         state.jobs.values().filter(|job| job.status == JobStatus::Running).count() as u64 * 128;
     if bytes.len() as u64 > crate::store::MAX_STATE_BYTES.saturating_sub(reserve) {
@@ -422,6 +432,23 @@ impl Drop for ProviderPermit {
     }
 }
 
+fn persist_state(store: &Store, state: &State) -> Result<()> {
+    let mut persisted = state.clone();
+    let mut referenced = std::collections::BTreeSet::new();
+    for session in persisted.sessions.values_mut() {
+        for message in &mut session.messages {
+            for image in &mut message.images {
+                let data = crate::images::decode(&image.data)?;
+                let id = store.put_attachment(&data)?;
+                referenced.insert(id.clone());
+                image.data = format!("sha256:{id}");
+            }
+        }
+    }
+    store.save(&state_payload(&persisted)?)?;
+    store.retain_attachments(&referenced)
+}
+
 impl Engine {
     pub fn open(store: Store) -> Result<Arc<Self>> {
         Self::open_with_adapter_runner(
@@ -458,6 +485,20 @@ impl Engine {
                 .is_some_and(|title| !crate::acp::bridge::valid_metadata_text(title, 256))
         }) {
             return Err(Error::Integrity);
+        }
+        let mut stored_references = BTreeSet::new();
+        // Disk state stores content-addressed references; adapters and the owner
+        // API continue to receive the original image representation.
+        for session in state.sessions.values_mut() {
+            for message in &mut session.messages {
+                for image in &mut message.images {
+                    if let Some(id) = image.data.strip_prefix("sha256:") {
+                        stored_references.insert(id.to_owned());
+                        let bytes = store.read_attachment(id).map_err(|_| Error::Integrity)?;
+                        image.data = crate::http::base64(&bytes);
+                    }
+                }
+            }
         }
         for session in state.sessions.values() {
             let mut images = Vec::new();
@@ -560,7 +601,10 @@ impl Engine {
                 Some(Error::ProviderUnavailable),
             );
         }
-        store.save(&serde_json::to_vec(&state).map_err(|_| Error::Storage)?)?;
+        // Only validated, published references survive a crash; failed writes
+        // can leave orphan files that must not exhaust the account quota.
+        store.retain_attachments(&stored_references)?;
+        persist_state(&store, &state)?;
         Ok(Arc::new(Self {
             store,
             state: Mutex::new(state),
@@ -580,8 +624,11 @@ impl Engine {
         let mut guard = self.state.lock().map_err(|_| Error::Storage)?;
         let mut next = guard.clone();
         let result = update(&mut next)?;
-        let bytes = state_payload(&next)?;
-        self.store.save(&bytes).inspect_err(|_| self.healthy.store(false, Ordering::Release))?;
+        persist_state(&self.store, &next).inspect_err(|error| {
+            if *error != Error::Limit {
+                self.healthy.store(false, Ordering::Release);
+            }
+        })?;
         *guard = next;
         Ok(result)
     }
@@ -2231,6 +2278,114 @@ mod evidence_tests {
             let _ = std::fs::remove_dir_all(&self.0);
         }
     }
+    #[test]
+    fn image_store_migrates_inline_history_and_fails_closed_on_tampering() {
+        let fixture = Fixture::new();
+        let image = crate::images::Image::from_bytes(b"\x89PNG\r\n\x1a\nprivate image").unwrap();
+        let mut old = State::default();
+        old.sessions.insert(
+            "chat".into(),
+            Session {
+                lane: Lane::Agent,
+                title: None,
+                messages: vec![Message {
+                    role: Role::User,
+                    content: "look".into(),
+                    images: vec![image.clone()],
+                }],
+            },
+        );
+        let store = Store::open(&fixture.0).unwrap();
+        store.save(&serde_json::to_vec(&old).unwrap()).unwrap();
+        let engine = Engine::open(store).unwrap();
+        let disk = std::fs::read_to_string(fixture.0.join("state.json")).unwrap();
+        assert!(!disk.contains(&image.data));
+        let id = crate::digest(&crate::images::decode(&image.data).unwrap());
+        assert!(disk.contains(&format!("sha256:{id}")));
+        let attachment = fixture.0.join("attachments").join(&id);
+        assert_eq!(std::fs::metadata(&attachment).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            engine.dispatch(Request::Session { id: "chat".into() }).unwrap()["session"]["messages"]
+                [0]["images"][0]["data"],
+            image.data
+        );
+        drop(engine);
+        let engine = fixture.engine();
+        assert_eq!(
+            engine.dispatch(Request::Session { id: "chat".into() }).unwrap()["session"]["messages"]
+                [0]["images"][0]["data"],
+            image.data
+        );
+        drop(engine);
+        std::fs::write(&attachment, b"tampered").unwrap();
+        assert!(matches!(Engine::open(Store::open(&fixture.0).unwrap()), Err(Error::Integrity)));
+    }
+
+    #[test]
+    fn attachment_store_deduplicates_cleans_orphans_and_recovers_interrupted_stage() {
+        let fixture = Fixture::new();
+        let store = Store::open(&fixture.0).unwrap();
+        let a = store.put_attachment(b"first").unwrap();
+        assert_eq!(store.put_attachment(b"first").unwrap(), a);
+        let b = store.put_attachment(b"second").unwrap();
+        store.retain_attachments(&[a.clone()].into_iter().collect()).unwrap();
+        assert_eq!(store.read_attachment(&a).unwrap(), b"first");
+        assert_eq!(store.read_attachment(&b), Err(Error::NotFound));
+        let stage = fixture.0.join("attachments/.stage-0123456789abcdef0123456789abcdef");
+        std::fs::write(&stage, b"partial").unwrap();
+        std::fs::set_permissions(&stage, std::fs::Permissions::from_mode(0o600)).unwrap();
+        drop(store);
+        let store = Store::open(&fixture.0).unwrap();
+        assert!(!stage.exists());
+        assert_eq!(store.read_attachment(&a).unwrap(), b"first");
+    }
+
+    #[test]
+    fn independent_image_sessions_do_not_exhaust_state_json_budget() {
+        let fixture = Fixture::new();
+        let store = Store::open(&fixture.0).unwrap();
+        let mut state = State::default();
+        for n in 0..5 {
+            let mut bytes = vec![n; 1_700_000];
+            bytes[..8].copy_from_slice(b"\x89PNG\r\n\x1a\n");
+            let image = crate::images::Image::from_bytes(&bytes).unwrap();
+            state.sessions.insert(
+                format!("session{n}"),
+                Session {
+                    lane: Lane::Agent,
+                    title: None,
+                    messages: vec![Message {
+                        role: Role::User,
+                        content: "look".into(),
+                        images: vec![image],
+                    }],
+                },
+            );
+        }
+        assert!(serde_json::to_vec(&state).unwrap().len() as u64 > crate::store::MAX_STATE_BYTES);
+        persist_state(&store, &state).unwrap();
+        assert!(store.read().unwrap().unwrap().len() < 10_000);
+        let engine = Engine::open(store).unwrap();
+        assert_eq!(engine.state.lock().unwrap().sessions.len(), 5);
+    }
+
+    #[test]
+    fn attachment_store_rejects_links_and_invalid_names() {
+        use std::os::unix::fs::symlink;
+        let fixture = Fixture::new();
+        let store = Store::open(&fixture.0).unwrap();
+        let id = store.put_attachment(b"private").unwrap();
+        let path = fixture.0.join("attachments").join(&id);
+        let alias = fixture.0.join("alias");
+        std::fs::hard_link(&path, &alias).unwrap();
+        assert_eq!(store.read_attachment(&id), Err(Error::UnsafeState));
+        std::fs::remove_file(&alias).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        symlink("/etc/passwd", &path).unwrap();
+        assert_eq!(store.read_attachment(&id), Err(Error::UnsafeState));
+        assert_eq!(store.read_attachment("../state.json"), Err(Error::InvalidRequest));
+    }
+
     fn external(engine: &Arc<Engine>) {
         engine
             .dispatch(Request::PutProvider {

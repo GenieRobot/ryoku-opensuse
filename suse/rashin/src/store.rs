@@ -3,6 +3,7 @@
 use crate::{Error, Result};
 use rustix::fs::{self, FileType, FlockOperation, Mode, OFlags, ResolveFlags};
 use std::{
+    collections::BTreeSet,
     fs::File,
     io::{Read, Write},
     os::{
@@ -13,6 +14,9 @@ use std::{
 };
 
 pub const MAX_STATE_BYTES: u64 = 8 * 1024 * 1024;
+const MAX_ATTACHMENT_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_ATTACHMENT_TOTAL: u64 = 1024 * 1024 * 1024;
+const MAX_ATTACHMENT_FILES: usize = 4096;
 const RESOLVE: ResolveFlags = ResolveFlags::BENEATH.union(ResolveFlags::NO_SYMLINKS);
 
 pub struct Store {
@@ -107,12 +111,190 @@ impl Store {
             Ok(()) | Err(rustix::io::Errno::NOENT) => (),
             Err(_) => return Err(Error::Storage),
         }
+        store.discard_staged_attachments()?;
         Ok(store)
+    }
+
+    fn discard_staged_attachments(&self) -> Result<()> {
+        let Some(dir) = self.attachment_directory(false)? else { return Ok(()) };
+        for entry in fs::Dir::read_from(&dir).map_err(|_| Error::Storage)? {
+            let entry = entry.map_err(|_| Error::Storage)?;
+            let name = entry.file_name().to_str().map_err(|_| Error::UnsafeState)?;
+            if let Some(suffix) = name.strip_prefix(".stage-") {
+                if suffix.len() != 32
+                    || !suffix.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+                {
+                    return Err(Error::UnsafeState);
+                }
+                let file = File::from(
+                    fs::openat2(
+                        &dir,
+                        name,
+                        OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NONBLOCK,
+                        Mode::empty(),
+                        RESOLVE.union(ResolveFlags::NO_XDEV),
+                    )
+                    .map_err(|_| Error::UnsafeState)?,
+                );
+                validate(&file, self.uid)?;
+                fs::unlinkat(&dir, name, fs::AtFlags::empty()).map_err(|_| Error::Storage)?;
+            }
+        }
+        dir.sync_all().map_err(|_| Error::Storage)
     }
 
     pub(crate) fn identity(&self) -> Result<(u64, u64)> {
         let stat = fs::fstat(&self.directory).map_err(|_| Error::Storage)?;
         Ok((stat.st_dev, stat.st_ino))
+    }
+
+    fn attachment_directory(&self, create: bool) -> Result<Option<File>> {
+        if create {
+            match fs::mkdirat(&self.directory, "attachments", Mode::from_raw_mode(0o700)) {
+                Ok(()) => self.directory.sync_all().map_err(|_| Error::Storage)?,
+                Err(rustix::io::Errno::EXIST) => (),
+                Err(_) => return Err(Error::Storage),
+            }
+        }
+        let fd = match fs::openat2(
+            &self.directory,
+            "attachments",
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+            Mode::empty(),
+            RESOLVE.union(ResolveFlags::NO_XDEV),
+        ) {
+            Ok(fd) => File::from(fd),
+            Err(rustix::io::Errno::NOENT) => return Ok(None),
+            Err(_) => return Err(Error::UnsafeState),
+        };
+        let stat = fs::fstat(&fd).map_err(|_| Error::Storage)?;
+        if stat.st_uid != self.uid || stat.st_mode & 0o7777 != 0o700 {
+            return Err(Error::UnsafeState);
+        }
+        Ok(Some(fd))
+    }
+    fn attachment_file(&self, dir: &File, id: &str) -> Result<File> {
+        if !attachment_id(id) {
+            return Err(Error::InvalidRequest);
+        }
+        let file = File::from(
+            fs::openat2(
+                dir,
+                id,
+                OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NONBLOCK,
+                Mode::empty(),
+                RESOLVE.union(ResolveFlags::NO_XDEV),
+            )
+            .map_err(|error| {
+                if error == rustix::io::Errno::NOENT { Error::NotFound } else { Error::UnsafeState }
+            })?,
+        );
+        validate(&file, self.uid)?;
+        Ok(file)
+    }
+    pub(crate) fn read_attachment(&self, id: &str) -> Result<Vec<u8>> {
+        let dir = self.attachment_directory(false)?.ok_or(Error::NotFound)?;
+        let file = self.attachment_file(&dir, id)?;
+        let mut bytes = Vec::new();
+        file.take(MAX_ATTACHMENT_BYTES + 1).read_to_end(&mut bytes).map_err(|_| Error::Storage)?;
+        if bytes.len() as u64 > MAX_ATTACHMENT_BYTES || crate::digest(&bytes) != id {
+            return Err(Error::Integrity);
+        }
+        Ok(bytes)
+    }
+    pub(crate) fn put_attachment(&self, bytes: &[u8]) -> Result<String> {
+        if bytes.is_empty() || bytes.len() as u64 > MAX_ATTACHMENT_BYTES {
+            return Err(Error::Limit);
+        }
+        let id = crate::digest(bytes);
+        let dir = self.attachment_directory(true)?.ok_or(Error::Storage)?;
+        match self.read_attachment(&id) {
+            Ok(existing) if existing == bytes => return Ok(id),
+            Err(Error::NotFound) => (),
+            Ok(_) => return Err(Error::Integrity),
+            Err(error) => return Err(error),
+        }
+        let mut count = 0usize;
+        let mut total = 0u64;
+        for entry in fs::Dir::read_from(&dir).map_err(|_| Error::Storage)? {
+            let entry = entry.map_err(|_| Error::Storage)?;
+            let name = entry.file_name().to_str().map_err(|_| Error::UnsafeState)?;
+            if matches!(name, "." | "..") {
+                continue;
+            }
+            if !attachment_id(name) {
+                return Err(Error::UnsafeState);
+            }
+            let file = self.attachment_file(&dir, name)?;
+            let stat = fs::fstat(&file).map_err(|_| Error::Storage)?;
+            count += 1;
+            let size = u64::try_from(stat.st_size).map_err(|_| Error::UnsafeState)?;
+            if size == 0 || size > MAX_ATTACHMENT_BYTES {
+                return Err(Error::UnsafeState);
+            }
+            total = total.checked_add(size).ok_or(Error::Limit)?;
+            if count >= MAX_ATTACHMENT_FILES || total > MAX_ATTACHMENT_TOTAL {
+                return Err(Error::Limit);
+            }
+        }
+        if total.checked_add(bytes.len() as u64).is_none_or(|total| total > MAX_ATTACHMENT_TOTAL) {
+            return Err(Error::Limit);
+        }
+        let mut random = [0; 16];
+        File::open("/dev/urandom")
+            .and_then(|mut file| file.read_exact(&mut random))
+            .map_err(|_| Error::Storage)?;
+        let stage =
+            format!(".stage-{}", random.iter().map(|b| format!("{b:02x}")).collect::<String>());
+        let mut file = File::from(
+            fs::openat2(
+                &dir,
+                stage.as_str(),
+                OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::CLOEXEC,
+                Mode::from_raw_mode(0o600),
+                RESOLVE.union(ResolveFlags::NO_XDEV),
+            )
+            .map_err(|_| Error::UnsafeState)?,
+        );
+        let result = (|| {
+            validate(&file, self.uid)?;
+            file.write_all(bytes).and_then(|()| file.sync_all()).map_err(|_| Error::Storage)?;
+            fs::renameat_with(&dir, stage.as_str(), &dir, id.as_str(), fs::RenameFlags::NOREPLACE)
+                .map_err(|_| Error::Storage)?;
+            dir.sync_all().map_err(|_| Error::Storage)?;
+            Ok(())
+        })();
+        if result.is_err() {
+            let _ = fs::unlinkat(&dir, stage.as_str(), fs::AtFlags::empty());
+        }
+        result?;
+        if self.read_attachment(&id)? != bytes {
+            return Err(Error::Integrity);
+        }
+        Ok(id)
+    }
+    pub(crate) fn retain_attachments(&self, referenced: &BTreeSet<String>) -> Result<()> {
+        let Some(dir) = self.attachment_directory(false)? else {
+            return if referenced.is_empty() { Ok(()) } else { Err(Error::Integrity) };
+        };
+        for id in referenced {
+            self.read_attachment(id)?;
+        }
+        for entry in fs::Dir::read_from(&dir).map_err(|_| Error::Storage)? {
+            let entry = entry.map_err(|_| Error::Storage)?;
+            let name = entry.file_name().to_str().map_err(|_| Error::UnsafeState)?;
+            if matches!(name, "." | "..") {
+                continue;
+            }
+            if !attachment_id(name) {
+                return Err(Error::UnsafeState);
+            }
+            if !referenced.contains(name) {
+                self.read_attachment(name)?;
+                fs::unlinkat(&dir, name, fs::AtFlags::empty()).map_err(|_| Error::Storage)?;
+            }
+        }
+        dir.sync_all().map_err(|_| Error::Storage)
     }
 
     pub fn read(&self) -> Result<Option<Vec<u8>>> {
@@ -165,6 +347,10 @@ impl Store {
         }
         result
     }
+}
+
+fn attachment_id(id: &str) -> bool {
+    id.len() == 64 && id.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn validate(file: &File, uid: u32) -> Result<()> {

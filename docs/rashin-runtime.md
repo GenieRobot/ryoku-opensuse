@@ -1058,8 +1058,10 @@ exercises catalog, selection and live updates through the real engine.
 Agent and Chat can attach PNG, JPEG, GIF or WebP images from the authenticated
 browser or typed API. Each turn accepts up to four images, 2 MiB each and 3 MiB
 in total; the same total applies to the conversation's image history. Image
-bytes are kept in private conversation state only after a completed turn and
-are replayed as ACP image blocks with their conversation positions or as
+bytes are kept in private, owner-only content-addressed files only after a
+completed turn; the atomic conversation state stores their digests. Files are
+verified on access, deduplicated, quota-bound, and reconciled after interruption;
+older inline conversations migrate on startup. They are replayed as ACP image blocks with their conversation positions or as
 OpenAI-compatible image content for Prowl and HTTPS providers. ACP image
 capability is required, and a route that cannot carry image history reports
 unavailable instead of dropping attachments. Image-only prompts are supported.
@@ -1069,6 +1071,19 @@ discards uploaded filenames, validates types from bytes and displays saved
 images from private state. The deterministic fixture verifies actual multipart
 upload, a large typed request, capability denial, cancellation, retry, history
 and restart. Full native ACP session persistence and its original UI remain open.
+
+The pinned upstream `ryoku/rashin/web/src/lib/pages/chat/Composer.svelte:170–188`
+(blob `6f766062fefcdbd4487893819916137d25247386`) accepts browser files whose
+type starts with `image/` and reads them as data URLs, including pasted files;
+those lines impose no explicit file-count or byte limit. `backend/ws.go:56–65`
+(blob `d237e2d732630f86619ab44f4a9beca8589264ab`) carries an image array and
+passes it to ACP, without an application-level image bound in that file. This
+does not prove limits inside the WebSocket library, browser or adapter. The
+four raster types and 2/3 MiB limits above are current implementation limits,
+not complete upstream image parity. The current store keeps conversation images
+in memory and has a 1 GiB account-store quota; broader file support, streaming
+and exact account-bound capture/restore enrollment remain required before
+claiming parity. Native linked recovery does not yet cover these files.
 
 Prowl connections retry transient connection timeouts for at most three seconds
 before sending any request or credential. Each attempt is limited to one second
