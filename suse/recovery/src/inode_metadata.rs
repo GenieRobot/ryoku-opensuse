@@ -26,8 +26,9 @@ use rustix::{
 };
 
 use crate::{
-    EntryKind, RelativePath, XattrName, configuration_stage::StagedEntry,
-    metadata::MAX_METADATA_VALUE_BYTES,
+    EntryKind, EntryMetadata, RelativePath, XattrName,
+    configuration_stage::StagedEntry,
+    metadata::{AclPayload, MAX_METADATA_VALUE_BYTES},
 };
 
 #[derive(Debug)]
@@ -106,7 +107,23 @@ pub fn prepare_inode_metadata(file: &File, entry: &StagedEntry) -> Result<(), In
         }
         _ => return Err(InodeMetadataError::UnsupportedKind),
     };
-    let acl = entry.acl();
+    apply_verified_metadata(file, metadata, directory, entry.acl(), entry.xattrs().collect())
+}
+
+/// Apply metadata after the caller has independently verified the entire
+/// staging inode's type and bytes. This is private to recovery implementations;
+/// it neither chooses a destination nor publishes an inode.
+pub(crate) fn apply_verified_metadata(
+    file: &File,
+    metadata: &EntryMetadata,
+    directory: bool,
+    acl: Option<&AclPayload>,
+    attributes: Vec<(XattrName, &[u8])>,
+) -> Result<(), InodeMetadataError> {
+    let before = file.metadata()?;
+    if before.is_dir() != directory || (!directory && (!before.is_file() || before.nlink() != 1)) {
+        return Err(InodeMetadataError::InodeMismatch);
+    }
     if metadata.mode & !0o7777 != 0
         || metadata.uid == u32::MAX
         || metadata.gid == u32::MAX
@@ -120,7 +137,6 @@ pub fn prepare_inode_metadata(file: &File, entry: &StagedEntry) -> Result<(), In
         .try_into()
         .map_err(|_| InodeMetadataError::InvalidMetadata)?;
     let nanos = metadata.mtime_unix_ns.rem_euclid(1_000_000_000) as _;
-    let attributes: Vec<_> = entry.xattrs().collect();
     let label = attributes
         .iter()
         .find_map(|(name, value)| (*name == XattrName::SelinuxLabel).then_some(*value));
@@ -226,10 +242,33 @@ pub fn prepare_symlink_metadata(
     let EntryKind::Symlink { metadata, target } = &entry.record().kind else {
         return Err(InodeMetadataError::UnsupportedKind);
     };
+    apply_verified_symlink_metadata(
+        parent,
+        leaf,
+        metadata,
+        target,
+        entry.acl(),
+        entry.xattrs().collect(),
+    )
+}
+
+/// Private asset-restore companion; the caller binds these metadata bytes to a
+/// verified generation and exclusively owns the exact staging link.
+pub(crate) fn apply_verified_symlink_metadata(
+    parent: &File,
+    leaf: &RelativePath,
+    metadata: &EntryMetadata,
+    target: &str,
+    acl: Option<&AclPayload>,
+    attributes: Vec<(XattrName, &[u8])>,
+) -> Result<(), InodeMetadataError> {
+    if leaf.as_str().contains('/') {
+        return Err(InodeMetadataError::InvalidMetadata);
+    }
     if metadata.mode != 0o777
         || metadata.uid == u32::MAX
         || metadata.gid == u32::MAX
-        || entry.acl().is_some()
+        || acl.is_some()
     {
         return Err(InodeMetadataError::InvalidMetadata);
     }
@@ -257,7 +296,6 @@ pub fn prepare_symlink_metadata(
     // The parent descriptor is pinned and the single leaf is exclusively
     // owned by this staging operation. Linux l*xattr never follows the leaf.
     let path = format!("/proc/self/fd/{}/{}", parent.as_raw_fd(), leaf.as_str());
-    let attributes: Vec<_> = entry.xattrs().collect();
     let label = attributes
         .iter()
         .find_map(|(name, value)| (*name == XattrName::SelinuxLabel).then_some(*value));

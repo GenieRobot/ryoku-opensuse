@@ -33,6 +33,11 @@ const NO_LINKS: ResolveFlags =
 /// plan. Only audited providers may call this API; no RPC accepts callbacks.
 pub trait NativeMutationProvider {
     type Output;
+    /// Complete server-owned asset declaration, fixed before review and held
+    /// unchanged through post-capture. Preference-only providers retain None.
+    fn asset_scope(&self) -> Option<ryoku_recovery::ryogami_assets::AssetScope> {
+        None
+    }
     fn plan(&mut self, session: &NativeCaptureSession) -> Result<PlannedChange>;
     fn authorize(&mut self, plan: &PlannedChange) -> Result<()>;
     fn apply(
@@ -86,7 +91,7 @@ pub fn review_operator_plan<P: NativeMutationProvider>(
     .map_err(|_| GateError::CheckpointUnverified)?;
     let mut plan = provider.plan(&session)?;
     plan.affected_state_fingerprint =
-        session.inventory_fingerprint().map_err(|_| GateError::PlanChanged)?.as_str().into();
+        scoped_fingerprint(&session, provider.asset_scope().as_ref())?;
     account.revalidate().map_err(|_| GateError::PlanChanged)?;
     Ok(plan)
 }
@@ -111,7 +116,12 @@ fn run_bound_mutation<P: NativeMutationProvider>(
     let planned = request.planned.clone();
     let mut operation =
         JournaledOperation::new(&mut journal, request.operation_id.clone(), request.action);
-    let mut integration = NativeIntegration { account, session: &session, root, provider, request };
+    let asset_scope = provider.asset_scope();
+    if let Some(scope) = &asset_scope {
+        scope.validate().map_err(|_| GateError::InvalidPlan)?;
+    }
+    let mut integration =
+        NativeIntegration { account, session: &session, root, provider, request, asset_scope };
     mutation_gate::coordinate_mutation_locked(&planned, &mut operation, &mut integration)
 }
 
@@ -143,6 +153,7 @@ pub(crate) fn open_journal(directory: &File) -> Result<OperationJournal> {
 /// lock. Holding this view serializes journal replay/repair against mutation.
 /// Root-only local access; never accept a caller-supplied path or state identity.
 pub struct ProtectedMutationHistory {
+    directory: File,
     _guard: mutation_gate::WriterGuard,
     journal: OperationJournal,
 }
@@ -162,7 +173,10 @@ impl ProtectedMutationHistory {
         )?;
         let guard = lock.acquire()?;
         let journal = open_journal(&directory)?;
-        Ok(Self { _guard: guard, journal })
+        Ok(Self { directory, _guard: guard, journal })
+    }
+    pub(crate) fn directory(&self) -> &File {
+        &self.directory
     }
     pub fn journal(&self) -> &OperationJournal {
         &self.journal
@@ -198,16 +212,29 @@ struct NativeIntegration<'a, P> {
     root: File,
     provider: &'a mut P,
     request: NativeMutationRequest<'a>,
+    asset_scope: Option<ryoku_recovery::ryogami_assets::AssetScope>,
 }
+
+fn scoped_fingerprint(
+    session: &NativeCaptureSession,
+    scope: Option<&ryoku_recovery::ryogami_assets::AssetScope>,
+) -> Result<String> {
+    let fingerprint = match scope {
+        Some(scope) => session.inventory_fingerprint_with_assets(scope),
+        None => session.inventory_fingerprint(),
+    }
+    .map_err(|_| GateError::PlanChanged)?;
+    Ok(fingerprint.as_str().into())
+}
+
 impl<P: NativeMutationProvider> NativeIntegration<'_, P> {
     fn current_plan(&mut self) -> Result<PlannedChange> {
         let mut plan = self.provider.plan(self.session)?;
-        plan.affected_state_fingerprint = self
-            .session
-            .inventory_fingerprint()
-            .map_err(|_| GateError::PlanChanged)?
-            .as_str()
-            .into();
+        if self.provider.asset_scope() != self.asset_scope {
+            return Err(GateError::PlanChanged);
+        }
+        plan.affected_state_fingerprint =
+            scoped_fingerprint(self.session, self.asset_scope.as_ref())?;
         Ok(plan)
     }
     fn boundary(&self) -> Result<()> {
@@ -217,6 +244,9 @@ impl<P: NativeMutationProvider> NativeIntegration<'_, P> {
     }
     fn capture_native(&self, post: bool) -> Result<CheckpointEvidence> {
         self.boundary()?;
+        if self.provider.asset_scope() != self.asset_scope {
+            return Err(GateError::PlanChanged);
+        }
         let suffix = if post { "post" } else { "pre" };
         let transaction =
             Identifier::new(format!("{}-{suffix}", self.request.operation_id.as_str()))
@@ -243,22 +273,22 @@ impl<P: NativeMutationProvider> NativeIntegration<'_, P> {
             .map_err(|_| GateError::CheckpointUnverified)?,
         )
         .map_err(|_| GateError::CheckpointUnverified)?;
-        self.session
-            .capture(
-                InstalledCaptureRequest {
-                    transaction_id: transaction.clone(),
-                    generation_id: generation,
-                    parent_generation_id: None,
-                    snapshot: native.verified_link().clone(),
-                    reason: self.request.reason.clone(),
-                    created_utc: self.request.created_utc.clone(),
-                    package_revisions: self.request.packages.clone(),
-                    provider_revision: None,
-                    limits: CaptureLimits::default(),
-                },
-                self.request.bundle,
-            )
-            .map_err(|_| GateError::CheckpointUnverified)?;
+        let request = InstalledCaptureRequest {
+            transaction_id: transaction.clone(),
+            generation_id: generation,
+            parent_generation_id: None,
+            snapshot: native.verified_link().clone(),
+            reason: self.request.reason.clone(),
+            created_utc: self.request.created_utc.clone(),
+            package_revisions: self.request.packages.clone(),
+            provider_revision: None,
+            limits: CaptureLimits::default(),
+        };
+        match &self.asset_scope {
+            Some(scope) => self.session.capture_with_assets(request, self.request.bundle, scope),
+            None => self.session.capture(request, self.request.bundle),
+        }
+        .map_err(|_| GateError::CheckpointUnverified)?;
         // Do not call a generation complete based on a saved flag. Reopen exact
         // immutable bytes and the original native receipt before publication.
         let reader =
@@ -325,6 +355,11 @@ impl<P: NativeMutationProvider> MutationIntegration for NativeIntegration<'_, P>
     fn state_space_check(&mut self, _: &PlannedChange) -> Result<()> {
         self.boundary()?;
         self.session.ensure_checkpoint_space().map_err(|_| GateError::InsufficientSpace)?;
+        if let Some(scope) = &self.asset_scope {
+            self.session
+                .ensure_asset_checkpoint_space(scope)
+                .map_err(|_| GateError::InsufficientSpace)?;
+        }
         let stats = fs::fstatvfs(&self.root).map_err(|_| GateError::InsufficientSpace)?;
         if stats.f_bavail.saturating_mul(stats.f_frsize) < 128 * 1024 * 1024 {
             return Err(GateError::InsufficientSpace);

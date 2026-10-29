@@ -1,0 +1,76 @@
+schema_version = 1
+issue = 175
+status = "partial-authenticated-model-reference-route-native-acceptance-pending"
+branch = "codex/issue175-ryogami-library-providers"
+previous_checkpoint = "a6522141f3423013780835c96ec7d7ac6ced3c49"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+
+[storage]
+worktree_filesystem = "/dev/sdd"
+cargo_target_filesystem = "/dev/sdd"
+go_cache_filesystem = "/dev/sdd"
+fixture_filesystem = "tmpfs"
+provider_endpoint_calls = 0
+media_downloads = 0
+model_downloads = 0
+native_snapper_launches = 0
+
+[implementation]
+existing_picker_add_forget_envelope_preserved = true
+per_frame_typed_proxy_classification = true
+unauthorized_refusal_before_account_lookup = true
+helper_accepts_intent_not_prepared_commit = true
+native_mutation_runner_pre_post_history_integration = true
+exact_generated_actor_stage_asset_scope = true
+fixed_inventory_validator_unchanged = true
+owned_bounded_manifest_name_read_with_upstream_fallback = true
+actor_settings_digest_and_selection_binding = true
+post_health_verifies_models_selection_unrelated_settings_metadata_stage = true
+original_picker_response_only_after_durable_success = true
+existing_go_persistence_events_callbacks_preserved = true
+selected_orphan_clear_callback_dependency = "#176 semantic stop/reindex linked transaction; request currently refuses before native checkpoint"
+
+[validation]
+provider_focused_passed = 5
+proxy_model_route_focused_passed = 1
+helper_authorization_focused_passed = 1
+rust_to_go_integration_explicitly_run_passed = 1
+rust_to_go_native_writer_scenarios_passed = 5
+rust_to_go_scenarios = ["add", "inactive forget", "stale settings", "stage collision", "unsupported metadata retains partial stage"]
+go_model_and_private_channel_tests_passed = 6
+go_existing_audio_regressions_passed = 2
+go_driver_default_skip = "explicit local Rust fixture required; exercised five times by the separately passed integration test"
+go_patch_reproduction = "pass; zero fuzz, exact bytes of daemon.go, broker_models.go and broker_models_test.go"
+workspace_all_features_offline_locked = "pass"
+recovery_tests_passed = 284
+recovery_tests_existing_ignored = 6
+console_tests_passed = 26
+service_tests_passed = 179
+service_tests_ignored = 2
+service_ignored_detail = "one existing native gate; one explicit pinned-Go fixture separately passed"
+vm_lab_tests_passed = 90
+strict_clippy_all_targets_all_features = "pass"
+formatting = "pass"
+whitespace = "pass"
+dependency_advisories = "pass-cached-offline"
+dependency_bans = "pass-cached-offline"
+dependency_licenses = "pass-cached-offline"
+dependency_sources = "pass-cached-offline"
+corrections = "initial compile corrected Linux stat nanoseconds to u64; all focused and full tests passed"
+
+[acceptance]
+helper_model_reference_route_implemented = true
+picker_existing_action_route_implemented = true
+installed_helper_actor_snapper_native_test = false
+native_picker_interaction_test = false
+all_model_operations_complete = false
+all_provider_library_operations_complete = false
+issue_complete = false
+remaining = [
+  "selected/orphan clearing callback transaction coordinated with #176",
+  "general tree capture/restore and model import/install/delete",
+  "all retained source search/download/preview/cancel and Steam operations",
+  "library cache/maintenance/transform and recoverable media deletion",
+  "configured cache and external owned-root enrollment preserving parity",
+  "native combined-candidate helper/UI/recovery acceptance"
+]

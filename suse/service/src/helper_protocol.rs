@@ -1,6 +1,6 @@
 //! Versioned, typed boundary between the per-user service and root helper.
-//! The installed operator boundary executes only the reviewed wallpaper runner;
-//! all other mutation families retain explicit unsupported responses.
+//! The operator boundary executes reviewed wallpaper and model-reference runners;
+//! other mutation families retain explicit unsupported responses.
 
 use rustix::{
     event::{PollFd, PollFlags, Timespec, poll},
@@ -84,6 +84,9 @@ pub enum HelperOutcome {
     WallpaperAudioSet { operation_id: crate::OperationId, reply: Vec<u8> },
     WallpaperPaused { operation_id: crate::OperationId, reply: Vec<u8> },
     WorkspaceWallpaperChanged { operation_id: crate::OperationId, reply: Vec<u8> },
+    ModelReferencesChanged { operation_id: crate::OperationId, reply: Vec<u8> },
+    MediaChanged { operation_id: crate::OperationId, reply: Vec<u8> },
+    MediaTrashListed { reply: Vec<u8> },
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -94,11 +97,21 @@ enum HelperOutcomeWire {
     WallpaperAudioSet { operation_id: crate::OperationId, reply: Vec<u8> },
     WallpaperPaused { operation_id: crate::OperationId, reply: Vec<u8> },
     WorkspaceWallpaperChanged { operation_id: crate::OperationId, reply: Vec<u8> },
+    ModelReferencesChanged { operation_id: crate::OperationId, reply: Vec<u8> },
+    MediaChanged { operation_id: crate::OperationId, reply: Vec<u8> },
+    MediaTrashListed { reply: Vec<u8> },
 }
 impl From<HelperOutcome> for HelperOutcomeWire {
     fn from(value: HelperOutcome) -> Self {
         match value {
             HelperOutcome::Rejected(error) => Self::Rejected { error },
+            HelperOutcome::MediaTrashListed { reply } => Self::MediaTrashListed { reply },
+            HelperOutcome::MediaChanged { operation_id, reply } => {
+                Self::MediaChanged { operation_id, reply }
+            }
+            HelperOutcome::ModelReferencesChanged { operation_id, reply } => {
+                Self::ModelReferencesChanged { operation_id, reply }
+            }
             HelperOutcome::WallpaperPaused { operation_id, reply } => {
                 Self::WallpaperPaused { operation_id, reply }
             }
@@ -118,6 +131,13 @@ impl From<HelperOutcomeWire> for HelperOutcome {
     fn from(value: HelperOutcomeWire) -> Self {
         match value {
             HelperOutcomeWire::Rejected { error } => Self::Rejected(error),
+            HelperOutcomeWire::MediaTrashListed { reply } => Self::MediaTrashListed { reply },
+            HelperOutcomeWire::MediaChanged { operation_id, reply } => {
+                Self::MediaChanged { operation_id, reply }
+            }
+            HelperOutcomeWire::ModelReferencesChanged { operation_id, reply } => {
+                Self::ModelReferencesChanged { operation_id, reply }
+            }
             HelperOutcomeWire::WallpaperPaused { operation_id, reply } => {
                 Self::WallpaperPaused { operation_id, reply }
             }
@@ -187,6 +207,30 @@ pub fn dispatch_operator_request(
         HelperOutcome::Rejected(ServiceError::Unauthorized)
     } else {
         match envelope.request {
+            HelperRequest::ListMediaTrash { action, rpc_id } => {
+                match crate::ryogami_media::list(&peer, operator_gid, action, rpc_id) {
+                    Ok(reply) => HelperOutcome::MediaTrashListed { reply },
+                    Err(error) => HelperOutcome::Rejected(error),
+                }
+            }
+            HelperRequest::ChangeMedia { action, rpc_id } => {
+                match crate::ryogami_media::change(&peer, operator_gid, action, rpc_id) {
+                    Ok(completed) => HelperOutcome::MediaChanged {
+                        operation_id: completed.operation_id,
+                        reply: completed.reply,
+                    },
+                    Err(error) => HelperOutcome::Rejected(error),
+                }
+            }
+            HelperRequest::ChangeModelReferences { action, rpc_id } => {
+                match crate::ryogami_models::change(&peer, operator_gid, action, rpc_id) {
+                    Ok(completed) => HelperOutcome::ModelReferencesChanged {
+                        operation_id: completed.operation_id,
+                        reply: completed.reply,
+                    },
+                    Err(error) => HelperOutcome::Rejected(error),
+                }
+            }
             HelperRequest::ApplyWallpaper { action, rpc_id } => {
                 match crate::wallpaper::apply(&peer, operator_gid, action, rpc_id) {
                     Ok(completed) => HelperOutcome::WallpaperApplied {
@@ -431,7 +475,10 @@ pub(crate) fn check_action_availability_until(
             HelperOutcome::WallpaperApplied { .. }
             | HelperOutcome::WallpaperAudioSet { .. }
             | HelperOutcome::WallpaperPaused { .. }
-            | HelperOutcome::WorkspaceWallpaperChanged { .. } => {
+            | HelperOutcome::WorkspaceWallpaperChanged { .. }
+            | HelperOutcome::ModelReferencesChanged { .. }
+            | HelperOutcome::MediaChanged { .. }
+            | HelperOutcome::MediaTrashListed { .. } => {
                 Err(ProtocolError::Malformed("unexpected mutation response to availability probe"))
             }
         }
@@ -626,6 +673,102 @@ mod tests {
     use crate::{CheckpointId, ManagedActionKind, PackageId, authorize_helper_operator};
     use std::io::{BufRead, BufReader};
     use std::os::unix::net::UnixStream;
+
+    #[test]
+    fn media_trash_listing_authorizes_before_account_lookup_and_has_read_only_reply() {
+        use ryoku_recovery::ryogami_media_protocol::MediaTrashQuery;
+        let query = MediaTrashQuery::default();
+        let response = dispatch_operator_request(
+            PeerIdentity { uid: 1000, gid: 1000, supplementary_gids: vec![], pid: None },
+            4242,
+            valid_envelope(HelperRequest::ListMediaTrash { action: query.clone(), rpc_id: 9 }),
+        )
+        .unwrap();
+        assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
+        assert!(HelperRequest::ListMediaTrash { action: query, rpc_id: -1 }.validate().is_err());
+        for action in [serde_json::json!({"path":"/tmp"}), serde_json::json!({"account":1001})] {
+            assert!(
+                serde_json::from_value::<HelperRequest>(
+                    serde_json::json!({"operation":"list_media_trash","rpc_id":9,"action":action})
+                )
+                .is_err()
+            );
+        }
+        let success = HelperOutcome::MediaTrashListed {
+            reply: b"{\"id\":9,\"result\":{\"entries\":[],\"next_cursor\":null}}\n".to_vec(),
+        };
+        let bytes = serde_json::to_vec(&success).unwrap();
+        assert!(!String::from_utf8_lossy(&bytes).contains("operation_id"));
+        assert_eq!(serde_json::from_slice::<HelperOutcome>(&bytes).unwrap(), success);
+    }
+    #[test]
+    fn media_helper_authorizes_before_lookup_and_refuses_client_preparation() {
+        use ryoku_recovery::ryogami_media_protocol::MediaIntent;
+        for action in [
+            MediaIntent::Delete { key: "fixture".into() },
+            MediaIntent::Restore { receipt: format!("{}.{}", "a".repeat(64), "b".repeat(64)) },
+        ] {
+            let response = dispatch_operator_request(
+                PeerIdentity { uid: 1000, gid: 1000, supplementary_gids: vec![], pid: None },
+                4242,
+                valid_envelope(HelperRequest::ChangeMedia { action: action.clone(), rpc_id: 4 }),
+            )
+            .unwrap();
+            assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
+            assert!(HelperRequest::ChangeMedia { action, rpc_id: -1 }.validate().is_err());
+        }
+        for request in [
+            serde_json::json!({"operation":"change_media","rpc_id":4,"action":{"operation":"delete","key":"fixture","path":"/tmp/file"}}),
+            serde_json::json!({"operation":"change_media","rpc_id":4,"action":{"operation":"delete","key":"fixture"},"checkpoint":"client"}),
+        ] {
+            assert!(serde_json::from_value::<HelperRequest>(request).is_err());
+        }
+        let success = HelperOutcome::MediaChanged {
+            operation_id: crate::OperationId::new("media-fixture").unwrap(),
+            reply: b"{\"id\":4,\"result\":{\"ok\":true}}\n".to_vec(),
+        };
+        assert_eq!(
+            serde_json::from_slice::<HelperOutcome>(&serde_json::to_vec(&success).unwrap())
+                .unwrap(),
+            success
+        );
+    }
+
+    #[test]
+    fn model_helper_accepts_only_intents_and_authorizes_before_lookup() {
+        use ryoku_recovery::ryogami_models_protocol::ModelReferenceIntent;
+        for action in
+            [ModelReferenceIntent::Add { path: None }, ModelReferenceIntent::Forget { index: 1 }]
+        {
+            let response = dispatch_operator_request(
+                PeerIdentity { uid: 1000, gid: 1000, supplementary_gids: vec![], pid: None },
+                4242,
+                valid_envelope(HelperRequest::ChangeModelReferences { action, rpc_id: 4 }),
+            )
+            .unwrap();
+            assert_eq!(response.outcome, HelperOutcome::Rejected(ServiceError::Unauthorized));
+        }
+        for request in [
+            serde_json::json!({"operation":"change_model_references","rpc_id":4,"action":{"operation":"add","path":null,"staging_token":"bad"}}),
+            serde_json::json!({"operation":"change_model_references","rpc_id":4,"action":{"operation":"forget","index":1},"checkpoint":"client"}),
+        ] {
+            assert!(serde_json::from_value::<HelperRequest>(request).is_err());
+        }
+        let invalid = HelperRequest::ChangeModelReferences {
+            action: ModelReferenceIntent::Forget { index: 1 },
+            rpc_id: -1,
+        };
+        assert!(invalid.validate().is_err());
+        let success = HelperOutcome::ModelReferencesChanged {
+            operation_id: crate::OperationId::new("models-fixture").unwrap(),
+            reply: b"{\"id\":4,\"result\":{\"removed\":true}}\n".to_vec(),
+        };
+        assert_eq!(
+            serde_json::from_slice::<HelperOutcome>(&serde_json::to_vec(&success).unwrap())
+                .unwrap(),
+            success
+        );
+    }
 
     #[test]
     fn manual_workspace_helper_has_no_client_preparation_or_authority_shortcut() {

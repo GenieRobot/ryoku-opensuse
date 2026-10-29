@@ -1,0 +1,69 @@
+schema_version = 1
+issue = 175
+status = "partial-combined-tree-console-provider-actions-pending"
+branch = "codex/issue175-ryogami-library-providers"
+previous_checkpoint = "dc5edfe3b480dbcf28e5f7c67a294a4d93bd6e38"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+
+[storage]
+worktree_filesystem = "/dev/sdd"
+cargo_target_filesystem = "/dev/sdd"
+fixture_filesystem = "tmpfs"
+provider_endpoint_calls = 0
+media_downloads = 0
+model_downloads = 0
+native_snapper_launches = 0
+
+[implementation]
+read_only_live_tree_discovery_after_writer_stop = true
+restart_intent_derived_from_immutable_checkpoint = true
+file_only_combined_record_schema1_unchanged = true
+tree_combined_record_schema = 2
+protected_receipts_cover_preferences_files_and_trees = true
+all_families_verify_before_configuration_restored = true
+partial_tree_cleanup_uses_fresh_checkpoint_and_retained_trash = true
+console_prepare_replay_rollback_cleanup_dispatch = true
+legacy_fixed_preference_inventory_unchanged = true
+new_public_provider_ui_actions = false
+
+[validation]
+new_combined_tree_fixtures_passed = 5
+file_tree_combined_regressions_passed = 28
+application = "pass; actual configuration, separate preview file and complete model tree restore together; metadata and retained originals independently verified"
+restart = "pass; preparation boundaries and every apply interruption reopen; partial file/tree stage requires fresh checkpointed cleanup; original phase remains pending until all families verify"
+failure = "pass; unexpected tree child or preference failure cannot advance ConfigurationRestored; configuration retry verifies already restored assets"
+record = "pass; tree receipt omission, schema downgrade and receipt digest change refuse; file-only schema1 has no trees field and reopens"
+workspace_all_features_offline_locked = "pass-on-unchanged-rerun"
+recovery_tests_passed = 303
+recovery_tests_existing_ignored = 6
+console_tests_passed = 26
+service_tests_passed = 179
+service_tests_existing_ignored = 2
+vm_lab_tests_passed = 90
+strict_clippy_all_targets_all_features = "pass"
+formatting = "pass"
+whitespace = "pass"
+dependency_advisories = "pass-cached-offline"
+dependency_bans = "pass-cached-offline"
+dependency_licenses = "pass-cached-offline"
+dependency_sources = "pass-cached-offline"
+fixture_correction = "expanded three-family fixture initially used a filename in content-addressed ProviderContent; corrected fixture to RemotePreviews without relaxing path validation"
+first_full_failure = "existing writer_freeze inherited_manual_pause_holds_new_player_before_first_instruction_until_explicit_resume returned WriterUnavailable from PreservedPlayerStop::pin at writer_freeze.rs:1594; recovery 302 passed, 1 failed, 6 ignored"
+failure_reproduction = "isolated unchanged fixture passed; unchanged full all-feature rerun passed; no writer-freeze code or feature changes in this checkpoint; timing/environment failure not reproduced, no fix claimed"
+
+[acceptance]
+combined_tree_console_storage_contract = true
+native_tumbleweed_combined_tree_test = false
+native_root_inode_creation_test = false
+missing_parent_creation = false
+model_import_install_delete_complete = false
+issue_complete = false
+remaining = [
+  "typed helper/provider/UI routes for model import/install/delete and library/workshop operations",
+  "recoverable media deletion/trash receipt public workflow",
+  "missing provider-directory creation and metadata recovery",
+  "distinct account/policy-bound exact-output declaration seam for issue176",
+  "selected/orphan model removal callback transaction with issue176",
+  "all retained source/Steam search/download and configured/external-owned-root enrollment",
+  "native Tumbleweed/Snapper/root-creation acceptance"
+]

@@ -1,0 +1,71 @@
+schema_version = 1
+issue = 175
+status = "partial-journaled-tree-engine-combined-dispatch-pending"
+branch = "codex/issue175-ryogami-library-providers"
+previous_checkpoint = "6f63e48c0665d75d3625b9c2ab8b0a11ed5dcde9"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+
+[storage]
+worktree_filesystem = "/dev/sdd"
+cargo_target_filesystem = "/dev/sdd"
+fixture_filesystem = "tmpfs"
+provider_endpoint_calls = 0
+media_downloads = 0
+model_downloads = 0
+native_snapper_launches = 0
+
+[implementation]
+complete_tree_claim_required = true
+source_current_generated_scope_captured_before_writes = true
+account_and_native_partner_identity_bound = true
+protected_write_ahead_record = true
+parent_and_home_inode_pins_persisted = true
+bounded_streaming_staging = true
+account_owned_inodes_at_creation = true
+metadata_applied_bottom_up = true
+atomic_exchange_or_no_replace = true
+original_tree_retained_in_local_trash = true
+partial_stage_requires_fresh_checkpointed_cleanup = true
+flat_inventory_and_preference_readers_unchanged = true
+public_tree_dispatch_enabled = false
+
+[validation]
+focused_tree_tests_passed = 7
+file_tree_combined_regressions_passed = 23
+replacement = "pass; original content and obsolete children retained in trash; restored source metadata verified; private sibling untouched"
+absence = "pass; absent target restored and unwanted current tree moved to retained trash; present and absent noops verified"
+interruption = "pass; journal-only, partial stage, exchanged and restored boundaries reopened; partial stages refused until separately checkpointed cleanup; original replay completes"
+binding = "pass; account, source/checkpoint swap, protected record corruption, parent inode replacement and undeclared children refused"
+ownership = "pass for account caller; exclusive file/directory creation, mode, UID/GID, unsafe parent and link refusal, caller identity unchanged"
+root_thread_credential_drop_native_test = "pending"
+workspace_all_features_offline_locked = "pass"
+recovery_tests_passed = 298
+recovery_tests_existing_ignored = 6
+console_tests_passed = 26
+service_tests_passed = 179
+service_tests_existing_ignored = 2
+vm_lab_tests_passed = 90
+strict_clippy_all_targets_all_features = "pass"
+formatting = "pass"
+whitespace = "pass"
+dependency_advisories = "pass-cached-offline"
+dependency_bans = "pass-cached-offline"
+dependency_licenses = "pass-cached-offline"
+dependency_sources = "pass-cached-offline"
+corrections = "initial four tree fixtures failed before writes because cross-namespace membership attempted TreeStage validation; explicit namespace discrimination corrected binding; expanded focused/full checks pass"
+
+[acceptance]
+combined_tree_console_restore = false
+missing_parent_creation = false
+model_import_install_delete_complete = false
+new_picker_actions_enabled = false
+native_combined_candidate_test = false
+issue_complete = false
+remaining = [
+  "combined preference/file/tree durable preparation, cleanup and console replay",
+  "missing provider-directory creation and metadata recovery",
+  "distinct account/policy-bound exact output declaration seam for issue176, preserving fixed UserHome and library boundaries",
+  "model import/install/delete with issue176 selection/orphan callback transaction",
+  "all retained source/Steam/library/media operations and authenticated UI actions",
+  "configured cache/external owned roots and native Tumbleweed/Snapper/root-creation acceptance"
+]

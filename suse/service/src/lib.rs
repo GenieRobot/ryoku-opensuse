@@ -4,7 +4,8 @@
 //! Callers cannot supply executables, shell text, plans or checkpoint proofs.
 //! The typed wallpaper runner accepts a bounded source path, independently
 //! authorizes and plans it, and requires verified linked pre/post captures.
-//! Other mutation families remain unsupported at the helper boundary.
+//! Model-reference intents use the same authenticated linked-recovery runner;
+//! other mutation families remain unsupported at the helper boundary.
 
 pub mod account_state;
 pub mod helper_protocol;
@@ -15,6 +16,13 @@ pub mod native_mutation;
 pub mod protected_state;
 pub mod runtime;
 mod runtime_paths;
+pub mod ryogami_media;
+pub mod ryogami_model_references;
+pub mod ryogami_models;
+#[cfg(target_os = "linux")]
+pub mod ryogami_paths;
+pub mod ryogami_protocol;
+pub mod ryogami_staging;
 pub mod wallpaper;
 mod workspace_selection;
 
@@ -210,6 +218,10 @@ pub enum ManagedActionKind {
     PauseWallpaper,
     AssignWorkspace,
     UnassignWorkspace,
+    AddModelReference,
+    ForgetModelReference,
+    DeleteMedia,
+    RestoreMedia,
 }
 
 impl From<&ManagedAction> for ManagedActionKind {
@@ -345,6 +357,18 @@ pub fn read_envelope(reader: &mut impl BufRead) -> Result<Envelope, ProtocolErro
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HelperRequest {
+    ListMediaTrash {
+        action: ryoku_recovery::ryogami_media_protocol::MediaTrashQuery,
+        rpc_id: i64,
+    },
+    ChangeMedia {
+        action: ryoku_recovery::ryogami_media_protocol::MediaIntent,
+        rpc_id: i64,
+    },
+    ChangeModelReferences {
+        action: ryoku_recovery::ryogami_models_protocol::ModelReferenceIntent,
+        rpc_id: i64,
+    },
     ChangeWorkspaceWallpaper {
         action: ryoku_recovery::workspace_protocol::WorkspaceRequest,
         rpc_id: i64,
@@ -385,6 +409,24 @@ pub enum HelperRequest {
 impl HelperRequest {
     pub fn validate(&self) -> Result<(), ProtocolError> {
         let (transaction, manifest) = match self {
+            Self::ListMediaTrash { action, rpc_id } => {
+                if *rpc_id < 0 || action.validate().is_err() {
+                    return Err(ProtocolError::Malformed("invalid media trash query"));
+                }
+                return Ok(());
+            }
+            Self::ChangeMedia { action, rpc_id } => {
+                if *rpc_id < 0 || action.validate().is_err() {
+                    return Err(ProtocolError::Malformed("invalid media action"));
+                }
+                return Ok(());
+            }
+            Self::ChangeModelReferences { action, rpc_id } => {
+                if *rpc_id < 0 || action.validate().is_err() {
+                    return Err(ProtocolError::Malformed("invalid model reference action"));
+                }
+                return Ok(());
+            }
             Self::ApplyWallpaper { action, rpc_id } => {
                 if *rpc_id < 0 || action.validate().is_err() {
                     return Err(ProtocolError::Malformed("invalid wallpaper action"));

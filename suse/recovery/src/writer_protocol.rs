@@ -542,17 +542,24 @@ impl Endpoint {
                             .map_err(|_| Error::Unsupported)?;
                         freeze.check()?;
                         self.namespace.check_lock(lock)?;
-                        let (_, action) = crate::wallpaper_protocol::parse_change(&call.frame)
-                            .map_err(|_| Error::Unsupported)?;
-                        if matches!(action, crate::wallpaper_protocol::WallpaperChange::Pause(_))
-                            && actor.player_identities()? != call.player_pins
+                        let (_, action) =
+                            crate::wallpaper_protocol::parse_native_change(&call.frame)
+                                .map_err(|_| Error::Unsupported)?;
+                        if matches!(
+                            action,
+                            crate::wallpaper_protocol::NativeChange::Wallpaper(
+                                crate::wallpaper_protocol::WallpaperChange::Pause(_)
+                            )
+                        ) && actor.player_identities()? != call.player_pins
                         {
                             return Err(Error::WriterUnavailable);
                         }
                         if matches!(
                             action,
-                            crate::wallpaper_protocol::WallpaperChange::Apply(_)
-                                | crate::wallpaper_protocol::WallpaperChange::Workspace(_)
+                            crate::wallpaper_protocol::NativeChange::Wallpaper(
+                                crate::wallpaper_protocol::WallpaperChange::Apply(_)
+                                    | crate::wallpaper_protocol::WallpaperChange::Workspace(_)
+                            )
                         ) && call.inherit_manual_pause != actor.manual_paused()?
                         {
                             return Err(Error::WriterUnavailable);
@@ -571,7 +578,10 @@ impl Endpoint {
                         actor.identity()?;
                         self.namespace.check_lock(lock)?;
                         let applied = applied?;
-                        if let crate::wallpaper_protocol::WallpaperChange::Pause(pause) = action {
+                        if let crate::wallpaper_protocol::NativeChange::Wallpaper(
+                            crate::wallpaper_protocol::WallpaperChange::Pause(pause),
+                        ) = action
+                        {
                             if actor.player_identities()? != call.player_pins {
                                 return Err(Error::WriterUnavailable);
                             }

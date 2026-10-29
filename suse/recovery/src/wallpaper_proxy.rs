@@ -165,18 +165,6 @@ impl Drop for ProxyServer {
 
 fn apply_via_helper(id: i64, action: &WallpaperChange) -> io::Result<Vec<u8>> {
     action.validate().map_err(io::Error::other)?;
-    let mut stream = UnixStream::connect("/run/ryoku/helper.sock")?;
-    if socket_peercred(&stream)?.uid.as_raw() != 0 {
-        return Err(io::Error::new(
-            io::ErrorKind::PermissionDenied,
-            "wallpaper helper peer is not root",
-        ));
-    }
-    let request_id = format!(
-        "wallpaper-{}-{}",
-        std::process::id(),
-        NEXT_REQUEST.fetch_add(1, Ordering::Relaxed)
-    );
     let (operation, expected_outcome, params) = match action {
         WallpaperChange::Apply(action) => {
             ("apply_wallpaper", "wallpaper_applied", serde_json::to_value(action))
@@ -194,6 +182,54 @@ fn apply_via_helper(id: i64, action: &WallpaperChange) -> io::Result<Vec<u8>> {
         ),
     };
     let params = params.map_err(io::Error::other)?;
+    exchange_mutation_helper(id, operation, expected_outcome, params)
+}
+fn models_via_helper(
+    id: i64,
+    action: &crate::ryogami_models_protocol::ModelReferenceIntent,
+) -> io::Result<Vec<u8>> {
+    action.validate().map_err(io::Error::other)?;
+    exchange_mutation_helper(
+        id,
+        "change_model_references",
+        "model_references_changed",
+        serde_json::to_value(action).map_err(io::Error::other)?,
+    ).or_else(|_| Ok(error_reply(id, "Model authorization or linked recovery is unavailable; inspect the protected operation history")))
+}
+fn media_via_helper(
+    id: i64,
+    action: &crate::ryogami_media_protocol::MediaIntent,
+) -> io::Result<Vec<u8>> {
+    action.validate().map_err(io::Error::other)?;
+    exchange_mutation_helper(id,"change_media","media_changed",serde_json::to_value(action).map_err(io::Error::other)?)
+        .or_else(|_|Ok(error_reply(id,"Media authorization or linked recovery is unavailable; inspect the protected operation history")))
+}
+fn trash_via_helper(
+    id: i64,
+    query: &crate::ryogami_media_protocol::MediaTrashQuery,
+) -> io::Result<Vec<u8>> {
+    query.validate().map_err(io::Error::other)?;
+    exchange_mutation_helper(id, "list_media_trash", "media_trash_listed", serde_json::to_value(query).map_err(io::Error::other)?)
+        .or_else(|_| Ok(error_reply(id, "Trash authorization or protected recovery history is unavailable; retry or inspect recovery history")))
+}
+fn exchange_mutation_helper(
+    id: i64,
+    operation: &str,
+    expected_outcome: &str,
+    params: serde_json::Value,
+) -> io::Result<Vec<u8>> {
+    let mut stream = UnixStream::connect("/run/ryoku/helper.sock")?;
+    if socket_peercred(&stream)?.uid.as_raw() != 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "wallpaper helper peer is not root",
+        ));
+    }
+    let request_id = format!(
+        "wallpaper-{}-{}",
+        std::process::id(),
+        NEXT_REQUEST.fetch_add(1, Ordering::Relaxed)
+    );
     let request = serde_json::json!({"version":1,"request_id":request_id,"request":{"operation":operation,"action":params,"rpc_id":id}});
     let mut bytes = serde_json::to_vec(&request).map_err(io::Error::other)?;
     bytes.push(b'\n');
@@ -240,6 +276,30 @@ fn apply_via_helper(id: i64, action: &WallpaperChange) -> io::Result<Vec<u8>> {
         .get("outcome")
         .ok_or_else(|| io::Error::other("missing wallpaper helper outcome"))?;
     if outcome.get("result").and_then(serde_json::Value::as_str) != Some(expected_outcome) {
+        if operation == "change_model_references" {
+            let detail = outcome
+                .get("error")
+                .and_then(|error| error.get("detail"))
+                .and_then(serde_json::Value::as_str);
+            let message = match detail {
+                Some("model_selection_callback_required") => {
+                    "Removing this reference would clear the selected model; the linked semantic stop/reindex transaction is not yet available"
+                }
+                Some("model_reference_capacity") => {
+                    "Model reference or recovery storage capacity exceeded"
+                }
+                Some("model_reference_missing") => {
+                    "That model reference no longer exists; refresh the model list"
+                }
+                Some("model_reference_configuration") => {
+                    "The model settings or staged transaction require recovery before retrying"
+                }
+                _ => {
+                    "Model authorization or linked recovery is unavailable; inspect the protected operation history"
+                }
+            };
+            return Ok(error_reply(id, message));
+        }
         let kind = match outcome
             .get("error")
             .and_then(|error| error.get("detail"))
@@ -293,8 +353,44 @@ pub(crate) fn relay_connection(
 
 fn relay_authenticated(
     client: UnixStream,
+    native: UnixStream,
+    apply: &mut impl FnMut(i64, &WallpaperChange) -> io::Result<Vec<u8>>,
+) -> io::Result<()> {
+    relay_authenticated_models(client, native, apply, &mut models_via_helper)
+}
+fn relay_authenticated_models(
+    client: UnixStream,
+    native: UnixStream,
+    apply: &mut impl FnMut(i64, &WallpaperChange) -> io::Result<Vec<u8>>,
+    models: &mut impl FnMut(
+        i64,
+        &crate::ryogami_models_protocol::ModelReferenceIntent,
+    ) -> io::Result<Vec<u8>>,
+) -> io::Result<()> {
+    relay_authenticated_providers(client, native, apply, models, &mut media_via_helper)
+}
+fn relay_authenticated_providers(
+    client: UnixStream,
+    native: UnixStream,
+    apply: &mut impl FnMut(i64, &WallpaperChange) -> io::Result<Vec<u8>>,
+    models: &mut impl FnMut(
+        i64,
+        &crate::ryogami_models_protocol::ModelReferenceIntent,
+    ) -> io::Result<Vec<u8>>,
+    media: &mut impl FnMut(i64, &crate::ryogami_media_protocol::MediaIntent) -> io::Result<Vec<u8>>,
+) -> io::Result<()> {
+    relay_authenticated_trash(client, native, apply, models, media, &mut trash_via_helper)
+}
+fn relay_authenticated_trash(
+    client: UnixStream,
     mut native: UnixStream,
     apply: &mut impl FnMut(i64, &WallpaperChange) -> io::Result<Vec<u8>>,
+    models: &mut impl FnMut(
+        i64,
+        &crate::ryogami_models_protocol::ModelReferenceIntent,
+    ) -> io::Result<Vec<u8>>,
+    media: &mut impl FnMut(i64, &crate::ryogami_media_protocol::MediaIntent) -> io::Result<Vec<u8>>,
+    trash: &mut impl FnMut(i64, &crate::ryogami_media_protocol::MediaTrashQuery) -> io::Result<Vec<u8>>,
 ) -> io::Result<()> {
     let output = Mutex::new(client.try_clone()?);
     let closed = AtomicBool::new(false);
@@ -364,6 +460,18 @@ fn relay_authenticated(
                     }
                     Ok(PublicRequest::Audio { id, action }) => {
                         let reply = mutation_reply(id, apply(id, &WallpaperChange::Audio(action)))?;
+                        write_public(&output, &reply)?;
+                    }
+                    Ok(PublicRequest::MediaTrash { id, query }) => {
+                        let reply = mutation_reply(id, trash(id, &query))?;
+                        write_public(&output, &reply)?;
+                    }
+                    Ok(PublicRequest::Media { id, action }) => {
+                        let reply = mutation_reply(id, media(id, &action))?;
+                        write_public(&output, &reply)?;
+                    }
+                    Ok(PublicRequest::ModelReference { id, action }) => {
+                        let reply = mutation_reply(id, models(id, &action))?;
                         write_public(&output, &reply)?;
                     }
                     Ok(PublicRequest::Handoff { id, .. }) => {
@@ -537,6 +645,176 @@ mod tests {
     use super::*;
     use crate::wallpaper_protocol::WallpaperApply;
     use std::{collections::BTreeMap, io::Read, sync::atomic::AtomicUsize};
+
+    #[test]
+    fn media_trash_listing_routes_only_to_authenticated_helper_and_correlates_pages() {
+        let (mut client, proxy) = UnixStream::pair().unwrap();
+        client.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let (native, mut backend) = UnixStream::pair().unwrap();
+        backend.set_read_timeout(Some(Duration::from_millis(50))).unwrap();
+        let calls = AtomicUsize::new(0);
+        std::thread::scope(|scope| {
+            let worker = scope.spawn(|| {
+                relay_authenticated_trash(
+                    proxy,
+                    native,
+                    &mut |_, _| panic!("query reached wallpaper mutation"),
+                    &mut |_, _| panic!("query reached model mutation"),
+                    &mut |_, _| panic!("query reached media mutation"),
+                    &mut |id, query| {
+                        calls.fetch_add(1, Ordering::Relaxed);
+                        assert!(query.cursor.is_none());
+                        Ok(format!(
+                            "{{\"id\":{id},\"result\":{{\"entries\":[],\"next_cursor\":null}}}}\n"
+                        )
+                        .into_bytes())
+                    },
+                )
+            });
+            let mut reader = BufReader::new(client.try_clone().unwrap());
+            client.write_all(b"{\"id\":8,\"method\":\"wall.trash.list\",\"params\":{}}\n").unwrap();
+            let mut reply = String::new();
+            reader.read_line(&mut reply).unwrap();
+            let reply: serde_json::Value = serde_json::from_str(&reply).unwrap();
+            assert_eq!(reply["id"], 8);
+            assert_eq!(reply["result"]["entries"], serde_json::json!([]));
+            client
+                .write_all(
+                    b"{\"id\":9,\"method\":\"wall.trash.list\",\"params\":{\"path\":\"/tmp\"}}\n",
+                )
+                .unwrap();
+            let mut refusal = String::new();
+            reader.read_line(&mut refusal).unwrap();
+            assert!(
+                serde_json::from_str::<serde_json::Value>(&refusal).unwrap().get("error").is_some()
+            );
+            assert_eq!(calls.load(Ordering::Relaxed), 1);
+            assert!(backend.read(&mut [0]).is_err());
+            client.shutdown(std::net::Shutdown::Both).unwrap();
+            backend.shutdown(std::net::Shutdown::Both).unwrap();
+            worker.join().unwrap().unwrap();
+        });
+    }
+    #[test]
+    fn media_frames_use_typed_helper_and_never_native_query_authority() {
+        use crate::ryogami_media_protocol::MediaIntent;
+        let (mut client, proxy) = UnixStream::pair().unwrap();
+        client.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let (native, mut backend) = UnixStream::pair().unwrap();
+        backend.set_read_timeout(Some(Duration::from_millis(50))).unwrap();
+        let calls = AtomicUsize::new(0);
+        let receipt = format!("{}.{}", "a".repeat(64), "b".repeat(64));
+        std::thread::scope(|scope| {
+            let worker = scope.spawn(|| {
+                relay_authenticated_providers(
+                    proxy,
+                    native,
+                    &mut |_, _| panic!("media reached wallpaper helper"),
+                    &mut |_, _| panic!("media reached model helper"),
+                    &mut |id, action| {
+                        calls.fetch_add(1, Ordering::Relaxed);
+                        match action {
+                            MediaIntent::Delete { key } => assert_eq!(key, "fixture"),
+                            MediaIntent::Restore { receipt: actual } => {
+                                assert_eq!(actual, &receipt)
+                            }
+                        };
+                        Ok(format!("{{\"id\":{id},\"result\":{{\"ok\":true}}}}\n").into_bytes())
+                    },
+                )
+            });
+            let mut reader = BufReader::new(client.try_clone().unwrap());
+            for (method, params) in [
+                ("wall.delete", serde_json::json!({"key":"fixture"})),
+                ("wall.restore", serde_json::json!({"receipt":receipt})),
+            ] {
+                let mut frame = serde_json::to_vec(
+                    &serde_json::json!({"id":7,"method":method,"params":params}),
+                )
+                .unwrap();
+                frame.push(b'\n');
+                client.write_all(&frame).unwrap();
+                let mut reply = String::new();
+                reader.read_line(&mut reply).unwrap();
+                assert!(
+                    serde_json::from_str::<serde_json::Value>(&reply)
+                        .unwrap()
+                        .get("result")
+                        .is_some()
+                );
+            }
+            for frame in [b"{\"id\":8,\"method\":\"wall.delete\",\"params\":{\"key\":\"fixture\",\"path\":\"/tmp/file\"}}\n".as_slice(),b"{\"id\":9,\"method\":\"broker.media-catalog\",\"params\":{}}\n"] {
+                client.write_all(frame).unwrap();let mut reply=String::new();reader.read_line(&mut reply).unwrap();assert!(serde_json::from_str::<serde_json::Value>(&reply).unwrap().get("error").is_some());
+            }
+            assert_eq!(calls.load(Ordering::Relaxed), 2);
+            assert!(backend.read(&mut [0]).is_err());
+            client.shutdown(std::net::Shutdown::Both).unwrap();
+            backend.shutdown(std::net::Shutdown::Both).unwrap();
+            worker.join().unwrap().unwrap();
+        });
+    }
+
+    #[test]
+    fn model_reference_frames_use_typed_helper_and_never_reuse_native_query_authority() {
+        use crate::ryogami_models_protocol::ModelReferenceIntent;
+        let (mut client, proxy) = UnixStream::pair().unwrap();
+        client.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let (native, mut backend) = UnixStream::pair().unwrap();
+        backend.set_read_timeout(Some(Duration::from_millis(50))).unwrap();
+        let calls = AtomicUsize::new(0);
+        std::thread::scope(|scope| {
+            let worker = scope.spawn(|| {
+                relay_authenticated_models(
+                    proxy,
+                    native,
+                    &mut |_, _| panic!("model operation reached wallpaper helper"),
+                    &mut |id, action| {
+                        calls.fetch_add(1, Ordering::Relaxed);
+                        let result = match action {
+                            ModelReferenceIntent::Add { path } => {
+                                assert!(path.is_none());
+                                serde_json::json!({"index":2})
+                            }
+                            ModelReferenceIntent::Forget { index } => {
+                                assert_eq!(*index, 1);
+                                serde_json::json!({"removed":true})
+                            }
+                        };
+                        let mut reply =
+                            serde_json::to_vec(&serde_json::json!({"id":id,"result":result}))
+                                .unwrap();
+                        reply.push(b'\n');
+                        Ok(reply)
+                    },
+                )
+            });
+            let mut reader = BufReader::new(client.try_clone().unwrap());
+            for (id, action, args) in [
+                (7, "AddSemanticModel", serde_json::json!({})),
+                (8, "RemoveSemanticModel", serde_json::json!({"index":1})),
+            ] {
+                let mut frame = serde_json::to_vec(&serde_json::json!({"id":id,"method":"settings.action","params":{"id":action,"args":args}})).unwrap();
+                frame.push(b'\n');
+                client.write_all(&frame).unwrap();
+                let mut reply = String::new();
+                reader.read_line(&mut reply).unwrap();
+                let value: serde_json::Value = serde_json::from_str(&reply).unwrap();
+                assert_eq!(value["id"], id);
+                assert!(value.get("result").is_some());
+            }
+            for frame in [b"{\"id\":9,\"method\":\"settings.action\",\"params\":{\"id\":\"AddSemanticModel\",\"args\":{\"models\":[]}}}\n".as_slice(),
+                b"{\"id\":10,\"method\":\"broker.model-references\",\"params\":{}}\n"] {
+                client.write_all(frame).unwrap(); let mut reply = String::new(); reader.read_line(&mut reply).unwrap();
+                assert!(serde_json::from_str::<serde_json::Value>(&reply).unwrap().get("error").is_some());
+            }
+            assert_eq!(calls.load(Ordering::Relaxed), 2);
+            let mut byte = [0];
+            assert!(backend.read(&mut byte).is_err());
+            client.shutdown(std::net::Shutdown::Both).unwrap();
+            backend.shutdown(std::net::Shutdown::Both).unwrap();
+            worker.join().unwrap().unwrap();
+        });
+    }
 
     #[test]
     fn direct_workspace_intents_use_helper_and_private_prepared_frames_never_reach_query() {

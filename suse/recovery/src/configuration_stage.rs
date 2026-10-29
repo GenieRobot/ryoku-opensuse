@@ -80,6 +80,7 @@ impl StagedConfiguration {
 #[derive(Debug)]
 pub enum StageError {
     SystemOnlyScope,
+    AssetRestoreRequired,
     PlanMismatch,
     EmptyConfiguration,
     PayloadBudgetExceeded,
@@ -90,6 +91,7 @@ pub enum StageError {
 impl std::fmt::Display for StageError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::AssetRestoreRequired => formatter.write_str("asset-aware restore is required"),
             Self::SystemOnlyScope => {
                 formatter.write_str("system-only restore has no configuration stage")
             }
@@ -121,6 +123,22 @@ impl From<InvalidMetadataPayload> for StageError {
 /// separate caller-established compatibility and current-state checkpoint
 /// evidence before any destructive phase may begin.
 pub fn stage_configuration(
+    generation: &VerifiedGeneration,
+    plan: &RestorePlan,
+) -> Result<StagedConfiguration, StageError> {
+    if plan.scope == RestoreScope::SystemOnly {
+        return Err(StageError::SystemOnlyScope);
+    }
+    let manifest = generation.manifest();
+    if manifest.assets().is_some() {
+        return Err(StageError::AssetRestoreRequired);
+    }
+    stage_preference_subset(generation, plan)
+}
+
+/// Private subset staging for the combined #175 coordinator. The caller never
+/// exposes this as a standalone stage or credits it as an asset restore.
+pub(crate) fn stage_preference_subset(
     generation: &VerifiedGeneration,
     plan: &RestorePlan,
 ) -> Result<StagedConfiguration, StageError> {

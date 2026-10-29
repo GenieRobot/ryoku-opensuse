@@ -9,7 +9,8 @@ use std::{
 };
 
 use crate::wallpaper_protocol::{
-    ActorCall, ActorIdentity, MAX_ACTOR_REPLY_BYTES, bounded_line, parse_change,
+    ActorCall, ActorIdentity, MAX_ACTOR_REPLY_BYTES, NativeChange, bounded_line,
+    parse_native_change,
 };
 
 pub(crate) struct NativeActor {
@@ -103,15 +104,24 @@ impl NativeActor {
         call: &ActorCall,
     ) -> io::Result<crate::writer_freeze::ActorExecution> {
         self.identity()?;
-        let executables = ["/usr/bin/ryogami-live", "/usr/bin/ffmpeg", "/usr/bin/ffprobe"]
-            .into_iter()
+        let (_, action) = parse_native_change(&call.frame).map_err(io::Error::other)?;
+        let programs: &[&str] =
+            if matches!(action, NativeChange::ModelReferences(_) | NativeChange::MediaCatalog(_)) {
+                &[]
+            } else {
+                &["/usr/bin/ryogami-live", "/usr/bin/ffmpeg", "/usr/bin/ffprobe"]
+            };
+        let executables = programs
+            .iter()
             .map(|path| {
                 crate::writer_freeze::ExecutablePin::open(std::path::Path::new(path))
                     .map_err(io::Error::other)
             })
             .collect::<io::Result<Vec<_>>>()?;
-        let (_, action) = parse_change(&call.frame).map_err(io::Error::other)?;
-        let playback = if let crate::wallpaper_protocol::WallpaperChange::Pause(action) = action {
+        let playback = if let NativeChange::Wallpaper(
+            crate::wallpaper_protocol::WallpaperChange::Pause(action),
+        ) = action
+        {
             Some(crate::writer_freeze::PlaybackExecution {
                 players: call.player_pins.clone(),
                 requested_paused: action.paused,
@@ -156,7 +166,7 @@ impl NativeActor {
     pub(crate) fn apply(&self, call: &ActorCall) -> io::Result<Vec<u8>> {
         let deadline = Instant::now() + Duration::from_secs(30);
         call.validate(&self.identity()?).map_err(io::Error::other)?;
-        let (id, _) = parse_change(&call.frame).map_err(io::Error::other)?;
+        let (id, _) = parse_native_change(&call.frame).map_err(io::Error::other)?;
         let mut connection = self.connection(ChannelKind::Approved)?;
         connection.set_write_timeout(Some(Duration::from_secs(5)))?;
         let mut permit = serde_json::to_vec(call).map_err(io::Error::other)?;

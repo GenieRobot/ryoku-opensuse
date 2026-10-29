@@ -1,0 +1,139 @@
+schema_version = 1
+issue = 175
+status = "partial-restart-visible-trash-local-flow-complete-provider-and-native-acceptance-pending"
+branch = "codex/issue175-ryogami-library-providers"
+previous_checkpoint = "37664c04ea79dd1d7a9ba089e734d2a3b581b408"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+
+[storage]
+worktree_filesystem = "/dev/sdd"
+build_and_cache_filesystem = "/dev/sdd"
+fixture_filesystem = "tmpfs"
+provider_endpoint_calls = 0
+media_downloads = 0
+model_downloads = 0
+native_vm_launches = 0
+
+[implementation]
+public_query = "wall.trash.list with optional opaque account-bound cursor only"
+helper_operation = "list_media_trash"
+authorization_before_account_lookup = true
+protected_history_lock_retained_during_page = true
+listing_does_not_start_actor_or_snapshot = true
+only_successful_complete_linked_delete_receipts = true
+account_filtered_summaries = true
+maximum_receipts_read_per_page = 64
+maximum_receipt_bytes = 262144
+maximum_entries_per_page = 32
+maximum_label_characters = 128
+maximum_public_reply_bytes = 65536
+no_live_catalog_or_media_payload_read_for_listing = true
+no_path_url_credential_or_raw_catalog_row_in_response = true
+changed_partial_members_require_recovery = true
+selected_restore_revalidates_existing_mutation_contract = true
+restored_entries_disappear = true
+picker_refreshes_when_shown = true
+picker_has_paginated_trash_sheet_and_selected_restore = true
+picker_failed_results_preserve_current_page = true
+picker_failed_restore_preserves_receipt = true
+picker_navigation_history_bound = 64
+picker_session_undo_bound = 64
+session_undo_bound_does_not_block_durable_deletions = true
+outer_recovery_manifest_unchanged = true
+fixed_preference_inventory_unchanged = true
+
+[validation]
+workspace_all_features_offline_locked = "pass"
+workspace_session = "55923"
+recovery_tests_passed = 330
+recovery_tests_existing_ignored = 6
+console_tests_passed = 26
+service_tests_passed = 189
+service_tests_ignored = 3
+vm_lab_tests_passed = 90
+initial_backend_listing_tests_passed = 2
+query_auth_socket_recovery_tests_passed = 3
+query_auth_socket_service_tests_passed = 4
+final_listing_refusal_and_auth_tests_passed = 4
+pagination_fixture_deletions = 99
+pagination_foreign_account_receipts_before_first_page = 64
+explicit_cached_rust_to_go_actor_tests_passed = 2
+rust_to_go_session = "71226"
+media_go_flow = "actual catalog delete; durable history reopen; protected listing; select listed identity; restore through actual actor; restored item absent from listing"
+model_go_regression_scenarios = 5
+qml_actual_javascript_tests_passed = 6
+qml_control_bindings = "delete, session Undo, open trash sheet, refresh on picker reopen, previous/next page, selected receipt restore"
+qml_changed_files_parse_passed = 6
+qml_state_strict_lint = "pass using cached Qt 6.11.2 qmllint"
+native_qt_test = "unavailable in cached SDK: libQt6QuickTest.so.6 missing; no fetch; fixture retained"
+patch_reproduction = "pinned #18 then #25 then #175 with zero fuzz; all 12 changed upstream files byte-equal to tested source"
+source_identity_rows = 58
+strict_clippy_all_targets_all_features = "pass; session46897"
+formatting = "pass"
+whitespace = "pass"
+dependency_advisories = "pass-cached-offline"
+dependency_bans = "pass-cached-offline"
+dependency_licenses = "pass-cached-offline"
+dependency_sources = "pass-cached-offline"
+corrections = [
+  "test-only access to private receipt token replaced by the operation-derived token; public receipt internals remain private",
+  "preserved original per-file patch ordering while regenerating the complete updated patch"
+]
+commands = [
+  "cargo check --offline --locked --workspace --all-features",
+  "cargo test --offline --locked --workspace media_trash -- --nocapture",
+  "cargo test --offline --locked -p ryoku-service media_trash_listing -- --nocapture",
+  "RYOKU_MODEL_ACTOR_TEST_BINARY=<cached Go actor> RYOKU_MEDIA_ACTOR_TEST_BINARY=<cached Go actor> cargo test --offline --locked -p ryoku-service native_go -- --ignored --nocapture",
+  "node upstream/tests/issue175-media-ui.mjs <pinned patched picker>",
+  "cached Qt qmlformat parses six changed files; qmllint checks MediaTrashState",
+  "cargo test --offline --locked --workspace --all-features",
+  "cargo clippy --offline --locked --workspace --all-targets --all-features -- -D warnings",
+  "cargo fmt --all -- --check",
+  "git diff --check",
+  "cargo deny --offline --locked --all-features check"
+]
+
+[acceptance]
+restart_visible_trash_local_flow = true
+source_search_download_complete = false
+steam_workshop_search_download_complete = false
+model_import_install_remove_complete = false
+selected_or_orphan_model_callbacks_complete = false
+all_library_operations_complete = false
+native_tumbleweed_rpm_qt_snapper_acceptance_complete = false
+issue_complete = false
+remaining = [
+  "all retained source and Steam search/download/preview/cancel providers and UI paths",
+  "full model import/install/delete and ordered selected/orphan semantics with issue176",
+  "remaining library maintenance/transforms/progress and cumulative quotas",
+  "configured cache and external roots and additional reviewed link contracts",
+  "native Tumbleweed/RPM/QtTest/picker/Snapper acceptance"
+]
+
+[ci_correction]
+failed_run = 40222611288
+failed_job = 121257238182
+failed_test = "ryogami_protocol::source_contract::reviewed_provider_paths_match_the_committed_v1_source_manifest"
+failure = "stale exact selected-source count: ledger58, assertion57"
+local_reproduction_session = "42709"
+new_required_path = "ryoku/shell/ryogami/picker/qml/SheetHost.qml"
+verified_upstream_blob = "3afbb4abc68cb9f22b3755d431ee17b823fca702"
+verified_upstream_git_mode = "100644"
+committed_manifest_row_exact_match = true
+required_effect = "lazy loader registers and opens the new MediaTrashSheet"
+correction = "expect58 reviewed rows and explicitly require SheetHost.qml; retain exact path/blob/mode manifest comparison for every row"
+attribution = "the worker added the source ledger row after the earlier local build began; the compiled include_str fixture therefore missed it; not a CI flake"
+correction_revalidation_date = "2026-10-29"
+full_workspace_session = "61272"
+full_workspace_result = "pass: recovery330/6 ignored, service189/3 ignored, console26, vm90, other workspace suites; corrected source contract included"
+earlier_full_recheck_failures = [
+  "inherited_manual_pause_holds_new_player_before_first_instruction_until_explicit_resume: WriterUnavailable",
+  "leases_cover_children_start_races_and_abrupt_owner_death: UnexpectedEof"
+]
+writer_reproduction = "prior isolated manual-pause passed; isolated lease session31179 passed; both also pass in the complete all-feature workspace session61272 without writer source changes; earlier failure cause unproven"
+restricted_runner_refusals = "lease fixture EPERM before writer start; cargo-deny advisory lock is read-only; required local permissions reruns passed, no tests skipped"
+dependency_revalidation_session = "36112"
+dependency_revalidation = "advisories, bans, licenses and sources pass using cached offline data"
+strict_clippy_revalidation_session = "82341"
+strict_clippy_revalidation = "workspace all-target all-feature warnings-denied pass"
+format_and_whitespace_revalidation = "pass"

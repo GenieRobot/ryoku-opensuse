@@ -135,6 +135,7 @@ pub enum PreflightError {
     ConfigurationScopeEmpty,
     EntryCountOverflow,
     ConfigurationScopeTooLarge,
+    AssetRestoreRequired,
 }
 
 impl std::fmt::Display for PreflightError {
@@ -185,6 +186,33 @@ pub fn plan_restore_source(
 }
 
 fn build_restore_plan(
+    manifest: &RecoveryManifest,
+    scope: RestoreScope,
+    generation: ArtifactStatus,
+    archive: ArtifactStatus,
+    system_snapshot: &SystemSnapshotStatus,
+    system_compatibility: CompatibilityStatus,
+    configuration_compatibility: CompatibilityStatus,
+) -> Result<RestorePlan, PreflightError> {
+    if manifest.assets().is_some() {
+        // Preference-only restore must never silently omit enrolled assets.
+        return Err(PreflightError::AssetRestoreRequired);
+    }
+    build_preference_subset_plan(
+        manifest,
+        scope,
+        generation,
+        archive,
+        system_snapshot,
+        system_compatibility,
+        configuration_compatibility,
+    )
+}
+
+// The combined #175 coordinator retains this subset privately and must verify
+// all asset records before any complete-restore journal transition. Public
+// preference-only planning above continues to refuse asset-bearing manifests.
+pub(crate) fn build_preference_subset_plan(
     manifest: &RecoveryManifest,
     scope: RestoreScope,
     generation: ArtifactStatus,

@@ -1,0 +1,66 @@
+schema_version = 1
+issue = 175
+status = "partial-exact-file-recovery-not-installed-acceptance"
+branch = "codex/issue175-ryogami-library-providers"
+previous_checkpoint = "999a05b9f057624c548cbc71177456177d0f8c27"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+
+[storage]
+worktree_filesystem = "/dev/sdd"
+cargo_target_filesystem = "/dev/sdd"
+cargo_cache_filesystem = "/dev/sdd"
+rustup_filesystem = "/dev/sdd"
+fixture_filesystem = "tmpfs"
+provider_network_calls = 0
+media_downloads = 0
+model_downloads = 0
+native_tool_launches = 0
+
+[implementation]
+frozen_server_owned_asset_scope = true
+native_review_and_pre_post_capture_include_scope = true
+legacy_preference_provider_scope_unchanged = true
+metadata_allocation_bound_bytes = 67108864
+exact_file_write_ahead_restore = true
+persisted_parent_inode_identity = true
+original_partial_restored_observation = true
+fresh_checkpoint_partial_cleanup_and_retry = true
+
+[validation]
+formatting = "pass"
+strict_clippy_workspace_all_targets_all_features = "pass"
+workspace_tests_offline_locked_all_features = "pass"
+recovery_tests_passed = 268
+recovery_tests_existing_ignored = 6
+service_tests_passed = 166
+service_tests_existing_ignored = 1
+vm_lab_tests_passed = 90
+new_recovery_tests = 8
+asset_scope_and_capture_tests_passed = 9
+new_journaled_restore_tests = 6
+focused_asset_restore_selection_passed = 7
+focused_selection_includes_prior_stream_test = true
+dependency_advisories = "pass-cached-offline"
+dependency_bans = "pass-cached-offline"
+dependency_licenses = "pass-cached-offline"
+dependency_sources = "pass-cached-offline"
+whitespace = "pass"
+native_receipts = "shape-only-synthetic-no-native-proof"
+initial_compile_failures = "disambiguated Read::by_ref and used existing test-only GenerationStore constructor"
+initial_lint_failures = "collapsed conditional and used slice contains; strict checks passed afterward"
+
+[acceptance]
+installed_helper_provider_dispatch = false
+picker_provider_integration = false
+general_tree_restore = false
+configured_library_root_enrollment = false
+native_snapper_proof = false
+native_provider_or_ui_test = false
+issue_complete = false
+remaining = [
+  "parent/directory enrollment, general tree restore and configured library roots",
+  "authenticated helper/broker providers and every retained UI operation",
+  "trusted source resolution, credentials and separate remote-effect receipts",
+  "Steam/lens/conversion process containment and resume accounting",
+  "full deterministic installed operation coverage and native combined candidate acceptance"
+]

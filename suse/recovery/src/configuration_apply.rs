@@ -102,9 +102,38 @@ pub(crate) fn apply_with_owner(
     journals: &RestoreJournalStore,
     restore_id: &Identifier,
     destinations: &[ConfigurationDestination<'_>],
-    mut progress: impl FnMut(usize) -> ControlFlow<()>,
+    progress: impl FnMut(usize) -> ControlFlow<()>,
     owner: u32,
 ) -> Result<RestoreJournal> {
+    apply_subset(
+        source,
+        stages,
+        journals,
+        restore_id,
+        destinations,
+        progress,
+        ApplyControl { owner, advance: true },
+    )
+}
+
+pub(crate) struct ApplyControl {
+    pub owner: u32,
+    pub advance: bool,
+}
+
+/// The asset-aware coordinator delays ConfigurationRestored until its streamed
+/// payloads and the preference subset both verify. Legacy callers keep the
+/// original final transition through apply_with_owner above.
+pub(crate) fn apply_subset(
+    source: &StagedConfiguration,
+    stages: &DiskStageStore,
+    journals: &RestoreJournalStore,
+    restore_id: &Identifier,
+    destinations: &[ConfigurationDestination<'_>],
+    mut progress: impl FnMut(usize) -> ControlFlow<()>,
+    control: ApplyControl,
+) -> Result<RestoreJournal> {
+    let owner = control.owner;
     let mut journal = journals.load(restore_id)?;
     let phase_ready = match journal.plan.scope {
         RestoreScope::ConfigurationOnly => matches!(
@@ -366,7 +395,12 @@ pub(crate) fn apply_with_owner(
         checkpoint()?;
     }
     verify_live(source, &roots)?;
-    if matches!(journal.phase, RestorePhase::WritersStopped | RestorePhase::RootRollbackComplete) {
+    if control.advance
+        && matches!(
+            journal.phase,
+            RestorePhase::WritersStopped | RestorePhase::RootRollbackComplete
+        )
+    {
         journals.advance(&mut journal, RestorePhase::ConfigurationRestored)?;
     }
     Ok(journal)

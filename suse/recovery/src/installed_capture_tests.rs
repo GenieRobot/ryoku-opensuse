@@ -1158,3 +1158,203 @@ fn v1_wallpaper_store_accepts_large_catalogues_and_exact_capture_bound() {
         file.set_len(0).unwrap();
     }
 }
+
+// Shape-only native receipt fixtures exercise generation binding without
+// claiming a Btrfs/Snapper native acceptance run.
+fn asset_request(id: &str) -> InstalledCaptureRequest {
+    let mut request = request(id);
+    let receipt = serde_json::from_value(serde_json::json!({
+        "schema": 1, "link": SnapshotLink::new(Identifier::new("root").unwrap(), "42", "11111111-1111-1111-1111-111111111111").unwrap(), "subvolume_id": 300,
+        "subvolume_uuid": "22222222-2222-2222-2222-222222222222",
+        "origin_root_uuid": "33333333-3333-3333-3333-333333333333"
+    }))
+    .unwrap();
+    request.snapshot = VerifiedSnapshotLink::from_native_receipt(receipt);
+    request.reason = OperationReason::ProviderChange;
+    request
+}
+
+#[test]
+fn installed_capture_publishes_preferences_and_exact_assets_in_one_native_linked_manifest() {
+    use crate::ryogami_assets::{AssetNamespace, AssetPath};
+    let fixture = Fixture::new();
+    let relative = "fixture/model.onnx";
+    let path = AssetPath::new(AssetNamespace::SemanticModels, RelativePath::new(relative).unwrap())
+        .unwrap();
+    let absent = AssetPath::new(
+        AssetNamespace::SemanticModels,
+        RelativePath::new("fixture/missing.json").unwrap(),
+    )
+    .unwrap();
+    let file = path.home_relative().unwrap();
+    fs::create_dir_all(fixture.path.join("source").join(file.as_str()).parent().unwrap()).unwrap();
+    fixture.write(file.as_str(), b"synthetic local model bytes", 0o600);
+    let mut roots = fixture.roots();
+    roots.account_home = Some(&fixture.source);
+    let manifest = capture_installed_configuration_with_sources_checked(
+        &fixture.store,
+        &plan(),
+        roots,
+        asset_request("installed-assets"),
+        collect,
+        InstalledCaptureSources {
+            bundle: None,
+            assets: Some(
+                &crate::ryogami_assets::AssetScope::new(
+                    vec![path.clone(), absent],
+                    crate::ryogami_assets::MAX_CAPTURE_LIMITS.max_file_bytes,
+                    crate::ryogami_assets::MAX_CAPTURE_LIMITS.max_total_bytes,
+                )
+                .unwrap(),
+            ),
+        },
+        || Ok(()),
+    )
+    .unwrap();
+    assert_eq!(manifest.schema_version, 3);
+    assert_eq!(manifest.files().len(), entries().len());
+    let assets = manifest.assets().unwrap();
+    assert_eq!(assets.entries().len(), 2);
+    assert!(assets.entries().iter().any(|entry| matches!(entry.kind, EntryKind::Absent)));
+    assert_eq!(assets.principal(), &fixture.account.principal);
+    assert!(manifest.root_snapshot_receipt().is_some());
+    let verified = fixture.store.open_verified_transaction(&manifest.transaction_id).unwrap();
+    let record = assets.entries().iter().find(|entry| entry.path == path).unwrap();
+    let EntryKind::RegularFile { sha256, .. } = &record.kind else { panic!("file") };
+    assert_eq!(verified.read_payload(sha256).unwrap(), b"synthetic local model bytes");
+    assert!(
+        !String::from_utf8(manifest.canonical_bytes().unwrap())
+            .unwrap()
+            .contains("unrelated-private")
+    );
+    assert_eq!(
+        fs::read(fixture.path.join("source/unrelated-private")).unwrap(),
+        b"must not be archived"
+    );
+}
+
+#[test]
+fn changed_asset_after_capture_retracts_linked_publication_without_panicking() {
+    use crate::ryogami_assets::{AssetNamespace, AssetPath};
+    let fixture = Fixture::new();
+    let path =
+        AssetPath::new(AssetNamespace::SemanticModels, RelativePath::new("fixture.onnx").unwrap())
+            .unwrap();
+    let file = path.home_relative().unwrap();
+    fs::create_dir_all(fixture.path.join("source").join(file.as_str()).parent().unwrap()).unwrap();
+    fixture.write(file.as_str(), b"synthetic local model bytes", 0o600);
+    let mut roots = fixture.roots();
+    roots.account_home = Some(&fixture.source);
+    let calls = std::cell::Cell::new(0);
+    let result = capture_installed_configuration_with_sources_checked(
+        &fixture.store,
+        &plan(),
+        roots,
+        asset_request("changed-assets"),
+        collect,
+        InstalledCaptureSources {
+            bundle: None,
+            assets: Some(
+                &crate::ryogami_assets::AssetScope::new(
+                    vec![path],
+                    crate::ryogami_assets::MAX_CAPTURE_LIMITS.max_file_bytes,
+                    crate::ryogami_assets::MAX_CAPTURE_LIMITS.max_total_bytes,
+                )
+                .unwrap(),
+            ),
+        },
+        || {
+            calls.set(calls.get() + 1);
+            if calls.get() == 4 {
+                fixture.write(file.as_str(), b"changed asset", 0o600);
+            }
+            Ok(())
+        },
+    );
+    assert!(result.is_err());
+    assert!(calls.get() >= 4, "must reach the asset change boundary");
+    fixture.no_publication("changed-assets");
+}
+
+#[test]
+fn installed_tree_capture_persists_complete_membership_and_retracts_unplanned_child() {
+    use crate::ryogami_assets::{AssetNamespace, AssetPath};
+    for race in [false, true] {
+        let fixture = Fixture::new();
+        let root =
+            AssetPath::new(AssetNamespace::SemanticModels, RelativePath::new("fixture").unwrap())
+                .unwrap();
+        let model =
+            root.with_relative(RelativePath::new("fixture/nested/model.onnx").unwrap()).unwrap();
+        let path = model.home_relative().unwrap();
+        fs::create_dir_all(fixture.path.join("source").join(path.as_str()).parent().unwrap())
+            .unwrap();
+        fixture.write(path.as_str(), b"synthetic tree model", 0o600);
+        let scope = crate::ryogami_trees::inspect_scope(
+            &fixture.source,
+            &fixture.account,
+            root.clone(),
+            vec![],
+            1024,
+            4096,
+            || true,
+        )
+        .unwrap();
+        let mut roots = fixture.roots();
+        roots.account_home = Some(&fixture.source);
+        let calls = std::cell::Cell::new(0);
+        let id = if race { "changed-tree" } else { "complete-tree" };
+        let result = capture_installed_configuration_with_sources_checked(
+            &fixture.store,
+            &plan(),
+            roots,
+            asset_request(id),
+            collect,
+            InstalledCaptureSources { bundle: None, assets: Some(&scope) },
+            || {
+                calls.set(calls.get() + 1);
+                if race && calls.get() == 4 {
+                    fixture.write(
+                        &format!("{}/unplanned", root.home_relative().unwrap().as_str()),
+                        b"new",
+                        0o600,
+                    );
+                }
+                Ok(())
+            },
+        );
+        if race {
+            assert!(result.is_err());
+            assert!(calls.get() >= 4);
+            fixture.no_publication(id);
+        } else {
+            let manifest = result.unwrap();
+            assert_eq!(manifest.schema_version, 3);
+            let verified =
+                fixture.store.open_verified_transaction(&manifest.transaction_id).unwrap();
+            let assets = verified.manifest().assets().unwrap();
+            assert_eq!(assets.trees(), std::slice::from_ref(&root));
+            assert_eq!(assets.entries().len(), 3);
+            assert_eq!(
+                assets
+                    .entries()
+                    .iter()
+                    .filter(|entry| matches!(entry.kind, EntryKind::Directory { .. }))
+                    .count(),
+                2
+            );
+            let record = assets.entries().iter().find(|entry| entry.path == model).unwrap();
+            let EntryKind::RegularFile { sha256, .. } = &record.kind else { panic!("file") };
+            assert_eq!(verified.read_payload(sha256).unwrap(), b"synthetic tree model");
+            // Directory recovery is a separate required implementation; the
+            // existing exact-file coordinator cannot silently drop it.
+            assert!(
+                crate::combined_restore::CombinedRestoreIntent::new(
+                    Identifier::new("tree-restore").unwrap(),
+                    &verified
+                )
+                .is_err()
+            );
+        }
+    }
+}

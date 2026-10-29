@@ -1,0 +1,123 @@
+schema_version = 1
+issue = 175
+status = "partial-declared-output-recovery-api-complete-provider-and-native-acceptance-pending"
+branch = "codex/issue175-ryogami-library-providers"
+previous_checkpoint = "1eec99ac9fa3ce3593aa9e8624f9371b13295852"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+
+[storage]
+worktree_filesystem = "/dev/sdd"
+cargo_target_filesystem = "/dev/sdd"
+cargo_cache_filesystem = "/dev/sdd"
+fixture_filesystem = "tmpfs"
+build_footprint_gib = 18
+worktree_footprint_mib = 15
+provider_endpoint_calls = 0
+media_downloads = 0
+model_downloads = 0
+native_vm_launches = 0
+
+[declaration]
+account_policy_and_exact_set_digest_bound = true
+independent_directory_effects_and_missing_ancestors = true
+mixed_application_siblings_not_enrolled = true
+fixed_preference_inventory_unchanged = true
+regular_directory_and_exact_relative_symlink_kinds = true
+symlink_targets_not_read = true
+maximum_entries = 4096
+maximum_path_depth = 16
+maximum_path_bytes = 1024
+maximum_link_alternatives = 16
+legacy_asset_schema_1_2_encoding_preserved = true
+nested_output_asset_schema = 3
+outer_manifest_shape_and_version_unchanged = true
+public_request_can_supply_declaration = false
+constructor_grants_authorization = false
+logical_settings_effects_covered = false
+
+[restore]
+protected_intent_before_staging = true
+protected_complete_inode_receipt_before_live_writes = true
+source_and_current_generation_and_account_bound = true
+owned_stage_creation_and_bounded_streaming = true
+exact_parent_and_live_inode_verification = true
+atomic_file_and_link_replacement = true
+replaced_originals_retained = true
+missing_parents_created_top_down = true
+directory_metadata_restored_bottom_up = true
+unknown_sibling_prevents_directory_removal = true
+unchanged_live_inode_preserved = true
+prior_generated_stage_and_trash_repeated_restore = true
+combined_files_trees_outputs_preferences_completion = true
+console_combined_dispatch_and_fresh_cleanup = true
+partial_cleanup_requires_fresh_linked_checkpoint = true
+cleanup_preserves_original_journal_and_live_inode_pins = true
+interrupted_cleanup_fresh_retry_preserves_linked_partials = true
+
+[validation]
+focused_declared_output_tests_passed = 20
+focused_final_session = "58976"
+focused_final_seconds = 9.26
+workspace_all_features_offline_locked = "pass on frozen final tree"
+workspace_final_session = "95837"
+recovery_tests_passed = 328
+recovery_tests_existing_ignored = 6
+console_tests_passed = 26
+service_tests_passed = 185
+service_tests_ignored = 3
+rust_to_cached_go_actor_tests_passed = 2
+rust_to_go_model_scenarios = 5
+rust_to_go_media_scenarios = 4
+rust_to_go_session = "61558"
+vm_lab_tests_passed = 90
+strict_clippy_all_targets_all_features = "pass; session1254"
+formatting = "pass"
+whitespace = "pass"
+dependency_advisories = "pass-cached-offline"
+dependency_bans = "pass-cached-offline"
+dependency_licenses = "pass-cached-offline"
+dependency_sources = "pass-cached-offline"
+stage_interruption_positions = 24
+live_interruption_positions = 30
+directory_removal_interruption_positions = 24
+combined_interruption_positions = 30
+cleanup_interruption_positions = 34
+synthetic_native_snapshot_partners = true
+native_snapper_acceptance_claimed = false
+corrections = [
+  "capture test expectation corrected from nine to eight exact entries because shared ancestors deduplicate",
+  "unchanged-output optimization initially failed seven replay tests: final readback incorrectly expected a staged inode; now verifies the original pin for unchanged entries and all twenty focused tests pass",
+  "cleanup generation reopen fixture corrected to the transaction-bound store API",
+  "strict Clippy test-only let-and-return and unnecessary unwrap corrected; final full suite and strict lint rerun passed"
+]
+commands = [
+  "cargo test --offline --locked -p ryoku-recovery declared_output -- --nocapture",
+  "cargo test --offline --locked --workspace --all-features",
+  "cargo clippy --offline --locked --workspace --all-targets --all-features -- -D warnings",
+  "cargo fmt --all -- --check",
+  "git diff --check",
+  "cargo deny --offline --locked --all-features check",
+  "RYOKU_MODEL_ACTOR_TEST_BINARY=<cached Go actor> RYOKU_MEDIA_ACTOR_TEST_BINARY=<cached Go actor> cargo test --offline --locked -p ryoku-service native_go -- --ignored --nocapture"
+]
+
+[acceptance]
+file_output_api_for_issue176 = true
+hook_or_semantic_callback_execution_implemented_here = false
+source_search_download_complete = false
+steam_workshop_search_download_complete = false
+model_import_install_remove_complete = false
+selected_or_orphan_model_callback_transaction_complete = false
+all_library_operations_complete = false
+restart_visible_trash_browser_complete = false
+native_tumbleweed_rpm_qt_snapper_acceptance_complete = false
+issue_complete = false
+remaining = [
+  "retained source and Steam search/download/preview/cancel end-to-end dispatch with deterministic fixtures",
+  "full model import/install/delete and ordered selected/orphan semantics via issue176",
+  "remaining library maintenance/transforms/progress and cumulative quotas",
+  "restart-visible protected media trash receipt listing and picker selection",
+  "configured cache and external owned roots with reviewed declarations",
+  "absolute or parent-relative safe link contracts where upstream needs them",
+  "issue176-owned logical key capsule family; file capture does not certify GSettings effects",
+  "native Tumbleweed/RPM/QtTest/picker/Snapper acceptance"
+]

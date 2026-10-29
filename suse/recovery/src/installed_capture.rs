@@ -500,6 +500,29 @@ pub fn capture_with_installed_profile_bundle(
     )
 }
 
+/// Offline-console counterpart of NativeCaptureSession::capture_with_assets.
+/// The authorized caller holds the state-mount mutation lock and has stopped
+/// the account writers. The fixed inventory and profile rules remain intact.
+pub fn capture_with_installed_profile_bundle_assets(
+    store: &GenerationStore,
+    inventory: &InstalledInventory,
+    roots: InstalledRoots<'_>,
+    request: InstalledCaptureRequest,
+    bundle: &crate::installed_profiles::VerifiedProfileBundle,
+    scope: &crate::ryogami_assets::AssetScope,
+) -> Result<RecoveryManifest, GenerationCaptureError> {
+    scope.validate().map_err(|_| GenerationCaptureError::CoordinationLost)?;
+    capture_installed_configuration_with_sources_checked(
+        store,
+        inventory,
+        roots,
+        request,
+        capture_inventory,
+        InstalledCaptureSources { bundle: Some(bundle), assets: Some(scope) },
+        || Ok(()),
+    )
+}
+
 fn capture_installed_configuration_using(
     store: &GenerationStore,
     inventory: &InstalledInventory,
@@ -548,6 +571,11 @@ fn capture_installed_configuration_using_profile(
     )
 }
 
+pub(crate) struct InstalledCaptureSources<'a> {
+    pub bundle: Option<&'a crate::installed_profiles::VerifiedProfileBundle>,
+    pub assets: Option<&'a crate::ryogami_assets::AssetScope>,
+}
+
 pub(crate) fn capture_installed_configuration_checked(
     store: &GenerationStore,
     inventory: &InstalledInventory,
@@ -563,6 +591,33 @@ pub(crate) fn capture_installed_configuration_checked(
     bundle: Option<&crate::installed_profiles::VerifiedProfileBundle>,
     boundary: impl Fn() -> Result<(), GenerationCaptureError>,
 ) -> Result<RecoveryManifest, GenerationCaptureError> {
+    capture_installed_configuration_with_sources_checked(
+        store,
+        inventory,
+        roots,
+        request,
+        capture_files,
+        InstalledCaptureSources { bundle, assets: None },
+        boundary,
+    )
+}
+
+pub(crate) fn capture_installed_configuration_with_sources_checked(
+    store: &GenerationStore,
+    inventory: &InstalledInventory,
+    roots: InstalledRoots<'_>,
+    request: InstalledCaptureRequest,
+    capture_files: impl Fn(
+        &File,
+        StateRoot,
+        &[RelativePath],
+        crate::capture::CaptureLimits,
+    )
+        -> Result<crate::capture::CapturedInventory, crate::capture::CaptureError>,
+    sources: InstalledCaptureSources<'_>,
+    boundary: impl Fn() -> Result<(), GenerationCaptureError>,
+) -> Result<RecoveryManifest, GenerationCaptureError> {
+    let bundle = sources.bundle;
     let checked_boundary = || {
         boundary()?;
         if inventory.paths.contains_key(&StateRoot::UserHome) {
@@ -663,6 +718,17 @@ pub(crate) fn capture_installed_configuration_checked(
             Ok(crate::generation_capture::CaptureProvenance {
                 profile_revision: Some(provenance),
                 account_principal: Some(roots.account.principal.clone()),
+                assets: sources
+                    .assets
+                    .map(|scope| {
+                        let home = roots.account_home.ok_or(InventoryError::MissingRoot)?;
+                        let captured = scope
+                            .capture(home, &roots.account)
+                            .map_err(|_| GenerationCaptureError::VerificationMismatch)?;
+                        checked_boundary()?;
+                        Ok::<_, GenerationCaptureError>((captured, home.try_clone()?))
+                    })
+                    .transpose()?,
             })
         },
         checked_boundary,

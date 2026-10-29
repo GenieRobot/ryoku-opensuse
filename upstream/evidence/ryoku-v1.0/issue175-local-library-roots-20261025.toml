@@ -1,0 +1,61 @@
+schema_version = 1
+issue = 175
+status = "partial-library-root-binding-not-installed-acceptance"
+branch = "codex/issue175-ryogami-library-providers"
+previous_checkpoint = "9844a87f0766b56526ddebfda5c15994af9d0fd0"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+
+[storage]
+worktree_filesystem = "/dev/sdd"
+cargo_target_filesystem = "/dev/sdd"
+cargo_cache_filesystem = "/dev/sdd"
+rustup_filesystem = "/dev/sdd"
+fixture_filesystem = "tmpfs"
+provider_network_calls = 0
+media_downloads = 0
+model_downloads = 0
+native_tool_launches = 0
+
+[implementation]
+server_owned_localized_and_configured_library_roots = true
+configured_root_capture_and_exact_file_restore = true
+fixed_asset_encoding_preserved = true
+credential_namespaces_and_duplicate_physical_paths_refused = true
+issue25_custom_cache_validator_unchanged = true
+
+[validation]
+formatting = "pass"
+strict_clippy_workspace_all_targets_all_features = "pass"
+workspace_tests_offline_locked_all_features = "pass"
+recovery_tests_passed = 271
+recovery_tests_existing_ignored = 6
+service_tests_passed = 170
+service_tests_existing_ignored = 1
+vm_lab_tests_passed = 90
+new_tests = 7
+root_resolution_and_privacy_tests_passed = 4
+asset_capture_and_binding_suite_passed = 11
+configured_root_restore_stage_reopen_test_passed = 1
+dependency_advisories = "pass-cached-offline"
+dependency_bans = "pass-cached-offline"
+dependency_licenses = "pass-cached-offline"
+dependency_sources = "pass-cached-offline"
+whitespace = "pass"
+initial_lint_correction = "test-only cloned-reference slice replaced with from_ref; strict workspace check passed"
+
+[acceptance]
+installed_helper_provider_dispatch = false
+picker_provider_integration = false
+general_tree_restore = false
+relocated_cache_catalog_enrollment = false
+writable_library_outside_home_enrollment = false
+native_snapper_proof = false
+native_provider_or_ui_test = false
+issue_complete = false
+remaining = [
+  "parent/directory creation, general tree restore and relocated cache/external owned-root enrollment",
+  "authenticated helper/broker providers and every retained UI operation",
+  "trusted source resolution, credentials and separate remote-effect receipts",
+  "Steam/lens/conversion process containment and resume accounting",
+  "full deterministic installed operation coverage and native combined candidate acceptance"
+]

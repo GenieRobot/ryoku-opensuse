@@ -7,15 +7,23 @@
 //! generation publication, and recovery properties before using a manifest to
 //! authorize a mutation.
 
+#[cfg(target_os = "linux")]
+mod account_inode;
 pub mod account_principal;
 #[cfg(target_os = "linux")]
+pub mod asset_restore;
+#[cfg(target_os = "linux")]
 pub mod capture;
+#[cfg(target_os = "linux")]
+pub mod combined_restore;
 pub use account_principal::AccountPrincipal;
 #[cfg(target_os = "linux")]
 pub mod capture_session;
 pub mod configuration_apply;
 #[cfg(target_os = "linux")]
 pub mod configuration_stage;
+pub mod declared_output_restore;
+pub mod declared_outputs;
 #[cfg(target_os = "linux")]
 pub mod disk_stage;
 #[cfg(target_os = "linux")]
@@ -43,6 +51,12 @@ pub mod restore;
 #[cfg(target_os = "linux")]
 pub mod rpm_defaults;
 #[cfg(target_os = "linux")]
+pub mod ryogami_assets;
+pub mod ryogami_media_protocol;
+pub mod ryogami_models_protocol;
+#[cfg(target_os = "linux")]
+pub mod ryogami_trees;
+#[cfg(target_os = "linux")]
 pub mod session_admission;
 pub mod snapper_catalog;
 pub mod snapper_layout;
@@ -51,6 +65,8 @@ pub mod state_creation;
 #[cfg(target_os = "linux")]
 pub mod state_mount;
 pub mod state_provision;
+#[cfg(target_os = "linux")]
+pub mod tree_restore;
 mod wallpaper_channel;
 pub mod wallpaper_protocol;
 mod wallpaper_proxy;
@@ -498,6 +514,10 @@ pub struct RecoveryManifest {
     /// when the only per-user records describe absent files.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     account_principal: Option<AccountPrincipal>,
+    /// Schema 3 adds exact provider assets while retaining the complete legacy
+    /// preference inventory. Absence preserves historical canonical bytes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    assets: Option<ryogami_assets::AssetInventory>,
     /// Operation reason and bounded RFC3339 UTC creation time.
     pub reason: OperationReason,
     pub created_utc: String,
@@ -545,6 +565,7 @@ impl RecoveryManifest {
             filesystem_uuid: snapshot.filesystem_uuid,
             root_snapshot_receipt: None,
             account_principal: None,
+            assets: None,
             reason,
             created_utc,
             package_revisions: Vec::new(),
@@ -567,6 +588,29 @@ impl RecoveryManifest {
         self.account_principal.as_ref()
     }
 
+    pub fn assets(&self) -> Option<&ryogami_assets::AssetInventory> {
+        self.assets.as_ref()
+    }
+
+    /// Trusted capture association, sealed with the same native root receipt
+    /// and original account as preferences. No RPC accepts this inventory.
+    pub(crate) fn attach_assets(
+        &mut self,
+        assets: ryogami_assets::AssetInventory,
+    ) -> Result<(), ValidationError> {
+        if self.schema_version != 2
+            || self.root_snapshot_receipt.is_none()
+            || self.account_principal.as_ref() != Some(assets.principal())
+            || assets.validate().is_err()
+        {
+            return Err(ValidationError::InvalidAssetInventory);
+        }
+        self.assets = Some(assets);
+        self.schema_version = 3;
+        self.manifest_sha256 = None;
+        self.validate()
+    }
+
     /// Capture-only association; never filled from later restore observations.
     pub(crate) fn attach_account_principal(&mut self, principal: AccountPrincipal) {
         self.account_principal = Some(principal);
@@ -577,7 +621,7 @@ impl RecoveryManifest {
         &mut self,
         receipt: native_checkpoint::RootSnapshotReceipt,
     ) -> Result<(), ValidationError> {
-        self.schema_version = 2;
+        self.schema_version = if self.assets.is_some() { 3 } else { 2 };
         self.root_snapshot_receipt = Some(receipt);
         self.manifest_sha256 = None;
         self.validate()
@@ -672,17 +716,24 @@ impl RecoveryManifest {
     /// Validates the supported schemas and their cross-field invariants.
     /// This validates the typed value after construction or parsing.
     pub fn validate(&self) -> Result<(), ValidationError> {
-        if !matches!(self.schema_version, 1 | 2) {
+        if !matches!(self.schema_version, 1..=3) {
             return Err(ValidationError::UnsupportedSchemaVersion);
         }
         match (self.schema_version, &self.root_snapshot_receipt) {
             (1, None) => {}
-            (2, Some(receipt))
+            (2 | 3, Some(receipt))
                 if receipt.validate().is_ok()
                     && receipt.link().snapper_config == self.snapper_config
                     && receipt.link().snapper_snapshot_id == self.snapper_snapshot_id
                     && receipt.link().filesystem_uuid == self.filesystem_uuid => {}
             _ => return Err(ValidationError::InvalidSnapshotReceipt),
+        }
+        match (self.schema_version, &self.assets) {
+            (1 | 2, None) => {}
+            (3, Some(assets))
+                if assets.validate().is_ok()
+                    && self.account_principal.as_ref() == Some(assets.principal()) => {}
+            _ => return Err(ValidationError::InvalidAssetInventory),
         }
         if self.snapper_snapshot_id.is_empty()
             || !self.snapper_snapshot_id.bytes().all(|byte| byte.is_ascii_digit())
@@ -813,6 +864,8 @@ pub enum ValidationError {
     InvalidSnapshotId,
     /// Native receipt is missing, malformed, or bound to a different link.
     InvalidSnapshotReceipt,
+    /// Asset scope is missing, malformed, or associated with another account.
+    InvalidAssetInventory,
     /// Account association is malformed or uses an unsupported version.
     InvalidAccountPrincipal,
     /// Filesystem UUID is not canonical lowercase hexadecimal UUID text.
@@ -1301,7 +1354,7 @@ mod tests {
     #[test]
     fn manifest_serialization_revalidates_mutable_schema_fields() {
         let mut manifest = manifest();
-        manifest.schema_version = 3;
+        manifest.schema_version = 4;
         assert_eq!(manifest.validate(), Err(ValidationError::UnsupportedSchemaVersion));
         assert!(matches!(
             manifest.seal(),

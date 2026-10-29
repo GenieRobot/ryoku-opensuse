@@ -16,6 +16,9 @@ pub enum PublicRequest {
     Pause { id: i64, action: WallpaperPause },
     Workspace { id: i64, action: crate::workspace_protocol::WorkspaceRequest, plain: bool },
     Handoff { id: i64, action: AutomaticHandoff },
+    ModelReference { id: i64, action: crate::ryogami_models_protocol::ModelReferenceIntent },
+    MediaTrash { id: i64, query: crate::ryogami_media_protocol::MediaTrashQuery },
+    Media { id: i64, action: crate::ryogami_media_protocol::MediaIntent },
 }
 
 /// Transport to issue176, not an executable permit or protected claim.
@@ -160,6 +163,24 @@ pub fn parse_public(bytes: &[u8]) -> Result<PublicRequest, WallpaperProtocolErro
         serde_json::from_slice(bytes).map_err(|_| WallpaperProtocolError::InvalidFrame)?;
     if request.id < 0 || !(request.params.is_object() || request.params.is_null()) {
         return Err(WallpaperProtocolError::InvalidFrame);
+    }
+    if request.method == "wall.trash.list" {
+        let (id, query) = crate::ryogami_media_protocol::parse_trash_query(bytes)?;
+        return Ok(PublicRequest::MediaTrash { id, query });
+    }
+    if matches!(request.method.as_str(), "wall.delete" | "wall.restore") {
+        let (id, action) = crate::ryogami_media_protocol::parse_public_intent(bytes)?;
+        return Ok(PublicRequest::Media { id, action });
+    }
+    if request.method == "settings.action"
+        && request
+            .params
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|id| matches!(id, "AddSemanticModel" | "RemoveSemanticModel"))
+    {
+        let (id, action) = crate::ryogami_models_protocol::parse_public_intent(bytes)?;
+        return Ok(PublicRequest::ModelReference { id, action });
     }
     if request.method == "wall.pause" {
         let action: WallpaperPause = serde_json::from_value(request.params)
@@ -579,6 +600,33 @@ pub fn parse_change(bytes: &[u8]) -> Result<(i64, WallpaperChange), WallpaperPro
     Ok((request.id, WallpaperChange::Audio(request.params.normalized())))
 }
 
+/// Helper-only native actor changes. Public model requests are separately
+/// decoded as add/forget intents; a prepared commit cannot enter that route.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeChange {
+    Wallpaper(WallpaperChange),
+    ModelReferences(Box<crate::ryogami_models_protocol::ModelReferenceCommit>),
+    MediaCatalog(Box<crate::ryogami_media_protocol::CatalogCommit>),
+}
+impl NativeChange {
+    pub fn frame(&self, id: i64) -> Result<Vec<u8>, WallpaperProtocolError> {
+        match self {
+            Self::Wallpaper(action) => action.frame(id),
+            Self::ModelReferences(action) => action.frame(id),
+            Self::MediaCatalog(action) => action.frame(id),
+        }
+    }
+}
+pub fn parse_native_change(bytes: &[u8]) -> Result<(i64, NativeChange), WallpaperProtocolError> {
+    if let Ok((id, action)) = crate::ryogami_models_protocol::parse_commit(bytes) {
+        return Ok((id, NativeChange::ModelReferences(Box::new(action))));
+    }
+    if let Ok((id, action)) = crate::ryogami_media_protocol::parse_commit(bytes) {
+        return Ok((id, NativeChange::MediaCatalog(Box::new(action))));
+    }
+    parse_change(bytes).map(|(id, action)| (id, NativeChange::Wallpaper(action)))
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ActorIdentity {
@@ -626,19 +674,23 @@ impl ActorCall {
         {
             return Err(WallpaperProtocolError::InvalidPermit);
         }
-        let (id, action) = parse_change(&self.frame)?;
+        let (id, action) = parse_native_change(&self.frame)?;
         if self.player_pins.len() > 64
             || self
                 .player_pins
                 .iter()
                 .any(|pin| pin.pid == 0 || pin.pid == self.actor.pid || pin.start_time == 0)
             || self.player_pins.windows(2).any(|pair| pair[0].pid >= pair[1].pid)
-            || !matches!(action, WallpaperChange::Pause(_)) && !self.player_pins.is_empty()
+            || !matches!(action, NativeChange::Wallpaper(WallpaperChange::Pause(_)))
+                && !self.player_pins.is_empty()
         {
             return Err(WallpaperProtocolError::InvalidPermit);
         }
         if self.inherit_manual_pause
-            && !matches!(action, WallpaperChange::Apply(_) | WallpaperChange::Workspace(_))
+            && !matches!(
+                action,
+                NativeChange::Wallpaper(WallpaperChange::Apply(_) | WallpaperChange::Workspace(_))
+            )
         {
             return Err(WallpaperProtocolError::InvalidPermit);
         }
@@ -919,7 +971,6 @@ mod tests {
         ));
         for method in [
             "state.set",
-            "wall.delete",
             "wall.cache_rebuild",
             "source.download",
             "workshop.download",
@@ -937,6 +988,13 @@ mod tests {
                 WallpaperProtocolError::UnownedAction,
                 "{method}"
             );
+        }
+        for method in ["wall.delete", "wall.restore"] {
+            let mut frame =
+                serde_json::to_vec(&serde_json::json!({"method":method,"params":{},"id":1}))
+                    .unwrap();
+            frame.push(b'\n');
+            assert_eq!(parse_public(&frame).unwrap_err(), WallpaperProtocolError::InvalidFrame);
         }
         let mut forged: serde_json::Value =
             serde_json::from_slice(&action().frame(1).unwrap()).unwrap();

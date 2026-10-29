@@ -610,7 +610,7 @@ fn choose_bundle<'a>(
     }
     Ok(newest)
 }
-fn current_bundle(
+pub(crate) fn current_bundle(
     principal: &AccountPrincipal,
     packages: &[PackageRevision],
 ) -> Result<(VerifiedProfileBundle, String), ServiceError> {
@@ -802,7 +802,7 @@ fn read_home(home: &File, path: &str, maximum: u64) -> std::io::Result<Vec<u8>> 
     }
     Ok(bytes)
 }
-fn installed_packages() -> Result<Vec<PackageRevision>, String> {
+pub(crate) fn installed_packages() -> Result<Vec<PackageRevision>, String> {
     REQUIRED_PACKAGES
         .iter()
         .map(|name| {
@@ -840,7 +840,7 @@ fn installed_packages() -> Result<Vec<PackageRevision>, String> {
         })
         .collect()
 }
-fn utc_now() -> Result<String, String> {
+pub(crate) fn utc_now() -> Result<String, String> {
     let output = Command::new("/usr/bin/timeout")
         .env_clear()
         .args([

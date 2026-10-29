@@ -1,0 +1,65 @@
+schema_version = 1
+issue = 175
+status = "partial-asset-recovery-not-installed-acceptance"
+branch = "codex/issue175-ryogami-library-providers"
+previous_checkpoint = "312e6870b71e3ad0cbbba5085c487f81a7c88281"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+
+[storage]
+worktree_filesystem = "/dev/sdd"
+cargo_target_filesystem = "/dev/sdd"
+cargo_cache_filesystem = "/dev/sdd"
+rustup_filesystem = "/dev/sdd"
+fixture_filesystem = "tmpfs"
+provider_network_calls = 0
+media_downloads = 0
+model_downloads = 0
+native_tool_launches = 0
+
+[implementation]
+exact_account_asset_inventory = true
+native_capture_single_asset_preference_generation = true
+streamed_generation_publication_and_readback = true
+streamed_private_inode_restore_preparation = true
+legacy_schema1_and_schema2_preserved = true
+legacy_restore_refuses_asset_manifests = true
+
+[validation]
+formatting = "pass"
+strict_clippy_workspace_all_targets_all_features = "pass"
+workspace_tests_offline_locked_all_features = "pass"
+recovery_tests_passed = 260
+recovery_tests_existing_ignored = 6
+service_tests_passed = 166
+service_tests_existing_ignored = 1
+vm_lab_tests_passed = 90
+dependency_advisories = "pass-cached-offline"
+dependency_bans = "pass-cached-offline"
+dependency_licenses = "pass-cached-offline"
+dependency_sources = "pass-cached-offline"
+whitespace = "pass"
+new_recovery_tests = 15
+asset_capture_tests = 7
+streamed_generation_and_restore_tests = 6
+installed_asset_capture_tests = 2
+installed_capture_suite_passed = 23
+large_synthetic_asset_bytes = 16777217
+native_receipts = "shape-only-synthetic-no-native-proof"
+initial_fixture_failure = "invalid all-zero filesystem UUID; corrected synthetic receipt and all 23 installed capture tests passed"
+initial_lint_failure = "complex tuple replaced by named inode fingerprint; corrected size-field access; strict workspace lint passed"
+
+[acceptance]
+installed_helper_provider_dispatch = false
+picker_provider_integration = false
+live_asset_restore_with_journal = false
+configured_library_root_enrollment = false
+native_snapper_proof = false
+native_provider_or_ui_test = false
+issue_complete = false
+remaining = [
+  "complete provider affected paths including parents/configured roots and live journaled restore",
+  "authenticated helper/broker providers and every retained UI operation",
+  "trusted source resolution, credentials and separate remote-effect receipts",
+  "Steam/lens/conversion process containment and resume accounting",
+  "full deterministic installed operation coverage and native combined candidate acceptance"
+]
