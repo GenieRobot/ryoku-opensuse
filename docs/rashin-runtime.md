@@ -1055,6 +1055,20 @@ use the corresponding protocol method, and configuration updates update the
 actual model without rewriting the saved lane pick. The namespace fixture
 exercises catalog, selection and live updates through the real engine.
 
+Agent and Chat can attach PNG, JPEG, GIF or WebP images from the authenticated
+browser or typed API. Each turn accepts up to four images, 2 MiB each and 3 MiB
+in total; the same total applies to the conversation's image history. Image
+bytes are kept in private conversation state only after a completed turn and
+are replayed as ACP image blocks with their conversation positions. ACP image
+capability is required, and a route that cannot carry image history reports
+unavailable instead of dropping attachments. Image-only prompts are supported.
+The owner-selected adapter receives the attachments; cancelling or failing a
+turn does not save new image bytes. The browser checks Origin/authentication,
+discards uploaded filenames, validates types from bytes and displays saved
+images from private state. The deterministic fixture verifies actual multipart
+upload, a large typed request, capability denial, cancellation, retry, history
+and restart. Full native ACP session persistence and its original UI remain open.
+
 Prowl connections retry transient connection timeouts for at most three seconds
 before sending any request or credential. Each attempt is limited to one second
 so cancellation remains observable. The established connection still requires

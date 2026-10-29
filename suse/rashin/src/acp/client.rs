@@ -84,7 +84,7 @@ impl Client {
         cancelled: Option<&AtomicBool>,
     ) -> Result<()> {
         let mut bytes = serde_json::to_vec(value).map_err(|_| Error::InvalidRequest)?;
-        if bytes.len() > protocol::FRAME_BYTES {
+        if bytes.len() > protocol::OUTBOUND_FRAME_BYTES {
             return Err(Error::Limit);
         }
         bytes.push(b'\n');
@@ -317,11 +317,31 @@ impl Client {
         cancelled: &AtomicBool,
         handler: &mut impl Handler,
     ) -> Result<String> {
+        self.prompt_with_images(text, &[], deadline, cancelled, handler)
+    }
+    pub(crate) fn prompt_with_images(
+        &mut self,
+        text: &str,
+        images: &[(usize, crate::images::Image)],
+        deadline: Instant,
+        cancelled: &AtomicBool,
+        handler: &mut impl Handler,
+    ) -> Result<String> {
         crate::text(text, 64 * 1024)?;
+        let image_data = images.iter().map(|(_, image)| image.clone()).collect::<Vec<_>>();
+        crate::images::validate_history(&image_data)?;
+        if !images.is_empty() && !self.capabilities.images {
+            return Err(Error::ProviderUnavailable);
+        }
+        let mut blocks = vec![json!({"type":"text","text":text})];
+        for (message, image) in images {
+            blocks.push(json!({"type":"text","text":format!("Image attached to conversation message {message}:")}));
+            blocks.push(json!({"type":"image","data":image.data,"mimeType":image.mime_type}));
+        }
         let session = self.session.as_ref().ok_or(Error::InvalidRequest)?;
         let result = self.call(
             "session/prompt",
-            json!({"sessionId":session.id,"prompt":[{"type":"text","text":text}]}),
+            json!({"sessionId":session.id,"prompt":blocks}),
             deadline,
             cancelled,
             handler,

@@ -6,6 +6,7 @@ mod ask;
 pub mod authorization;
 mod delegation;
 pub mod http;
+pub mod images;
 pub mod inspection;
 pub mod provider;
 pub mod prowl;

@@ -90,6 +90,8 @@ pub enum FixtureOutcome {
 pub struct Message {
     pub role: Role,
     pub content: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub images: Vec<crate::images::Image>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -369,6 +371,9 @@ impl Provider {
         context: &crate::prowl::ReadTools,
         callbacks: &mut crate::prowl::activity::Callbacks<'_>,
     ) -> Result<Completion> {
+        if messages.iter().any(|message| !message.images.is_empty()) {
+            return Err(Error::ProviderUnavailable);
+        }
         match self {
             Self::ProwlResolved { port, token, streaming, .. } => {
                 crate::prowl::Connection { port: *port, token: token.clone() }
@@ -385,6 +390,11 @@ impl Provider {
         emit: &mut impl FnMut(&str) -> Result<()>,
     ) -> Result<Completion> {
         self.validate()?;
+        if !matches!(self, Self::Acp { .. })
+            && messages.iter().any(|message| !message.images.is_empty())
+        {
+            return Err(Error::ProviderUnavailable);
+        }
         if !self.models().iter().any(|candidate| candidate == model) {
             return Err(Error::NotFound);
         }

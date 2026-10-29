@@ -2,10 +2,11 @@
 //! origin-scoped HTTP authentication; the CLI uses a bearer credential. A localhost
 //! Origin or X-Rashin-Client header alone never grants access.
 mod console;
+mod multipart;
 mod wiki;
 use crate::{
     Error, Result,
-    api::{Document, MAX_REQUEST_BYTES, Request, Response},
+    api::{Document, MAX_IMAGE_REQUEST_BYTES, MAX_REQUEST_BYTES, Request, Response},
     authorization::Access,
     digest,
     runtime::Engine,
@@ -152,7 +153,14 @@ impl Gateway {
                 }
                 let result = serde_json::from_slice::<Request>(&request.body)
                     .map_err(|_| Error::InvalidRequest)
-                    .and_then(|request| self.engine.dispatch_as(access, request));
+                    .and_then(|action| {
+                        if request.body.len() > MAX_REQUEST_BYTES
+                            && !matches!(action, Request::PromptImages { .. })
+                        {
+                            return Err(Error::Limit);
+                        }
+                        self.engine.dispatch_as(access, action)
+                    });
                 let status = match &result {
                     Ok(_) => 200,
                     Err(Error::Unauthorized) => 403,
@@ -232,7 +240,18 @@ impl Gateway {
                 send_ui(stream, console::job(&self.engine, &path[5..]))
             }
             ("POST", "/console/action") if owner && same_origin => {
-                match console::submit(&self.engine, &request.body) {
+                let result = if let Some(boundary) = request
+                    .headers
+                    .get("content-type")
+                    .and_then(|value| value.strip_prefix("multipart/form-data; boundary="))
+                {
+                    multipart::submit(&self.engine, &request.body, boundary)
+                } else if request.body.len() > MAX_REQUEST_BYTES {
+                    Err(Error::Limit)
+                } else {
+                    console::submit(&self.engine, &request.body)
+                };
+                match result {
                     Ok(path) => redirect(stream, &path),
                     Err(error) => send_ui(stream, Err(error)),
                 }
@@ -314,8 +333,12 @@ fn read_request(stream: &mut impl Read) -> Result<HttpRequest> {
         .transpose()
         .map_err(|_| Error::InvalidRequest)?
         .unwrap_or(0);
-    if length > MAX_REQUEST_BYTES || (first[0] == "POST" && !headers.contains_key("content-length"))
-    {
+    let limit = if first[1] == "/api/action" || first[1] == "/console/action" {
+        MAX_IMAGE_REQUEST_BYTES
+    } else {
+        MAX_REQUEST_BYTES
+    };
+    if length > limit || (first[0] == "POST" && !headers.contains_key("content-length")) {
         return Err(Error::Limit);
     }
     let mut body = vec![0; length];
@@ -333,7 +356,7 @@ fn send(
     let challenge =
         challenge.map(|value| format!("WWW-Authenticate: {value}\r\n")).unwrap_or_default();
     let header = format!(
-        "HTTP/1.1 {status} {}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'\r\n{challenge}\r\n",
+        "HTTP/1.1 {status} {}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'none'; img-src data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'\r\n{challenge}\r\n",
         if status == 200 { "OK" } else { "Error" },
         body.len()
     );
@@ -425,7 +448,7 @@ fn decode(raw: &str) -> Result<String> {
 }
 // Encoding only: authentication compares the complete canonical header in
 // constant time. No permissive decoder, alternate username, or cookie fallback.
-fn base64(bytes: &[u8]) -> String {
+pub(crate) fn base64(bytes: &[u8]) -> String {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut encoded = String::new();
     for chunk in bytes.chunks(3) {

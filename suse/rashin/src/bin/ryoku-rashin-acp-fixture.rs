@@ -27,13 +27,14 @@ fn main() -> std::io::Result<()> {
         }
     }
     let config_model = std::env::args().nth(1).as_deref() == Some("acp");
+    let image_enabled = std::env::args().nth(1).as_deref() != Some("--experimental-acp");
     let mut selected_model = String::from("fixture/default");
     let mut session = String::new();
     let mut serial = 0u64;
     let mut pending: Option<(Value, String)> = None;
     for line in std::io::stdin().lock().lines() {
         let line = line?;
-        if line.len() > 128 * 1024 {
+        if line.len() > 5 * 1024 * 1024 {
             return Err(std::io::ErrorKind::InvalidData.into());
         }
         let frame: Value = serde_json::from_str(&line)?;
@@ -86,7 +87,7 @@ fn main() -> std::io::Result<()> {
                 }
                 reply(
                     id,
-                    json!({"protocolVersion":1,"agentCapabilities":{"loadSession":true,"promptCapabilities":{"image":true}},"agentInfo":{"name":"deterministic-rust-acp"},"private_fixture_field":"PRIVATE_UNKNOWN_FIELD"}),
+                    json!({"protocolVersion":1,"agentCapabilities":{"loadSession":true,"promptCapabilities":{"image":image_enabled}},"agentInfo":{"name":"deterministic-rust-acp"},"private_fixture_field":"PRIVATE_UNKNOWN_FIELD"}),
                 )?;
             }
             "session/new" => {
@@ -146,6 +147,52 @@ fn main() -> std::io::Result<()> {
                     .and_then(|rows| rows.iter().rev().find(|row| row["role"] == "user"))
                     .and_then(|row| row["content"].as_str())
                     .unwrap_or(text);
+
+                if matches!(text, "image check" | "image followup" | "image wait")
+                    || (text.is_empty()
+                        && params["prompt"].as_array().is_some_and(|blocks| {
+                            blocks.iter().any(|block| block["type"] == "image")
+                        }))
+                {
+                    let blocks =
+                        params["prompt"].as_array().ok_or(std::io::ErrorKind::InvalidData)?;
+                    let images =
+                        blocks.iter().filter(|block| block["type"] == "image").collect::<Vec<_>>();
+                    if !image_enabled
+                        || images.len() != 1
+                        || images[0]["mimeType"] != "image/png"
+                        || images[0]["data"]
+                            != "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="
+                    {
+                        return Err(std::io::ErrorKind::InvalidData.into());
+                    }
+                    if text == "image wait" {
+                        update(&session, "agent_message_chunk", "image ready")?;
+                        pending = Some((id, "waiting".into()));
+                    } else {
+                        answer(&session, id, "Image received")?;
+                    }
+                    continue;
+                }
+                if text == "large image" {
+                    let images = params["prompt"]
+                        .as_array()
+                        .ok_or(std::io::ErrorKind::InvalidData)?
+                        .iter()
+                        .filter(|block| block["type"] == "image")
+                        .collect::<Vec<_>>();
+                    if !image_enabled
+                        || images.len() != 1
+                        || images[0]["mimeType"] != "image/png"
+                        || images[0]["data"]
+                            .as_str()
+                            .is_none_or(|data| data.len() < 350_000 || !data.starts_with("iVBOR"))
+                    {
+                        return Err(std::io::ErrorKind::InvalidData.into());
+                    }
+                    answer(&session, id, "Large image received")?;
+                    continue;
+                }
 
                 if text == "which configured model" {
                     answer(&session, id, &selected_model)?;

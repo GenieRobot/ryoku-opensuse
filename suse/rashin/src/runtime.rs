@@ -310,6 +310,7 @@ struct StartOptions {
     manual_handoff: Option<Handoff>,
     catalog_provider: Option<String>,
     disable_tools: bool,
+    images: Vec<crate::images::Image>,
 }
 fn bump_provider(state: &mut State, id: &str) -> Result<()> {
     let revision = state.provider_revisions.entry(id.into()).or_default();
@@ -397,6 +398,7 @@ struct ActiveJob {
     thought: String,
     context_usage: Option<crate::acp::bridge::ContextUsage>,
     acp_metadata: AcpMetadata,
+    images: Vec<crate::images::Image>,
 }
 
 pub struct Engine {
@@ -456,6 +458,17 @@ impl Engine {
                 .is_some_and(|title| !crate::acp::bridge::valid_metadata_text(title, 256))
         }) {
             return Err(Error::Integrity);
+        }
+        for session in state.sessions.values() {
+            let mut images = Vec::new();
+            for message in &session.messages {
+                crate::images::validate(&message.images).map_err(|_| Error::Integrity)?;
+                if !message.images.is_empty() && message.role != Role::User {
+                    return Err(Error::Integrity);
+                }
+                images.extend(message.images.iter().cloned());
+            }
+            crate::images::validate_history(&images).map_err(|_| Error::Integrity)?;
         }
         if let Some(prowl) = &state.prowl {
             prowl.validate()?;
@@ -913,6 +926,14 @@ impl Engine {
                     .lane;
                 text(&prompt, 16 * 1024)?;
                 self.start(id, Some(session), prompt, lane, StartOptions::default())
+            }
+            Request::PromptImages { id, session, prompt, images } => {
+                if images.is_empty() {return Err(Error::InvalidRequest);}
+                crate::images::validate(&images)?;
+                if prompt.len()>16*1024 || prompt.contains('\0') {return Err(Error::InvalidRequest);}
+                let lane=self.state.lock().map_err(|_|Error::Storage)?.sessions.get(&session).ok_or(Error::NotFound)?.lane;
+                if lane==Lane::Ask {return Err(Error::InvalidRequest);}
+                self.start(id,Some(session),prompt,lane,StartOptions{images,..StartOptions::default()})
             }
             Request::FixPreview { kind, component, evidence } => {
                 crate::inspection::component_name(&component)?;
@@ -1461,7 +1482,7 @@ impl Engine {
         result: Result<Completion>,
         fixture: bool,
     ) {
-        let (tools, truncated, thought, context_usage, acp_metadata) = self
+        let (tools, truncated, thought, context_usage, acp_metadata, images) = self
             .in_flight
             .lock()
             .ok()
@@ -1473,6 +1494,7 @@ impl Engine {
                         worker.thought.clone(),
                         worker.context_usage,
                         worker.acp_metadata.clone(),
+                        worker.images.clone(),
                     )
                 })
             })
@@ -1516,12 +1538,15 @@ impl Engine {
                             conversation.title =
                                 if title.is_empty() { None } else { Some(title.clone()) };
                         }
-                        conversation
-                            .messages
-                            .push(Message { role: Role::User, content: job.prompt.clone() });
+                        conversation.messages.push(Message {
+                            role: Role::User,
+                            content: job.prompt.clone(),
+                            images,
+                        });
                         conversation.messages.push(Message {
                             role: Role::Assistant,
                             content: completion.text.clone(),
+                            images: Vec::new(),
                         });
                     }
                     job.status = JobStatus::Completed;
@@ -1714,12 +1739,24 @@ impl Engine {
         options: StartOptions,
     ) -> Result<Value> {
         identifier(&id)?;
-        text(&prompt, 32 * 1024)?;
+        if options.images.is_empty() {
+            text(&prompt, 32 * 1024)?;
+        } else if prompt.len() > 32 * 1024 || prompt.contains('\0') {
+            return Err(Error::InvalidRequest);
+        }
         let run_handoff = options.handoff_ask.is_some() || options.manual_handoff.is_some();
         let catalog_provider = options.catalog_provider.clone();
-        let fingerprint = options.fingerprint.unwrap_or(digest(
-            &serde_json::to_vec(&(&session, &prompt, lane)).map_err(|_| Error::InvalidRequest)?,
-        ));
+        let fingerprint = match options.fingerprint {
+            Some(fingerprint) => fingerprint,
+            None if options.images.is_empty() => digest(
+                &serde_json::to_vec(&(&session, &prompt, lane))
+                    .map_err(|_| Error::InvalidRequest)?,
+            ),
+            None => digest(
+                &serde_json::to_vec(&(&session, &prompt, lane, &options.images))
+                    .map_err(|_| Error::InvalidRequest)?,
+            ),
+        };
         let generation = self
             .next_generation
             .try_update(Ordering::AcqRel, Ordering::Acquire, |value| value.checked_add(1))
@@ -1772,13 +1809,16 @@ impl Engine {
             for document in &state.documents {
                 for line in document.content.lines().take(100) { context.push_str(&format!("SOURCE {} [{}]: {}\n", document.name, &document.sha256[..12], line)); }
             }
-            let mut messages = vec![Message { role: Role::System, content: context }];
+            let mut messages = vec![Message { role: Role::System, content: context,images:Vec::new() }];
             if let Some(session) = &session {
                 let conversation = state.sessions.get(session).ok_or(Error::NotFound)?;
                 if conversation.messages.len() >= 128 { return Err(Error::Limit); }
                 messages.extend(conversation.messages.clone());
             }
-            messages.push(Message { role: Role::User, content: prompt.clone() });
+            messages.push(Message { role: Role::User, content: prompt.clone(),images:options.images.clone() });
+            let all_images=messages.iter().flat_map(|message|message.images.iter().cloned()).collect::<Vec<_>>();
+            crate::images::validate_history(&all_images)?;
+            if !all_images.is_empty() && !matches!(&provider,Ok(Provider::Acp{..})) {return Err(Error::ProviderUnavailable);}
             state.jobs.insert(id.clone(), Job { operation:if catalog_revision.is_some() {JobOperation::CatalogRefresh} else {JobOperation::Completion},catalog_count:None, fingerprint, lane, session, prompt, status: JobStatus::Running, answer: None, error: None, provider: route.provider, model: route.model.clone(), started: now(), generation, handoff: handoff.clone(), stop_reason: None, actual_model: None, tool_activity:Vec::new(), tool_activity_truncated:false, needs_agent:false, needs_agent_reason:None,fallback:fallback.as_ref().map(|task|FallbackAttempt{route:task.route.clone(),used:false,reason:None}),thought:None,thought_omitted:false,context_usage:None,context_usage_omitted:false,acp_metadata:None,acp_metadata_omitted:false });
             self.active.try_update(Ordering::AcqRel, Ordering::Acquire, |active| (active < 4).then_some(active + 1)).map_err(|_| Error::Busy)?;
             let permit = ProviderPermit(Arc::clone(&self.active));
@@ -1808,7 +1848,7 @@ impl Engine {
             // Install cancellation/progress before publishing Running under
             // the state lock: Cancel can never observe an accepted job without
             // its flag, even if it arrives before the worker thread starts.
-            if let Some(old)=self.in_flight.lock().map_err(|_|Error::Storage)?.insert(id.clone(),ActiveJob {generation,cancelled:Arc::clone(&cancelled),text:String::new(),tools:Vec::new(),ask_progress:if lane==Lane::Ask {Some(crate::ask::Progress::default())} else {None},tools_truncated:false,thought:String::new(),context_usage:None,acp_metadata:AcpMetadata::default()}) {
+            if let Some(old)=self.in_flight.lock().map_err(|_|Error::Storage)?.insert(id.clone(),ActiveJob {generation,cancelled:Arc::clone(&cancelled),text:String::new(),tools:Vec::new(),ask_progress:if lane==Lane::Ask {Some(crate::ask::Progress::default())} else {None},tools_truncated:false,thought:String::new(),context_usage:None,acp_metadata:AcpMetadata::default(),images:options.images.clone()}) {
                 old.cancelled.store(true,Ordering::Release);
             }
             registered=true;
@@ -2131,14 +2171,21 @@ pub fn serve_connection(mut stream: UnixStream, engine: &Arc<Engine>, uid: u32) 
     let mut length = [0; 4];
     stream.read_exact(&mut length).map_err(|_| Error::InvalidRequest)?;
     let length = u32::from_be_bytes(length) as usize;
-    if length == 0 || length > crate::api::MAX_REQUEST_BYTES {
+    if length == 0 || length > crate::api::MAX_IMAGE_REQUEST_BYTES {
         return Err(Error::Limit);
     }
     let mut bytes = vec![0; length];
     stream.read_exact(&mut bytes).map_err(|_| Error::InvalidRequest)?;
     let result = serde_json::from_slice::<Request>(&bytes)
         .map_err(|_| Error::InvalidRequest)
-        .and_then(|request| engine.dispatch(request));
+        .and_then(|request| {
+            if length > crate::api::MAX_REQUEST_BYTES
+                && !matches!(request, Request::PromptImages { .. })
+            {
+                return Err(Error::Limit);
+            }
+            engine.dispatch(request)
+        });
     let response =
         serde_json::to_vec(&crate::api::Response::from(result)).map_err(|_| Error::Storage)?;
     stream
@@ -2434,6 +2481,7 @@ mod evidence_tests {
                         .map(|i| Message {
                             role: if i % 2 == 0 { Role::User } else { Role::Assistant },
                             content: if i % 2 == 0 { "p".into() } else { "z".repeat(65536) },
+                            images: Vec::new(),
                         })
                         .collect();
                     state.sessions.insert(

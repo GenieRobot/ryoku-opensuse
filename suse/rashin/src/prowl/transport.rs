@@ -572,6 +572,7 @@ mod tests {
                         &[crate::provider::Message {
                             role: crate::provider::Role::User,
                             content: "PRIVATE_PROMPT_MUST_NOT_REACH_FOREIGN_UID".into(),
+                            images: Vec::new(),
                         }],
                         true,
                         &std::sync::atomic::AtomicBool::new(false),

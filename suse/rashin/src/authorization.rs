@@ -46,6 +46,7 @@ impl Request {
             | Self::ClearHandoff {}
             | Self::NewSession { .. }
             | Self::Prompt { .. }
+            | Self::PromptImages { .. }
             | Self::ForgetJob { .. }
             | Self::DeleteSession { .. } => Action::Conversation,
             Self::EnrollAcpProvider { .. }

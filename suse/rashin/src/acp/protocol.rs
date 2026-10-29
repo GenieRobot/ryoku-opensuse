@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 pub(super) const FRAME_BYTES: usize = 128 * 1024;
+pub(super) const OUTBOUND_FRAME_BYTES: usize = 5 * 1024 * 1024;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub(super) enum Id {

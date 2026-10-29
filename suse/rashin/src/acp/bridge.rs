@@ -310,6 +310,22 @@ pub(crate) fn complete(
     callbacks: &mut Callbacks<'_>,
     options: Options<'_>,
 ) -> Result<Completion> {
+    if messages
+        .iter()
+        .any(|message| !message.images.is_empty() && message.role != crate::provider::Role::User)
+    {
+        return Err(Error::InvalidRequest);
+    }
+    let images = messages
+        .iter()
+        .enumerate()
+        .flat_map(|(index, message)| {
+            message.images.iter().cloned().map(move |image| (index, image))
+        })
+        .collect::<Vec<_>>();
+    crate::images::validate_history(
+        &images.iter().map(|(_, image)| image.clone()).collect::<Vec<_>>(),
+    )?;
     let deadline = Instant::now() + Duration::from_secs(120);
     let mut surface = Surface {
         context,
@@ -334,9 +350,13 @@ pub(crate) fn complete(
         surface.actual_model = None;
     }
     client.set_model(model, deadline, cancelled, &mut surface)?;
-    let prompt = serde_json::to_string(messages).map_err(|_| Error::InvalidRequest)?;
+    let prompt = if images.is_empty() {serde_json::to_string(messages)} else {
+        let entries=messages.iter().map(|message|json!({"role":message.role,"content":message.content,"image_count":message.images.len()})).collect::<Vec<_>>();
+        serde_json::to_string(&entries)
+    }.map_err(|_| Error::InvalidRequest)?;
     surface.collecting = true;
-    let stop_reason = client.prompt(&prompt, deadline, cancelled, &mut surface)?;
+    let stop_reason =
+        client.prompt_with_images(&prompt, &images, deadline, cancelled, &mut surface)?;
     if surface.text.trim().is_empty() {
         if surface.denied {
             surface.text = "The requested operation requires explicit Agent authorization.".into();

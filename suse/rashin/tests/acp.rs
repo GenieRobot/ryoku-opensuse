@@ -231,6 +231,290 @@ fn done(engine: &Arc<ryoku_rashin::runtime::Engine>, id: &str) -> Value {
     }
 }
 #[test]
+#[ignore = "requires real namespace runner; authenticated image upload and ACP proof"]
+fn image_upload_reaches_capable_acp_and_private_history_survives_restart() {
+    use ryoku_rashin::{
+        api::{Lane, Request},
+        authorization::Access,
+        images::Image,
+        runtime::Engine,
+        store::Store,
+    };
+    use std::{fs, os::unix::fs::PermissionsExt};
+    let root = std::env::temp_dir().join(format!("rashin-images-{}", std::process::id()));
+    fs::create_dir(&root).unwrap();
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+    let runner = std::path::PathBuf::from(env!("CARGO_BIN_EXE_ryoku-rashin"));
+    let engine =
+        Engine::open_with_adapter_runner(Store::open(&root).unwrap(), runner.clone()).unwrap();
+    engine
+        .dispatch(Request::EnrollAcpProvider {
+            id: "image-adapter".into(),
+            path: env!("CARGO_BIN_EXE_ryoku-rashin-acp-fixture").into(),
+            models: vec!["fixture/default".into()],
+            arguments: Arguments::Stdio,
+            network: false,
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Chat,
+            provider: "image-adapter".into(),
+            model: "fixture/default".into(),
+        })
+        .unwrap();
+    engine.dispatch(Request::NewSession { id: "chat".into(), lane: Lane::Chat }).unwrap();
+    let image=Image{mime_type:"image/png".into(),data:"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=".into()};
+    assert_eq!(
+        engine.dispatch_as(
+            Access::AskClient,
+            Request::PromptImages {
+                id: "denied".into(),
+                session: "chat".into(),
+                prompt: "image check".into(),
+                images: vec![image.clone()]
+            }
+        ),
+        Err(Error::Unauthorized)
+    );
+    let mut bad = image.clone();
+    bad.mime_type = "image/jpeg".into();
+    assert_eq!(
+        engine.dispatch(Request::PromptImages {
+            id: "invalid".into(),
+            session: "chat".into(),
+            prompt: "image check".into(),
+            images: vec![bad]
+        }),
+        Err(Error::InvalidRequest)
+    );
+    engine
+        .dispatch(Request::PromptImages {
+            id: "cancel-image".into(),
+            session: "chat".into(),
+            prompt: "image wait".into(),
+            images: vec![image.clone()],
+        })
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(6);
+    loop {
+        let view = engine.dispatch(Request::Job { id: "cancel-image".into() }).unwrap();
+        if view["progress"] == "image ready" {
+            break;
+        }
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(!fs::read_to_string(root.join("state.json")).unwrap().contains(&image.data));
+    engine.dispatch(Request::Cancel { id: "cancel-image".into() }).unwrap();
+    assert_eq!(done(&engine, "cancel-image")["status"], "cancelled");
+    let gateway = ryoku_rashin::http::Gateway::new(
+        engine.clone(),
+        "1".repeat(64),
+        "http://127.0.0.1:51321".into(),
+    )
+    .unwrap();
+    let mut body = Vec::new();
+    for (name, value) in
+        [("action", "prompt"), ("id", "uploaded"), ("session", "chat"), ("prompt", "image check")]
+    {
+        body.extend_from_slice(format!("--test-boundary\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n").as_bytes());
+    }
+    body.extend_from_slice(b"--test-boundary\r\nContent-Disposition: form-data; name=\"images\"; filename=\"private.png\"\r\nContent-Type: image/jpeg\r\n\r\n\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x04\x00\x00\x00\xb5\x1c\x0c\x02\x00\x00\x00\x0bIDATx\xdac\xfc\xff\x1f\x00\x03\x03\x02\x00\xef\xa3E\x99\x00\x00\x00\x00IEND\xaeB\x60\x82\r\n--test-boundary--\r\n");
+    let basic = "b3duZXI6MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMQ==";
+    let header = format!(
+        "POST /console/action HTTP/1.1\r\nHost: 127.0.0.1:51321\r\nAuthorization: Basic {basic}\r\nOrigin: http://127.0.0.1:51321\r\nContent-Type: multipart/form-data; boundary=test-boundary\r\nContent-Length: {}\r\n\r\n",
+        body.len()
+    );
+    let mut wrong = header
+        .replace("Origin: http://127.0.0.1:51321", "Origin: http://127.0.0.1:51322")
+        .into_bytes();
+    wrong.extend_from_slice(&body);
+    let mut denied = HttpBytes { input: std::io::Cursor::new(wrong), output: Vec::new() };
+    gateway.handle(&mut denied).unwrap();
+    assert!(String::from_utf8(denied.output).unwrap().starts_with("HTTP/1.1 403"));
+    assert_eq!(engine.dispatch(Request::Job { id: "uploaded".into() }), Err(Error::NotFound));
+    let mut request = header.into_bytes();
+    request.extend_from_slice(&body);
+    let mut stream = HttpBytes { input: std::io::Cursor::new(request), output: Vec::new() };
+    gateway.handle(&mut stream).unwrap();
+    let response = String::from_utf8(stream.output).unwrap();
+    assert!(response.starts_with("HTTP/1.1 303"), "{response}");
+    let job = done(&engine, "uploaded");
+    assert_eq!(job["answer"], "Image received");
+    let replay = engine
+        .dispatch(Request::PromptImages {
+            id: "uploaded".into(),
+            session: "chat".into(),
+            prompt: "image check".into(),
+            images: vec![image.clone()],
+        })
+        .unwrap();
+    assert_eq!(replay["status"], "completed");
+    let changed = Image::from_bytes(b"\x89PNG\r\n\x1a\nchanged").unwrap();
+    assert_eq!(
+        engine.dispatch(Request::PromptImages {
+            id: "uploaded".into(),
+            session: "chat".into(),
+            prompt: "image check".into(),
+            images: vec![changed]
+        }),
+        Err(Error::Conflict)
+    );
+    let saved = engine.dispatch(Request::Session { id: "chat".into() }).unwrap();
+    assert_eq!(saved["session"]["messages"][0]["images"][0]["data"], image.data);
+    let page = browser(&gateway, "GET", "/session/chat", "");
+    assert!(page.contains(&format!("data:image/png;base64,{}", image.data)));
+    assert!(!page.contains("private.png"));
+    engine
+        .dispatch(Request::Prompt {
+            id: "image-followup".into(),
+            session: "chat".into(),
+            prompt: "image followup".into(),
+        })
+        .unwrap();
+    assert_eq!(done(&engine, "image-followup")["answer"], "Image received");
+    engine
+        .dispatch(Request::NewSession { id: "image-only-chat".into(), lane: Lane::Chat })
+        .unwrap();
+    engine
+        .dispatch(Request::PromptImages {
+            id: "image-only".into(),
+            session: "image-only-chat".into(),
+            prompt: String::new(),
+            images: vec![image.clone()],
+        })
+        .unwrap();
+    assert_eq!(done(&engine, "image-only")["answer"], "Image received");
+    engine.dispatch(Request::NewSession { id: "large-chat".into(), lane: Lane::Chat }).unwrap();
+    let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+    png.resize(300_000, 0);
+    let large = Image::from_bytes(&png).unwrap();
+    let json = serde_json::to_vec(&Request::PromptImages {
+        id: "large-upload".into(),
+        session: "large-chat".into(),
+        prompt: "large image".into(),
+        images: vec![large],
+    })
+    .unwrap();
+    assert!(json.len() > ryoku_rashin::api::MAX_REQUEST_BYTES);
+    let header = format!(
+        "POST /api/action HTTP/1.1\r\nHost: 127.0.0.1:51321\r\nAuthorization: Basic {basic}\r\nOrigin: http://127.0.0.1:51321\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",
+        json.len()
+    );
+    let mut request = header.into_bytes();
+    request.extend_from_slice(&json);
+    let mut stream = HttpBytes { input: std::io::Cursor::new(request), output: Vec::new() };
+    gateway.handle(&mut stream).unwrap();
+    assert!(String::from_utf8(stream.output).unwrap().starts_with("HTTP/1.1 200"));
+    assert_eq!(done(&engine, "large-upload")["answer"], "Large image received");
+    {
+        use std::{
+            io::Write,
+            os::unix::net::UnixListener,
+            process::{Command, Stdio},
+        };
+        let socket = root.join("request.sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        let serving = Arc::clone(&engine);
+        let server = std::thread::spawn(move || {
+            for _ in 0..2 {
+                let (stream, _) = listener.accept().unwrap();
+                ryoku_rashin::runtime::serve_connection(
+                    stream,
+                    &serving,
+                    rustix::process::geteuid().as_raw(),
+                )
+                .unwrap();
+            }
+        });
+        let request_cli = |input: &[u8]| {
+            let mut child = Command::new(env!("CARGO_BIN_EXE_ryoku-rashin"))
+                .arg("request")
+                .arg(&socket)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .unwrap();
+            child.stdin.take().unwrap().write_all(input).unwrap();
+            let output = child.wait_with_output().unwrap();
+            assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+            serde_json::from_slice::<Value>(&output.stdout).unwrap()
+        };
+        let replay = request_cli(&json);
+        assert_eq!(replay["status"], "ok");
+        assert_eq!(replay["data"]["status"], "completed");
+        let oversized =
+            serde_json::to_vec(&Request::Wire { instructions: "x".repeat(300_000) }).unwrap();
+        let rejected = request_cli(&oversized);
+        assert_eq!(rejected["status"], "error");
+        assert_eq!(rejected["error"], "limit");
+        server.join().unwrap();
+    }
+    engine
+        .dispatch(Request::EnrollAcpProvider {
+            id: "text-only".into(),
+            path: env!("CARGO_BIN_EXE_ryoku-rashin-acp-fixture").into(),
+            models: vec!["fixture/default".into()],
+            arguments: Arguments::ExperimentalAcp,
+            network: false,
+        })
+        .unwrap();
+    engine.dispatch(Request::NewSession { id: "text-chat".into(), lane: Lane::Chat }).unwrap();
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Chat,
+            provider: "text-only".into(),
+            model: "fixture/default".into(),
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::PromptImages {
+            id: "unsupported".into(),
+            session: "text-chat".into(),
+            prompt: "image check".into(),
+            images: vec![image.clone()],
+        })
+        .unwrap();
+    assert_eq!(done(&engine, "unsupported")["error"], "provider_unavailable");
+    assert!(engine.dispatch(Request::Session{id:"text-chat".into()}).unwrap()["session"]["messages"].as_array().unwrap().is_empty());
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Chat,
+            provider: "local".into(),
+            model: "local-retrieval-v1".into(),
+        })
+        .unwrap();
+    assert_eq!(
+        engine.dispatch(Request::Prompt {
+            id: "incompatible".into(),
+            session: "chat".into(),
+            prompt: "image followup".into()
+        }),
+        Err(Error::ProviderUnavailable)
+    );
+    drop(gateway);
+    drop(engine);
+    let deadline = Instant::now() + Duration::from_secs(6);
+    let engine = loop {
+        match Store::open(&root) {
+            Ok(store) => break Engine::open_with_adapter_runner(store, runner.clone()).unwrap(),
+            Err(Error::Busy) if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(5))
+            }
+            Err(error) => panic!("reopen: {error:?}"),
+        }
+    };
+    assert_eq!(
+        engine.dispatch(Request::Session { id: "chat".into() }).unwrap()["session"]["messages"][0]
+            ["images"][0]["data"],
+        image.data
+    );
+    drop(engine);
+    fs::remove_dir_all(root).unwrap();
+}
+#[test]
 #[ignore = "requires real namespace runner; ACP config-option model proof"]
 fn configured_acp_models_support_catalog_selection_and_live_updates() {
     use ryoku_rashin::{

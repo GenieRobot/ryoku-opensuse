@@ -2,6 +2,7 @@ use crate::provider::Provider;
 use serde::{Deserialize, Serialize};
 
 pub const MAX_REQUEST_BYTES: usize = 256 * 1024;
+pub const MAX_IMAGE_REQUEST_BYTES: usize = 5 * 1024 * 1024;
 
 /// Each action is individually typed. There is no shell, arbitrary URL proxy,
 /// privilege escalation, or generic service/package dispatcher.
@@ -144,6 +145,12 @@ pub enum Request {
         id: String,
         session: String,
         prompt: String,
+    },
+    PromptImages {
+        id: String,
+        session: String,
+        prompt: String,
+        images: Vec<crate::images::Image>,
     },
     FixPreview {
         kind: FixKind,

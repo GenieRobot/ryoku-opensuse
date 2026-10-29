@@ -1,6 +1,6 @@
 use ryoku_rashin::{
     Error, Result,
-    api::MAX_REQUEST_BYTES,
+    api::MAX_IMAGE_REQUEST_BYTES,
     runtime::{Engine, serve},
     store::Store,
 };
@@ -67,10 +67,10 @@ fn run() -> Result<()> {
         Some("request") => {
             let mut bytes = Vec::new();
             std::io::stdin()
-                .take(MAX_REQUEST_BYTES as u64 + 1)
+                .take(MAX_IMAGE_REQUEST_BYTES as u64 + 1)
                 .read_to_end(&mut bytes)
                 .map_err(|_| Error::InvalidRequest)?;
-            if bytes.len() > MAX_REQUEST_BYTES {
+            if bytes.len() > MAX_IMAGE_REQUEST_BYTES {
                 return Err(Error::Limit);
             }
             let mut stream =
