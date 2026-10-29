@@ -1733,7 +1733,16 @@ mod tests {
         guard.refreeze().unwrap();
         assert!(guard.playback_disposition(vec![identity.clone()], false).is_err());
         guard.release().unwrap();
-        assert_eq!(read_task(player).unwrap().unwrap().state, 'T');
+        // The guard reasserts SIGSTOP through its pinned process descriptor
+        // before detach; /proc can briefly report R while it is delivered.
+        // As in the ordinary actor-call cases above, observe the completed
+        // group stop and verify throughout that the player never writes.
+        let deadline = Instant::now() + TIMEOUT;
+        while read_task(player).unwrap().unwrap().state != 'T' {
+            assert_eq!(counters(), before, "pause intent resumed the player");
+            assert!(Instant::now() < deadline, "pause intent lost the preserved stop");
+            thread::sleep(Duration::from_millis(2));
+        }
         assert_eq!(counters(), before);
 
         let pin =
@@ -1979,8 +1988,17 @@ mod tests {
                 executables: vec![],
             });
             eprintln!("forbidden exec lease start: {started:?}");
+            // The rejected process is deliberately killed. Linux may return
+            // ESRCH while reading its disappearing /proc files, before the
+            // directory lookup starts returning NotFound. Both mean this
+            // test observed the expected death; other read errors still fail.
+            let replacement_task = || match read_task(replacement_pid) {
+                Ok(task) => task,
+                Err(Error::Io(error)) if error.raw_os_error() == Some(libc::ESRCH) => None,
+                Err(error) => panic!("cannot observe rejected actor: {error:?}"),
+            };
             let deadline = Instant::now() + TIMEOUT;
-            while read_task(replacement_pid).unwrap().is_some_and(|task| task.state != 'Z') {
+            while replacement_task().is_some_and(|task| task.state != 'Z') {
                 assert!(Instant::now() < deadline, "actor exec did not fail closed");
                 thread::sleep(Duration::from_millis(2));
             }
@@ -1998,9 +2016,7 @@ mod tests {
             assert_eq!(read_task(sibling_pid).unwrap().unwrap().state, 't');
             guard.release().unwrap();
             assert!(
-                read_task(replacement_pid)
-                    .unwrap()
-                    .is_none_or(|task| matches!(task.state, 'Z' | 'X')),
+                replacement_task().is_none_or(|task| matches!(task.state, 'Z' | 'X')),
                 "rejected actor survived detach"
             );
             assert!(!replacement.path.join("forbidden-exec-write").exists());
