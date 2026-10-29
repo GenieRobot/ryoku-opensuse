@@ -21,6 +21,13 @@ pub(crate) struct Options<'a> {
     pub runner: &'a Path,
     pub ask: bool,
     pub thought: &'a mut dyn FnMut(&str) -> Result<()>,
+    pub usage: &'a mut dyn FnMut(ContextUsage) -> Result<()>,
+}
+#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ContextUsage {
+    pub size: u64,
+    pub used: u64,
 }
 struct Surface<'a, 'b> {
     context: &'a ReadTools,
@@ -34,6 +41,7 @@ struct Surface<'a, 'b> {
     denied: bool,
     actual_model: Option<String>,
     thought: &'a mut dyn FnMut(&str) -> Result<()>,
+    usage: &'a mut dyn FnMut(ContextUsage) -> Result<()>,
 }
 impl Surface<'_, '_> {
     fn read(&self, params: &Value) -> Result<String> {
@@ -181,12 +189,16 @@ impl Handler for Surface<'_, '_> {
                     (self.thought)(text)?;
                 }
             }
+            "usage_update" => {
+                let size = update["size"].as_u64().ok_or(Error::ProviderFailed)?;
+                let used = update["used"].as_u64().ok_or(Error::ProviderFailed)?;
+                (self.usage)(ContextUsage { size, used })?;
+            }
             "user_message_chunk"
             | "current_mode_update"
             | "available_commands_update"
             | "config_option_update"
             | "session_info_update"
-            | "usage_update"
             | "plan" => {}
             _ => return Err(Error::ProviderUnavailable),
         }
@@ -215,6 +227,7 @@ pub(crate) fn complete(
         denied: false,
         actual_model: None,
         thought: options.thought,
+        usage: options.usage,
     };
     let mut client = Client::connect(config, options.runner, deadline, cancelled, &mut surface)?;
     client.new_session(deadline, cancelled, &mut surface)?;

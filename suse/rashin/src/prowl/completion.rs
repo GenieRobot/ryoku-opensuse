@@ -3,7 +3,7 @@
 //! or model instruction. All writes follow post-connect peer UID verification.
 use super::{
     Connection,
-    transport::{response_to, verify_peer},
+    transport::{connect, response_to, verify_peer},
 };
 use crate::{
     Error, Result,
@@ -11,7 +11,7 @@ use crate::{
 };
 use std::{
     io::{BufReader, Read, Write},
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpStream},
+    net::TcpStream,
     sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
 };
@@ -106,12 +106,7 @@ pub(super) fn request_endpoint(
     emit: &mut impl FnMut(&[u8]) -> Result<()>,
 ) -> Result<()> {
     remaining(deadline, cancelled)?;
-    let address = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, connection.port));
-    let mut stream = TcpStream::connect_timeout(
-        &address,
-        remaining(deadline, cancelled)?.min(Duration::from_secs(1)),
-    )
-    .map_err(|_| Error::ProviderUnavailable)?;
+    let mut stream = connect(connection.port, deadline, Some(cancelled))?;
     // Ownership proof uses a short independent bound; no request bytes before it.
     verify_peer(&stream, deadline.min(Instant::now() + Duration::from_secs(3)))?;
     remaining(deadline, cancelled)?;

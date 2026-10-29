@@ -9,6 +9,7 @@ use std::{
     fs::File,
     io::{BufReader, Read, Write},
     net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpStream},
+    sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
 };
 const BODY_LIMIT: usize = 1024 * 1024;
@@ -16,10 +17,9 @@ const HEADER_LIMIT: usize = 16 * 1024;
 const PROC_LIMIT: u64 = 4 * 1024 * 1024;
 
 pub(super) fn get(port: u16, token: &str, path: &str) -> Result<(u16, Vec<u8>)> {
+    let connect_deadline = Instant::now() + Duration::from_secs(3);
+    let mut stream = connect(port, connect_deadline, None)?;
     let deadline = Instant::now() + Duration::from_secs(3);
-    let address = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port);
-    let mut stream = TcpStream::connect_timeout(&SocketAddr::V4(address), Duration::from_secs(1))
-        .map_err(|_| Error::ProviderUnavailable)?;
     verify_peer(&stream, deadline)?;
     // No request, token, probe or Host header is sent before identity succeeds.
     stream.set_write_timeout(Some(remaining(deadline)?)).map_err(|_| Error::ProviderUnavailable)?;
@@ -28,6 +28,42 @@ pub(super) fn get(port: u16, token: &str, path: &str) -> Result<(u16, Vec<u8>)> 
     let mut reader = BufReader::new(Timed { stream: &mut stream, deadline })
         .take((BODY_LIMIT + 2 * HEADER_LIMIT) as u64);
     response(&mut reader)
+}
+pub(super) fn connect(
+    port: u16,
+    deadline: Instant,
+    cancelled: Option<&AtomicBool>,
+) -> Result<TcpStream> {
+    let address = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port));
+    retry_connect(deadline.min(Instant::now() + Duration::from_secs(3)), cancelled, |timeout| {
+        TcpStream::connect_timeout(&address, timeout)
+    })
+}
+fn retry_connect<T>(
+    deadline: Instant,
+    cancelled: Option<&AtomicBool>,
+    mut attempt: impl FnMut(Duration) -> std::io::Result<T>,
+) -> Result<T> {
+    loop {
+        if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+            return Err(Error::Cancelled);
+        }
+        let timeout = remaining(deadline)?.min(Duration::from_secs(1));
+        match attempt(timeout) {
+            Ok(stream) => {
+                if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+                    return Err(Error::Cancelled);
+                }
+                return Ok(stream);
+            }
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::Interrupted
+                ) => {}
+            Err(_) => return Err(Error::ProviderUnavailable),
+        }
+    }
 }
 fn remaining(deadline: Instant) -> Result<Duration> {
     deadline
@@ -294,6 +330,41 @@ fn chunked_to(reader: &mut impl Read, emit: &mut impl FnMut(&[u8]) -> Result<()>
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn connect_retries_only_transient_pre_request_timeouts_and_observes_cancel() {
+        let cancelled = AtomicBool::new(false);
+        let mut attempts = 0;
+        let result =
+            retry_connect(Instant::now() + Duration::from_secs(3), Some(&cancelled), |timeout| {
+                assert!(timeout <= Duration::from_secs(1));
+                attempts += 1;
+                if attempts < 3 { Err(std::io::ErrorKind::TimedOut.into()) } else { Ok(42) }
+            });
+        assert_eq!(result, Ok(42));
+        assert_eq!(attempts, 3);
+        let mut attempts = 0;
+        assert_eq!(
+            retry_connect::<()>(Instant::now() + Duration::from_secs(3), Some(&cancelled), |_| {
+                attempts += 1;
+                Err(std::io::ErrorKind::ConnectionRefused.into())
+            }),
+            Err(Error::ProviderUnavailable)
+        );
+        assert_eq!(attempts, 1);
+        assert_eq!(
+            retry_connect::<()>(Instant::now() + Duration::from_secs(3), Some(&cancelled), |_| {
+                cancelled.store(true, Ordering::Release);
+                Err(std::io::ErrorKind::TimedOut.into())
+            }),
+            Err(Error::Cancelled)
+        );
+        assert_eq!(
+            retry_connect::<()>(Instant::now(), None, |_| panic!(
+                "expired deadline must not connect"
+            )),
+            Err(Error::ProviderUnavailable)
+        );
+    }
     use std::{
         io::Cursor,
         net::TcpListener,

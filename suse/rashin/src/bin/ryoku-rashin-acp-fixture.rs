@@ -119,12 +119,22 @@ fn main() -> std::io::Result<()> {
                     .unwrap_or(text);
 
                 if text == "show thought" || text == "thought then wait" {
+                    send(
+                        json!({"jsonrpc":"2.0","method":"session/update","params":{"sessionId":session,"update":{"sessionUpdate":"usage_update","size":1000,"used":200}}}),
+                    )?;
                     update(&session, "agent_thought_chunk", "Private <thinking> Δ")?;
                     if text == "thought then wait" {
                         pending = Some((id, "waiting".into()));
                     } else {
                         answer(&session, id, "Thought complete")?;
                     }
+                    continue;
+                }
+                if text == "invalid context usage" {
+                    send(
+                        json!({"jsonrpc":"2.0","method":"session/update","params":{"sessionId":session,"update":{"sessionUpdate":"usage_update","size":-1,"used":200}}}),
+                    )?;
+                    answer(&session, id, "unexpected")?;
                     continue;
                 }
                 if text == "excessive thought" {

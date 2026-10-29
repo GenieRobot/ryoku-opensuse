@@ -763,6 +763,16 @@ pub(super) fn job(engine: &Arc<Engine>, id: &str) -> Result<String> {
     if job["thought_omitted"] == true {
         body += "<p>Provider thinking was omitted to preserve space for the answer.</p>";
     }
+    if let (Some(used), Some(size)) =
+        (value["context_usage"]["used"].as_u64(), value["context_usage"]["size"].as_u64())
+    {
+        body += &format!(
+            "<p>Provider context usage: {used} of {size} tokens. This is context size, not billed usage or provider quota.</p>"
+        );
+    }
+    if job["context_usage_omitted"] == true {
+        body += "<p>Context usage was omitted to preserve space for the answer.</p>";
+    }
     if let Some(records) = job["tool_activity"].as_array().filter(|rows| !rows.is_empty()) {
         body += "<h3>Tool activity</h3><table><thead><tr><th>Tool</th><th>Status</th><th>Error</th></tr></thead><tbody>";
         for record in records {

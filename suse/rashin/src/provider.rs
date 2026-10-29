@@ -403,6 +403,7 @@ impl Provider {
                     runner: &std::env::current_exe().map_err(|_| Error::ProviderUnavailable)?,
                     ask: true,
                     thought: &mut |_| Ok(()),
+                    usage: &mut |_| Ok(()),
                 },
             ),
             Self::Fixture { delay_millis, outcome, .. } => {

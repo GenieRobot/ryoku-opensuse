@@ -274,6 +274,7 @@ fn acp_thinking_is_live_private_bounded_and_persisted_only_on_completion() {
     loop {
         let view = engine.dispatch(Request::Job { id: "thinking-cancel".into() }).unwrap();
         if view["thought_progress"] == "Private <thinking> Δ" {
+            assert_eq!(view["context_usage"], json!({"size":1000,"used":200}));
             break;
         }
         assert!(Instant::now() < deadline);
@@ -288,6 +289,7 @@ fn acp_thinking_is_live_private_bounded_and_persisted_only_on_completion() {
     let view = engine.dispatch(Request::Job { id: "thinking-cancel".into() }).unwrap();
     assert!(view["thought_progress"].is_null());
     assert!(view["job"]["thought"].is_null());
+    assert!(view["context_usage"].is_null());
     engine
         .dispatch(Request::Prompt {
             id: "thinking-complete".into(),
@@ -298,6 +300,7 @@ fn acp_thinking_is_live_private_bounded_and_persisted_only_on_completion() {
     let job = done(&engine, "thinking-complete");
     assert_eq!(job["thought"], "Private <thinking> Δ");
     assert_eq!(job["answer"], "Thought complete");
+    assert_eq!(job["context_usage"], json!({"size":1000,"used":200}));
     let gateway = ryoku_rashin::http::Gateway::new(
         engine.clone(),
         "1".repeat(64),
@@ -307,6 +310,7 @@ fn acp_thinking_is_live_private_bounded_and_persisted_only_on_completion() {
     let html = browser(&gateway, "GET", "/job/thinking-complete", "");
     assert!(html.contains("Private &lt;thinking&gt; Δ"));
     assert!(!html.contains("Private <thinking> Δ"));
+    assert!(html.contains("Provider context usage: 200 of 1000 tokens"));
     engine
         .dispatch(Request::Prompt {
             id: "thinking-limit".into(),
@@ -317,6 +321,16 @@ fn acp_thinking_is_live_private_bounded_and_persisted_only_on_completion() {
     let limited = done(&engine, "thinking-limit");
     assert_eq!(limited["error"], "limit");
     assert!(limited["thought"].is_null());
+    engine
+        .dispatch(Request::Prompt {
+            id: "invalid-usage".into(),
+            session: "chat".into(),
+            prompt: "invalid context usage".into(),
+        })
+        .unwrap();
+    let invalid = done(&engine, "invalid-usage");
+    assert_eq!(invalid["error"], "provider_failed");
+    assert!(invalid["context_usage"].is_null());
     drop(gateway);
     drop(engine);
     let deadline = Instant::now() + Duration::from_secs(6);
@@ -332,6 +346,10 @@ fn acp_thinking_is_live_private_bounded_and_persisted_only_on_completion() {
     assert_eq!(
         engine.dispatch(Request::Job { id: "thinking-complete".into() }).unwrap()["job"]["thought"],
         "Private <thinking> Δ"
+    );
+    assert_eq!(
+        engine.dispatch(Request::Job { id: "thinking-complete".into() }).unwrap()["context_usage"],
+        json!({"size":1000,"used":200})
     );
     drop(engine);
     fs::remove_dir_all(root).unwrap();

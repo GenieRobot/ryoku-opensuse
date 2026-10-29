@@ -1031,6 +1031,19 @@ ACP fixture verifies live visibility, cancellation, bounds, scoped access,
 completed persistence and restart. This does not claim complete native replay
 or all upstream thinking controls.
 
+ACP `usage_update` reports the provider's current context used and size as
+separate values in the live and completed job page. These values describe the
+context window, not billed tokens or provider quota. Invalid or negative values
+fail the turn, cancellation discards the live update, and completed updates
+survive restart. A state-size limit may omit the update to preserve the answer.
+The real ACP fixture covers live reporting, cancellation, malformed values,
+browser display and restart.
+
+Prowl connections retry transient connection timeouts for at most three seconds
+before sending any request or credential. Each attempt is limited to one second
+so cancellation remains observable. The established connection still requires
+the same peer UID verification before any request bytes leave the process.
+
 Network-enabled ACP Fix uses the existing exact finding/configuration-bound,
 expiring, single-use review contract. Tools are disabled for Fix. An independent
 loopback observer proves zero adapter calls before consent, one authorized call,

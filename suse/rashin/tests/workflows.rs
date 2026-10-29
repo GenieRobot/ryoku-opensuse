@@ -3887,8 +3887,15 @@ fn tool_round_gateway_cancellation_closes_followup_stream_without_partial_answer
     engine
         .dispatch(Request::Ask { id: "cancel-tool-round".into(), prompt: "Read then wait".into() })
         .unwrap();
-    requests.recv_timeout(Duration::from_secs(2)).unwrap();
-    let followup = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    // Connect and peer verification each allow up to three seconds before
+    // request bytes are sent; do not time out the fixture earlier.
+    requests.recv_timeout(Duration::from_secs(8)).unwrap_or_else(|error| {
+        panic!(
+            "gateway request timed out: {error:?}; job: {:?}",
+            engine.dispatch(Request::Job { id: "cancel-tool-round".into() })
+        )
+    });
+    let followup = requests.recv_timeout(Duration::from_secs(8)).unwrap();
     assert_eq!(followup["messages"].as_array().unwrap().last().unwrap()["role"], "tool");
     engine.dispatch(Request::Cancel { id: "cancel-tool-round".into() }).unwrap();
     assert_eq!(done(&engine, "cancel-tool-round")["status"], "cancelled");
@@ -4137,8 +4144,14 @@ fn enrolled_file_tool_cancellation_drops_ephemeral_read_results_and_closes_follo
     engine
         .dispatch(Request::Ask { id: "cancel-file-tool".into(), prompt: "Read then wait".into() })
         .unwrap();
-    requests.recv_timeout(Duration::from_secs(2)).unwrap();
-    let next = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    // Connect and peer verification can each take three seconds.
+    requests.recv_timeout(Duration::from_secs(8)).unwrap_or_else(|error| {
+        panic!(
+            "gateway request timed out: {error:?}; job: {:?}",
+            engine.dispatch(Request::Job { id: "cancel-file-tool".into() })
+        )
+    });
+    let next = requests.recv_timeout(Duration::from_secs(8)).unwrap();
     assert!(next.to_string().contains("UNPERSISTED_ENROLLED_TEXT"));
     engine.dispatch(Request::Cancel { id: "cancel-file-tool".into() }).unwrap();
     assert_eq!(done(&engine, "cancel-file-tool")["status"], "cancelled");
