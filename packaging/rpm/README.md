@@ -7,6 +7,12 @@ service, UI and recovery ownership. Specs use native declarative packaging,
 Cargo and retained upstream Go/CMake; they add no executable project scriptlets
 or transaction hooks.
 
+The separate issue #173 `ryoku-rashin.spec` builds the retained upstream Go,
+embedded Svelte and GTK/WebKit source. It remains an unselected private
+candidate outside that accepted ten-package set until #183's authenticated
+native integration and its source/provider/native gates pass. See the
+[native Rashin bring-up evidence](../../docs/ryoku-v1.0-rashin-native-reuse.md).
+
 The desktop runtime implements the integrated issue #18 writer payload map,
 public wrapper aliases and fixed QML launch paths. The desktop package set precedes issue #25. Login sessions, session adapters,
 Hyprland defaults and KDE fallback configuration belong to that later issue.

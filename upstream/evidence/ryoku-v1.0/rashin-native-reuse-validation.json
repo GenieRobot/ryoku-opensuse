@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "recorded_on": "2026-11-03",
+  "scope": "Issue173 retained native Rashin build/source bring-up; no installed/native companion/session acceptance",
+  "port_base_commit": "6b4a6cb79d98bbd5f04f0cb71db2826312ec2a81",
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "upstream_tree": "06b2962f82f43118c3a98372c2a4b435b689b725",
+  "upstream_version": "1.0.0",
+  "port_rpm_evr": "0.1.0-8",
+  "spec_sha256": "dea7d25e0b7af3aedfcb87f5427500b446e42299d0c0500db2d5f03e8e906f9e",
+  "metadata_sha256": "71c0668104187108fe013ac58b383f301fad128b519a4e2f41b1ba761988b58c",
+  "source3": {
+    "sha256": "387d829860ba844ad32ecdd5982678707665f3251e41bbb43c6fd6f87dc7eee0",
+    "bytes": 34625504,
+    "unchanged": true
+  },
+  "source2": {
+    "sha256": "8aeff20645c14af76f3d341e5d4e7c31923fd249f6671caa704c8b23a6c84e65",
+    "unchanged": true
+  },
+  "go_build": {
+    "toolchain": "go1.26.9 linux/amd64, existing extracted Tumbleweed SDK",
+    "source": "Rashin and shared WM from digest-verified Source3, without patches",
+    "environment": "GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOWORK=off CGO_ENABLED=0",
+    "command": "go build -C SOURCE3/ryoku/rashin/backend -trimpath -mod=vendor -buildvcs=false -o OUTPUT .",
+    "exit_code": 0,
+    "binary_sha256": "7b5eb38b2a0bea933fddaf4904bf2dc286877e49c17874272a71d5c79d97f9b1",
+    "binary_bytes": 13586959,
+    "elf": "x86-64 statically linked executable; Go build metadata reports coder/websocket v1.8.12 and local ryoku-wm",
+    "focused_tests": "go test -mod=vendor -run ^TestRepoIndexDoc(LayoutAndDocs|RejectsMissingRoot)$ -v .",
+    "focused_tests_passed": 2,
+    "test_environment_limit": "Initial sandbox attempt failed in unchanged TestMain reserving 127.0.0.1:0 before tests; same two tests passed with authorized local socket access. No backend daemon was launched."
+  },
+  "repository_context": {
+    "input": "Complete clean pinned upstream checkout, not selected Source3",
+    "git_regular_files": 8874,
+    "git_regular_bytes": 451119868,
+    "git_links": 26,
+    "git_link_bytes": 1336,
+    "command": "PATH=EMPTY_DIRECTORY OUTPUT/ryoku-rashin repo-index FULL_PINNED_TREE OUTPUT/context.md",
+    "reproductions": 2,
+    "both_equal_committed_context": true,
+    "sha256": "7441655d8f9d384f4e1b292d6e44de3a2c4fbccf097108e09578927602ec97d8",
+    "bytes": 2453,
+    "note": "Disabling Git discovery omits the optional checkout/time header without changing upstream generator source."
+  },
+  "rpm_checks": {
+    "native_rpmspec_parse_and_queries": "passed; source/version/private paths/build/runtime requirements resolved",
+    "go_license_source": "Cached go1.26 RPM owns /usr/share/doc/packages/go/1.26/LICENSE; parsed recipe uses _defaultdocdir plus GOROOT basename",
+    "buildrequires_enabled_prep": "failed before prep: cmake >= 3.20, go >= 1.26.5, ninja, pkgconfig(gtk+-3.0), pkgconfig(webkit2gtk-4.1) absent from host RPMDB",
+    "nodeps_prep": "passed all three pinned SHA-256 checks and Source3 extraction; mechanics only, not native build acceptance",
+    "nodeps_prep_environment": "Explicit scratch _topdir and _tmppath under /tmp. Initial default /var/tmp attempt refused by filesystem sandbox; corrected scratch path passed.",
+    "candidate_install_selection": "Private libexec executables and immutable account-data inputs only; not selected by desktop metapackage or ten-package production audit; no public aliases, launchers, installed units or scriptlets"
+  },
+  "remaining": [
+    "GTK/WebKit companion compilation and native RPM/SRPM build, generated ELF dependencies, solver/install/load acceptance",
+    "Prowl and Hermes/backend/provider source/runtime closure",
+    "Embedded Svelte/JavaScript complete notices and reproducible source rebuild",
+    "Issue183 authenticated transport, writer/recovery boundaries, account collectors and all required Rashin capabilities",
+    "Issue173 semantic/API/rights closure and refreshed combined Issue25/26 native session/recovery acceptance"
+  ],
+  "network_and_machine_changes": "No downloads, installs, VM access, user service activation or host configuration changes",
+  "rust_checks": {
+    "workspace_locked_offline_all_features": {
+      "passed": 607,
+      "failed": 0,
+      "ignored": 10
+    },
+    "workspace_environment_limit": "Initial restricted-sandbox attempt stopped on five existing QMP fixture tests denying local sockets. Locked offline full rerun with local socket access passed.",
+    "strict_clippy_all_targets_all_features": "passed",
+    "fmt_and_diff": "passed",
+    "explicit_native_rpmspec_tests": 2
+  }
+}

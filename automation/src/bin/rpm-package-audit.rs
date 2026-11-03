@@ -868,6 +868,200 @@ mod tests {
         }));
     }
 
+    fn private_rashin_candidate(spec: &str) -> Result<()> {
+        for required in [
+            "%global upstream_revision a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+            "%global upstream_version 1.0.0",
+            "GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOWORK=off CGO_ENABLED=0",
+            "go build -C ryoku/rashin/backend -trimpath -mod=vendor -buildvcs=false",
+            "cmake -S ryoku/rashin/app -B build/app -G Ninja",
+            "-DFETCHCONTENT_FULLY_DISCONNECTED=ON",
+            "%{private_root}/ryoku-rashin",
+            "%{private_root}/rashin-app",
+            "%{private_root}/rashin-usage/",
+            "LicenseRef-Rashin-Embedded-Web-Review-Pending",
+        ] {
+            require(spec.contains(required), "Rashin candidate loses a retained source boundary")?;
+        }
+        for line in spec.lines() {
+            let directive = line.split_whitespace().next().unwrap_or("");
+            require(
+                ![
+                    "%pre",
+                    "%post",
+                    "%preun",
+                    "%postun",
+                    "%pretrans",
+                    "%posttrans",
+                    "%trigger",
+                    "%triggerin",
+                    "%triggerun",
+                    "%triggerpostun",
+                    "%filetriggerin",
+                    "%filetriggerun",
+                    "%filetriggerpostun",
+                    "%transfiletriggerin",
+                    "%transfiletriggerun",
+                    "%transfiletriggerpostun",
+                ]
+                .contains(&directive),
+                "Rashin build candidate must not run package scriptlets",
+            )?;
+        }
+        let install = spec.split_once("%install\n").ok_or("missing Rashin install phase")?.1;
+        for public in [
+            "%{_bindir}",
+            "%{_unitdir}",
+            "%{_userunitdir}",
+            "%{_datadir}/applications",
+            "%{_datadir}/icons",
+            "systemctl",
+        ] {
+            require(!install.contains(public), "Rashin candidate exposes an unreviewed launcher")?;
+        }
+        for source in ["stage-package.sh", "payload.sh", "dnf", "curl", "npm", "pnpm"] {
+            require(
+                !spec.contains(source),
+                "Rashin candidate adds an unreviewed build dispatcher",
+            )?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn rashin_native_candidate_keeps_builds_offline_and_unexposed() {
+        let spec = include_str!("../../../packaging/rpm/ryoku-rashin.spec");
+        assert!(private_rashin_candidate(spec).is_ok());
+        for required in ["GOPROXY=off", "-mod=vendor", "cmake -S ryoku/rashin/app"] {
+            assert!(private_rashin_candidate(&spec.replace(required, "removed")).is_err());
+        }
+        for injected in [
+            "%post\nsystemctl --global enable ryoku-rashin.service\n",
+            "%transfiletriggerin -- /usr\ntrue\n",
+        ] {
+            assert!(private_rashin_candidate(&format!("{spec}\n{injected}")).is_err());
+        }
+        for public in ["%{_bindir}/rashin", "%{_userunitdir}/ryoku-rashin.service"] {
+            assert!(
+                private_rashin_candidate(&spec.replace("%{private_root}/ryoku-rashin", public))
+                    .is_err()
+            );
+        }
+        assert!(
+            !include_str!("../../../packaging/rpm/ryoku-desktop.spec")
+                .lines()
+                .any(|line| line.starts_with("Requires:") && line.contains("ryoku-rashin"))
+        );
+        assert!(!PACKAGES.contains(&"ryoku-rashin"));
+    }
+
+    #[test]
+    fn rashin_sources_preserve_embedded_ui_fonts_and_full_repository_context() {
+        use sha2::{Digest, Sha256};
+
+        let source_text =
+            include_str!("../../../packaging/rpm/rashin/ryoku-rashin-source-a59d051.json");
+        let source: serde_json::Value = serde_json::from_str(source_text).unwrap();
+        let context =
+            include_bytes!("../../../packaging/rpm/rashin/ryoku-rashin-context-a59d051.md");
+        assert_eq!(
+            format!("{:x}", Sha256::digest(context)),
+            source["repository_context"]["sha256"]
+        );
+        assert_eq!(u64::try_from(context.len()).unwrap(), source["repository_context"]["bytes"]);
+        let context = std::str::from_utf8(context).unwrap();
+        for full_root in
+            ["`docs/` | 46", "`system/` | 113", "`installation/` | 107", "`release/` | 101"]
+        {
+            assert!(context.contains(full_root), "full context omits {full_root}");
+        }
+        assert!(context.contains("`docs/rashin.md` Ryoku Rashin"));
+        assert!(!context.contains("Indexed:"));
+        let selected: BTreeMap<_, _> =
+            include_str!("../../../upstream/evidence/ryoku-v1.0/writer-source-manifest.tsv")
+                .lines()
+                .skip(1)
+                .map(|line| {
+                    let fields: Vec<_> = line.split('\t').collect();
+                    (fields[0], (fields[1], fields[2]))
+                })
+                .collect();
+        for (path, value) in [
+            ("ryoku/rashin/backend/go.mod", &source["go_source"]["go_mod_git_blob"]),
+            (
+                "ryoku/rashin/backend/vendor/modules.txt",
+                &source["go_source"]["vendor_modules_git_blob"],
+            ),
+            ("ryoku/rashin/backend/repo.go", &source["repository_context"]["generator_git_blob"]),
+            ("ryoku/rashin/web/pnpm-lock.yaml", &source["go_source"]["frontend_lock_git_blob"]),
+            (
+                "ryoku/rashin/web/src/fonts/OFL.txt",
+                &source["notices"]["embedded_fonts"]["git_blob"],
+            ),
+        ] {
+            assert_eq!(selected.get(path), Some(&(value.as_str().unwrap(), "644")));
+        }
+        let fonts: Vec<_> = selected
+            .iter()
+            .filter(|(path, _)| {
+                path.starts_with("ryoku/rashin/web/src/fonts/") && path.ends_with(".woff2")
+            })
+            .collect();
+        let embedded: Vec<_> = selected
+            .iter()
+            .filter(|(path, _)| {
+                path.starts_with("ryoku/rashin/backend/web/dist/assets/")
+                    && path.ends_with(".woff2")
+            })
+            .collect();
+        assert_eq!(fonts.len(), 8);
+        assert_eq!(embedded.len(), fonts.len());
+        for (_, identity) in fonts {
+            assert_eq!(embedded.iter().filter(|(_, candidate)| candidate == &identity).count(), 1);
+        }
+        let spec = include_str!("../../../packaging/rpm/ryoku-rashin.spec");
+        for digest in [
+            source["source_archive"]["sha256"].as_str().unwrap().to_owned(),
+            source["repository_context"]["sha256"].as_str().unwrap().to_owned(),
+            format!("{:x}", Sha256::digest(source_text.as_bytes())),
+        ] {
+            assert!(spec.contains(&digest));
+        }
+    }
+
+    #[test]
+    #[ignore = "requires native rpmspec; verifies parsed metadata without a native app/RPM build"]
+    fn native_rashin_spec_parser_preserves_private_candidate_contract() {
+        let spec = Path::new(env!("CARGO_MANIFEST_DIR")).join("../packaging/rpm/ryoku-rashin.spec");
+        let parsed = Command::new("rpmspec").arg("--parse").arg(&spec).output().unwrap();
+        assert!(parsed.status.success(), "{}", String::from_utf8_lossy(&parsed.stderr));
+        let parsed = String::from_utf8(parsed.stdout).unwrap();
+        assert!(parsed.contains("cp -a /usr/share/doc/packages/go/"));
+        assert!(!parsed.contains("%{_docdir}"));
+        for private in
+            ["/usr/libexec/ryoku/upstream/ryoku-rashin", "/usr/libexec/ryoku/upstream/rashin-app"]
+        {
+            assert!(parsed.contains(private));
+        }
+        let install = parsed.split_once("%install\n").unwrap().1;
+        for public in ["/usr/bin/", "/usr/lib/systemd/", "/usr/share/applications/"] {
+            assert!(!install.contains(public));
+        }
+        for directive in ["%post\n", "%postun\n", "%pre\n", "%preun\n"] {
+            assert!(!parsed.contains(directive));
+        }
+        for (query, required) in [
+            ("--buildrequires", "pkgconfig(gtk+-3.0)"),
+            ("--buildrequires", "pkgconfig(webkit2gtk-4.1)"),
+            ("--requires", "ryoku-desktop-runtime = 0.1.0-8"),
+            ("--requires", "prowl >= 0.17.2"),
+        ] {
+            let output = Command::new("rpmspec").args(["-q", query]).arg(&spec).output().unwrap();
+            assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+            assert!(String::from_utf8(output.stdout).unwrap().lines().any(|line| line == required));
+        }
+    }
+
     #[test]
     #[ignore = "requires native rpmspec; verifies parsed spec metadata, not a built RPM"]
     fn native_spec_parser_preserves_runtime_contracts() {

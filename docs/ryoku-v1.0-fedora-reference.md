@@ -59,6 +59,12 @@ These are metadata providers, not downloaded/installed packages or proof of
 native app linking, browser/agent behavior, solver compatibility or functional
 Rashin. No Rashin build/runtime requirement is added by this reference slice.
 
+The subsequent [native Rashin bring-up slice](ryoku-v1.0-rashin-native-reuse.md)
+reuses the retained shared Go/Svelte/GTK source in an unselected Tumbleweed
+recipe, with offline Go build proof. It does not import this Fedora spec's
+scriptlets or staging dispatcher, and it keeps #183's authenticated native
+integration plus frontend/Prowl/native package acceptance open.
+
 ## Five explicit scriptlet boundaries
 
 The spec regions are hashed/pinned; only their source effects are classified.
