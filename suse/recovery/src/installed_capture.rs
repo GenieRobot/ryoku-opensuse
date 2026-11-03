@@ -543,9 +543,20 @@ fn capture_installed_configuration_using_profile(
         roots,
         request,
         capture_files,
-        bundle,
+        InstalledCaptureContext { bundle, logical_settings: None },
         || Ok(()),
     )
+}
+
+#[derive(Default)]
+pub(crate) struct InstalledCaptureContext<'a> {
+    pub bundle: Option<&'a crate::installed_profiles::VerifiedProfileBundle>,
+    /// Called once only after exact file capture/read-back, while the native
+    /// session still holds its machine lock and every registered writer.
+    pub logical_settings: Option<
+        &'a dyn Fn()
+            -> Result<crate::logical_settings::ThemeSettingsCapsule, GenerationCaptureError>,
+    >,
 }
 
 pub(crate) fn capture_installed_configuration_checked(
@@ -560,9 +571,10 @@ pub(crate) fn capture_installed_configuration_checked(
         crate::capture::CaptureLimits,
     )
         -> Result<crate::capture::CapturedInventory, crate::capture::CaptureError>,
-    bundle: Option<&crate::installed_profiles::VerifiedProfileBundle>,
+    context: InstalledCaptureContext<'_>,
     boundary: impl Fn() -> Result<(), GenerationCaptureError>,
 ) -> Result<RecoveryManifest, GenerationCaptureError> {
+    let bundle = context.bundle;
     let checked_boundary = || {
         boundary()?;
         if inventory.paths.contains_key(&StateRoot::UserHome) {
@@ -663,6 +675,7 @@ pub(crate) fn capture_installed_configuration_checked(
             Ok(crate::generation_capture::CaptureProvenance {
                 profile_revision: Some(provenance),
                 account_principal: Some(roots.account.principal.clone()),
+                logical_settings: context.logical_settings.map(|capture| capture()).transpose()?,
             })
         },
         checked_boundary,

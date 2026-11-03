@@ -1,0 +1,9 @@
+<schemalist>
+  <schema id="org.gnome.desktop.interface" path="/org/gnome/desktop/interface/">
+    <key name="color-scheme" type="s"><default>'default'</default><choices><choice value="default"/><choice value="prefer-dark"/><choice value="prefer-light"/></choices></key>
+    <key name="accent-color" type="s"><default>'blue'</default></key>
+    <key name="gtk-theme" type="s"><default>'Adwaita'</default></key>
+    <key name="icon-theme" type="s"><default>'Adwaita'</default></key>
+    <key name="font-name" type="s"><default>'User Font 11'</default></key>
+  </schema>
+</schemalist>

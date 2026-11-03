@@ -1,0 +1,40 @@
+issue = 176
+status = "operational-exact-template-read-set-not-complete-theme-execution"
+parent = "3509fdc1bf3fad5a805b24f9f280a05ca5dafbe8"
+parent_ci = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40217136511"
+parent_ci_result = "success including active test-executable AppArmor label, required staged success, whole suite and always-run profile removal"
+all_hooks_accepted = false
+native_theme_execution_accepted = false
+vm_or_download = false
+
+[live_path]
+entry = "retained configured startup/postapply hook -> protected explicit staged policy -> helper revalidates exact template read set -> linked capture/Applying -> H call -> same literal HOME private stage -> observed child exit -> exact input/output verification and commit -> held-writer verification/post-state/Complete"
+inspection = "ryoku-hook inspect-template .config/matugen/templates/NAME"
+approval = "ryoku-hook authorize INDEX COMMAND_SHA SECONDS apply|restore [kitty_user] [fish_user] staged [template:SHA256:RELATIVE_PATH ...]"
+boundary = "up to32 unique exact regular inputs,64KiB each, account owned, singly linked, no symlink/mount traversal; current initial class uses .config/matugen/templates; mode0400 private copy; no source write/restore/recursive parent authority"
+fingerprint = "template path+SHA and staged execution class join account/config/command/runtime/output policy bytes; helper and wrapper each verify content; source identity/content and immutable private copy checked before output publication"
+
+[checks]
+focused = "session66324:11 staged tests and2 isolated kernel denial subprocesses passed; session92046:template content/same-content inode replacement and unique33-input rejection passed"
+workspace = "session11211 exit0:713 top-level passed,27 isolated passes,8 existing ignored,zero failures"
+workspace_log_sha256 = "c81c835aa19c12c1c90834151b02e14740bfa01f1b1a723d66e476de748ffef2"
+clippy = "full strict all-features/all-targets offline workspace passed after final source fixture strengthening"
+clippy_log_sha256 = "3e60371ade386e4293c4d17770c2ebd58c5be0a28f30e5e959d06ecd1a4465ed"
+source_contract = "4 Rust source/effect fixtures passed after parsing every exact unconditional/conditional parent path from original matugenEnsureDirs"
+source_contract_log_sha256 = "59e52d72c228cd8f8571a534338973d5d9dd271fcf616a4c8fa93144d4898932"
+format_and_whitespace = "cargo fmt --all -- --check and git diff --check passed"
+dependencies = "cargo deny --all-features --offline check passed"
+dependencies_log_sha256 = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+
+[retained_theme_baseline]
+source = "exact upstream a59d051 plus existing18/25/176 bridge patches"
+native_suite = "session28078:18 existing upstream palette/template/KDE/reload/video-poster tests passed;1 original real-matugen drive skipped because binary absent; no Tumbleweed acceptance claimed"
+native_log_sha256 = "d04cf014265552510b11d4c309072d0997738ce8548da2ffc4ac2e6172469e4f"
+ledger_sha256 = "e126eee37d0fae23a13f9564b255744fa80ce6b13dfcfb7b21078a4d56bce606"
+newly_explicit_effect = "matugenEnsureDirs creates23 directory leaves before roster/app-suite filtering, including disabled app directories, plus conditional Steam leaf; every missing ancestor and effective creation metadata needs exact enrollment"
+coordination = "175 confirmed distinct Directory/absence declarations independent of selected file outputs; declaration/replay API not yet activated on176"
+
+[remaining]
+execution = "actual matugen root-pinned executable and dependencies, full native staged theme worker, complete declared dynamic files/parents/safe links/trees, logical key-level GSettings recovery, bounded reload/IPC/signal actors"
+automatic = "all remaining startup/watch/timer/restore per-hook behavior and FFmpeg/weather availability probes, with exact policy and tests"
+acceptance = "selection -> complete templates/reloads effect/recovery tests plus refreshed native Tumbleweed lifecycle under26 remain open"

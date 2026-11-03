@@ -52,6 +52,9 @@ impl VerifiedSnapshotLink {
     pub(crate) fn link(&self) -> &SnapshotLink {
         &self.link
     }
+    pub(crate) fn native_receipt(&self) -> Option<&crate::native_checkpoint::RootSnapshotReceipt> {
+        self.receipt.as_ref()
+    }
 }
 
 /// Inputs needed to capture, seal, publish, and read back one generation.
@@ -221,7 +224,11 @@ fn capture_publish_verify_using_capacity(
         capture_files,
         check_capacity,
         |_, _, profile| {
-            Ok(CaptureProvenance { profile_revision: profile, account_principal: None })
+            Ok(CaptureProvenance {
+                profile_revision: profile,
+                account_principal: None,
+                logical_settings: None,
+            })
         },
         || Ok(()),
     )
@@ -232,6 +239,7 @@ fn capture_publish_verify_using_capacity(
 pub(crate) struct CaptureProvenance {
     pub profile_revision: Option<ProfileRevision>,
     pub account_principal: Option<crate::AccountPrincipal>,
+    pub logical_settings: Option<crate::logical_settings::ThemeSettingsCapsule>,
 }
 
 pub(crate) fn capture_publish_verify_checked(
@@ -313,6 +321,9 @@ pub(crate) fn capture_publish_verify_checked(
     )?;
     if let Some(principal) = provenance.account_principal {
         manifest.attach_account_principal(principal);
+    }
+    if let Some(capsule) = provenance.logical_settings {
+        manifest.attach_logical_settings(capsule)?;
     }
     manifest.set_verification(
         VerificationStatus::Verified,

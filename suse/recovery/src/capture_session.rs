@@ -98,6 +98,17 @@ impl NativeCaptureSession {
         self.revalidate()?;
         Ok(reply)
     }
+    /// Root-only typed hook provider dispatch after durable Applying and linked
+    /// pre-proof verification. The user wrapper never resumes a native writer.
+    pub fn run_configured_hook(
+        &self,
+        call: &crate::hook_protocol::HookCall,
+    ) -> Result<crate::hook_protocol::HookReceipt> {
+        self.revalidate()?;
+        let receipt = self.freezer.run_configured_hook(call)?;
+        self.revalidate()?;
+        Ok(receipt)
+    }
     /// Shared protected journal anchor. Access is valid only while this session
     /// owns the machine lock and all registered account writers are stopped.
     pub fn coordinator_directory(&self) -> Result<&File> {
@@ -291,6 +302,55 @@ impl NativeCaptureSession {
         request: InstalledCaptureRequest,
         bundle: &VerifiedProfileBundle,
     ) -> Result<RecoveryManifest> {
+        self.capture_with_context(
+            request,
+            crate::installed_capture::InstalledCaptureContext {
+                bundle: Some(bundle),
+                logical_settings: None,
+            },
+        )
+    }
+
+    /// Capture exact logical key state through a separately root-created
+    /// account-worker channel, then seal it with the same native checkpoint
+    /// and complete file image. This grants no settings-write permission.
+    pub fn capture_with_theme_settings(
+        &self,
+        request: InstalledCaptureRequest,
+        bundle: &VerifiedProfileBundle,
+        theme: &crate::theme_actor::CaptureRequest,
+    ) -> Result<RecoveryManifest> {
+        self.revalidate()?;
+        theme.validate()?;
+        if theme.binding.account != self.account.principal
+            || theme.binding.uid != self.account.uid
+            || request.snapshot.native_receipt() != Some(&theme.native_receipt)
+        {
+            return Err(CaptureSessionError::UnsafeBoundary);
+        }
+        let capture = || {
+            self.revalidate().map_err(|_| GenerationCaptureError::CoordinationLost)?;
+            let capsule = self
+                .freezer
+                .capture_theme_settings(theme)
+                .map_err(|error| GenerationCaptureError::Io(std::io::Error::other(error)))?;
+            self.revalidate().map_err(|_| GenerationCaptureError::CoordinationLost)?;
+            Ok(capsule)
+        };
+        self.capture_with_context(
+            request,
+            crate::installed_capture::InstalledCaptureContext {
+                bundle: Some(bundle),
+                logical_settings: Some(&capture),
+            },
+        )
+    }
+
+    fn capture_with_context(
+        &self,
+        request: InstalledCaptureRequest,
+        context: crate::installed_capture::InstalledCaptureContext<'_>,
+    ) -> Result<RecoveryManifest> {
         self.revalidate()?;
         let inventory =
             InstalledInventory::for_home(&self.home).map_err(CaptureSessionError::Capture)?;
@@ -305,7 +365,7 @@ impl NativeCaptureSession {
             },
             request,
             crate::capture::capture_inventory,
-            Some(bundle),
+            context,
             || self.revalidate().map_err(|_| GenerationCaptureError::CoordinationLost),
         )
         .map_err(CaptureSessionError::Capture)?;

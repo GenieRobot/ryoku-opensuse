@@ -1,0 +1,36 @@
+func matugenEnsureDirs() {
+	cfg := matugenConfigHome()
+	cache := matugenCacheHome()
+	data := matugenDataHome()
+	home := os.Getenv("HOME")
+	for _, d := range []string{
+		filepath.Join(cache, "ryoku"),
+		filepath.Join(cache, "matugen"),
+		filepath.Join(cfg, "kitty"),
+		filepath.Join(cfg, "btop", "themes"),
+		filepath.Join(cfg, "qt6ct", "colors"),
+		filepath.Join(cfg, "gtk-3.0"),
+		filepath.Join(cfg, "gtk-4.0"),
+		filepath.Join(cfg, "vesktop", "themes"),
+		filepath.Join(cfg, "equibop", "themes"),
+		filepath.Join(cfg, "obs-studio", "themes"),
+		filepath.Join(cfg, "zed", "themes"),
+		filepath.Join(cfg, "heroic", "store", "styles"),
+		filepath.Join(cfg, "cava"),
+		filepath.Join(cfg, "fish", "conf.d"),
+		filepath.Join(cfg, "yazi"),
+		filepath.Join(cfg, "ghostty"),
+		filepath.Join(cfg, "micro", "colorschemes"),
+		filepath.Join(cfg, "matugen", "generated"),
+		filepath.Join(cfg, "zathura"),
+		filepath.Join(cfg, "alacritty"),
+		filepath.Join(cfg, "tmux"),
+		filepath.Join(cfg, "ryotunes", "skins", "matugen"),
+		filepath.Join(data, "TelegramDesktop", "tdata"),
+	} {
+		_ = os.MkdirAll(d, 0o755)
+	}
+	if steamThemeReady() {
+		_ = os.MkdirAll(filepath.Join(home, ".steam", "steam", "steamui", "skins", "Material-Theme", "css", "main", "colors"), 0o755)
+	}
+}

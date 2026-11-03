@@ -1,0 +1,24 @@
+issue = 176
+status = "partial-local-follow-up-issue-remains-open"
+parent = "9a77472971ae17f19df403eac4bcba0b752927c6"
+parent_ci = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40209142753"
+parent_ci_result = "success: formatting, strict lints, all-features workspace tests and dependency review; main-only artifact skipped"
+upstream = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+source3_tested_sha256 = "7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be"
+patch_sha256 = "90bb38a26b933a32bdf7cbf1f1d5dfcec6d95a172c61f905784e8a493e0464fc"
+patched_daemon_go_sha256 = "177d7a10c05f377bb4de1cf15f5372bbbe9ef033fca61308510af51b28b236ca"
+vm_or_download = false
+native_tumbleweed_lifecycle_accepted = false
+
+[checks]
+environment = "Existing offline native SDK/cache; CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_INCREMENTAL=0"
+focused_rust = "native_bootstrap_precedes_query_descriptors_without_granting_an_action: passed; real Unix socket/SCM_RIGHTS ordering and unchanged query frame"
+focused_native = "Offline/vendor TestExpandPost*, TestPostProcess*, TestE2EWallApply*: passed"
+clippy = "cargo clippy --locked --offline --workspace --all-targets --all-features -- -D warnings: passed"
+clippy_log_sha256 = "648a5f0fad85806fcb3f7449db8811c6d8ad01acaa2094d4e7cd3ab5d26bfb0a"
+workspace = "cargo test --locked --offline --workspace --all-features: 695 top-level passed, 8 existing ignored, 25 isolated subprocess passes, zero failures"
+workspace_log_sha256 = "c5ed7cf3ace315e9f8b2d15677d3ddd510825ea08a29501eb4c4e2ea4e121732"
+daemon = "Offline Go 1.26/vendor suite: 360 passing cases, 7 existing ImageMagick skips, exact same 9 cross-issue exclusions; no new exclusion"
+daemon_log_sha256 = "642f8e354d731918aff770d403efbe0b1d2d937b0b41570e3a1baef0f898c575"
+source = "Exact post-issue18/issue25 three-file preimages, zero-fuzz forward composition and byte comparison passed"
+limits = "Readiness is lifecycle ordering only. Exact per-hook policies, full dynamic output enrollment, wallpaper/theme/template/reload effect accounting and native Tumbleweed acceptance remain required and incomplete."

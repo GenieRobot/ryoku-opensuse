@@ -27,9 +27,13 @@ pub struct AutomaticHandoff {
     pub frame: Option<WallpaperFrame>,
     #[serde(default)]
     pub replay: Option<WallpaperReplay>,
+    #[serde(default)]
+    pub postprocess: Option<crate::hook_protocol::HookRequest>,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum AutomaticAction {
+    #[serde(rename = "hook.postprocess")]
+    ConfiguredPostProcess,
     #[serde(rename = "wallpaper.restore")]
     WallpaperRestore,
     #[serde(rename = "workspace.playback")]
@@ -197,6 +201,17 @@ pub fn parse_public(bytes: &[u8]) -> Result<PublicRequest, WallpaperProtocolErro
     if request.method == "broker.automatic" {
         let action: AutomaticHandoff = serde_json::from_value(request.params)
             .map_err(|_| WallpaperProtocolError::InvalidAction)?;
+        if let Some(postprocess) = &action.postprocess {
+            if action.action != AutomaticAction::ConfiguredPostProcess
+                || !postprocess.validate()
+                || action.frame.is_some()
+                || action.replay.is_some()
+            {
+                return Err(WallpaperProtocolError::InvalidAction);
+            }
+        } else if action.action == AutomaticAction::ConfiguredPostProcess {
+            return Err(WallpaperProtocolError::InvalidAction);
+        }
         let expected_replay = match action.action {
             AutomaticAction::WallpaperRestore => {
                 Some((ReplayReason::Restore, ReplayState::Outputs))

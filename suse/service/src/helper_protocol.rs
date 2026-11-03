@@ -79,25 +79,73 @@ pub struct HelperResponse {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(from = "HelperOutcomeWire", into = "HelperOutcomeWire")]
 pub enum HelperOutcome {
+    HookPolicyAuthorized {
+        operation_id: crate::OperationId,
+        receipt: ryoku_recovery::hook_protocol::HookReceipt,
+    },
+    ConfiguredHookCompleted {
+        operation_id: crate::OperationId,
+        receipt: ryoku_recovery::hook_protocol::HookReceipt,
+    },
     Rejected(ServiceError),
-    WallpaperApplied { operation_id: crate::OperationId, reply: Vec<u8> },
-    WallpaperAudioSet { operation_id: crate::OperationId, reply: Vec<u8> },
-    WallpaperPaused { operation_id: crate::OperationId, reply: Vec<u8> },
-    WorkspaceWallpaperChanged { operation_id: crate::OperationId, reply: Vec<u8> },
+    WallpaperApplied {
+        operation_id: crate::OperationId,
+        reply: Vec<u8>,
+    },
+    WallpaperAudioSet {
+        operation_id: crate::OperationId,
+        reply: Vec<u8>,
+    },
+    WallpaperPaused {
+        operation_id: crate::OperationId,
+        reply: Vec<u8>,
+    },
+    WorkspaceWallpaperChanged {
+        operation_id: crate::OperationId,
+        reply: Vec<u8>,
+    },
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "result", rename_all = "snake_case", deny_unknown_fields)]
 enum HelperOutcomeWire {
-    Rejected { error: ServiceError },
-    WallpaperApplied { operation_id: crate::OperationId, reply: Vec<u8> },
-    WallpaperAudioSet { operation_id: crate::OperationId, reply: Vec<u8> },
-    WallpaperPaused { operation_id: crate::OperationId, reply: Vec<u8> },
-    WorkspaceWallpaperChanged { operation_id: crate::OperationId, reply: Vec<u8> },
+    HookPolicyAuthorized {
+        operation_id: crate::OperationId,
+        receipt: ryoku_recovery::hook_protocol::HookReceipt,
+    },
+    ConfiguredHookCompleted {
+        operation_id: crate::OperationId,
+        receipt: ryoku_recovery::hook_protocol::HookReceipt,
+    },
+    Rejected {
+        error: ServiceError,
+    },
+    WallpaperApplied {
+        operation_id: crate::OperationId,
+        reply: Vec<u8>,
+    },
+    WallpaperAudioSet {
+        operation_id: crate::OperationId,
+        reply: Vec<u8>,
+    },
+    WallpaperPaused {
+        operation_id: crate::OperationId,
+        reply: Vec<u8>,
+    },
+    WorkspaceWallpaperChanged {
+        operation_id: crate::OperationId,
+        reply: Vec<u8>,
+    },
 }
 impl From<HelperOutcome> for HelperOutcomeWire {
     fn from(value: HelperOutcome) -> Self {
         match value {
+            HelperOutcome::HookPolicyAuthorized { operation_id, receipt } => {
+                Self::HookPolicyAuthorized { operation_id, receipt }
+            }
+            HelperOutcome::ConfiguredHookCompleted { operation_id, receipt } => {
+                Self::ConfiguredHookCompleted { operation_id, receipt }
+            }
             HelperOutcome::Rejected(error) => Self::Rejected { error },
             HelperOutcome::WallpaperPaused { operation_id, reply } => {
                 Self::WallpaperPaused { operation_id, reply }
@@ -117,6 +165,12 @@ impl From<HelperOutcome> for HelperOutcomeWire {
 impl From<HelperOutcomeWire> for HelperOutcome {
     fn from(value: HelperOutcomeWire) -> Self {
         match value {
+            HelperOutcomeWire::HookPolicyAuthorized { operation_id, receipt } => {
+                Self::HookPolicyAuthorized { operation_id, receipt }
+            }
+            HelperOutcomeWire::ConfiguredHookCompleted { operation_id, receipt } => {
+                Self::ConfiguredHookCompleted { operation_id, receipt }
+            }
             HelperOutcomeWire::Rejected { error } => Self::Rejected(error),
             HelperOutcomeWire::WallpaperPaused { operation_id, reply } => {
                 Self::WallpaperPaused { operation_id, reply }
@@ -187,6 +241,24 @@ pub fn dispatch_operator_request(
         HelperOutcome::Rejected(ServiceError::Unauthorized)
     } else {
         match envelope.request {
+            HelperRequest::AuthorizeConfiguredHook { policy } => {
+                match crate::hooks::approve(&peer, operator_gid, policy) {
+                    Ok(completed) => HelperOutcome::HookPolicyAuthorized {
+                        operation_id: completed.operation_id,
+                        receipt: completed.receipt,
+                    },
+                    Err(error) => HelperOutcome::Rejected(error),
+                }
+            }
+            HelperRequest::RunConfiguredHook { action } => {
+                match crate::hooks::run(&peer, operator_gid, action) {
+                    Ok(completed) => HelperOutcome::ConfiguredHookCompleted {
+                        operation_id: completed.operation_id,
+                        receipt: completed.receipt,
+                    },
+                    Err(error) => HelperOutcome::Rejected(error),
+                }
+            }
             HelperRequest::ApplyWallpaper { action, rpc_id } => {
                 match crate::wallpaper::apply(&peer, operator_gid, action, rpc_id) {
                     Ok(completed) => HelperOutcome::WallpaperApplied {
@@ -429,6 +501,8 @@ pub(crate) fn check_action_availability_until(
         match response.outcome {
             HelperOutcome::Rejected(error) => Ok(error),
             HelperOutcome::WallpaperApplied { .. }
+            | HelperOutcome::HookPolicyAuthorized { .. }
+            | HelperOutcome::ConfiguredHookCompleted { .. }
             | HelperOutcome::WallpaperAudioSet { .. }
             | HelperOutcome::WallpaperPaused { .. }
             | HelperOutcome::WorkspaceWallpaperChanged { .. } => {

@@ -1,0 +1,48 @@
+issue = 176
+status = "partial-local-slice-issue-remains-open"
+base = "899d97f9234b4dab1f947921b25c301d012deb2d"
+upstream = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+source3_tested_sha256 = "7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be"
+source3_scope = "Exact branch recipe/archive and pinned hook sources; not refreshed combined package acceptance or a substitute for current canonical Source3"
+cargo_lock_sha256 = "7e4fbb03ce53165627fcd02b5a228493e1d8d691ce38be181700b28968b796fb"
+patch_sha256 = "3b4043beb57012c1b1af6d6ff1d6ef4732cf93cb70fbf1ce6f59214c20226ad1"
+new_dependencies = false
+vm_started = false
+media_or_model_downloaded = false
+native_tumbleweed_lifecycle_accepted = false
+
+[checks]
+build_environment = "Existing native Linux SDK/cache; offline/locked; CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_INCREMENTAL=0"
+focused = "cargo test --locked --offline -p ryoku-recovery -p ryoku-service hook"
+focused_result = "7 recovery tests, 4 service-selector tests passed; includes one existing coordinator regression"
+focused_log_sha256 = "d50007f46efe8a4fc5d663258a731f4db0db9a551ba7b8e2a75dc6825ddf1e61"
+clippy = "cargo clippy --locked --offline --workspace --all-targets --all-features -- -D warnings"
+clippy_result = "passed"
+clippy_log_sha256 = "f3547da145955dccb25864b8a1e798385040e403d1bed2b6844f654b6ff777ac"
+workspace = "cargo test --locked --offline --workspace --all-features"
+workspace_result = "694 top-level passed; 8 existing ignored; 25 isolated subprocess pass rows; zero failures"
+workspace_log_sha256 = "1fea0ebb55cbae214d7f67e382e51053730d475fd2dbf9f5a6cb22994adf3e58"
+format = "cargo fmt --all -- --check: passed"
+dependency_review = "cargo deny --locked --offline --all-features check: advisories, bans, licenses and sources passed"
+whitespace = "git diff --check: passed"
+source_patch = "Exact issue18+issue25 preparation; issue176 forward/reverse patch --fuzz=0 checks and three cmp-identical outputs passed"
+native_existing_placeholder_tests = "Offline Go 1.26/vendor TestExpandPost* and TestPostProcess*: passed"
+native_daemon = "Offline Go 1.26/vendor daemon suite: 360 passing test/subtest cases, 7 existing ImageMagick skips, 9 exact pre-existing cross-issue exclusions; no new exclusion"
+native_daemon_log_sha256 = "cbbda5e592b6074b1f63ca1eafef234a90066135f3a1b228be9147587af660a6"
+
+[preimages]
+hooks_go_sha256 = "cae89f6c79b5867a9c5e4d78aceca22497d8110ab53661b029ba657fa894a977"
+postapply_go_sha256 = "6e2cad3bedf4fa18504ae36bf2f2cd0ae1d6d0917e3a5244ef272bfbcba6c872"
+daemon_go_sha256 = "d9be18bd4cf21c5a99757c8c7f6845ee51c0efb7e7d18da218b0622d5378a6b4"
+
+[outputs]
+hooks_go_sha256 = "a7407b4abd17b7f2833fa2e3a3f1817d7fc910ff8f19ed40100e6a49d4c955f3"
+postapply_go_sha256 = "a02ee76ccc7d7ff624b6b035dfe6d38ffcb86dcbd6ed430b57792942f234856f"
+daemon_go_sha256 = "bf8db016e53f71f5b46615a32fa098893251612b3f284a99007ce32a9a27eb10"
+
+[proof_and_limits]
+proven = ["Real confined successful builtin output and literal placeholder quoting", "write/new-file/read-output/alternate ELF loader/exec/fork/network refusal", "changed account/command/config/runtime/restore/home inode/output inode refusal", "single-link/ownership/no-follow output policy", "real timeout/cancellation with observed child death", "real unrelated writer held across successful and refused command, then resumed after lease release", "strict helper reply correlation and successful-receipt shape", "malformed command/executable/path wire fields refused", "approval remains unusable without durable Complete and linked post-checkpoint", "live native trigger/helper/provider/one-use writer lease source wiring"]
+not_proven = ["Native installed helper approval and startup/restore/postapply trigger through actual Snapper/generation capture", "All retained start/watch/timer/availability/restore/theme/stage/notification/matugen classes", "Selection through real paintWorker templates and reloads has complete linked accounting", "Full daemon/editor/wallpaper/config/native Tumbleweed lifecycle acceptance", "Broader child/custom-root/network policy classes"]
+remaining_work = "All not_proven items remain within issue176 acceptance; none is a permanent feature exclusion or a completed/deferred acceptance bullet"
+failure_provenance = ["Sandbox maps root-owned Bash to nobody and correctly refused preflight; real process tests ran natively", "First real success exposed missing ELF-loader permission; corrected with exact runtime read/exec pins", "Held-writer fixture first had mismatched HOME and was correctly refused; fixed fixture account binding", "Initial manual source patch hunk malformed; regenerated from exact post-issue25 files and checked both directions", "Initial strict-Clippy fixture-only range/module-placement issues corrected", "Sandbox native Go suite denied local sockets/remapped paths; native-host identical suite passed"]
+storage = "Removed only issue176-generated 3.3GiB target/debug cache; retained all source/fixtures/logs; final no-debug target about550MiB before final test outputs. No git clean, VM or downloads. Windows free-space observations varied and are not a VHD reclaim claim."

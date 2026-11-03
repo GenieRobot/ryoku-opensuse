@@ -120,6 +120,7 @@ pub struct RestorePlan {
 /// Planning errors always occur before a journal is created or targets change.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PreflightError {
+    LogicalSettingsActorRequired,
     ManifestInvalid,
     GenerationUnavailable,
     GenerationInvalid,
@@ -195,6 +196,11 @@ fn build_restore_plan(
 ) -> Result<RestorePlan, PreflightError> {
     if !manifest.is_mutation_ready() || manifest.validate().is_err() {
         return Err(PreflightError::ManifestInvalid);
+    }
+    if manifest.logical_settings().is_some()
+        && matches!(scope, RestoreScope::ConfigurationOnly | RestoreScope::CompleteLinked)
+    {
+        return Err(PreflightError::LogicalSettingsActorRequired);
     }
     if matches!(scope, RestoreScope::ConfigurationOnly | RestoreScope::CompleteLinked) {
         match generation {

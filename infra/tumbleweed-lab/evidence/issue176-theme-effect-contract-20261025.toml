@@ -1,0 +1,29 @@
+issue = 176
+status = "source-contract-and-regression-proof-not-theme-execution-acceptance"
+parent = "c3877de6237a2abeda1ab8ea033dfe8100890aec"
+parent_ci = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40210654045"
+parent_ci_result = "success; formatting, strict lints, all-features tests and dependency review; main-only artifact skipped"
+upstream = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+ledger_sha256 = "2cca5a84b648c28b447ca146f29f569a43c1d4894a5675fd6655973cbbc20ffd"
+core_fixture_sha256 = "93efb9be71cc899a5c8c0d0a3955df0fde77221608154ebbb067d4a735a9e6ef"
+apps_fixture_sha256 = "7e9ca67777c336434dccb01f22d9d36c9b1792f07743e5b944b40b702227aaac"
+native_theme_execution_accepted = false
+all_hooks_accepted = false
+vm_or_download = false
+
+[checks]
+focused = "cargo test --locked --offline -p ryoku-automation --test issue176_theme_effects: 3 passed"
+clippy = "cargo clippy --locked --offline --workspace --all-targets --all-features -- -D warnings: passed"
+clippy_log_sha256 = "29a5303fe45b43196f95d8becc38e91a9413d2436641fee43e2c7ace48bee402"
+workspace = "cargo test --locked --offline --workspace --all-features: 698 top-level passed, 8 existing ignored, 25 isolated subprocess passes, zero failures"
+workspace_log_sha256 = "97ef78959590b049c9c398c95af4a28241b4381212c1c3192dafead457f1556a"
+scope = "All30 shipped template input/output/post-hook/roster rows; active source pin; six selected source identities; ten direct/five indirect/six reload effect families and adjacent font distinction"
+independent_review = "Issue175 worker independently remeasured all11 original source blobs and both original TOML maps against the exact pinned upstream tree"
+
+[integration_requirements]
+exact_outputs = "Authenticated account + approved declaration digest; exact files/absence/new parents and bounded metadata; preserve unrelated siblings; no relaxed UserHome or for_library authority"
+trees = "Dedicated complete icon/cursor/Nomarchy/video roots; explicit generated deletion and parent/child accounting"
+links = "Separate exact safe owned-symlink policy for poster/vault/icon links; ordinary file asset restore continues refusing links"
+settings = "Typed key-level gsettings/dconf snapshot/restore for color-scheme/accent-color/gtk-theme/icon-theme; do not overwrite whole dconf user database"
+reloads = "Account/image/start/pidfd-bound signals, exact IPC/compositor effects, bounded acknowledgement and independent lighting-device policy"
+remaining = "Implement the real staged theme worker, exact approved dynamic declaration and restore, logical setting actor and all retained per-hook execution classes/tests; prove selection through templates/reloads and native Tumbleweed lifecycle. These remain active issue176 work."

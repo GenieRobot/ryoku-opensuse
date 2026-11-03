@@ -37,6 +37,63 @@ pub struct StagedEntry {
 }
 
 impl StagedEntry {
+    /// Internal hook staging uses freshly captured, hash-checked regular files.
+    /// This does not authorize publication or replace linked checkpoint proof.
+    pub(crate) fn from_captured_regular(
+        record: FileRecord,
+        bytes: Vec<u8>,
+        payloads: &BTreeMap<Sha256, Vec<u8>>,
+    ) -> Result<Self, StageError> {
+        let EntryKind::RegularFile { metadata, size, sha256, .. } = &record.kind else {
+            return Err(StageError::CaptureMismatch);
+        };
+        if *size != bytes.len() as u64
+            || sha256.as_str() != crate::wallpaper_protocol::digest(&bytes)
+        {
+            return Err(StageError::CaptureMismatch);
+        }
+        let payload = |digest: &Sha256| -> Result<Arc<[u8]>, StageError> {
+            let value = payloads.get(digest).ok_or(StageError::CaptureMismatch)?;
+            if digest.as_str() != crate::wallpaper_protocol::digest(value) {
+                return Err(StageError::CaptureMismatch);
+            }
+            Ok(Arc::from(value.as_slice()))
+        };
+        let acl = metadata
+            .acl_sha256
+            .as_ref()
+            .map(|digest| {
+                AclPayload::decode(&payload(digest)?).map(Arc::new).map_err(StageError::Metadata)
+            })
+            .transpose()?;
+        let xattrs = metadata
+            .extended
+            .values
+            .iter()
+            .map(|(name, digest)| Ok((*name, payload(digest)?)))
+            .collect::<Result<_, StageError>>()?;
+        Ok(Self { record, content: Some(Arc::from(bytes)), acl, xattrs })
+    }
+    pub(crate) fn with_regular_content(
+        &self,
+        record: FileRecord,
+        bytes: Vec<u8>,
+    ) -> Result<Self, StageError> {
+        let EntryKind::RegularFile { size, sha256, .. } = &record.kind else {
+            return Err(StageError::CaptureMismatch);
+        };
+        if *size != bytes.len() as u64
+            || sha256.as_str() != crate::wallpaper_protocol::digest(&bytes)
+        {
+            return Err(StageError::CaptureMismatch);
+        }
+        Ok(Self {
+            record,
+            content: Some(Arc::from(bytes)),
+            acl: self.acl.clone(),
+            xattrs: self.xattrs.clone(),
+        })
+    }
     pub fn record(&self) -> &FileRecord {
         &self.record
     }
@@ -79,6 +136,7 @@ impl StagedConfiguration {
 
 #[derive(Debug)]
 pub enum StageError {
+    CaptureMismatch,
     SystemOnlyScope,
     PlanMismatch,
     EmptyConfiguration,
@@ -90,6 +148,9 @@ pub enum StageError {
 impl std::fmt::Display for StageError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::CaptureMismatch => {
+                formatter.write_str("captured hook staging bytes or metadata digest do not match")
+            }
             Self::SystemOnlyScope => {
                 formatter.write_str("system-only restore has no configuration stage")
             }

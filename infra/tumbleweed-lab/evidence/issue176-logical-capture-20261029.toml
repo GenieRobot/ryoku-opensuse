@@ -1,0 +1,48 @@
+issue = 176
+parent = "240d4240a95f26badcf7cc5ed91eb9ed99e21083"
+status = "capture-only-key-capsule-and-legacy-restore-barrier"
+all_hooks_accepted = false
+native_theme_execution_accepted = false
+native_dconf_session_capture_accepted = false
+vm_or_download = false
+
+[contract]
+keys = ["color-scheme", "accent-color", "gtk-theme", "icon-theme"]
+image = "user override is distinct from effective/default value; exact key scope, account/runtime/schema/session/policy/desired-change/plan bindings and exact native pre-checkpoint"
+enrollment = "outer RecoveryManifest schema3; account and original native receipt must match; schema1/2 canonical bytes and digests remain compatible"
+restore = "legacy configuration/complete-linked planner refuses logical state before journaling or target writes; no file-only complete logical restore"
+worker = "fixed packaged root-owned executable, root peer credentials, matching nonroot account, bounded one-shot frame, no write opcode; replay/disconnect/unknown/duplicate refusal"
+containment = "read-only Landlock, seccomp no later fork/exec or non-Unix networking, bounded owned worker reaping, runtime/schema pins and executable maps, exact session socket/start identity and live pidfd"
+
+[checks]
+focused_theme = "16 passed; real installed GIO with explicit private memory backend plus kernel transport/confinement/lifecycle tests"
+focused_logical = "7 passed including legacy byte/digest compatibility, sealed generation read-back, native receipt mismatch, duplicate key refusal and restore barrier"
+actual_binary = "2 passed: invalid private invocation and actual nonroot control peer refused before payload decoding"
+workspace = "cargo test --workspace --all-features --offline --locked: 738 top-level passed,27 isolated subprocess passes,9 ignored,zero failures"
+workspace_commit = "327244786412726cd1aecbba7e4fd6f81fa79ace"
+workspace_log_sha256 = "036cf6ad5c137ca6f43a61fe37eefac816d2273e761ed1838e7903267af397f0"
+clippy = "cargo clippy --workspace --all-targets --all-features --offline --locked -- -D warnings passed"
+clippy_log_sha256 = "8b5ac86a77a0a9afa644839b4ad103d392aa358e71f9862daa54a2ac9e0ed9af"
+dependencies = "local cargo deny --all-features --offline check passed with cached advisory data; refreshed hosted review failed on existing zstd-family advisories, so the current dependency gate is failed"
+dependencies_log_sha256 = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+packaging = "ryoku-helper RPM spec parses; fixed capture binary built, installed as root0755 and listed in package files"
+local_environment = "focused/full kernel and GIO tests required the authorized unrestricted runner; restricted runner masks root ownership and denies local sockets"
+
+[hosted_gate]
+root_peer = "CI40900257080 step10 passed the actual root-parent/ordinary-account worker transport harness at3272447; local sudo -n requires a password"
+run = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40900257080"
+result = "failed only at refreshed dependency review; formatting,lints,staged success,full tests,root-peer transport and cleanup passed"
+dependency_advisories = ["RUSTSEC-2026-0391", "RUSTSEC-2026-0398", "RUSTSEC-2026-0403", "RUSTSEC-2026-0410"]
+scope = "read-only injected backend proves transport and native receipt linkage; it is not native DConf/session success"
+
+[exact_schema_followup]
+behavior = "production and memory-fixture actors share an explicit schema-directory loader with no default/parent source; native path uses only the pinned /usr/share bundle"
+refusal = "a missing exact schema directory refuses instead of falling back to process defaults; private memory backend allocation failure cannot fall back to DConf"
+service = "all service tests passed:162 library +5 integration,2 ignored; strict all-target/all-feature service Clippy and diff checks passed"
+service_log_sha256 = "39cd4700b4db7f4b416dad4b23de17eb6e7b2a3ffd44588c80a2cef2449c53c9"
+clippy_log_sha256 = "bc88eb0c161652e979a6c16fef104afe9a60df32ea9128b799023f71eed5aad3"
+
+[remaining]
+theme = "native root/session capture, complete dynamic file/parent/link/tree enrollment and matugen execution, guarded logical restore actor, reload/signal/IPC actors and combined durable completion"
+automatic = "all other startup/watch/timer/restore behavior and FFmpeg/weather availability probes require exact per-hook policies/tests"
+acceptance = "complete wallpaper-to-template/reload accounting and refreshed Tumbleweed lifecycle under26 remain open"
