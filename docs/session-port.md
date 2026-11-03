@@ -56,6 +56,13 @@ A missing or invalid handler gives an actionable native Default Applications
 error. Query capture is capped at 4096 bytes and 3 seconds; the launch client has
 30 seconds for its native startup handshake, with owned-group kill/reap on a
 stall. Successful launch does not impose a GUI application lifetime deadline.
+The control runner observes exit without reaping the leader until output and
+status checks finish. A failed client or inherited query-pipe writer is
+terminated in its owned group before the leader PID is released. A successful
+application that closes the query pipe can continue running. The
+[exited-client receipt](../infra/tumbleweed-lab/evidence/issue25-exited-client-20261103.toml)
+records the reproduced leak, corrected process fixtures and interrupted full
+local run; fresh hosted checks are tracked separately from native acceptance.
 The RPM requires both exact native tool paths. Packaged `Super+Return` and
 `Super+E` enter the same terminal/files adapter instead of spawning fixed GUI
 executables directly; native file-manager preference is therefore respected.

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Retain exited control-client identities until output validation and owned
+  group cleanup finish; reap inherited-pipe writers on query failure while
+  preserving successful detached applications and independent servers.
+
 - Reject lock requests without compositor identities and fail the packaged
   start job when the manager lacks them, preserving native locker/PAM behavior
   and the full wait lifetime.

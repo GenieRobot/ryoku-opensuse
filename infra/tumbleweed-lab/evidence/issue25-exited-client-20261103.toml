@@ -1,0 +1,71 @@
+schema_version = 1
+issue = 25
+date = "2026-11-03"
+branch_parent = "899d97f9234b4dab1f947921b25c301d012deb2d"
+scope = "Retain short control-client process identity through status/output validation and owned-group failure cleanup"
+native_acceptance = false
+native_build = false
+package_build = false
+vm_access = false
+qmp_access = false
+downloads = false
+actual_gui_started = false
+
+[implementation]
+before = "Child::try_wait reaped an exited query leader before inherited-output validation; an open-pipe failure returned with a live owned descendant"
+after = "Safe rustix waitid EXITED|NOHANG|NOWAIT observes exit without releasing the leader PID; failed status, open inherited stdout or late drain failure terminates the owned group before reaping"
+success = "Successful status and complete output are validated before Child::wait; a successful detached application with closed query stdout retains its lifetime"
+unchanged = "Existing output limit, timeout/reap budgets, literal arguments, native executables, writer/recovery boundaries and full compositor/locker lifetimes"
+limit = "Owned process groups cover ordinary descendants; this is not containment for a descendant deliberately changing its process group or session"
+
+[regression]
+command = "cargo test -p ryoku-session --lib client::tests::exited_query_cleans_inherited_pipe_writers_and_failed_clients_only --locked -- --exact"
+pre_fix_exit = 101
+pre_fix_result = "0 passed; 1 failed; open client left its inherited-pipe writer running"
+fixture = "Self-exec Rust test child starts a real sleep descendant and exits. Cases: success with inherited pipe, nonzero exit with inherited pipe, success with closed pipe. Fixture descendants are explicitly cleaned even on failed expectations"
+corrected = "Both failed query cases return errors and the descendant is absent or zombie; successful closed-pipe descendant and independent real sleep server survive; fixtures are explicitly cleaned"
+corrected_shared_client_passed = 4
+corrected_shared_client_failed = 0
+launcher_passed = 7
+launcher_failed = 0
+session_initial_passed = 21
+session_initial_failed = 1
+
+[sandbox_correction]
+unchanged_test = "tests::native_lock_assertions_reject_absent_empty_and_partial_manager_identities"
+initial = "Restricted sandbox denied SO_PASSCRED on systemd-analyze handoff timestamp socket; valid synthetic environment could not be evaluated"
+direct_readonly_evaluator = "Same four AssertEnvironment expressions passed with ordinary local socket access; no unit, manager environment, PAM or service state was changed"
+single_test_command = "cargo test -p ryoku-session --offline --locked --bin ryoku-session tests::native_lock_assertions_reject_absent_empty_and_partial_manager_identities -- --exact"
+single_test_passed = 1
+single_test_failed = 0
+assertions_modified = false
+
+[checks]
+toolchain = "rustc 1.99.0 (b940084d7 2026-09-28); cargo 1.99.0 (5f94df478 2026-08-27)"
+clippy_command = "cargo clippy --workspace --all-targets --all-features --offline -- -D warnings"
+clippy_passed = true
+focused_command = "cargo test -p ryoku-session --locked"
+focused_result = "4 shared-client and 7 launcher tests passed; 21 session tests passed, one unchanged sandbox-limited assertion then passed in its approved exact rerun"
+full_command = "cargo test --workspace --all-features --locked --offline"
+full_local_passed = false
+full_initial = "Restricted run reached session-lab-control: 8 passed, 5 failed on denied synthetic local sockets; no real QMP or VM was accessed"
+full_ordinary_socket_rerun = "Interrupted with Ctrl-C, exit 130, during recovery writer-freeze fixtures on coordinator storage instruction; no complete recovery/service/session/workspace result is claimed"
+completed_suites = "Adapters 5; RPM fixture 2; repository index 3; package audit 9 with 1 existing ignored; session-lab-control 13; exporter 2; source audit 3; vm-lab 95. Later recovery output is partial, not a passing suite"
+dependency_review = "Not completed locally: initial cargo-deny invocation placed --offline after check and was rejected by argument parsing; no dependency changes. Further check expansion stopped at physical host storage guard; exact-head hosted dependency review remains required"
+format_command = "cargo fmt --all -- --check"
+whitespace_command = "git diff --check"
+
+[storage_and_privacy]
+initial_target = "8.6 GiB"
+after_incremental_link_target = "11 GiB"
+logical_linux_free = "850 GiB on /dev/sdd after links"
+physical_host_guard = "Coordinator reported Windows host C: free dropped from 4.0 to 2.2 GiB; Linux logical free does not remove physical VHD storage pressure. Stop further build/test expansion until the 10 GiB guard clears"
+after_interruption = "Read-only ordinary-namespace process inspection found no remaining issue25 test process matches; no service or account was changed"
+privacy = "Only synthetic fixture data, fixed source identity, commands, counts and scoped failure descriptions are public; full tool output was partially truncated and is not represented as a complete saved log"
+
+[remaining]
+issue_open = true
+pr_draft = true
+native = "Fresh combined #173 source/vendor/spec/RPM/target tuple; ordinary cold SDDM login/reboot/logout/failure/KDE use; native lock/PAM, keeper retention, screenshots/portal/core/device workflow evidence; verified login credential unavailable and never guessed"
+wallpaper = "#176 real applyRyogamiFrame to scheduleTheme to paintWorker typed handoff plus complete linked pre/post accounting remains required"
+owners = "#175/#176, #177-#184 and Rashin remain outside this change; complete upstream feature targets and visible affordances retained"

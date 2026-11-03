@@ -88,19 +88,36 @@ fn run(mut command: Command, timeout: Duration, capture: bool) -> Result<Vec<u8>
                 return Err(error);
             }
         };
-        match child.try_wait() {
+        // Observe exit without reaping: the leader still reserves its process
+        // group while failure and inherited-pipe cleanup can need to signal it.
+        let group = rustix::process::Pid::from_raw(child.id() as i32)
+            .ok_or("invalid control process identity")?;
+        match rustix::process::waitid(
+            rustix::process::WaitId::Pid(group),
+            rustix::process::WaitIdOptions::EXITED
+                | rustix::process::WaitIdOptions::NOHANG
+                | rustix::process::WaitIdOptions::NOWAIT,
+        ) {
             Ok(Some(status)) => {
-                if !status.success() {
-                    return Err(format!("{} failed: {status}", program.to_string_lossy()).into());
+                if status.exit_status() != Some(0) {
+                    terminate(child)?;
+                    return Err(format!("{} failed: {status:?}", program.to_string_lossy()).into());
                 }
                 // Re-drain after wait: the child may have written between the
-                // first drain and exit. Never wait on an inherited writer FD.
-                if !eof
-                    && let Some(pipe) = child.stdout.as_mut()
-                    && !drain(pipe, &mut output)?
-                {
-                    return Err("desktop handler query left an open output stream".into());
+                // first drain and exit. Never wait on an inherited writer FD;
+                // terminate the owned group before releasing the leader PID.
+                if !eof && let Some(pipe) = child.stdout.as_mut() {
+                    match drain(pipe, &mut output) {
+                        Ok(true) => {}
+                        result => {
+                            terminate(child)?;
+                            return Err(result.err().unwrap_or_else(|| {
+                                "desktop handler query left an open output stream".into()
+                            }));
+                        }
+                    }
                 }
+                child.wait()?;
                 return Ok(output);
             }
             Ok(None) => {}
@@ -150,6 +167,76 @@ mod tests {
             capture_control(Command::new("/not-an-installed-client"), Duration::from_secs(1))
                 .is_err()
         );
+    }
+
+    #[test]
+    fn exited_client_fixture() {
+        let Some(path) = std::env::var_os("RYOKU_TEST_EXITED_CLIENT") else { return };
+        let mode = std::env::var("RYOKU_TEST_EXITED_CLIENT_MODE").unwrap();
+        let mut command = Command::new("/usr/bin/sleep");
+        command.arg("30");
+        if mode == "closed" {
+            command.stdout(Stdio::null()).stderr(Stdio::null());
+        }
+        let child = command.spawn().unwrap();
+        fs::write(path, child.id().to_string()).unwrap();
+        std::process::exit(if mode == "failure" { 7 } else { 0 });
+    }
+
+    #[test]
+    fn exited_query_cleans_inherited_pipe_writers_and_failed_clients_only() {
+        let mut server = Command::new("/usr/bin/sleep").arg("30").spawn().unwrap();
+        let mut observations = Vec::new();
+        for mode in ["open", "failure", "closed"] {
+            let path =
+                PathBuf::from(format!("/tmp/ryoku-exited-client-{}-{mode}", std::process::id()));
+            let mut fixture = Command::new(std::env::current_exe().unwrap());
+            fixture
+                .args(["--exact", "client::tests::exited_client_fixture", "--nocapture"])
+                .env("RYOKU_TEST_EXITED_CLIENT", &path)
+                .env("RYOKU_TEST_EXITED_CLIENT_MODE", mode)
+                .stderr(Stdio::null());
+            let started = Instant::now();
+            let result = capture_control(fixture, Duration::from_secs(1));
+            let pid = fs::read_to_string(&path).unwrap().parse::<i32>().unwrap();
+            fs::remove_file(path).unwrap();
+            let deadline = Instant::now() + Duration::from_secs(1);
+            let stopped = loop {
+                let state = fs::read_to_string(format!("/proc/{pid}/stat"));
+                if state.as_ref().is_err_and(|e| e.kind() == ErrorKind::NotFound)
+                    || state
+                        .is_ok_and(|s| s.rsplit_once(')').unwrap().1.trim_start().starts_with('Z'))
+                {
+                    break true;
+                }
+                if mode == "closed" || Instant::now() >= deadline {
+                    break false;
+                }
+                thread::sleep(Duration::from_millis(5));
+            };
+            // Always clean the fixture, even when checking the old failing path.
+            if !stopped {
+                let _ = rustix::process::kill_process(
+                    rustix::process::Pid::from_raw(pid).unwrap(),
+                    rustix::process::Signal::KILL,
+                );
+            }
+            observations.push((mode, result, stopped, started.elapsed()));
+        }
+        let server_alive = server.try_wait().unwrap().is_none();
+        server.kill().unwrap();
+        server.wait().unwrap();
+        assert!(server_alive);
+        for (mode, result, stopped, elapsed) in observations {
+            assert!(elapsed < Duration::from_secs(3));
+            if mode == "closed" {
+                assert!(result.is_ok(), "closed-stream client failed: {result:?}");
+                assert!(!stopped, "successful detached application was killed");
+            } else {
+                assert!(result.is_err());
+                assert!(stopped, "{mode} client left its inherited-pipe writer running");
+            }
+        }
     }
 
     #[test]
