@@ -9,7 +9,9 @@ version = 2
 version = 2
 # GTK's target-lexicon build dependency adds the standard Apache LLVM exception.
 # Keep this exact SPDX expression alongside the project's existing permissive set.
-allow = ["GPL-3.0-only", "MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "Unicode-3.0", "Unlicense"]
+# Patched zstd 0.14.3 / zstd-safe 8.2.0 / zstd-sys 2.1.2 use BSD-3-Clause.
+# Retain their reviewed upstream LICENSE files in the normal vendor sources.
+allow = ["GPL-3.0-only", "BSD-3-Clause", "MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "Unicode-3.0", "Unlicense"]
 confidence-threshold = 0.93
 
 [bans]
