@@ -1,0 +1,153 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "19cf89d4ef7e1ef062c9cef8ebc153d3aa5eeaf3"
+status = "owner-enabled-public-web-tool-tested-full-native-assistant-acceptance-open"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+media_downloads = 0
+external_provider_requests = 0
+external_fixture_network_requests = 0
+vm_runs = 0
+
+[source_contract]
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+fetch_source = "ryoku/rashin/backend/quicktools.go:274-389"
+fetch_blob = "5fd8cba88541794d467c4ed877c8fe5062b0acec"
+retained_behavior = "public HTTP/S GET,at most3 redirects,24KiB response prefix,8KiB readable text,private DNS/redirect rejection,script/style/tag stripping"
+iana_ipv4 = "https://www.iana.org/assignments/iana-ipv4-special-registry"
+iana_ipv6 = "https://www.iana.org/assignments/iana-ipv6-special-registry"
+iana_registry_last_updated = "2025-10-09"
+iana_audit = "all current non-global special prefixes represented by rejection tests;2001:2::/48 is inside2001::/23 and is not in its allowed exception set"
+embedded_addresses = "mappedIPv4 checked as actualIPv4 destination;NAT64/6to4/Teredo validate embeddedIPv4;only public exceptions retained"
+
+[behavior]
+permission = "separate owner set_public_web/browser checkbox,defaultfalse,persistent,captured at accepted job;scoped changes denied;does not enable system/file/source tools"
+fix = "all Fix tools including fetch remain disabled to preserve reviewed native evidence scope"
+url = "cached url2.5.8/IDNA normalization;HTTP/S only,no userinfo/control/header/option escape;input<=8192bytes;fragments removed"
+dns = "fixed getent -A ahosts -- HOST,16KiB output/16distinctIP bounds;every address validated;no public member accepted from mixed private DNS"
+pins = "validated DNS set in stdin curl resolve config;literal IP unchanged;fresh process and new DNS check/pin each redirect;curl never follows redirects automatically"
+credentials = "cleared env except LANG=C,disabled curlrc/proxy/netrc/cookie/client-auth behavior;no account credentials passed to public helper;URL/query/pins absent from curl argv and logs"
+limits = "12s fetch inside45s tool loop,3s connect,16KiB headers,40KiB total client output cap,24KiB body prefix,8KiB plain text;explicit truncation"
+children = "nonblocking bidirectional pipes,cancellation5ms,kill/wait every path;before curl stdin config,AS512MiB/CPU8s/core0 caps preserving stricter inherited limits"
+coding = "curl-supported decompression bounded by process/output limits;UTF8 replacement labeled;other declared charset via fixed glibc iconv validated label<=64/nonblocking24KiB input and128KiB output;partial decoding labeled lossy/truncated"
+content = "HTML tags/script/style removed;no nested image/script/stylesheet requests or execution;no response/model/media artifact written"
+failures = "missing native tool,unavailable DNS/transport,invalid data/private target refuse without fallback;cancelled work persists no intermediate page/answer/usage"
+
+[dependencies]
+url = "=2.5.8"
+new_locked_packages = 27
+existing_locked_packages = "every existing package row unchanged except own ryoku-rashin dependency list;libc remains0.2.190"
+cache = "complete closure metadata/resolution/build succeeded with--offline;all27 cached archives hash-match lock checksums;no registry request"
+license_review = "supported x86_64 all-features advisories/bans/licenses/sources passed;vendor/export closure remains required"
+
+[validation]
+sequence = "strict workspace Clippy,full Rashin,workspace,fmt/diff,RPM spec/providers,supported-target deny,4 current-binary namespace proofs:terminal exit0"
+focused_command = "cargo test -p ryoku-rashin --locked --offline public_web -- --nocapture"
+focused_passed = 9
+focused_breakdown = "8units,1portable gateway workflow;2net-namespace cases explicitly exercised separately"
+focused_cases = ["IANA/embeddedIP and normalizedURL/IDNA/private alias audit", "mixed DNS/no partial acceptance,actual getent localhost rejection", "exact curl argv/env/stdin pins,literalIPv6,no credential/header option", "missing tool/pre-spawn cancellation,header/HTML/output bounds", "actual bounded Latin1 charset conversion and unknown charset failure", "owner/browser/defaultoff/scoped/Fix/restart/disable/privateURL rejection"]
+full_command = "cargo test -p ryoku-rashin --locked --offline"
+full_passed = 152
+full_failed = 0
+full_ignored = 4
+full_breakdown = "73unit,15collector,64workflow"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 732
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 11
+count_scope = "sum of terminal summaries including nested subprocesses;7 existing ignores plus4 explicitly exercised namespace prerequisites"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings:passed,0warnings"
+format = "cargo fmt --all -- --check:passed"
+diff = "git diff --check:passed"
+spec = "rpmspec --parse and -q --requires passed;curl/glibc and /usr/bin/curl,/usr/bin/getent,/usr/bin/iconv capability requirements verified"
+dependency_metadata_command = "cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu"
+dependency_command = "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path FILTERED_METADATA --all-features check"
+dependency_result = "advisories,bans,licenses,sources ok for supported x86_64 all-features graph"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers;no fetch"
+current_binaries = "library/workflows executables derived from final full Cargo output after new dependency hash;no reused earlier test binary"
+two_uid = "unshare --user --map-auto --map-root-user CURRENT_LIB_TEST --ignored --exact prowl::transport::tests::connected_foreign_uid_receives_no_request_or_management_credential --nocapture:1/1pass"
+bind = "unshare --user --map-auto --map-root-user --mount --propagation private CURRENT_LIB_TEST --ignored --exact prowl::read_roots::tests::bind_alias_and_mount_crossing_never_enter_credential_store --nocapture:1/1pass"
+public_transport = "unshare --user --map-auto --map-root-user --net env RASHIN_PUBLIC_WEB_PARENT_NET=PARENT_NET CURRENT_LIB_TEST --ignored --exact prowl::public_web::net_tests::isolated_public_http_redirects_dns_pins_compression_and_cancel_use_real_curl --nocapture:1/1pass"
+public_gateway = "same guarded fresh user/net namespace,CURRENT_WORKFLOW_TEST --ignored --exact isolated_public_web_gateway_returns_real_redirect_text_and_cancels_without_partial_usage --nocapture:1/1pass"
+namespace_safety = "test refuses network changes unless current net namespace differs from recorded parent;only isolated loopback11.0.0.1/11.0.0.2 routes,no external interface/default route/traffic"
+transport_proof = "real curl public relative redirect,pins changing11.0.0.1->11.0.0.2,private DNS rebind/redirect refused,3redirect cap with4 observed requests,gzip/Latin1 conversion,cancel closes socket"
+gateway_proof = "real authenticated Ask->fetch->public HTTP redirect->text->toolresult->model;public server receives no Authorization/Cookie;cancel closes heldHTTP and persists no partial page/answer/usage"
+corrected_before_final = "nonASCII fixture byte literal corrected;missed owner dispatch arm completed before actual gateway test;Clippy collapsed Location check and replaced map/count proof with actual collected receives;final full sequence/proofs rerun"
+
+[storage]
+paths = "workspace target,HOME,Cargo/Rustup caches on/dev/sdd;all logs/fixtures/tmp artifacts on/tmp tmpfs"
+pre_suite_available_bytes_linux = 955467472896
+pre_suite_available_bytes_tmpfs = 7020224512
+constraints = "no intentional C-bound writes,downloads,cleanup,candidate/native/VM work;user-restored C free space did not trigger candidate work"
+
+[remaining]
+full_issue_complete = false
+acceptance_matrix = "docs/rashin-runtime.md Full Ryoku1.0 acceptance map refreshed with precise implemented/pending rows"
+gates = ["Exact-head hosted CI", "Original launcher/shell/Hub/native app/Svelte routes and full browser/native acceptance", "Tool activity/diff/approval UI and TOOLS_REQUIRED isolated Ask escalation", "Actual ACP adapters/stdio/initialize/capabilities/shared sessions/model-options/prompt/notify/cancel/replay/isolation/all harnesses/images/thinking/terminal", "Full Prowl provider/profile/sign-in/OAuth/fallback/network/project/harness/skills and source-index lifecycle", "Native machine/vault/memory/journal/project/skills/default-NSS enrollment", "Actual protected Fix/Agent repairs and external wire configuration through registered writers/linked pre-post recovery", "Real provider quota/RPC/session limits and original shell/cache/timer UI", "Optional packaged service/login/linger/Prowl failure-recovery/remove/KDE behavior", "Complete source/vendor/export/RPM/native dependency closure and packaged Tumbleweed install/login/interaction/usage/restart/removal/restore acceptance"]
+
+[cache_summary]
+archive_bytes = 1318254
+"displaydoc" = "0.2.5;bytes=24219;sha256=97369cbbc041bc366949bc74d34658d6cda5621039731c6310521892a3a20ae0"
+"form_urlencoded" = "1.2.2;bytes=9347;sha256=cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
+"icu_collections" = "2.2.0;bytes=88011;sha256=2984d1cd16c883d7935b9e07e44071dca8d917fd52ecc02c04d5fa0b5a3f191c"
+"icu_locale_core" = "2.2.0;bytes=78639;sha256=92219b62b3e2b4d88ac5119f8904c10f8f61bf7e95b640d25ba3075e6cac2c29"
+"icu_normalizer" = "2.2.0;bytes=78154;sha256=c56e5ee99d6e3d33bd91c5d85458b6005a22140021cc324cea84dd0e72cff3b4"
+"icu_normalizer_data" = "2.2.0;bytes=67134;sha256=da3be0ae77ea334f4da67c12f149704f19f81d1adf7c51cf482943e84a2bad38"
+"icu_properties" = "2.2.0;bytes=63950;sha256=bee3b67d0ea5c2cca5003417989af8996f8604e34fb9ddf96208a033901e70de"
+"icu_properties_data" = "2.2.0;bytes=168901;sha256=8e2bbb201e0c04f7b4b3e14382af113e17ba4f63e2c9d2ee626b720cbce54a14"
+"icu_provider" = "2.2.0;bytes=51620;sha256=139c4cf31c8b5f33d7e199446eff9c1e02decfc2f0eec2c8d71f65befa45b421"
+"idna" = "1.1.0;bytes=148747;sha256=3b0875f23caa03898994f6ddc501886a45c7d3d62d04d2d90788d47be1b1e4de"
+"idna_adapter" = "1.2.2;bytes=10444;sha256=cb68373c0d6620ef8105e855e7745e18b0d00d3bdb07fb532e434244cdb9a714"
+"litemap" = "0.8.2;bytes=34572;sha256=92daf443525c4cce67b150400bc2316076100ce0b3686209eb8cf3c31612e6f0"
+"percent-encoding" = "2.3.2;bytes=11583;sha256=9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
+"potential_utf" = "0.1.5;bytes=10189;sha256=0103b1cef7ec0cf76490e969665504990193874ea05c85ff9bab8b911d0a0564"
+"stable_deref_trait" = "1.2.1;bytes=8186;sha256=6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
+"synstructure" = "0.13.2;bytes=18950;sha256=728a70f3dbaf5bab7f0c4b1ac8d7ae5ea60a4b5549c8a5914361c99147a709d2"
+"tinystr" = "0.8.3;bytes=24710;sha256=c8323304221c2a851516f22236c5722a72eaa19749016521d6dff0824447d96d"
+"url" = "2.5.8;bytes=86512;sha256=ff67a8a4397373c3ef660812acab3268222035010ab8680ec4215f38ba3d0eed"
+"utf8_iter" = "1.0.4;bytes=10437;sha256=b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
+"writeable" = "0.6.3;bytes=26685;sha256=1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
+"yoke" = "0.8.2;bytes=32790;sha256=abe8c5fda708d9ca3df187cae8bfb9ceda00dd96231bed36e445a1a48e66f9ca"
+"yoke-derive" = "0.8.2;bytes=15077;sha256=de844c262c8848816172cef550288e7dc6c7b7814b4ee56b3e1553f275f1858e"
+"zerofrom" = "0.1.8;bytes=6156;sha256=0ec05a11813ea801ff6d75110ad09cd0824ddba17dfe17128ea0d5f68e6c5272"
+"zerofrom-derive" = "0.1.7;bytes=8853;sha256=11532158c46691caf0f2593ea8358fed6bbf68a0315e80aae9bd41fbade684a1"
+"zerotrie" = "0.2.4;bytes=83690;sha256=0f9152d31db0792fa83f70fb2f83148effb5c1f5b8c7686c3459e361d9bc20bf"
+"zerovec" = "0.11.6;bytes=128583;sha256=90f911cbc359ab6af17377d242225f4d75119aec87ea711a880987b18cd7b239"
+"zerovec-derive" = "0.11.3;bytes=22115;sha256=625dc425cab0dca6dc3c3319506e6593dcb08a9f387ea3b284dbd52a92c40555"
+
+[installed_runtime_providers]
+"/usr/bin/curl" = "curl 8.21.0-1.1 x86_64;sha256=d52b2fb6e1260a8a216c8ed5a9b6d20d310ad0a056f91317f82629793182fc5b"
+"/usr/bin/getent" = "glibc 2.44-3.1 x86_64;sha256=ed7b723362c7e553b0e9838af08a492c32b75f47fb49a2428522e60ddafe7695"
+"/usr/bin/iconv" = "glibc 2.44-3.1 x86_64;sha256=46fb721a96183812bc435d25e653115389554663373386217cbbabdcbb9dc8fc"
+
+[log_sha256]
+focused = "09855de2849a6f96d93343b76a81df16d72405c8b28678c803ccce47c3f22cd4"
+full = "dfbeb0dff0a10dbebc73ecbac986201ed9cb1864553785008ced9c988c05a034"
+workspace = "572b57f30e5a9bd2365188f9439f91bd5ddc247872e2d43cfc4d89fe78c427b9"
+clippy = "e95c70bdde2d75d38c1dddae4382d1f61ec36e8bbc3c6f64e014b548343f8226"
+dependency = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+two_uid = "0f509ab2c299a068568f07c931bad968e356635f6a478ab5d87e0d2cf78bd98e"
+bind = "2fa9b2a1f7588e9dad1d63c36f1a7e8cda3d0307b41aa5669cc3b0894c434678"
+public_transport = "d705a21660811f2dafefab3f0e4e549556e28b512e4665ba047b12fa6a815ca8"
+public_gateway = "5d32be7b52e0a0a33a239301948d9d735223e5447bb7d109d024f131b5e9b780"
+sequence = "b25755e70b735aa146b4344faab93322101ae847c46dc52e4e01066c1fb8f748"
+spec_expanded = "3cb7ccbee6d2fbb9bb67f52e8fc1161fc96c1e24069cad07c8d91eae8e203b0d"
+spec_requires = "2de3e5af510497e896e93573f8069e8019162ea3c318163f1b85e901080cb429"
+rpm_providers = "23492ce4697d36fa3d9b1fe229466ddf9162f2f9c8d65942f9c6cce1c775bd38"
+
+[source_sha256]
+"Cargo.lock" = "e07d94a837df381926ed863bf3c82d5daef237e381e1e3672fd72c726a8a2959"
+"docs/rashin-runtime.md" = "c7cdc31013495e3120cb99fdf32732d66624cb4efe4f1e5461e368e3b1adf37c"
+"packaging/rpm/ryoku-desktop.spec" = "6e262dbf172d5fd7dc1491091d7efe71778c6c997e74518ffca934bb5351ed85"
+"suse/rashin/Cargo.toml" = "037708753317f16793551458d746bbefeccf6efd6fa9810239f8bee62e5f4126"
+"suse/rashin/src/api.rs" = "9edef2ca8c9d130254096a9113f6bf1c270371400af3d0b08172d2c74ff83bf4"
+"suse/rashin/src/authorization.rs" = "1128604e9fc410c6e2a79a28fa4d79801e1482d350e5dd2659a8f9547cb87b7a"
+"suse/rashin/src/http/console.rs" = "741b4502c46c4ba2896e28070ab9de931c2fd42cae1960a023cf8b53b88e7102"
+"suse/rashin/src/prowl.rs" = "8353aaf467b1f57327ad4c36c58b3a167ab3ed65aeac0d81d6f3abce9a2295d4"
+"suse/rashin/src/prowl/public_web.rs" = "c92f1231465de70cad4988036da444e69e9dbc016c3c42d1c9272ca60fbdd76f"
+"suse/rashin/src/prowl/tools.rs" = "6ea5c2d29261d782532220e2ccc72bd43f962b2a2f487b8eea47d34d728043db"
+"suse/rashin/src/runtime.rs" = "c98472b79ee19b4cb80f8649965e6622b68cf430e0ae9fe4e0333053bb9b2dc6"
+"suse/rashin/tests/workflows.rs" = "08afde97560ef980d495e4e43aa56012d59e1375086e6bff26fc819d3eae76f3"

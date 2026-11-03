@@ -1,0 +1,56 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "e4c0e227b163176f220f56d5ce52b9be2e7f3fd7"
+status = "private-state-quota-terminal-failure-and-recovery-tested-full-parity-pending"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+new_dependencies = 0
+
+[correction]
+trigger = "Valid completion/history/usage publication exceeds private-state logical cap after provider exits"
+before = "Rejected completion clone was ignored, leaving job Running without a worker"
+after = "Discard completion clone, persist Failed/Limit, retain existing session/usage; no silent retry"
+reserve_bytes_per_running_job = 128
+reserve_scope = "Every transaction keeps bounded terminal-error allowance for each accepted Running job, including concurrent owner configuration updates"
+fallback_failure = "If terminal error cannot publish, stop reporting healthy runtime until restart"
+recovery = "Owner frees retained history via typed deletion and a fresh request succeeds without daemon restart"
+fixture = "Synthetic private state at MAX-128 while a delayed deterministic worker is active; no external API/network/source database"
+fixture_max_state_bytes = 8388608
+
+[validation]
+focused_command = "cargo test --locked --offline -p ryoku-rashin"
+focused_passed = 76
+focused_failed = 0
+focused_ignored = 0
+focused_breakdown = "33 unit results,15 collector tests,28 workflow tests"
+capacity_case = "completion_state_limit_publishes_failure_without_partial_turns_and_allows_recovery"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 656
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 7
+count_scope = "exact sum of terminal harness summaries, including nested subprocess summaries"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+dependency_graph = "Cargo manifest/lock unchanged; previous supported-x86_64 offline advisories/bans/licenses/sources result applies"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers; no fetch"
+previous_hosted_ci = "e4c0e227 exact-head run40149687349 fully success"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact-head hosted CI and separate unsafe boundary review", "Authenticated restricted live bridge and ACP isolation", "Full retained UI/Prowl/provider/model/network/terminal/streaming/replay behavior", "Live usage quota/RPC and timer/cache bridge", "Protected native state/writer/linked recovery integration", "RPM/vendor/native closure and Tumbleweed packaged VM acceptance"]
+
+[log_sha256]
+focused = "b7340652acb8e9c9b06d7b2b6e2be4211c8d7846a283a7b9263a62b4c16b8924"
+workspace = "487441b767c7696566a4a1da9a48ef234daf48e39debdcaf95342e6a9ffc4007"
+clippy = "5d1382009b4692fff0b7f3e9567f72b65f649e6de35cb540d61cb3af897016d0"
+
+[source_sha256]
+"suse/rashin/src/runtime.rs" = "312ac0d1476840f83f289924f4c0cf31808f52559a5dda1bb2a01d3f9a528f37"
+"docs/rashin-runtime.md" = "07206a80056d6f87e8abffb9d27f908aa1a22611c53d4203cfea7fca5fffbd02"
+"docs/rashin-usage.md" = "4dfafe66313b57a5e8838cbc5360b8caecbf7ab664b4ff277a5e891706bd85f2"

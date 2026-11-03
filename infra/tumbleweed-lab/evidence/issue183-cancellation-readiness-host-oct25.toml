@@ -1,0 +1,72 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "065334c65a011a81091e4858f6b3122fe0726953"
+status = "hosted-cancellation-fixture-readiness-corrected-all-local-checks-pass"
+failed_ci = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40205041444"
+failed_ci_job = 121204060165
+failed_ci_workflows_passed = 61
+failed_ci_workflows_failed = 2
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+vm_runs = 0
+
+[correction]
+affected_cases = ["code_search_gateway_cancellation_closes_index_request_without_final_completion_or_usage", "tool_round_gateway_cancellation_closes_followup_stream_without_partial_answer_or_usage"]
+observed = "fixture notified request arrival before partial response flush;valid client cancellation reset the socket during fixture write!(chunk),which unwrapped ConnectionReset at workflows.rs3558"
+change = "only fixture readiness ordering:flush nonterminal header/chunk before notifying cancellation test;keep all write and1s EOF/reset assertions;ordinary held-response hook behavior preserved"
+production_change = false
+assertion_or_timeout_weakening = false
+focused_command = "cargo test -p ryoku-rashin --test workflows --locked --offline gateway_cancellation -- --nocapture"
+focused_repetitions = 5
+focused_passed_per_group = 2
+focused_failed = 0
+
+[validation]
+sequence = "full Rashin,strict workspace Clippy,workspace,fmt/diff,supported-target deny,explicit two-UID and bind proofs:terminal exit0"
+full_command = "cargo test -p ryoku-rashin --locked --offline"
+full_passed = 143
+full_failed = 0
+full_ignored = 2
+full_breakdown = "65unit,15collector,63workflow"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 723
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 9
+count_scope = "sum of terminal summaries including nested subprocesses;7 existing ignores plus two explicitly exercised namespace prerequisites"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings:passed"
+format = "cargo fmt --all -- --check:passed"
+diff = "git diff --check:passed"
+dependency_metadata_command = "cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu"
+dependency_command = "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path FILTERED_METADATA --all-features check"
+dependency_result = "advisories,bans,licenses,sources ok for supported x86_64 all-features graph"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers;no fetch"
+two_uid_command = "unshare --user --map-auto --map-root-user target/debug/deps/ryoku_rashin-e5c84e14e6648c40 --ignored --exact prowl::transport::tests::connected_foreign_uid_receives_no_request_or_management_credential --nocapture"
+two_uid_result = "explicit1/1 after final source;metadataGET/completionPOST foreign UID receives zero bytes;separate from portable default ignore"
+bind_command = "unshare --user --map-auto --map-root-user --mount --propagation private target/debug/deps/ryoku_rashin-e5c84e14e6648c40 --ignored --exact prowl::read_roots::tests::bind_alias_and_mount_crossing_never_enter_credential_store --nocapture"
+bind_result = "explicit1/1 after final source;Store direct alias/nested crossing refused;separate from portable default ignore"
+
+[storage]
+paths = "all workspace/cache/HOME paths on/dev/sdd;logs/tmp fixtures on/tmp tmpfs"
+pre_suite_available_bytes_linux = 954052263936
+pre_suite_available_bytes_tmpfs = 7035129856
+constraints = "C below10GiB floor untouched;no downloads,C-bound writes,cleanup,candidate/native/VM work"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact new hosted CI including dependency review", "All remaining issue183 publicfetch/activity/escalation/ACP/harness/process/terminal/native/Prowl/index/package/VM requirements in docs/rashin-runtime.md"]
+
+[log_sha256]
+focused_retest = "bc51c75fdc65b4a20f240c2b4bc73b114b0548c6491c2a35d90aa0a95e454cc0"
+full = "97f4ffc7e74ba013de5f3bfa7fbe1067a833ebc4632885c9a77fe4042ae01ab8"
+workspace = "e6b3702eada49feb8a7f5997115a940517367270431aebb8241a99a9f404dac0"
+clippy = "3e898f0962cda7012f2d776ad61310960ce17dedd30ae102d4d8fd8baa1ca802"
+dependency = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+two_uid = "838b6c4b28802f1f702494d7ca37762f82ee2553be374b72c19303089be1fc3d"
+bind = "929d812e3a8105c96eecf8cecae9be8ae693cb4b86d96f77e8606dd041f1df90"
+sequence = "ca66d1aea0ecf89a5cffe7acc8c9a82a6cdf23e9c453ee9fb1d09e6e256e15d8"
+
+[source_sha256]
+"suse/rashin/tests/workflows.rs" = "017af6a3efed797072f1635b19f331392dbd3037a3bee5f5ef67aa554b3eaefd"

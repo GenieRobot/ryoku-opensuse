@@ -1,0 +1,83 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "eeba004f076eded49a874598744c7b408380d4c8"
+status = "real-tool-status-runtime-browser-private-bounded-per-generation"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+vm_runs = 0
+
+[behavior]
+implemented = "Real native dispatch start/end callbacks;job API and authenticated no-JavaScript browser show running/completed/failed/cancelled;terminal records persist atomically with job result;retained unfinished rows become interrupted on restart;legacy empty jobs load"
+privacy = "At most32 rows per generation:ordinal,SHA256 call fingerprint,five fixed names or unknown_tool,status,typed error;no raw IDs,unknown names,args,URLs,paths,inputs or results in activity metadata;bounded original results still reach model"
+authorization = "Existing tool grants and four rounds plus final no-tools unchanged;Fix tools remain disabled;generation mismatch rejects stale callbacks and publications after request-ID reuse"
+quota = "Optional rows omitted with tool_activity_truncated flag if they displace answer/usage/cancel;terminal error reservation preserved;no callback disk/log effects"
+limits = "Running activity is ephemeral and can be lost on abrupt crash before terminal publication;not a durable event journal or full v3 replay;all original details/diffs/approvals and native ACP remain required"
+
+[upstream]
+commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+references = ["ryoku/rashin/backend/quick.go:419-425", "ryoku/rashin/backend/quick_test.go:270", "ryoku/rashin/backend/ws_test.go:48-64", "ryoku/rashin/backend/acptools.go:15-39", "ryoku/rashin/web/src/lib/pages/chat/ToolItem.svelte:20-75"]
+
+[validation]
+focused = "cargo test -p ryoku-rashin --locked --offline --lib activity;stale_worker;workflows restarted_daemon;tool_round_gateway_bounds;tool_activity:all terminal0"
+focused_passed = 7
+focused_failed = 0
+focused_cases = "Three units including32-row/replay/privacy and8MiB cancel/answer quota;stale generation/reused ID;interrupted restart/browser;four real tool rounds/unknown/malformed errors;held gateway running-success/failure/cancel with Basic browser/privacy and persisted restart"
+initial_corrections = "Local socket sandbox denial rerun with authorized loopback permission;new fixture URL corrected to/job/ID and error assertion corrected to serialized snake_case;all final checks use corrected source"
+sequence = "strict workspace Clippy,full Rashin,workspace,fmt,diff,supported-target deny,and4 current-binary namespace proofs:all10 stages terminal0"
+full_command = "cargo test -p ryoku-rashin --locked --offline"
+full_passed = 157
+full_failed = 0
+full_ignored = 4
+full_breakdown = "76unit,15collector,66workflow"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 737
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 11
+count_scope = "Sum of terminal summaries including nested subprocesses;7 existing ignores plus4 explicitly exercised namespace prerequisites"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings:passed"
+format = "cargo fmt --all -- --check:passed"
+diff = "git diff --check:passed"
+dependency_metadata_command = "cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu"
+dependency_command = "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path FILTERED_METADATA --all-features check"
+dependency_result = "advisories,bans,licenses,sources ok for supported x86_64 all-features graph"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers;no fetch"
+namespace_results = "Four current-binary proofs explicitly pass1/1 each:2UID credential no-send,Store bind/mount denial,public HTTP/DNS/redirect/compression/cancel transport,actual authenticated gateway fetch/cancel;distinct from portable CI defaults"
+namespace_commands = "Same unshare user/mount/net commands and guarded net baseline as issue183-public-web-tools-host-oct25.toml;executables derived from this final cargo output"
+
+[storage]
+paths = "workspace/cache/HOME on/dev/sdd;logs/fixtures on/tmp tmpfs"
+verified_linux_available_bytes = 945104871424
+verified_tmpfs_available_bytes = 6998675456
+verified_c_available_bytes = 6132080640
+constraints = "C below10GiB floor;no C-bound writes,downloads,cleanup,candidate/native/VM work"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact new hosted CI", "Complete activity details/diffs/approvals/replay,escalation,ACP/harness/process/terminal and all remaining provider/model/usage/UI/native/service/writer/recovery/package/VM rows in full acceptance matrix;none removed"]
+
+[log_sha256]
+"regressions" = "16929a2f1f0af58d73c049275fe5639b2412fcd6955688adddfcc5a50d46ff6a"
+"clippy" = "e6859c2dba3b7b69796151a11862cc9e61ac6ad5db3a1f78a0331c3e203471ef"
+"full" = "e2930322cd1ab4b2554d390b9230b05a985eaa5ae3e252888dc9099ad60b9d2c"
+"workspace" = "7525b1a5d330d7b59a8da5b87becbf6a6be37aabc4d5814daa1ed2d77403a286"
+"fmt" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+"diff" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+"deny" = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+"two-uid" = "ea17a4386799c85f5cb9723e45aaed0d01235f54f4df6b03137a28e852df1f3e"
+"bind" = "b5b1fdca85a6754a8f2da028027331bdacb0f568eb84ecabe7a1927dd1601feb"
+"public-transport" = "7050704d670d94cdead5a876625ab85b02b7def46dbdb6f309ac7f0e14f635fb"
+"public-gateway" = "7f6519870baad5e51cdcf5de22e29159890a4af6a846900567f8600db0177a65"
+"sequence" = "dbba9dfc51639f50f3c57219924c7f12ff2dd1062cbabe8608e4e9fa947563a1"
+
+[source_sha256]
+"docs/rashin-runtime.md" = "3b7046e315fd198cb4ac1e4b8bc608d895a4c978cb78984445a875167b7095ae"
+"suse/rashin/src/http/console.rs" = "82bd2fef79679bd2a578a13ac9b4531cad5c5bcef40a555b84a45bbb4df95129"
+"suse/rashin/src/provider.rs" = "ba5100de5372bd0a7a686f5b32c8b3b3a4f7beda18d73c4a77a37d28a97d542b"
+"suse/rashin/src/prowl.rs" = "c68e4ead597ab80d1ee8e4c7312e4c38adda017205943cf42f3a4afe4cc25b32"
+"suse/rashin/src/prowl/activity.rs" = "28143e556babf36307f8ff87a03e5a135a2364a8b960187a6bb0ee8ae76fae6c"
+"suse/rashin/src/prowl/tools.rs" = "9a6eb1673f4a77994702f399e3e694f812535680709cce38d7ff836c64cb9f75"
+"suse/rashin/src/runtime.rs" = "e56c2fab41ca61d37833fb63d27b38a8950f3ed30fab8df1b0d660747809f679"
+"suse/rashin/tests/workflows.rs" = "adba97611a464f204238cdc7767feef7ff7c8910d6af9d429432db1510c5585e"

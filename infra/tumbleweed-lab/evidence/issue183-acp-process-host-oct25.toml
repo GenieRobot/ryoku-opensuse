@@ -1,0 +1,162 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "1c5e3aa5024ea0089005af257b1bb62701a8757a"
+status = "configured-restricted-acp-stdio-provider-runtime-api-browser-working-host-fixtures"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+vm_runs = 0
+
+[behavior]
+implemented = "Owner-confirmed browser/API enrollment captures ELF identity/hash and fixed argv mode/network choice;real Ask/Agent/Chat jobs enter jailed ACP initialize/new/model/prompt/notification/cancel;actual library load/replay;descriptor-enrolled file broker;permission deny/allowed jailed kernel probe;catalog refresh,preserved unavailable picks,actual-model notifications,usage,cancel/restart and grant clearing"
+process_boundary = "Fresh user/mount/PID/IPC/UTS namespaces and default network namespace;explicit owner network sharing;nonrecursive readonly usr/bin+usr/lib64,exact null/random devices,private256MiB tmpfs root;UID/GID65534,zero effective/permitted caps,NNP;only stdio;address/CPU/process/FD/file-size caps;kill/wait manager terminates namespace descendants"
+bootstrap = "Private bounded stdin plan,exact raw reads preserve queued initialize,nonblocking3s write,private executable worker mode checks namespace changes before mounts;missing helpers fail unavailable with no fallback"
+protocol_limits = "ACP1 NDJSON128KiB/frame,4MiB total adapter input,1024frames/request,64KiB prompt,128KiB response text;120s completion/15s catalog;session/response IDs bound and unknown private error fields dropped"
+files = "Exact UTF8/LF/CRLF/trailing newline through32KiB;explicit validated line windows scan at most1MiB/output32KiB;no silent4096line truncation;invalid UTF8,NUL,secret,Store/link/mount/source identity violations refused"
+activity = "Bounded acp_tool fingerprint/status/typed errors only;no raw args/paths/URLs/content in activity metadata;existing generation/quota/cancel publication invariants retained"
+fix = "Network-enabled adapter resolves as external destination;exact native-evidence review required;independent loopback observer sees zero unreviewed calls,one authorized call,no replay/same-action retry traffic;Fix tools disabled"
+credentials = "No account keys/environment/management bearer passed to adapter;artifact path and bootstrap plan use private stdin;configured provider network is explicit;external harness auth/config/runtime closure remains required"
+
+[upstream]
+commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+references = ["ryoku/rashin/backend/acp.go:610-707", "ryoku/rashin/backend/acp.go:834-883", "ryoku/rashin/backend/acp.go:995-1106", "ryoku/rashin/backend/acp.go:1188-1290", "ryoku/rashin/backend/acp_test.go", "ryoku/rashin/backend/acp_tail_test.go", "ryoku/rashin/backend/acptools_test.go"]
+
+[corrections]
+bootstrap_read_ahead = "First actual connect timed out8s because buffered stdin held queued initialize bytes;replaced bootstrap only with exact bounded raw rustix reads;real client subsequently completes"
+fixture_private_state = "First engine flow omitted required0700 state directory;fixture corrected;production Store guard preserved"
+fix_fixture_contract = "Corrected token key to native_evidence_consent and accepted-ID retry to identical original token;production consent fingerprint/replay guard preserved"
+helper_closure = "First all-green sequence exposed implicit newuidmap/newgidmap dependency during read-only audit;added exact RPM capabilities/startup checks and explicit PATH,then reran all12 stages"
+read_fidelity = "Actual enrolled CRLF fixture reproduced lines/join data loss;new held-descriptor strict reader preserves bytes,full32KiB and explicit ranges;original failed log hash retained;final sequence rerun after fix"
+proof_setup = "Initial whole-usr bind unsuitable because locked WSL/C submounts;use exact nonrecursive runtime directories;readonly tmpfs remount preserves child mounts;exact dev/null needed for real child stdio;all final production proofs pass"
+
+[validation]
+focused = "Four real ACP namespace tests pass:actual stdio/session/load/models/replay/read/permission/jailed kernel/cancel;owner browser/API/Engine/granted reads/secret denial/Agent+Chat/catalog/model/cancel/restart;malformed/session/size/private-error/timeout/descendant death;independent network Fix observer"
+full_command = "cargo test -p ryoku-rashin --locked --offline"
+full_passed = 166
+full_failed = 0
+full_ignored = 8
+full_breakdown = "81unit,1portableACP,15collector,69workflow;main and fixture executable harnesses0"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 746
+workspace_result_rows = 57
+workspace_failed = 0
+workspace_ignored = 15
+count_scope = "Sum terminal summaries including nested subprocesses;7 existing ignores plus8 capability proofs explicitly exercised on current binaries"
+sequence = "All12 stages terminal0:strictClippy,fullRashin,workspace,fmt,diff,supported-target deny,2UID,bind,public transport,public gateway,all4 actualACPflows,RPMparse"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings:passed"
+format = "cargo fmt --all -- --check:passed"
+diff = "git diff --check:passed"
+rpm = "rpmspec --parse packaging/rpm/ryoku-desktop.spec:passed;workflow asserts all exact executable capabilities"
+dependency_metadata_command = "cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu"
+dependency_command = "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path FILTERED_METADATA --all-features check"
+dependency_result = "advisories,bans,licenses,sources ok for supported x86_64 all-features graph"
+unfiltered_offline_dependency_review = "Unavailable due uncached target-inactive Jiff helpers;no fetch"
+existing_namespace_proofs = "Four current-binary proofs explicitly1/1 each:2UID credential no-send,Store bind/mount refusal,real public transport and authenticated gateway;commands/guards as preceding public-web receipt"
+acp_namespace_command = "cargo test -p ryoku-rashin --test acp --locked --offline -- --ignored --nocapture:4passed0failed;distinct from portable CI defaults"
+acp_host_capability = "Actual installed unshare subordinate-ID user/mount/PID/IPC/UTS/network namespaces executed;foreign mapped UID and readonly mounts verified;all host data/FD/process escape probes denied;descendants terminated after manager cancellation"
+
+[storage]
+paths = "All workspace/HOME/cache/build on/dev/sdd;logs/fixtures on/tmp tmpfs"
+verified_linux_available_bytes = 941435232256
+verified_tmpfs_available_bytes = 6967017472
+verified_c_available_bytes = 1538109440
+constraints = "C below10GiB floor;no C-bound writes,downloads,cleanup,candidate/native/VM work"
+footprint = "Final debug main51669096bytes and deterministic adapter7956888bytes on Linux;fresh root capped256MiB tmpfs;no large image/media/model artifact"
+
+[remaining]
+full_issue_complete = false
+process_review = "Coordinator review of immutable runner/credential/filesystem/action boundaries still required;host proof is not packaged/native acceptance"
+gates = ["Exact new hosted CI", "Automatic TOOLS_REQUIRED/unavailable fast lane to isolated ACP fallback", "Runtime persistent/shared ACP session/load/replay,all harness/interpreter/runtime/auth/model/config/image/thinking/plan/tool detail/approval/diff/full terminal/UI behavior", "Native installed source/vendor/RPM closure and default state/NSS/inventory/writer/linked recovery integration", "Remaining Prowl provider/profile/sign-in/network/project/index/harness,usage quota/RPC/timer and native app/shell/Hub/service behavior", "Full packaged Tumbleweed install/login/interaction/usage/restart/removal/restore/KDE acceptance;none excluded"]
+
+[[helper_provider]]
+path = "/usr/bin/unshare"
+provider = "util-linux 2.42.1-1.2.x86_64"
+sha256 = "fac84ee66e275a8ed3e015a99cbbcee28dca5981f53344f56939ec2e3c20a80b"
+bytes = 47600
+evidence = "Observed installed RPM file ownership/name/version/architecture and file SHA256;not native solver/download/VM proof"
+
+[[helper_provider]]
+path = "/usr/bin/mount"
+provider = "util-linux 2.42.1-1.2.x86_64"
+sha256 = "d6b2e5bad86c4d2da454eed5230c1a2e337f668c4158d11b02c8794649d497cd"
+bytes = 51456
+evidence = "Observed installed RPM file ownership/name/version/architecture and file SHA256;not native solver/download/VM proof"
+
+[[helper_provider]]
+path = "/usr/bin/setpriv"
+provider = "util-linux 2.42.1-1.2.x86_64"
+sha256 = "de90164aeae97ae5503c76e3a698f481a2a7e43499025ada971ffba505899afa"
+bytes = 51464
+evidence = "Observed installed RPM file ownership/name/version/architecture and file SHA256;not native solver/download/VM proof"
+
+[[helper_provider]]
+path = "/usr/bin/chroot"
+provider = "coreutils 9.11-4.2.x86_64"
+sha256 = "1edf2a5e2b4a27c303cee3c3df7cddc6cec115a196634a8e3c1aa579090b3a64"
+bytes = 43408
+evidence = "Observed installed RPM file ownership/name/version/architecture and file SHA256;not native solver/download/VM proof"
+
+[[helper_provider]]
+path = "/usr/bin/prlimit"
+provider = "util-linux 2.42.1-1.2.x86_64"
+sha256 = "fe07bcbcdd490b0b05ff4f013169575b0fb2c8bb169f20dbe273a6da6cd8a46f"
+bytes = 27416
+evidence = "Observed installed RPM file ownership/name/version/architecture and file SHA256;not native solver/download/VM proof"
+
+[[helper_provider]]
+path = "/usr/bin/newuidmap"
+provider = "shadow-pw-mgmt 4.19.4-2.2.x86_64"
+sha256 = "f3c5e4faa8ab9f6b927ac8a19557949587a17a2890d1cab14bd0bffbb4c439e5"
+bytes = 41712
+evidence = "Observed installed RPM file ownership/name/version/architecture and file SHA256;not native solver/download/VM proof"
+
+[[helper_provider]]
+path = "/usr/bin/newgidmap"
+provider = "shadow-pw-mgmt 4.19.4-2.2.x86_64"
+sha256 = "32c10f698719f77688d771e732218f8bf6b7d76c617ecf51a4b6ffd163ef67ed"
+bytes = 41712
+evidence = "Observed installed RPM file ownership/name/version/architecture and file SHA256;not native solver/download/VM proof"
+
+[log_sha256]
+"clippy" = "bc5bd2cfd30611f8de69cc2e31fcb1f5d903816ad691c4bc64d0d399fa16a458"
+"full" = "0339cf9d8dbb46e078d9ba0f8ce96fbe0d2ff906d15a998a397254e48c35dc9a"
+"workspace" = "38df516516b5fa2f97a6e6f5b484c8105b955563f358e96af79ab19a9ccaf4d9"
+"fmt" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+"diff" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+"deny" = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+"two-uid" = "1c8b17d588ba074a319d7c7cc69474a0f98f0c3da8eb7378b565f304a784cdc8"
+"bind" = "71a42fa7ac019821f6111f4434dc51e1c2f7169c4c39d619668d7680a37b1687"
+"public-transport" = "59d27096bf79bf074b6b15b88e1ed073974debf3b73f5532953cdad0c6ad31f6"
+"public-gateway" = "8b15e7d271288b125ecd0ff010bf2cbd8f5799e32e3207497cef2e2480933df1"
+"acp-real" = "89ef05b877814f8ab41bdd35d408068e2d320275be8f143d75001b3bc8976d1d"
+"rpm" = "e289b5474442740e7382f7f631a273adad72f9fdf65995ebb780079ca201862f"
+"real-client" = "919ea80464d05681dc5612ef08661f2e4da2e57360088c299c628d0fff380e94"
+"read-fidelity-before-fix" = "868aee0ec8a2789c2b5129b626d0362724ba3fc860656ca34d005813abf358fb"
+"read-fidelity-corrected" = "894f18091c6f298d49691c276624cd6b444f8a3676697d6ad78d2f70a86d19c2"
+"fix-observer" = "42f6fa497dc8ac5cf5a123071379ba92a64bd4847f7e318b24dc58503dcc5ac6"
+"fix-observer-exact-retry" = "4f803cdc3961ab0345bcd10e650a9ef982c5542c786244afbbdb672b405bfac8"
+"sequence" = "25f9b2e3f9eca4b9f9b1d40caeb94fa4d39555bdcbc0a83d174e7cece7129f14"
+
+[source_sha256]
+"docs/rashin-runtime.md" = "278aa6133219dd54057f228d9e27aa35ab32d3534b67dc3580d694f4a97e3554"
+"packaging/rpm/ryoku-desktop.spec" = "f4a094285b56252a425524bee24b69b2e0c082018655d02ea6c0ef8ba64ed82d"
+"suse/rashin/Cargo.toml" = "8e93c7cf2b4e071bacfc02eed786867d49a6389c0e26f8bf0071403e14443ef1"
+"suse/rashin/src/acp/bridge.rs" = "b2b27515a0d1d52ec3a4069e0e0191d620a1b51f2150663f918af8c95e690dbf"
+"suse/rashin/src/acp/client.rs" = "0939227667cda14be06ea457ab7fd9d42aca24ff194afa4ae8e8aeb4ba49d1f7"
+"suse/rashin/src/acp/mod.rs" = "7a7a902b712a8a93fbc3bcda98be9efbe823a27b9de7d394c79b4feab41e3576"
+"suse/rashin/src/acp/protocol.rs" = "1059aba46c8841ed24ab1820745abd1227c5df49607045f312aea1fcfe6316c9"
+"suse/rashin/src/acp/sandbox.rs" = "9e56b37c2041da000d93b99a581a486954f040c36452e47a560568384371b393"
+"suse/rashin/src/api.rs" = "a40433623b9e04db066dd896a9a4bc87ebfa6a7e0dbdd264162c20a82ff1e1dd"
+"suse/rashin/src/authorization.rs" = "189e85b2c625b89b392dc6ee0c3fcf7a24d7d5fcae0bcbebef7434a4ae052f8d"
+"suse/rashin/src/bin/ryoku-rashin-acp-fixture.rs" = "773962a45eeb8c9cd3472aa621d8bc7243d14c450935e0a5a179b7866ed33cb0"
+"suse/rashin/src/http/console.rs" = "157d9f22b8dc12370c54389f0247b02fb8a0aa540f88c6139f51e50b28396b72"
+"suse/rashin/src/lib.rs" = "a1d412506b548e8bc48311795244d85b1773d25af04d3275a676a9287373e248"
+"suse/rashin/src/main.rs" = "8714e0ca3a5d819b804d1c541188075dd5978bc3a97cc5e825b929a80435f91f"
+"suse/rashin/src/provider.rs" = "55590e3423bb6a1e275922cbb5751a8868f92d24d585bc4847d62ebb1b5967ab"
+"suse/rashin/src/provider/stream.rs" = "1f9e7f780b58725162194fa5a41b6025933b87fac2313f615398807fb876a285"
+"suse/rashin/src/prowl/activity.rs" = "da3a8611574a43e13fb5b1795c996ee454c684121519c5a97673caa3b95e5147"
+"suse/rashin/src/prowl/read_roots.rs" = "1616a7700e9c48409fe4e024524501c2573fff44a71c146a647c87d439bf20c9"
+"suse/rashin/src/runtime.rs" = "4a3b3f11b404885532ede443428684596f286987ef4e9f57651fddfb725c13fc"
+"suse/rashin/tests/acp.rs" = "4de4ed6ac80e3b64c0f0930ebba36458188c36d310e35d8d67fd1dcfcde3fbc2"
+"suse/rashin/tests/workflows.rs" = "097ee3fcbfc5056ba09568f2e838d9f656465a57d2bb4b8c97390166a388b1ba"

@@ -1,0 +1,63 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "2d207d7add990967ad683dc528ed18062f961218"
+status = "private-provider-model-editing-tested-full-parity-pending"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+upstream_model_source = "ryoku/rashin/backend/acp.go SetModel/modelPickAvailable"
+upstream_model_blob = "f6cc47c3328a8f742e3565e61679c64a9d4e9c74"
+source_contract = "model IDs remain opaque strings in JSON modelId/config-option values; saved picks remain explicit"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+new_dependencies = 0
+
+[behavior]
+action = "owner update_provider with typed changes: endpoint/api_key/models/streaming"
+secret = "omitted key retains existing private credential without reveal or re-entry; explicit key rotates privately; responses/inventory remain redacted"
+fields = "omitted endpoint/catalog/stream mode retain exact existing values"
+selection = "independent saved lane picks unchanged by edits; removed offered model remains saved and requests fail ProviderUnavailable until explicit selection; no silent fallback"
+opaque_ids = "bounded nonempty UTF-8 up to128 bytes with no control characters; Unicode/punctuation/quotes preserved exactly as JSON values"
+model_allowlist = "requests still require exact membership in owner-configured model catalog; IDs never become URL/file paths, argv or executable syntax"
+atomicity = "empty/invalid edits rejected without private-state publication; local provider protected; restricted clients denied"
+consent = "successful edit advances configuration revision and invalidates prior external Fix preview confirmation"
+network = "editing configuration starts no provider/model network request"
+
+[validation]
+focused_command = "cargo test --locked --offline -p ryoku-rashin"
+focused_passed = 87
+focused_failed = 0
+focused_ignored = 0
+focused_breakdown = "39 unit results,15 collector tests,33 workflow tests"
+new_cases = ["secret preservation without key input/reveal", "opaque Unicode/punctuation ID and exact restart persistence", "saved unavailable pick and explicit reselection", "independent lane choices retained", "invalid/empty edits roll back", "protected local and scoped-role edits denied", "redacted key rotation", "partial edit invalidates Fix consent", "live HTTP scoped edit denied"]
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 667
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 7
+count_scope = "exact sum of terminal harness summaries, including nested subprocess summaries"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed,0 warnings"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+dependency_graph = "Cargo manifest/lock unchanged; prior supported-x86_64 offline advisories/bans/licenses/sources result applies"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers; no fetch"
+previous_hosted_ci = "2d207d7 run40152860252 fully success including dependency review"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact-head hosted CI and separate unsafe review", "Complete live catalog/Prowl/provider/profile/sign-in/network workflows", "Every retained ACP/harness/replay/tool/approval/image/thinking and terminal workflow", "Complete retained UI and isolated shell/ACP capability delivery", "Live quota/RPC and original timer/cache bridge", "Protected native state/writer/linked recovery and full private inventory", "RPM/vendor/native closure and packaged Tumbleweed VM acceptance"]
+
+[log_sha256]
+focused = "77290c56e70e368d31e263fad4d6d68155a739665a666bc969ca67f3c76aa6bc"
+workspace = "ea59a03354afe67cf9bedbca066ad6d5ad7e7e1fd9030ef4db1368667dbd801b"
+clippy = "f969a3c50ef9065b5562af9f05d918498bd9dac81aada8663c3327b965da0144"
+
+[source_sha256]
+"suse/rashin/src/api.rs" = "01eda5bcf6c645925f3787db216f9edcff0bfebb9afce9df1c67ce5f20696d6e"
+"suse/rashin/src/authorization.rs" = "9d189636b1c456480c6a9896ef1d5d2c9b83b3cdc9a92e1b2c25a02c122461af"
+"suse/rashin/src/provider.rs" = "9b85cdeb9b1b858d3e7bd61bea82ae8dc50395bafab8b9f263502fa92bebb40f"
+"suse/rashin/src/runtime.rs" = "1e22e410833fbe965323deb408419b83f0142632649307a813c62bbf1685e959"
+"suse/rashin/tests/workflows.rs" = "d664971b508f73e6062bf6c0c1ddfcbf6c0b2c05851f3649957a2310cf8f0239"
+"docs/rashin-runtime.md" = "72e5659fc3cbc46850bb1318182c9e0d5ee30cebf0308ccb47e37d2a39605ded"

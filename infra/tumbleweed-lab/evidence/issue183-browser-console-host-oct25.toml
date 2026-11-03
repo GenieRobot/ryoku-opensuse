@@ -1,0 +1,96 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "26b5f63623535c58883b55f0acfcc50fa5f3b83e"
+status = "browser-conversations-provider-forms-and-cookie-isolation-tested-full-parity-pending"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+new_dependencies = 0
+
+[behavior]
+console = "Rust-rendered no-JavaScript Ask, independent Agent/Chat session creation/history/prompt/deletion, owner job discovery/progress/cancel/forget, provider create/edit/remove/catalog refresh and explicit model picks"
+provider = "blank API-key edit preserves saved secret; inventory/forms never reveal it; bounded opaque model IDs are escaped; unavailable saved choices remain visible until explicitly changed"
+progress = "ephemeral streaming shown only while running; timed GET refresh and relative POST303GET avoid form replay; cancellation/failure has no partial transcript or token usage"
+compatibility = "existing uploaded-document indexing, recent answers, usage/status, bearer API/native Unix and scoped Ask authorization preserved"
+
+[finding]
+source = "former POST /login emitted the raw owner bearer as an HttpOnly SameSite host cookie"
+sink = "a second service on the same loopback host at another port can receive the ambient cookie and replay its raw bearer"
+references = ["https://www.rfc-editor.org/rfc/rfc6265.html#section-8.5", "https://www.rfc-editor.org/rfc/rfc9110.html#section-11.5"]
+invariant = "another loopback origin must not receive ambient owner authority merely because the user visits it"
+fix = "no cookie is issued or accepted; UI uses origin-scoped HTTP Basic for username owner/private browser.token; every browser mutation requires exact Origin; explicit owner/scoped bearer routes retain typed authority"
+challenge = "unauthenticated same-origin form returns401 before execution, allowing a standard auth client to challenge/retry; restricted or invalid bearer never inherits browser authority"
+upgrade = "web startup rotates browser.token; restart required on upgrade to invalidate any bearer leaked by the previous cookie implementation"
+assumptions = "standards-conforming origin/protection-space client, no manual secret forwarding; owner filesystem/socket authority and privileged traffic inspection remain outside this cross-port threat"
+review = "separate source-to-sink and bypass/compatibility passes; all delegation slots occupied; discovered and corrected missing standard-client POST challenge and preserved existing usage/status views"
+verification_limit = "local handler/protocol evidence passes; actual browser engine unavailable without a download; browser/WebKit/packaged VM acceptance remains pending, not claimed verified"
+
+[independent_two_port_proof]
+client = "installed Python stdlib HTTPBasicAuthHandler plus CookieJar, isolated disposable security-managed proof; no tracked Python executable added"
+server = "actual built ryoku-rashin web daemon plus independent second loopback HTTP server challenging with the same realm"
+first_origin_console = 200
+second_origin_requests = 1
+second_origin_received_authorization = false
+second_origin_received_cookie = false
+captured_header_replay_with_forged_origin = 403
+legacy_valid_cookie_replay_with_forged_origin = 403
+same_origin_session_post_followed_redirect = 200
+cookies_issued = 0
+external_network_requests = 0
+proof_artifact = "artifacts/issue183-two-port-proof.py (persistent Codex Security supplemental artifact)"
+proof_sha256 = "0b363b513b1f165ca81087c721a561245735e68cae87179f4be97a03c40cb2ba"
+result_artifact = "artifacts/issue183-two-port-result.json (persistent Codex Security supplemental artifact)"
+result_sha256 = "195ebaa60a9cb28862e0c603af5aa3b266e69542702b70b80c424429e61c6c72"
+
+[validation]
+focused_command = "cargo test -p ryoku-rashin --locked --offline"
+focused_passed = 94
+focused_failed = 0
+focused_ignored = 0
+focused_breakdown = "41 unit,15 collectors,38 workflows"
+new_cases = ["canonical Basic standard vectors", "cookie replay plus invalid/alternate Basic representations and forged/missing Origin denied", "scoped Ask cannot enumerate owner jobs or authenticate browser UI", "same-origin provider create/edit retaining key and opaque unavailable saved picks", "session prompt/history/delete and job forget", "stream progress escaped and ephemeral, cancel removes progress, asynchronous catalog rendering", "existing usage/status/index/recent answers retained"]
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 674
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 7
+count_scope = "sum of terminal harness summaries, including nested subprocess summaries"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed,0 warnings"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+dependency_metadata_command = "cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu"
+dependency_command = "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path FILTERED_METADATA --all-features check"
+dependency_result = "advisories ok,bans ok,licenses ok,sources ok for supported x86_64 graph"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers; no fetch"
+
+[scheduler_fixture_investigation]
+initial_result = "one full focused run failed existing daemon catch-up fixture at4s; child stderr was discarded and exit status was not checked, so initial cause cannot be established"
+change = "capture daemon stderr and check early exit before each poll; no production scheduler change, timeout increase, assertion removal or failure retry"
+stress_command = "20 consecutive cargo test -p ryoku-rashin --locked --offline --test usage_collectors invocations"
+stress_passed = 300
+stress_failed = 0
+final = "all15 collectors pass in final focused and workspace runs; initial transient cause remains unconfirmed and diagnostics retained"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact-head hosted CI and separate unsafe-boundary review", "Actual browser/WebKit/native shell and packaged Tumbleweed install/login/interaction/usage/restart/removal/KDE VM acceptance", "Live configured-provider transport/catalog acceptance", "Every retained Prowl/provider/profile/sign-in/fallback/network operation", "Full retained ACP/harness/protocol-v3 replay/images/thinking/tools/approvals/terminal and console sheets", "Isolated shell/ACP capability delivery and native typed per-action authorization/linked recovery/private inventory", "Quota/RPC/original timer-cache bridge and source/package/vendor/native dependency closure"]
+
+[log_sha256]
+focused = "b609ee7b857d99b27c119871de899bd4061cf4c85222b66111a58213b226eec3"
+workspace = "61ceb6feb309f7ec28ff764208d851adfb7448be1c9dc4a97fbc15eeb30f7bba"
+clippy = "18872d456425754fce4007abd399bb29de680014e912ce07ec535ee9b123094d"
+dependency = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+collector_stress = "e55afecc0957248e777bf4b8acd9d756862947222dec4c5d1deabfdbfd4ef7c5"
+
+[source_sha256]
+"suse/rashin/src/api.rs" = "59fee1bc99e7767876acf50d4d86426e57c0b5bf7aaae7dfbd71d4633fa38b64"
+"suse/rashin/src/authorization.rs" = "542d78bf85dad24c39e758e5d6b545e34e01dba880e7ae854e0d13a83234432c"
+"suse/rashin/src/http.rs" = "26ef82baaa0ca5df2000aff4ce0f2132dc86785fe330e2512e5c83f5f1feb5e5"
+"suse/rashin/src/http/console.rs" = "1f93d7cc8c065762150f18f993fd53231596a58425a95ae03a2d5e0f334fab5e"
+"suse/rashin/src/runtime.rs" = "12c45ad7fda04325b017636860dbbc010b7b2bc9af731eb3e95346990a8f1048"
+"suse/rashin/tests/workflows.rs" = "ed5a9ee8a13994ae88ecb0ca0ce4257447611bc0de71fe20f6e602647c5dfb75"
+"suse/rashin/tests/usage_collectors.rs" = "d614ce06fb2aaf488e55a56dbed901e1d4c28d27d165f50bbcea87703aacee54"
+"docs/rashin-runtime.md" = "2f10c04449e1254481f723dd23c25412eaa6456d57060b36e99dc17aa8012aff"

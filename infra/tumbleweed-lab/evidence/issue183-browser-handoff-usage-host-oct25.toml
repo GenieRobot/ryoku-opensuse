@@ -1,0 +1,73 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "2a58e7c8204fce9dbacb639a395d0d6ae55eae15"
+status = "browser-handoff-usage-wiring-fix-review-tested-full-parity-pending"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+new_dependencies = 0
+
+[behavior]
+implementation = "Rust browser forms/views call existing typed runtime actions; no backend/provider/native/service/helper behavior change"
+handoff = "completed Ask offers canonical recorded-context stage/clear or immediate Run into selected Agent session; Chat excluded; pending context displayed escaped; forged copied question/answer ignored; accepted ID retries idempotent"
+usage = "explicit private Claude/Codex/opencode enrollment,manual collection,disable/cache removal and optional paired opencode soft caps; actual descriptor-bound readers,not a display stub"
+source_state = "not-yet-collected,fresh/partial/stale/unavailable labels; failed collection retains labeled last good; local tokens/soft caps distinct from provider quota; credentials/transcripts excluded"
+scheduling = "existing single-daemon persistent five-minute schedule unchanged; no unit/timer,login,linger,OAuth/RPC/provider request"
+instructions = "built-in Agent wire/unwire now usable through browser; effective instruction fixture proves change/removal; external/native harness wiring remains required"
+fix_preview = "typed doctor/tip/app finding with redacted destination,exact finding,bounded native excerpt,expiry and disclosure; no provider job before explicit confirmation"
+fix_confirmation = "required checkbox checked server-side; hidden kind/component/finding/consent bound by existing backend; token never in URL; external mismatched consent starts no job or provider call; accepted local retry idempotent"
+authority = "owner Basic/bearer and exact-Origin forms; no cookie authority; existing scoped Ask restriction,private responses,escaped HTML and CSP retained"
+recovery = "proposed repair still requires separately authorized native typed provider plus verified linked capture; these UI actions do not execute shell/native repair or certify protected inventory/recovery"
+
+[validation]
+sequence = "set-e sequential formatter/diff,full Rashin,workspace,strict Clippy,supported-target deny,explicit two-UID proof: terminal exit0"
+browser_command = "cargo test -p ryoku-rashin --locked --offline --test workflows browser_ -- --nocapture"
+browser_passed = 7
+browser_failed = 0
+new_cases = ["canonical staged/immediate browser handoff,Chat separation,clear,forged-content rejection,replay", "usage enrollment/collection/stale-last-good/disable/caps/invalid-partial-edit privacy", "effective wire/unwire and reviewed native Fix,missing checkbox refusal,idempotence,external consent mismatch without network"]
+focused_command = "cargo test -p ryoku-rashin --locked --offline"
+focused_passed = 106
+focused_failed = 0
+focused_ignored = 1
+focused_breakdown = "47 unit,15 collectors,44 workflows; two-UID prerequisite case explicit below"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 686
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 8
+count_scope = "sum of terminal harness summaries including nested subprocesses;7 existing ignores plus separately exercised two-UID prerequisite case"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed,0 warnings"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+dependency_metadata_command = "cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu"
+dependency_command = "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path FILTERED_METADATA --all-features check"
+dependency_result = "advisories,bans,licenses,sources ok for supported x86_64 all-features graph"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers; no fetch"
+
+[two_uid_regression]
+command = "unshare --user --map-auto --map-root-user target/debug/deps/ryoku_rashin-e5c84e14e6648c40 --ignored --exact prowl::transport::tests::connected_foreign_uid_receives_no_request_or_management_credential --nocapture"
+passed_after_ui_changes = 1
+failed = 0
+result = "owner UID0 Unauthorized; foreign UID1 receives zero request bytes; existing subordinate-ID namespace,no host account/root/password/download"
+ci_distinction = "separate host proof; default portable CI does not assume subordinate mappings"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact-head hosted CI", "Actual browser/WebKit/native app and packaged Tumbleweed UI/VM acceptance", "Every retained Prowl/profile/provider/sign-in/fallback/network and protected mutation workflow", "Full ACP/harness/protocol-v3 replay/images/thinking/tools/approvals/terminal and remaining console sheets", "Isolated shell/ACP capability delivery,external wiring and native state/writer/private inventory/linked recovery", "Quota/RPC/original timer/cache/shell bridge", "RPM/vendor/native dependency closure and install/login/interaction/usage/restart/removal/KDE acceptance"]
+
+[log_sha256]
+browser = "de3e0656f57642ed1f0638dcc20c38aeccdbd7d8918aa6f96efff3b35fa8a7d4"
+focused = "67357773bfa26cb7e7f50e71d032640040fd9c4d369e6a0676333692d2ca9474"
+workspace = "85233480f85337cd381fc29e926547d82c42d60a25bddba7141a881b60bba313"
+clippy = "00f28ca51040b9f0b57390b7306053cbba5618ba9b2820a6ac21934c33cc38cb"
+dependency = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+two_uid = "c45b5c988810b9bb6b9b0fd3715bce905424a0dacad8e575729691ef1586d7c2"
+
+[source_sha256]
+"suse/rashin/src/http.rs" = "515606e0282c4b87cac0c3c8d1daafbee571c02f8d47ffad8617b0d9d3b8c71f"
+"suse/rashin/src/http/console.rs" = "9236d74bb72ace807388864319eb0bed1f7a3e29e91c5ada2199f9d6a0747053"
+"suse/rashin/tests/workflows.rs" = "171da51ae255abd873db263d921212170107d92b0dc201c2cca361cef60043e5"
+"docs/rashin-runtime.md" = "d923485b1f6190005c30b20a8b431b2316273ce6adb63c60e98943737fd46d36"

@@ -1,0 +1,103 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "e61ab7a8f10dbcaf65f84788b4e16a55caad1acd"
+status = "owner-selected-authenticated-source-search-tested-full-native-index-lifecycle-pending"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+new_dependencies = 0
+
+[source_contract]
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+search_source = "ryoku/rashin/backend/prowl.go:215-252"
+search_blob = "d7668bb8339f943298d2db7d5606b3e832c53c08"
+search_test = "ryoku/rashin/backend/prowl_test.go:99-147"
+search_test_blob = "1418022a34d2d5a26dd73c9550b393ad160abd2f"
+tool_source = "ryoku/rashin/backend/quicktools.go:247-262"
+tool_blob = "5fd8cba88541794d467c4ed877c8fe5062b0acec"
+retained_behavior = "authenticated fixed GET/api/code/search,q/repo/limit20,typed file/start_line/snippet,at most12 tool hits with160byte snippets"
+
+[behavior]
+permission = "separate owner set_code_search per Prowl provider selecting an existing enrolled root;browser checked disclosure;scoped selection denied;no implicit system permission"
+state = "selection exposed by read_roots,persists restart,disable clears;root disable/re-enrollment and provider removal/different-kind replacement clear selection"
+capture = "accepted job holds selected root descriptor/context;root dev/inode revalidated before/after gateway index read;held-response replacement fails Integrity without disclosing snippets"
+endpoint = "fixed loopback route,percent-encoded query and captured repo,limit20;no generic URL,path override,CLI,shell,proxy,redirect,reconnect,service start/index download"
+transport = "existing post-connect unique reverse4tuple/currentUID/nonzeroinode proof before any request bytes;bounded cancellable Rust stream;search<=20s within45s whole loop"
+input_limits = "query<=1024bytes,repo<=4096bytes,encoded path<=8192bytes;every non-unreserved UTF8 byte encoded before HTTP header construction"
+response_limits = "existing1MiB HTTP bound;<=20 typed hits,<=12 disclosed,UTF8-safe160byte snippet;invalid/excessive fields fail"
+path_authority = "each hit requires current allowed ordinary-file path through held root;Store/secret/outside/missing/symlink/hardlink/mount paths omitted and counted"
+index_semantics = "results labeled configured_prowl_index;snippet freshness follows trusted owner gateway index,not a claim of byte-exact current source content/hash binding"
+credential_screening = "raw echoes refused plus decoded metadata strings/file/snippet screening before truncation;JSON Unicode escaping cannot bypass management credential protection"
+privacy = "unknown response fields dropped;gateway errors not forwarded;cancelled search sends no final model round and records no partial usage/answer"
+fix = "existing Fix disable-tools capture also suppresses source search;new source setting bumps provider/config generation"
+
+[validation]
+sequence = "full Rashin,strict Clippy,full workspace,fmt/diff,supported-target deny,explicit two-UID,explicit bind proof:terminal exit0"
+focused_command = "cargo test -p ryoku-rashin --locked --offline code_search -- --nocapture"
+focused_passed_before_screening_correction = 5
+focused_breakdown = "1 route encoding unit,4 actual gateway workflows;all included in final corrected full suite"
+focused_gateways = ["actual streamed completion->authenticated GET->filtered result->completion;encoded repo/query/limit;owner/browser/scoped/restart/disable", "malformed/21hit/credential-echo response errors;20 valid hits produce12 results/8 omissions", "cancel in-flight index read closes stream and produces no final completion/usage", "barrier-controlled root replacement rejects stale snippets;explicit re-enrollment clears selected source"]
+escaped_key_command = "cargo test -p ryoku-rashin --locked --offline prowl -- --nocapture"
+escaped_key_passed = 26
+escaped_key_ignored = 2
+escaped_key_regressions = "raw-byte guard deliberately cannot see PRIVATE\u005fMANAGEMENT_KEY,decoded metadata/snippet guards reject it;normal metadata remains usable"
+full_command = "cargo test -p ryoku-rashin --locked --offline"
+full_passed = 143
+full_failed = 0
+full_ignored = 2
+full_breakdown = "65unit,15collector,63workflow"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 723
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 9
+count_scope = "sum of terminal summaries including nested subprocesses;7 existing ignores plus two explicitly exercised namespace prerequisite cases"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings:passed,0warnings"
+format = "cargo fmt --all -- --check:passed"
+diff = "git diff --check:passed"
+dependency_metadata_command = "cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu"
+dependency_command = "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path FILTERED_METADATA --all-features check"
+dependency_result = "advisories,bans,licenses,sources ok for supported x86_64 all-features graph"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers;no fetch"
+two_uid_command = "unshare --user --map-auto --map-root-user target/debug/deps/ryoku_rashin-e5c84e14e6648c40 --ignored --exact prowl::transport::tests::connected_foreign_uid_receives_no_request_or_management_credential --nocapture"
+two_uid_result = "explicit1/1 after final source;metadataGET and completionPOST foreignUID zero bytes/owner Unauthorized;codeGET shares same pre-write verified request path;separate from CI default ignore"
+bind_command = "unshare --user --map-auto --map-root-user --mount --propagation private target/debug/deps/ryoku_rashin-e5c84e14e6648c40 --ignored --exact prowl::read_roots::tests::bind_alias_and_mount_crossing_never_enter_credential_store --nocapture"
+bind_result = "explicit1/1 after final source in available private user/mount namespace;Store direct alias and nested crossing refused;separate from CI default ignore"
+corrected_before_final = "ReadRoots initially omitted persisted source selection;fixed public response and reran focused. Final boundary review added decoded credential screening/escaped-key regressions;entire strict sequence rerun on corrected tree"
+
+[storage]
+verified_paths = "workspace target,HOME,Cargo/Rustup caches on/dev/sdd;logs/fixtures/tmp artifacts on/tmp tmpfs"
+pre_suite_available_bytes_linux = 954040500224
+pre_suite_available_bytes_tmpfs = 7042625536
+constraints = "C backing volume below10GiB floor untouched;no C-bound writes,downloads,cleanup,candidate/native/VM work"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact-head hosted CI", "Index report/build/mirror lifecycle and actual packaged Prowl/source compatibility", "Public fetch_url DNS/redirect boundary and real tool flow", "Tool activity UI and TOOLS_REQUIRED isolated harness escalation", "Full retained ACP sessions,replay,cancellation,tools,approvals,images,thinking,terminal and process isolation", "Native NSS/default vault/config/data discovery and protected enrollment/writer/capture/recovery against stable #25 seam", "Prowl/profile/provider/sign-in/fallback/network server mutations and native lifecycle", "Full vault/memory/journal/project/skills/source enrollment and isolated capability delivery", "Quota/RPC/original timer-cache/shell bridge", "Native app/Svelte/shell/Hub integration,source/export/RPM/vendor/license closure and packaged Tumbleweed install/login/interaction/usage/restart/removal/KDE acceptance"]
+
+[log_sha256]
+focused = "c70340bf7f45809e7dee7d1981a2de9a5f223e9d996cdadb650c50e3f519d4a5"
+escaped_key_focused = "47a8cb39b1a0317f3356cb8f4a43050c41e6b300484b26a08e907099bdd2d188"
+full = "e92bd081d250e4d61569a98a26965bccb2cc7890f8611acb124c2e2f9a9a758d"
+workspace = "a08bd093d435c6cb49a954f2ab76492ec30245931572dbe19585b6dcbbcc2e62"
+clippy = "5e2f514e9dcac88ce98e41baf882c07f0d5822a4934e2ed5c30b0bf0727fa287"
+dependency = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+two_uid = "838b6c4b28802f1f702494d7ca37762f82ee2553be374b72c19303089be1fc3d"
+bind = "929d812e3a8105c96eecf8cecae9be8ae693cb4b86d96f77e8606dd041f1df90"
+sequence = "ca66d1aea0ecf89a5cffe7acc8c9a82a6cdf23e9c453ee9fb1d09e6e256e15d8"
+
+[source_sha256]
+"docs/rashin-runtime.md" = "33da54ae01507a33ba35638d469f11719f6729d2ba71dfb16fac72655669100a"
+"suse/rashin/src/api.rs" = "e7e54a4a35668fafce466833dd219fb7355ec4c72591ed8b23119123355deb8e"
+"suse/rashin/src/authorization.rs" = "bafa52c5a5447a57a4b92b22b598234fcb77016f77a6da2b2b54d60e9bfca333"
+"suse/rashin/src/http/console.rs" = "57f3bb37acac0a18673a6ab4ec367768512c55df5b69f9109cfe0b5dfa02fa31"
+"suse/rashin/src/prowl.rs" = "fb92a32ff9a19c3d450f42f57870b51ff7549d4944c1cda6d65ce51eef3f5a2d"
+"suse/rashin/src/prowl/code_search.rs" = "3a1bf935371c86c3919905d39582d67143991de7882b66b83a0df0a45ed48334"
+"suse/rashin/src/prowl/completion.rs" = "b1976b92c4a911783781b36cbab11e3717e4f2511f131b35d6d2ddeb97cb0852"
+"suse/rashin/src/prowl/read_roots.rs" = "756686040c3031a3af86a8497a1032510300c5a74d826a65f92e184d767d22a8"
+"suse/rashin/src/prowl/tools.rs" = "49791280d0e818154be2aa7cd76510c9e6d6dfe16fd66e2b7b3f673bd90c862b"
+"suse/rashin/src/runtime.rs" = "64a9d92160ed948e5fa9683d9fa06daeec99c520a300c56b9db63c634d98f114"
+"suse/rashin/tests/workflows.rs" = "a854a8784f935b0c1f9d16af0e3a12cd513bd00609329cf7cf3bc8c347729276"

@@ -1,0 +1,153 @@
+--- a/ryoku/rashin/backend/ask.go
++++ b/ryoku/rashin/backend/ask.go
+@@ -2,8 +2,11 @@
+ 
+ import (
+ 	"bufio"
++	"context"
++	"encoding/json"
+ 	"fmt"
+ 	"io"
++	"net"
+ 	"net/http"
+ 	"net/url"
+ 	"os"
+@@ -11,6 +14,7 @@
+ 	"path/filepath"
+ 	"regexp"
+ 	"strings"
++	"syscall"
+ 	"time"
+ )
+ 
+@@ -34,20 +38,40 @@
+ 		return fmt.Errorf("usage: ryoku-rashin ask <question>")
+ 	}
+ 	cfg := LoadConfig()
++	client, private := askTransport()
+ 	// Subcommands the launcher drives over the same verb.
+ 	if question == "--recent" {
++		if private {
++			return privateAskRecent(client, cfg.Port)
++		}
+ 		return askGet(cfg.Port, "/api/ask/recent")
+ 	}
+ 	if question == "--cancel" {
+-		askPost(cfg.Port, "/api/ask/cancel")
++		if private {
++			resp, err := client.Post(fmt.Sprintf("http://127.0.0.1:%d/api/ask/cancel", cfg.Port), "", nil)
++			if err != nil {
++				return err
++			}
++			resp.Body.Close()
++		} else {
++			askPost(cfg.Port, "/api/ask/cancel")
++		}
+ 		return nil
+ 	}
+-	if !pingDaemon(cfg.Port) {
++	if private {
++		resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/api/ping", cfg.Port))
++		if err != nil {
++			return err
++		}
++		resp.Body.Close()
++		if resp.StatusCode != http.StatusOK {
++			return fmt.Errorf("private Ask service unavailable")
++		}
++	} else if !pingDaemon(cfg.Port) {
+ 		emitAsk("error", "rashin is not running; enable it in Ryoku Settings, Advanced, Rashin")
+ 		os.Exit(1)
+ 	}
+ 
+-	client := http.Client{Timeout: 5 * time.Minute}
+ 	resp, err := client.Post(fmt.Sprintf(
+ 		"http://127.0.0.1:%d/api/ask?q=%s", cfg.Port, url.QueryEscape(question)), "", nil)
+ 	if err != nil {
+@@ -62,9 +86,84 @@
+ 	sc := bufio.NewScanner(resp.Body)
+ 	sc.Buffer(make([]byte, 64*1024), 4<<20)
+ 	for sc.Scan() {
+-		fmt.Println(sc.Text())
++		line := sc.Text()
++		if private && strings.HasPrefix(line, "@answer ") {
++			var answer askAnswer
++			if json.Unmarshal([]byte(strings.TrimPrefix(line, "@answer ")), &answer) != nil {
++				return fmt.Errorf("invalid private Ask response")
++			}
++			answer.Images = extractImages(answer.Text)
++			answer.Actions = extractActions(answer.Text)
++			if answer.Images == nil {
++				answer.Images = []string{}
++			}
++			if answer.Actions == nil {
++				answer.Actions = []askAction{}
++			}
++			b, err := json.Marshal(answer)
++			if err != nil {
++				return err
++			}
++			line = "@answer " + string(b)
++		}
++		fmt.Println(line)
+ 	}
+-	return nil
++	return sc.Err()
++}
++
++// askTransport authenticates the Unix peer before any request is sent.
++func askTransport() (*http.Client, bool) {
++	socket := os.Getenv("RYOKU_RASHIN_ASK_SOCKET")
++	if socket == "" {
++		return &http.Client{Timeout: 5 * time.Minute}, false
++	}
++	transport := &http.Transport{Proxy: nil, DisableKeepAlives: true, DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
++		conn, err := (&net.Dialer{}).DialContext(ctx, "unix", socket)
++		if err != nil {
++			return nil, err
++		}
++		u, ok := conn.(*net.UnixConn)
++		if !ok {
++			conn.Close()
++			return nil, fmt.Errorf("invalid private Ask socket")
++		}
++		raw, err := u.SyscallConn()
++		if err != nil {
++			conn.Close()
++			return nil, err
++		}
++		var cred *syscall.Ucred
++		var check error
++		err = raw.Control(func(fd uintptr) {
++			cred, check = syscall.GetsockoptUcred(int(fd), syscall.SOL_SOCKET, syscall.SO_PEERCRED)
++		})
++		if err != nil || check != nil || cred == nil || cred.Uid != uint32(os.Geteuid()) {
++			conn.Close()
++			return nil, fmt.Errorf("untrusted private Ask peer")
++		}
++		return conn, nil
++	}}
++	return &http.Client{Transport: transport, Timeout: 5 * time.Minute}, true
++}
++
++func privateAskRecent(client *http.Client, port int) error {
++	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/api/ask/recent", port))
++	if err != nil {
++		return err
++	}
++	defer resp.Body.Close()
++	if resp.StatusCode != http.StatusOK {
++		return fmt.Errorf("private Ask service unavailable")
++	}
++	var records []askRecord
++	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&records); err != nil {
++		return err
++	}
++	for i := range records {
++		records[i].Images = extractImages(records[i].Answer)
++		records[i].Actions = extractActions(records[i].Answer)
++	}
++	return json.NewEncoder(os.Stdout).Encode(records)
+ }
+ 
+ // askGet prints a daemon GET response verbatim (JSON for --recent).

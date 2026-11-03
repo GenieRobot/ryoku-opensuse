@@ -1,0 +1,68 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "66d31a27921a37b390c9d1569ef2d4ecf7ccc0a9"
+status = "configured-SSE-private-progress-and-worker-identity-tested-full-parity-pending"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+upstream_source = "ryoku/rashin/backend/quick.go quickRound"
+upstream_blob = "a17fe93fc892cd504306b4e3b3948c65f823e6a0"
+source_contract = "stream=true OpenAI-compatible chat completions, SSE data/DONE/delta text, provider-reported concrete model"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+new_dependencies = 0
+
+[provider]
+configuration = "OpenAiCompatible.streaming bool, serde defaultfalse preserving existing profiles; explicitly selected endpoint/model unchanged"
+transport = "existing fixed /usr/bin/curl, no shell, cleared environment, mandatory TLS, no proxy/redirect,45-second client limit, stdin-only key/body; fixed --no-buffer added"
+parser = "incremental fragmented UTF-8/LF/CRLF/comments/multiline data; requires terminal DONE; rejects malformed/error/tool/post-terminal frames"
+bounds = "64 KiB data/frame and pending line,128 KiB answer,1 MiB total response; callback cancellation propagates to child kill/reap"
+metadata = "optional stop reason and provider-reported actual model recorded separately from saved requested model; absent usage remains estimated"
+fixture = "explicit test-only streamed chunks/failure with <=128 nonempty chunks,total16 KiB and total configured delay<=1000ms; no endpoint"
+argv_test = "independent exact literal argv policy plus cleared environment/resource/no-output/no-insecure/no-location assertions"
+
+[runtime]
+progress = "private top-level job.progress while Running only; bounded ephemeral memory, at most4 workers*128 KiB; no per-delta fsync/session/usage publication"
+cleanup = "progress discarded on cancellation/failure/completion/restart; only successful completion atomically publishes answer/session/usage"
+registration = "active cancellation/progress registered under state publication lock before Running is observable; rejected publication cleans active registration"
+worker_identity = "per-process checked monotonic u64 generation binds callbacks, completion and cleanup; generation never serialized to state/API"
+reuse = "cancel/forget/same-ID reuse cancels superseded active flag; stale success/failure/cleanup cannot affect replacement job/progress/usage"
+role = "Agent progress still denied to AskClient policy; production transports remain Owner, no new live identity assignment claimed"
+
+[validation]
+focused_command = "cargo test --locked --offline -p ryoku-rashin"
+focused_passed = 82
+focused_failed = 0
+focused_ignored = 0
+focused_breakdown = "38 unit results,15 collector tests,29 workflow tests"
+new_cases = ["byte-fragment UTF-8/CRLF/comment/multiline/usage/model/stop metadata", "terminal/error/tool/malformed refusal", "callback cancel/frame/response limits", "missing usage estimate and EOF terminal", "ephemeral live progress/cancel/failure/atomic commit", "stale success/failure/cleanup against reused request ID"]
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 662
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 7
+count_scope = "exact sum of terminal harness summaries, including nested subprocess summaries"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed with no warnings"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+dependency_graph = "Cargo manifest/lock unchanged; prior supported-x86_64 offline advisories/bans/licenses/sources result applies"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers; no fetch"
+previous_hosted_ci = "66d31a2 exact-head run40150241480 fully success"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact-head hosted CI and separate unsafe boundary review", "Live configured provider/TLS/error/usage acceptance", "Authenticated restricted live bridge and ACP process isolation", "Upstream v3 WebSocket/replay/tools/approvals/images/thinking and retained harness parity", "Complete UI/Prowl/provider/model/network/terminal behavior", "Live quota/RPC and original timer/cache bridge", "Protected native state/writer/linked recovery integration", "RPM/vendor/native closure and packaged Tumbleweed VM acceptance"]
+
+[log_sha256]
+focused = "348850a8dfd955f5582c7f86f19b7d1cb9302983d7e7da48b855d5909d07afab"
+workspace = "48ce0a881d98f297bea4c87a8ca766645cc6161d6256ef59397e653d2c3753f0"
+clippy = "7438d64b47b715c136a4ba82cecbdddfa3679b555abfc382f1e4946c84f7c266"
+
+[source_sha256]
+"suse/rashin/src/provider.rs" = "094da3f0f28b3c312e6ea625acae1df10207b42dcf76ba3042c91426898e6925"
+"suse/rashin/src/provider/stream.rs" = "727cf418c5c25e1cc4a131d19c2e1d75ae117e9eb69baeb9aace75b20e4a74fc"
+"suse/rashin/src/runtime.rs" = "38953ef839edd766912c22be7fe03da9b558442556d73eac97b0cde2ed77f987"
+"suse/rashin/tests/workflows.rs" = "7119d1119e5c319ef850823d0095ffde81c29557167c8e036cc2ef24bea7e60d"
+"docs/rashin-runtime.md" = "55ac74c793f83f446c6f8981318d1b627540dee5ba4f057a0e3ac02ce0baff51"

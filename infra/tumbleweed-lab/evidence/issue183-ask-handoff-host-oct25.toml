@@ -1,0 +1,66 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "195a58d0087f875ec67b0a5be155b04e7b6a0951"
+status = "canonical-completed-Ask-Agent-handoff-tested-full-parity-pending"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+upstream_ws_blob = "d237e2d732630f86619ab44f4a9beca8589264ab"
+upstream_handoff_tests_blob = "673d416ddf4895f2d2cb2d61b40258435f4fbf60"
+upstream_contract = "ws.go handleHandoff/userPrompt; handoff_test.go canonical ID history, pending once, session changes, explicit Run"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+
+[behavior]
+actions = ["handoff with canonical completed Ask ID", "optional typed Run target job/session", "clear_handoff", "owner sessions exposes pending context"]
+pending = "one private lane-global record, persisted and defaulted for older state; survives restart/session changes; Chat/Ask/Fix do not consume it"
+capture = "next accepted Agent session Prompt consumes once; Run source/session/provider/context/job capture is atomic without a stage-to-prompt race"
+retry = "accepted Run ID retry returns stored result without restaging or egress; source/session or action fingerprint mismatch conflicts"
+source = "stored canonical question/answer only; no client replacement content; running/cancelled/failed/non-Ask sources refused"
+failure = "preacceptance Busy/limits/unavailable preserve pending; accepted cancellation/failure retains handoff metadata without partial conversation turns or automatic replay"
+privacy = "private history/context only, absent from restricted status/recent/Ask jobs; AskClient cannot stage/clear/run/inspect Agent sessions"
+forget = "forgetting source Ask clears pending copy; existing accepted Agent history remains independently deletable"
+limits = "16 KiB source question/answer each;32 KiB combined prompt; existing state/session/job/worker bounds"
+context = "handoff serialized as untrusted prior conversation JSON; delimiter-looking text is not parsed as protocol"
+external_routing = "explicit handoff context goes to selected Agent provider on owner Prompt/Run; no newly collected native observations or ACP child introduced"
+fixture_correction = "bounded100ms Busy retry in negative fixture opens handles concurrent fork/exec CLOEXEC inheritance while preserving actual unsafe/integrity outcomes"
+
+[validation]
+focused_command = "cargo test --locked --offline -p ryoku-rashin"
+focused_passed = 75
+focused_failed = 0
+focused_ignored = 0
+focused_breakdown = "32 unit results,15 collector tests,28 workflow tests"
+new_cases = ["canonical history/pending survives restart and session changes", "Chat separation and one-time Agent consumption", "immediate Run retry/auth/source/session/clear/forget", "running and cancelled sources refused", "Busy preserves pending and accepted failure consumes without transcript publication"]
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 655
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 7
+count_scope = "exact sum of terminal harness summaries, including nested subprocess summaries"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+dependency_graph = "Cargo manifest/lock unchanged; previous supported-x86_64 offline advisories/bans/licenses/sources result applies"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers; no fetch"
+previous_hosted_ci = "195a58d exact-head run40149116240 fully success"
+
+[remaining]
+full_issue_complete = false
+handoff_bridge = "manual/unfinished question/current ACP-Ask cancellation and v3 shell/UI/WebSocket replay remain required"
+live_role = "Owner production HTTP/Unix only; restricted AskClient is library/test policy with no live authenticated bridge assignment; same UID is not separate identity"
+gates = ["Exact-head hosted CI and separate unsafe review", "Complete ACP/harness/Prowl/provider/model/network/UI/terminal behavior", "Live quota/RPC and remaining usage/timer/cache bridge", "Protected native state/writer/linked recovery integration", "RPM/vendor/native closure and packaged Tumbleweed install/login/interaction/usage/restart/removal/KDE VM acceptance"]
+
+[log_sha256]
+focused = "6169382d7d3ee5922e610e84d083642c97190e12aefc286ca3495122bcbc2573"
+workspace = "4843708efbe1db9043fceb6876465256a1e5f9e7f492d832a01a58c8037cbafe"
+clippy = "ded74185a86cd30be50e6ec8337a01fa4a2315d6a38b51e5ac6dc3e97dc45629"
+
+[source_sha256]
+"suse/rashin/src/api.rs" = "d0cd72de03d448ce4d94eb9a0abd68790a492ca4045107f90191f38845e45e3a"
+"suse/rashin/src/authorization.rs" = "0415467af9389edbceadd6f9bc41f3b89e21891dd3aa70820891f840f4f37ddf"
+"suse/rashin/src/runtime.rs" = "14e7a2a6b702c34a5f8f8fff6eab7888886065998cb9ef7b0f1fcf43ac7a61fd"
+"suse/rashin/tests/workflows.rs" = "1d04fa0ad0a2e13805fe29c0d94681d7593743a5df808f4e3927363a09c97f8e"
+"docs/rashin-runtime.md" = "b732435aed9ea1c6f8f9f3bdee34679b388a19e7bda067686a5e6168540d8692"

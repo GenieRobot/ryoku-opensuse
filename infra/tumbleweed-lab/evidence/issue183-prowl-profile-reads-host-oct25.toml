@@ -1,0 +1,117 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "dbfa873c90fedc5953a12410d8eca0d6176c114c"
+status = "typed-private-prowl-profile-reads-tested-full-management-and-native-parity-pending"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+new_dependencies = 0
+
+[source_contract]
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+gateway_path = "ryoku/rashin/backend/prowlgw.go"
+gateway_blob = "0fbe44ee981735e3095080f57052ae37ff735de9"
+gateway_facts = "default127.0.0.1:8788; management bearer; api paths; no redirect; upstream auto-spawn replaced by explicit opt-in connection"
+client_path = "ryoku/rashin/web/src/lib/api/prowl.ts"
+client_blob = "1bf8a0327b47b72c43c94bba2357264e7d0091f2"
+client_lines = "192-202"
+types_path = "ryoku/rashin/web/src/lib/pages/prowl/types.ts"
+types_blob = "a78f45721bda91d23c20e569917a2a1c783149b9"
+types_lines = "555-633"
+external_server_contract = "retained client/schema reference, real local synthetic HTTP fixture tested; actual packaged Prowl acceptance remains open"
+
+[behavior]
+owner_actions = ["configure_prowl", "prowl_status", "disable_prowl", "read_prowl"]
+read_operations = ["profiles", "active_profile", "profile_models positive numeric ID", "profile_presets"]
+credential = "private atomic state; omitted/blank browser edit retains saved token; status/forms never reveal it; no token filename/URL accepted"
+destination = "fixed127.0.0.1 plus explicit nonzero u16 port; only four typed GET path families; no arbitrary host/path/proxy/process/download"
+publication = "response fields whitelist via typed decoding; bounds and malformed/error/redirect cases fail rather than fabricate empty profiles; unknown fields and raw management-token echoes not relayed"
+stale = "connection generation captured before network; reconfiguration/disconnect rejects old response as Conflict"
+console = "owner Basic/exact-Origin configuration/disconnect forms and escaped profile/active/membership/preset read views; no automatic network request while rendering main workspace/settings"
+effects = "no Prowl service start/enable/stop, no profile mutation, no rewritten Rashin model pick, no conversation/job/token usage publication"
+
+[connected_peer_boundary]
+finding = "loopback bearer alone authenticates the client but would expose its token to a foreign account taking over a stopped gateway port"
+implementation = "one safe Rust TcpStream; connect then verify established reverse IPv4 four-tuple, nonzero socket inode and current UID through fixed procfs file before any request bytes"
+reference = "https://docs.kernel.org/networking/proc_net_tcp.html"
+procfs = "fixed /proc/self/net/tcp, verified PROC_SUPER_MAGIC,4MiB scan cap; pending accept may poll read-only within same deadline; missing/ambiguous/malformed/foreign UID cannot authorize send"
+post_verify = "hold the same established stream through request; no reconnect/redirect; listening-port rebinding cannot replace that stream; closure fails"
+authority = "same-UID process/socket delegation retains account authority; privileged kernel/procfs compromise outside boundary"
+limits = "connect1s,total request I/O3s,headers/trailers16KiB each,decoded body1MiB,framing/body consumption1MiB+32KiB plus at most8KiB buffered read-ahead"
+framing = "identity HTTP1.0/1.1; exact Content-Length,chunked or EOF; reject duplicate/ambiguous length,compression,malformed/truncated/oversized input"
+https_provider = "existing configured HTTPS provider/curl implementation unchanged"
+
+[two_uid_host_proof]
+command = "unshare --user --map-auto --map-root-user target/debug/deps/ryoku_rashin-e5c84e14e6648c40 --ignored --exact prowl::transport::tests::connected_foreign_uid_receives_no_request_or_management_credential --nocapture"
+capability = "existing unprivileged user namespace and subordinate UID/GID mappings; no host account creation, root password, package download or host identity change"
+owner_uid = 0
+foreign_uid = 1
+foreign_listener_received_request_bytes = 0
+owner_result = "Unauthorized"
+repetitions_after_last_source_change = 10
+passed = 10
+failed = 0
+same_uid = "real connected owner socket verified before any request byte; normal authenticated profile/model/preset and browser forms pass"
+ci_distinction = "two-UID case explicitly ignored by portable default harness because subordinate mappings are prerequisites; manually executed host passes are separate from default counts"
+platform_limit = "host Linux/WSL proof only; packaged Tumbleweed kernel/procfs/user configuration acceptance remains required"
+
+[validation]
+sequence = "set-e sequential Prowl-focused,full Rashin,workspace,strict Clippy,fmt,diff,supported-target deny,10 explicit two-UID runs; terminal exit0"
+prowl_command = "cargo test -p ryoku-rashin --locked --offline prowl -- --nocapture"
+prowl_passed = 9
+prowl_ignored = 1
+focused_command = "cargo test -p ryoku-rashin --locked --offline"
+focused_passed = 103
+focused_failed = 0
+focused_ignored = 1
+focused_breakdown = "47 unit,15 collector,41 workflow; explicit two-UID case separate"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 683
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 8
+count_scope = "sum of terminal harness summaries including nested subprocesses;7 existing ignores plus the explicitly exercised two-UID prerequisite case"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed,0 warnings"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+dependency_metadata_command = "cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu"
+dependency_command = "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path FILTERED_METADATA --all-features check"
+dependency_result = "advisories,bans,licenses,sources ok for supported x86_64 all-features graph"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers; no fetch"
+
+[investigation]
+parser_fixture = "corrected invalid empty-object row-count test to513 valid profile rows; corrected malformed-UID fixture to alter only UID column rather than tuple hex; no assertions/warnings suppressed"
+fixture_wait = "server read wait aligned5s above production3s identity/I/O limit; production deadline and all status/timeout assertions retained"
+prior_fail_closed = "earlier same-UID fixture requests intermittently returned unavailable and server EOF; exact initial ownership/IO cause unconfirmed; no credential bypass added"
+instrumented_stress = "20 complete Prowl groups60 results and100 authenticated positive workflow repetitions passed; no tuple/UID/inode error diagnostic reproduced; all temporary diagnostics removed before final required sequence"
+recovery_baseline = "earlier workspace recovery wrapper-death fixture UnexpectedEof; exact isolated retest passed,then final workspace passed; no recovery source edits"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact-head hosted CI", "Actual packaged Prowl server and Tumbleweed peer/procfs proof", "Profile create/edit/activate/reorder/delete/preset mutations and protected per-action writer/capture/recovery", "Every retained provider/key/reveal/import/sign-in/fallback/catalog/health/cache/log/network/project/harness/skill/update Prowl workflow", "Full retained ACP/harness/protocol-v3 replay/images/thinking/tools/approvals/terminal and UI sheets", "Isolated shell/ACP credential delivery,native provider/private inventory and linked recovery integration", "Live quota/RPC/original timer-cache shell bridge", "RPM/vendor/native closure and packaged install/login/interaction/usage/restart/removal/KDE VM acceptance"]
+
+[log_sha256]
+prowl = "22f6e3d7a6e6c5a11b1b692f197c2cd7d86ca14953e465190a25450595445514"
+focused = "abb03d89c4b5d69be3d9e895b0c8491cb9194c442c9e47aad80df2a6b8d29b1c"
+workspace = "99f28316bef09e46f4e7e6d866e4051556f605a33f5236e271a16f477ef163de"
+clippy = "cd84ebd90a23ec12a314eac1b119ecd314e1a3dc7ea9076a973e141ce9faec49"
+dependency = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+two_uid = "188c27e7031da1f746984d60d54730e1746878a942709e4ae5d82477577f7a73"
+instrumented_groups = "cb4699d88a6c6691d3631725985fc8761d94589fa1d3bbf7a936967f92cecba2"
+positive_stress = "622d24aba8714f48f1f7dedd52438456a7c87568c3d30a71f65b3634c60f4062"
+recovery_retest = "df9643a9441320207acd08e4b18147aa816214a7553e602d658bfb5afc0b2ab3"
+
+[source_sha256]
+"suse/rashin/src/api.rs" = "d7b5aa164bf24a33e8ba34ce3985d5440ff4789e2f268a02fddc4b946f108dc1"
+"suse/rashin/src/authorization.rs" = "74140095ee5ff4ad7dee30a6667943e9427c1ae7a29146e2fe795cd56ef7656f"
+"suse/rashin/src/http.rs" = "71c21c3de6ab6befa55bba2c7497928d67e14e2c782a2bd2f261860716772f22"
+"suse/rashin/src/http/console.rs" = "1bb493da2ab7a501c28a36f6a237ddea7432793c4fb5429a449c463688fa9fc7"
+"suse/rashin/src/lib.rs" = "55168cce13e39c3cc8e3d76ec2e0dec39088fbae5d9c254fb2d02948534ddbcf"
+"suse/rashin/src/prowl.rs" = "5c42a8ec7bcb9a8cb321f67fc8d289e0b2ea067b948af6388b9c06ffd4fed125"
+"suse/rashin/src/prowl/transport.rs" = "12927a6d98093fa9d018b253ce0417921c7231da8d30016a49201cd16f0d9315"
+"suse/rashin/src/runtime.rs" = "892b9f967b78832a95af85cd3fad283b76aea52888db4fa36aa2f078b2c9751f"
+"suse/rashin/tests/workflows.rs" = "30ee8a7c36dfdb60288925849416d158e46d847c11900e79f985f58b9f754582"
+"docs/rashin-runtime.md" = "2446de04c00728b1dff8473a5daeb9faa8562a0d858a211ba04dfece331a1cd8"

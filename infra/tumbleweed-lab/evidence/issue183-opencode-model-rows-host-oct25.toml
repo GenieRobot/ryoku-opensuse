@@ -1,0 +1,67 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "b0a87b91c1517c9bbc7cb49f9cd8cb570e2333b0"
+status = "opencode-local-model-session-breakdown-tests-passed-full-parity-pending"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+upstream_source = "ryoku/rashin/usage/opencode-usage"
+upstream_blob = "7282aef9c35772cb896eddc51ac5c91ca588d40f"
+upstream_functions = ["parse_message", "load_fs_messages", "load_sqlite_messages", "parse_message_v2", "model_rows", "fmt_tokens"]
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+new_dependencies = 0
+
+[implementation]
+rows = "six most recently active provider/model rows; deterministic provider/model tie-break; global totals include all bounded models"
+fields = ["distinct session count", "input/output/reasoning/cache-read/cache-write", "today and total tokens", "cost and compact labels", "millisecond lastSeen", "totalWithCacheRead", "relative pct rounded ties-to-even"]
+compatibility = "existing provider/model/tokens/cache_read/cost fields retained; upstream name/label/display keys added"
+source_identity = "message sessionID takes precedence; fallback to JSON parent directory or static SQL session_id/sessionID candidate"
+privacy = "session IDs become transient SHA-256 dedup keys only; reports/state expose counts and status, never raw IDs/hashes/transcript"
+unknown_session = "upstream unknown bucket preserved and explicitly labeled sessions_status=includes_unknown"
+zero_usage = "assistant/model records with zero tokens remain eligible session/model activity"
+cost = "per-row missing cost distinguished from known zero; zero cost label empty as upstream"
+limits = "existing100000 events/128 aggregated models; six displayed rows; checked token components/cache-inclusive sums; no new unbounded source reads"
+ffi_delta = "adds static session-column projection through existing bounded owned column-copy method; no new C ABI or unsafe block"
+malformed = "scalar JSON is labeled partial and ignored without panic; overflow refuses refresh"
+
+[validation]
+focused_command = "cargo test --locked --offline -p ryoku-rashin"
+focused_passed = 72
+focused_failed = 0
+focused_ignored = 0
+focused_breakdown = "32 unit results,15 collector tests,25 workflow tests"
+new_tests = ["JSON component/label/session/privacy parity", "six latest rows and directory session fallback", "SQLite legacy/v2 static session column fallback", "unknown sessions and checked overflow refusal", "zero-token assistant activity and scalar JSON partial status"]
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 652
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 7
+count_scope = "exact sum of terminal harness summaries, including any nested subprocess summaries"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+dependency_graph = "Cargo manifest/lock unchanged; supported x86_64 offline advisories/bans/licenses/sources result from WAL/Fix receipt remains applicable"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers; no fetch"
+
+[remaining]
+full_issue_complete = false
+live_bridge = "Owner HTTP/Unix transport only; AskClient library policy has no live restricted bridge assignment; same UID is not separate identity"
+acp_boundary = "pinned ACP JSON-RPC stdio and replay/tools/permissions source contract recorded; generic same-UID harness cannot stand in for restricted authenticated capability or protected native provider"
+gates = ["Exact-head hosted CI and separate unsafe boundary review", "Full retained ACP/harness/Prowl/provider/model/network/UI/terminal parity", "Live quota/RPC and remaining provider/session/timer/cache bridge", "Protected native state/writer/linked recovery integration", "Complete RPM/vendor/native closure", "Packaged Tumbleweed install/login/interaction/usage/restart/removal/KDE VM acceptance"]
+
+[log_sha256]
+focused = "c7b436d13a3bee86785dc7d5f42e418b56bde8c3d83ba7ec328b6ccbef01156a"
+workspace = "e36e47c4a3d25d925d896851880eb0a89bd5d2b8997d682f0e9f42f393d34e6b"
+clippy = "6d94e4f1c1413326a09bb795ffe04fa875168ef1e003a2881be22753bae55ec5"
+
+[source_sha256]
+"suse/rashin/src/usage.rs" = "a0fc49b5fdd443d4e2396bc10787e58fcb143961cc4501b1d325c0a94c64dfc9"
+"suse/rashin/src/usage/sqlite.rs" = "fe88086c9ecc8a82cedf6f744a5d1dce165ae27ecebd0bfefacbde329e0840b4"
+"suse/rashin/src/usage/sqlite_image.rs" = "0694c6aef7ce6a0c8625755e33b5ad10c3804309d084407b7faacacde60f88b4"
+"suse/rashin/src/usage/sqlite_tests.rs" = "9d4f11efb41a6bb851ed3698b4f73adad3a30aa27e4226e3416313e0fb88a501"
+"suse/rashin/tests/usage_collectors.rs" = "447edf5841725d341b8e6df6399bbc4e0db1a5a9344e585fb914c51f7e1bebad"
+"docs/rashin-runtime.md" = "b497cf0a2f915da0a503942569f0744a136b98ea8879690b71baf1346d29472e"
+"docs/rashin-usage.md" = "fc46a1fd6f32ca7be2cd0d0a6458dfc8896400f49d46835240adacae83e26aa8"

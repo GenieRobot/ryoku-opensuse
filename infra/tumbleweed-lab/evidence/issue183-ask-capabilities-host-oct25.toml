@@ -1,0 +1,63 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "ee6ae6484e1e12317efe20305da47e04788dd986"
+status = "live-scoped-Ask-HTTP-delegation-tested-full-bridge-and-parity-pending"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+new_dependencies = 0
+
+[capability]
+actions = ["owner issue_ask_client", "owner ask_clients", "owner revoke_ask_client"]
+scope = "account-shared Ask, cancel Ask jobs, Ask-only status, index metadata, recent Ask history and Ask job/progress; no Agent/Chat/Fix/provider/config/usage/native-log authority"
+secret = "random256-bit bearer; only SHA-256 stored; IDs128-bit; raw token returned once to owner; never persisted/injected into model context or URLs"
+lifetime = "default900s, explicit60..3600s, monotonic elapsed expiry, maximum8 live grants; restart drops registry"
+transport = "production /api/action resolves live scoped bearer to dispatch_as(AskClient); no JSON role selection"
+precedence = "explicit scoped or invalid bearer cannot inherit stronger owner browser-cookie authority"
+controls = "existing loopback peer, exact Host and Origin, HttpOnly SameSite cookie, typed actions, bounded frames and private no-store response controls retained"
+revocation = "stops subsequent requests; accepted work remains owner-controlled and separately cancellable"
+identity_limit = "capability limits HTTP authority; same UID is not a distinct identity; owner filesystem/socket access retains account authority"
+remaining_bridge = "isolated shell/ACP credential delivery/process access plus native per-action/provider/state/writer/linked-recovery integration"
+
+[validation]
+focused_command = "cargo test --locked --offline -p ryoku-rashin"
+focused_passed = 85
+focused_failed = 0
+focused_ignored = 0
+focused_breakdown = "39 unit results,15 collector tests,31 workflow tests"
+new_cases = ["hashed/bounded/monotonic-expiry/revocation token registry", "live HTTP Ask role and owner-cookie non-escalation", "privileged actions/Agent state/logs/usage and JSON role spoof denied", "real built daemon TCP issuance/Ask/job and restart invalidation"]
+fixture_correction = "read readiness from actual stderr; nonblocking5s/2KiB bound; kill/wait guard established before waiting; targeted corrected case passed in0.06s"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 665
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 7
+count_scope = "exact sum of terminal harness summaries, including nested subprocess summaries"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed,0 warnings"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+dependency_graph = "Cargo manifest/lock unchanged; prior supported-x86_64 offline advisories/bans/licenses/sources result applies"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers; no fetch"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact-head hosted CI and separate unsafe review", "Isolated shell/ACP capability delivery and process/native authorization", "Every retained harness and upstream v3 WebSocket/replay/tools/approvals/images/thinking", "Complete UI/Prowl/provider/model/network/terminal behavior", "Live provider/OAuth/quota/RPC and original timer/cache bridge", "Protected native state/writer/linked recovery and full private inventory", "RPM/vendor/native closure and packaged Tumbleweed install/login/interaction/usage/restart/removal/KDE VM acceptance"]
+
+[log_sha256]
+focused = "58d44b183fd33a5ca2de5298c2c3ac638489ebe3d86087352103c1f41bedae14"
+workspace = "219a445c96d4c6a8e8026eca7273074116e1d0aeb91ea837b501a2983b130597"
+clippy = "388930de32cc6af952238ad0291d8ef1ddf84b43964da812165c64c61101e0f3"
+targeted_tcp = "0facf41eae699ed85c46afc8bc47f10fbcf51381c01cb9d1af066b4ce38d5ccc"
+
+[source_sha256]
+"suse/rashin/src/delegation.rs" = "f3051b43ca1559439aac9c9fd897eb36ad788c04adb1d8763f970035aed5deb8"
+"suse/rashin/src/api.rs" = "65b3507faf05dd6279f2704614b7dc2ad22c0b609cd3fc92f57cd7698d9fb145"
+"suse/rashin/src/authorization.rs" = "f9e448cb4b32b17f7bd23b75aaf40833e6dd0dab3b88667749730e9918322ad6"
+"suse/rashin/src/http.rs" = "0890f42049361a6ceb8a97a325055eecbfdcf2e0ee1d16fc4815c8d577b0dfdd"
+"suse/rashin/src/lib.rs" = "98496ce08d413c66babbe2a785b19c3284d0b55d639a6cd90d60046cee378cf3"
+"suse/rashin/src/runtime.rs" = "0783c74b5460384cbb3bd0168ef52545a2c6c830fec040aedb46e7e86c0ef5aa"
+"suse/rashin/tests/workflows.rs" = "294ded957bfc53e40ef12f923476d44d8e4d875ad57cf3193edce039f554c2a3"
+"docs/rashin-runtime.md" = "446319eb59a6f01f5de4c83eb832e599f85278f7b548fdc1972458927a89a402"

@@ -7,6 +7,7 @@ members = [
     "suse/snapper",
     "suse/ui",
     "suse/profiles",
+    "suse/rashin",
     "suse/tests",
     "automation",
 ]

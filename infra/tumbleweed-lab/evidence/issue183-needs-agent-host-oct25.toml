@@ -1,0 +1,87 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "bd9de0b92f4f67403b3f542443e2b9d6684bac22"
+status = "ask-needs-agent-control-marker-normalization-and-explicit-browser-handoff"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+vm_runs = 0
+
+[behavior]
+implemented = "Ask-only instruction/typed needs_agent bool and reason,cleaned answer,500byte UTF8-safe single-line reason,empty marker preserves no-answer fallback;real browser labels and existing explicit canonical Agent Stage/Run;Chat remains independent"
+streaming = "Possible leading marker fragments held across all delta splits;recognized control response not streamed;filter resets at real tool dispatch before next model round;128KiB input/memory bound;only completed Ask publishes reason"
+preserved = "Actual model/token accounting,all tools and owner grants,cancellation/failure without partial history/reason/usage,generation guards,canonical handoff/replay/Chat separation and private restart state;marker itself grants no capability or automatic Agent launch"
+remaining_fallback = "TOOLS_REQUIRED and unavailable fast-lane automatic fallback to actual isolated read-only ACP still required;explicit change-request handoff does not substitute for it"
+
+[upstream]
+commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+references = ["ryoku/rashin/backend/ask.go:29", "ryoku/rashin/backend/askserve.go:362-382", "ryoku/rashin/backend/askserve_test.go:359-367", "ryoku/rashin/backend/askserve.go:88-107,152-220"]
+
+[correction]
+initial_full_run = "Strict Clippy passed;full Rashin stopped with two existing indexed retrieval/zypper assertions failing"
+root_cause = "New Ask instruction lacked trailing newline and first SOURCE line joined preamble,so Local provider correctly ignored the non-SOURCE-prefixed line"
+fix = "Terminate new instruction with newline;preserve indexed evidence line boundary"
+exact_retests = "actual_socket_index_ask_history_and_usage_survive_restart and http_index_ask_poll_and_browser_console_exercise_the_actual_engine each passed1/1 before entire frozen sequence restarted"
+evidence = "Original failed log/status retained untracked on tmpfs;hash below;final evidence is fresh corrected-source sequence,not the earlier pass"
+
+[validation]
+focused = "ask module2 units plus3 needs_agent workflows pass;final name-filter1unit+3workflows and exact source-boundary2workflows pass"
+focused_cases = "All marker splits/normal text/new rounds,Unicode/empty reason bound;actual JSON/SSE gateway/tool preamble,Basic browser/escaped reason,real explicit Agent execution/replay/restart,concurrent split Ask/Chat separation,cancel/failure without partial reason/handoff/usage"
+sequence = "Strict workspace Clippy,full Rashin,workspace,fmt,diff,supported-target deny,and4 current-binary namespace proofs:all10 stages terminal0"
+full_command = "cargo test -p ryoku-rashin --locked --offline"
+full_passed = 162
+full_failed = 0
+full_ignored = 4
+full_breakdown = "78unit,15collector,69workflow"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 742
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 11
+count_scope = "Sum terminal summaries including nested subprocesses;7 existing ignores plus4 explicitly exercised namespace prerequisites"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings:passed"
+format = "cargo fmt --all -- --check:passed"
+diff = "git diff --check:passed"
+dependency_metadata_command = "cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu"
+dependency_command = "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path FILTERED_METADATA --all-features check"
+dependency_result = "advisories,bans,licenses,sources ok for supported x86_64 all-features graph"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers;no fetch"
+namespace_results = "Four current-binary proofs pass1/1 each:2UID no credential send,Store bind/mount denial,public HTTP/DNS/redirect/compression/cancel transport,real authenticated gateway fetch/cancel;distinct from portable CI defaults"
+namespace_commands = "Same unshare user/mount/net commands and guarded net baseline as issue183-public-web-tools-host-oct25.toml;executables derived from final cargo output"
+
+[storage]
+paths = "workspace/cache/HOME on/dev/sdd;logs/fixtures on/tmp tmpfs"
+verified_linux_available_bytes = 943583567872
+verified_tmpfs_available_bytes = 6995730432
+verified_c_available_bytes = 4799754240
+constraints = "C below10GiB floor;no C-bound writes,downloads,cleanup,candidate/native/VM work"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact new hosted CI", "Automatic isolated Ask ACP fallback and all remaining activity details/diffs/approvals/replay,ACP/harness/process/terminal,provider/model/usage/UI/native/service/writer/recovery/package/VM rows;none removed"]
+
+[log_sha256]
+"focused" = "2c0cd0aef845b2661a7819f361ac29af50a2e9da1f232cc11506546787d7f419"
+"final-focused" = "e1a2640634282bfddb056d6003d22834b39e648a6c91b7e6df986ef4c45031ff"
+"source-boundary" = "bbe350a616ff76c8fe14f961b249ef68a62e02f18f3b9b2c6378b5a19c42655f"
+"initial-full" = "165e6f6a418ee40385e1762925cd6930b88cc1b099baee100475fcb174f5461e"
+"clippy" = "303d23a755a8cfe719b0974a0f84a5c2fc77edea0da4c0cc5f345673aa66c3ff"
+"full" = "0eac4e42383db2b43c22460e68e221ba962a79eee491e358ba8ab7f5f4c40e1d"
+"workspace" = "fd9854528dfdaca56d570ee4c29dcf6b4bf8ce5476ef02b5414f3a9f338db090"
+"fmt" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+"diff" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+"deny" = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+"two-uid" = "1dd730bf07be8edbd1e4b9cddac43b5d9050fa3d1cc67a9485058e8c5a8656da"
+"bind" = "95adbcb8b1c4e3159a43c9fa46cebdbdf6afffe632504465c89b83c087d3088a"
+"public-transport" = "6cdefbbc65e043688ebc896b1fb198d5db9d1185d96d277391d787a46330a91a"
+"public-gateway" = "8b15e7d271288b125ecd0ff010bf2cbd8f5799e32e3207497cef2e2480933df1"
+"sequence" = "dbba9dfc51639f50f3c57219924c7f12ff2dd1062cbabe8608e4e9fa947563a1"
+
+[source_sha256]
+"docs/rashin-runtime.md" = "06e6629b3d87bfca8c65538f85ded5801e2f4f980fa96a7a59ac62b0f8ffe306"
+"suse/rashin/src/ask.rs" = "d3fa82b26fcd8f371fc0c2d863ccd9d3a9cd60bcca503044b52b4a8d9d77bdba"
+"suse/rashin/src/http/console.rs" = "6f00e6657fbe0537e696fd11d490360f06069a66c124e307d07a95c507584edd"
+"suse/rashin/src/lib.rs" = "8cdc71644d302a183594efd17d45ce18e4f0fff5daf365d0691444be22dca7ad"
+"suse/rashin/src/runtime.rs" = "0fc8f682e2bb72a74bbfb5889903bb96a3d3550e7db4fd0350cb978a819edf52"
+"suse/rashin/tests/workflows.rs" = "0f51d0a16fa50cb85f3676d3a0b875b28566581919ed851e98d87082eca1293f"

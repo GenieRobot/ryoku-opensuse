@@ -1,0 +1,66 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+previous_commit = "a6fa0e699ffd81de42606df3873b1633996d2f0c"
+status = "prowl-fix-destination-resolved-before-egress-consent-classification"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+vm_runs = 0
+
+[correction]
+problem = "fix_destination matched ProwlResolved but read persisted keyless ProwlGateway without resolving its private connection,so gateway routing could be misclassified local;prior tests provided preview tokens and missed no-consent rejection"
+change = "resolve stored provider reference under state lock before model/destination/egress decision;ProwlGateway becomes worker-style resolved destination for consent classification;disconnected reference fails unavailable"
+preserved = "actual Fix investigation and gateway route,local Fix,private credential reference,reviewed snapshot,configuration generation,single-use approval and accepted-ID idempotency;all Fix tools remain disabled"
+new_gateway_regression = "missing consent starts no job/request;preview identifies redacted resolved gateway;disconnect and preview fail unavailable;reconnected stale approval rejected;fresh reviewed approval emits exactly one request;replay newID rejected and accepted-ID retry produces no extra egress"
+
+[validation]
+focused_command = "cargo test -p ryoku-rashin --test workflows --locked --offline prowl_fix_requires -- --nocapture"
+focused_passed = 1
+focused_failed = 0
+sequence = "strict workspace Clippy,full Rashin,workspace,fmt/diff,supported-target deny,4 current-binary namespace proofs:terminal exit0"
+full_command = "cargo test -p ryoku-rashin --locked --offline"
+full_passed = 153
+full_failed = 0
+full_ignored = 4
+full_breakdown = "73unit,15collector,65workflow"
+workspace_command = "cargo test --workspace --all-features --locked --offline"
+workspace_passed_result_sum = 733
+workspace_result_rows = 55
+workspace_failed = 0
+workspace_ignored = 11
+count_scope = "sum of terminal summaries including nested subprocesses;7 existing ignores plus4 explicitly exercised namespace prerequisites"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings:passed"
+format = "cargo fmt --all -- --check:passed"
+diff = "git diff --check:passed"
+dependency_metadata_command = "cargo metadata --locked --offline --all-features --format-version=1 --filter-platform=x86_64-unknown-linux-gnu"
+dependency_command = "cargo deny --offline --target x86_64-unknown-linux-gnu --metadata-path FILTERED_METADATA --all-features check"
+dependency_result = "advisories,bans,licenses,sources ok for supported x86_64 all-features graph"
+unfiltered_offline_dependency_review = "unavailable due uncached target-inactive Jiff helpers;no fetch"
+namespace_results = "four current-binary proofs explicitly pass1/1 each:2UID credential no-send,Store bind/mount denial,public HTTP/DNS/redirect/compression/cancel transport,actual authenticated gateway fetch/cancel;distinct from portable CI defaults"
+namespace_commands = "same unshare user/mount/net commands and guarded net baseline as issue183-public-web-tools-host-oct25.toml,executables derived from this final cargo output"
+
+[storage]
+paths = "workspace/cache/HOME on/dev/sdd;logs/fixtures on/tmp tmpfs"
+constraints = "C below10GiB floor;no C-bound writes,downloads,cleanup,candidate/native/VM work"
+
+[remaining]
+full_issue_complete = false
+gates = ["Exact new hosted CI", "All pending native/UI/ACP/tool activity/escalation/provider operations/usage/service/writer/recovery/package/VM rows in committed full acceptance matrix;none removed"]
+
+[log_sha256]
+focused = "aa34940147b2bc2f2e42466c5a449a7104fc6c47f82de9a601f9324c0daa9eab"
+full = "b6fca1fbc6eb605987a29aa8598f59273501148c47b1fc585d1051ff79ac4fca"
+workspace = "7189e4357f067815454b9dcd3aad537e207cfb917aff18a7ca8a7d797e74b62a"
+clippy = "31febb32e19978f3d4ba8bc83ade3fb19dc0f65ee17edbef93df5050057e4ce7"
+dependency = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+two_uid = "0f509ab2c299a068568f07c931bad968e356635f6a478ab5d87e0d2cf78bd98e"
+bind = "2570e23f48eb0fb43b46ab39f78f7ab87b5f0f0412edc2194dc96eac269e1ce4"
+public_transport = "d69484469a25188ca0f1cd5659e827c03d03f4f8dbfd1ad0564642727baceb36"
+public_gateway = "cd6d3a920889c986b600dd75b530a40f0cbcb57f64caa8282c4ac85ef0639376"
+sequence = "cbc997279c1b60cdb6c59c64a8249dc1f99e86b25bf6fc259bed23732c7bc220"
+
+[source_sha256]
+"docs/rashin-runtime.md" = "b7ae916c09de6ed0655a9c5b6d45b27899f8f37be41da3fd4fc2069c902a3549"
+"suse/rashin/src/runtime.rs" = "d2171d2a4b528b432e1678910814ae75832c8b8e36dfaeaf9525c1bd8564641e"
+"suse/rashin/tests/workflows.rs" = "61f6a2ecc10abc907172a430a4cc0d09924b6f92a633038c02dfa881c4310b9d"

@@ -1,0 +1,92 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+status = "host-runtime-slice-issue-incomplete"
+branch = "codex/feature/issue183-rashin-inventory"
+base_revision = "a50efed"
+previous_runtime_commit = "c6295d093fa4bfe2ce80fe9234a130d7b52acb00"
+upstream_revision = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+rustc = "1.99.0 (b940084d7 2026-09-28)"
+cargo = "1.99.0 (5f94df478 2026-08-27)"
+new_registry_dependencies = 0
+external_provider_requests = 0
+model_downloads = 0
+vm_runs = 0
+storage_before = "907 GiB available on workspace filesystem"
+storage_after = "905 GiB available after offline Cargo build/check outputs"
+hosted_ci = "previous c6295d0 exact-head run passed; native Fix/logs follow-up awaits its own exact-head run"
+
+[focused_tests]
+command = "cargo test --locked --offline -p ryoku-rashin"
+passed = 33
+failed = 0
+ignored = 0
+log_sha256 = "c35f40326b1489046bc36aa4380c8cf5ecd4f5b9239b4abf576257f9f85fa40e"
+
+[workspace_tests]
+command = "cargo test --workspace --all-features --locked --offline"
+result_rows = 51
+passed = 610
+failed = 0
+ignored = 7
+log_sha256 = "fa2fba5bbcadc2aad791fdb08fbbd2634ce8a9d081b0dff3cbd227c55e2b40fe"
+
+[checks]
+format = "cargo fmt --all -- --check: passed"
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed"
+dependencies = "cargo deny --offline --all-features check: advisories/bans/licenses/sources passed using cached advisory database"
+diff = "git diff --check: passed"
+socket_execution = "Tests require socketpair/bind, authorized escalation used after sandbox EPERM; no network provider requests"
+
+[rpm_dependency]
+spec = "packaging/rpm/ryoku-desktop.spec"
+subpackage = "ryoku-desktop-runtime"
+requirement = "curl"
+host_package = "curl-8.21.0-1.1.x86_64"
+binary = "/usr/bin/curl"
+parse = "rpmspec --parse packaging/rpm/ryoku-desktop.spec: passed"
+query = "rpmspec -q --requires packaging/rpm/ryoku-desktop.spec: exact curl requirement present"
+scope = "Dependency declaration and host ownership only; this runtime is not yet installed by an RPM"
+
+[acceptance]
+implemented = ["Private typed Unix API/CLI", "Native user-unit/journal/RPM logs API/CLI", "Authenticated HTTP and browser console", "Index-integrity local retrieval", "Ask cancel and history", "Independent Agent and Chat sessions", "Typed Fix investigation with bounded native evidence", "Effective local Agent wire/unwire", "Private configured HTTPS provider and model routes", "Labeled completion activity and fixture usage", "Pending-job restart interruption", "Private state atomic publication and unsafe-object refusal"]
+remaining = ["All retained upstream ACP/harness and v3 WebSocket/UI contracts", "External harness marker/skill/MCP wiring", "All individually typed Prowl provider/model/network/settings/project operations", "Full system/package/source/vault/memory/habits/skills/wiki index", "Terminal command-buffer/recipes/resume and transient Fix harness", "Claude/Codex/opencode quota and usage collectors", "Installed authenticated protected dispatcher and complete linked recovery/enrollment/writer lease integration", "Upstream console/native app/shell/Hub/package integration", "Tumbleweed install/login/interaction/usage/restart/removal/KDE VM gate", "Exact-head hosted CI"]
+linked_recovery_claimed = false
+full_upstream_parity_claimed = false
+issue_closure_requested = false
+
+[native_fix_logs]
+commands = ["/usr/bin/systemctl --user show", "/usr/bin/journalctl --user", "/usr/bin/rpm --query --whatprovides", "/usr/bin/rpm --query --file"]
+component_validation = "Upstream-safe component alphabet; no path, option or shell text"
+probe_timeout_ms = 500
+probe_max_bytes = 32768
+fix_excerpt_max_bytes = 512
+network_requests = 0
+child_environment = "cleared; LANG=C and kernel-UID-derived XDG_RUNTIME_DIR only"
+command_scope = "read-only user units/journal and RPM database; no privileged journal or mutation"
+runtime_requires = ["systemd", "rpm >= 4.19", "curl"]
+host_systemd_package = "systemd-261.1-1.1.x86_64"
+host_rpm_package = "rpm-4.20.1-9.1.x86_64"
+acceptance = "Host functional collector/API/CLI and subprocess bounds only; native packaged VM and complete app/coredump/package-change context remain open"
+
+[previous_hosted_ci]
+head = "c6295d093fa4bfe2ce80fe9234a130d7b52acb00"
+run_url = "https://github.com/GenieRobot/ryoku-opensuse/actions/runs/40140852745"
+conclusion = "success"
+includes_dependency_review = true
+
+[source_sha256]
+"Cargo.toml" = "8d685c3fcac26c96048167abda919a730f4373f793382a41bbadd4864f31e309"
+"Cargo.lock" = "7eecde15e6e262c586ed135300ea8c9cf7b5acc54884fd2d811a07e95244a753"
+"packaging/rpm/ryoku-desktop.spec" = "5dc5ea4020e41bab44e74e4ddf34fb40026f6a5141c48f0a2d5790b950fd3b7c"
+"suse/rashin/src/api.rs" = "114ad0ed31dba7de935185545e516d19c091b5f2ab887de13f23b65026ca7478"
+"suse/rashin/src/authorization.rs" = "13b1f448c056eeb73edbffd3d15747e402f3e9e760032e57b4e96cd81574ac33"
+"suse/rashin/src/http.rs" = "59ad3460e600ffdcf62cfb56bd89f42ac20342445e3045c4b2de92a4e7554eb5"
+"suse/rashin/src/inspection.rs" = "30d97b925ebc0ad8c9ea54fd8e2bd50c3925ad718a4c98943b1c06f132ed3f2b"
+"suse/rashin/src/lib.rs" = "46bee27fb60fbf8b0b79f51f096a93c98ea96e7ab5a4787846c192f4b95e9b9f"
+"suse/rashin/src/main.rs" = "ee0f86544d7847a0826104b788f3fa00c6fb7df537a14f601166028a8e44bb06"
+"suse/rashin/src/provider.rs" = "be456d3fb0c750104e6d9c27d23c5c5cc26314f38a5eef97d7379567a78c7f75"
+"suse/rashin/src/runtime.rs" = "d66eecf92ab194293e0650d3d3379be76ee7f1e906c231ffd748ac2e43ade778"
+"suse/rashin/src/store.rs" = "c7ec7c531a339b75a9c1a7d6048ebd7fe03589a758e268e6a74e776dbbd01a22"
+"suse/rashin/tests/workflows.rs" = "c9e2c5be2d9575062d7eb792ab7658e1e186e510f3c5f619e753e14a2320f66f"
+"suse/rashin/Cargo.toml" = "026aaea9d3a19f8ec075d3c93008e189dcae528c311d980e19a6064c0dd07178"

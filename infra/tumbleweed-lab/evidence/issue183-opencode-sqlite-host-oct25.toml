@@ -1,0 +1,99 @@
+schema_version = 1
+issue = 183
+recorded_local_date = "2026-10-25"
+status = "host-sqlite-collector-tests-passed-separate-ffi-review-and-native-acceptance-pending"
+previous_commit = "bb29f23a83555069a13c7d5257e9330fe7fb4733"
+upstream_commit = "a59d051f0e8080052216f6c7b9eb7e5928935ce8"
+upstream_source = "ryoku/rashin/usage/opencode-usage"
+upstream_blob = "7282aef9c35772cb896eddc51ac5c91ca588d40f"
+package_downloads = 0
+registry_downloads = 0
+model_downloads = 0
+external_provider_requests = 0
+vm_runs = 0
+storage_available_before = "904 GiB workspace; 7.0 GiB temporary filesystem"
+new_registry_packages = 0
+
+[system_provider]
+package = "libsqlite3-0"
+version_release = "3.53.2-3.1"
+architecture = "x86_64"
+soname = "libsqlite3.so.0"
+resolved_library = "/usr/lib64/libsqlite3.so.3.53.2"
+library_bytes = 1674504
+library_sha256 = "d405c82bbf4b8b0c022a54b2b192b9d5f5c720e5c4bdb24d258f8ece000b95b8"
+version_number = 3053002
+enable_deserialize = 0
+omit_deserialize = 0
+capability = "serialize/deserialize roundtrip worked; deserialized memory UPDATE refused with SQLITE_READONLY=8"
+db_readonly_result = 0
+attestation_limit = "db_readonly is not used as readonly proof; read-only image, query_only and authorizer are independent controls"
+runtime_require = "libsqlite3-0"
+elf_needed = "libsqlite3.so.0 verified with readelf"
+rpm_check = "rpmspec --parse passed; --requires includes exact libsqlite3-0; installed RPM owns the resolved library"
+scope = "Installed Tumbleweed host only; no devel headers, CLI, crate fetch, package install or native VM closure"
+
+[boundary]
+unsafe_module = "suse/rashin/src/usage/sqlite.rs"
+safe_snapshot_module = "suse/rashin/src/usage/sqlite_image.rs"
+sqlite_input = "owned in-memory image only; no production source path/descriptor reaches SQLite"
+lifetime = "non-Send owner retains padded Box and callback state through close; borrowing statements finalize first; column values copied only at ROW"
+padding_bytes = 64
+controls = ["read-only deserialize backing with no free/resize flags", "query_only=ON before image attachment", "memory temp store", "defensive mode", "trusted schema/views/triggers/extensions disabled", "deny-by-default authorizer", "virtual table preparation prohibited", "compiled query/table/column candidates only", "threadsafe library required", "SQL/value/row/deadline bounds"]
+source_lock = "nonblocking OFD read locks over SQLite pending/shared reader protocol; reserved writers can coexist; exclusive writers refused"
+snapshot = "descriptor-bound DB/WAL/journal reads, owner/mode/link checks, stable device/inode/size/mtime/ctime and sidecar-presence readback"
+write_scope = "no source DB/WAL/journal/SHM writes, recovery, checkpoint or temporary database copy"
+wal_format = 3007000
+wal_checks = ["page sizes/header magic", "header and cumulative frame checksums in both byte orders", "salts", "last committed frame boundary", "committed logical size", "stale older-generation tail after established valid commit"]
+failure = "format/corruption/lock/race/limits refuse refresh and preserve unavailable/stale last-good report; no partial physical-DB claim"
+schema_support = ["legacy message rows", "v2 session_message blob/role/time aliases", "nested model/provider fields", "SQL timestamp fallback", "filesystem JSON preference", "old-table fallback when v2 has no accepted records"]
+trusted_native_code = "Supported distro SQLite parser remains trusted C code; this is not an OS sandbox or memory-safety proof"
+requires_separate_ffi_review = true
+
+[focused_tests]
+command = "cargo test --locked --offline -p ryoku-rashin"
+passed = 59
+failed = 0
+ignored = 0
+log_sha256 = "bde97af52163644a6447a8aa6e83f1c3c0555f2a485951f3130113ff2edc121d"
+sqlite_cases = "14 new unit results including fixture subprocess entry: legacy/v2 aliases, JSON preference, privacy, authorizer/file denials, live uncommitted/reset WAL, exclusive/reserved locks, stale API cache, limits, full checksum/endian/corruption, real commit race and hot journal/unknown schema"
+
+[workspace_tests]
+command = "cargo test --workspace --all-features --locked --offline"
+result_rows = 55
+passed_result_sum = 639
+failed = 0
+ignored = 7
+log_sha256 = "c63f761ba158a06bc73c5f10f19fd551cc6a60faf8d2f68788a59afd43dec6c1"
+
+[checks]
+clippy = "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings: passed"
+format = "cargo fmt --all -- --check: passed"
+diff = "git diff --check: passed"
+dependency_review = "advisories/bans/licenses/sources passed for explicit supported x86_64 all-features metadata graph"
+unfiltered_offline_review = "unavailable due uncached target-inactive Jiff helpers; no metered fetch performed"
+dependency_log_sha256 = "f1a0fca39d4280363937aabd77783990ea6480bd9ca257816de3b68fc8efa845"
+
+[remaining]
+full_issue_complete = false
+gates = ["Separate reviewer examines unsafe calling convention/ownership/lifetimes before merge", "Exact-head hosted CI and non-host system-library portability", "Complete RPM/source/vendor closure", "Full retained assistant ACP/harness/Prowl/provider/model/network/terminal/UI parity", "Live quota/RPC/session-limit fallback, complete model/session rows and legacy timer/cache bridge", "Authenticated native providers, complete enrolled state/writer coordination and linked recovery", "Packaged Tumbleweed install/login/interaction/usage/restart/removal/KDE VM acceptance"]
+
+[source_sha256]
+"Cargo.lock" = "8dc63f8c4c32f1f6f069604bcb2e8137584e52e5923ff04f8b1a53ba94c70d77"
+"suse/rashin/Cargo.toml" = "84edae4cbf33db049bca95172af7ba67d41fa54e5ecaa3ad3a2970bc1a9c89d3"
+"packaging/rpm/ryoku-desktop.spec" = "183079d861d73d882347bbe3e0caf9cba8baef50f47157a1d0fa2f317527af9d"
+"suse/rashin/src/api.rs" = "dcf7b92403056ee450faa2017201b41bac73037e8bf91847fcb4ec8e4eb30281"
+"suse/rashin/src/authorization.rs" = "6a8a88b84907820f7c955a7fd4600203d8adffaf610fb84a3ff40ae5aa7723f1"
+"suse/rashin/src/http.rs" = "59ad3460e600ffdcf62cfb56bd89f42ac20342445e3045c4b2de92a4e7554eb5"
+"suse/rashin/src/inspection.rs" = "30d97b925ebc0ad8c9ea54fd8e2bd50c3925ad718a4c98943b1c06f132ed3f2b"
+"suse/rashin/src/lib.rs" = "5cec430659191f82d74081ae10637337291292ee395439333f2b8e368f4d6200"
+"suse/rashin/src/main.rs" = "d29e1f36dba705fcb098c8c90641090cfb2cf8d779148b1d8dd555363c5d722a"
+"suse/rashin/src/provider.rs" = "be456d3fb0c750104e6d9c27d23c5c5cc26314f38a5eef97d7379567a78c7f75"
+"suse/rashin/src/runtime.rs" = "542be641e9852977ee995cc95836f2d6171c1652189dedd243d5446a7034b190"
+"suse/rashin/src/store.rs" = "c7ec7c531a339b75a9c1a7d6048ebd7fe03589a758e268e6a74e776dbbd01a22"
+"suse/rashin/src/usage/sqlite.rs" = "d6e58f0a120fac9ab7d1f1eb0652fcd4c74b6a679269c64e0fb1528a8ea00064"
+"suse/rashin/src/usage/sqlite_image.rs" = "5f931540fd60488d568bba8d640d826df4379d379c630bc9f9590aee795e2232"
+"suse/rashin/src/usage/sqlite_tests.rs" = "3d51dc9e04609b160700e92f17749b375c62e0d271f1cf138d1db81380a8ef44"
+"suse/rashin/src/usage.rs" = "570de2d8a6905a6c9ca8d5e8717107f233b5a89a8bc3745dedaeefbfc20a7d2d"
+"suse/rashin/tests/usage_collectors.rs" = "1a528305a7876424c178f6f5781716c2ede56547e5d4c80f2a5745fc8ad7c74e"
+"suse/rashin/tests/workflows.rs" = "9bd4cfe1ca014062daa5e89afc57774143560835ff4940b578eaa052e873828a"
