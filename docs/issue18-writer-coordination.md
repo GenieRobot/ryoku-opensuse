@@ -178,3 +178,23 @@ evidence is recorded in
 [`issue18-20261020-publication-regressions.toml`](../infra/tumbleweed-lab/evidence/issue18-20261020-publication-regressions.toml).
 These are host Rust and native-process fixtures; they add no provider transaction,
 durable mutation, metadata restoration or VM acceptance claim.
+
+## Ryoku 1.0 source refresh
+
+The active source base is now v1.0.0 commit
+`a59d051f0e8080052216f6c7b9eb7e5928935ce8`; the earlier 0.75.5 write-site
+audit and its `write-audit.json` remain historical evidence and do not cover
+the new tree. The launch patch is rebased to the v1.0 helpers: Ryoshot now
+routes through `ryoku-cmd-ryoshot`, welcome and the keys hint route through
+`ryoku-session-intro`, and both helpers use fixed Rust writer roles. IPC and
+Ryogami child launches use the package-private Quickshell path. The selected
+source scope now includes both helpers plus the new Ryogami picker and livewall
+build sources; `pinned-route-sources.json` records the new source blob IDs.
+
+`keys-hint` is an explicit writer route to the pinned Quickshell surface. The
+Ryogami picker talks to the wrapped daemon; its direct UI launch is not treated
+as a second daemon writer. Re-audit 1.0's changed Go/QML/JS write sites and the
+picker-to-daemon protocol before claiming the previous write-site coverage.
+The native, package and VM regressions still require their owning issue
+acceptance; rebasing the source patch alone does not complete #18 or #25 for
+the new runtime.

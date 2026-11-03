@@ -1,0 +1,311 @@
+{
+  "scope": "Original native runtime RPM only; direct signed primary capability matches, not a dependency solver, payload loading or corrected-candidate acceptance.",
+  "port_commit": "8985d22698e3f73d77a9ee2e9305d438c5f9f6b0",
+  "rpm_sha256": "252f4adcc3d233888ef199e654336ebbb541a37f2e26f5283144832c242b1697",
+  "primary_record_evidence_sha256": "b4f0938cc375755eb6b8f2bceaf86647d61a8329fd6f0bf33268951f0ce1d8ff",
+  "repository": {
+    "snapshot": "openSUSE Tumbleweed OSS20261016",
+    "repomd_sha256": "1d891e33c8abd582b71e579118e6b4c94e5e57ecdc1b77a2a7fc1abf7cc930a0",
+    "signer_fingerprint": "AD485664E901B867051AB15F35A2F86E29B700A4",
+    "signature_validation": "gpgv reverified locally; Good signature from openSUSE Project Signing Key",
+    "primary_location": "repodata/00c8e15be77a2a6e1f49e58f3c1c66142e2987fda576cceec54c9db0e9a7f789e43233f12f463d0d5313f941f665928aa45e79cba73de6699b847d560cc454ad-primary.xml.zst",
+    "primary_bytes": 17340729,
+    "primary_sha512": "00c8e15be77a2a6e1f49e58f3c1c66142e2987fda576cceec54c9db0e9a7f789e43233f12f463d0d5313f941f665928aa45e79cba73de6699b847d560cc454ad",
+    "primary_open_bytes": 173040206,
+    "primary_open_sha512": "b78e3942f0585d06a9c1d10115e78d23f357b31cc23a95d550b4de46be090a670782c0d23fa10e21bbcfe7f485b1f85250700f6a77b203021c728e22913605df",
+    "repomd_signature_sha256": "ec4ea2579b347505d4f85dbd596b55033d229eba1e810597f6ec2d5cc3fb598a"
+  },
+  "requirements": [
+    {
+      "requirement": "qt6qmlimport(Qt.labs.folderlistmodel)",
+      "provider": {
+        "package": "qtdeclarative-imports-provides-qt6",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "1.0",
+          "rel": "1.55"
+        },
+        "package_sha512": "502127e9f60333a9a70ddfc5fd937a311194d7f9d967719026da949dff799194dd71f893ac8db88a990ac1d7f163cf5ea44e2ae6208a71c7279e23ca44cccf04",
+        "capability": {
+          "name": "qt6qmlimport(Qt.labs.folderlistmodel)"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(Qt.labs.platform)",
+      "provider": {
+        "package": "qtdeclarative-imports-provides-qt6",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "1.0",
+          "rel": "1.55"
+        },
+        "package_sha512": "502127e9f60333a9a70ddfc5fd937a311194d7f9d967719026da949dff799194dd71f893ac8db88a990ac1d7f163cf5ea44e2ae6208a71c7279e23ca44cccf04",
+        "capability": {
+          "name": "qt6qmlimport(Qt.labs.platform)"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(Qt5Compat.GraphicalEffects)",
+      "provider": {
+        "package": "qt6-qt5compat-imports",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "6.11.2",
+          "rel": "1.1"
+        },
+        "package_sha512": "0f1fe241a813ce4dbc0f4b54d65678b9c3525d0e142649df700c68aa037369a0fb685a9e9de8099536ad062f62eb344d7c7114de980785de94389e4da6e3ea0d",
+        "capability": {
+          "name": "qt6qmlimport(Qt5Compat.GraphicalEffects)"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(QtCore)",
+      "provider": {
+        "package": "qtdeclarative-imports-provides-qt6",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "1.0",
+          "rel": "1.55"
+        },
+        "package_sha512": "502127e9f60333a9a70ddfc5fd937a311194d7f9d967719026da949dff799194dd71f893ac8db88a990ac1d7f163cf5ea44e2ae6208a71c7279e23ca44cccf04",
+        "capability": {
+          "name": "qt6qmlimport(QtCore)"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(QtMultimedia)",
+      "provider": {
+        "package": "qt6-multimedia-imports",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "6.11.2",
+          "rel": "1.2"
+        },
+        "package_sha512": "8f97ae0d21dd1e1884b385586000e632784084a195682b49b5bc664a1658567aa7d1d2109934454f8ecc1cf1d88024ba82eb2ad710bc5f34492eb24ea13f6e31",
+        "capability": {
+          "name": "qt6qmlimport(QtMultimedia)"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(QtQml)",
+      "provider": {
+        "package": "qtdeclarative-imports-provides-qt6",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "1.0",
+          "rel": "1.55"
+        },
+        "package_sha512": "502127e9f60333a9a70ddfc5fd937a311194d7f9d967719026da949dff799194dd71f893ac8db88a990ac1d7f163cf5ea44e2ae6208a71c7279e23ca44cccf04",
+        "capability": {
+          "name": "qt6qmlimport(QtQml)"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(QtQml.Models)",
+      "provider": {
+        "package": "qtdeclarative-imports-provides-qt6",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "1.0",
+          "rel": "1.55"
+        },
+        "package_sha512": "502127e9f60333a9a70ddfc5fd937a311194d7f9d967719026da949dff799194dd71f893ac8db88a990ac1d7f163cf5ea44e2ae6208a71c7279e23ca44cccf04",
+        "capability": {
+          "name": "qt6qmlimport(QtQml.Models)"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(QtQuick)",
+      "provider": {
+        "package": "qtdeclarative-imports-provides-qt6",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "1.0",
+          "rel": "1.55"
+        },
+        "package_sha512": "502127e9f60333a9a70ddfc5fd937a311194d7f9d967719026da949dff799194dd71f893ac8db88a990ac1d7f163cf5ea44e2ae6208a71c7279e23ca44cccf04",
+        "capability": {
+          "name": "qt6qmlimport(QtQuick)"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(QtQuick.6) >= 11",
+      "provider": {
+        "package": "qtdeclarative-imports-provides-qt6",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "1.0",
+          "rel": "1.55"
+        },
+        "package_sha512": "502127e9f60333a9a70ddfc5fd937a311194d7f9d967719026da949dff799194dd71f893ac8db88a990ac1d7f163cf5ea44e2ae6208a71c7279e23ca44cccf04",
+        "capability": {
+          "name": "qt6qmlimport(QtQuick.6)",
+          "flags": "EQ",
+          "epoch": "0",
+          "ver": "11"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(QtQuick.Controls)",
+      "provider": {
+        "package": "qtdeclarative-imports-provides-qt6",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "1.0",
+          "rel": "1.55"
+        },
+        "package_sha512": "502127e9f60333a9a70ddfc5fd937a311194d7f9d967719026da949dff799194dd71f893ac8db88a990ac1d7f163cf5ea44e2ae6208a71c7279e23ca44cccf04",
+        "capability": {
+          "name": "qt6qmlimport(QtQuick.Controls)"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(QtQuick.Controls.Material)",
+      "provider": {
+        "package": "qtdeclarative-imports-provides-qt6",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "1.0",
+          "rel": "1.55"
+        },
+        "package_sha512": "502127e9f60333a9a70ddfc5fd937a311194d7f9d967719026da949dff799194dd71f893ac8db88a990ac1d7f163cf5ea44e2ae6208a71c7279e23ca44cccf04",
+        "capability": {
+          "name": "qt6qmlimport(QtQuick.Controls.Material)"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(QtQuick.Dialogs)",
+      "provider": {
+        "package": "qtdeclarative-imports-provides-qt6",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "1.0",
+          "rel": "1.55"
+        },
+        "package_sha512": "502127e9f60333a9a70ddfc5fd937a311194d7f9d967719026da949dff799194dd71f893ac8db88a990ac1d7f163cf5ea44e2ae6208a71c7279e23ca44cccf04",
+        "capability": {
+          "name": "qt6qmlimport(QtQuick.Dialogs)"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(QtQuick.Effects)",
+      "provider": {
+        "package": "qtdeclarative-imports-provides-qt6",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "1.0",
+          "rel": "1.55"
+        },
+        "package_sha512": "502127e9f60333a9a70ddfc5fd937a311194d7f9d967719026da949dff799194dd71f893ac8db88a990ac1d7f163cf5ea44e2ae6208a71c7279e23ca44cccf04",
+        "capability": {
+          "name": "qt6qmlimport(QtQuick.Effects)"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(QtQuick.Layouts)",
+      "provider": {
+        "package": "qtdeclarative-imports-provides-qt6",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "1.0",
+          "rel": "1.55"
+        },
+        "package_sha512": "502127e9f60333a9a70ddfc5fd937a311194d7f9d967719026da949dff799194dd71f893ac8db88a990ac1d7f163cf5ea44e2ae6208a71c7279e23ca44cccf04",
+        "capability": {
+          "name": "qt6qmlimport(QtQuick.Layouts)"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(QtQuick.Shapes)",
+      "provider": {
+        "package": "qtdeclarative-imports-provides-qt6",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "1.0",
+          "rel": "1.55"
+        },
+        "package_sha512": "502127e9f60333a9a70ddfc5fd937a311194d7f9d967719026da949dff799194dd71f893ac8db88a990ac1d7f163cf5ea44e2ae6208a71c7279e23ca44cccf04",
+        "capability": {
+          "name": "qt6qmlimport(QtQuick.Shapes)"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(QtQuick.Window)",
+      "provider": {
+        "package": "qtdeclarative-imports-provides-qt6",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "1.0",
+          "rel": "1.55"
+        },
+        "package_sha512": "502127e9f60333a9a70ddfc5fd937a311194d7f9d967719026da949dff799194dd71f893ac8db88a990ac1d7f163cf5ea44e2ae6208a71c7279e23ca44cccf04",
+        "capability": {
+          "name": "qt6qmlimport(QtQuick.Window)"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(QtQuick3D)",
+      "provider": {
+        "package": "qt6-quick3d-imports",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "6.11.2",
+          "rel": "1.1"
+        },
+        "package_sha512": "21935b31023e145062aacbbca2916cd988d11c1b440ca5ba4c7f7857f1f5a216cb97bd48c5b2796f5faced20cf4281add41e792b24fab570f345ff362aa65359",
+        "capability": {
+          "name": "qt6qmlimport(QtQuick3D)"
+        }
+      }
+    },
+    {
+      "requirement": "qt6qmlimport(org.kde.syntaxhighlighting)",
+      "provider": {
+        "package": "kf6-syntax-highlighting-imports",
+        "arch": "x86_64",
+        "version": {
+          "epoch": "0",
+          "ver": "6.31.0",
+          "rel": "1.1"
+        },
+        "package_sha512": "e3d43ba2959ff7d56b6f8624c222f9000836a061945d17f191feb465a0acb08438faa5766579c4027dd68057f2521f1757abcedaded86e08bac3352a65ef27d1",
+        "capability": {
+          "name": "qt6qmlimport(org.kde.syntaxhighlighting)"
+        }
+      }
+    }
+  ]
+}

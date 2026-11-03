@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "upstream_repository": "https://github.com/Ryoku-dev/ryoku",
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "upstream_tree": "06b2962f82f43118c3a98372c2a4b435b689b725",
+  "upstream_release": "v1.0.0 Amaterasu",
+  "source_archive": {
+    "name": "ryoku-writers-a59d051.tar.xz",
+    "sha256": "387d829860ba844ad32ecdd5982678707665f3251e41bbb43c6fd6f87dc7eee0",
+    "selection": "Complete pinned Rashin source, committed Go vendor, embedded web dist and shared WM source; other retained writer roots are unchanged"
+  },
+  "repository_context": {
+    "name": "ryoku-rashin-context-a59d051.md",
+    "sha256": "7441655d8f9d384f4e1b292d6e44de3a2c4fbccf097108e09578927602ec97d8",
+    "bytes": 2453,
+    "generator_source": "ryoku/rashin/backend/repo.go",
+    "generator_git_blob": "79cb9b7cf65b1c59fa3002a61dd646c0dd816e14",
+    "input": "Complete clean pinned upstream tree, including docs, system, installation, release and source paths",
+    "input_regular_files": 8874,
+    "input_regular_file_bytes": 451119868,
+    "reproduction": "Two runs of the unchanged pinned repo-index command against that full tree with Git unavailable in PATH produced identical bytes. The optional live Git/time header is absent. The selected Source3 archive is not substituted for the full input tree.",
+    "input_git_links": 26,
+    "input_git_link_bytes": 1336
+  },
+  "go_source": {
+    "module": "ryoku/rashin/backend",
+    "go_mod_git_blob": "fd9490bf2c075402440bcb141949b28990dc0bee",
+    "vendor_modules_git_blob": "fcc57609020910b54915d9582e866c8272fbae1f",
+    "embedded_ui": "ryoku/rashin/backend/web/dist",
+    "frontend_lock": "ryoku/rashin/web/pnpm-lock.yaml",
+    "frontend_lock_git_blob": "4a06aa4f76481c7f95fff77c5d73b73489dadfa3",
+    "build_policy": "GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOWORK=off CGO_ENABLED=0; go build -trimpath -mod=vendor -buildvcs=false"
+  },
+  "notices": {
+    "websocket": {
+      "source": "ryoku/rashin/backend/vendor/github.com/coder/websocket/LICENSE.txt",
+      "sha256": "0b12dba478a73e88a239b33a23aad4721ad692d70d428130c2e2064bf9c5aa60",
+      "license": "ISC"
+    },
+    "embedded_fonts": {
+      "source": "ryoku/rashin/web/src/fonts/OFL.txt",
+      "git_blob": "4fc9e96a8cd063fb5e8922264ba9f828d74832ff",
+      "sha256": "5e87be2fba3e22c271d78ca8b8e4baefb5b2b12df1690aa55214da79847c8437",
+      "license": "OFL-1.1",
+      "families": [
+        "Fraunces",
+        "Space Grotesk",
+        "Space Mono",
+        "Noto Sans CJK JP"
+      ],
+      "source_dist_byte_equal_pairs": 8
+    },
+    "bundled_javascript": "Complete dependency notice and source rebuild review remains open; the committed frontend bundle is retained without a Node fetch or rebuild"
+  },
+  "integration_status": "Private native build candidate only; public CLI, desktop entry and user service require the tested issue183 transport/writer/recovery integration. No supported native launch or package acceptance is claimed."
+}

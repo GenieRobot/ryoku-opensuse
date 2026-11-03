@@ -1,0 +1,3142 @@
+[
+  {
+    "arch": "x86_64",
+    "checksum": "8511333ecb0186c813c32bdb90eeecba7d780321a0b30fac320fb500b9f224bf2fc30bed6094d2efd1fa4c784e4d1da4dd53e381af67b28f0f577be4cef71559",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/ImageMagick-7.1.2.33-1.1.x86_64.rpm"
+    },
+    "name": "ImageMagick",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ImageMagick",
+        "rel": "1.1",
+        "ver": "7.1.2.33"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ImageMagick(x86-64)",
+        "rel": "1.1",
+        "ver": "7.1.2.33"
+      }
+    ],
+    "requires": [
+      {
+        "name": "libMagickCore-7.Q16HDRI.so.10()(64bit)"
+      },
+      {
+        "name": "libMagickWand-7.Q16HDRI.so.10()(64bit)"
+      },
+      {
+        "name": "libMagickWand-7.Q16HDRI.so.10(VERS_10.0)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.34)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "7.1.2.33"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "77620f0157da9063f9a41bf6f6664a0d3abd637ec1a6df5d89b397b22601422eaaae0af577f191546523e862069bb7258eba9d12758006baf3d6cb1a64f493ee",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/ffmpeg-8-libavcodec-devel-8.1.3-3.1.x86_64.rpm"
+    },
+    "name": "ffmpeg-8-libavcodec-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-8-libavcodec-devel",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-8-libavcodec-devel(x86-64)",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavcodec-devel",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libavcodec)",
+        "ver": "62.28.103"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-8-libavutil-devel",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavcodec62",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(libavutil)",
+        "ver": "60.26.103"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(libswresample)",
+        "ver": "6.3.103"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "3.1",
+      "ver": "8.1.3"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "a3175bec4623c2801f2f5d19a154f30c9cfd4d1241483260842acbc3eb5218e634f9d55b237781ce4deb1983ad868c4c30d493f44cf7a44fd9ef578875b6e611",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/ffmpeg-8-libavformat-devel-8.1.3-3.1.x86_64.rpm"
+    },
+    "name": "ffmpeg-8-libavformat-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-8-libavformat-devel",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-8-libavformat-devel(x86-64)",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavformat-devel",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libavformat)",
+        "ver": "62.12.103"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-8-libavcodec-devel",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-8-libavutil-devel",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-8-libswresample-devel",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavformat62",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(libavcodec)",
+        "ver": "62.28.103"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(libavutil)",
+        "ver": "60.26.103"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(libswresample)",
+        "ver": "6.3.103"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "3.1",
+      "ver": "8.1.3"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "aa34f5f15fd1dbd632df5a81f1444701c1691570a1bb3fe96f3d9eb43bd5f3bb762f68690619643ab86fb2f73939d28da7b5679812105a18bd867aef29e9f2c7",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/ffmpeg-8-libavutil-devel-8.1.3-3.1.x86_64.rpm"
+    },
+    "name": "ffmpeg-8-libavutil-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-8-libavutil-devel",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-8-libavutil-devel(x86-64)",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavutil-devel",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libavutil)",
+        "ver": "60.26.103"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavutil60",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "3.1",
+      "ver": "8.1.3"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "778153072a881f24c42741457b65808ca8ace45e5d99267d8d2b16261cafc8f4377d33871033d867fc13ba848528c75e7b59771ea0fc69f52d5d377d9bd20ca5",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/ffmpeg-8-libswscale-devel-8.1.3-3.1.x86_64.rpm"
+    },
+    "name": "ffmpeg-8-libswscale-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-8-libswscale-devel",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-8-libswscale-devel(x86-64)",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libswscale-devel",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libswscale)",
+        "ver": "9.5.103"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-8-libavutil-devel",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libswscale9",
+        "rel": "3.1",
+        "ver": "8.1.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(libavutil)",
+        "ver": "60.26.103"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "3.1",
+      "ver": "8.1.3"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "3b6a527aa5f5081a16ded76b1cd5781a3f83e52b910ad3523e6fc08efcb85755336258e964436da568413500866136ec06e96fd87084f855065da9dc3a95979e",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/ffmpeg-9.0.2-4.1.x86_64.rpm"
+    },
+    "name": "ffmpeg",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg(x86-64)",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-tools",
+        "ver": "9.0.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "(libavcodec63 = 9.0.2-4.1 or ffmpeg-9-mini-libs = 9.0.2-4.1)"
+      },
+      {
+        "name": "(libavdevice63 = 9.0.2-4.1 or ffmpeg-9-mini-libs = 9.0.2-4.1)"
+      },
+      {
+        "name": "(libavfilter12 = 9.0.2-4.1 or ffmpeg-9-mini-libs = 9.0.2-4.1)"
+      },
+      {
+        "name": "(libavformat63 = 9.0.2-4.1 or ffmpeg-9-mini-libs = 9.0.2-4.1)"
+      },
+      {
+        "name": "(libavutil61 = 9.0.2-4.1 or ffmpeg-9-mini-libs = 9.0.2-4.1)"
+      },
+      {
+        "name": "(libswresample7 = 9.0.2-4.1 or ffmpeg-9-mini-libs = 9.0.2-4.1)"
+      },
+      {
+        "name": "(libswscale10 = 9.0.2-4.1 or ffmpeg-9-mini-libs = 9.0.2-4.1)"
+      },
+      {
+        "name": "libSDL2-2.0.so.0()(64bit)"
+      },
+      {
+        "name": "libSDL2-2.0.so.0(SUSE_2.0.6)(64bit)"
+      },
+      {
+        "name": "libSDL2-2.0.so.0(SUSE_2.0.8)(64bit)"
+      },
+      {
+        "name": "libavcodec.so.63()(64bit)"
+      },
+      {
+        "name": "libavcodec.so.63(LIBAVCODEC_63)(64bit)"
+      },
+      {
+        "name": "libavdevice.so.63()(64bit)"
+      },
+      {
+        "name": "libavdevice.so.63(LIBAVDEVICE_63)(64bit)"
+      },
+      {
+        "name": "libavfilter.so.12()(64bit)"
+      },
+      {
+        "name": "libavfilter.so.12(LIBAVFILTER_12)(64bit)"
+      },
+      {
+        "name": "libavformat.so.63()(64bit)"
+      },
+      {
+        "name": "libavformat.so.63(LIBAVFORMAT_63)(64bit)"
+      },
+      {
+        "name": "libavutil.so.61()(64bit)"
+      },
+      {
+        "name": "libavutil.so.61(LIBAVUTIL_61)(64bit)"
+      },
+      {
+        "name": "libavutil.so.61(LIBAVUTIL_61_VK)(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1()(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1(GCC_3.4)(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.29)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.35)(64bit)"
+      },
+      {
+        "name": "libplacebo.so.360()(64bit)"
+      },
+      {
+        "name": "libswresample.so.7()(64bit)"
+      },
+      {
+        "name": "libswresample.so.7(LIBSWRESAMPLE_7)(64bit)"
+      },
+      {
+        "name": "libswscale.so.10()(64bit)"
+      },
+      {
+        "name": "libswscale.so.10(LIBSWSCALE_10)(64bit)"
+      },
+      {
+        "name": "libz.so.1()(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.38)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "4.1",
+      "ver": "9.0.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "dca03758f3fbd38d446e70d6cecf3e3ecd36a2c9bfdea09f238d577cb8000aad8057ae4b59e3b7a6f075a7bfb2bedca17399d432c6c015fdc6025d3672e368b1",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libQt6Concurrent6-6.11.2-2.1.x86_64.rpm"
+    },
+    "name": "libQt6Concurrent6",
+    "provides": [
+      {
+        "name": "libQt6Concurrent.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Concurrent.so.6(NonQt)(64bit)"
+      },
+      {
+        "name": "libQt6Concurrent.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Concurrent.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Concurrent6",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Concurrent6(x86-64)",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Core6",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "libgcc_s.so.1()(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1(GCC_3.0)(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1(GCC_3.3.1)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.13)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.4)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "2.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "eb3b6f1c316b1c3238c9c96676487f0bb20d88cc55c47f41645a933664a7be77541d0804e49c7047d6ec67da079e9d886e900c67e1b5ff0d157389c505e6bef1",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libQt6Quick3D6-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "libQt6Quick3D6",
+    "provides": [
+      {
+        "name": "libQt6Quick3D.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6(NonQt)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3D6",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3D6(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6QmlModels.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QmlModels.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DRuntimeRender.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DRuntimeRender.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DUtils.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DUtils.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DUtils.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.35)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.43)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.14)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.30)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.32)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "noarch",
+    "checksum": "ae75b34f608a59f1f865fed507746ab6f1ed811fbe00c017b5ac7e5388e0f409fcbcc35a8b3bad8a56114e96d8fae3baffd2e9273f23b20089755ff96d58186c",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "noarch/qml-autoreqprov-1.4.1-1.7.noarch.rpm"
+    },
+    "name": "qml-autoreqprov",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qml-autoreqprov",
+        "rel": "1.7",
+        "ver": "1.4.1"
+      }
+    ],
+    "requires": [
+      {
+        "name": "(libqt5-qtdeclarative-tools if libQtQuick5)"
+      },
+      {
+        "name": "(qmlpluginexports-qt5 if libqt5-qtdeclarative-devel)"
+      },
+      {
+        "name": "(qmlpluginexports-qt6 if qt6-qml-devel)"
+      },
+      {
+        "name": "(qt6-base-common-devel if libQt6Qml6)"
+      },
+      {
+        "name": "(qt6-declarative-tools if libQt6Qml6)"
+      },
+      {
+        "name": "/bin/bash"
+      },
+      {
+        "name": "jq"
+      },
+      {
+        "name": "rpm"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.7",
+      "ver": "1.4.1"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "df2c4dee97b61ccaff7e43957abb83400622a4d4d77796b1f8b6b7761692f766675d5365e8b97d3ebc7aba0863288e0fecd08690c1eb7f28ac3099d5d779fb20",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qmlpluginexports-qt6-1.0-1.47.x86_64.rpm"
+    },
+    "name": "qmlpluginexports-qt6",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qmlpluginexports-qt6",
+        "rel": "1.47",
+        "ver": "1.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qmlpluginexports-qt6(x86-64)",
+        "rel": "1.47",
+        "ver": "1.0"
+      }
+    ],
+    "requires": [
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1()(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1(GCC_3.0)(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1(GCC_3.3.1)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.34)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.47",
+      "ver": "1.0"
+    }
+  },
+  {
+    "arch": "noarch",
+    "checksum": "c8787ba70fe2752550be3359da74d21482e41bef45df9a78350c8488e1b54d0783cdcda5b681ef6d748a37b50dfccfc746f84cb9570219dea96e1755b6ef6d13",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "noarch/qt6-base-devel-6.11.2-2.1.noarch.rpm"
+    },
+    "name": "qt6-base-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-base-devel",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Concurrent)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Core)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6DBus)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Gui)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Network)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6OpenGL)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6OpenGLWidgets)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6PrintSupport)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Sql)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Test)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6WaylandClient)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6WaylandGlobalPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Widgets)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Xml)",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "qt6-base-common-devel"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "2.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "noarch",
+    "checksum": "6c3c50286d541483c274bf073d3de5ba5bd4dca8046feb09324f5d0b72ef72bb44a7628a874a86c42ed69c16efea61162b6c703ab3b117233556e319b808a0b0",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "noarch/qt6-declarative-devel-6.11.2-2.1.noarch.rpm"
+    },
+    "name": "qt6-declarative-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-declarative-devel",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Qml)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6QmlCompiler)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6QuickControls2)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6QuickControls2Impl)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6QuickDialogs2)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6QuickDialogs2QuickImpl)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6QuickTest)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6QuickWidgets)",
+        "ver": "6.11.2"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "2.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "4bc8c34bb109cfcb901237f3997200dd396446280d665a07dd19c23c1b267535aab9a7a085b080e3fd9009bad473242f13fc5cb0afca31ae6047b229284314ad",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-declarative-imports-6.11.2-2.1.x86_64.rpm"
+    },
+    "name": "qt6-declarative-imports",
+    "provides": [
+      {
+        "name": "libeffectsplugin.so()(64bit)"
+      },
+      {
+        "name": "libeffectsplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libeffectsplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libeffectsplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "liblabsanimationplugin.so()(64bit)"
+      },
+      {
+        "name": "liblabsanimationplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "liblabsanimationplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "liblabsanimationplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "liblabsmodelsplugin.so()(64bit)"
+      },
+      {
+        "name": "liblabsmodelsplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "liblabsmodelsplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "liblabsmodelsplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "liblabsplatformplugin.so()(64bit)"
+      },
+      {
+        "name": "liblabsplatformplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "liblabsplatformplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "liblabsplatformplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "liblabsstylekitimplplugin.so()(64bit)"
+      },
+      {
+        "name": "liblabsstylekitimplplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "liblabsstylekitimplplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "liblabsstylekitimplplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "liblabsstylekitplugin.so()(64bit)"
+      },
+      {
+        "name": "liblabsstylekitplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "liblabsstylekitplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "liblabsstylekitplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "liblabssynchronizerplugin.so()(64bit)"
+      },
+      {
+        "name": "liblabssynchronizerplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "liblabssynchronizerplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "liblabssynchronizerplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libmodelsplugin.so()(64bit)"
+      },
+      {
+        "name": "libmodelsplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libmodelsplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libmodelsplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libparticlesplugin.so()(64bit)"
+      },
+      {
+        "name": "libparticlesplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libparticlesplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libparticlesplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqmlfolderlistmodelplugin.so()(64bit)"
+      },
+      {
+        "name": "libqmlfolderlistmodelplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqmlfolderlistmodelplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqmlfolderlistmodelplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqmllocalstorageplugin.so()(64bit)"
+      },
+      {
+        "name": "libqmllocalstorageplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqmllocalstorageplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqmllocalstorageplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqmlnetworkplugin.so()(64bit)"
+      },
+      {
+        "name": "libqmlnetworkplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqmlnetworkplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqmlnetworkplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqmlplugin.so()(64bit)"
+      },
+      {
+        "name": "libqmlplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqmlplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqmlplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqmlsettingsplugin.so()(64bit)"
+      },
+      {
+        "name": "libqmlsettingsplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqmlsettingsplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqmlsettingsplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqmlshapesplugin.so()(64bit)"
+      },
+      {
+        "name": "libqmlshapesplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqmlshapesplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqmlshapesplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqmlwavefrontmeshplugin.so()(64bit)"
+      },
+      {
+        "name": "libqmlwavefrontmeshplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqmlwavefrontmeshplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqmlwavefrontmeshplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqmlxmllistmodelplugin.so()(64bit)"
+      },
+      {
+        "name": "libqmlxmllistmodelplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqmlxmllistmodelplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqmlxmllistmodelplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqquicklayoutsplugin.so()(64bit)"
+      },
+      {
+        "name": "libqquicklayoutsplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqquicklayoutsplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqquicklayoutsplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqquickvectorimagehelpersplugin.so()(64bit)"
+      },
+      {
+        "name": "libqquickvectorimagehelpersplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqquickvectorimagehelpersplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqquickvectorimagehelpersplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqquickvectorimageplugin.so()(64bit)"
+      },
+      {
+        "name": "libqquickvectorimageplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqquickvectorimageplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqquickvectorimageplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtqmlcoreplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtqmlcoreplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtqmlcoreplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtqmlcoreplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquick2plugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquick2plugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquick2plugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquick2plugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2basicstyleimplplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2basicstyleimplplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2basicstyleimplplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2basicstyleimplplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2basicstyleplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2basicstyleplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2basicstyleplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2basicstyleplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2fluentwinui3styleimplplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2fluentwinui3styleimplplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2fluentwinui3styleimplplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2fluentwinui3styleimplplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2fluentwinui3styleplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2fluentwinui3styleplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2fluentwinui3styleplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2fluentwinui3styleplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2fusionstyleimplplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2fusionstyleimplplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2fusionstyleimplplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2fusionstyleimplplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2fusionstyleplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2fusionstyleplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2fusionstyleplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2fusionstyleplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2imaginestyleimplplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2imaginestyleimplplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2imaginestyleimplplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2imaginestyleimplplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2imaginestyleplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2imaginestyleplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2imaginestyleplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2imaginestyleplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2implplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2implplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2implplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2implplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2materialstyleimplplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2materialstyleimplplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2materialstyleimplplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2materialstyleimplplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2materialstyleplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2materialstyleplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2materialstyleplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2materialstyleplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2plugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2plugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2plugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2plugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2universalstyleimplplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2universalstyleimplplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2universalstyleimplplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2universalstyleimplplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2universalstyleplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2universalstyleplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2universalstyleplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickcontrols2universalstyleplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickdialogs2quickimplplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickdialogs2quickimplplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickdialogs2quickimplplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickdialogs2quickimplplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickdialogsplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickdialogsplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickdialogsplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickdialogsplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquickshapesdesignhelpersplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquickshapesdesignhelpersplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquickshapesdesignhelpersplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquickshapesdesignhelpersplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquicktemplates2plugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquicktemplates2plugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquicktemplates2plugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquicktemplates2plugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libquickcontrolstestutilsprivateplugin.so()(64bit)"
+      },
+      {
+        "name": "libquickcontrolstestutilsprivateplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libquickcontrolstestutilsprivateplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libquickcontrolstestutilsprivateplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libquicktestplugin.so()(64bit)"
+      },
+      {
+        "name": "libquicktestplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libquicktestplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libquicktestplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libquicktoolingplugin.so()(64bit)"
+      },
+      {
+        "name": "libquicktoolingplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libquicktoolingplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libquicktoolingplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libquickwindowplugin.so()(64bit)"
+      },
+      {
+        "name": "libquickwindowplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libquickwindowplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libquickwindowplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libsharedimageplugin.so()(64bit)"
+      },
+      {
+        "name": "libsharedimageplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libsharedimageplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libsharedimageplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libworkerscriptplugin.so()(64bit)"
+      },
+      {
+        "name": "libworkerscriptplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libworkerscriptplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libworkerscriptplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-declarative-imports",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-declarative-imports(x86-64)",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quickcontrols2-imports",
+        "ver": "6.2.0"
+      }
+    ],
+    "requires": [
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6LabsAnimation.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6LabsAnimation.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6LabsFolderListModel.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6LabsFolderListModel.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6LabsPlatform.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6LabsPlatform.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6LabsQmlModels.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6LabsQmlModels.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6LabsSettings.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6LabsSettings.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6LabsSharedImage.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6LabsSharedImage.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6LabsSharedImage.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6LabsStyleKit.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6LabsStyleKit.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6LabsStyleKitImpl.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6LabsStyleKitImpl.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6LabsSynchronizer.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6LabsSynchronizer.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6LabsWavefrontMesh.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6LabsWavefrontMesh.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QmlCore.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QmlCore.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QmlLocalStorage.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QmlLocalStorage.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QmlMeta.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QmlMeta.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QmlModels.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QmlModels.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QmlNetwork.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QmlNetwork.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QmlWorkerScript.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QmlWorkerScript.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QmlXmlListModel.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QmlXmlListModel.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Basic.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Basic.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Basic.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2BasicStyleImpl.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2BasicStyleImpl.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2FluentWinUI3StyleImpl.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2FluentWinUI3StyleImpl.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2FluentWinUI3StyleImpl.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Fusion.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Fusion.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Fusion.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2FusionStyleImpl.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2FusionStyleImpl.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Imagine.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Imagine.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Imagine.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2ImagineStyleImpl.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2ImagineStyleImpl.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Impl.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Impl.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Material.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Material.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Material.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2MaterialStyleImpl.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2MaterialStyleImpl.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Universal.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Universal.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2Universal.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2UniversalStyleImpl.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickControls2UniversalStyleImpl.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickDialogs2.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickDialogs2.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickDialogs2QuickImpl.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickDialogs2QuickImpl.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickEffects.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickEffects.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickLayouts.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickLayouts.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickParticles.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickParticles.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickShapes.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickShapes.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickShapesDesignHelpers.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickShapesDesignHelpers.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickTemplates2.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickTemplates2.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickTemplates2.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6QuickTest.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickTest.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickVectorImage.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickVectorImage.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickVectorImageHelpers.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickVectorImageHelpers.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.4)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "2.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "b2ef724f93b57db1a34237c67940305a3d38df3dae53dabc9f8a7911ae7a5f28ce022165884780433f560e3a87ce5338c1266b5d1741a4a88c9dea6a92cbc067",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-gui-private-devel-6.11.2-2.1.x86_64.rpm"
+    },
+    "name": "qt6-gui-private-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6EglFSDeviceIntegrationPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6EglFsKmsGbmSupportPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6EglFsKmsSupportPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6GuiPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6XcbQpaPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-gui-private-devel",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-gui-private-devel(x86-64)",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6CorePrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6DeviceDiscoverySupportPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6FbSupportPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Gui)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6InputSupportPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6OpenGLPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Gui6",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "pkgconfig(xkbcommon)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-kmssupport-private-devel",
+        "ver": "6.11.2"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "2.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "d9c46de1509ce28904712f73e0e0ba4af7c977083f02c756ce8a1bc36ffaeecabf84afebe69e4bff04999e8696ed53020774b53670d36becd4ee803c9b1939c1",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-multimedia-devel-6.11.2-1.2.x86_64.rpm"
+    },
+    "name": "qt6-multimedia-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Multimedia)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(Qt6Multimedia)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-multimedia-devel",
+        "rel": "1.2",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-multimedia-devel(x86-64)",
+        "rel": "1.2",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Concurrent)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Gui)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Network)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Multimedia6",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "pkgconfig(Qt6Core)"
+      },
+      {
+        "name": "pkgconfig(Qt6Gui)"
+      },
+      {
+        "name": "pkgconfig(Qt6Network)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.2",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "8f97ae0d21dd1e1884b385586000e632784084a195682b49b5bc664a1658567aa7d1d2109934454f8ecc1cf1d88024ba82eb2ad710bc5f34492eb24ea13f6e31",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-multimedia-imports-6.11.2-1.2.x86_64.rpm"
+    },
+    "name": "qt6-multimedia-imports",
+    "provides": [
+      {
+        "name": "libquick3dspatialaudioplugin.so()(64bit)"
+      },
+      {
+        "name": "libquick3dspatialaudioplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libquick3dspatialaudioplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libquick3dspatialaudioplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libquickmultimediaplugin.so()(64bit)"
+      },
+      {
+        "name": "libquickmultimediaplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libquickmultimediaplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libquickmultimediaplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-multimedia-imports",
+        "rel": "1.2",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-multimedia-imports(x86-64)",
+        "rel": "1.2",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "qt6qmlimport(QtMultimedia)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtMultimedia.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtMultimedia.5)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtMultimedia.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.SpatialAudio)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.SpatialAudio.6)",
+        "ver": "11"
+      }
+    ],
+    "requires": [
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libQt6MultimediaQuick.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6MultimediaQuick.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6MultimediaQuick.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DSpatialAudio.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DSpatialAudio.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.4)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.2",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "0f1fe241a813ce4dbc0f4b54d65678b9c3525d0e142649df700c68aa037369a0fb685a9e9de8099536ad062f62eb344d7c7114de980785de94389e4da6e3ea0d",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-qt5compat-imports-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "qt6-qt5compat-imports",
+    "provides": [
+      {
+        "name": "libqtgraphicaleffectsplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtgraphicaleffectsplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtgraphicaleffectsplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtgraphicaleffectsplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtgraphicaleffectsprivateplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtgraphicaleffectsprivateplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtgraphicaleffectsprivateplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtgraphicaleffectsprivateplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-qt5compat-imports",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-qt5compat-imports(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "qt6qmlimport(Qt5Compat.GraphicalEffects)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt5Compat.GraphicalEffects.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt5Compat.GraphicalEffects.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(Qt5Compat.GraphicalEffects.private)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt5Compat.GraphicalEffects.private.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt5Compat.GraphicalEffects.private.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt5Compat.GraphicalEffects.private.5)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt5Compat.GraphicalEffects.private.6)",
+        "ver": "11"
+      }
+    ],
+    "requires": [
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6ShaderTools.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6ShaderTools.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.29)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick)"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Window)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.14)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "359dde32adecdcac315de6307afb5bb8a1dc0f31788cbfab4cd21909e96319f222b1954b3146d532f4e698eb0136d81c5fe03b4024139c5fd5029e045394fe08",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-quick3d-devel-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "qt6-quick3d-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick3D)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick3DTools)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(Qt6Quick3D)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick3d-devel",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick3d-devel(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Gui)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Qml)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick3DRuntimeRender)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3D6",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "pkgconfig(Qt6Core)"
+      },
+      {
+        "name": "pkgconfig(Qt6Gui)"
+      },
+      {
+        "name": "pkgconfig(Qt6Qml)"
+      },
+      {
+        "name": "pkgconfig(Qt6Quick)"
+      },
+      {
+        "name": "pkgconfig(Qt6Quick3DRuntimeRender)"
+      },
+      {
+        "name": "qt6-quick3d"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "21935b31023e145062aacbbca2916cd988d11c1b440ca5ba4c7f7857f1f5a216cb97bd48c5b2796f5faced20cf4281add41e792b24fab570f345ff362aa65359",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-quick3d-imports-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "qt6-quick3d-imports",
+    "provides": [
+      {
+        "name": "libqquick3dplugin.so()(64bit)"
+      },
+      {
+        "name": "libqquick3dplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqquick3dplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqquick3dplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquick3dassetutilsplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquick3dassetutilsplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquick3dassetutilsplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquick3dassetutilsplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquick3deffectplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquick3deffectplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquick3deffectplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquick3deffectplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquick3dhelpersimplplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquick3dhelpersimplplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquick3dhelpersimplplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquick3dhelpersimplplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquick3dhelpersplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquick3dhelpersplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquick3dhelpersplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquick3dhelpersplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquick3dparticleeffectsplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquick3dparticleeffectsplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquick3dparticleeffectsplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquick3dparticleeffectsplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquick3dparticles3dplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquick3dparticles3dplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquick3dparticles3dplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquick3dparticles3dplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libquick3dxrplugin.so()(64bit)"
+      },
+      {
+        "name": "libquick3dxrplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libquick3dxrplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libquick3dxrplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick3d-imports",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick3d-imports(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.AssetUtils)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.AssetUtils.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.Effects)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.Effects.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.Helpers)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.Helpers.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.Helpers.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.Helpers.impl)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.Helpers.impl.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.MaterialEditor)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.MaterialEditor.1)",
+        "ver": "0"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.ParticleEffects)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.ParticleEffects.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.Particles3D)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.Particles3D.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.Xr)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.Xr.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.lightmapviewer)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.lightmapviewer.1)",
+        "ver": "0"
+      }
+    ],
+    "requires": [
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DAssetUtils.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DAssetUtils.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DEffects.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DHelpers.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DHelpers.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DHelpersImpl.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DHelpersImpl.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DParticleEffects.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DParticles.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DParticles.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DXr.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DXr.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "qt6qmlimport(Qt.labs.platform)"
+      },
+      {
+        "name": "qt6qmlimport(QtCore)"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick)"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Controls)"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Dialogs)"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Layouts)"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Window)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.4)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "89262e609a9917338dbd1ff159ef579ec3091c361596a75568c2d77339b6a738af0ec558063b00dc2e2414bc258a0aeed2524aff917e057d67740e7c9e5d5f3b",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-shadertools-devel-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "qt6-shadertools-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6ShaderTools)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6ShaderToolsTools)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(Qt6ShaderTools)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-shadertools-devel",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-shadertools-devel(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Gui)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6ShaderTools6",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "pkgconfig(Qt6Core)"
+      },
+      {
+        "name": "pkgconfig(Qt6Gui)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-shadertools",
+        "ver": "6.11.2"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "noarch",
+    "checksum": "e5503c453cbf49a1da4b2a6ca63c4f0e4c4dd94f73f793cc526352335b217801e4ce069b4b22f27e952365a44e0112178c42da83441a9cf2f02339ce7ff45a72",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "noarch/vulkan-headers-1.4.363-1.1.noarch.rpm"
+    },
+    "name": "vulkan-headers",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(VulkanHeaders)",
+        "ver": "1.4.363"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "vulkan-headers",
+        "rel": "1.1",
+        "ver": "1.4.363"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/python3.13"
+      },
+      {
+        "name": "pkgconfig(wayland-client)"
+      },
+      {
+        "name": "pkgconfig(x11)"
+      },
+      {
+        "name": "pkgconfig(xcb)"
+      },
+      {
+        "name": "pkgconfig(xrandr)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "1.4.363"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "b4f46f0ed9b75d7d5692ebe4cb6b08ac245cefec89e88861cb9d5406f8635ed4bb60375d50b133b8b93aed85169f0e0f68d6d14d732f08c12e21a3854fd46a86",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/wayland-devel-1.26.0-1.2.x86_64.rpm"
+    },
+    "name": "wayland-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libwayland-egl-devel",
+        "ver": "18.1.5"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(wayland-client)",
+        "ver": "1.26.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(wayland-cursor)",
+        "ver": "1.26.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(wayland-egl)",
+        "ver": "18.1.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(wayland-egl-backend)",
+        "ver": "3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(wayland-scanner)",
+        "ver": "1.26.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(wayland-server)",
+        "ver": "1.26.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "wayland-devel",
+        "rel": "1.2",
+        "ver": "1.26.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "wayland-devel(x86-64)",
+        "rel": "1.2",
+        "ver": "1.26.0"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "name": "libexpat.so.1()(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libwayland-client0",
+        "ver": "1.26.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libwayland-cursor0",
+        "ver": "1.26.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libwayland-egl1",
+        "ver": "1.26.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libwayland-server0",
+        "ver": "1.26.0"
+      },
+      {
+        "name": "libxml2.so.16()(64bit)"
+      },
+      {
+        "name": "pkgconfig(libffi)"
+      },
+      {
+        "name": "pkgconfig(wayland-client)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.34)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.2",
+      "ver": "1.26.0"
+    }
+  },
+  {
+    "arch": "noarch",
+    "checksum": "1dc0ec51063774c66b7865885b650008e34972a328a5a751fe635c912e277baf1079b98e7a72a8304c7acb6c581e98b38b518b2575e75c23c876c629dc5e5bb4",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "noarch/wayland-protocols-devel-1.49-1.3.noarch.rpm"
+    },
+    "name": "wayland-protocols-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(wayland-protocols)",
+        "ver": "1.49"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "wayland-protocols-devel",
+        "rel": "1.3",
+        "ver": "1.49"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.3",
+      "ver": "1.49"
+    }
+  }
+]

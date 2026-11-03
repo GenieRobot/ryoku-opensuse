@@ -1,0 +1,350 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "scope": "Pinned binary sfnt name-table metadata and selected payload facts only; no font execution, external lookup, legal conclusion or redistribution permission",
+  "font_directory_contains_only_these_11_binaries": true,
+  "total_font_bytes": 366768,
+  "fonts": [
+    {
+      "source": "ryoku/shell/quickshell/shell/assets/fonts/abberancy.ttf",
+      "git_blob": "84393e8cc68126e1b396ed04dabcaae1ae303cb5",
+      "git_mode": "100755",
+      "bytes": 29220,
+      "sha256": "6710865ce96c16e65514da78e250d3cd1ef848a87ea82b18de5c9882d097837f",
+      "source3_selected": true,
+      "source2_payloads": [
+        "shell/quickshell/shell/assets/fonts/abberancy.ttf"
+      ],
+      "redistribution_status": "unresolved: embedded metadata is evidence, not permission or a license conclusion",
+      "sfnt_name_values": {
+        "0": [
+          "© 1998 Ray Larabie. This font is freeware. Read attached text file for details. Info & updates visit www.larabiefonts.com. Donations gratefully accepted at www.larabiefonts.com/donation.html. Also visit my commercial type foundry at www.typodermic.com. This font was updated in 2004."
+        ],
+        "1": [
+          "Abberancy"
+        ],
+        "8": [
+          "Ray Larabie"
+        ],
+        "9": [
+          "Ray Larabie"
+        ],
+        "11": [
+          "http://www.larabiefonts.com"
+        ],
+        "12": [
+          "http://www.typodermic.com"
+        ]
+      }
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/assets/fonts/daydream-demo.otf",
+      "git_blob": "7b938ac76cc7e025f2c611463f427455a794ed28",
+      "git_mode": "100644",
+      "bytes": 20216,
+      "sha256": "7394a7524cade9f546ab48defc437b3bd5dd5c200e0d3681fd5bb7a849994227",
+      "source3_selected": true,
+      "source2_payloads": [
+        "shell/quickshell/shell/assets/fonts/daydream-demo.otf"
+      ],
+      "redistribution_status": "unresolved: embedded metadata is evidence, not permission or a license conclusion",
+      "sfnt_name_values": {
+        "0": [
+          "(c) 2020 by DoubleGum."
+        ],
+        "1": [
+          "Daydream"
+        ],
+        "8": [
+          "\"\""
+        ],
+        "9": [
+          "DoubleGum"
+        ],
+        "11": [
+          "\"\""
+        ],
+        "12": [
+          "https://www.instagram.com/doublegum_"
+        ],
+        "13": [
+          "\"\""
+        ],
+        "14": [
+          "\"\""
+        ]
+      }
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/assets/fonts/jf-flat-regular.otf",
+      "git_blob": "6e079475ba2022692d408f60d5d4897aeb8f372f",
+      "git_mode": "100755",
+      "bytes": 43852,
+      "sha256": "e59d6beae4aa7072c8c3d494cd610b6a55f08399b3b3495e0d07f55091095226",
+      "source3_selected": true,
+      "source2_payloads": [
+        "shell/quickshell/shell/assets/fonts/jf-flat-regular.otf"
+      ],
+      "redistribution_status": "unresolved: embedded metadata is evidence, not permission or a license conclusion",
+      "sfnt_name_values": {
+        "0": [
+          "Copyright © 2014 ( Jozoor Fonts ) All Rights Reserved"
+        ],
+        "1": [
+          "JF Flat"
+        ],
+        "8": [
+          "Jozoor Fonts"
+        ],
+        "9": [
+          "Ahmed Abd El Halim"
+        ],
+        "11": [
+          "http://fonts.jozoor.com"
+        ],
+        "12": [
+          "http://www.jozoor.com "
+        ]
+      }
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/assets/fonts/overhead.ttf",
+      "git_blob": "405c09fec5ac4d861724db6bded8049bd9b6d917",
+      "git_mode": "100755",
+      "bytes": 16264,
+      "sha256": "1a445fcc8937b516078408f2f8078b1b4b60e66bf09a47b4ec91a06fa652fa5c",
+      "source3_selected": true,
+      "source2_payloads": [
+        "shell/quickshell/shell/assets/fonts/overhead.ttf"
+      ],
+      "redistribution_status": "unresolved: embedded metadata is evidence, not permission or a license conclusion",
+      "sfnt_name_values": {
+        "0": [
+          "ÆNIGMA FONTS   [e-mail]  kentpw@norwich.net",
+          "∆NIGMA FONTS   [e-mail]  kentpw@norwich.net"
+        ],
+        "1": [
+          "Overhead BRK"
+        ]
+      }
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/assets/fonts/reckoner-bold.ttf",
+      "git_blob": "4a887cbd33bb84011c19b293477d56d05a248751",
+      "git_mode": "100755",
+      "bytes": 28376,
+      "sha256": "fdce2218319deda68f4e8b7f0813ff93776ba3c3b1c60fe18c3b3af1828a4253",
+      "source3_selected": true,
+      "source2_payloads": [
+        "shell/quickshell/shell/assets/fonts/reckoner-bold.ttf"
+      ],
+      "redistribution_status": "unresolved: embedded metadata is evidence, not permission or a license conclusion",
+      "sfnt_name_values": {
+        "1": [
+          "Reckoner Bold"
+        ]
+      }
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/assets/fonts/reckoner.ttf",
+      "git_blob": "bf295b0268609db532e06b917da161ce28bb9f48",
+      "git_mode": "100755",
+      "bytes": 23592,
+      "sha256": "4d5f5a1be2de030b0513602b6e0db2a17437059ce447e5f255a947b6ed7500e1",
+      "source3_selected": true,
+      "source2_payloads": [
+        "shell/quickshell/shell/assets/fonts/reckoner.ttf"
+      ],
+      "redistribution_status": "unresolved: embedded metadata is evidence, not permission or a license conclusion",
+      "sfnt_name_values": {
+        "1": [
+          "Reckoner"
+        ]
+      }
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/assets/fonts/sabana-regular.ttf",
+      "git_blob": "9cc7ce701d128dca4fa2f20ef8674ae2717fda7c",
+      "git_mode": "100644",
+      "bytes": 32100,
+      "sha256": "2b50edc787292acdae8c61b9eafe33cb4b2e3cb77cc7251c17de445f899880e2",
+      "source3_selected": true,
+      "source2_payloads": [
+        "shell/quickshell/shell/assets/fonts/sabana-regular.ttf"
+      ],
+      "redistribution_status": "unresolved: embedded metadata is evidence, not permission or a license conclusion",
+      "sfnt_name_values": {
+        "1": [
+          "sabana"
+        ]
+      }
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/assets/fonts/unrealised.ttf",
+      "git_blob": "6f98cb96fe23e10e71d4217fdd900753fa371793",
+      "git_mode": "100755",
+      "bytes": 42500,
+      "sha256": "c74b41cd9581d74599d74d7e1286a672ba37abc742cc7963cf25abb578206ec3",
+      "source3_selected": true,
+      "source2_payloads": [
+        "shell/quickshell/shell/assets/fonts/unrealised.ttf"
+      ],
+      "redistribution_status": "unresolved: embedded metadata is evidence, not permission or a license conclusion",
+      "sfnt_name_values": {
+        "0": [
+          "tracertong.co.uk"
+        ],
+        "1": [
+          "Unrealised"
+        ],
+        "8": [
+          "TracerTong"
+        ],
+        "9": [
+          "TracerTong"
+        ],
+        "11": [
+          "tracertong.co.uk"
+        ],
+        "12": [
+          "tracertong.co.uk"
+        ],
+        "13": [
+          "Free for personal, non-profit use.\r\n\r\nCommercial use requires a license.\r\nSee included readme/PDF files in the archive with this font.\r\n\r\ntracertong.co.uk"
+        ]
+      }
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/assets/fonts/vexa-light.ttf",
+      "git_blob": "54ea217a4f20c300b2c26fc50804ffa144f488a4",
+      "git_mode": "100755",
+      "bytes": 65360,
+      "sha256": "09eebd5d877b1cd7d956df0828392a351d91d2d01b09ba1bed27970e21e38c50",
+      "source3_selected": true,
+      "source2_payloads": [
+        "shell/quickshell/shell/assets/fonts/vexa-light.ttf"
+      ],
+      "redistribution_status": "unresolved: embedded metadata is evidence, not permission or a license conclusion",
+      "sfnt_name_values": {
+        "0": [
+          "Typeface © (your company). 2021. All Rights Reserved"
+        ],
+        "1": [
+          "VEXA light R"
+        ]
+      }
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/assets/fonts/vip-rawy-regular.otf",
+      "git_blob": "8bc9a23a76c4edea77746db95b6d7e109960d423",
+      "git_mode": "100755",
+      "bytes": 37836,
+      "sha256": "76b2ddd7c0753356df802e00d0ba02f209eef8fca615d4e6649cc727c96d96ad",
+      "source3_selected": true,
+      "source2_payloads": [
+        "shell/quickshell/shell/assets/fonts/vip-rawy-regular.otf"
+      ],
+      "redistribution_status": "unresolved: embedded metadata is evidence, not permission or a license conclusion",
+      "sfnt_name_values": {
+        "0": [
+          "Typeface © (ar.photoshop.3abber.com). 2014. All Rights Reserved"
+        ],
+        "1": [
+          "VIP Rawy Regular"
+        ],
+        "8": [
+          "ar.photoshop.3abber.com"
+        ],
+        "9": [
+          "ar.photoshop.3abber.com"
+        ],
+        "11": [
+          "ar.photoshop.3abber.com"
+        ],
+        "12": [
+          "ar.photoshop.3abber.com"
+        ],
+        "13": [
+          "Typeface © (ar.photoshop.3abber.com). 2014. All Rights Reserved"
+        ],
+        "14": [
+          "Typeface © (ar.photoshop.3abber.com). 2014. All Rights Reserved"
+        ]
+      }
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/assets/fonts/xenophobia-nominal.ttf",
+      "git_blob": "ffb4120f0e477e6edd1817ac396ce9a237e7c1d2",
+      "git_mode": "100644",
+      "bytes": 27452,
+      "sha256": "623e9896aa0d531e42b6251ee1fbfa5af08357b3645c5a2be3d98f50fc0777b8",
+      "source3_selected": true,
+      "source2_payloads": [
+        "shell/quickshell/shell/assets/fonts/xenophobia-nominal.ttf"
+      ],
+      "redistribution_status": "unresolved: embedded metadata is evidence, not permission or a license conclusion",
+      "sfnt_name_values": {
+        "0": [
+          "©2001 Joiro Hatgaya | Freeware, but look at readme file. | JOIRO@HOTMAIL.COM"
+        ],
+        "1": [
+          "Xenophobia"
+        ]
+      }
+    }
+  ],
+  "selected_loader": {
+    "source": "ryoku/shell/quickshell/shell/modules/desktop/Singletons/Fonts.qml",
+    "git_blob": "233b4feebe60896881d03e146bfa72e1820c17ab",
+    "git_mode": "100644",
+    "sha256": "af7e9a1121a57d03fcba4a69b368eb94420a9db76f18beb06037b53e4ccf1ae7",
+    "fontloader_lines": [
+      {
+        "line": 20,
+        "source_text": "FontLoader { id: reckoner;     source: Qt.resolvedUrl(\"../../../assets/fonts/reckoner.ttf\") }"
+      },
+      {
+        "line": 21,
+        "source_text": "FontLoader { id: reckonerBold; source: Qt.resolvedUrl(\"../../../assets/fonts/reckoner-bold.ttf\") }"
+      },
+      {
+        "line": 22,
+        "source_text": "FontLoader { id: jfFlat;       source: Qt.resolvedUrl(\"../../../assets/fonts/jf-flat-regular.otf\") }"
+      },
+      {
+        "line": 23,
+        "source_text": "FontLoader { id: abberancy;    source: Qt.resolvedUrl(\"../../../assets/fonts/abberancy.ttf\") }"
+      },
+      {
+        "line": 24,
+        "source_text": "FontLoader { id: daydream;     source: Qt.resolvedUrl(\"../../../assets/fonts/daydream-demo.otf\") }"
+      },
+      {
+        "line": 25,
+        "source_text": "FontLoader { id: sabana;       source: Qt.resolvedUrl(\"../../../assets/fonts/sabana-regular.ttf\") }"
+      },
+      {
+        "line": 26,
+        "source_text": "FontLoader { id: unrealised;   source: Qt.resolvedUrl(\"../../../assets/fonts/unrealised.ttf\") }"
+      },
+      {
+        "line": 27,
+        "source_text": "FontLoader { id: vipRawy;      source: Qt.resolvedUrl(\"../../../assets/fonts/vip-rawy-regular.otf\") }"
+      },
+      {
+        "line": 28,
+        "source_text": "FontLoader { id: xenophobia;   source: Qt.resolvedUrl(\"../../../assets/fonts/xenophobia-nominal.ttf\") }"
+      },
+      {
+        "line": 29,
+        "source_text": "FontLoader { id: vexaLight;    source: Qt.resolvedUrl(\"../../../assets/fonts/vexa-light.ttf\") }"
+      },
+      {
+        "line": 30,
+        "source_text": "FontLoader { id: overhead;     source: Qt.resolvedUrl(\"../../../assets/fonts/overhead.ttf\") }"
+      }
+    ]
+  },
+  "resolution": "Keep typography/font-selection capability. #173 source/package rights closure with #25/#180 presentation owners requires accepted permission/license evidence or feature-equivalent licensed assets; no payload removal or replacement made here.",
+  "metadata_decode": "Read sfnt name table from pinned Git blob bytes; platform0/3 UTF-16BE, platform1 MacRoman; identical text values deduplicated per name ID; full binary hash permits independent reproduction."
+}

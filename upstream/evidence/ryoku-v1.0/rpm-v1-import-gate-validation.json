@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "project_base_commit": "c4505f8d64aea2319d315d1c5ce4796f5b000c3e",
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "input_sha256": {
+    "automation/src/bin/rpm-package-audit.rs": "67f51df42878459415b57faa1cd91198b567202baa8a0ad11b1f36c482a72397",
+    "upstream/evidence/ryoku-v1.0/qml-import-names.txt": "4020124805a96fb192698ada202e433a9ce2250f8ae91626697da32796bb2011",
+    "upstream/evidence/ryoku-v1.0/qml-import-scanner.json": "55ebb29568b0266344233b6ce58f327cf573b2c10590bf71da3fd6a565de5b14",
+    "packaging/rpm/ryoku-desktop.spec": "564b0ffbbff1d95601f136f51cad57d05702b22363925945769a7661c04196e9",
+    "packaging/rpm/ryoku-quickshell.spec": "a3d6e291dac2bc16eec209bf0648a4d7cde07260ec8cd566bf578b0c342d2c06"
+  },
+  "checks": {
+    "ordinary_cached_rustc_audit_tests_passed": 10,
+    "explicit_native_spec_parse_tests_passed": 1,
+    "required_QML_capabilities_bound_to_scanner_inventory": 12,
+    "negative_cases": [
+      "each required import omitted",
+      "SONAME substitution",
+      "capability lookalikes",
+      "each internal provider omitted or lookalike",
+      "wrong Spatial3D module name",
+      "unknown private module",
+      "silent scanner absence",
+      "historical issue23 Requires rejected"
+    ],
+    "runtime_specs_and_Source2_Source3_unchanged": true,
+    "worktree_target_bytes": 1444
+  },
+  "scope": "Rust candidate metadata gate hardening; no native RPM build, versioned solver/plugin/tool/VM acceptance, behavior/feature exclusion or completed native checklist claim."
+}

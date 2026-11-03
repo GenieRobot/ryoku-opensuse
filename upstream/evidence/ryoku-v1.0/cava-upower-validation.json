@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "project_base_commit": "d0dd3db15d519f1df6f3dcadc7da3cd41907f968",
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "input_sha256": {
+    "automation/src/bin/rpm-package-audit.rs": "96147247446122e4e0bbb22e42e70fd235fee8c41a457d27a6ce4745ff5dccbd",
+    "packaging/rpm/ryoku-desktop.spec": "564b0ffbbff1d95601f136f51cad57d05702b22363925945769a7661c04196e9",
+    "docs/ryoku-v1.0-runtime-providers.md": "ce479dfbc3f80d93a7cc4def5295492bb10f494d006898ea776202acf85b5999",
+    "upstream/evidence/ryoku-v1.0/cava-upower-providers.json": "ecc580346e7d17d996c9238c64c7fc0e71372d20457f9c684b654d49182bf5ca",
+    "upstream/evidence/ryoku-v1.0/runtime-source-manifest.tsv": "0ad951557e17c3796d5a218bca2b4dfee7a349f44861d247ea3c500de334db21",
+    "upstream/evidence/ryoku-v1.0/writer-source-manifest.tsv": "92182b8e40385bdfb4fd9e699edaa6cea112466b135fc25d22a6b716e66d4136"
+  },
+  "checks": {
+    "complete_signed_primary_package_count": 52976,
+    "raw_signed_package_records": 2,
+    "selected_ryoku_source_contracts": 4,
+    "archive_verified_quickshell_contracts": 4,
+    "ordinary_rpm_audit_tests_passed": 10,
+    "native_spec_parser_tests_passed": 1,
+    "runtime_requires": [
+      "ImageMagick",
+      "cava",
+      "dbus-1-tools",
+      "ffmpeg",
+      "google-noto-sans-cjk-fonts",
+      "kf6-syntax-highlighting-imports",
+      "pipewire-tools",
+      "pulseaudio-utils",
+      "qt6-declarative-imports",
+      "qt6-imageformats",
+      "qt6-multimedia-imports",
+      "qt6-qt5compat-imports",
+      "qt6-quick3d-imports",
+      "ryoku-desktop-fonts",
+      "ryoku-quickshell",
+      "systemd",
+      "upower",
+      "util-linux"
+    ],
+    "power_profile_service_choice_unchanged": true,
+    "source2_source3_manifests_byte_identical": true,
+    "locked_cached_rust_dependencies": {
+      "serde_json": "1.0.154",
+      "sha2": "0.10.9"
+    },
+    "toolchain": "rustc 1.99.0",
+    "source_anchor_selection_link_and_provider_integrity": "passed"
+  },
+  "scope": "Offline signed-source/provider and parsed-spec evidence. Requires availability only; no native RPM/service/audio/endpoint/VM acceptance or PowerProfiles implementation."
+}

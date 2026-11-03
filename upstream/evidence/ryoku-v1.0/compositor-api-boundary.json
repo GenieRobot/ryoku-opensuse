@@ -1,0 +1,784 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "prior_commit": "98a0368253d9628be72b853985878a5db90e1547",
+  "scope": "Exact component/source/API boundary facts only; full per-operation semantic and native acceptance remains open",
+  "inventory": {
+    "current_paths": 218,
+    "prior_paths": 155,
+    "union_paths": 221,
+    "current_areas": {
+      "config-hyprland": 51,
+      "config-niri": 9,
+      "config-wayfire": 2,
+      "wm-shared": 21,
+      "wm-hyprland": 34,
+      "wm-niri": 44,
+      "wm-vendor": 15,
+      "wm-wayfire": 42
+    },
+    "status_counts": {
+      "modified": 69,
+      "unchanged": 83,
+      "deleted": 3,
+      "added": 66
+    },
+    "changed_area_counts": {
+      "config-hyprland": 18,
+      "config-niri": 1,
+      "config-wayfire": 2,
+      "wm-shared": 17,
+      "wm-hyprland": 26,
+      "wm-niri": 32,
+      "wm-wayfire": 42
+    },
+    "unique_changed_paths": 138,
+    "release_changes": {
+      "modified": 69,
+      "added": 66,
+      "deleted": 1,
+      "renamed_outside_roots": 2
+    }
+  },
+  "sources": [
+    {
+      "source": "ryoku/wm/client.go",
+      "git_blob": "5b8f126725f281c92c1daaf2abbaec5d141549c9",
+      "git_mode": "100644",
+      "sha256": "8d93c08be106e7a0ffcdd22a953bc94f4b855e831933e49ecf66d5798f51204a",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 45,
+          "source_text": "func Open() *Client {"
+        },
+        {
+          "line": 56,
+          "source_text": "func OpenNamed(name string) *Client {"
+        },
+        {
+          "line": 203,
+          "source_text": "func (c *Client) DryRun(storePath string) (ApplyReport, error) {"
+        },
+        {
+          "line": 221,
+          "source_text": "func (c *Client) Preview(storePath string) (ApplyReport, error) {"
+        },
+        {
+          "line": 404,
+          "source_text": "func providerCommandContext(ctx context.Context, bin string, args ...string) *exec.Cmd {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/wm/detect.go",
+      "git_blob": "705a63984645b95b015b8d4b1fbf659ae030aa3c",
+      "git_mode": "100644",
+      "sha256": "7b250c01d746b917ec5eee44ace855790d0d7a263386fe5aa299d16eb097d990",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 251,
+          "source_text": "var generatedConfig = map[string][]string{"
+        },
+        {
+          "line": 455,
+          "source_text": "func Detect() Detection {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/wm/greeter.go",
+      "git_blob": "93eaddd148fc384d26573283555be426eeb5a358",
+      "git_mode": "100644",
+      "sha256": "c37d295aaef744b377ecab5a9b226b2e2eddc7140c5fb81c84dc30fec6672c89",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 19,
+          "source_text": "func PublishGreeterNumlock(on bool) {"
+        },
+        {
+          "line": 24,
+          "source_text": "_ = os.WriteFile(GreeterNumlockPath(), []byte(value), 0o666)"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/wm/reclaim.go",
+      "git_blob": "75ce74d15818a13954ef0274d27affa5eb66aeb1",
+      "git_mode": "100644",
+      "sha256": "b0e051522b5fbf176d48fb6966ac85a64e9ddf98b083c0624c9e09bf54b090d3",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 58,
+          "source_text": "func Reclaim(outgoing, incoming string) (ReclaimSet, error) {"
+        },
+        {
+          "line": 143,
+          "source_text": "func VerifyRemoval(rs ReclaimSet) error {"
+        },
+        {
+          "line": 229,
+          "source_text": "func hostRemovalOnce(targets []string) (set, blocked []string, err error) {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/wm/hyprland/main.go",
+      "git_blob": "9e68c267688e90d21faf11d0e50e8caebdd2f467",
+      "git_mode": "100644",
+      "sha256": "efccb92b47060091474093ce0b7141ee63bbee07d9e1ce4314a916e443fbf973",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 34,
+          "source_text": "switch os.Args[1] {"
+        }
+      ],
+      "dispatch_cases": [
+        "case \"caps\":",
+        "case \"act\":",
+        "case \"watch\":",
+        "case \"apply\":",
+        "case \"outputs\":",
+        "case \"state\":",
+        "case \"defaults\":",
+        "case \"session\":",
+        "case \"schema\":",
+        "case \"binds\":",
+        "case \"environment\":",
+        "case \"plugins\":",
+        "case \"-h\", \"--help\", \"help\":"
+      ]
+    },
+    {
+      "source": "ryoku/wm/hyprland/apply.go",
+      "git_blob": "247662a0097f154cf84099a649e72a963b27f243",
+      "git_mode": "100644",
+      "sha256": "55479a7c23cf1ac46598f9e56ef57c52f09bcde57efcb08ed1208637db630fc8",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 21,
+          "source_text": "func runApply(args []string) error {"
+        },
+        {
+          "line": 43,
+          "source_text": "pushEval(liveLua(o))"
+        },
+        {
+          "line": 64,
+          "source_text": "wm.PublishGreeterNumlock(o.Input.NumlockByDefault)"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/wm/hyprland/config_store.go",
+      "git_blob": "ca463ca4b2d6f72d775130284f7d2ca245182793",
+      "git_mode": "100644",
+      "sha256": "4458ee786f374d41448d7176f17536e8dc8d5707a6f663137da15d728ed79501",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 561,
+          "source_text": "func desktopStorePath() string { return filepath.Join(ryokuConfigDir(), \"desktop.json\") }"
+        },
+        {
+          "line": 563,
+          "source_text": "func hyprConfigDir() string { return filepath.Join(configHome(), \"hypr\") }"
+        },
+        {
+          "line": 636,
+          "source_text": "func atomicWrite(path string, b []byte, mode os.FileMode) error {"
+        },
+        {
+          "line": 665,
+          "source_text": "func writeOverlayLua(name string, body []byte) error {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/wm/hyprland/outputs.go",
+      "git_blob": "9dcc346bf8871ff0dfe41802ff50093781495456",
+      "git_mode": "100644",
+      "sha256": "1751a30d1bafe7e11f1e4b3c5659437ffabb97baa4432c2c98b9a6ba3b994507",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 39,
+          "source_text": "func runOutputs(args []string) error {"
+        },
+        {
+          "line": 134,
+          "source_text": "cmd := exec.Command(\"ryoku-monitor\", args...)"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/wm/hyprland/act.go",
+      "git_blob": "b0529d66e0b21146b5308fafce7e811e1daed98b",
+      "git_mode": "100644",
+      "sha256": "8697497f9d197dc25d3b964bb17eeb64466bea8d4bf5019add3f4d09877cc14b",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 804,
+          "source_text": "var runWorkspaceHelper = func(args ...string) error {"
+        },
+        {
+          "line": 805,
+          "source_text": "return exec.Command(filepath.Join(hyprConfigDir(), \"scripts\", \"ryoku-workspace\"), args...).Run()"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/wm/hyprland/session.go",
+      "git_blob": "7017e920b1f0ea8cb7ab21dc0e36fdf689c8de64",
+      "git_mode": "100644",
+      "sha256": "8ed91db57d13eb4a975c9187573125424d0ab06a3a3a9b496ec6f9211dda194f",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 107,
+          "source_text": "func runCtl(args ...string) ([]byte, error) {"
+        },
+        {
+          "line": 108,
+          "source_text": "cmd := exec.Command(\"hyprctl\", args...)"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/wm/niri/main.go",
+      "git_blob": "b2256755c381505e859c72c6dd4afdc4dcb8cee8",
+      "git_mode": "100644",
+      "sha256": "1a7e7f06b040080c4385cc07e9d0876946c284d050bd3070ff5be2c412873bf4",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 36,
+          "source_text": "switch os.Args[1] {"
+        }
+      ],
+      "dispatch_cases": [
+        "case \"caps\":",
+        "case \"act\":",
+        "case \"watch\":",
+        "case \"apply\":",
+        "case \"outputs\":",
+        "case \"state\":",
+        "case \"defaults\":",
+        "case \"session\":",
+        "case \"schema\":",
+        "case \"binds\":",
+        "case \"import\":",
+        "case \"environment\":",
+        "case \"-h\", \"--help\", \"help\":"
+      ]
+    },
+    {
+      "source": "ryoku/wm/wayfire/main.go",
+      "git_blob": "70c1921077282196614de48f8ca742b2f9d9fdc0",
+      "git_mode": "100644",
+      "sha256": "61ed84827c22066898821b372c895100445c2092341bf355fa974ed186f1780c",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 36,
+          "source_text": "switch os.Args[1] {"
+        }
+      ],
+      "dispatch_cases": [
+        "case \"caps\":",
+        "case \"state\":",
+        "case \"act\":",
+        "case \"watch\":",
+        "case \"apply\":",
+        "case \"defaults\":",
+        "case \"session\":",
+        "case \"outputs\":",
+        "case \"schema\":",
+        "case \"binds\":",
+        "case \"environment\":",
+        "case \"pages\":",
+        "case \"-h\", \"--help\", \"help\":"
+      ]
+    },
+    {
+      "source": "ryoku/hyprland/scripts/ryoku-monitor",
+      "git_blob": "bff4d595c7f399b21ea19aa885af3210353608da",
+      "git_mode": "100755",
+      "sha256": "382cc515bd089116bcdeecc0b53b98a9b0ebd8249470165428dcb49d5f22c1d6",
+      "source3_selected": false,
+      "anchors": []
+    },
+    {
+      "source": "ryoku/hyprland/scripts/ryoku-workspace",
+      "git_blob": "16faad3829111139fa4efd78c5692fee3ae29363",
+      "git_mode": "100755",
+      "sha256": "af702e3707e4c56ec8f0b29dfa4facce873a0ef00be87520bad36ada5fabdb68",
+      "source3_selected": false,
+      "anchors": []
+    }
+  ],
+  "vendor_mirrors": [
+    {
+      "module": "ryoku/shell/ipc",
+      "current_private_binary_build": true,
+      "shared_files": [
+        {
+          "source": "ryoku/wm/action.go",
+          "root_git_blob": "87d95e4e22ecc5bb046fabc7435fe82c42e60b0d",
+          "mirror": "ryoku/shell/ipc/vendor/ryoku-wm/action.go",
+          "mirror_git_blob": "87d95e4e22ecc5bb046fabc7435fe82c42e60b0d",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/binds.go",
+          "root_git_blob": "2c70a5edf7f26513a55f244482eddd91e3c321f8",
+          "mirror": "ryoku/shell/ipc/vendor/ryoku-wm/binds.go",
+          "mirror_git_blob": "2c70a5edf7f26513a55f244482eddd91e3c321f8",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/caps.go",
+          "root_git_blob": "f7c70db7b53bde847fc8cce41f9acc61419d12a5",
+          "mirror": "ryoku/shell/ipc/vendor/ryoku-wm/caps.go",
+          "mirror_git_blob": "f7c70db7b53bde847fc8cce41f9acc61419d12a5",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/client.go",
+          "root_git_blob": "5b8f126725f281c92c1daaf2abbaec5d141549c9",
+          "mirror": "ryoku/shell/ipc/vendor/ryoku-wm/client.go",
+          "mirror_git_blob": "5b8f126725f281c92c1daaf2abbaec5d141549c9",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/compat.go",
+          "root_git_blob": "81843f3f126e97203ccc3d2b46abd164c6a9f296",
+          "mirror": "ryoku/shell/ipc/vendor/ryoku-wm/compat.go",
+          "mirror_git_blob": "81843f3f126e97203ccc3d2b46abd164c6a9f296",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/cursor.go",
+          "root_git_blob": "32276c504e4e3c272059c502c436483b2d9c8acc",
+          "mirror": "ryoku/shell/ipc/vendor/ryoku-wm/cursor.go",
+          "mirror_git_blob": "32276c504e4e3c272059c502c436483b2d9c8acc",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/detect.go",
+          "root_git_blob": "705a63984645b95b015b8d4b1fbf659ae030aa3c",
+          "mirror": "ryoku/shell/ipc/vendor/ryoku-wm/detect.go",
+          "mirror_git_blob": "705a63984645b95b015b8d4b1fbf659ae030aa3c",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/greeter.go",
+          "root_git_blob": "93eaddd148fc384d26573283555be426eeb5a358",
+          "mirror": "ryoku/shell/ipc/vendor/ryoku-wm/greeter.go",
+          "mirror_git_blob": "93eaddd148fc384d26573283555be426eeb5a358",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/reclaim.go",
+          "root_git_blob": "75ce74d15818a13954ef0274d27affa5eb66aeb1",
+          "mirror": "ryoku/shell/ipc/vendor/ryoku-wm/reclaim.go",
+          "mirror_git_blob": "75ce74d15818a13954ef0274d27affa5eb66aeb1",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/state.go",
+          "root_git_blob": "87f0e49a5d60ff4dd8ed887fa714965eaea360ab",
+          "mirror": "ryoku/shell/ipc/vendor/ryoku-wm/state.go",
+          "mirror_git_blob": "87f0e49a5d60ff4dd8ed887fa714965eaea360ab",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/touchpad.go",
+          "root_git_blob": "672dc59915f3cd83691ff2b348d4c9a25fe1a2a1",
+          "mirror": "ryoku/shell/ipc/vendor/ryoku-wm/touchpad.go",
+          "mirror_git_blob": "672dc59915f3cd83691ff2b348d4c9a25fe1a2a1",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        }
+      ]
+    },
+    {
+      "module": "ryoku/hub/backend",
+      "current_private_binary_build": true,
+      "shared_files": [
+        {
+          "source": "ryoku/wm/action.go",
+          "root_git_blob": "87d95e4e22ecc5bb046fabc7435fe82c42e60b0d",
+          "mirror": "ryoku/hub/backend/vendor/ryoku-wm/action.go",
+          "mirror_git_blob": "87d95e4e22ecc5bb046fabc7435fe82c42e60b0d",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/binds.go",
+          "root_git_blob": "2c70a5edf7f26513a55f244482eddd91e3c321f8",
+          "mirror": "ryoku/hub/backend/vendor/ryoku-wm/binds.go",
+          "mirror_git_blob": "2c70a5edf7f26513a55f244482eddd91e3c321f8",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/caps.go",
+          "root_git_blob": "f7c70db7b53bde847fc8cce41f9acc61419d12a5",
+          "mirror": "ryoku/hub/backend/vendor/ryoku-wm/caps.go",
+          "mirror_git_blob": "f7c70db7b53bde847fc8cce41f9acc61419d12a5",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/client.go",
+          "root_git_blob": "5b8f126725f281c92c1daaf2abbaec5d141549c9",
+          "mirror": "ryoku/hub/backend/vendor/ryoku-wm/client.go",
+          "mirror_git_blob": "5b8f126725f281c92c1daaf2abbaec5d141549c9",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/compat.go",
+          "root_git_blob": "81843f3f126e97203ccc3d2b46abd164c6a9f296",
+          "mirror": "ryoku/hub/backend/vendor/ryoku-wm/compat.go",
+          "mirror_git_blob": "81843f3f126e97203ccc3d2b46abd164c6a9f296",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/cursor.go",
+          "root_git_blob": "32276c504e4e3c272059c502c436483b2d9c8acc",
+          "mirror": "ryoku/hub/backend/vendor/ryoku-wm/cursor.go",
+          "mirror_git_blob": "32276c504e4e3c272059c502c436483b2d9c8acc",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/detect.go",
+          "root_git_blob": "705a63984645b95b015b8d4b1fbf659ae030aa3c",
+          "mirror": "ryoku/hub/backend/vendor/ryoku-wm/detect.go",
+          "mirror_git_blob": "705a63984645b95b015b8d4b1fbf659ae030aa3c",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/greeter.go",
+          "root_git_blob": "93eaddd148fc384d26573283555be426eeb5a358",
+          "mirror": "ryoku/hub/backend/vendor/ryoku-wm/greeter.go",
+          "mirror_git_blob": "93eaddd148fc384d26573283555be426eeb5a358",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/reclaim.go",
+          "root_git_blob": "75ce74d15818a13954ef0274d27affa5eb66aeb1",
+          "mirror": "ryoku/hub/backend/vendor/ryoku-wm/reclaim.go",
+          "mirror_git_blob": "75ce74d15818a13954ef0274d27affa5eb66aeb1",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/state.go",
+          "root_git_blob": "87f0e49a5d60ff4dd8ed887fa714965eaea360ab",
+          "mirror": "ryoku/hub/backend/vendor/ryoku-wm/state.go",
+          "mirror_git_blob": "87f0e49a5d60ff4dd8ed887fa714965eaea360ab",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/touchpad.go",
+          "root_git_blob": "672dc59915f3cd83691ff2b348d4c9a25fe1a2a1",
+          "mirror": "ryoku/hub/backend/vendor/ryoku-wm/touchpad.go",
+          "mirror_git_blob": "672dc59915f3cd83691ff2b348d4c9a25fe1a2a1",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        }
+      ]
+    },
+    {
+      "module": "ryoku/shell/ryogami/daemon",
+      "current_private_binary_build": true,
+      "shared_files": [
+        {
+          "source": "ryoku/wm/action.go",
+          "root_git_blob": "87d95e4e22ecc5bb046fabc7435fe82c42e60b0d",
+          "mirror": "ryoku/shell/ryogami/daemon/vendor/ryoku-wm/action.go",
+          "mirror_git_blob": "87d95e4e22ecc5bb046fabc7435fe82c42e60b0d",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/binds.go",
+          "root_git_blob": "2c70a5edf7f26513a55f244482eddd91e3c321f8",
+          "mirror": "ryoku/shell/ryogami/daemon/vendor/ryoku-wm/binds.go",
+          "mirror_git_blob": "2c70a5edf7f26513a55f244482eddd91e3c321f8",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/caps.go",
+          "root_git_blob": "f7c70db7b53bde847fc8cce41f9acc61419d12a5",
+          "mirror": "ryoku/shell/ryogami/daemon/vendor/ryoku-wm/caps.go",
+          "mirror_git_blob": "f7c70db7b53bde847fc8cce41f9acc61419d12a5",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/client.go",
+          "root_git_blob": "5b8f126725f281c92c1daaf2abbaec5d141549c9",
+          "mirror": "ryoku/shell/ryogami/daemon/vendor/ryoku-wm/client.go",
+          "mirror_git_blob": "5b8f126725f281c92c1daaf2abbaec5d141549c9",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/compat.go",
+          "root_git_blob": "81843f3f126e97203ccc3d2b46abd164c6a9f296",
+          "mirror": "ryoku/shell/ryogami/daemon/vendor/ryoku-wm/compat.go",
+          "mirror_git_blob": "81843f3f126e97203ccc3d2b46abd164c6a9f296",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/cursor.go",
+          "root_git_blob": "32276c504e4e3c272059c502c436483b2d9c8acc",
+          "mirror": "ryoku/shell/ryogami/daemon/vendor/ryoku-wm/cursor.go",
+          "mirror_git_blob": "32276c504e4e3c272059c502c436483b2d9c8acc",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/detect.go",
+          "root_git_blob": "705a63984645b95b015b8d4b1fbf659ae030aa3c",
+          "mirror": "ryoku/shell/ryogami/daemon/vendor/ryoku-wm/detect.go",
+          "mirror_git_blob": "705a63984645b95b015b8d4b1fbf659ae030aa3c",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/greeter.go",
+          "root_git_blob": "93eaddd148fc384d26573283555be426eeb5a358",
+          "mirror": "ryoku/shell/ryogami/daemon/vendor/ryoku-wm/greeter.go",
+          "mirror_git_blob": "93eaddd148fc384d26573283555be426eeb5a358",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/reclaim.go",
+          "root_git_blob": "75ce74d15818a13954ef0274d27affa5eb66aeb1",
+          "mirror": "ryoku/shell/ryogami/daemon/vendor/ryoku-wm/reclaim.go",
+          "mirror_git_blob": "75ce74d15818a13954ef0274d27affa5eb66aeb1",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/state.go",
+          "root_git_blob": "87f0e49a5d60ff4dd8ed887fa714965eaea360ab",
+          "mirror": "ryoku/shell/ryogami/daemon/vendor/ryoku-wm/state.go",
+          "mirror_git_blob": "87f0e49a5d60ff4dd8ed887fa714965eaea360ab",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/touchpad.go",
+          "root_git_blob": "672dc59915f3cd83691ff2b348d4c9a25fe1a2a1",
+          "mirror": "ryoku/shell/ryogami/daemon/vendor/ryoku-wm/touchpad.go",
+          "mirror_git_blob": "672dc59915f3cd83691ff2b348d4c9a25fe1a2a1",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        }
+      ]
+    },
+    {
+      "module": "ryoku/cli",
+      "current_private_binary_build": false,
+      "shared_files": [
+        {
+          "source": "ryoku/wm/action.go",
+          "root_git_blob": "87d95e4e22ecc5bb046fabc7435fe82c42e60b0d",
+          "mirror": "ryoku/cli/vendor/ryoku-wm/action.go",
+          "mirror_git_blob": "87d95e4e22ecc5bb046fabc7435fe82c42e60b0d",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/binds.go",
+          "root_git_blob": "2c70a5edf7f26513a55f244482eddd91e3c321f8",
+          "mirror": "ryoku/cli/vendor/ryoku-wm/binds.go",
+          "mirror_git_blob": "2c70a5edf7f26513a55f244482eddd91e3c321f8",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/caps.go",
+          "root_git_blob": "f7c70db7b53bde847fc8cce41f9acc61419d12a5",
+          "mirror": "ryoku/cli/vendor/ryoku-wm/caps.go",
+          "mirror_git_blob": "f7c70db7b53bde847fc8cce41f9acc61419d12a5",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/client.go",
+          "root_git_blob": "5b8f126725f281c92c1daaf2abbaec5d141549c9",
+          "mirror": "ryoku/cli/vendor/ryoku-wm/client.go",
+          "mirror_git_blob": "5b8f126725f281c92c1daaf2abbaec5d141549c9",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/compat.go",
+          "root_git_blob": "81843f3f126e97203ccc3d2b46abd164c6a9f296",
+          "mirror": "ryoku/cli/vendor/ryoku-wm/compat.go",
+          "mirror_git_blob": "81843f3f126e97203ccc3d2b46abd164c6a9f296",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/cursor.go",
+          "root_git_blob": "32276c504e4e3c272059c502c436483b2d9c8acc",
+          "mirror": "ryoku/cli/vendor/ryoku-wm/cursor.go",
+          "mirror_git_blob": "32276c504e4e3c272059c502c436483b2d9c8acc",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/detect.go",
+          "root_git_blob": "705a63984645b95b015b8d4b1fbf659ae030aa3c",
+          "mirror": "ryoku/cli/vendor/ryoku-wm/detect.go",
+          "mirror_git_blob": "705a63984645b95b015b8d4b1fbf659ae030aa3c",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/greeter.go",
+          "root_git_blob": "93eaddd148fc384d26573283555be426eeb5a358",
+          "mirror": "ryoku/cli/vendor/ryoku-wm/greeter.go",
+          "mirror_git_blob": "93eaddd148fc384d26573283555be426eeb5a358",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/reclaim.go",
+          "root_git_blob": "75ce74d15818a13954ef0274d27affa5eb66aeb1",
+          "mirror": "ryoku/cli/vendor/ryoku-wm/reclaim.go",
+          "mirror_git_blob": "75ce74d15818a13954ef0274d27affa5eb66aeb1",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/state.go",
+          "root_git_blob": "87f0e49a5d60ff4dd8ed887fa714965eaea360ab",
+          "mirror": "ryoku/cli/vendor/ryoku-wm/state.go",
+          "mirror_git_blob": "87f0e49a5d60ff4dd8ed887fa714965eaea360ab",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        },
+        {
+          "source": "ryoku/wm/touchpad.go",
+          "root_git_blob": "672dc59915f3cd83691ff2b348d4c9a25fe1a2a1",
+          "mirror": "ryoku/cli/vendor/ryoku-wm/touchpad.go",
+          "mirror_git_blob": "672dc59915f3cd83691ff2b348d4c9a25fe1a2a1",
+          "git_mode": "100644",
+          "identical": true,
+          "source3_selected": true
+        }
+      ]
+    }
+  ],
+  "findings": [
+    "DryRun and Preview both dispatch apply --preview; Hyprland implementation calls pushEval(liveLua) before returning its report, so file-free preview is not pure discovery",
+    "Hyprland apply writes settings.lua/settings_window.lua/rebinds.lua in live config and user_edits plus greeter numlock state",
+    "outputs calls PATH-resolved ryoku-monitor; scratchpad calls the home-config ryoku-workspace helper; those exact helper sources are not current Source3 selected entries",
+    "shared provider detection accepts RYOKU_WM and client constructs ryoku-wm-<name>; process-group cancellation is lifecycle control rather than per-operation authorization",
+    "reclaim planning has DNF/XBPS/Pacman adapters, no Zypper; queries/plans require #27 and actual package transactions #28/#29; preserve full switching capability"
+  ],
+  "runtime_owners": [
+    "#25",
+    "#177",
+    "#180",
+    "#182",
+    "#27",
+    "#28",
+    "#29",
+    "#46",
+    "#185"
+  ],
+  "relocated_sources": [
+    {
+      "prior_source": "ryoku/hyprland/plugins/keysounds/profiles.txt",
+      "release_status": "R100",
+      "current_source": "ryoku/keysounds/profiles.txt",
+      "git_mode": "100644",
+      "git_blob": "f79196429623f729a1e98a744e6bced74bdfed9a",
+      "owner_issue": "#25/#180/#182"
+    },
+    {
+      "prior_source": "ryoku/hyprland/scripts/ryoku-keysounds-import",
+      "release_status": "R085",
+      "current_source": "ryoku/keysounds/ryoku-keysounds-import",
+      "git_mode": "100755",
+      "git_blob": "e7b411c66ef1ae9da384c4738efda21106a3ceb8",
+      "owner_issue": "#25/#180/#182"
+    }
+  ]
+}

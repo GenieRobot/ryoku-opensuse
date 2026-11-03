@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "project_base_commit": "d2853fb5901e345b061a49cf4eb764d73b1f0891",
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "inputs_sha256": {
+    "upstream/evidence/ryoku-v1.0/sound-asset-disposition.tsv": "86017e2d6da86409bcb369b091a8797677c70d5941d312f85bd8fd375cc39814",
+    "upstream/evidence/ryoku-v1.0/sound-asset-provenance.json": "3c33749c0503e18af9eefb43f4365aa8775dda159ca45081a9edb7b2ac1d8ae6",
+    "docs/ryoku-v1.0-sound-rights-review.md": "98c393e6651101f4604931cd2e4290262cb526f5726f6ef30ac492fc442cf33e",
+    "packaging/licenses/ryoku-v1.0/sound-theme-freedesktop-CREDITS": "ed8cd7965340940551f37ef96b32aaa7d76b677c30fb912412ddb50bc02e0dc3"
+  },
+  "checks": {
+    "selected_source3_audio_paths": 73,
+    "selected_source2_audio_paths": 63,
+    "exact_typing_manifest_hash_matches": 32,
+    "exact_cached_freedesktop_audio_matches": 10,
+    "package_CREDITS_byte_identical": true,
+    "cached_upstream_COPYING_bytes": 0,
+    "bar_style_samples_with_source_component_declaration_and_independent_terms_unresolved": 31,
+    "pinned_notice_runtime_source_records": 6,
+    "MPEG_header_and_no_leading_ID3v2_trailing_ID3v1": 4,
+    "ledger_identity_selection_declarations": "passed",
+    "source_archive_bindings_manifests_runtime_spec_unchanged": true,
+    "local_document_links": "passed",
+    "independently_reread_RIFF_rights_lists": 59,
+    "complete_Vorbis_comment_key_lists_without_rights_version_keys": 10
+  },
+  "audio_decoder_playback_network_build_VM_package_operations": false,
+  "scope": "Exact source/provenance/declared-license unit only; accepted redistribution, native notice delivery and unknown per-asset terms remain open. All paths/features preserved."
+}

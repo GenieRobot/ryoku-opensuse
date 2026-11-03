@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "project_base_commit": "e1afedf12df9c981db2e404f22dd59f82d0195fc",
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "prior_commit": "98a0368253d9628be72b853985878a5db90e1547",
+  "input_sha256": {
+    "docs/ryoku-v1.0-installer-release-review.md": "bddccb00404b084ab14eb3490e25580cbbd8abf90f07cc520436abafc90ff78b",
+    "upstream/evidence/ryoku-v1.0/installer-release-disposition.tsv": "09bcd06472c0911e1f79742b3f186bf1c23199d23b8bcfad698f87eb95c45d5e",
+    "upstream/evidence/ryoku-v1.0/installer-release-boundary.json": "876784407fbbc0d5d575d9c159a7ada8a1aa0043bf1e3b794fb1477e0d42d8ce",
+    "upstream/ryoku-v1.0-path-delta.tsv": "d4f1bb8c25417eb8358ac83ea5794921b6acff191cbe774ebc05209bab83f71e",
+    "upstream/evidence/ryoku-v1.0/runtime-source-manifest.tsv": "0ad951557e17c3796d5a218bca2b4dfee7a349f44861d247ea3c500de334db21",
+    "upstream/evidence/ryoku-v1.0/writer-source-manifest.tsv": "92182b8e40385bdfb4fd9e699edaa6cea112466b135fc25d22a6b716e66d4136"
+  },
+  "checks": {
+    "exact_current_prior_identities": 295,
+    "current_paths": 282,
+    "prior_paths": 213,
+    "delta": {
+      "modified": 104,
+      "added": 82,
+      "unchanged": 96,
+      "deleted": 13
+    },
+    "selected_root_license_notice_only": [
+      "LICENSE",
+      "NOTICE"
+    ],
+    "pinned_api_sources": 34,
+    "source_line_anchors": 198,
+    "raw_shared_table_rows": [
+      21,
+      32
+    ],
+    "literal_links_verified_without_dereference": 6,
+    "bootstrap_cached_elf_sidecar_equality": true,
+    "bootstrap_binary_bytes": 42173394,
+    "release_delta_rows": 78,
+    "exact_r100_logo_relocation": 1,
+    "mode_blob_selection_owner_link_integrity": "passed",
+    "project_executable_recipe_archive_unchanged": true
+  },
+  "scope": "Cached source identity/integrity only; no source binary/script/template/workflow/installer/publisher or dry-run executed, remote verification or native acceptance claimed. Full features retained; complete #173 review remains open."
+}

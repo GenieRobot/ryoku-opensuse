@@ -1,0 +1,1015 @@
+{
+  "repository": {
+    "snapshot": "openSUSE Tumbleweed OSS20261016",
+    "repomd_sha256": "1d891e33c8abd582b71e579118e6b4c94e5e57ecdc1b77a2a7fc1abf7cc930a0",
+    "signer_fingerprint": "AD485664E901B867051AB15F35A2F86E29B700A4",
+    "signature_validation": "gpgv reverified locally; Good signature from openSUSE Project Signing Key",
+    "primary_location": "repodata/00c8e15be77a2a6e1f49e58f3c1c66142e2987fda576cceec54c9db0e9a7f789e43233f12f463d0d5313f941f665928aa45e79cba73de6699b847d560cc454ad-primary.xml.zst",
+    "primary_bytes": 17340729,
+    "primary_sha512": "00c8e15be77a2a6e1f49e58f3c1c66142e2987fda576cceec54c9db0e9a7f789e43233f12f463d0d5313f941f665928aa45e79cba73de6699b847d560cc454ad",
+    "primary_open_bytes": 173040206,
+    "primary_open_sha512": "b78e3942f0585d06a9c1d10115e78d23f357b31cc23a95d550b4de46be090a670782c0d23fa10e21bbcfe7f485b1f85250700f6a77b203021c728e22913605df",
+    "repomd_signature_sha256": "ec4ea2579b347505d4f85dbd596b55033d229eba1e810597f6ec2d5cc3fb598a"
+  },
+  "signed_rpm_payloads": [
+    {
+      "name": "kf6-syntax-highlighting-imports",
+      "rpm": "kf6-syntax-highlighting-imports-6.31.0-1.1.x86_64.rpm",
+      "sha512": "e3d43ba2959ff7d56b6f8624c222f9000836a061945d17f191feb465a0acb08438faa5766579c4027dd68057f2521f1757abcedaded86e08bac3352a65ef27d1",
+      "signature": "Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK\n    Header SHA256 digest: OK\n    Header SHA1 digest: OK\n    Payload SHA256 digest: OK\n    V3 RSA/SHA512 Signature, key ID 29b700a4: OK\n    MD5 digest: OK",
+      "bytes": 56162
+    },
+    {
+      "name": "qt6-declarative-imports",
+      "rpm": "qt6-declarative-imports-6.11.2-2.1.x86_64.rpm",
+      "sha512": "4bc8c34bb109cfcb901237f3997200dd396446280d665a07dd19c23c1b267535aab9a7a085b080e3fd9009bad473242f13fc5cb0afca31ae6047b229284314ad",
+      "signature": "Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK\n    Header SHA256 digest: OK\n    Header SHA1 digest: OK\n    Payload SHA256 digest: OK\n    V3 RSA/SHA512 Signature, key ID 29b700a4: OK\n    MD5 digest: OK",
+      "bytes": 904433
+    },
+    {
+      "name": "qt6-multimedia-imports",
+      "rpm": "qt6-multimedia-imports-6.11.2-1.2.x86_64.rpm",
+      "sha512": "8f97ae0d21dd1e1884b385586000e632784084a195682b49b5bc664a1658567aa7d1d2109934454f8ecc1cf1d88024ba82eb2ad710bc5f34492eb24ea13f6e31",
+      "signature": "Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK\n    Header SHA256 digest: OK\n    Header SHA1 digest: OK\n    Payload SHA256 digest: OK\n    V3 RSA/SHA512 Signature, key ID 29b700a4: OK\n    MD5 digest: OK",
+      "bytes": 31603
+    },
+    {
+      "name": "qt6-qt5compat-imports",
+      "rpm": "qt6-qt5compat-imports-6.11.2-1.1.x86_64.rpm",
+      "sha512": "0f1fe241a813ce4dbc0f4b54d65678b9c3525d0e142649df700c68aa037369a0fb685a9e9de8099536ad062f62eb344d7c7114de980785de94389e4da6e3ea0d",
+      "signature": "Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK\n    Header SHA256 digest: OK\n    Header SHA1 digest: OK\n    Payload SHA256 digest: OK\n    V3 RSA/SHA512 Signature, key ID 29b700a4: OK\n    MD5 digest: OK",
+      "bytes": 381101
+    },
+    {
+      "name": "qt6-quick3d-imports",
+      "rpm": "qt6-quick3d-imports-6.11.2-1.1.x86_64.rpm",
+      "sha512": "21935b31023e145062aacbbca2916cd988d11c1b440ca5ba4c7f7857f1f5a216cb97bd48c5b2796f5faced20cf4281add41e792b24fab570f345ff362aa65359",
+      "signature": "Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK\n    Header SHA256 digest: OK\n    Header SHA1 digest: OK\n    Payload SHA256 digest: OK\n    V3 RSA/SHA512 Signature, key ID 29b700a4: OK\n    MD5 digest: OK",
+      "bytes": 557145
+    },
+    {
+      "name": "ImageMagick",
+      "rpm": "ImageMagick-7.1.2.33-1.1.x86_64.rpm",
+      "sha512": "8511333ecb0186c813c32bdb90eeecba7d780321a0b30fac320fb500b9f224bf2fc30bed6094d2efd1fa4c784e4d1da4dd53e381af67b28f0f577be4cef71559",
+      "signature": "Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK\n    Header SHA256 digest: OK\n    Header SHA1 digest: OK\n    Payload SHA256 digest: OK\n    V3 RSA/SHA512 Signature, key ID 29b700a4: OK\n    MD5 digest: OK",
+      "bytes": 184516
+    },
+    {
+      "name": "ffmpeg",
+      "rpm": "ffmpeg-9.0.2-4.1.x86_64.rpm",
+      "sha512": "3b6a527aa5f5081a16ded76b1cd5781a3f83e52b910ad3523e6fc08efcb85755336258e964436da568413500866136ec06e96fd87084f855065da9dc3a95979e",
+      "signature": "Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK\n    Header SHA256 digest: OK\n    Header SHA1 digest: OK\n    Payload SHA256 digest: OK\n    V3 RSA/SHA512 Signature, key ID 29b700a4: OK\n    MD5 digest: OK",
+      "bytes": 2175427
+    }
+  ],
+  "plugin_elf_evidence": [
+    {
+      "module": "QtQuick3D",
+      "path": "/usr/lib64/qt6/qml/QtQuick3D/libqquick3dplugin.so",
+      "sha256": "87034596a79ffef0cbf1cb03ebc417b386bddb6fe72fe75df93fe6ab315599b3",
+      "needed": [
+        "libQt6Quick3D.so.6",
+        "libQt6Qml.so.6",
+        "libQt6Core.so.6",
+        "libstdc++.so.6",
+        "libc.so.6"
+      ],
+      "readelf_dynamic": "\nDynamic section at offset 0x4c78 contains 33 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6Quick3D.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6Qml.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6Core.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x000000000000000c (INIT)               0x2000\n 0x000000000000000d (FINI)               0x3008\n 0x0000000000000019 (INIT_ARRAY)         0x5b70\n 0x000000000000001b (INIT_ARRAYSZ)       8 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x5b78\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x0000000000000004 (HASH)               0x380\n 0x000000006ffffef5 (GNU_HASH)           0x4f0\n 0x0000000000000005 (STRTAB)             0xa20\n 0x0000000000000006 (SYMTAB)             0x528\n 0x000000000000000a (STRSZ)              1966 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000003 (PLTGOT)             0x5ed8\n 0x0000000000000002 (PLTRELSZ)           600 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x18c0\n 0x0000000000000007 (RELA)               0x1398\n 0x0000000000000008 (RELASZ)             1320 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffffc (VERDEF)             0x1238\n 0x000000006ffffffd (VERDEFNUM)          4\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x000000006ffffffe (VERNEED)            0x12a8\n 0x000000006fffffff (VERNEEDNUM)         5\n 0x000000006ffffff0 (VERSYM)             0x11ce\n 0x000000006ffffff9 (RELACOUNT)          33\n 0x0000000000000000 (NULL)               0x0\n",
+      "owning_signed_rpm": "qt6-quick3d-imports-6.11.2-1.1.x86_64.rpm",
+      "needed_signed_providers": {
+        "libQt6Quick3D.so.6": [
+          {
+            "name": "libQt6Quick3D6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "1.1"
+            }
+          }
+        ],
+        "libQt6Qml.so.6": [
+          {
+            "name": "libQt6Qml6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "2.1"
+            }
+          }
+        ],
+        "libQt6Core.so.6": [
+          {
+            "name": "libQt6Core6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "2.1"
+            }
+          }
+        ],
+        "libstdc++.so.6": [
+          {
+            "name": "libstdc++6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "16.2.1+git9713",
+              "rel": "1.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc13",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "13.5.0+git10516",
+              "rel": "2.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc14",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "14.4.0+git12698",
+              "rel": "1.3"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc15",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "15.3.0+git11272",
+              "rel": "3.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc7",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "7.5.0+r278197",
+              "rel": "25.1"
+            }
+          }
+        ],
+        "libc.so.6": [
+          {
+            "name": "glibc",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "2.44",
+              "rel": "3.1"
+            }
+          }
+        ]
+      },
+      "qml_uri": "QtQuick3D",
+      "payload_package": "qt6-quick3d-imports",
+      "capability": "qt6qmlimport(QtQuick3D)",
+      "capability_provider_package": "qt6-quick3d-imports",
+      "qmldir": {
+        "path": "/usr/lib64/qt6/qml/QtQuick3D/qmldir",
+        "sha256": "714f827cb3459ab10c2b57817896eea1ea4f29f6ba103747efbf9f1e6ac89bc1",
+        "contents": "module QtQuick3D\nlinktarget Qt6::qquick3dplugin\nplugin qquick3dplugin\nclassname QQuick3DPlugin\ndesignersupported\ntypeinfo Quick3D.qmltypes\ndepends QtQuick auto\nprefer :/qt-project.org/imports/QtQuick3D/\nLightmapperOutputWindow 6.0 LightmapperOutputWindow.qml\n\n"
+      }
+    },
+    {
+      "module": "QtMultimedia",
+      "path": "/usr/lib64/qt6/qml/QtMultimedia/libquickmultimediaplugin.so",
+      "sha256": "537edb3c4e265ea41ead1cb7896646d229efbfca5204341e06edd25ac855a44a",
+      "needed": [
+        "libQt6MultimediaQuick.so.6",
+        "libQt6Qml.so.6",
+        "libQt6Core.so.6",
+        "libstdc++.so.6",
+        "libc.so.6"
+      ],
+      "readelf_dynamic": "\nDynamic section at offset 0x3cd8 contains 33 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6MultimediaQuick.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6Qml.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6Core.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x000000000000000c (INIT)               0x2000\n 0x000000000000000d (FINI)               0x27bc\n 0x0000000000000019 (INIT_ARRAY)         0x4bb0\n 0x000000000000001b (INIT_ARRAYSZ)       8 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x4bb8\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x0000000000000004 (HASH)               0x388\n 0x000000006ffffef5 (GNU_HASH)           0x4c0\n 0x0000000000000005 (STRTAB)             0x8a0\n 0x0000000000000006 (SYMTAB)             0x4f8\n 0x000000000000000a (STRSZ)              1421 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000003 (PLTGOT)             0x4f38\n 0x0000000000000002 (PLTRELSZ)           408 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x13a0\n 0x0000000000000007 (RELA)               0xfe0\n 0x0000000000000008 (RELASZ)             960 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffffc (VERDEF)             0xe80\n 0x000000006ffffffd (VERDEFNUM)          4\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x000000006ffffffe (VERNEED)            0xef0\n 0x000000006fffffff (VERNEEDNUM)         5\n 0x000000006ffffff0 (VERSYM)             0xe2e\n 0x000000006ffffff9 (RELACOUNT)          24\n 0x0000000000000000 (NULL)               0x0\n",
+      "owning_signed_rpm": "qt6-multimedia-imports-6.11.2-1.2.x86_64.rpm",
+      "needed_signed_providers": {
+        "libQt6MultimediaQuick.so.6": [
+          {
+            "name": "libQt6MultimediaQuick6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "1.2"
+            }
+          }
+        ],
+        "libQt6Qml.so.6": [
+          {
+            "name": "libQt6Qml6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "2.1"
+            }
+          }
+        ],
+        "libQt6Core.so.6": [
+          {
+            "name": "libQt6Core6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "2.1"
+            }
+          }
+        ],
+        "libstdc++.so.6": [
+          {
+            "name": "libstdc++6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "16.2.1+git9713",
+              "rel": "1.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc13",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "13.5.0+git10516",
+              "rel": "2.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc14",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "14.4.0+git12698",
+              "rel": "1.3"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc15",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "15.3.0+git11272",
+              "rel": "3.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc7",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "7.5.0+r278197",
+              "rel": "25.1"
+            }
+          }
+        ],
+        "libc.so.6": [
+          {
+            "name": "glibc",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "2.44",
+              "rel": "3.1"
+            }
+          }
+        ]
+      },
+      "qml_uri": "QtMultimedia",
+      "payload_package": "qt6-multimedia-imports",
+      "capability": "qt6qmlimport(QtMultimedia)",
+      "capability_provider_package": "qt6-multimedia-imports",
+      "qmldir": {
+        "path": "/usr/lib64/qt6/qml/QtMultimedia/qmldir",
+        "sha256": "756b4df2e8acc966f701cce2f6be17707110749c1377a32e2eb0c3ac88d4a876",
+        "contents": "module QtMultimedia\nlinktarget Qt6::quickmultimedia\nplugin quickmultimediaplugin\nclassname QMultimediaQuickModule\ntypeinfo plugins.qmltypes\ndepends QtQuick\nprefer :/qt-project.org/imports/QtMultimedia/\nVideo 6.0 Video.qml\nVideo 5.0 Video.qml\n\n"
+      }
+    },
+    {
+      "module": "QtQuick/Dialogs",
+      "path": "/usr/lib64/qt6/qml/QtQuick/Dialogs/libqtquickdialogsplugin.so",
+      "sha256": "2da6b419436cae0e67431b04a61dbf4dac2aeb8db7ec808742b9bbd029ee183c",
+      "needed": [
+        "libQt6QuickDialogs2.so.6",
+        "libQt6Qml.so.6",
+        "libQt6Core.so.6",
+        "libstdc++.so.6",
+        "libc.so.6"
+      ],
+      "readelf_dynamic": "\nDynamic section at offset 0x3cf8 contains 33 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6QuickDialogs2.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6Qml.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6Core.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x000000000000000c (INIT)               0x2000\n 0x000000000000000d (FINI)               0x25dc\n 0x0000000000000019 (INIT_ARRAY)         0x4bd0\n 0x000000000000001b (INIT_ARRAYSZ)       8 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x4bd8\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x0000000000000004 (HASH)               0x390\n 0x000000006ffffef5 (GNU_HASH)           0x470\n 0x0000000000000005 (STRTAB)             0x820\n 0x0000000000000006 (SYMTAB)             0x4a8\n 0x000000000000000a (STRSZ)              1395 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000003 (PLTGOT)             0x4f58\n 0x0000000000000002 (PLTRELSZ)           312 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x12e0\n 0x0000000000000007 (RELA)               0xf20\n 0x0000000000000008 (RELASZ)             960 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffffc (VERDEF)             0xde0\n 0x000000006ffffffd (VERDEFNUM)          4\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x000000006ffffffe (VERNEED)            0xe50\n 0x000000006fffffff (VERNEEDNUM)         5\n 0x000000006ffffff0 (VERSYM)             0xd94\n 0x000000006ffffff9 (RELACOUNT)          22\n 0x0000000000000000 (NULL)               0x0\n",
+      "owning_signed_rpm": "qt6-declarative-imports-6.11.2-2.1.x86_64.rpm",
+      "needed_signed_providers": {
+        "libQt6QuickDialogs2.so.6": [
+          {
+            "name": "libQt6QuickDialogs2-6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "2.1"
+            }
+          }
+        ],
+        "libQt6Qml.so.6": [
+          {
+            "name": "libQt6Qml6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "2.1"
+            }
+          }
+        ],
+        "libQt6Core.so.6": [
+          {
+            "name": "libQt6Core6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "2.1"
+            }
+          }
+        ],
+        "libstdc++.so.6": [
+          {
+            "name": "libstdc++6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "16.2.1+git9713",
+              "rel": "1.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc13",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "13.5.0+git10516",
+              "rel": "2.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc14",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "14.4.0+git12698",
+              "rel": "1.3"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc15",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "15.3.0+git11272",
+              "rel": "3.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc7",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "7.5.0+r278197",
+              "rel": "25.1"
+            }
+          }
+        ],
+        "libc.so.6": [
+          {
+            "name": "glibc",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "2.44",
+              "rel": "3.1"
+            }
+          }
+        ]
+      },
+      "qml_uri": "QtQuick.Dialogs",
+      "payload_package": "qt6-declarative-imports",
+      "capability": "qt6qmlimport(QtQuick.Dialogs)",
+      "capability_provider_package": "qtdeclarative-imports-provides-qt6",
+      "qmldir": {
+        "path": "/usr/lib64/qt6/qml/QtQuick/Dialogs/qmldir",
+        "sha256": "26126f1faf745cbe60de7916a328f0aa860f67c1f521e964fc5fbf3c06296bdc",
+        "contents": "module QtQuick.Dialogs\nlinktarget Qt6::qtquickdialogsplugin\noptional plugin qtquickdialogsplugin\nclassname QtQuickDialogsPlugin\ntypeinfo plugins.qmltypes\ndepends QtQuick auto\ndepends QtQuick.Dialogs.quickimpl auto\nprefer :/qt-project.org/imports/QtQuick/Dialogs/\n\n"
+      }
+    },
+    {
+      "module": "Qt/labs/platform",
+      "path": "/usr/lib64/qt6/qml/Qt/labs/platform/liblabsplatformplugin.so",
+      "sha256": "bc3bf24bd512e39085426619071f523de89436d66eb7af674dda364fcd89a088",
+      "needed": [
+        "libQt6LabsPlatform.so.6",
+        "libQt6Qml.so.6",
+        "libQt6Core.so.6",
+        "libstdc++.so.6",
+        "libc.so.6"
+      ],
+      "readelf_dynamic": "\nDynamic section at offset 0x3cf8 contains 33 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6LabsPlatform.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6Qml.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6Core.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x000000000000000c (INIT)               0x2000\n 0x000000000000000d (FINI)               0x25dc\n 0x0000000000000019 (INIT_ARRAY)         0x4bd0\n 0x000000000000001b (INIT_ARRAYSZ)       8 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x4bd8\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x0000000000000004 (HASH)               0x390\n 0x000000006ffffef5 (GNU_HASH)           0x470\n 0x0000000000000005 (STRTAB)             0x820\n 0x0000000000000006 (SYMTAB)             0x4a8\n 0x000000000000000a (STRSZ)              1393 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000003 (PLTGOT)             0x4f58\n 0x0000000000000002 (PLTRELSZ)           312 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x12e0\n 0x0000000000000007 (RELA)               0xf20\n 0x0000000000000008 (RELASZ)             960 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffffc (VERDEF)             0xde0\n 0x000000006ffffffd (VERDEFNUM)          4\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x000000006ffffffe (VERNEED)            0xe50\n 0x000000006fffffff (VERNEEDNUM)         5\n 0x000000006ffffff0 (VERSYM)             0xd92\n 0x000000006ffffff9 (RELACOUNT)          22\n 0x0000000000000000 (NULL)               0x0\n",
+      "owning_signed_rpm": "qt6-declarative-imports-6.11.2-2.1.x86_64.rpm",
+      "needed_signed_providers": {
+        "libQt6LabsPlatform.so.6": [
+          {
+            "name": "libQt6LabsPlatform6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "2.1"
+            }
+          }
+        ],
+        "libQt6Qml.so.6": [
+          {
+            "name": "libQt6Qml6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "2.1"
+            }
+          }
+        ],
+        "libQt6Core.so.6": [
+          {
+            "name": "libQt6Core6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "2.1"
+            }
+          }
+        ],
+        "libstdc++.so.6": [
+          {
+            "name": "libstdc++6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "16.2.1+git9713",
+              "rel": "1.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc13",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "13.5.0+git10516",
+              "rel": "2.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc14",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "14.4.0+git12698",
+              "rel": "1.3"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc15",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "15.3.0+git11272",
+              "rel": "3.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc7",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "7.5.0+r278197",
+              "rel": "25.1"
+            }
+          }
+        ],
+        "libc.so.6": [
+          {
+            "name": "glibc",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "2.44",
+              "rel": "3.1"
+            }
+          }
+        ]
+      },
+      "qml_uri": "Qt.labs.platform",
+      "payload_package": "qt6-declarative-imports",
+      "capability": "qt6qmlimport(Qt.labs.platform)",
+      "capability_provider_package": "qtdeclarative-imports-provides-qt6",
+      "qmldir": {
+        "path": "/usr/lib64/qt6/qml/Qt/labs/platform/qmldir",
+        "sha256": "09cb36e23aef4188092425ed64d33048e159c717ea2f0ef9aa104f043bad4ef8",
+        "contents": "module Qt.labs.platform\nlinktarget Qt6::LabsPlatformplugin\noptional plugin labsplatformplugin\nclassname QtLabsPlatformPlugin\ntypeinfo plugins.qmltypes\ndepends QtQuick\ndepends QtQuick.Templates\nprefer :/qt-project.org/imports/Qt/labs/platform/\n\n"
+      }
+    },
+    {
+      "module": "QtQuick/Controls/Material",
+      "path": "/usr/lib64/qt6/qml/QtQuick/Controls/Material/libqtquickcontrols2materialstyleplugin.so",
+      "sha256": "11aa02ef1b6f359dca67f65be947fceb1b1ab634b540b4249c5399bbe9fc5782",
+      "needed": [
+        "libQt6QuickControls2Material.so.6",
+        "libQt6QuickControls2.so.6",
+        "libQt6Qml.so.6",
+        "libQt6Core.so.6",
+        "libstdc++.so.6",
+        "libc.so.6"
+      ],
+      "readelf_dynamic": "\nDynamic section at offset 0x3cc8 contains 34 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6QuickControls2Material.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6QuickControls2.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6Qml.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6Core.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x000000000000000c (INIT)               0x2000\n 0x000000000000000d (FINI)               0x26bc\n 0x0000000000000019 (INIT_ARRAY)         0x4b70\n 0x000000000000001b (INIT_ARRAYSZ)       8 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x4b78\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x0000000000000004 (HASH)               0x3a8\n 0x000000006ffffef5 (GNU_HASH)           0x4f0\n 0x0000000000000005 (STRTAB)             0x930\n 0x0000000000000006 (SYMTAB)             0x528\n 0x000000000000000a (STRSZ)              1659 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000003 (PLTGOT)             0x4f38\n 0x0000000000000002 (PLTRELSZ)           384 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x15c8\n 0x0000000000000007 (RELA)               0x1178\n 0x0000000000000008 (RELASZ)             1104 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffffc (VERDEF)             0x1008\n 0x000000006ffffffd (VERDEFNUM)          4\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x000000006ffffffe (VERNEED)            0x1078\n 0x000000006fffffff (VERNEEDNUM)         6\n 0x000000006ffffff0 (VERSYM)             0xfac\n 0x000000006ffffff9 (RELACOUNT)          25\n 0x0000000000000000 (NULL)               0x0\n",
+      "owning_signed_rpm": "qt6-declarative-imports-6.11.2-2.1.x86_64.rpm",
+      "needed_signed_providers": {
+        "libQt6QuickControls2Material.so.6": [
+          {
+            "name": "libQt6QuickControls2-6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "2.1"
+            }
+          }
+        ],
+        "libQt6QuickControls2.so.6": [
+          {
+            "name": "libQt6QuickControls2-6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "2.1"
+            }
+          }
+        ],
+        "libQt6Qml.so.6": [
+          {
+            "name": "libQt6Qml6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "2.1"
+            }
+          }
+        ],
+        "libQt6Core.so.6": [
+          {
+            "name": "libQt6Core6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "2.1"
+            }
+          }
+        ],
+        "libstdc++.so.6": [
+          {
+            "name": "libstdc++6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "16.2.1+git9713",
+              "rel": "1.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc13",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "13.5.0+git10516",
+              "rel": "2.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc14",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "14.4.0+git12698",
+              "rel": "1.3"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc15",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "15.3.0+git11272",
+              "rel": "3.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc7",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "7.5.0+r278197",
+              "rel": "25.1"
+            }
+          }
+        ],
+        "libc.so.6": [
+          {
+            "name": "glibc",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "2.44",
+              "rel": "3.1"
+            }
+          }
+        ]
+      },
+      "qml_uri": "QtQuick.Controls.Material",
+      "payload_package": "qt6-declarative-imports",
+      "capability": "qt6qmlimport(QtQuick.Controls.Material)",
+      "capability_provider_package": "qtdeclarative-imports-provides-qt6",
+      "qmldir": {
+        "path": "/usr/lib64/qt6/qml/QtQuick/Controls/Material/qmldir",
+        "sha256": "cde0bdd7a27f453fa5181ed4e9ea550953ff6ab6caade3ea5030b53f0071978d",
+        "contents": "module QtQuick.Controls.Material\nlinktarget Qt6::qtquickcontrols2materialstyleplugin\nplugin qtquickcontrols2materialstyleplugin\nclassname QtQuickControls2MaterialStylePlugin\ntypeinfo plugins.qmltypes\nimport QtQuick.Controls.Basic auto\ndepends QtQuick auto\nprefer :/qt-project.org/imports/QtQuick/Controls/Material/\nApplicationWindow 6.0 ApplicationWindow.qml\nApplicationWindow 2.0 ApplicationWindow.qml\nBusyIndicator 6.0 BusyIndicator.qml\nBusyIndicator 2.0 BusyIndicator.qml\nButton 6.0 Button.qml\nButton 2.0 Button.qml\nCheckBox 6.0 CheckBox.qml\nCheckBox 2.0 CheckBox.qml\nCheckDelegate 6.0 CheckDelegate.qml\nCheckDelegate 2.0 CheckDelegate.qml\nComboBox 6.0 ComboBox.qml\nComboBox 2.0 ComboBox.qml\nDelayButton 2.2 DelayButton.qml\nDelayButton 6.0 DelayButton.qml\nDial 6.0 Dial.qml\nDial 2.0 Dial.qml\nDialog 2.1 Dialog.qml\nDialog 6.0 Dialog.qml\nDialogButtonBox 2.1 DialogButtonBox.qml\nDialogButtonBox 6.0 DialogButtonBox.qml\nDoubleSpinBox 6.11 DoubleSpinBox.qml\nDrawer 6.0 Drawer.qml\nDrawer 2.0 Drawer.qml\nFrame 6.0 Frame.qml\nFrame 2.0 Frame.qml\nGroupBox 6.0 GroupBox.qml\nGroupBox 2.0 GroupBox.qml\nHorizontalHeaderView 2.15 HorizontalHeaderView.qml\nHorizontalHeaderView 6.0 HorizontalHeaderView.qml\nHorizontalHeaderViewDelegate 6.10 HorizontalHeaderViewDelegate.qml\nItemDelegate 6.0 ItemDelegate.qml\nItemDelegate 2.0 ItemDelegate.qml\nLabel 6.0 Label.qml\nLabel 2.0 Label.qml\nMenu 6.0 Menu.qml\nMenu 2.0 Menu.qml\nMenuBar 2.3 MenuBar.qml\nMenuBar 6.0 MenuBar.qml\nMenuBarItem 2.3 MenuBarItem.qml\nMenuBarItem 6.0 MenuBarItem.qml\nMenuItem 6.0 MenuItem.qml\nMenuItem 2.0 MenuItem.qml\nMenuSeparator 2.1 MenuSeparator.qml\nMenuSeparator 6.0 MenuSeparator.qml\nPage 6.0 Page.qml\nPage 2.0 Page.qml\nPageIndicator 6.0 PageIndicator.qml\nPageIndicator 2.0 PageIndicator.qml\nPane 6.0 Pane.qml\nPane 2.0 Pane.qml\nPopup 6.0 Popup.qml\nPopup 2.0 Popup.qml\nProgressBar 6.0 ProgressBar.qml\nProgressBar 2.0 ProgressBar.qml\nRadioButton 6.0 RadioButton.qml\nRadioButton 2.0 RadioButton.qml\nRadioDelegate 6.0 RadioDelegate.qml\nRadioDelegate 2.0 RadioDelegate.qml\nRangeSlider 6.0 RangeSlider.qml\nRangeSlider 2.0 RangeSlider.qml\nRoundButton 2.1 RoundButton.qml\nRoundButton 6.0 RoundButton.qml\nScrollView 6.0 ScrollView.qml\nScrollView 2.0 ScrollView.qml\nScrollBar 6.0 ScrollBar.qml\nScrollBar 2.0 ScrollBar.qml\nScrollIndicator 6.0 ScrollIndicator.qml\nScrollIndicator 2.0 ScrollIndicator.qml\nSearchField 6.10 SearchField.qml\nSelectionRectangle 6.0 SelectionRectangle.qml\nSelectionRectangle 2.0 SelectionRectangle.qml\nSlider 6.0 Slider.qml\nSlider 2.0 Slider.qml\nSpinBox 6.0 SpinBox.qml\nSpinBox 2.0 SpinBox.qml\nSplitView 2.13 SplitView.qml\nSplitView 6.0 SplitView.qml\nStackView 6.0 StackView.qml\nStackView 2.0 StackView.qml\nSwipeDelegate 6.0 SwipeDelegate.qml\nSwipeDelegate 2.0 SwipeDelegate.qml\nSwipeView 6.0 SwipeView.qml\nSwipeView 2.0 SwipeView.qml\nSwitch 6.0 Switch.qml\nSwitch 2.0 Switch.qml\nSwitchDelegate 6.0 SwitchDelegate.qml\nSwitchDelegate 2.0 SwitchDelegate.qml\nTabBar 6.0 TabBar.qml\nTabBar 2.0 TabBar.qml\nTabButton 6.0 TabButton.qml\nTabButton 2.0 TabButton.qml\nTextArea 6.0 TextArea.qml\nTextArea 2.0 TextArea.qml\nTextField 6.0 TextField.qml\nTextField 2.0 TextField.qml\nToolBar 6.0 ToolBar.qml\nToolBar 2.0 ToolBar.qml\nToolButton 6.0 ToolButton.qml\nToolButton 2.0 ToolButton.qml\nToolSeparator 2.1 ToolSeparator.qml\nToolSeparator 6.0 ToolSeparator.qml\nToolTip 6.0 ToolTip.qml\nToolTip 2.0 ToolTip.qml\nTreeViewDelegate 6.0 TreeViewDelegate.qml\nTreeViewDelegate 2.0 TreeViewDelegate.qml\nTumbler 6.0 Tumbler.qml\nTumbler 2.0 Tumbler.qml\nVerticalHeaderView 2.15 VerticalHeaderView.qml\nVerticalHeaderView 6.0 VerticalHeaderView.qml\nVerticalHeaderViewDelegate 6.10 VerticalHeaderViewDelegate.qml\n\n"
+      }
+    },
+    {
+      "module": "QtQuick/Window",
+      "path": "/usr/lib64/qt6/qml/QtQuick/Window/libquickwindowplugin.so",
+      "sha256": "4d12d1e1107b36ecf982e4a0ea0d1f4cff46ada40adf4d53d418036766515f6b",
+      "needed": [
+        "libQt6Qml.so.6",
+        "libQt6Core.so.6",
+        "libstdc++.so.6",
+        "libc.so.6"
+      ],
+      "readelf_dynamic": "\nDynamic section at offset 0x3cd8 contains 32 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6Qml.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libQt6Core.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x000000000000000c (INIT)               0x2000\n 0x000000000000000d (FINI)               0x276c\n 0x0000000000000019 (INIT_ARRAY)         0x4ba8\n 0x000000000000001b (INIT_ARRAYSZ)       16 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x4bb8\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x0000000000000004 (HASH)               0x390\n 0x000000006ffffef5 (GNU_HASH)           0x4d8\n 0x0000000000000005 (STRTAB)             0x908\n 0x0000000000000006 (SYMTAB)             0x518\n 0x000000000000000a (STRSZ)              1538 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000003 (PLTGOT)             0x4f28\n 0x0000000000000002 (PLTRELSZ)           408 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x1470\n 0x0000000000000007 (RELA)               0x1080\n 0x0000000000000008 (RELASZ)             1008 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffffc (VERDEF)             0xf60\n 0x000000006ffffffd (VERDEFNUM)          4\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x000000006ffffffe (VERNEED)            0xfd0\n 0x000000006fffffff (VERNEEDNUM)         4\n 0x000000006ffffff0 (VERSYM)             0xf0a\n 0x000000006ffffff9 (RELACOUNT)          23\n 0x0000000000000000 (NULL)               0x0\n",
+      "owning_signed_rpm": "qt6-declarative-imports-6.11.2-2.1.x86_64.rpm",
+      "needed_signed_providers": {
+        "libQt6Qml.so.6": [
+          {
+            "name": "libQt6Qml6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "2.1"
+            }
+          }
+        ],
+        "libQt6Core.so.6": [
+          {
+            "name": "libQt6Core6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "6.11.2",
+              "rel": "2.1"
+            }
+          }
+        ],
+        "libstdc++.so.6": [
+          {
+            "name": "libstdc++6",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "16.2.1+git9713",
+              "rel": "1.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc13",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "13.5.0+git10516",
+              "rel": "2.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc14",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "14.4.0+git12698",
+              "rel": "1.3"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc15",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "15.3.0+git11272",
+              "rel": "3.1"
+            }
+          },
+          {
+            "name": "libstdc++6-gcc7",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "7.5.0+r278197",
+              "rel": "25.1"
+            }
+          }
+        ],
+        "libc.so.6": [
+          {
+            "name": "glibc",
+            "arch": "x86_64",
+            "version": {
+              "epoch": "0",
+              "ver": "2.44",
+              "rel": "3.1"
+            }
+          }
+        ]
+      },
+      "qml_uri": "QtQuick.Window",
+      "payload_package": "qt6-declarative-imports",
+      "capability": "qt6qmlimport(QtQuick.Window)",
+      "capability_provider_package": "qtdeclarative-imports-provides-qt6",
+      "qmldir": {
+        "path": "/usr/lib64/qt6/qml/QtQuick/Window/qmldir",
+        "sha256": "c0509023b1bcce5f27262aa84f3a6016fb188971fecc58eea98b897a9aa42eb5",
+        "contents": "module QtQuick.Window\nlinktarget Qt6::quickwindow\nplugin quickwindowplugin\nclassname QtQuick_WindowPlugin\ntypeinfo quickwindow.qmltypes\nimport QtQuick auto\nprefer :/qt-project.org/imports/QtQuick/Window/\n\n"
+      }
+    }
+  ],
+  "native_executable_file_ownership": {
+    "ImageMagick": [
+      "/usr/bin/magick",
+      "/usr/bin/identify",
+      "/usr/bin/convert"
+    ],
+    "ffmpeg": [
+      "/usr/bin/ffmpeg",
+      "/usr/bin/ffprobe"
+    ]
+  },
+  "scope": "Signed cached payload/header/ELF and pinned source/provider facts only. No Qt plugin or native command loaded/executed, no package installed/downloaded, no VM/build, no dependency or runtime behavior change.",
+  "schema_version": 1,
+  "project_base_commit": "42ef0c1a8f64dc8383bb7711a93da7a61df60870",
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "primary_records": "qt-native-primary-records.json",
+  "source_contracts": [
+    {
+      "source": "ryoku/shell/plugin/CMakeLists.txt",
+      "git_mode": "100644",
+      "git_blob": "b0e9949cf25e1109a21f6124a130769472b6ddd9",
+      "sha256": "da42536a7fc0ac6ef6988c5acf103ccd01c0db9bcc67fda9c7898c59c0751835",
+      "source2_payload": "native/ryoku-blobs/CMakeLists.txt",
+      "source3_selected": false,
+      "anchors": [
+        {
+          "line": 19,
+          "text": "find_package(Qt6 6.5 REQUIRED COMPONENTS Concurrent Quick ShaderTools Multimedia Quick3D)"
+        },
+        {
+          "line": 61,
+          "text": "    URI Ryoku.Spatial3D"
+        },
+        {
+          "line": 70,
+          "text": "target_link_libraries(ryoku-spatial3d PRIVATE Qt6::Concurrent Qt6::Quick Qt6::Quick3D)"
+        },
+        {
+          "line": 57,
+          "text": "    INSTALL_RPATH \"$ORIGIN\""
+        },
+        {
+          "line": 75,
+          "text": "    INSTALL_RPATH \"$ORIGIN\""
+        }
+      ]
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/modules/stage/StageSpatialScene.qml",
+      "git_mode": "100644",
+      "git_blob": "715ddaea3ee5c7d58e32526bc0e6ec7114237309",
+      "sha256": "c863b0786b6d0a7a3485fd577aa1248a39b0ebe871817690434191812150dc37",
+      "source2_payload": "shell/quickshell/shell/modules/stage/StageSpatialScene.qml",
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 2,
+          "text": "import QtQuick3D"
+        },
+        {
+          "line": 3,
+          "text": "import Ryoku.Spatial3D 1.0"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/shell/livewall/build.sh",
+      "git_mode": "100755",
+      "git_blob": "d6056d8835b7d9f008825d5b735b55aea5a741f9",
+      "sha256": "7342f6329b94de2e6d25ece4093902183e040995323b82759ce4a03d9f19096e",
+      "source2_payload": null,
+      "source3_selected": true,
+      "anchors": [
+        {
+          "line": 37,
+          "text": "  $(pkg-config --cflags --libs wayland-client libavformat libavcodec libavutil libswscale) -lm"
+        }
+      ]
+    }
+  ],
+  "static_upower_contract": {
+    "repository": "https://github.com/quickshell-mirror/quickshell",
+    "revision": "4f508be500dea6e5732cc3d50382a0048b17e7b1",
+    "tree": "382743e55b82f3b5837eca36b8158e79c61c319a",
+    "archive": "issue14-quickshell-0.3.2.tar.gz",
+    "archive_sha256": "5e8a7b7a1a1e40de641ee6cfd24f40aa612e13c27353e5746fc79b2861ca9fd0",
+    "module": "Quickshell.Services.UPower",
+    "module_version": "0.1",
+    "files": [
+      {
+        "path": "CMakeLists.txt",
+        "git_blob": "ac8223762aa25efcc1f849c499b886e7616c5ba7",
+        "sha256": "15fd3060d87b06a8fdce882d6548db66733ca453393fa92f8270970069e517f7",
+        "anchors": [
+          {
+            "line": 80,
+            "text": "boption(SERVICE_UPOWER \"UPower\" ON)"
+          }
+        ]
+      },
+      {
+        "path": "src/services/CMakeLists.txt",
+        "git_blob": "f3912a9984d7cac9b13e0f9147c61ee7750b0c28",
+        "sha256": "4ab3e1a233a6f2ef819f9b5a55bb0a523f7c61281a847bfe3cd1d3cbc1c3e579",
+        "anchors": [
+          {
+            "line": 25,
+            "text": "if (SERVICE_UPOWER)"
+          }
+        ]
+      },
+      {
+        "path": "src/services/upower/CMakeLists.txt",
+        "git_blob": "b18ec155741009a6c957076fd3be3239ee743d11",
+        "sha256": "0055a622184187619e66153457e980a887846c73a4422ce6ea324733f2ab8fc8",
+        "anchors": [
+          {
+            "line": 32,
+            "text": "\tURI Quickshell.Services.UPower"
+          },
+          {
+            "line": 33,
+            "text": "  VERSION 0.1"
+          },
+          {
+            "line": 41,
+            "text": "target_link_libraries(quickshell-service-upower PRIVATE Qt::Qml Qt::DBus)"
+          }
+        ]
+      },
+      {
+        "path": "src/services/upower/core.cpp",
+        "git_blob": "0f9d9da0eb867dba1c839b537e187e1af2c229d3",
+        "sha256": "95dc33f612e676b2611473a653f1e618e7d1ec95051035418038b5b3d59d2a07",
+        "anchors": [
+          {
+            "line": 39,
+            "text": "\t    new DBusUPowerService(\"org.freedesktop.UPower\", \"/org/freedesktop/UPower\", bus, this);"
+          },
+          {
+            "line": 44,
+            "text": "\t\tdbus::tryLaunchService(this, bus, \"org.freedesktop.UPower\", [this](bool success) {"
+          }
+        ]
+      }
+    ],
+    "static_link_anchors": [
+      {
+        "path": "src/services/upower/CMakeLists.txt",
+        "line": 21,
+        "text": "qt_add_library(quickshell-service-upower STATIC"
+      },
+      {
+        "path": "src/services/upower/CMakeLists.txt",
+        "line": 43,
+        "text": "target_link_libraries(quickshell PRIVATE quickshell-service-upowerplugin)"
+      }
+    ]
+  },
+  "build_capabilities": [
+    {
+      "capability": "cmake(Qt6Concurrent)",
+      "package": "qt6-concurrent-devel",
+      "version": {
+        "epoch": "0",
+        "ver": "6.11.2",
+        "rel": "2.1"
+      }
+    },
+    {
+      "capability": "cmake(Qt6Quick3D)",
+      "package": "qt6-quick3d-devel",
+      "version": {
+        "epoch": "0",
+        "ver": "6.11.2",
+        "rel": "1.1"
+      }
+    },
+    {
+      "capability": "cmake(Qt6DBus)",
+      "package": "qt6-dbus-devel",
+      "version": {
+        "epoch": "0",
+        "ver": "6.11.2",
+        "rel": "2.1"
+      }
+    }
+  ],
+  "ffmpeg_contracts": {
+    "qt_multimedia_backend_package": "qt6-multimedia",
+    "qt_backend_required_sonames": [
+      "libavcodec.so.62()(64bit)",
+      "libavformat.so.62()(64bit)",
+      "libavutil.so.60()(64bit)"
+    ],
+    "cli_package": "ffmpeg",
+    "cli_required_sonames": [
+      "libavcodec.so.63()(64bit)",
+      "libavformat.so.63()(64bit)",
+      "libavutil.so.61()(64bit)"
+    ],
+    "cached_sdk_devel_packages": [
+      "ffmpeg-9-libavcodec-devel",
+      "ffmpeg-9-libavformat-devel",
+      "ffmpeg-9-libavutil-devel",
+      "ffmpeg-9-libswscale-devel"
+    ],
+    "livewall_link_contract": "Generic pkg-config source; cached SDK selects FFmpeg9. Actual new livewall ELF has not been built/measured."
+  },
+  "remaining_gates": [
+    "Complete generated QML Requires and native Zypper/provider/ABI closure, including the separate declarative capability helper.",
+    "Source-generated Spatial3D/Blobs and static Quickshell require actual rebuilt RPM/import/load/ELF acceptance.",
+    "Qt Multimedia FFmpeg8 backend, candidate FFmpeg9 CLI/livewall, rich dependency alternatives, codecs and hardware paths need native solver/tool/runtime tests.",
+    "Full feature-owner, license/notices, session and recovery acceptance remain open; current nonselection is not a product exclusion."
+  ],
+  "native_executable_records": [
+    {
+      "package": "ImageMagick",
+      "path": "/usr/bin/convert",
+      "link_to": "magick",
+      "mode": 41471,
+      "flags": 0
+    },
+    {
+      "package": "ImageMagick",
+      "path": "/usr/bin/identify",
+      "link_to": "magick",
+      "mode": 41471,
+      "flags": 0
+    },
+    {
+      "package": "ImageMagick",
+      "path": "/usr/bin/magick",
+      "link_to": null,
+      "mode": 33261,
+      "flags": 0
+    },
+    {
+      "package": "ffmpeg",
+      "path": "/usr/bin/ffmpeg",
+      "link_to": null,
+      "mode": 33261,
+      "flags": 0
+    },
+    {
+      "package": "ffmpeg",
+      "path": "/usr/bin/ffprobe",
+      "link_to": null,
+      "mode": 33261,
+      "flags": 0
+    }
+  ]
+}

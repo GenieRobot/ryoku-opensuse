@@ -1,0 +1,43 @@
+{
+  "repository": "https://github.com/quickshell-mirror/quickshell",
+  "revision": "4f508be500dea6e5732cc3d50382a0048b17e7b1",
+  "tree": "382743e55b82f3b5837eca36b8158e79c61c319a",
+  "archive": "issue14-quickshell-0.3.2.tar.gz",
+  "archive_sha256": "5e8a7b7a1a1e40de641ee6cfd24f40aa612e13c27353e5746fc79b2861ca9fd0",
+  "module": "Quickshell.Services.SystemTray",
+  "module_version": "0.1",
+  "source_patch": false,
+  "native_load_acceptance": "pending refreshed native package/runtime acceptance",
+  "files": [
+    {
+      "path": "CMakeLists.txt",
+      "git_blob": "ac8223762aa25efcc1f849c499b886e7616c5ba7",
+      "sha256": "15fd3060d87b06a8fdce882d6548db66733ca453393fa92f8270970069e517f7",
+      "line": 74,
+      "evidence": "boption(SERVICE_STATUS_NOTIFIER \"System Tray\" ON)"
+    },
+    {
+      "path": "src/services/CMakeLists.txt",
+      "git_blob": "f3912a9984d7cac9b13e0f9147c61ee7750b0c28",
+      "sha256": "4ab3e1a233a6f2ef819f9b5a55bb0a523f7c61281a847bfe3cd1d3cbc1c3e579",
+      "line": 1,
+      "evidence": "SERVICE_STATUS_NOTIFIER enables the status_notifier subdirectory"
+    },
+    {
+      "path": "src/services/status_notifier/CMakeLists.txt",
+      "git_blob": "7e0bf2b9a84af64afd8ec9418a162554cb4a25e3",
+      "sha256": "cc54d0b089c8745beb614dcb9dabb94eb3e118b547dc8d42a3b3b1a922b4565e",
+      "evidence": [
+        "qt_add_library(quickshell-service-statusnotifier STATIC)",
+        "qt_add_qml_module URI Quickshell.Services.SystemTray VERSION 0.1",
+        "target_link_libraries(quickshell PRIVATE quickshell-service-statusnotifierplugin)"
+      ]
+    },
+    {
+      "path": "src/services/status_notifier/qml.hpp",
+      "git_blob": "f9ae9bad2616f538afcb99791ca13ea86d5b98da",
+      "sha256": "0de436776146a88bf63baa0b07711330d71db08bff54a0e233734591c1e693bb",
+      "evidence": "SystemTray is a QML_ELEMENT/QML_SINGLETON exposing the items model"
+    }
+  ]
+}

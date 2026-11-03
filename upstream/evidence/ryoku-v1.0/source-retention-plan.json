@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "scope": "Declared next Source3 retention recipe only; current archives/manifests not regenerated, source facts are distinct from installed feature/provider acceptance",
+  "groups": [
+    {
+      "source_root": "ryoku/cli",
+      "entries": 769,
+      "git_blob_bytes": 9936015,
+      "git_mode_counts": {
+        "100644": 769
+      },
+      "declared_source3_scope": true,
+      "current_source3_archive_contains_root": false,
+      "current_source2_export_contains_root": false,
+      "current_rpm_build_install_changed": false,
+      "target": "retain entire component",
+      "runtime_owner": "#25/#27/#28/#29/#31/#32"
+    },
+    {
+      "source_root": "ryoku/rashin",
+      "entries": 338,
+      "git_blob_bytes": 3339325,
+      "git_mode_counts": {
+        "100644": 332,
+        "100755": 4,
+        "120000": 2
+      },
+      "declared_source3_scope": true,
+      "current_source3_archive_contains_root": false,
+      "current_source2_export_contains_root": false,
+      "current_rpm_build_install_changed": false,
+      "target": "retain entire component",
+      "runtime_owner": "#183"
+    }
+  ],
+  "current_source3": {
+    "entries": 5861,
+    "git_blob_bytes": 94942938,
+    "sha256": "7b68eb2e1a81fe3d6b28edaa89708b2c6663082e72f74bdce4087eb02799c9be",
+    "tar_uncompressed_bytes_measured": 99860480
+  },
+  "declared_next_source3": {
+    "entries": 6968,
+    "git_blob_bytes": 108218278,
+    "source_only_links": 2,
+    "additional_entries": 1107,
+    "additional_git_blob_bytes": 13275340,
+    "predicted_gnu_tar_bytes": 114032640,
+    "predicted_directory_entries": 669,
+    "tar_size_limit": "prediction from GNU format header/padding rules; actual regenerated tar still must be measured and verified",
+    "predicted_additional_tar_bytes": 14172160
+  },
+  "storage_plan": {
+    "measured_existing_runtime_stage_kib": 134596,
+    "measured_existing_writer_stage_kib": 108756,
+    "fresh_exports_requested_now": 0,
+    "reserve_for_two_complete_fresh_reproduction_runs_bytes": 1342177280,
+    "reservation_is_not_authorization": true,
+    "reason": "Includes two retained staging trees, both archives, one transient uncompressed tar at a time, filesystem/metadata overhead and margin; actual available space must be remeasured before generation."
+  },
+  "unchanged_source2_manifest_sha256": "a32211910081ece9ea1aa0c9001940c1847588b1fae3865815fa676e82651c16",
+  "unchanged_rpm_spec_sha256": "ce77e8293bbf947a935b9461d93a3b05feaabbe1f0293d1f603aef5b1ac235ce",
+  "link_evidence": "rashin-source-links.json",
+  "native_archive_and_runtime_acceptance": false,
+  "project_commit": "211f04004aca3ccd7c81955f42e797e1820242e4",
+  "status": "Historical pre-regeneration plan; actual current artifacts and selection are in source-retention-reproduction.json and export.json"
+}

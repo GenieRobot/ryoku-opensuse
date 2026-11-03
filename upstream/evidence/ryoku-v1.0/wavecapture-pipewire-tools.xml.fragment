@@ -1,0 +1,67 @@
+<package type="rpm">
+  <name>pipewire-tools</name>
+  <arch>x86_64</arch>
+  <version epoch="0" ver="1.6.9" rel="2.1"/>
+  <checksum type="sha512" pkgid="YES">fa5665444a0d806fc408081c2cdff151b2d56aeff3a0e49f3a29e54bcab114180919f25d25faa5e411ad2baffa0529901b15a707a269bd32fbd7bf53f843d660</checksum>
+  <summary>The PipeWire Tools</summary>
+  <description>This package contains command line utilities for the PipeWire media server.</description>
+  <packager>https://bugs.opensuse.org</packager>
+  <url>https://pipewire.org/</url>
+  <time file="1791641841" build="1790940966"/>
+  <size package="409167" installed="913257" archive="918464"/>
+  <location href="x86_64/pipewire-tools-1.6.9-2.1.x86_64.rpm"/>
+  <format>
+    <rpm:license>MIT</rpm:license>
+    <rpm:vendor>openSUSE</rpm:vendor>
+    <rpm:group>Productivity/Multimedia/Other</rpm:group>
+    <rpm:buildhost>reproducible</rpm:buildhost>
+    <rpm:sourcerpm>pipewire-1.6.9-2.1.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="201473"/>
+    <rpm:provides>
+      <rpm:entry name="pipewire-tools" flags="EQ" epoch="0" ver="1.6.9" rel="2.1"/>
+      <rpm:entry name="pipewire-tools(x86-64)" flags="EQ" epoch="0" ver="1.6.9" rel="2.1"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="/bin/sh"/>
+      <rpm:entry name="libdbus-1.so.3()(64bit)"/>
+      <rpm:entry name="libdbus-1.so.3(LIBDBUS_1_3)(64bit)"/>
+      <rpm:entry name="libm.so.6()(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.2.5)(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.29)(64bit)"/>
+      <rpm:entry name="libncursesw.so.6()(64bit)"/>
+      <rpm:entry name="libncursesw.so.6(NCURSESTW6_5.7.20081102)(64bit)"/>
+      <rpm:entry name="libpipewire-0.3.so.0()(64bit)"/>
+      <rpm:entry name="libreadline.so.8()(64bit)"/>
+      <rpm:entry name="libsndfile.so.1()(64bit)"/>
+      <rpm:entry name="libsndfile.so.1(libsndfile.so.1.0)(64bit)"/>
+      <rpm:entry name="libtinfo.so.6()(64bit)"/>
+      <rpm:entry name="libtinfo.so.6(NCURSES6_TINFO_5.0.19991023)(64bit)"/>
+      <rpm:entry name="libtinfo.so.6(NCURSES6_TINFO_5.7.20081102)(64bit)"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.38)(64bit)"/>
+    </rpm:requires>
+    <file>/usr/bin/pw-cat</file>
+    <file>/usr/bin/pw-cli</file>
+    <file>/usr/bin/pw-config</file>
+    <file>/usr/bin/pw-container</file>
+    <file>/usr/bin/pw-dot</file>
+    <file>/usr/bin/pw-dsdplay</file>
+    <file>/usr/bin/pw-dump</file>
+    <file>/usr/bin/pw-encplay</file>
+    <file>/usr/bin/pw-link</file>
+    <file>/usr/bin/pw-loopback</file>
+    <file>/usr/bin/pw-metadata</file>
+    <file>/usr/bin/pw-midi2play</file>
+    <file>/usr/bin/pw-midi2record</file>
+    <file>/usr/bin/pw-mididump</file>
+    <file>/usr/bin/pw-midiplay</file>
+    <file>/usr/bin/pw-midirecord</file>
+    <file>/usr/bin/pw-mon</file>
+    <file>/usr/bin/pw-play</file>
+    <file>/usr/bin/pw-profiler</file>
+    <file>/usr/bin/pw-record</file>
+    <file>/usr/bin/pw-reserve</file>
+    <file>/usr/bin/pw-sysex</file>
+    <file>/usr/bin/pw-top</file>
+    <file>/usr/bin/pw-v4l2</file>
+  </format>
+</package>

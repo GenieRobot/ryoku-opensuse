@@ -1,0 +1,1612 @@
+[
+  {
+    "arch": "x86_64",
+    "checksum": "e3d43ba2959ff7d56b6f8624c222f9000836a061945d17f191feb465a0acb08438faa5766579c4027dd68057f2521f1757abcedaded86e08bac3352a65ef27d1",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/kf6-syntax-highlighting-imports-6.31.0-1.1.x86_64.rpm"
+    },
+    "name": "kf6-syntax-highlighting-imports",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "kf6-syntax-highlighting-imports",
+        "rel": "1.1",
+        "ver": "6.31.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "kf6-syntax-highlighting-imports(x86-64)",
+        "rel": "1.1",
+        "ver": "6.31.0"
+      },
+      {
+        "name": "libkquicksyntaxhighlightingplugin.so()(64bit)"
+      },
+      {
+        "name": "qt6qmlimport(org.kde.syntaxhighlighting)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(org.kde.syntaxhighlighting.1)",
+        "ver": "0"
+      }
+    ],
+    "requires": [
+      {
+        "name": "libKF6SyntaxHighlighting.so.6()(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libKF6SyntaxHighlighting6",
+        "ver": "6.31.0"
+      },
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.4)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.31.0"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "038eaca1a3fbbc7d897dc3beba57c2dc017e17471f1cea72b839fa9eacd4a81dbb13f0e410e3ad738ed4cd7e33835429ddae2e74200f561ca05f552820e215e3",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-concurrent-devel-6.11.2-2.1.x86_64.rpm"
+    },
+    "name": "qt6-concurrent-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Concurrent)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(Qt6Concurrent)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-concurrent-devel",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-concurrent-devel(x86-64)",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Core)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Concurrent6",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "pkgconfig(Qt6Core)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "2.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "8f97ae0d21dd1e1884b385586000e632784084a195682b49b5bc664a1658567aa7d1d2109934454f8ecc1cf1d88024ba82eb2ad710bc5f34492eb24ea13f6e31",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-multimedia-imports-6.11.2-1.2.x86_64.rpm"
+    },
+    "name": "qt6-multimedia-imports",
+    "provides": [
+      {
+        "name": "libquick3dspatialaudioplugin.so()(64bit)"
+      },
+      {
+        "name": "libquick3dspatialaudioplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libquick3dspatialaudioplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libquick3dspatialaudioplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libquickmultimediaplugin.so()(64bit)"
+      },
+      {
+        "name": "libquickmultimediaplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libquickmultimediaplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libquickmultimediaplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-multimedia-imports",
+        "rel": "1.2",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-multimedia-imports(x86-64)",
+        "rel": "1.2",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "qt6qmlimport(QtMultimedia)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtMultimedia.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtMultimedia.5)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtMultimedia.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.SpatialAudio)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.SpatialAudio.6)",
+        "ver": "11"
+      }
+    ],
+    "requires": [
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libQt6MultimediaQuick.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6MultimediaQuick.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6MultimediaQuick.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DSpatialAudio.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DSpatialAudio.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.4)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.2",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "0f1fe241a813ce4dbc0f4b54d65678b9c3525d0e142649df700c68aa037369a0fb685a9e9de8099536ad062f62eb344d7c7114de980785de94389e4da6e3ea0d",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-qt5compat-imports-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "qt6-qt5compat-imports",
+    "provides": [
+      {
+        "name": "libqtgraphicaleffectsplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtgraphicaleffectsplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtgraphicaleffectsplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtgraphicaleffectsplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtgraphicaleffectsprivateplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtgraphicaleffectsprivateplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtgraphicaleffectsprivateplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtgraphicaleffectsprivateplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-qt5compat-imports",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-qt5compat-imports(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "qt6qmlimport(Qt5Compat.GraphicalEffects)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt5Compat.GraphicalEffects.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt5Compat.GraphicalEffects.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(Qt5Compat.GraphicalEffects.private)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt5Compat.GraphicalEffects.private.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt5Compat.GraphicalEffects.private.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt5Compat.GraphicalEffects.private.5)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt5Compat.GraphicalEffects.private.6)",
+        "ver": "11"
+      }
+    ],
+    "requires": [
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6ShaderTools.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6ShaderTools.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.29)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick)"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Window)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.14)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "359dde32adecdcac315de6307afb5bb8a1dc0f31788cbfab4cd21909e96319f222b1954b3146d532f4e698eb0136d81c5fe03b4024139c5fd5029e045394fe08",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-quick3d-devel-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "qt6-quick3d-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick3D)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick3DTools)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(Qt6Quick3D)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick3d-devel",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick3d-devel(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Gui)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Qml)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick3DRuntimeRender)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3D6",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "pkgconfig(Qt6Core)"
+      },
+      {
+        "name": "pkgconfig(Qt6Gui)"
+      },
+      {
+        "name": "pkgconfig(Qt6Qml)"
+      },
+      {
+        "name": "pkgconfig(Qt6Quick)"
+      },
+      {
+        "name": "pkgconfig(Qt6Quick3DRuntimeRender)"
+      },
+      {
+        "name": "qt6-quick3d"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "21935b31023e145062aacbbca2916cd988d11c1b440ca5ba4c7f7857f1f5a216cb97bd48c5b2796f5faced20cf4281add41e792b24fab570f345ff362aa65359",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-quick3d-imports-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "qt6-quick3d-imports",
+    "provides": [
+      {
+        "name": "libqquick3dplugin.so()(64bit)"
+      },
+      {
+        "name": "libqquick3dplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqquick3dplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqquick3dplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquick3dassetutilsplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquick3dassetutilsplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquick3dassetutilsplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquick3dassetutilsplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquick3deffectplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquick3deffectplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquick3deffectplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquick3deffectplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquick3dhelpersimplplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquick3dhelpersimplplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquick3dhelpersimplplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquick3dhelpersimplplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquick3dhelpersplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquick3dhelpersplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquick3dhelpersplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquick3dhelpersplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquick3dparticleeffectsplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquick3dparticleeffectsplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquick3dparticleeffectsplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquick3dparticleeffectsplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libqtquick3dparticles3dplugin.so()(64bit)"
+      },
+      {
+        "name": "libqtquick3dparticles3dplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libqtquick3dparticles3dplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libqtquick3dparticles3dplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libquick3dxrplugin.so()(64bit)"
+      },
+      {
+        "name": "libquick3dxrplugin.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libquick3dxrplugin.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libquick3dxrplugin.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick3d-imports",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick3d-imports(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.AssetUtils)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.AssetUtils.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.Effects)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.Effects.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.Helpers)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.Helpers.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.Helpers.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.Helpers.impl)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.Helpers.impl.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.MaterialEditor)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.MaterialEditor.1)",
+        "ver": "0"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.ParticleEffects)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.ParticleEffects.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.Particles3D)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.Particles3D.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.Xr)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.Xr.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick3D.lightmapviewer)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick3D.lightmapviewer.1)",
+        "ver": "0"
+      }
+    ],
+    "requires": [
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DAssetUtils.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DAssetUtils.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DEffects.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DHelpers.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DHelpers.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DHelpersImpl.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DHelpersImpl.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DParticleEffects.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DParticles.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DParticles.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DXr.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DXr.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "qt6qmlimport(Qt.labs.platform)"
+      },
+      {
+        "name": "qt6qmlimport(QtCore)"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick)"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Controls)"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Dialogs)"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Layouts)"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Window)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.4)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "502127e9f60333a9a70ddfc5fd937a311194d7f9d967719026da949dff799194dd71f893ac8db88a990ac1d7f163cf5ea44e2ae6208a71c7279e23ca44cccf04",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qtdeclarative-imports-provides-qt6-1.0-1.55.x86_64.rpm"
+    },
+    "name": "qtdeclarative-imports-provides-qt6",
+    "provides": [
+      {
+        "name": "qt6qmlimport(QML)"
+      },
+      {
+        "name": "qt6qmlimport(QmlTime)"
+      },
+      {
+        "name": "qt6qmlimport(Qt.labs.StyleKit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.StyleKit.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.StyleKit.254)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.StyleKit.6)",
+        "ver": "254"
+      },
+      {
+        "name": "qt6qmlimport(Qt.labs.StyleKit.impl)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.StyleKit.impl.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.StyleKit.impl.254)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.StyleKit.impl.6)",
+        "ver": "254"
+      },
+      {
+        "name": "qt6qmlimport(Qt.labs.animation)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.animation.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.animation.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(Qt.labs.folderlistmodel)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.folderlistmodel.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.folderlistmodel.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.folderlistmodel.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(Qt.labs.platform)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.platform.1)",
+        "ver": "1"
+      },
+      {
+        "name": "qt6qmlimport(Qt.labs.qmlmodels)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.qmlmodels.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.qmlmodels.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(Qt.labs.settings)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.settings.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.settings.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(Qt.labs.sharedimage)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.sharedimage.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.sharedimage.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(Qt.labs.synchronizer)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.synchronizer.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(Qt.labs.wavefrontmesh)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.wavefrontmesh.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.labs.wavefrontmesh.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(Qt.test.controls)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(Qt.test.controls.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtCore)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtCore.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtNetwork)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtNetwork.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQml)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQml.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQml.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQml.Models)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQml.Models.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQml.Models.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQml.WorkerScript)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQml.WorkerScript.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQml.WorkerScript.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQml.XmlListModel)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQml.XmlListModel.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Controls)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Controls.Basic)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Basic.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Basic.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Controls.Basic.impl)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Basic.impl.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Basic.impl.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Controls.FluentWinUI3)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.FluentWinUI3.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.FluentWinUI3.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Controls.FluentWinUI3.impl)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.FluentWinUI3.impl.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.FluentWinUI3.impl.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Controls.Fusion)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Fusion.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Fusion.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Controls.Fusion.impl)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Fusion.impl.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Fusion.impl.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Controls.Imagine)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Imagine.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Imagine.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Controls.Imagine.impl)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Imagine.impl.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Controls.Material)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Material.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Material.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Controls.Material.impl)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Material.impl.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Material.impl.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Controls.Universal)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Universal.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Universal.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Controls.Universal.impl)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Universal.impl.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.Universal.impl.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Controls.impl)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.impl.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Controls.impl.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Dialogs)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Dialogs.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Dialogs.quickimpl)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Dialogs.quickimpl.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Dialogs.quickimpl.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Effects)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Effects.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Effects.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Layouts)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Layouts.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Layouts.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Layouts.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.LocalStorage)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.LocalStorage.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.LocalStorage.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Particles)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Particles.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Particles.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Shapes)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Shapes.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Shapes.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Shapes.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Shapes.DesignHelpers)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Shapes.DesignHelpers.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Shapes.DesignHelpers.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Shapes.DesignHelpers.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Templates)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Templates.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Templates.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.VectorImage)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.VectorImage.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.VectorImage.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.VectorImage.Helpers)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.VectorImage.Helpers.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.VectorImage.Helpers.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.Window)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Window.2)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.Window.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtQuick.tooling)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.tooling.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtQuick.tooling.6)",
+        "ver": "11"
+      },
+      {
+        "name": "qt6qmlimport(QtTest)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtTest.1)",
+        "ver": "254"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6qmlimport(QtTest.6)",
+        "ver": "11"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qtdeclarative-imports-provides-qt6",
+        "rel": "1.55",
+        "ver": "1.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qtdeclarative-imports-provides-qt6(x86-64)",
+        "rel": "1.55",
+        "ver": "1.0"
+      }
+    ],
+    "requires": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-declarative-imports",
+        "ver": "6.11.2"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.55",
+      "ver": "1.0"
+    }
+  }
+]

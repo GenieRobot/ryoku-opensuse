@@ -1,0 +1,493 @@
+{
+  "schema_version": 1,
+  "project_base_commit": "d0dd3db15d519f1df6f3dcadc7da3cd41907f968",
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "repository": {
+    "snapshot": "openSUSE Tumbleweed OSS20261016",
+    "repomd_sha256": "1d891e33c8abd582b71e579118e6b4c94e5e57ecdc1b77a2a7fc1abf7cc930a0",
+    "signer_fingerprint": "AD485664E901B867051AB15F35A2F86E29B700A4",
+    "signature_validation": "gpgv reverified locally; Good signature from openSUSE Project Signing Key",
+    "primary_location": "repodata/00c8e15be77a2a6e1f49e58f3c1c66142e2987fda576cceec54c9db0e9a7f789e43233f12f463d0d5313f941f665928aa45e79cba73de6699b847d560cc454ad-primary.xml.zst",
+    "primary_bytes": 17340729,
+    "primary_sha512": "00c8e15be77a2a6e1f49e58f3c1c66142e2987fda576cceec54c9db0e9a7f789e43233f12f463d0d5313f941f665928aa45e79cba73de6699b847d560cc454ad",
+    "primary_open_bytes": 173040206,
+    "primary_open_sha512": "b78e3942f0585d06a9c1d10115e78d23f357b31cc23a95d550b4de46be090a670782c0d23fa10e21bbcfe7f485b1f85250700f6a77b203021c728e22913605df",
+    "repomd_signature_sha256": "ec4ea2579b347505d4f85dbd596b55033d229eba1e810597f6ec2d5cc3fb598a"
+  },
+  "primary_package_count": 52976,
+  "signature_status": [
+    "[GNUPG:] VALIDSIG AD485664E901B867051AB15F35A2F86E29B700A4 2026-10-17 1792231733 0 3 0 1 10 00 AD485664E901B867051AB15F35A2F86E29B700A4"
+  ],
+  "packages": [
+    {
+      "name": "cava",
+      "arch": "x86_64",
+      "version": {
+        "epoch": "0",
+        "ver": "1.0.0",
+        "rel": "1.3"
+      },
+      "checksum": "0d6cbdc409013761928b26f4974b492afb978d7a7a8c8917e8384fb028167b04cacdf8d15c32da49fe21dde5d53b07534759651154a4bc13feba3154cf2aad35",
+      "checksum_type": "sha512",
+      "location": {
+        "href": "x86_64/cava-1.0.0-1.3.x86_64.rpm"
+      },
+      "files": [
+        "/usr/bin/cava"
+      ],
+      "normalized_primary_xml": "<ns0:package xmlns:ns0=\"http://linux.duke.edu/metadata/common\" xmlns:ns1=\"http://linux.duke.edu/metadata/rpm\" type=\"rpm\">\n  <ns0:name>cava</ns0:name>\n  <ns0:arch>x86_64</ns0:arch>\n  <ns0:version epoch=\"0\" ver=\"1.0.0\" rel=\"1.3\" />\n  <ns0:checksum type=\"sha512\" pkgid=\"YES\">0d6cbdc409013761928b26f4974b492afb978d7a7a8c8917e8384fb028167b04cacdf8d15c32da49fe21dde5d53b07534759651154a4bc13feba3154cf2aad35</ns0:checksum>\n  <ns0:summary>Console-based Audio Visualizer for Alsa</ns0:summary>\n  <ns0:description>C.A.V.A. is a bar spectrum audio visualizer for the Linux terminal using ALSA, pulseaudio or fifo buffer for input.</ns0:description>\n  <ns0:packager>https://bugs.opensuse.org</ns0:packager>\n  <ns0:url>https://github.com/karlstav/cava</ns0:url>\n  <ns0:time file=\"1785134483\" build=\"1781397720\" />\n  <ns0:size package=\"86872\" installed=\"213804\" archive=\"215048\" />\n  <ns0:location href=\"x86_64/cava-1.0.0-1.3.x86_64.rpm\" />\n  <ns0:format>\n    <ns1:license>MIT</ns1:license>\n    <ns1:vendor>openSUSE</ns1:vendor>\n    <ns1:group>Productivity/Multimedia/Sound/Visualization</ns1:group>\n    <ns1:buildhost>reproducible</ns1:buildhost>\n    <ns1:sourcerpm>cava-1.0.0-1.3.src.rpm</ns1:sourcerpm>\n    <ns1:header-range start=\"4504\" end=\"12069\" />\n    <ns1:provides>\n      <ns1:entry name=\"cava\" flags=\"EQ\" epoch=\"0\" ver=\"1.0.0\" rel=\"1.3\" />\n      <ns1:entry name=\"cava(x86-64)\" flags=\"EQ\" epoch=\"0\" ver=\"1.0.0\" rel=\"1.3\" />\n    </ns1:provides>\n    <ns1:requires>\n      <ns1:entry name=\"kbd\" />\n      <ns1:entry name=\"libGL.so.1()(64bit)\" />\n      <ns1:entry name=\"libSDL2-2.0.so.0()(64bit)\" />\n      <ns1:entry name=\"libasound.so.2()(64bit)\" />\n      <ns1:entry name=\"libasound.so.2(ALSA_0.9)(64bit)\" />\n      <ns1:entry name=\"libasound.so.2(ALSA_0.9.0rc4)(64bit)\" />\n      <ns1:entry name=\"libfftw3.so.3()(64bit)\" />\n      <ns1:entry name=\"libiniparser.so.4()(64bit)\" />\n      <ns1:entry name=\"libm.so.6()(64bit)\" />\n      <ns1:entry name=\"libm.so.6(GLIBC_2.2.5)(64bit)\" />\n      <ns1:entry name=\"libm.so.6(GLIBC_2.29)(64bit)\" />\n      <ns1:entry name=\"libm.so.6(GLIBC_2.35)(64bit)\" />\n      <ns1:entry name=\"libm.so.6(GLIBC_2.38)(64bit)\" />\n      <ns1:entry name=\"libncursesw.so.6()(64bit)\" />\n      <ns1:entry name=\"libncursesw.so.6(NCURSESTW6_5.7.20081102)(64bit)\" />\n      <ns1:entry name=\"libpipewire-0.3.so.0()(64bit)\" />\n      <ns1:entry name=\"libpulse-simple.so.0()(64bit)\" />\n      <ns1:entry name=\"libpulse-simple.so.0(PULSE_0)(64bit)\" />\n      <ns1:entry name=\"libpulse.so.0()(64bit)\" />\n      <ns1:entry name=\"libpulse.so.0(PULSE_0)(64bit)\" />\n      <ns1:entry name=\"libtinfo.so.6()(64bit)\" />\n      <ns1:entry name=\"libtinfo.so.6(NCURSES6_TINFO_5.0.19991023)(64bit)\" />\n      <ns1:entry name=\"libtinfo.so.6(NCURSES6_TINFO_5.7.20081102)(64bit)\" />\n      <ns1:entry name=\"libc.so.6(GLIBC_2.34)(64bit)\" />\n    </ns1:requires>\n    <ns0:file>/usr/bin/cava</ns0:file>\n  </ns0:format>\n</ns0:package>\n",
+      "raw_primary_xml": "<package type=\"rpm\">\n  <name>cava</name>\n  <arch>x86_64</arch>\n  <version epoch=\"0\" ver=\"1.0.0\" rel=\"1.3\"/>\n  <checksum type=\"sha512\" pkgid=\"YES\">0d6cbdc409013761928b26f4974b492afb978d7a7a8c8917e8384fb028167b04cacdf8d15c32da49fe21dde5d53b07534759651154a4bc13feba3154cf2aad35</checksum>\n  <summary>Console-based Audio Visualizer for Alsa</summary>\n  <description>C.A.V.A. is a bar spectrum audio visualizer for the Linux terminal using ALSA, pulseaudio or fifo buffer for input.</description>\n  <packager>https://bugs.opensuse.org</packager>\n  <url>https://github.com/karlstav/cava</url>\n  <time file=\"1785134483\" build=\"1781397720\"/>\n  <size package=\"86872\" installed=\"213804\" archive=\"215048\"/>\n  <location href=\"x86_64/cava-1.0.0-1.3.x86_64.rpm\"/>\n  <format>\n    <rpm:license>MIT</rpm:license>\n    <rpm:vendor>openSUSE</rpm:vendor>\n    <rpm:group>Productivity/Multimedia/Sound/Visualization</rpm:group>\n    <rpm:buildhost>reproducible</rpm:buildhost>\n    <rpm:sourcerpm>cava-1.0.0-1.3.src.rpm</rpm:sourcerpm>\n    <rpm:header-range start=\"4504\" end=\"12069\"/>\n    <rpm:provides>\n      <rpm:entry name=\"cava\" flags=\"EQ\" epoch=\"0\" ver=\"1.0.0\" rel=\"1.3\"/>\n      <rpm:entry name=\"cava(x86-64)\" flags=\"EQ\" epoch=\"0\" ver=\"1.0.0\" rel=\"1.3\"/>\n    </rpm:provides>\n    <rpm:requires>\n      <rpm:entry name=\"kbd\"/>\n      <rpm:entry name=\"libGL.so.1()(64bit)\"/>\n      <rpm:entry name=\"libSDL2-2.0.so.0()(64bit)\"/>\n      <rpm:entry name=\"libasound.so.2()(64bit)\"/>\n      <rpm:entry name=\"libasound.so.2(ALSA_0.9)(64bit)\"/>\n      <rpm:entry name=\"libasound.so.2(ALSA_0.9.0rc4)(64bit)\"/>\n      <rpm:entry name=\"libfftw3.so.3()(64bit)\"/>\n      <rpm:entry name=\"libiniparser.so.4()(64bit)\"/>\n      <rpm:entry name=\"libm.so.6()(64bit)\"/>\n      <rpm:entry name=\"libm.so.6(GLIBC_2.2.5)(64bit)\"/>\n      <rpm:entry name=\"libm.so.6(GLIBC_2.29)(64bit)\"/>\n      <rpm:entry name=\"libm.so.6(GLIBC_2.35)(64bit)\"/>\n      <rpm:entry name=\"libm.so.6(GLIBC_2.38)(64bit)\"/>\n      <rpm:entry name=\"libncursesw.so.6()(64bit)\"/>\n      <rpm:entry name=\"libncursesw.so.6(NCURSESTW6_5.7.20081102)(64bit)\"/>\n      <rpm:entry name=\"libpipewire-0.3.so.0()(64bit)\"/>\n      <rpm:entry name=\"libpulse-simple.so.0()(64bit)\"/>\n      <rpm:entry name=\"libpulse-simple.so.0(PULSE_0)(64bit)\"/>\n      <rpm:entry name=\"libpulse.so.0()(64bit)\"/>\n      <rpm:entry name=\"libpulse.so.0(PULSE_0)(64bit)\"/>\n      <rpm:entry name=\"libtinfo.so.6()(64bit)\"/>\n      <rpm:entry name=\"libtinfo.so.6(NCURSES6_TINFO_5.0.19991023)(64bit)\"/>\n      <rpm:entry name=\"libtinfo.so.6(NCURSES6_TINFO_5.7.20081102)(64bit)\"/>\n      <rpm:entry name=\"libc.so.6(GLIBC_2.34)(64bit)\"/>\n    </rpm:requires>\n    <file>/usr/bin/cava</file>\n  </format>\n</package>",
+      "raw_primary_sha256": "6cba1c46ebfa381d77f81ebbb7f55fb9b5ab00dffc30ea3ee1d5070acf1cc04a",
+      "summary": "Console-based Audio Visualizer for Alsa",
+      "description": "C.A.V.A. is a bar spectrum audio visualizer for the Linux terminal using ALSA, pulseaudio or fifo buffer for input.",
+      "provides": [
+        {
+          "name": "cava",
+          "flags": "EQ",
+          "epoch": "0",
+          "ver": "1.0.0",
+          "rel": "1.3"
+        },
+        {
+          "name": "cava(x86-64)",
+          "flags": "EQ",
+          "epoch": "0",
+          "ver": "1.0.0",
+          "rel": "1.3"
+        }
+      ],
+      "requires": [
+        {
+          "name": "kbd"
+        },
+        {
+          "name": "libGL.so.1()(64bit)"
+        },
+        {
+          "name": "libSDL2-2.0.so.0()(64bit)"
+        },
+        {
+          "name": "libasound.so.2()(64bit)"
+        },
+        {
+          "name": "libasound.so.2(ALSA_0.9)(64bit)"
+        },
+        {
+          "name": "libasound.so.2(ALSA_0.9.0rc4)(64bit)"
+        },
+        {
+          "name": "libfftw3.so.3()(64bit)"
+        },
+        {
+          "name": "libiniparser.so.4()(64bit)"
+        },
+        {
+          "name": "libm.so.6()(64bit)"
+        },
+        {
+          "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+        },
+        {
+          "name": "libm.so.6(GLIBC_2.29)(64bit)"
+        },
+        {
+          "name": "libm.so.6(GLIBC_2.35)(64bit)"
+        },
+        {
+          "name": "libm.so.6(GLIBC_2.38)(64bit)"
+        },
+        {
+          "name": "libncursesw.so.6()(64bit)"
+        },
+        {
+          "name": "libncursesw.so.6(NCURSESTW6_5.7.20081102)(64bit)"
+        },
+        {
+          "name": "libpipewire-0.3.so.0()(64bit)"
+        },
+        {
+          "name": "libpulse-simple.so.0()(64bit)"
+        },
+        {
+          "name": "libpulse-simple.so.0(PULSE_0)(64bit)"
+        },
+        {
+          "name": "libpulse.so.0()(64bit)"
+        },
+        {
+          "name": "libpulse.so.0(PULSE_0)(64bit)"
+        },
+        {
+          "name": "libtinfo.so.6()(64bit)"
+        },
+        {
+          "name": "libtinfo.so.6(NCURSES6_TINFO_5.0.19991023)(64bit)"
+        },
+        {
+          "name": "libtinfo.so.6(NCURSES6_TINFO_5.7.20081102)(64bit)"
+        },
+        {
+          "name": "libc.so.6(GLIBC_2.34)(64bit)"
+        }
+      ],
+      "conflicts": [],
+      "obsoletes": [],
+      "recommends": [],
+      "suggests": [],
+      "supplements": [],
+      "enhances": []
+    },
+    {
+      "name": "upower",
+      "arch": "x86_64",
+      "version": {
+        "epoch": "0",
+        "ver": "1.91.4",
+        "rel": "1.1"
+      },
+      "checksum": "e83b251275e72f4e6b3d8bf7d86217540269a921d24372a3ea25895558357b113a1cde3f9130e23f4fa7270da588fde4a239bea94337776d6690e4745dcadb22",
+      "checksum_type": "sha512",
+      "location": {
+        "href": "x86_64/upower-1.91.4-1.1.x86_64.rpm"
+      },
+      "files": [
+        "/etc/UPower",
+        "/etc/UPower/UPower.conf",
+        "/etc/UPower/UPower.conf.d",
+        "/etc/UPower/UPower.conf.d/README.md",
+        "/usr/bin/upower"
+      ],
+      "normalized_primary_xml": "<ns0:package xmlns:ns0=\"http://linux.duke.edu/metadata/common\" xmlns:ns1=\"http://linux.duke.edu/metadata/rpm\" type=\"rpm\">\n  <ns0:name>upower</ns0:name>\n  <ns0:arch>x86_64</ns0:arch>\n  <ns0:version epoch=\"0\" ver=\"1.91.4\" rel=\"1.1\" />\n  <ns0:checksum type=\"sha512\" pkgid=\"YES\">e83b251275e72f4e6b3d8bf7d86217540269a921d24372a3ea25895558357b113a1cde3f9130e23f4fa7270da588fde4a239bea94337776d6690e4745dcadb22</ns0:checksum>\n  <ns0:summary>Power Device Enumeration Framework</ns0:summary>\n  <ns0:description>UPower is an abstraction for enumerating power devices, listening to\ndevice events and querying history and statistics. Any application or\nservice on the system can access the org.freedesktop.UPower service\nvia the system message bus. Some operations (such as suspending the\nsystem) are restricted using PolicyKit.</ns0:description>\n  <ns0:packager>https://bugs.opensuse.org</ns0:packager>\n  <ns0:url>https://upower.freedesktop.org/</ns0:url>\n  <ns0:time file=\"1791199047\" build=\"1790875984\" />\n  <ns0:size package=\"133703\" installed=\"347781\" archive=\"352488\" />\n  <ns0:location href=\"x86_64/upower-1.91.4-1.1.x86_64.rpm\" />\n  <ns0:format>\n    <ns1:license>GPL-2.0-or-later</ns1:license>\n    <ns1:vendor>openSUSE</ns1:vendor>\n    <ns1:group>System/Daemons</ns1:group>\n    <ns1:buildhost>reproducible</ns1:buildhost>\n    <ns1:sourcerpm>upower-1.91.4-1.1.src.rpm</ns1:sourcerpm>\n    <ns1:header-range start=\"4504\" end=\"25049\" />\n    <ns1:provides>\n      <ns1:entry name=\"config(upower)\" flags=\"EQ\" epoch=\"0\" ver=\"1.91.4\" rel=\"1.1\" />\n      <ns1:entry name=\"upower\" flags=\"EQ\" epoch=\"0\" ver=\"1.91.4\" rel=\"1.1\" />\n      <ns1:entry name=\"upower(x86-64)\" flags=\"EQ\" epoch=\"0\" ver=\"1.91.4\" rel=\"1.1\" />\n    </ns1:provides>\n    <ns1:requires>\n      <ns1:entry name=\"/bin/sh\" pre=\"1\" />\n      <ns1:entry name=\"/bin/sh\" />\n      <ns1:entry name=\"libgio-2.0.so.0()(64bit)\" />\n      <ns1:entry name=\"libglib-2.0.so.0()(64bit)\" />\n      <ns1:entry name=\"libgobject-2.0.so.0()(64bit)\" />\n      <ns1:entry name=\"libgudev-1.0.so.0()(64bit)\" />\n      <ns1:entry name=\"libpolkit-gobject-1.so.0()(64bit)\" />\n      <ns1:entry name=\"libupower-glib.so.3()(64bit)\" />\n      <ns1:entry name=\"systemd\" pre=\"1\" />\n      <ns1:entry name=\"systemd\" />\n      <ns1:entry name=\"libc.so.6(GLIBC_2.42)(64bit)\" />\n    </ns1:requires>\n    <ns0:file type=\"dir\">/etc/UPower</ns0:file>\n    <ns0:file>/etc/UPower/UPower.conf</ns0:file>\n    <ns0:file type=\"dir\">/etc/UPower/UPower.conf.d</ns0:file>\n    <ns0:file>/etc/UPower/UPower.conf.d/README.md</ns0:file>\n    <ns0:file>/usr/bin/upower</ns0:file>\n  </ns0:format>\n</ns0:package>\n",
+      "raw_primary_xml": "<package type=\"rpm\">\n  <name>upower</name>\n  <arch>x86_64</arch>\n  <version epoch=\"0\" ver=\"1.91.4\" rel=\"1.1\"/>\n  <checksum type=\"sha512\" pkgid=\"YES\">e83b251275e72f4e6b3d8bf7d86217540269a921d24372a3ea25895558357b113a1cde3f9130e23f4fa7270da588fde4a239bea94337776d6690e4745dcadb22</checksum>\n  <summary>Power Device Enumeration Framework</summary>\n  <description>UPower is an abstraction for enumerating power devices, listening to\ndevice events and querying history and statistics. Any application or\nservice on the system can access the org.freedesktop.UPower service\nvia the system message bus. Some operations (such as suspending the\nsystem) are restricted using PolicyKit.</description>\n  <packager>https://bugs.opensuse.org</packager>\n  <url>https://upower.freedesktop.org/</url>\n  <time file=\"1791199047\" build=\"1790875984\"/>\n  <size package=\"133703\" installed=\"347781\" archive=\"352488\"/>\n  <location href=\"x86_64/upower-1.91.4-1.1.x86_64.rpm\"/>\n  <format>\n    <rpm:license>GPL-2.0-or-later</rpm:license>\n    <rpm:vendor>openSUSE</rpm:vendor>\n    <rpm:group>System/Daemons</rpm:group>\n    <rpm:buildhost>reproducible</rpm:buildhost>\n    <rpm:sourcerpm>upower-1.91.4-1.1.src.rpm</rpm:sourcerpm>\n    <rpm:header-range start=\"4504\" end=\"25049\"/>\n    <rpm:provides>\n      <rpm:entry name=\"config(upower)\" flags=\"EQ\" epoch=\"0\" ver=\"1.91.4\" rel=\"1.1\"/>\n      <rpm:entry name=\"upower\" flags=\"EQ\" epoch=\"0\" ver=\"1.91.4\" rel=\"1.1\"/>\n      <rpm:entry name=\"upower(x86-64)\" flags=\"EQ\" epoch=\"0\" ver=\"1.91.4\" rel=\"1.1\"/>\n    </rpm:provides>\n    <rpm:requires>\n      <rpm:entry name=\"/bin/sh\" pre=\"1\"/>\n      <rpm:entry name=\"/bin/sh\"/>\n      <rpm:entry name=\"libgio-2.0.so.0()(64bit)\"/>\n      <rpm:entry name=\"libglib-2.0.so.0()(64bit)\"/>\n      <rpm:entry name=\"libgobject-2.0.so.0()(64bit)\"/>\n      <rpm:entry name=\"libgudev-1.0.so.0()(64bit)\"/>\n      <rpm:entry name=\"libpolkit-gobject-1.so.0()(64bit)\"/>\n      <rpm:entry name=\"libupower-glib.so.3()(64bit)\"/>\n      <rpm:entry name=\"systemd\" pre=\"1\"/>\n      <rpm:entry name=\"systemd\"/>\n      <rpm:entry name=\"libc.so.6(GLIBC_2.42)(64bit)\"/>\n    </rpm:requires>\n    <file type=\"dir\">/etc/UPower</file>\n    <file>/etc/UPower/UPower.conf</file>\n    <file type=\"dir\">/etc/UPower/UPower.conf.d</file>\n    <file>/etc/UPower/UPower.conf.d/README.md</file>\n    <file>/usr/bin/upower</file>\n  </format>\n</package>",
+      "raw_primary_sha256": "dcbdfe1b2a7444eda446c59f65511a0c471a18849882bbe7ea96f8a460f0a7e8",
+      "summary": "Power Device Enumeration Framework",
+      "description": "UPower is an abstraction for enumerating power devices, listening to\ndevice events and querying history and statistics. Any application or\nservice on the system can access the org.freedesktop.UPower service\nvia the system message bus. Some operations (such as suspending the\nsystem) are restricted using PolicyKit.",
+      "provides": [
+        {
+          "name": "config(upower)",
+          "flags": "EQ",
+          "epoch": "0",
+          "ver": "1.91.4",
+          "rel": "1.1"
+        },
+        {
+          "name": "upower",
+          "flags": "EQ",
+          "epoch": "0",
+          "ver": "1.91.4",
+          "rel": "1.1"
+        },
+        {
+          "name": "upower(x86-64)",
+          "flags": "EQ",
+          "epoch": "0",
+          "ver": "1.91.4",
+          "rel": "1.1"
+        }
+      ],
+      "requires": [
+        {
+          "name": "/bin/sh",
+          "pre": "1"
+        },
+        {
+          "name": "/bin/sh"
+        },
+        {
+          "name": "libgio-2.0.so.0()(64bit)"
+        },
+        {
+          "name": "libglib-2.0.so.0()(64bit)"
+        },
+        {
+          "name": "libgobject-2.0.so.0()(64bit)"
+        },
+        {
+          "name": "libgudev-1.0.so.0()(64bit)"
+        },
+        {
+          "name": "libpolkit-gobject-1.so.0()(64bit)"
+        },
+        {
+          "name": "libupower-glib.so.3()(64bit)"
+        },
+        {
+          "name": "systemd",
+          "pre": "1"
+        },
+        {
+          "name": "systemd"
+        },
+        {
+          "name": "libc.so.6(GLIBC_2.42)(64bit)"
+        }
+      ],
+      "conflicts": [],
+      "obsoletes": [],
+      "recommends": [],
+      "suggests": [],
+      "supplements": [],
+      "enhances": []
+    }
+  ],
+  "source_consumers": [
+    {
+      "source": "ryoku/shell/plugin/CMakeLists.txt",
+      "git_mode": "100644",
+      "git_blob": "b0e9949cf25e1109a21f6124a130769472b6ddd9",
+      "sha256": "da42536a7fc0ac6ef6988c5acf103ccd01c0db9bcc67fda9c7898c59c0751835",
+      "source3_selected": false,
+      "source2_payload": "native/ryoku-blobs/CMakeLists.txt",
+      "anchors": [
+        {
+          "line": 38,
+          "text": "        cavafeed.cpp cavafeed.hpp"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/shell/plugin/cavafeed.cpp",
+      "git_mode": "100644",
+      "git_blob": "28afe85563606334dd210eae6133784d066f03ef",
+      "sha256": "df85e659e543bb9a680ab78551a137e697c6f311eecdcf69a35149eb2230f0f3",
+      "source3_selected": false,
+      "source2_payload": "native/ryoku-blobs/cavafeed.cpp",
+      "anchors": [
+        {
+          "line": 231,
+          "text": "    const QString executable = QStandardPaths::findExecutable(QStringLiteral(\"cava\"));"
+        },
+        {
+          "line": 260,
+          "text": "    if (!m_active || QStandardPaths::findExecutable(QStringLiteral(\"cava\")).isEmpty())"
+        },
+        {
+          "line": 231,
+          "text": "    const QString executable = QStandardPaths::findExecutable(QStringLiteral(\"cava\"));"
+        },
+        {
+          "line": 260,
+          "text": "    if (!m_active || QStandardPaths::findExecutable(QStringLiteral(\"cava\")).isEmpty())"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/shell/quickshell/shell/services/Battery.qml",
+      "git_mode": "100644",
+      "git_blob": "a99ba0921519b882ff952543c35a7d6ab9b6ba93",
+      "sha256": "471e294c84375f3f58ef13c7559f3b22cdd9eb9a03f35442735aea597668f765",
+      "source3_selected": true,
+      "source2_payload": "shell/quickshell/shell/services/Battery.qml",
+      "anchors": [
+        {
+          "line": 4,
+          "text": "import Quickshell.Services.UPower"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/shell/ipc/powerprofiles.go",
+      "git_mode": "100644",
+      "git_blob": "d63743972d2279e95c34a29341a425d79e0d80f4",
+      "sha256": "4f6db94d05b09c71fcb355c19580863b49434d638c4b8ff268c7c523117f6f0c",
+      "source3_selected": true,
+      "source2_payload": null,
+      "anchors": [
+        {
+          "line": 26,
+          "text": "\tppBusName = \"org.freedesktop.UPower.PowerProfiles\""
+        },
+        {
+          "line": 28,
+          "text": "\tppIface   = \"org.freedesktop.UPower.PowerProfiles\""
+        },
+        {
+          "line": 110,
+          "text": "\td.registerCall(\"powerprofiles.setProfile\", func(raw json.RawMessage) (any, error) {"
+        },
+        {
+          "line": 283,
+          "text": "// persistedProfilePath is the daemon-owned store for the user's last explicit"
+        },
+        {
+          "line": 286,
+          "text": "func persistedProfilePath() string {"
+        },
+        {
+          "line": 300,
+          "text": "\tif path := persistedProfilePath(); path != \"\" {"
+        },
+        {
+          "line": 219,
+          "text": "\treturn p.obj.Call(\"org.freedesktop.DBus.Properties.Set\", 0,"
+        }
+      ]
+    }
+  ],
+  "quickshell": {
+    "repository": "https://github.com/quickshell-mirror/quickshell",
+    "revision": "4f508be500dea6e5732cc3d50382a0048b17e7b1",
+    "tree": "382743e55b82f3b5837eca36b8158e79c61c319a",
+    "archive": "issue14-quickshell-0.3.2.tar.gz",
+    "archive_sha256": "5e8a7b7a1a1e40de641ee6cfd24f40aa612e13c27353e5746fc79b2861ca9fd0",
+    "module": "Quickshell.Services.UPower",
+    "module_version": "0.1",
+    "files": [
+      {
+        "path": "CMakeLists.txt",
+        "git_blob": "ac8223762aa25efcc1f849c499b886e7616c5ba7",
+        "sha256": "15fd3060d87b06a8fdce882d6548db66733ca453393fa92f8270970069e517f7",
+        "anchors": [
+          {
+            "line": 80,
+            "text": "boption(SERVICE_UPOWER \"UPower\" ON)"
+          }
+        ]
+      },
+      {
+        "path": "src/services/CMakeLists.txt",
+        "git_blob": "f3912a9984d7cac9b13e0f9147c61ee7750b0c28",
+        "sha256": "4ab3e1a233a6f2ef819f9b5a55bb0a523f7c61281a847bfe3cd1d3cbc1c3e579",
+        "anchors": [
+          {
+            "line": 25,
+            "text": "if (SERVICE_UPOWER)"
+          }
+        ]
+      },
+      {
+        "path": "src/services/upower/CMakeLists.txt",
+        "git_blob": "b18ec155741009a6c957076fd3be3239ee743d11",
+        "sha256": "0055a622184187619e66153457e980a887846c73a4422ce6ea324733f2ab8fc8",
+        "anchors": [
+          {
+            "line": 32,
+            "text": "\tURI Quickshell.Services.UPower"
+          },
+          {
+            "line": 33,
+            "text": "  VERSION 0.1"
+          },
+          {
+            "line": 41,
+            "text": "target_link_libraries(quickshell-service-upower PRIVATE Qt::Qml Qt::DBus)"
+          }
+        ]
+      },
+      {
+        "path": "src/services/upower/core.cpp",
+        "git_blob": "0f9d9da0eb867dba1c839b537e187e1af2c229d3",
+        "sha256": "95dc33f612e676b2611473a653f1e618e7d1ec95051035418038b5b3d59d2a07",
+        "anchors": [
+          {
+            "line": 39,
+            "text": "\t    new DBusUPowerService(\"org.freedesktop.UPower\", \"/org/freedesktop/UPower\", bus, this);"
+          },
+          {
+            "line": 44,
+            "text": "\t\tdbus::tryLaunchService(this, bus, \"org.freedesktop.UPower\", [this](bool success) {"
+          }
+        ]
+      }
+    ]
+  },
+  "runtime_required_packages": [
+    "cava",
+    "upower"
+  ],
+  "power_profile_choice": {
+    "required_feature": "retain power-profile status/control/restore with protected native wiring",
+    "capability": "ppd-service",
+    "candidates": [
+      {
+        "name": "power-profiles-daemon",
+        "version": {
+          "epoch": "0",
+          "ver": "0.30",
+          "rel": "1.6"
+        },
+        "checksum": "0babf5f54b3c33920d5dba345a51a3fd52593e01ad923bb29fd36b4405d3d32d923d6264eaf222704fea4cc0e3454dce008e4910a368e106414fb9dca0506ab5",
+        "checksum_type": "sha512",
+        "location": {
+          "href": "x86_64/power-profiles-daemon-0.30-1.6.x86_64.rpm"
+        },
+        "provides": [
+          {
+            "name": "power-profiles-daemon",
+            "flags": "EQ",
+            "epoch": "0",
+            "ver": "0.30",
+            "rel": "1.6"
+          },
+          {
+            "name": "power-profiles-daemon(x86-64)",
+            "flags": "EQ",
+            "epoch": "0",
+            "ver": "0.30",
+            "rel": "1.6"
+          },
+          {
+            "name": "ppd-service"
+          }
+        ],
+        "conflicts": [
+          {
+            "name": "ppd-service"
+          }
+        ],
+        "obsoletes": []
+      },
+      {
+        "name": "tuned-ppd",
+        "version": {
+          "epoch": "0",
+          "ver": "2.28.0",
+          "rel": "1.1"
+        },
+        "checksum": "2ad6b3cc31c3834eb9e3dbffd2a50f4bfce4efb40581ec96000d3772b73e429fc2ced2ec41559e117a2c547e5368b75cbaa18d56523e3e0be92ee6f8f7c1f170",
+        "checksum_type": "sha512",
+        "location": {
+          "href": "noarch/tuned-ppd-2.28.0-1.1.noarch.rpm"
+        },
+        "provides": [
+          {
+            "name": "config(tuned-ppd)",
+            "flags": "EQ",
+            "epoch": "0",
+            "ver": "2.28.0",
+            "rel": "1.1"
+          },
+          {
+            "name": "ppd-service"
+          },
+          {
+            "name": "tuned-ppd",
+            "flags": "EQ",
+            "epoch": "0",
+            "ver": "2.28.0",
+            "rel": "1.1"
+          }
+        ],
+        "conflicts": [
+          {
+            "name": "ppd-service"
+          }
+        ],
+        "obsoletes": []
+      }
+    ],
+    "spec_requirement_added": false,
+    "owners": [
+      "#181",
+      "#25",
+      "#176",
+      "#20"
+    ],
+    "acceptance": "Exact D-Bus endpoint/activation, direct QML/socket/startup writes and capture/authorization remain open; preserve host provider choice."
+  },
+  "scope": "Signed cached metadata/source dependency proof only. Requires makes retained cava/UPower providers available; no service/device/model/endpoint execution or native acceptance. No download/build/VM, source/feature exclusion or PowerProfiles provider replacement.",
+  "limitations": [
+    "The upower package source description/identity is authenticated; its D-Bus activation payload and a live native service response are not verified here.",
+    "The six cached Qt plugin ELF/provider checks and full generated Spatial3D/QS runtime acceptance remain separate unfinished work."
+  ]
+}

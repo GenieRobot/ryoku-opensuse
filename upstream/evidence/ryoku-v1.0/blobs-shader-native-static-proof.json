@@ -1,0 +1,93 @@
+{
+  "source_commit": "8985d22698e3f73d77a9ee2e9305d438c5f9f6b0",
+  "runtime_rpm_sha256": "252f4adcc3d233888ef199e654336ebbb541a37f2e26f5283144832c242b1697",
+  "packaged_blobs_ELF_sha256": "2d4a85bd75f646a9964e66baf3d74d91a67a23676e2d488dfbd3bd6574ffe816",
+  "QRC_source_sha256": "b89882831cd0bc425d91fdbbefea1698130cc716f6bff33412c9314a2e7cfbf5",
+  "resource_arrays": {
+    "qt_resource_data": {
+      "bytes": 32033,
+      "sha256": "9231c0e4d7bee6aa25ce63406971d8f72717184296094e57e88565cf7d26c346",
+      "packaged_ELF_offset": 620384
+    },
+    "qt_resource_name": {
+      "bytes": 148,
+      "sha256": "c7fca7532cb7aa004fcc45db76fc2bf52972f85f14587ee379d6c1d7b07e0d56",
+      "packaged_ELF_offset": 620224
+    },
+    "qt_resource_struct": {
+      "bytes": 132,
+      "sha256": "f8f6bdeb4c253fd782e0c9a20f675a81acafe666475f1767363bec30141707a2",
+      "packaged_ELF_offset": 620064
+    }
+  },
+  "complete_generated_QSB_chunks": [
+    {
+      "name": "blob.vert.qsb",
+      "bytes": 2281,
+      "sha256": "7e762858ec1db8770f732de235d9856da4554564a9b2b43552847763506ef75d"
+    },
+    {
+      "name": "beam.vert.qsb",
+      "bytes": 1784,
+      "sha256": "1550ef0349dd735a86ab311c2660cb6b133bc02f493556ed1c237935621de031"
+    },
+    {
+      "name": "beam.frag.qsb",
+      "bytes": 4416,
+      "sha256": "255d26ef4d78b84de130061aeea928de52be4444905a02ad9387d7ff9fd37b92"
+    },
+    {
+      "name": "blob.frag.qsb",
+      "bytes": 23536,
+      "sha256": "ae940834e6f3795e6f808d5d47a1d10d8b7e51d228966ee92938892eef7a5759"
+    }
+  ],
+  "scope": "Static byte-for-byte resource proof for original8985d22 candidate only; no executable loaded/launched. Corrected candidate rebuild, native load/render/ABI/solver acceptance remain open.",
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "Source2_sha256": "8aeff20645c14af76f3d341e5d4e7c31923fd249f6671caa704c8b23a6c84e65",
+  "selected_sources": [
+    {
+      "payload": "native/ryoku-blobs/CMakeLists.txt",
+      "source": "ryoku/shell/plugin/CMakeLists.txt",
+      "git_blob": "b0e9949cf25e1109a21f6124a130769472b6ddd9",
+      "mode": "644",
+      "sha256": "da42536a7fc0ac6ef6988c5acf103ccd01c0db9bcc67fda9c7898c59c0751835"
+    },
+    {
+      "payload": "native/ryoku-blobs/shaders/beam.frag",
+      "source": "ryoku/shell/plugin/shaders/beam.frag",
+      "git_blob": "be133113c0e79ec995f92a27a275071378b0efdf",
+      "mode": "644",
+      "sha256": "ac7ed3834ca969e1106ed9ce353c4d7c36091a811ed00e137082fd0667810151"
+    },
+    {
+      "payload": "native/ryoku-blobs/shaders/beam.vert",
+      "source": "ryoku/shell/plugin/shaders/beam.vert",
+      "git_blob": "a6c4ec297631c0cfeb30d81898765f30b750aefa",
+      "mode": "644",
+      "sha256": "0ad12d10282453fcfd1dd53d69d1e440e89eaa0c5a4bb54b700936933efde3b1"
+    },
+    {
+      "payload": "native/ryoku-blobs/shaders/blob.frag",
+      "source": "ryoku/shell/plugin/shaders/blob.frag",
+      "git_blob": "e97157c7fb9722021b6303e4153106e2be9ee41a",
+      "mode": "755",
+      "sha256": "dd95da81fca75ad02af3f0433eb5deff00797062ce8c2901124991f1e4c7616d"
+    },
+    {
+      "payload": "native/ryoku-blobs/shaders/blob.vert",
+      "source": "ryoku/shell/plugin/shaders/blob.vert",
+      "git_blob": "0da4feeede0bcc10b50dd531e1b87c74fec202ab",
+      "mode": "755",
+      "sha256": "673851cb7af757e050e64d32c18f1bbb900074e73123bcadaab9bc3d2633ed41"
+    }
+  ],
+  "collection_metadata_sha256": "ef20d455566c3cb3e4df33072fe689f8906769ce70d0cb80609a2c0aca33fe97",
+  "method": [
+    "Stream rpm2cpio to cpio --to-stdout for the exact Blobs backing library; require both subprocesses successful and match ELF hash.",
+    "Parse the three generated RCC unsigned-char arrays; verify every complete byte array occurs in the packaged ELF.",
+    "Read each big-endian 4-byte resource length in RCC order; require exactly the four unique expected shader names and all generated QSB lengths/SHA256, with no trailing bytes.",
+    "Bind the four source paths and CMake shader list to the immutable selected Source2 blobs. No executable is run or loaded."
+  ],
+  "collector_correction": "The first collector incorrectly treated the generated .qsb directory as a shader file. Corrected collection selects regular files only. The failed receipt is preserved; exact four QSBs are independently verified here."
+}

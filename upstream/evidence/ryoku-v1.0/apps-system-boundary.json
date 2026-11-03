@@ -1,0 +1,2962 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "prior_commit": "98a0368253d9628be72b853985878a5db90e1547",
+  "project_base_commit": "b04b48d8de3cd3c6efcfd81ee93241066fb2bbb5",
+  "bounded_inventory": {
+    "complete_roots": [
+      "ryoku/apps/",
+      "ryoku/palette-bridge/",
+      "system/",
+      "ryoku/hub/backend/assets/redux/"
+    ],
+    "explicit_feature_interfaces": [
+      "ryoku/hub/backend/voxtype.go",
+      "ryoku/hub/backend/voxtype_install.go",
+      "ryoku/hub/backend/voxtype_install_test.go",
+      "ryoku/hub/backend/voxtype_redux.go",
+      "ryoku/hub/backend/voxtype_redux_test.go",
+      "ryoku/hub/backend/voxtype_test.go",
+      "ryoku/hub/backend/palettebridge.go",
+      "ryoku/hub/backend/palettebridge_test.go",
+      "ryoku/hub/backend/gpuvm.go",
+      "ryoku/hub/backend/gpudomain.go",
+      "ryoku/hub/backend/gpuhook.go",
+      "ryoku/hub/backend/main.go",
+      "ryoku/hub/quickshell/pages/DictationPage.qml",
+      "ryoku/hub/quickshell/pages/GpuPage.qml",
+      "ryoku/hub/quickshell/pages/ConnectionsPage.qml",
+      "ryoku/hub/quickshell/pages/GlobalPage.qml",
+      "ryoku/hub/quickshell/pages/DisplaysPage.qml"
+    ]
+  },
+  "scope": "Cached source/API/selection and declared provenance only; no app/helper/script/model installer, endpoint, SSH/VM/device/service or privilege operation executed; no source/feature removed or native acceptance claimed.",
+  "api_sources": [
+    {
+      "source": "ryoku/apps/README.md",
+      "git_mode": "100644",
+      "git_blob": "9234fbd4dbddb26ec9c5689ca3a773877950998b",
+      "bytes": 8266,
+      "sha256": "a7551a4599d4dfdec8138d181a693f842e18f23371016391b5c616ffeb047d50",
+      "anchors": [
+        {
+          "line": 41,
+          "text": "- a **Quickshell app** ships its `quickshell/` tree as `qs -c <name>`"
+        },
+        {
+          "line": 49,
+          "text": "The music app lives in [Ryotunes](https://github.com/ryoku-dev/ryotunes), with a"
+        },
+        {
+          "line": 26,
+          "text": "  the Ryoku stash actions on the right-click menu (install, compress, LocalSend);"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/apps/ryovm/bin/ryovm",
+      "git_mode": "100755",
+      "git_blob": "434f64f5813dea3b2331dbf9724077b539d17c4f",
+      "bytes": 70995,
+      "sha256": "14e8a5a4d0556b5c64f9db6a68c98de4518f4abe20b6cbebe221f399310ce920",
+      "anchors": [
+        {
+          "line": 934,
+          "text": "\tsetsid quickemu --vm \"$vm_name.conf\" --display \"$display\" \"${viewer[@]}\" \"${extra[@]}\" >\"$log\" 2>&1 < /dev/null &"
+        },
+        {
+          "line": 996,
+          "text": "\tquickemu --vm \"$vm_name.conf\" --kill >/dev/null 2>&1 || true"
+        },
+        {
+          "line": 1099,
+          "text": "\t\thave quickemu && quickemu --vm \"$vm_name.conf\" --delete-disk >/dev/null 2>&1 || true"
+        },
+        {
+          "line": 781,
+          "text": "\t\tqemu-img snapshot -c sealed \"$sub/disk.qcow2\" >/dev/null 2>&1 || true"
+        },
+        {
+          "line": 1041,
+          "text": "\t\t\t\tcreate)  qemu-img snapshot -c \"$tag\" \"$vm_disk\" && echo \"snapshot '$tag' created\" ;;"
+        },
+        {
+          "line": 1042,
+          "text": "\t\t\t\trestore) qemu-img snapshot -a \"$tag\" \"$vm_disk\" && echo \"restored '$tag'\" ;;"
+        },
+        {
+          "line": 1104,
+          "text": "\t\t[ -d \"$vm_subdir\" ] && [ \"$vm_subdir\" != \"$vms_dir\" ] && rm -rf \"$vm_subdir\""
+        },
+        {
+          "line": 1140,
+          "text": "# qemu-img resize only grows here (shrinking a live filesystem corrupts it); the"
+        },
+        {
+          "line": 1150,
+          "text": "\tqemu-img resize \"$vm_disk\" \"$size\" >/dev/null 2>&1 || die \"could not grow the disk to $size\""
+        },
+        {
+          "line": 1428,
+          "text": "# through Looking Glass. Delegates to `ryoku-hub gpu vm`, which owns the caps"
+        },
+        {
+          "line": 1466,
+          "text": "\t\t\tryoku-hub gpu vm \"$sub\" \"$@\" ;;"
+        },
+        {
+          "line": 1469,
+          "text": "\t\t\tryoku-hub gpu vm start --name \"$sub\" ;;"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/apps/ryovm/bin/ryoport",
+      "git_mode": "100755",
+      "git_blob": "9342e23783a792ce9cc8c61bda599f03d40b168c",
+      "bytes": 273,
+      "sha256": "a554bcb9bcedede8aadbcd9b224875ab6d82e946f98864ea8c66bc22b5511fcb",
+      "anchors": [
+        {
+          "line": 5,
+          "text": "exec ryovm lg \"$@\""
+        }
+      ]
+    },
+    {
+      "source": "ryoku/apps/ryovm/fetch/ryovm-fetch.go",
+      "git_mode": "100644",
+      "git_blob": "3c314741bf2488da26281186989f0136f4cae11c",
+      "bytes": 6534,
+      "sha256": "1170d92f07e57910c239d5d3a52b0e9eb7738d177006587c554edfefa932c834",
+      "anchors": [
+        {
+          "line": 121,
+          "text": "\tresp, err := http.DefaultClient.Do(req)"
+        },
+        {
+          "line": 163,
+          "text": "\tresp, err := http.DefaultClient.Do(req)"
+        },
+        {
+          "line": 227,
+          "text": "\tresp, err := http.DefaultClient.Do(req)"
+        },
+        {
+          "line": 50,
+          "text": "\t\tos.Remove(partialPath)"
+        },
+        {
+          "line": 82,
+          "text": "\t\t\tos.Remove(dest)"
+        },
+        {
+          "line": 232,
+          "text": "\tif resp.StatusCode != http.StatusPartialContent {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/apps/ryovm/remote/ryossh.go",
+      "git_mode": "100644",
+      "git_blob": "6444940ef2482e094a5f90fc65246ef4ef07468f",
+      "bytes": 73971,
+      "sha256": "60fe551aa87db73bda53fbbc1fb55258621cb189a004419164cc79ca9eff82aa",
+      "anchors": [
+        {
+          "line": 189,
+          "text": "\t\t\"-o\", \"StrictHostKeyChecking=accept-new\","
+        },
+        {
+          "line": 202,
+          "text": "\t\t\"-o\", \"StrictHostKeyChecking=accept-new\","
+        },
+        {
+          "line": 23,
+          "text": "//\tknownremove <alias>      ssh-keygen -R the resolved hostname"
+        },
+        {
+          "line": 81,
+          "text": "\t\tdie(\"usage: ryossh <list|ping|pingall|probe|probeall|appcheck|appcheckall|pveguests|pveaction|connect|keys|copyid|keygen|setpass|clearpass|add|remove|knownremove|tunnel|console> [args]\")"
+        },
+        {
+          "line": 115,
+          "text": "\tcase \"knownremove\":"
+        },
+        {
+          "line": 30,
+          "text": "//\tconsole setpass <id>     read a password from stdin into the keyring"
+        },
+        {
+          "line": 2351,
+          "text": "\t\t\tdie(\"usage: ryossh console setpass <id>\")"
+        },
+        {
+          "line": 279,
+          "text": "\tcmd := exec.Command(\"ssh\", \"-G\", alias)"
+        },
+        {
+          "line": 605,
+          "text": "\tcmd := exec.CommandContext(ctx, \"ssh\", append(opts, alias, \"sh\", \"-s\")...)"
+        },
+        {
+          "line": 965,
+          "text": "\tcmd := exec.Command(argv[0], argv[1:]...)"
+        },
+        {
+          "line": 148,
+          "text": "func sshConfigPath() string   { return filepath.Join(sshDir(), \"config\") }"
+        },
+        {
+          "line": 382,
+          "text": "\tscan(sshConfigPath())"
+        },
+        {
+          "line": 1429,
+          "text": "\tcfg := sshConfigPath()"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/apps/ryovm/quickshell/Singletons/Vm.qml",
+      "git_mode": "100644",
+      "git_blob": "1b56d4d359524975d4e1b912f690bff17a98d0ba",
+      "bytes": 42074,
+      "sha256": "3742eb3f0d2d5036b4a6ed4094fbe105112c29099e283df079c0c7d5b6f5e795",
+      "anchors": [
+        {
+          "line": 219,
+          "text": "        runProc.exec([\"ryovm\", \"delete\", name]);"
+        },
+        {
+          "line": 294,
+          "text": "        runProc.exec([\"ryovm\", \"delete\", name, \"--disk-only\"]);"
+        },
+        {
+          "line": 227,
+          "text": "        runProc.exec([\"ryovm\", \"snapshot\", name, sub].concat(tag ? [tag] : []));"
+        },
+        {
+          "line": 124,
+          "text": "    // ---- settings (persisted to ~/.config/ryoku/ryovm.json) -----------------"
+        },
+        {
+          "line": 917,
+          "text": "        path: (Quickshell.env(\"XDG_CONFIG_HOME\") || (Quickshell.env(\"HOME\") + \"/.config\")) + \"/ryoku/ryovm.json\""
+        }
+      ]
+    },
+    {
+      "source": "ryoku/apps/ryovm/quickshell/Singletons/Remotes.qml",
+      "git_mode": "100644",
+      "git_blob": "886158e5ef907bdbb6c7fbcdc6ab21a576283bfd",
+      "bytes": 29400,
+      "sha256": "0a43ea8bb3d5e5c562769c36abf7127e30ff1e1190ec1b685b5e029c70d36f4c",
+      "anchors": [
+        {
+          "line": 10,
+          "text": "// All driven through the `ryossh` engine, which speaks JSON. The list is the"
+        },
+        {
+          "line": 21,
+          "text": "    property bool engineOk: true         // ryossh present and answering"
+        },
+        {
+          "line": 277,
+          "text": "        tunnelOpenProc.command = [\"ryossh\", \"tunnel\", \"open\", alias, spec];"
+        },
+        {
+          "line": 406,
+          "text": "        setPassProc.command = [\"ryossh\", \"setpass\", alias];"
+        },
+        {
+          "line": 698,
+          "text": "        command: [\"ryossh\", \"console\", \"setpass\", forId]"
+        },
+        {
+          "line": 9,
+          "text": "// experimental consoles (serial/telnet/RDP/VNC berths saved in ryoport's book)."
+        },
+        {
+          "line": 54,
+          "text": "    // ---- consoles (experimental berths, saved in ryoport's own book) --------"
+        },
+        {
+          "line": 58,
+          "text": "    property var consoles: []"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/apps/nautilus/ryoku-stash-menu.py",
+      "git_mode": "100644",
+      "git_blob": "87b6a3fda7d554d3577ed05153b4075403ee4876",
+      "bytes": 3714,
+      "sha256": "4f73652d2160706727894e3d435939c034955475482002c409dfa3d4d16458ba",
+      "anchors": [
+        {
+          "line": 7,
+          "text": "# Anything stash-install.sh can turn into a launcher: AppImages, self-contained"
+        },
+        {
+          "line": 96,
+          "text": "            _run_each(os.path.join(_scripts_dir(), \"stash-install.sh\"), paths,"
+        },
+        {
+          "line": 15,
+          "text": "# Exactly what stash-compress.sh re-encodes; offering it on anything else would"
+        },
+        {
+          "line": 100,
+          "text": "            _run_each(os.path.join(_scripts_dir(), \"stash-compress.sh\"), paths)"
+        },
+        {
+          "line": 4,
+          "text": "import subprocess"
+        },
+        {
+          "line": 42,
+          "text": "    subprocess.Popen("
+        },
+        {
+          "line": 44,
+          "text": "        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/apps/fastfetch/ryoku-fastfetch",
+      "git_mode": "100755",
+      "git_blob": "15096363ab09bc5f03187b61bee731c415bd4cc2",
+      "bytes": 2742,
+      "sha256": "7120369f2951be60844228c94ee171eeca4ec731521a683558698674389c135b",
+      "anchors": [
+        {
+          "line": 10,
+          "text": "#   // ryoku:renderer <product-id>/<relative-executable>"
+        },
+        {
+          "line": 36,
+          "text": "    sed -n 's#^//[[:space:]]*ryoku:renderer[[:space:]][[:space:]]*##p' \"$config\" \\"
+        },
+        {
+          "line": 41,
+          "text": "    \"\"|/*|*..*|*[!A-Za-z0-9_./-]*)"
+        },
+        {
+          "line": 46,
+          "text": "        exec \"$hook\" \"$@\""
+        },
+        {
+          "line": 54,
+          "text": "# palette) is owned by `ryoku-hub fastfetch effective`, which copies the user's"
+        },
+        {
+          "line": 59,
+          "text": "if ryoku-hub fastfetch effective \"$cache\" 2>/dev/null; then"
+        },
+        {
+          "line": 58,
+          "text": "cache=\"${XDG_CACHE_HOME:-$HOME/.cache}/ryoku/fastfetch-effective.json\""
+        },
+        {
+          "line": 59,
+          "text": "if ryoku-hub fastfetch effective \"$cache\" 2>/dev/null; then"
+        },
+        {
+          "line": 60,
+          "text": "  effective=\"$cache\""
+        }
+      ]
+    },
+    {
+      "source": "ryoku/palette-bridge/main.go",
+      "git_mode": "100644",
+      "git_blob": "5cc9bde87ade1950766a2eb78958da05c8b70887",
+      "bytes": 6481,
+      "sha256": "6816e2f06cb346f72f23626585aa12588a6baf44b2d3d88cd26fc153ed81673c",
+      "anchors": [
+        {
+          "line": 204,
+          "text": "\tlisten := flag.String(\"listen\", \"127.0.0.1:47616\", \"HTTP listen address\")"
+        },
+        {
+          "line": 238,
+          "text": "\tmux.HandleFunc(\"/v1/preferences\", preferences.paletteHandler)"
+        },
+        {
+          "line": 239,
+          "text": "\tmux.HandleFunc(\"/v1/preferences/events\", preferences.eventsHandler)"
+        },
+        {
+          "line": 117,
+          "text": "\tif r.Method != http.MethodGet {"
+        },
+        {
+          "line": 143,
+          "text": "\tif r.Method != http.MethodGet {"
+        },
+        {
+          "line": 223,
+          "text": "\tpreferencesPath := filepath.Join(config, \"ryoku\", \"ryogami.json\")"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/palette-bridge/preferences.go",
+      "git_mode": "100644",
+      "git_blob": "9d8263aa9610c293c75273892ce41cfe093f5508",
+      "bytes": 4337,
+      "sha256": "c28b18741284569dce1b6f5a548b24c746150bac2fa44a249ccd3d2cf62b01c5",
+      "anchors": [
+        {
+          "line": 58,
+          "text": "func decodePreferences(data []byte) ([]byte, error) {"
+        },
+        {
+          "line": 127,
+          "text": "\tvalid, err := decodePreferences(data)"
+        },
+        {
+          "line": 120,
+          "text": "\tdata, err := os.ReadFile(path)"
+        },
+        {
+          "line": 43,
+          "text": "\thub.publishSnapshot(data)"
+        },
+        {
+          "line": 131,
+          "text": "\th.publishSnapshot(valid)"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/palette-bridge/install-integrations.sh",
+      "git_mode": "100755",
+      "git_blob": "e136ac8112095aa23c19bc9e9cedf7e8272237dc",
+      "bytes": 12060,
+      "sha256": "65246611283b9501b2f09da7f9d964506399dc3fc0bb34013baf5dbc5e0502d1",
+      "anchors": [
+        {
+          "line": 17,
+          "text": "ownership_file=\"$state_root/owned-files.tsv\""
+        },
+        {
+          "line": 5,
+          "text": "config_root=\"${XDG_CONFIG_HOME:-$HOME/.config}\""
+        },
+        {
+          "line": 7,
+          "text": "bridge_root=\"$config_root/ryoku/palette-bridge\""
+        },
+        {
+          "line": 10,
+          "text": "legacy_overlay_root=\"$config_root/ryoku/user_edits/matugen\""
+        },
+        {
+          "line": 13,
+          "text": "want_spotify=false"
+        },
+        {
+          "line": 26,
+          "text": "    --all) want_spotify=true; want_vesktop=true; want_zen=true ;;"
+        },
+        {
+          "line": 27,
+          "text": "    --spotify) want_spotify=true ;;"
+        },
+        {
+          "line": 63,
+          "text": "  vesktop_strip_palette \"$vesktop_root/settings/quickCss.css\" \"$vesktop_temporary/custom.css\" 1"
+        },
+        {
+          "line": 15,
+          "text": "want_zen=false"
+        },
+        {
+          "line": 20,
+          "text": "  printf 'Usage: %s --all | [--spotify] [--vesktop] [--zen]\\n' \"${0##*/}\""
+        },
+        {
+          "line": 26,
+          "text": "    --all) want_spotify=true; want_vesktop=true; want_zen=true ;;"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/palette-bridge/remove-integrations.sh",
+      "git_mode": "100755",
+      "git_blob": "704792645310de1596ee6de45c8f73e584fa6f01",
+      "bytes": 4806,
+      "sha256": "b138595914fe4154f51403e078673d4aaf4b19cec087af2a8d95f289688b9998",
+      "anchors": [
+        {
+          "line": 8,
+          "text": "ownership_file=\"$state_root/owned-files.tsv\""
+        },
+        {
+          "line": 26,
+          "text": "  [[ -f \"$path\" ]] && rm -f -- \"$path\""
+        },
+        {
+          "line": 39,
+          "text": "  rm -f \"$temporary\""
+        },
+        {
+          "line": 58,
+          "text": "    rm -f \"$legacy_apps\""
+        }
+      ]
+    },
+    {
+      "source": "ryoku/palette-bridge/install.sh",
+      "git_mode": "100755",
+      "git_blob": "e20f7c7d203b448953504d412febc6aad7ecfc43",
+      "bytes": 1800,
+      "sha256": "09d5b31c5cd4fd9785ac5e53490b77ea41197d931f567e7d0129da2e4116f10a",
+      "anchors": [
+        {
+          "line": 13,
+          "text": "  ryoku-host svc --user daemon-reload"
+        },
+        {
+          "line": 15,
+          "text": "    if ryoku-host svc --user is-enabled \"$legacy_unit\" >/dev/null 2>&1; then"
+        },
+        {
+          "line": 16,
+          "text": "      ryoku-host svc --user disable --now \"$legacy_unit\""
+        },
+        {
+          "line": 30,
+          "text": "  printf 'Go is required only for a checkout install; install the ryoku-palette-bridge package on a release system.\\n' >&2"
+        },
+        {
+          "line": 36,
+          "text": "install -d \"$bin_dir\" \"$unit_dir\""
+        },
+        {
+          "line": 38,
+          "text": "install -m 0755 \"$project_root/doctor.sh\" \"$bin_dir/ryoku-palette-bridge-doctor\""
+        }
+      ]
+    },
+    {
+      "source": "ryoku/palette-bridge/vesktop/quickcss.sh",
+      "git_mode": "100644",
+      "git_blob": "035795fe889a2f573728f6e5f059b8367ccca306",
+      "bytes": 4347,
+      "sha256": "e1acdea3e9313fa073e1856ff690d63527aba17f52ebe769062bb9abe90a0044",
+      "anchors": [
+        {
+          "line": 94,
+          "text": "    cat \"$temporary/custom.css\" \"$rendered\" > \"$temporary/quickCss.css\""
+        },
+        {
+          "line": 96,
+          "text": "    cat \"$temporary/custom.css\" > \"$temporary/quickCss.css\""
+        },
+        {
+          "line": 99,
+          "text": "    chmod --reference=\"$css\" \"$temporary/quickCss.css\""
+        },
+        {
+          "line": 17,
+          "text": "  if [[ -f \"$native/settings/settings.json\" ]] &&"
+        },
+        {
+          "line": 20,
+          "text": "  elif [[ -f \"$flatpak/settings/settings.json\" ]]; then"
+        },
+        {
+          "line": 22,
+          "text": "  elif [[ -f \"$native/settings/settings.json\" ]]; then"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/palette-bridge/packaging/systemd/ryoku-palette-bridge.service",
+      "git_mode": "100644",
+      "git_blob": "4580005c2c025878b9a7eb7e37a29385fe2e16bb",
+      "bytes": 217,
+      "sha256": "d995ebfe60a4eb72ea81c25d5a11181b4f706ee12717a93a801b6e925d29a4fc",
+      "anchors": [
+        {
+          "line": 7,
+          "text": "ExecStart=/usr/bin/ryoku-palette-bridge"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/hub/backend/palettebridge.go",
+      "git_mode": "100644",
+      "git_blob": "2728a20bd9131711e6dec16b69bc9a59f2da507c",
+      "bytes": 7062,
+      "sha256": "d5c4780ed0da01b1c841b665aeb76ad0d92a7bdd63bf21cf5ab60d76e6b4cbdf",
+      "anchors": [
+        {
+          "line": 16,
+          "text": "\treturn exec.Command(name, args...).CombinedOutput()"
+        },
+        {
+          "line": 128,
+          "text": "\t_, sourceErr := paletteBridgeSource(source, \"install.sh\", \"install-integrations.sh\")"
+        },
+        {
+          "line": 149,
+          "text": "\t// install-integrations.sh records three Zen-owned paths per integration"
+        },
+        {
+          "line": 210,
+          "text": "\t\tscript := \"install-integrations.sh\""
+        },
+        {
+          "line": 212,
+          "text": "\t\t\tscript = \"remove-integrations.sh\""
+        }
+      ]
+    },
+    {
+      "source": "ryoku/hub/backend/voxtype_install.go",
+      "git_mode": "100644",
+      "git_blob": "e12f55eb08411f632d87fce59899a39630848750",
+      "bytes": 2697,
+      "sha256": "d4105333b4ae9c27b65b257215f5a7b77bc064cdcf83e9919447e5b760585e43",
+      "anchors": [
+        {
+          "line": 15,
+          "text": "//go:embed assets/redux/setup.py assets/redux/adapter.py assets/redux/LICENSE assets/redux/UPSTREAM.md"
+        },
+        {
+          "line": 70,
+          "text": "\tcmd := exec.Command(\"python3\", filepath.Join(stage, \"setup.py\"), action)"
+        },
+        {
+          "line": 19,
+          "text": "func runCancelableInstall(cmd *exec.Cmd) error {"
+        },
+        {
+          "line": 72,
+          "text": "\treturn runCancelableInstall(cmd)"
+        },
+        {
+          "line": 78,
+          "text": "\tif err := runReduxSetup(\"check-remove\"); err != nil {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/hub/backend/voxtype_redux.go",
+      "git_mode": "100644",
+      "git_blob": "c1b50ceb0ed2b968bc197f664420dbe58a28b4cb",
+      "bytes": 1534,
+      "sha256": "b4616dbc8639e5429148be52e1811026980af5d108c30595f62b1f3c9e2959a4",
+      "anchors": [
+        {
+          "line": 12,
+          "text": "\treturn filepath.Join(dataHome(), \"voxtype\", \"models\", \"redux-packed.gguf\")"
+        },
+        {
+          "line": 22,
+          "text": "\t\tfileExists(filepath.Join(configHome(), \"systemd\", \"user\", \"voxtype-redux.service\"))"
+        },
+        {
+          "line": 36,
+          "text": "\t\tif err := atomicWrite(path, []byte(\"[Unit]\\nRequires=voxtype-redux.service\\nAfter=voxtype-redux.service\\n\"), 0o644); err != nil {"
+        },
+        {
+          "line": 42,
+          "text": "\tif err := userService(\"daemon-reload\"); err != nil {"
+        },
+        {
+          "line": 46,
+          "text": "\t\tif err := userService(\"enable\", \"--now\", \"voxtype-redux\"); err != nil {"
+        },
+        {
+          "line": 36,
+          "text": "\t\tif err := atomicWrite(path, []byte(\"[Unit]\\nRequires=voxtype-redux.service\\nAfter=voxtype-redux.service\\n\"), 0o644); err != nil {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/hub/backend/voxtype.go",
+      "git_mode": "100644",
+      "git_blob": "efae99a103a7a28eb97b6f74038460349d9230f9",
+      "bytes": 16472,
+      "sha256": "cebe68a1ac2dd1472c932820eeec83d9668ba8fe579b665b9758e098350e3cb6",
+      "anchors": [
+        {
+          "line": 121,
+          "text": "\t\treturn voxtypeSet(args[1])"
+        },
+        {
+          "line": 170,
+          "text": "type voxtypeSetReq struct {"
+        },
+        {
+          "line": 176,
+          "text": "// voxtypeSet writes a valid config.toml for the chosen preset and brings the"
+        },
+        {
+          "line": 203,
+          "text": "\t\tif err := userService(\"enable\", \"voxtype\"); err != nil {"
+        },
+        {
+          "line": 206,
+          "text": "\t\tif err := userService(\"restart\", \"voxtype\"); err != nil {"
+        },
+        {
+          "line": 210,
+          "text": "\t\tif err := userService(\"disable\", \"--now\", \"voxtype\"); err != nil {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/hub/backend/assets/redux/setup.py",
+      "git_mode": "100644",
+      "git_blob": "e300b2d7fbd20415b868e56279707a5188ea7439",
+      "bytes": 12388,
+      "sha256": "27e6ffe69cad199efff3d63b31845915dfb9987dd917acd884cecc70e3947186",
+      "anchors": [
+        {
+          "line": 25,
+          "text": "MODEL_URL = f'https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/{MODEL_REV}/redux-packed.gguf'"
+        },
+        {
+          "line": 280,
+          "text": "    download(MODEL_URL, model, MODEL_SHA, progress.advance)"
+        },
+        {
+          "line": 22,
+          "text": "NATIVE_REV = '5c9b0fbbd8e611d88e47d7e1ebae9bca9b447e8f'"
+        },
+        {
+          "line": 172,
+          "text": "    run(log, 'git', '-C', source, 'fetch', '--depth', '1', 'https://github.com/mudler/parakeet.cpp.git', NATIVE_REV)"
+        },
+        {
+          "line": 175,
+          "text": "    run(log, 'git', '-C', source, 'submodule', 'update', '--init', '--depth', '1', 'third_party/ggml')"
+        },
+        {
+          "line": 220,
+          "text": "def publish(paths, contents):"
+        },
+        {
+          "line": 111,
+          "text": "def remove(paths):"
+        },
+        {
+          "line": 82,
+          "text": "            'receipt': root / 'hub-install.json'}"
+        },
+        {
+          "line": 90,
+          "text": "def read_receipt(paths):"
+        },
+        {
+          "line": 91,
+          "text": "    doc = json.loads(paths['receipt'].read_text())"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/hub/backend/assets/redux/UPSTREAM.md",
+      "git_mode": "100644",
+      "git_blob": "ef2a1f3edafbff3000ffc620a5315cf89a8ffe12",
+      "bytes": 717,
+      "sha256": "fa47c50ceea40da7ac58cf604dff65aea37a572c5a4c920e108d55737c0ef1d1",
+      "anchors": [
+        {
+          "line": 4,
+          "text": "Revision: 072c62470215fc40dd060db0c0cdab1b9c825ae4 (v0.2.0)"
+        },
+        {
+          "line": 8,
+          "text": "5c9b0fbbd8e611d88e47d7e1ebae9bca9b447e8f with its pinned ggml submodule."
+        },
+        {
+          "line": 10,
+          "text": "68f808a5903a0bf12657bca3a2a669d573abfb58, SHA256"
+        },
+        {
+          "line": 13,
+          "text": "CC-BY-4.0. https://huggingface.co/moondream/parakeet-redux"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/hub/quickshell/pages/DictationPage.qml",
+      "git_mode": "100644",
+      "git_blob": "da0a7f3c95616c0e6ea3da842777907e7b9b15bb",
+      "bytes": 44978,
+      "sha256": "f8490d7f8863af65a10400349cc8e329468e66f4243ef9df8e2484505c7481e9",
+      "anchors": [
+        {
+          "line": 50,
+          "text": "    // the step a multi-step install is on (Redux builds its runtime before the"
+        },
+        {
+          "line": 14,
+          "text": "// settings sheet. Its backend is the `ryoku-hub voxtype` subcommand and the"
+        },
+        {
+          "line": 17,
+          "text": "// mic-wave; this page just shapes ~/.config/voxtype/config.toml and the user"
+        },
+        {
+          "line": 30,
+          "text": "    // \u2500\u2500 live snapshot from `ryoku-hub voxtype get` \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/hub/backend/gpuvm.go",
+      "git_mode": "100644",
+      "git_blob": "ad01a7a703613d4591a4c84cc130b2a92775eccd",
+      "bytes": 14934,
+      "sha256": "eea58dc395f92f89ed373abed552c076a665e389431141d8194deb224beac590",
+      "anchors": [
+        {
+          "line": 6,
+          "text": "// on start), defines/starts/stops/removes it via virsh, and launches"
+        },
+        {
+          "line": 12,
+          "text": "// (topology, virtio ISO, virsh) is isolated. The manager runs as the invoking"
+        },
+        {
+          "line": 171,
+          "text": "// domainState maps virsh's state to our vocabulary; a domain that was never"
+        },
+        {
+          "line": 68,
+          "text": "\t\treturn vmDoCreate(flags)"
+        },
+        {
+          "line": 193,
+          "text": "func vmDoCreate(f map[string]string) error {"
+        },
+        {
+          "line": 74,
+          "text": "\t\treturn vmDoRemove(flags[\"name\"], flags[\"delete-disk\"] != \"\")"
+        },
+        {
+          "line": 301,
+          "text": "func vmDoRemove(name string, deleteDisk bool) error {"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/hub/backend/gpuhook.go",
+      "git_mode": "100644",
+      "git_blob": "48f1180cf6f37636bd2764bdaaa2d7e4c3fbe903",
+      "bytes": 3977,
+      "sha256": "8efe02cfb9bebc51b6ba0660158aec4dc6366e77d8ed2e5d353d49439a9adbc0",
+      "anchors": [
+        {
+          "line": 3,
+          "text": "// gpuhook.go: the vfio bind/unbind that libvirt triggers around the VM's life."
+        },
+        {
+          "line": 6,
+          "text": "// vfio-pci, on release we hand it back. It is dynamic (no boot-time vfio binding),"
+        },
+        {
+          "line": 45,
+          "text": "\tacts := []sysAction{{Kind: \"modprobe\", Value: \"vfio-pci\"}}"
+        },
+        {
+          "line": 4,
+          "text": "// /etc/libvirt/hooks/qemu calls `ryoku-hub gpu hook prepare|release <name>`; on"
+        }
+      ]
+    },
+    {
+      "source": "ryoku/hub/backend/main.go",
+      "git_mode": "100644",
+      "git_blob": "cddc22cc0c8572a81fdbca39367e7697f744338f",
+      "bytes": 8039,
+      "sha256": "87cf648eea2ae56ff7a358a2b76ad43a8ce984baa388e9e712f946d52e4014f7",
+      "anchors": [
+        {
+          "line": 83,
+          "text": "\tcase \"voxtype\":"
+        },
+        {
+          "line": 218,
+          "text": "\tfmt.Fprintln(os.Stderr, \"  ryoku-hub voxtype get|ensure\")"
+        },
+        {
+          "line": 219,
+          "text": "\tfmt.Fprintln(os.Stderr, \"  ryoku-hub voxtype set <json>\")"
+        },
+        {
+          "line": 68,
+          "text": "\tcase \"gpu\":"
+        },
+        {
+          "line": 206,
+          "text": "\tfmt.Fprintln(os.Stderr, \"  ryoku-hub gpu caps|mode\")"
+        },
+        {
+          "line": 207,
+          "text": "\tfmt.Fprintln(os.Stderr, \"  ryoku-hub gpu tune caps|get\")"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/network/ryoku-network-kill",
+      "git_mode": "100755",
+      "git_blob": "4d953d180fda46cc4b885af48e7aae668415027b",
+      "bytes": 4139,
+      "sha256": "efea46790860a4debdb94f2e6749acff9cbac4f953f04a0ac0a99995c3d40414",
+      "anchors": [
+        {
+          "line": 94,
+          "text": "    \"$host\" svc --system enable ryoku-network-kill-guard ryoku-network-kill-disconnect"
+        },
+        {
+          "line": 5,
+          "text": "# NetworkManager starts at boot whenever the persistent marker exists."
+        },
+        {
+          "line": 81,
+          "text": "persist() {"
+        },
+        {
+          "line": 95,
+          "text": "    persist"
+        },
+        {
+          "line": 97,
+          "text": "    \"$nmcli\" networking off"
+        },
+        {
+          "line": 112,
+          "text": "        \"$nft\" delete table inet \"$table\" || true"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/network/ryoku-dns",
+      "git_mode": "100755",
+      "git_blob": "d012c949f44085cd42a91037a0c750d496bf6931",
+      "bytes": 1799,
+      "sha256": "ed36fc846eb5e559cca053e0a781224705d23f98c114f15e1015ccede4f26a32",
+      "anchors": [
+        {
+          "line": 4,
+          "text": "conf=/etc/NetworkManager/conf.d/20-ryoku-dns.conf"
+        },
+        {
+          "line": 15,
+          "text": "  exec pkexec \"$(readlink -f \"$0\")\" \"$@\""
+        },
+        {
+          "line": 30,
+          "text": "  mv -f -- \"$tmp\" \"$conf\""
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/network/ryoku-wifi-backend",
+      "git_mode": "100755",
+      "git_blob": "b98f2cbd5c2bc1435377774b597f47a6487c6416",
+      "bytes": 3613,
+      "sha256": "e6c88d5434eae76e9225eec6170d3c6f86e0b70866b2774bc2eca51843938d81",
+      "anchors": [
+        {
+          "line": 20,
+          "text": "CONF=\"${RYOKU_WIFI_BACKEND_CONF:-/etc/NetworkManager/conf.d/wifi-backend.conf}\""
+        },
+        {
+          "line": 79,
+          "text": "  \"$HOST\" svc --system restart NetworkManager"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/network/ryoku-wifi-powersave",
+      "git_mode": "100755",
+      "git_blob": "51ef9ee55db79db7c6943d1800e0498fa828369e",
+      "bytes": 2205,
+      "sha256": "1508603f3ac221dec85e3c5a76606a7cc731bc53cbe1837a3d1b9572d047b6a3",
+      "anchors": [
+        {
+          "line": 15,
+          "text": "state=\"${RYOKU_WIFI_PS_STATE:-/run/ryoku/wifi-powersave.prev}\""
+        },
+        {
+          "line": 5,
+          "text": "# never dropped. iw talks to nl80211 (CAP_NET_ADMIN) so we go through pkexec"
+        },
+        {
+          "line": 29,
+          "text": "  iw dev \"$1\" get power_save 2>/dev/null | grep -qi 'power save: on' && echo on || echo off"
+        },
+        {
+          "line": 45,
+          "text": "      iw dev \"$d\" set power_save off 2>/dev/null || true"
+        },
+        {
+          "line": 56,
+          "text": "      iw dev \"$d\" set power_save \"${prev[$d]:-on}\" 2>/dev/null || true"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/gpu/ryoku-gpu-mux",
+      "git_mode": "100755",
+      "git_blob": "e53d7a1c186b1efa3b77e25f952067f763a039b1",
+      "bytes": 12209,
+      "sha256": "dd4ac9c9e72d498b478519ff4e56a3377ee49d3fb3e246df6d37dd6dc289e1ce",
+      "anchors": [
+        {
+          "line": 36,
+          "text": "MUX_ARMOURY_ROOT=\"${RYOKU_MUX_ARMOURY_ROOT:-/sys/class/firmware-attributes}\""
+        },
+        {
+          "line": 127,
+          "text": "  if [[ -n ${RYOKU_MUX_ARMOURY_ROOT:-} || -n ${RYOKU_MUX_LEGACY_ROOT:-} ]]; then"
+        },
+        {
+          "line": 132,
+          "text": "    exec pkexec \"$(readlink -f \"$0\")\" \"${ORIG_ARGV[@]}\""
+        },
+        {
+          "line": 134,
+          "text": "  printf '%s\\n' \"$val\" | sudo tee \"$_mux_value_file\" >/dev/null"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/drivers/nvidia.sh",
+      "git_mode": "100755",
+      "git_blob": "9053a18b13dcab0ad38bae9fd4f81638fd1ca9a8",
+      "bytes": 14045,
+      "sha256": "2ea7dc53f775ef53277756f40024cdf9d4c12a4f81db55d6fd2f77ed0349b13f",
+      "anchors": [
+        {
+          "line": 50,
+          "text": "PKG=(ryoku-host pkg)"
+        },
+        {
+          "line": 53,
+          "text": "  PKG=(sudo -n ryoku-host pkg)"
+        },
+        {
+          "line": 57,
+          "text": "pkg_installed() { ryoku-host pkg installed \"$1\" >/dev/null 2>&1; }"
+        },
+        {
+          "line": 7,
+          "text": "# Pascal, and Volta use 580xx. The early-KMS mkinitcpio config is written only"
+        },
+        {
+          "line": 265,
+          "text": "    echo \"nvidia.sh: WARNING: NVIDIA driver install failed. A Kepler or older card needs the 470xx branch (nvidia-470xx-dkms); a Turing+ card needs a matching kernel/driver. On an offline install the legacy branches are only present if the ISO managed to bake them (they are large vendor blobs, best-effort); nouveau/mesa still brings the desktop up. Install a working driver and run 'mkinitcpio -P' to enable it.\""
+        },
+        {
+          "line": 287,
+          "text": "  write_root /etc/mkinitcpio.conf.d/nvidia.conf <<'EOF'"
+        },
+        {
+          "line": 152,
+          "text": "  dnf)"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/power/ryoku-power",
+      "git_mode": "100755",
+      "git_blob": "d52e19f7a79b3b421239fb0eefd8af5c170fba3c",
+      "bytes": 33328,
+      "sha256": "249c5a77907cec15201c66141508dcf1fc2adb0674c76fef02ac6aeb12f798e8",
+      "anchors": [
+        {
+          "line": 12,
+          "text": "#   charge-limit  /sys/class/power_supply/*/charge_control_end_threshold"
+        },
+        {
+          "line": 157,
+          "text": "  for f in \"$PS_DIR\"/*/charge_control_end_threshold; do"
+        },
+        {
+          "line": 14,
+          "text": "#   aspm          /sys/module/pcie_aspm/parameters/policy"
+        },
+        {
+          "line": 36,
+          "text": "ASPM_FILE=\"${RYOKU_ASPM_POLICY_FILE:-/sys/module/pcie_aspm/parameters/policy}\""
+        },
+        {
+          "line": 21,
+          "text": "# the grant stays safe). The desired state lives in ~/.config/ryoku/power.json"
+        },
+        {
+          "line": 37,
+          "text": "CONFIG=\"${RYOKU_POWER_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/ryoku/power.json}\""
+        },
+        {
+          "line": 43,
+          "text": "# `apply` would read /root's power.json instead of the caller's. Resolve the"
+        },
+        {
+          "line": 18,
+          "text": "# whole command once under pkexec, and 47-ryoku-power.rules grants exactly this"
+        },
+        {
+          "line": 32,
+          "text": "# exact command under pkexec."
+        },
+        {
+          "line": 42,
+          "text": "# pkexec resets HOME to root's and strips our environment, so a pkexec re-run of"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/power/ryoku-power-cutover",
+      "git_mode": "100755",
+      "git_blob": "d3e7970c1fc6c00b765ed3a4244e38f98f3f1970",
+      "bytes": 92319,
+      "sha256": "baa941dd022f33d9c909db4c9b2fdfb5a5ad2e0311c3e7d501e0db2a36d0c700",
+      "anchors": [
+        {
+          "line": 8,
+          "text": "guard_unit=ryoku-power-cutover-guard.service"
+        },
+        {
+          "line": 15,
+          "text": "runtime_helper=${RYOKU_CUTOVER_RUNTIME_HELPER:-/run/ryoku-power-cutover}"
+        },
+        {
+          "line": 18,
+          "text": "  if [[ $power_helper_path == /usr/bin/ryoku-power-cutover ]]; then"
+        },
+        {
+          "line": 288,
+          "text": "inhibitor_list() {"
+        },
+        {
+          "line": 290,
+          "text": "    systemd-inhibit \"$@\""
+        },
+        {
+          "line": 292,
+          "text": "    elogind-inhibit \"$@\""
+        },
+        {
+          "line": 49,
+          "text": "qylock_generation_guard_unit=ryoku-qylock-generation-guard.service"
+        },
+        {
+          "line": 50,
+          "text": "qylock_generation_guard_ready=\"${XDG_RUNTIME_DIR:-/tmp}/ryoku-qylock-generation-guard.ready\""
+        },
+        {
+          "line": 52,
+          "text": "qylock_generation_lock=\"${XDG_RUNTIME_DIR:-/tmp}/ryoku-qylock-generation.lock\""
+        },
+        {
+          "line": 395,
+          "text": "release_qylock_generation_guard_unlocked() {"
+        },
+        {
+          "line": 402,
+          "text": "release_qylock_generation_guard() {"
+        },
+        {
+          "line": 403,
+          "text": "  with_qylock_mutation_guard release_qylock_generation_guard_unlocked"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/power/94-ryoku-power-cutover-prepare.hook",
+      "git_mode": "100644",
+      "git_blob": "00ced5ebcd371687c5ca41d964e567c2874535a2",
+      "bytes": 275,
+      "sha256": "65bed1a5cb51a8a7de3c0befd0f67bafc28dae0f7ef1982d48e91eb5145e4877",
+      "anchors": [
+        {
+          "line": 11,
+          "text": "Exec = /usr/bin/ryoku-power-cutover prepare-package"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/power/95-ryoku-power-cutover.hook",
+      "git_mode": "100644",
+      "git_blob": "8fdfb8cdcfaa554108b1852ba753bb17d3fac658",
+      "bytes": 262,
+      "sha256": "ef8725040b25d34eceee6f9b4494340dc8d8ec94a5574777f302658784bc932c",
+      "anchors": [
+        {
+          "line": 11,
+          "text": "Exec = /usr/bin/ryoku-power-cutover package"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/audio/ryoku-restart-audio",
+      "git_mode": "100755",
+      "git_blob": "43b3c2657ab9ac0839fa2bc1d9adaa90a8f61039",
+      "bytes": 2406,
+      "sha256": "18ebb50b0f2833990c87c7c3b1ac1f6773a04b9e7c2ff97bdf46ad5752e80e4d",
+      "anchors": [
+        {
+          "line": 11,
+          "text": "  timeout 25s ryoku-host svc restart \"${services[@]}\" && return 0"
+        },
+        {
+          "line": 13,
+          "text": "  ryoku-host svc kill \"${services[@]}\" >/dev/null 2>&1 || true"
+        },
+        {
+          "line": 14,
+          "text": "  ryoku-host svc reset-failed \"${services[@]}\" >/dev/null 2>&1 || true"
+        },
+        {
+          "line": 3,
+          "text": "# does not come back: a pipewire upgrade leaves stale daemons behind, or a device"
+        },
+        {
+          "line": 7,
+          "text": "services=(wireplumber.service pipewire.service pipewire-pulse.service)"
+        },
+        {
+          "line": 15,
+          "text": "  timeout 25s ryoku-host svc start pipewire.service pipewire-pulse.service wireplumber.service"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/network/50-ryoku-dns.rules",
+      "git_mode": "100644",
+      "git_blob": "68c75fd503ddf56edd921b9ec49be088fcd8becc",
+      "bytes": 782,
+      "sha256": "8ece6b05d5dc61ab88431359415a49c6b5d0716a6e179b8b8a3db835d9a76497",
+      "anchors": [
+        {
+          "line": 12,
+          "text": "        return polkit.Result.YES;"
+        },
+        {
+          "line": 10,
+          "text": "        /(^|\\/)ryoku-dns$/.test(action.lookup(\"program\")) &&"
+        },
+        {
+          "line": 11,
+          "text": "        subject.local && subject.active && subject.isInGroup(\"wheel\")) {"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/power/47-ryoku-power.rules",
+      "git_mode": "100644",
+      "git_blob": "a0413a6c04a45b35f4c5ac1bd6176843b08dee3f",
+      "bytes": 962,
+      "sha256": "04ad05cd442922ec6b206c27507798ae39ad964116028112216fb16fb9ace5ab",
+      "anchors": [
+        {
+          "line": 14,
+          "text": "        return polkit.Result.YES;"
+        },
+        {
+          "line": 12,
+          "text": "        action.lookup(\"program\") === \"/usr/bin/ryoku-power\" &&"
+        }
+      ]
+    },
+    {
+      "source": "system/policy/52-ryoku-timedate.rules",
+      "git_mode": "100644",
+      "git_blob": "cfb714290a5fdd8340cc3100303d3e0575e5dc08",
+      "bytes": 552,
+      "sha256": "2bd7bace1395ac8268c2508032a7544d3b03e221df276f3f9942c8f56ac2d355",
+      "anchors": [
+        {
+          "line": 7,
+          "text": "    if (action.id === \"org.freedesktop.timedate1.set-timezone\" &&"
+        },
+        {
+          "line": 8,
+          "text": "        subject.active && subject.isInGroup(\"wheel\")) {"
+        },
+        {
+          "line": 9,
+          "text": "        return polkit.Result.YES;"
+        }
+      ]
+    },
+    {
+      "source": "system/policy/54-ryoku-users.rules",
+      "git_mode": "100644",
+      "git_blob": "031902fb2622208a20ba3661055d844406155eb3",
+      "bytes": 414,
+      "sha256": "6a3d807c22acc389f77f7bd0964514eca90126977f6004a2172c3ac951ea20cb",
+      "anchors": [
+        {
+          "line": 4,
+          "text": "    if (action.id === \"dev.ryoku.users.manage\" &&"
+        },
+        {
+          "line": 7,
+          "text": "        return polkit.Result.AUTH_ADMIN_KEEP;"
+        }
+      ]
+    },
+    {
+      "source": "system/policy/dev.ryoku.users.policy",
+      "git_mode": "100644",
+      "git_blob": "e28052f51950f7bfa6f3e8a7ec1a5560d27a7039",
+      "bytes": 824,
+      "sha256": "c5591bb19cf914b515bcb01ec47884a93b9d2273e8d980e8cef610dbbe26f77d",
+      "anchors": [
+        {
+          "line": 14,
+          "text": "      <allow_active>auth_admin_keep</allow_active>"
+        },
+        {
+          "line": 17,
+          "text": "    <annotate key=\"org.freedesktop.policykit.exec.argv1\">users</annotate>"
+        }
+      ]
+    },
+    {
+      "source": "system/services/manifest.tsv",
+      "git_mode": "100644",
+      "git_blob": "5f2024ada988ace064fe03479f504a4fa7f4184d",
+      "bytes": 3061,
+      "sha256": "082e8c9ee65355d2999f96726bc7edf745ab0da23b24c4ed87201d5ab6adfd07",
+      "anchors": [
+        {
+          "line": 4,
+          "text": "bluetooth\tsystem\tenable-once\tbluetooth.service\tbluetoothd\tpreserve:/var/lib/ryoku/bluetooth-enabled"
+        },
+        {
+          "line": 33,
+          "text": "ryoku-bluetooth-reset\tuser\tsession-global\tryoku-bluetooth-reset.service\tryoku-bluetooth-reset\tnone"
+        },
+        {
+          "line": 32,
+          "text": "ryoku-rashin\tuser\tsession-global\tryoku-rashin.service\tryoku-rashin\tnone"
+        },
+        {
+          "line": 10,
+          "text": "network-kill-guard\tsystem\tconditional\tryoku-network-kill-guard.service\tryoku-network-kill-guard\tcondition:/var/lib/ryoku/network-kill-switch.enabled"
+        },
+        {
+          "line": 11,
+          "text": "network-kill-disconnect\tsystem\tconditional\tryoku-network-kill-disconnect.service\tryoku-network-kill-disconnect\tcondition:/var/lib/ryoku/network-kill-switch.enabled"
+        }
+      ]
+    },
+    {
+      "source": "system/packages/resolve",
+      "git_mode": "100755",
+      "git_blob": "bdc89c41720660e3bc7e724b433ab187c3bd2611",
+      "bytes": 4723,
+      "sha256": "0bd179464f854ce45d479307926b432305b24e5c0917d1223ee5a42fe300ed25",
+      "anchors": [
+        {
+          "line": 14,
+          "text": "\tprintf '%s\\n' 'usage: resolve --table FILE [--lane L]... [--drop ARCHNAME]... [--session] [--build]' >&2"
+        },
+        {
+          "line": 14,
+          "text": "\tprintf '%s\\n' 'usage: resolve --table FILE [--lane L]... [--drop ARCHNAME]... [--session] [--build]' >&2"
+        },
+        {
+          "line": 27,
+          "text": "\t\t--lane)"
+        },
+        {
+          "line": 20,
+          "text": "\t\tdesktop|dev|system|extra|optional|hyprland|wayfire|hardware:amd|hardware:intel|hardware:nvidia|hardware:vm) return 0 ;;"
+        },
+        {
+          "line": 80,
+          "text": "\tvalid[\"hardware:amd\"] = valid[\"hardware:intel\"] = 1"
+        },
+        {
+          "line": 81,
+          "text": "\tvalid[\"hardware:nvidia\"] = valid[\"hardware:vm\"] = 1"
+        }
+      ]
+    },
+    {
+      "source": "system/README.md",
+      "git_mode": "100644",
+      "git_blob": "58e614c12733d6b504c557de623cbb801aa59043",
+      "bytes": 1284,
+      "sha256": "95b67d0a9fa2dd144c1c916265e4dcc5a998883f62c7b15f3167912822db3004",
+      "anchors": [
+        {
+          "line": 9,
+          "text": "  Hyprland, SDDM, audio, fonts, CLI tools), `hardware.packages` (GPU drivers and"
+        },
+        {
+          "line": 26,
+          "text": "on are SDDM and NetworkManager. Both come from `packages/` and are enabled by the"
+        },
+        {
+          "line": 18,
+          "text": "- `policy/` System authorization rules (polkit)."
+        }
+      ]
+    }
+  ],
+  "licensing_provenance": [
+    {
+      "source": "LICENSE",
+      "git_mode": "100644",
+      "git_blob": "f288702d2fa16d3cdf0035b15a9fcbc552cd88e7",
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "source": "NOTICE",
+      "git_mode": "100644",
+      "git_blob": "6e769a5f3828f5eee0a39a160e04d6c11e9b9295",
+      "bytes": 9105,
+      "sha256": "fa40700e93a3621ae793193a2f3ec16f21375afc85a319325ea4b95148878c24"
+    },
+    {
+      "source": "ryoku/palette-bridge/LICENSE",
+      "git_mode": "100644",
+      "git_blob": "4c9e29d061cbf488ca852d90b38d18443dd3354c",
+      "bytes": 1063,
+      "sha256": "b2616ae3b679fa3ee87d0d6680f0fbe301405d9b30d9d72acc40feb3c3bd7864"
+    },
+    {
+      "source": "ryoku/hub/backend/assets/redux/LICENSE",
+      "git_mode": "100644",
+      "git_blob": "dec5fed2e0fbf617d7160aa449b7c02862272416",
+      "bytes": 1067,
+      "sha256": "b508c159727e90875773dcac8c09eaac94507aa910230650978771e33d6a05fa"
+    },
+    {
+      "source": "ryoku/hub/backend/assets/redux/UPSTREAM.md",
+      "git_mode": "100644",
+      "git_blob": "ef2a1f3edafbff3000ffc620a5315cf89a8ffe12",
+      "bytes": 717,
+      "sha256": "fa47c50ceea40da7ac58cf604dff65aea37a572c5a4c920e108d55737c0ef1d1"
+    }
+  ],
+  "service_manifest_source": {
+    "source": "system/services/manifest.tsv",
+    "git_mode": "100644",
+    "git_blob": "5f2024ada988ace064fe03479f504a4fa7f4184d",
+    "bytes": 3061,
+    "sha256": "082e8c9ee65355d2999f96726bc7edf745ab0da23b24c4ed87201d5ab6adfd07"
+  },
+  "service_manifest_rows": [
+    {
+      "id": "bluetooth",
+      "scope": "system",
+      "activation": "enable-once",
+      "systemd_unit": "bluetooth.service",
+      "runit_service": "bluetoothd",
+      "user_disable_rule": "preserve:/var/lib/ryoku/bluetooth-enabled"
+    },
+    {
+      "id": "rtkit",
+      "scope": "system",
+      "activation": "enable-once",
+      "systemd_unit": "rtkit-daemon.service",
+      "runit_service": "-",
+      "user_disable_rule": "preserve:/var/lib/ryoku/rtkit-enabled"
+    },
+    {
+      "id": "power-profiles",
+      "scope": "system",
+      "activation": "enable-once",
+      "systemd_unit": "power-profiles-daemon.service",
+      "runit_service": "power-profiles-daemon",
+      "user_disable_rule": "preserve:/var/lib/ryoku/power-profiles-enabled"
+    },
+    {
+      "id": "wifi-regdom",
+      "scope": "system",
+      "activation": "enable-once",
+      "systemd_unit": "ryoku-wifi-regdom.service",
+      "runit_service": "-",
+      "user_disable_rule": "preserve:/var/lib/ryoku/wifi-regdom-enabled"
+    },
+    {
+      "id": "ryoku-var-state",
+      "scope": "system",
+      "activation": "boot",
+      "systemd_unit": "-",
+      "runit_service": "ryoku-var-state",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "ryoku-boot-guard",
+      "scope": "system",
+      "activation": "boot",
+      "systemd_unit": "ryoku-boot-guard.service",
+      "runit_service": "ryoku-boot-guard",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "network-kill-guard",
+      "scope": "system",
+      "activation": "conditional",
+      "systemd_unit": "ryoku-network-kill-guard.service",
+      "runit_service": "ryoku-network-kill-guard",
+      "user_disable_rule": "condition:/var/lib/ryoku/network-kill-switch.enabled"
+    },
+    {
+      "id": "network-kill-disconnect",
+      "scope": "system",
+      "activation": "conditional",
+      "systemd_unit": "ryoku-network-kill-disconnect.service",
+      "runit_service": "ryoku-network-kill-disconnect",
+      "user_disable_rule": "condition:/var/lib/ryoku/network-kill-switch.enabled"
+    },
+    {
+      "id": "dbus",
+      "scope": "system",
+      "activation": "boot",
+      "systemd_unit": "-",
+      "runit_service": "dbus",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "turnstiled",
+      "scope": "system",
+      "activation": "boot",
+      "systemd_unit": "-",
+      "runit_service": "turnstiled",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "polkit",
+      "scope": "system",
+      "activation": "enable-once",
+      "systemd_unit": "-",
+      "runit_service": "polkitd",
+      "user_disable_rule": "preserve"
+    },
+    {
+      "id": "network-manager",
+      "scope": "system",
+      "activation": "enable-once",
+      "systemd_unit": "-",
+      "runit_service": "NetworkManager",
+      "user_disable_rule": "preserve"
+    },
+    {
+      "id": "wifi-iwd",
+      "scope": "system",
+      "activation": "conditional",
+      "systemd_unit": "-",
+      "runit_service": "iwd",
+      "user_disable_rule": "condition:/var/lib/ryoku/wifi-iwd.enabled"
+    },
+    {
+      "id": "socklog",
+      "scope": "system",
+      "activation": "enable-once",
+      "systemd_unit": "-",
+      "runit_service": "socklog-unix",
+      "user_disable_rule": "preserve"
+    },
+    {
+      "id": "nanoklogd",
+      "scope": "system",
+      "activation": "enable-once",
+      "systemd_unit": "-",
+      "runit_service": "nanoklogd",
+      "user_disable_rule": "preserve"
+    },
+    {
+      "id": "sddm",
+      "scope": "system",
+      "activation": "enable-once",
+      "systemd_unit": "-",
+      "runit_service": "sddm",
+      "user_disable_rule": "preserve"
+    },
+    {
+      "id": "greeter-guard",
+      "scope": "system",
+      "activation": "boot",
+      "systemd_unit": "ryoku-greeter-guard.service",
+      "runit_service": "ryoku-greeter-guard",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "snapshot-menu",
+      "scope": "system",
+      "activation": "boot",
+      "systemd_unit": "ryoku-snapshot-menu.path",
+      "runit_service": "-",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "snapshot-restored",
+      "scope": "system",
+      "activation": "boot",
+      "systemd_unit": "ryoku-snapshot-restored.service",
+      "runit_service": "-",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "snapper-cleanup",
+      "scope": "system",
+      "activation": "on-demand",
+      "systemd_unit": "snapper-cleanup.timer",
+      "runit_service": "snapper-cleanup",
+      "user_disable_rule": "preserve"
+    },
+    {
+      "id": "ryoku-bootstrap",
+      "scope": "user",
+      "activation": "session-global",
+      "systemd_unit": "ryoku-bootstrap.service",
+      "runit_service": "ryoku-bootstrap",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "ryogami",
+      "scope": "user",
+      "activation": "session-global",
+      "systemd_unit": "ryogami.service",
+      "runit_service": "ryogami",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "ryoku-shell",
+      "scope": "user",
+      "activation": "session-global",
+      "systemd_unit": "ryoku-shell.service",
+      "runit_service": "ryoku-shell",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "ryoku-palette-bridge",
+      "scope": "user",
+      "activation": "session",
+      "systemd_unit": "ryoku-palette-bridge.service",
+      "runit_service": "ryoku-palette-bridge",
+      "user_disable_rule": "preserve"
+    },
+    {
+      "id": "ryoku-idle",
+      "scope": "user",
+      "activation": "session-global",
+      "systemd_unit": "ryoku-idle.service",
+      "runit_service": "ryoku-idle",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "ryoku-clamshell",
+      "scope": "user",
+      "activation": "session-global",
+      "systemd_unit": "ryoku-clamshell.service",
+      "runit_service": "ryoku-clamshell",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "ryoku-ai-usage",
+      "scope": "user",
+      "activation": "session-global",
+      "systemd_unit": "ryoku-ai-usage.timer",
+      "runit_service": "ryoku-ai-usage",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "ryoku-bt-agent",
+      "scope": "user",
+      "activation": "session-global",
+      "systemd_unit": "ryoku-bt-agent.service",
+      "runit_service": "ryoku-bt-agent",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "ryoku-rashin",
+      "scope": "user",
+      "activation": "session-global",
+      "systemd_unit": "ryoku-rashin.service",
+      "runit_service": "ryoku-rashin",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "ryoku-bluetooth-reset",
+      "scope": "user",
+      "activation": "session-global",
+      "systemd_unit": "ryoku-bluetooth-reset.service",
+      "runit_service": "ryoku-bluetooth-reset",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "pipewire",
+      "scope": "user",
+      "activation": "session-core",
+      "systemd_unit": "pipewire.service",
+      "runit_service": "pipewire",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "pipewire-pulse",
+      "scope": "user",
+      "activation": "session-core",
+      "systemd_unit": "pipewire-pulse.service",
+      "runit_service": "pipewire-pulse",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "wireplumber",
+      "scope": "user",
+      "activation": "session-core",
+      "systemd_unit": "wireplumber.service",
+      "runit_service": "wireplumber",
+      "user_disable_rule": "none"
+    },
+    {
+      "id": "ryoku-eq",
+      "scope": "user",
+      "activation": "on-demand",
+      "systemd_unit": "ryoku-eq.service",
+      "runit_service": "ryoku-eq",
+      "user_disable_rule": "preserve"
+    },
+    {
+      "id": "ryoku-prowl",
+      "scope": "user",
+      "activation": "on-demand",
+      "systemd_unit": "ryoku-prowl.service",
+      "runit_service": "ryoku-prowl",
+      "user_disable_rule": "preserve"
+    },
+    {
+      "id": "voxtype",
+      "scope": "user",
+      "activation": "on-demand",
+      "systemd_unit": "voxtype.service",
+      "runit_service": "voxtype",
+      "user_disable_rule": "preserve"
+    },
+    {
+      "id": "ryoku-ai-usage-worker",
+      "scope": "user",
+      "activation": "on-demand",
+      "systemd_unit": "ryoku-ai-usage.service",
+      "runit_service": "-",
+      "user_disable_rule": "preserve"
+    },
+    {
+      "id": "ryoku-session-target",
+      "scope": "user",
+      "activation": "on-demand",
+      "systemd_unit": "ryoku-session.target",
+      "runit_service": "-",
+      "user_disable_rule": "preserve"
+    }
+  ],
+  "unknowns": [
+    "Complete app/QML loader and per-operation authorization/capture/restore coverage remain open; an exact Rust alias table does not mediate a direct upstream API or user command.",
+    "HTTP palette endpoints are read-oriented; integration scripts and shared user-state updates must be evaluated separately. Default loopback is not proof that arbitrary listen overrides are accepted policy.",
+    "Redux native/model revision/hash/license declarations are provenance, not independent downloaded-content or redistribution permission verification.",
+    "VM/SSH/guest operations and hardware apply values require separate data-loss, secret, device identity, bounded-write and realistic recovery contracts.",
+    "All package names/polkit groups/units/sysfs/boot paths and per-asset license/notices require exact native closure and physical versus simulated acceptance evidence."
+  ],
+  "policy_declarations": [
+    {
+      "source": "system/containers/46-ryoku-docker.rules",
+      "git_mode": "100644",
+      "git_blob": "5a1633ba2cbd76d11d12e45add797805888b69ea",
+      "bytes": 1479,
+      "sha256": "fd3e1f000c3c61a5e7c796996a097ff4117bc581bfc2ea0dacd212439801546b",
+      "lines": [
+        {
+          "line": 1,
+          "text": "// ryoku-docker provisions the container runtime behind the stash \"Cobalt engine\""
+        },
+        {
+          "line": 2,
+          "text": "// switch: it enables docker.service and drives the single ryoku-cobalt container."
+        },
+        {
+          "line": 3,
+          "text": "// Authorized without a password so the setup wizard is one click rather than a"
+        },
+        {
+          "line": 4,
+          "text": "// password prompt per step, and so the feature works in the session the user is"
+        },
+        {
+          "line": 5,
+          "text": "// already in: every privileged action runs here as root through pkexec, so the"
+        },
+        {
+          "line": 6,
+          "text": "// user's session is never added to the docker group (which would be passwordless"
+        },
+        {
+          "line": 7,
+          "text": "// root for every process they run)."
+        },
+        {
+          "line": 8,
+          "text": "//"
+        },
+        {
+          "line": 9,
+          "text": "// Scoped to exactly /usr/bin/ryoku-docker for an active local user in the wheel"
+        },
+        {
+          "line": 10,
+          "text": "// group. The passwordless grant stays safe because the helper exposes NO docker"
+        },
+        {
+          "line": 11,
+          "text": "// passthrough: every container action is a fixed argument vector with a"
+        },
+        {
+          "line": 12,
+          "text": "// hardcoded image and container name, and the single caller-supplied value (the"
+        },
+        {
+          "line": 13,
+          "text": "// port) is range-checked to an integer 1024-65535 before anything escalates. A"
+        },
+        {
+          "line": 14,
+          "text": "// helper that forwarded caller flags to `docker run` would be a root hole via"
+        },
+        {
+          "line": 15,
+          "text": "// `-v /:/host`, so it deliberately does not."
+        },
+        {
+          "line": 16,
+          "text": "//"
+        },
+        {
+          "line": 17,
+          "text": "// /usr/bin is pinned on purpose: granting a user-writable path (a ~/.local/bin"
+        },
+        {
+          "line": 18,
+          "text": "// copy, say) would let the user rewrite the privileged binary."
+        },
+        {
+          "line": 19,
+          "text": "polkit.addRule(function (action, subject) {"
+        },
+        {
+          "line": 20,
+          "text": "    if (action.id === \"org.freedesktop.policykit.exec\" &&"
+        },
+        {
+          "line": 21,
+          "text": "        action.lookup(\"program\") === \"/usr/bin/ryoku-docker\" &&"
+        },
+        {
+          "line": 22,
+          "text": "        subject.local && subject.active && subject.isInGroup(\"wheel\")) {"
+        },
+        {
+          "line": 23,
+          "text": "        return polkit.Result.YES;"
+        },
+        {
+          "line": 24,
+          "text": "    }"
+        },
+        {
+          "line": 25,
+          "text": "});"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/audio/70-ryoku-maono.rules",
+      "git_mode": "100644",
+      "git_blob": "e11c1f3aa849119e94784fdc227070e452a99af2",
+      "bytes": 417,
+      "sha256": "7580dc36fb91a45c81f8fc68028a332eb990eb3a23e7edc28c197856d2ba8e1f",
+      "lines": [
+        {
+          "line": 1,
+          "text": "# Maono USB mics (PD400X, DM30, ...) expose gain, EQ, compressor, limiter and"
+        },
+        {
+          "line": 2,
+          "text": "# the monitor mix on a vendor-defined HID page rather than the audio interface."
+        },
+        {
+          "line": 3,
+          "text": "# The kernel leaves that node root-only, so grant the active-session user access"
+        },
+        {
+          "line": 4,
+          "text": "# (uaccess, no group setup) and any control app can reach it."
+        },
+        {
+          "line": 5,
+          "text": "KERNEL==\"hidraw*\", ATTRS{idVendor}==\"352f\", TAG+=\"uaccess\""
+        },
+        {
+          "line": 6,
+          "text": "SUBSYSTEM==\"usb\", ATTR{idVendor}==\"352f\", TAG+=\"uaccess\""
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/bluetooth/54-ryoku-bluetooth-a2dp.rules",
+      "git_mode": "100644",
+      "git_blob": "d05868ad43a3a59b60dc0b46cc11bc2d91eff86d",
+      "bytes": 775,
+      "sha256": "31a67585bbd2768ad8739f437df044d59f1dc73d7350943baa1f9051efff17cb",
+      "lines": [
+        {
+          "line": 1,
+          "text": "// Ryoku: let the desktop user (in the wheel group) restart bluetooth.service"
+        },
+        {
+          "line": 2,
+          "text": "// without a password prompt. ryoku-bluetooth-reset.service uses this once the"
+        },
+        {
+          "line": 3,
+          "text": "// session audio stack is up, to clear the BlueZ 5.83+ regression (bluez#1545)"
+        },
+        {
+          "line": 4,
+          "text": "// where an A2DP device disconnects ~1s after connecting and stays broken until"
+        },
+        {
+          "line": 5,
+          "text": "// the bluetooth service is restarted. Scoped to the single manage-units action"
+        },
+        {
+          "line": 6,
+          "text": "// on bluetooth.service; no other privilege is granted. Installed to"
+        },
+        {
+          "line": 7,
+          "text": "// /usr/share/polkit-1/rules.d/ by the ryoku-desktop package."
+        },
+        {
+          "line": 8,
+          "text": "polkit.addRule(function (action, subject) {"
+        },
+        {
+          "line": 9,
+          "text": "    if (action.id === \"org.freedesktop.systemd1.manage-units\" &&"
+        },
+        {
+          "line": 10,
+          "text": "        action.lookup(\"unit\") === \"bluetooth.service\" &&"
+        },
+        {
+          "line": 11,
+          "text": "        subject.isInGroup(\"wheel\")) {"
+        },
+        {
+          "line": 12,
+          "text": "        return polkit.Result.YES;"
+        },
+        {
+          "line": 13,
+          "text": "    }"
+        },
+        {
+          "line": 14,
+          "text": "});"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/ddc/60-ryoku-i2c.rules",
+      "git_mode": "100644",
+      "git_blob": "f703704ac6c5dc572251607f546ef1245520da96",
+      "bytes": 199,
+      "sha256": "478a0c90053907bb62d1ac7ccf311a9c30ef81d293052a423f2d0af695500670",
+      "lines": [
+        {
+          "line": 1,
+          "text": "# Grant the active-session user access to /dev/i2c-* so ddcutil (brightness over"
+        },
+        {
+          "line": 2,
+          "text": "# DDC/CI) works without adding users to the i2c group."
+        },
+        {
+          "line": 3,
+          "text": "SUBSYSTEM==\"i2c-dev\", GROUP=\"i2c\", MODE=\"0660\", TAG+=\"uaccess\""
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/display/90-ryoku-backlight.rules",
+      "git_mode": "100644",
+      "git_blob": "f21975a7600c3f3bf5a5994aeb21614b8957fc3b",
+      "bytes": 545,
+      "sha256": "2c8e8f3094243e84f0749dc8fbaa8d9cec3292fea6c38428fd14666030b59265",
+      "lines": [
+        {
+          "line": 1,
+          "text": "# Let the video group write panel brightness without a logind seat. On ASUS"
+        },
+        {
+          "line": 2,
+          "text": "# AMD+NVIDIA laptops the panel backlight (amdgpu_bl0, revealed by"
+        },
+        {
+          "line": 3,
+          "text": "# acpi_backlight=native) is root:root with no seat ACL, so ryoku-cmd-brightness'"
+        },
+        {
+          "line": 4,
+          "text": "# direct sysfs writes fail; chgrp/chmod for the video group (chroot.sh adds the"
+        },
+        {
+          "line": 5,
+          "text": "# user to it) lets brightnessctl set brightness without going through logind."
+        },
+        {
+          "line": 6,
+          "text": "ACTION==\"add\", SUBSYSTEM==\"backlight\", RUN+=\"/usr/bin/chgrp video /sys/class/backlight/%k/brightness\", RUN+=\"/usr/bin/chmod g+w /sys/class/backlight/%k/brightness\""
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/gpu/45-ryoku-gpu-mux.rules",
+      "git_mode": "100644",
+      "git_blob": "bed8e6f139f5ad31d4bd5b34e1890fb59a2c53a7",
+      "bytes": 918,
+      "sha256": "e859d669692448061bc1f04e4a089a12a8c9818701afffaae2faf39ade285f5e",
+      "lines": [
+        {
+          "line": 1,
+          "text": "// The Hub's Machine page flips the hardware GPU MUX through"
+        },
+        {
+          "line": 2,
+          "text": "// `ryoku-gpu-mux set <mode>`, which writes a root-owned firmware knob. The"
+        },
+        {
+          "line": 3,
+          "text": "// switch itself is already the user's deliberate act (a click on a named"
+        },
+        {
+          "line": 4,
+          "text": "// control, and the knob only takes effect after a reboot the user confirms),"
+        },
+        {
+          "line": 5,
+          "text": "// so a passwordless grant keeps the GUI path from needing a terminal; the"
+        },
+        {
+          "line": 6,
+          "text": "// grant is scoped to the one program for an active local wheel user. The"
+        },
+        {
+          "line": 7,
+          "text": "// helper validates its own argument: `set` accepts only hybrid|discrete, and"
+        },
+        {
+          "line": 8,
+          "text": "// the value written to the knob is derived from that closed pair, so nothing"
+        },
+        {
+          "line": 9,
+          "text": "// arbitrary reaches the firmware file."
+        },
+        {
+          "line": 10,
+          "text": "polkit.addRule(function (action, subject) {"
+        },
+        {
+          "line": 11,
+          "text": "    if (action.id === \"org.freedesktop.policykit.exec\" &&"
+        },
+        {
+          "line": 12,
+          "text": "        action.lookup(\"program\") === \"/usr/bin/ryoku-gpu-mux\" &&"
+        },
+        {
+          "line": 13,
+          "text": "        subject.local && subject.active && subject.isInGroup(\"wheel\")) {"
+        },
+        {
+          "line": 14,
+          "text": "        return polkit.Result.YES;"
+        },
+        {
+          "line": 15,
+          "text": "    }"
+        },
+        {
+          "line": 16,
+          "text": "});"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/gpu/90-ryoku-gpu.rules",
+      "git_mode": "100644",
+      "git_blob": "f81ae2443fe3b546c3dcac585200b143165fd1d3",
+      "bytes": 994,
+      "sha256": "772db5081e5c18c6fd5f61791e1c3e9d3dc8959ad9acb3b5d413d7236a59ca93",
+      "lines": [
+        {
+          "line": 1,
+          "text": "# 90-ryoku-gpu.rules"
+        },
+        {
+          "line": 2,
+          "text": "#"
+        },
+        {
+          "line": 3,
+          "text": "# managed by Ryoku (system/hardware/gpu). per PCI GPU, drop a boot-stable,"
+        },
+        {
+          "line": 4,
+          "text": "# colon-free /dev/dri/ryoku-gpu-<pci-slot> symlink so Hyprland's AQ_DRM_DEVICES"
+        },
+        {
+          "line": 5,
+          "text": "# can pin the strongest GPU as primary."
+        },
+        {
+          "line": 6,
+          "text": "#"
+        },
+        {
+          "line": 7,
+          "text": "# why: AQ_DRM_DEVICES uses ':' as its separator, so the colon-laden"
+        },
+        {
+          "line": 8,
+          "text": "# /dev/dri/by-path names are out, and bare /dev/dri/cardN renumbers across"
+        },
+        {
+          "line": 9,
+          "text": "# boots. key the symlink on the PCI slot and swap its ':' and '.' for '-':"
+        },
+        {
+          "line": 10,
+          "text": "#"
+        },
+        {
+          "line": 11,
+          "text": "#   0000:01:00.0  ->  /dev/dri/ryoku-gpu-0000-01-00-0"
+        },
+        {
+          "line": 12,
+          "text": "#"
+        },
+        {
+          "line": 13,
+          "text": "# token build: %p = the device devpath"
+        },
+        {
+          "line": 14,
+          "text": "# (/devices/.../0000:01:00.0/drm/card1). first sed drops the /drm/cardN tail,"
+        },
+        {
+          "line": 15,
+          "text": "# second sed keeps the trailing path component (the PCI slot), tr maps ':' and"
+        },
+        {
+          "line": 16,
+          "text": "# '.' to '-'. %c = that program's output. KERNELS limits the rule to GPUs whose"
+        },
+        {
+          "line": 17,
+          "text": "# parent is a PCI device, so the slot is always there."
+        },
+        {
+          "line": 18,
+          "text": "SUBSYSTEM==\"drm\", KERNEL==\"card[0-9]*\", KERNELS==\"????:??:??.?\", PROGRAM=\"/bin/sh -c 'echo %p | sed s#/drm/.*## | sed s#.*/## | tr :. -'\", SYMLINK+=\"dri/ryoku-gpu-%c\""
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/input/62-ryoku-qmk-hid.rules",
+      "git_mode": "100644",
+      "git_blob": "a9f0411eaf25ea32941b5e23d604bba88e15a60e",
+      "bytes": 446,
+      "sha256": "4c340dc99265ce4dc1aee4c9ea87d5f3e498ba68e9aa6c5bd8e7e0173bfe7771",
+      "lines": [
+        {
+          "line": 1,
+          "text": "# Ryoku: grant the active-seat user an ACL on a QMK/VIA keyboard's raw HID node"
+        },
+        {
+          "line": 2,
+          "text": "# so qmk_hid can drive its RGB matrix (theme-following keyboard lighting) without"
+        },
+        {
+          "line": 3,
+          "text": "# root. ryoku-hw-qmk matches only VIA control interfaces (usage page 0xFF60), so"
+        },
+        {
+          "line": 4,
+          "text": "# this never opens up unrelated hidraw devices. Numbered before 73-seat-late,"
+        },
+        {
+          "line": 5,
+          "text": "# which reads the uaccess tag and applies the ACL."
+        },
+        {
+          "line": 6,
+          "text": "SUBSYSTEM==\"hidraw\", PROGRAM=\"/usr/bin/ryoku-hw-qmk %S%p\", TAG+=\"uaccess\""
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/input/72-ryoku-keyboard-uaccess.rules",
+      "git_mode": "100644",
+      "git_blob": "dfa2954e2e67d5f1c0e38cd13a2c3811b4ee6420",
+      "bytes": 517,
+      "sha256": "1ec6b341847980139a849fb5a931b5e7618bce2fab444db9f618ed1a60c1c88c",
+      "lines": [
+        {
+          "line": 1,
+          "text": "# Ryoku: the shell's keypress overlay (the keycast shown while recording) reads"
+        },
+        {
+          "line": 2,
+          "text": "# keyboard evdev devices through the daemon. Grant the active-seat user an ACL on"
+        },
+        {
+          "line": 3,
+          "text": "# keyboards via uaccess so the feature works without the broad `input` group,"
+        },
+        {
+          "line": 4,
+          "text": "# which grants raw keyboard access on every seat and bypasses Wayland's input"
+        },
+        {
+          "line": 5,
+          "text": "# isolation. Scoped to keyboards; runs after 60-input-id sets the tag and before"
+        },
+        {
+          "line": 6,
+          "text": "# 73-seat-late applies the ACL (see the file number)."
+        },
+        {
+          "line": 7,
+          "text": "SUBSYSTEM==\"input\", ENV{ID_INPUT_KEYBOARD}==\"1\", TAG+=\"uaccess\""
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/network/48-ryoku-wifi-regdom.rules",
+      "git_mode": "100644",
+      "git_blob": "819de32cdd5b4a91cc65de2302f48ec14b310fbf",
+      "bytes": 651,
+      "sha256": "b285dfc14716643bd81795f02dee8daa091e07d34da0270658f96cd27443f68b",
+      "lines": [
+        {
+          "line": 1,
+          "text": "// Wi-Fi regulatory-domain pin (so 5 GHz is usable), authorized without a"
+        },
+        {
+          "line": 2,
+          "text": "// password so setting the country stays one click, matching the other network"
+        },
+        {
+          "line": 3,
+          "text": "// rules. Scoped to exactly /usr/bin/ryoku-wifi-regdom for an active local user"
+        },
+        {
+          "line": 4,
+          "text": "// in the wheel group. The helper only accepts a two-letter country code, which"
+        },
+        {
+          "line": 5,
+          "text": "// it validates, so a passwordless grant is safe."
+        },
+        {
+          "line": 6,
+          "text": "polkit.addRule(function (action, subject) {"
+        },
+        {
+          "line": 7,
+          "text": "    if (action.id === \"org.freedesktop.policykit.exec\" &&"
+        },
+        {
+          "line": 8,
+          "text": "        action.lookup(\"program\") === \"/usr/bin/ryoku-wifi-regdom\" &&"
+        },
+        {
+          "line": 9,
+          "text": "        subject.local && subject.active && subject.isInGroup(\"wheel\")) {"
+        },
+        {
+          "line": 10,
+          "text": "        return polkit.Result.YES;"
+        },
+        {
+          "line": 11,
+          "text": "    }"
+        },
+        {
+          "line": 12,
+          "text": "});"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/network/49-ryoku-wifi-powersave.rules",
+      "git_mode": "100644",
+      "git_blob": "1ba036a9cd95d5cf54148222a6497da3f9e9fcc1",
+      "bytes": 648,
+      "sha256": "877c3d1729b14724071aacb59d7cfc0ad22c839ec774bcdcc9d956739b7dd7df",
+      "lines": [
+        {
+          "line": 1,
+          "text": "// Game Mode's WiFi power-save helper, authorized without a password so the deck"
+        },
+        {
+          "line": 2,
+          "text": "// toggle stays one click. Scoped to exactly /usr/bin/ryoku-wifi-powersave for an"
+        },
+        {
+          "line": 3,
+          "text": "// active local user in the wheel group. The helper only toggles 802.11 power-save"
+        },
+        {
+          "line": 4,
+          "text": "// (a benign radio power-management setting) and takes no arbitrary input, so a"
+        },
+        {
+          "line": 5,
+          "text": "// passwordless grant is safe."
+        },
+        {
+          "line": 6,
+          "text": "polkit.addRule(function (action, subject) {"
+        },
+        {
+          "line": 7,
+          "text": "    if (action.id === \"org.freedesktop.policykit.exec\" &&"
+        },
+        {
+          "line": 8,
+          "text": "        action.lookup(\"program\") === \"/usr/bin/ryoku-wifi-powersave\" &&"
+        },
+        {
+          "line": 9,
+          "text": "        subject.local && subject.active && subject.isInGroup(\"wheel\")) {"
+        },
+        {
+          "line": 10,
+          "text": "        return polkit.Result.YES;"
+        },
+        {
+          "line": 11,
+          "text": "    }"
+        },
+        {
+          "line": 12,
+          "text": "});"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/network/50-ryoku-dns.rules",
+      "git_mode": "100644",
+      "git_blob": "68c75fd503ddf56edd921b9ec49be088fcd8becc",
+      "bytes": 782,
+      "sha256": "8ece6b05d5dc61ab88431359415a49c6b5d0716a6e179b8b8a3db835d9a76497",
+      "lines": [
+        {
+          "line": 1,
+          "text": "// Network panel DNS switch, authorized without a password so the provider"
+        },
+        {
+          "line": 2,
+          "text": "// buttons apply in one click. Scoped to any ryoku-dns helper (basename match, so"
+        },
+        {
+          "line": 3,
+          "text": "// a dev checkout's non-/usr/bin path still authorizes) for an active local user"
+        },
+        {
+          "line": 4,
+          "text": "// in the wheel group. The helper only writes a NetworkManager"
+        },
+        {
+          "line": 5,
+          "text": "// global-dns drop-in (a fixed provider list or validated addresses) and reverts"
+        },
+        {
+          "line": 6,
+          "text": "// to DHCP, the same network control NetworkManager already grants the active"
+        },
+        {
+          "line": 7,
+          "text": "// user, so a passwordless grant is safe."
+        },
+        {
+          "line": 8,
+          "text": "polkit.addRule(function (action, subject) {"
+        },
+        {
+          "line": 9,
+          "text": "    if (action.id === \"org.freedesktop.policykit.exec\" &&"
+        },
+        {
+          "line": 10,
+          "text": "        /(^|\\/)ryoku-dns$/.test(action.lookup(\"program\")) &&"
+        },
+        {
+          "line": 11,
+          "text": "        subject.local && subject.active && subject.isInGroup(\"wheel\")) {"
+        },
+        {
+          "line": 12,
+          "text": "        return polkit.Result.YES;"
+        },
+        {
+          "line": 13,
+          "text": "    }"
+        },
+        {
+          "line": 14,
+          "text": "});"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/network/51-ryoku-wifi-backend.rules",
+      "git_mode": "100644",
+      "git_blob": "793c4ae57ed8054a9f5cf450adc475f65e61a93e",
+      "bytes": 658,
+      "sha256": "5373aa1b743840a47fdf71a09dbfc9589c26e9d882b2f54cb5a340b775c679b1",
+      "lines": [
+        {
+          "line": 1,
+          "text": "// NetworkManager Wi-Fi backend switch (Settings -> Connections), authorized"
+        },
+        {
+          "line": 2,
+          "text": "// without a password so the toggle stays one click, matching the DNS switch."
+        },
+        {
+          "line": 3,
+          "text": "// Scoped to exactly /usr/bin/ryoku-wifi-backend for an active local user in the"
+        },
+        {
+          "line": 4,
+          "text": "// wheel group. The helper only ever selects iwd or wpa_supplicant and takes no"
+        },
+        {
+          "line": 5,
+          "text": "// arbitrary input, so a passwordless grant is safe."
+        },
+        {
+          "line": 6,
+          "text": "polkit.addRule(function (action, subject) {"
+        },
+        {
+          "line": 7,
+          "text": "    if (action.id === \"org.freedesktop.policykit.exec\" &&"
+        },
+        {
+          "line": 8,
+          "text": "        action.lookup(\"program\") === \"/usr/bin/ryoku-wifi-backend\" &&"
+        },
+        {
+          "line": 9,
+          "text": "        subject.local && subject.active && subject.isInGroup(\"wheel\")) {"
+        },
+        {
+          "line": 10,
+          "text": "        return polkit.Result.YES;"
+        },
+        {
+          "line": 11,
+          "text": "    }"
+        },
+        {
+          "line": 12,
+          "text": "});"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/network/55-ryoku-network-kill.rules",
+      "git_mode": "100644",
+      "git_blob": "89a5d96310b7ff513f1fc2295b6a1ba89fb7eaa8",
+      "bytes": 583,
+      "sha256": "cf89c12c05daec3b5914749039486ad9de1ea3e850b63614f98afa6dd3b8a31e",
+      "lines": [
+        {
+          "line": 1,
+          "text": "// The kill switch exposes only four fixed actions; the helper rejects every"
+        },
+        {
+          "line": 2,
+          "text": "// other argument and never executes caller-provided commands. Grant this exact"
+        },
+        {
+          "line": 3,
+          "text": "// program to the active local wheel user so a cutoff is still possible when a"
+        },
+        {
+          "line": 4,
+          "text": "// network problem prevents an authentication round-trip."
+        },
+        {
+          "line": 5,
+          "text": "polkit.addRule(function (action, subject) {"
+        },
+        {
+          "line": 6,
+          "text": "    if (action.id === \"org.freedesktop.policykit.exec\" &&"
+        },
+        {
+          "line": 7,
+          "text": "        action.lookup(\"program\") === \"/usr/bin/ryoku-network-kill\" &&"
+        },
+        {
+          "line": 8,
+          "text": "        subject.local && subject.active && subject.isInGroup(\"wheel\")) {"
+        },
+        {
+          "line": 9,
+          "text": "        return polkit.Result.YES;"
+        },
+        {
+          "line": 10,
+          "text": "    }"
+        },
+        {
+          "line": 11,
+          "text": "});"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/power/47-ryoku-power.rules",
+      "git_mode": "100644",
+      "git_blob": "a0413a6c04a45b35f4c5ac1bd6176843b08dee3f",
+      "bytes": 962,
+      "sha256": "04ad05cd442922ec6b206c27507798ae39ad964116028112216fb16fb9ace5ab",
+      "lines": [
+        {
+          "line": 1,
+          "text": "// ryoku-power's login-time `apply` re-applies the stored battery charge ceiling"
+        },
+        {
+          "line": 2,
+          "text": "// and PCIe ASPM policy (both root-owned sysfs writes that do not survive a"
+        },
+        {
+          "line": 3,
+          "text": "// reboot), authorized without a password so autostart never blocks on a prompt."
+        },
+        {
+          "line": 4,
+          "text": "// Scoped to exactly /usr/bin/ryoku-power for an active local user in the wheel"
+        },
+        {
+          "line": 5,
+          "text": "// group. Unlike the WiFi power-save helper this one does take an argument, but"
+        },
+        {
+          "line": 6,
+          "text": "// the passwordless grant stays safe because it is a closed, validated set: the"
+        },
+        {
+          "line": 7,
+          "text": "// charge limit is range-checked to an integer 50-100, and the ASPM policy is"
+        },
+        {
+          "line": 8,
+          "text": "// rejected unless it is one the kernel itself currently offers, so nothing"
+        },
+        {
+          "line": 9,
+          "text": "// arbitrary ever reaches the privileged write."
+        },
+        {
+          "line": 10,
+          "text": "polkit.addRule(function (action, subject) {"
+        },
+        {
+          "line": 11,
+          "text": "    if (action.id === \"org.freedesktop.policykit.exec\" &&"
+        },
+        {
+          "line": 12,
+          "text": "        action.lookup(\"program\") === \"/usr/bin/ryoku-power\" &&"
+        },
+        {
+          "line": 13,
+          "text": "        subject.local && subject.active && subject.isInGroup(\"wheel\")) {"
+        },
+        {
+          "line": 14,
+          "text": "        return polkit.Result.YES;"
+        },
+        {
+          "line": 15,
+          "text": "    }"
+        },
+        {
+          "line": 16,
+          "text": "});"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/power/53-ryoku-game-tune.rules",
+      "git_mode": "100644",
+      "git_blob": "35e359afb9d53cd8c8e9aedefe434e4de21e1a11",
+      "bytes": 1072,
+      "sha256": "ac8de7e9cb3d73077df1bd69842fa0c8dce98dfa74b17ae8e476d4ddfad11d10",
+      "lines": [
+        {
+          "line": 1,
+          "text": "// Game Mode's system-level tuning (ryoku-game-tune) flips root-owned knobs that"
+        },
+        {
+          "line": 2,
+          "text": "// need no password prompt, because the panel toggle is one click and a prompt"
+        },
+        {
+          "line": 3,
+          "text": "// mid-session would make it useless: deep CPU idle states, the NMI watchdog,"
+        },
+        {
+          "line": 4,
+          "text": "// split/bus-lock mitigation, and three VM knobs, all saved and restored exactly."
+        },
+        {
+          "line": 5,
+          "text": "// Scoped to exactly /usr/bin/ryoku-game-tune for an active local user in the"
+        },
+        {
+          "line": 6,
+          "text": "// wheel group."
+        },
+        {
+          "line": 7,
+          "text": "//"
+        },
+        {
+          "line": 8,
+          "text": "// The passwordless grant stays safe because nothing the caller says reaches a"
+        },
+        {
+          "line": 9,
+          "text": "// write. The argument set is closed to three fixed verbs (apply, restore,"
+        },
+        {
+          "line": 10,
+          "text": "// status), every value written is a constant compiled into the helper, and the"
+        },
+        {
+          "line": 11,
+          "text": "// paths are fixed sysfs and /proc/sys locations. There is no argument that makes"
+        },
+        {
+          "line": 12,
+          "text": "// it write an arbitrary value to an arbitrary file."
+        },
+        {
+          "line": 13,
+          "text": "polkit.addRule(function (action, subject) {"
+        },
+        {
+          "line": 14,
+          "text": "    if (action.id === \"org.freedesktop.policykit.exec\" &&"
+        },
+        {
+          "line": 15,
+          "text": "        action.lookup(\"program\") === \"/usr/bin/ryoku-game-tune\" &&"
+        },
+        {
+          "line": 16,
+          "text": "        subject.local && subject.active && subject.isInGroup(\"wheel\")) {"
+        },
+        {
+          "line": 17,
+          "text": "        return polkit.Result.YES;"
+        },
+        {
+          "line": 18,
+          "text": "    }"
+        },
+        {
+          "line": 19,
+          "text": "});"
+        }
+      ]
+    },
+    {
+      "source": "system/hardware/tpm/60-ryoku-tpm-nvpcr.rules",
+      "git_mode": "100644",
+      "git_blob": "84817898f62cd33c27c13b2c401b5e3b5d319913",
+      "bytes": 820,
+      "sha256": "085b9e8a1d9015914f83a8021f73c56f20008ab10aef766449e4019ee6ace346",
+      "lines": [
+        {
+          "line": 1,
+          "text": "# systemd keeps NvPCRs (TPM NV indexes it extends with the hardware, product"
+        },
+        {
+          "line": 2,
+          "text": "# and login measurements) only on a box whose UKI is signed with a PCR key:"
+        },
+        {
+          "line": 3,
+          "text": "# setting one up needs tpm2-pcr-public-key.pem. Ryoku's UKIs are unsigned, so"
+        },
+        {
+          "line": 4,
+          "text": "# every boot failed systemd-tpm2-setup-early, systemd-pcrproduct and each"
+        },
+        {
+          "line": 5,
+          "text": "# systemd-pcrlogin@ on \"No such file or directory\". TPM2_BROKEN_NVPCR is"
+        },
+        {
+          "line": 6,
+          "text": "# systemd's own switch for a TPM without usable NvPCRs: the setup skips them"
+        },
+        {
+          "line": 7,
+          "text": "# and the measurement units exit cleanly. A box that does carry the key keeps"
+        },
+        {
+          "line": 8,
+          "text": "# its NvPCRs."
+        },
+        {
+          "line": 9,
+          "text": "SUBSYSTEM==\"tpmrm\", KERNEL==\"tpmrm[0-9]*\", \\"
+        },
+        {
+          "line": 10,
+          "text": "  TEST!=\"/etc/systemd/tpm2-pcr-public-key.pem\", \\"
+        },
+        {
+          "line": 11,
+          "text": "  TEST!=\"/run/systemd/tpm2-pcr-public-key.pem\", \\"
+        },
+        {
+          "line": 12,
+          "text": "  TEST!=\"/usr/lib/systemd/tpm2-pcr-public-key.pem\", \\"
+        },
+        {
+          "line": 13,
+          "text": "  TEST!=\"/.extra/tpm2-pcr-public-key.pem\", \\"
+        },
+        {
+          "line": 14,
+          "text": "  ENV{TPM2_BROKEN_NVPCR}=\"1\""
+        }
+      ]
+    },
+    {
+      "source": "system/policy/52-ryoku-timedate.rules",
+      "git_mode": "100644",
+      "git_blob": "cfb714290a5fdd8340cc3100303d3e0575e5dc08",
+      "bytes": 552,
+      "sha256": "2bd7bace1395ac8268c2508032a7544d3b03e221df276f3f9942c8f56ac2d355",
+      "lines": [
+        {
+          "line": 1,
+          "text": "// Ryoku: let the active desktop user (in the wheel group) set the system time"
+        },
+        {
+          "line": 2,
+          "text": "// zone without a password prompt, so the world-map picker in Settings > Global"
+        },
+        {
+          "line": 3,
+          "text": "// applies instantly. Scoped to the single timedate1 set-timezone action; no"
+        },
+        {
+          "line": 4,
+          "text": "// other privilege is granted. Installed to /usr/share/polkit-1/rules.d/ by the"
+        },
+        {
+          "line": 5,
+          "text": "// ryoku-desktop package."
+        },
+        {
+          "line": 6,
+          "text": "polkit.addRule(function (action, subject) {"
+        },
+        {
+          "line": 7,
+          "text": "    if (action.id === \"org.freedesktop.timedate1.set-timezone\" &&"
+        },
+        {
+          "line": 8,
+          "text": "        subject.active && subject.isInGroup(\"wheel\")) {"
+        },
+        {
+          "line": 9,
+          "text": "        return polkit.Result.YES;"
+        },
+        {
+          "line": 10,
+          "text": "    }"
+        },
+        {
+          "line": 11,
+          "text": "});"
+        }
+      ]
+    },
+    {
+      "source": "system/policy/54-ryoku-users.rules",
+      "git_mode": "100644",
+      "git_blob": "031902fb2622208a20ba3661055d844406155eb3",
+      "bytes": 414,
+      "sha256": "6a3d807c22acc389f77f7bd0964514eca90126977f6004a2172c3ac951ea20cb",
+      "lines": [
+        {
+          "line": 1,
+          "text": "// The argv1 annotation selects this action only for the typed users API; the"
+        },
+        {
+          "line": 2,
+          "text": "// helper validates every later argument again after crossing the root boundary."
+        },
+        {
+          "line": 3,
+          "text": "polkit.addRule(function (action, subject) {"
+        },
+        {
+          "line": 4,
+          "text": "    if (action.id === \"dev.ryoku.users.manage\" &&"
+        },
+        {
+          "line": 5,
+          "text": "        action.lookup(\"program\") === \"/usr/bin/ryoku-host\" &&"
+        },
+        {
+          "line": 6,
+          "text": "        subject.local && subject.active) {"
+        },
+        {
+          "line": 7,
+          "text": "        return polkit.Result.AUTH_ADMIN_KEEP;"
+        },
+        {
+          "line": 8,
+          "text": "    }"
+        },
+        {
+          "line": 9,
+          "text": "});"
+        }
+      ]
+    },
+    {
+      "source": "system/policy/dev.ryoku.users.policy",
+      "git_mode": "100644",
+      "git_blob": "e28052f51950f7bfa6f3e8a7ec1a5560d27a7039",
+      "bytes": 824,
+      "sha256": "c5591bb19cf914b515bcb01ec47884a93b9d2273e8d980e8cef610dbbe26f77d",
+      "lines": [
+        {
+          "line": 1,
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        },
+        {
+          "line": 2,
+          "text": "<!DOCTYPE policyconfig PUBLIC"
+        },
+        {
+          "line": 3,
+          "text": " \"-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN\""
+        },
+        {
+          "line": 4,
+          "text": " \"http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd\">"
+        },
+        {
+          "line": 5,
+          "text": "<policyconfig>"
+        },
+        {
+          "line": 6,
+          "text": "  <vendor>Ryoku</vendor>"
+        },
+        {
+          "line": 7,
+          "text": "  <vendor_url>https://ryoku.dev</vendor_url>"
+        },
+        {
+          "line": 8,
+          "text": "  <action id=\"dev.ryoku.users.manage\">"
+        },
+        {
+          "line": 9,
+          "text": "    <description>Manage local user accounts</description>"
+        },
+        {
+          "line": 10,
+          "text": "    <message>Authentication is required to manage local user accounts</message>"
+        },
+        {
+          "line": 11,
+          "text": "    <defaults>"
+        },
+        {
+          "line": 12,
+          "text": "      <allow_any>auth_admin</allow_any>"
+        },
+        {
+          "line": 13,
+          "text": "      <allow_inactive>auth_admin</allow_inactive>"
+        },
+        {
+          "line": 14,
+          "text": "      <allow_active>auth_admin_keep</allow_active>"
+        },
+        {
+          "line": 15,
+          "text": "    </defaults>"
+        },
+        {
+          "line": 16,
+          "text": "    <annotate key=\"org.freedesktop.policykit.exec.path\">/usr/bin/ryoku-host</annotate>"
+        },
+        {
+          "line": 17,
+          "text": "    <annotate key=\"org.freedesktop.policykit.exec.argv1\">users</annotate>"
+        },
+        {
+          "line": 18,
+          "text": "  </action>"
+        },
+        {
+          "line": 19,
+          "text": "</policyconfig>"
+        }
+      ]
+    }
+  ],
+  "relocations": [
+    {
+      "prior_source": "system/boot/limine/ryoku-wall.png",
+      "prior_mode": "100644",
+      "prior_blob": "4e495d3825c5b7451edceae2a2fd3551f499b18b",
+      "current_source": "fedora/system/boot/grub/theme/ryoku-wall.png",
+      "current_mode": "100644",
+      "current_blob": "4e495d3825c5b7451edceae2a2fd3551f499b18b"
+    }
+  ]
+}

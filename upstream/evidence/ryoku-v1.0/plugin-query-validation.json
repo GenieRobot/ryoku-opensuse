@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "project_base_commit": "613c0e6b242123d47f6026f1433794b90db3aa26",
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "input_sha256": {
+    "upstream/evidence/ryoku-v1.0/plugin-query-effects.json": "c7d2ed3bfdf6a830cbcde3b985464518ee821f14a237aca99c33dd1b2eebc16e",
+    "automation/tests/plugin_query_evidence.rs": "aff46b8cc7185986fa6607fba06e64f62a5d69b7ed940809dbab51b776e370b5",
+    "upstream/evidence/ryoku-v1.0/writer-source-manifest.tsv": "92182b8e40385bdfb4fd9e699edaa6cea112466b135fc25d22a6b716e66d4136",
+    "upstream/patches/issue18-writer-launch.patch": "1b614e25c7825788426e69556c5a7351e19b3c58ce37893373cea951074e15a1"
+  },
+  "checks": {
+    "selected_canonical_Source3_file_bytes_and_modes": 6,
+    "conditional_effects": 4,
+    "source_line_anchor_occurrences": 40,
+    "cached_rustc_static_integrity_test": "passed",
+    "cached_rustc_offline_pinned_source_test": "passed (explicit ignored-test run)",
+    "rustfmt_and_diff_check": "passed",
+    "local_markdown_links": "passed",
+    "worktree_target_bytes": 1444
+  },
+  "scope": "Source/evidence regression checks only. No provider/plugin execution, behavior patch, new authorization, native package/VM acceptance or completed issue checklist row."
+}

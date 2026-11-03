@@ -1,0 +1,159 @@
+[
+   {
+      "arch" : "x86_64",
+      "checksum" : "fa5665444a0d806fc408081c2cdff151b2d56aeff3a0e49f3a29e54bcab114180919f25d25faa5e411ad2baffa0529901b15a707a269bd32fbd7bf53f843d660",
+      "checksum_type" : "sha512",
+      "location" : {
+         "href" : "x86_64/pipewire-tools-1.6.9-2.1.x86_64.rpm"
+      },
+      "name" : "pipewire-tools",
+      "provides" : [
+         {
+            "epoch" : "0",
+            "flags" : "EQ",
+            "name" : "pipewire-tools",
+            "rel" : "2.1",
+            "ver" : "1.6.9"
+         },
+         {
+            "epoch" : "0",
+            "flags" : "EQ",
+            "name" : "pipewire-tools(x86-64)",
+            "rel" : "2.1",
+            "ver" : "1.6.9"
+         }
+      ],
+      "requires" : [
+         {
+            "name" : "/bin/sh"
+         },
+         {
+            "name" : "libdbus-1.so.3()(64bit)"
+         },
+         {
+            "name" : "libdbus-1.so.3(LIBDBUS_1_3)(64bit)"
+         },
+         {
+            "name" : "libm.so.6()(64bit)"
+         },
+         {
+            "name" : "libm.so.6(GLIBC_2.2.5)(64bit)"
+         },
+         {
+            "name" : "libm.so.6(GLIBC_2.29)(64bit)"
+         },
+         {
+            "name" : "libncursesw.so.6()(64bit)"
+         },
+         {
+            "name" : "libncursesw.so.6(NCURSESTW6_5.7.20081102)(64bit)"
+         },
+         {
+            "name" : "libpipewire-0.3.so.0()(64bit)"
+         },
+         {
+            "name" : "libreadline.so.8()(64bit)"
+         },
+         {
+            "name" : "libsndfile.so.1()(64bit)"
+         },
+         {
+            "name" : "libsndfile.so.1(libsndfile.so.1.0)(64bit)"
+         },
+         {
+            "name" : "libtinfo.so.6()(64bit)"
+         },
+         {
+            "name" : "libtinfo.so.6(NCURSES6_TINFO_5.0.19991023)(64bit)"
+         },
+         {
+            "name" : "libtinfo.so.6(NCURSES6_TINFO_5.7.20081102)(64bit)"
+         },
+         {
+            "name" : "libc.so.6(GLIBC_2.38)(64bit)"
+         }
+      ],
+      "version" : {
+         "epoch" : "0",
+         "rel" : "2.1",
+         "ver" : "1.6.9"
+      }
+   },
+   {
+      "arch" : "x86_64",
+      "checksum" : "064e16c2d8f234f5ec8b4b53acf6762f9bcda63713d174207742210859ccb0e311bb8432766d03a57f61bf84393360b0ebf7c66da3966a9eebdeee1af716d1e2",
+      "checksum_type" : "sha512",
+      "location" : {
+         "href" : "x86_64/pulseaudio-utils-17.0-7.6.x86_64.rpm"
+      },
+      "name" : "pulseaudio-utils",
+      "provides" : [
+         {
+            "name" : "libpulsedsp.so()(64bit)"
+         },
+         {
+            "epoch" : "0",
+            "flags" : "EQ",
+            "name" : "pulseaudio-utils",
+            "rel" : "7.6",
+            "ver" : "17.0"
+         },
+         {
+            "epoch" : "0",
+            "flags" : "EQ",
+            "name" : "pulseaudio-utils(x86-64)",
+            "rel" : "7.6",
+            "ver" : "17.0"
+         }
+      ],
+      "requires" : [
+         {
+            "name" : "/bin/bash"
+         },
+         {
+            "name" : "/bin/sh"
+         },
+         {
+            "epoch" : "0",
+            "flags" : "EQ",
+            "name" : "libpulse-mainloop-glib0",
+            "ver" : "17.0"
+         },
+         {
+            "name" : "libpulse.so.0()(64bit)"
+         },
+         {
+            "name" : "libpulse.so.0(PULSE_0)(64bit)"
+         },
+         {
+            "epoch" : "0",
+            "flags" : "EQ",
+            "name" : "libpulse0",
+            "ver" : "17.0"
+         },
+         {
+            "name" : "libpulsecommon-17.0.so()(64bit)"
+         },
+         {
+            "name" : "libsndfile.so.1()(64bit)"
+         },
+         {
+            "name" : "libsndfile.so.1(libsndfile.so.1.0)(64bit)"
+         },
+         {
+            "name" : "libxcb.so.1()(64bit)"
+         },
+         {
+            "name" : "pulseaudio-daemon"
+         },
+         {
+            "name" : "libc.so.6(GLIBC_2.38)(64bit)"
+         }
+      ],
+      "version" : {
+         "epoch" : "0",
+         "rel" : "7.6",
+         "ver" : "17.0"
+      }
+   }
+]

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "project_base_commit": "7814f0781029a1427c40efc90c984da08405e605",
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "inputs_sha256": {
+    "docs/ryoku-v1.0-fedora-reference.md": "433c1911aeef9460d0962dcb0d11c9611a09a35d1c52a8ead1d15e943ae0036a",
+    "upstream/evidence/ryoku-v1.0/fedora-rpm-reference.json": "84a0d56ab34ef85a8e65411c5fa5a861bbdbeb82ebc6db16a9d25afaf96e775a",
+    "upstream/evidence/ryoku-v1.0/fedora-rpm-reference.tsv": "b725941243b3802c00a73e6adfa12b572db015ad317aedeb7ab8741e09853441",
+    "upstream/evidence/ryoku-v1.0/rashin-native-provider-records.json": "13376d98be4766d178c2e3938d62ee036d2329b5fdc022a82051af10cf72e0de"
+  },
+  "checks": {
+    "immutable_spec_records": 54,
+    "immutable_supporting_sources": 37,
+    "headers_conditionals_and_scriptlet_region_hashes": "passed",
+    "shared_Ryoku_tree_specs": 23,
+    "direct_scriptlet_specs": 5,
+    "canonical_release_payload_references": 12,
+    "core_Rashin_CMake_signed_snapshot_provider_records": 2,
+    "source2_source3_runtime_spec_changed": false,
+    "local_document_links": "passed",
+    "lazy_fetch_disabled_and_missing_cached_objects": 0
+  },
+  "scope": "Pinned source/reference comparison only; not native package/provider/feature or full transitive helper acceptance"
+}

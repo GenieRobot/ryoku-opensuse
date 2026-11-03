@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "project_base_commit": "8c72e04a81e93aabc51ec3730b63371d749dec89",
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "prior_commit": "98a0368253d9628be72b853985878a5db90e1547",
+  "input_sha256": {
+    "upstream/evidence/ryoku-v1.0/compositor-disposition.tsv": "c9bbfc103c034836ee23155a59945965b3ad8072823ce2fad4d063365380ca5b",
+    "upstream/evidence/ryoku-v1.0/compositor-api-boundary.json": "8ecc9dac08cd2c14e9a2ca59d4b25556db5cf176d04c8170c4115ab76cf1c560",
+    "docs/ryoku-v1.0-compositor-review.md": "1056bc2d17925bc788dfc1a75093117a75bddbc61b6941376cc23f749040d54d",
+    "packaging/rpm/ryoku-desktop.spec": "03c79ab1e6d6dc8234b95be49a5610b5b184d3c77d0335fdc678a96103470cb6",
+    "upstream/evidence/ryoku-v1.0/writer-source-manifest.tsv": "92182b8e40385bdfb4fd9e699edaa6cea112466b135fc25d22a6b716e66d4136",
+    "upstream/evidence/ryoku-v1.0/runtime-source-manifest.tsv": "0ad951557e17c3796d5a218bca2b4dfee7a349f44861d247ea3c500de334db21"
+  },
+  "checks": {
+    "current_prior_union_paths": 221,
+    "current_paths": 218,
+    "prior_paths": 155,
+    "changed_paths_match_global_delta_with_two_renamed_out": 138,
+    "pinned_api_sources_and_all_anchors": 14,
+    "identical_shared_vendor_mirrors": 44,
+    "relocated_keysounds_destinations": 2,
+    "actual_manifest_selection_and_owners": "passed",
+    "local_document_links": "passed"
+  },
+  "scope": "Source/API inventory unit only; complete per-operation semantic, writer ownership, licensing and native acceptance remain open; no executable/runtime/spec/archive change or live source execution"
+}

@@ -1,0 +1,476 @@
+ImageMagick-7.1.2.33-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+ImageMagick-config-7-SUSE-7.1.2.33-1.1.noarch.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+cli11-devel-2.7.2-1.1.noarch.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+cpptrace-devel-1.0.4-1.4.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+ffmpeg-9-libavcodec-devel-9.0.2-4.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+ffmpeg-9-libavformat-devel-9.0.2-4.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+ffmpeg-9-libavutil-devel-9.0.2-4.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+ffmpeg-9-libswresample-devel-9.0.2-4.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+ffmpeg-9-libswscale-devel-9.0.2-4.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+ffmpeg-9.0.2-4.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+jemalloc-devel-5.4.0-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libMagickCore-7_Q16HDRI10-7.1.2.33-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libMagickWand-7_Q16HDRI10-7.1.2.33-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libQt6Quick3DAssetImport6-6.11.2-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libQt6Quick3DAssetUtils6-6.11.2-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libQt6Quick3DGlslParser6-6.11.2-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libQt6Quick3DIblBaker6-6.11.2-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libQt6Quick3DParticles6-6.11.2-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libQt6QuickTimeline6-6.11.2-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libassimp6-6.0.5-4.3.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libavcodec63-9.0.2-4.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libavdevice63-9.0.2-4.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libavfilter12-9.0.2-4.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libavformat63-9.0.2-4.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libavutil61-9.0.2-4.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libcdio19-2.2.0-1.6.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libcdio_cdda2-10.2+2.0.1-1.18.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libcdio_paranoia2-10.2+2.0.1-1.18.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libcpptrace1-1.0.4-1.4.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libdc1394-26-2.2.7-2.8.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libdwarf-devel-2.3.3-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libdwarf2-2.3.3-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libelf-devel-0.196-2.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libgbm-devel-26.2.4-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libinput-devel-1.32-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libjack0-1.9.22-5.5.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libjemalloc2-5.4.0-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+liblqr-1-0-0.4.3-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libswresample7-9.0.2-4.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libswscale10-9.0.2-4.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libunwind-coredump0-1.8.3-3.3.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libunwind-devel-1.8.3-3.3.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libunwind-ptrace0-1.8.3-3.3.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libunwind-setjmp0-1.8.3-3.3.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libxkbcommon-x11-devel-1.13.2-1.3.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+libzstd-devel-1.5.7-6.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+mtdev-devel-1.1.6-1.21.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+pam-devel-1.7.3-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+pipewire-devel-1.6.9-2.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+polkit-devel-127-7.2.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+qt6-gui-private-devel-6.11.2-2.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+qt6-kmssupport-devel-static-6.11.2-2.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+qt6-kmssupport-private-devel-6.11.2-2.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+qt6-opengl-private-devel-6.11.2-2.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+qt6-platformsupport-devel-static-6.11.2-2.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+qt6-quick-private-devel-6.11.2-2.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+qt6-quick3d-6.11.2-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+qt6-quick3d-devel-6.11.2-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+qt6-quick3druntimerender-devel-6.11.2-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+qt6-quick3dutils-devel-6.11.2-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+qt6-waylandclient-private-devel-6.11.2-2.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+spirv-tools-devel-2026.4~rc2-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+systemd-devel-261.3-1.1.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+tslib-1.24-1.5.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+tslib-devel-1.24-1.5.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+tslib-plugins-1.24-1.5.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+typelib-1_0-Polkit-1_0-127-7.2.x86_64.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK
+wayland-protocols-devel-1.49-1.3.noarch.rpm:
+    Header V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    Header SHA256 digest: OK
+    Header SHA1 digest: OK
+    Payload SHA256 digest: OK
+    V3 RSA/SHA512 Signature, key ID 29b700a4: OK
+    MD5 digest: OK

@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "picker_cmake": {
+    "source": "ryoku/shell/ryogami/picker/CMakeLists.txt",
+    "git_blob": "de6da4f331237061076d4cd00f45a0a71ad06059",
+    "git_mode": "100644",
+    "sha256": "c46b6029818628f9591583c6ab22b251df068699fd9964157a704a772c140243",
+    "bytes": 4750
+  },
+  "embedded_fonts": [
+    {
+      "source": "ryoku/shell/ryogami/picker/qml/theme/fonts/RobotoCondensed-Bold-UI.ttf",
+      "git_blob": "82d39ffe912bc5840809f2371dbbc712235ba34d",
+      "git_mode": "100644",
+      "sha256": "c73d04654e7c94a73d24ae8b3029ba0cb1878faa2773020ec43c3db53d3368bd",
+      "bytes": 440060,
+      "license_source": "ryoku/shell/ryogami/picker/qml/theme/fonts/RobotoCondensed-Bold-UI.LICENSE-Apache-2.0.txt"
+    },
+    {
+      "source": "ryoku/shell/ryogami/picker/qml/theme/fonts/SymbolsNerdFont-Regular.ttf",
+      "git_blob": "38c24fbbac296e834655a2888017d027684ff6d8",
+      "git_mode": "100644",
+      "sha256": "71db104aa66567d0efe0b98758f9dfc1895573a453fe85fb53d1c38544a55106",
+      "bytes": 2440316,
+      "license_source": "ryoku/shell/ryogami/picker/qml/theme/fonts/SymbolsNerdFont-Regular.LICENSE-MIT.txt"
+    }
+  ],
+  "license_copies": [
+    {
+      "source": "ryoku/shell/ryogami/picker/LICENSE",
+      "git_blob": "f288702d2fa16d3cdf0035b15a9fcbc552cd88e7",
+      "git_mode": "100644",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "bytes": 35149,
+      "package_copy": "packaging/licenses/ryoku-v1.0/ryogami-picker-LICENSE",
+      "installed_basename": "ryogami-picker-LICENSE"
+    },
+    {
+      "source": "ryoku/shell/ryogami/picker/NOTICE",
+      "git_blob": "4d6463235a9e9d9f3c865e405d40228edb4df45a",
+      "git_mode": "100644",
+      "sha256": "a234fac62d021fc110bc801f618dfeecdcb91b287908711b7cb3c0bb10758553",
+      "bytes": 1320,
+      "package_copy": "packaging/licenses/ryoku-v1.0/ryogami-picker-NOTICE",
+      "installed_basename": "ryogami-picker-NOTICE"
+    },
+    {
+      "source": "ryoku/shell/ryogami/picker/qml/theme/fonts/RobotoCondensed-Bold-UI.LICENSE-Apache-2.0.txt",
+      "git_blob": "a6e9d0b35bb45b1b354fa1d1a59bf1033cebc375",
+      "git_mode": "100644",
+      "sha256": "1f83bfbb6ab612d244b9619bcf615e54c2e107fc78a05eb6e16bc1ce41fd2f8f",
+      "bytes": 10281,
+      "package_copy": "packaging/licenses/ryoku-v1.0/ryogami-picker-RobotoCondensed-LICENSE-Apache-2.0.txt",
+      "installed_basename": "ryogami-picker-RobotoCondensed-LICENSE-Apache-2.0.txt"
+    },
+    {
+      "source": "ryoku/shell/ryogami/picker/qml/theme/fonts/SymbolsNerdFont-Regular.LICENSE-MIT.txt",
+      "git_blob": "dbe0ea765e62043cb1cf4ada09eeb90cf1df81cf",
+      "git_mode": "100644",
+      "sha256": "63ebe72593af90e2c8978c51a4d74fc9a0c3eaaffc06dd33b1ab480ee0152ad7",
+      "bytes": 1050,
+      "package_copy": "packaging/licenses/ryoku-v1.0/ryogami-picker-SymbolsNerdFont-LICENSE-MIT.txt",
+      "installed_basename": "ryogami-picker-SymbolsNerdFont-LICENSE-MIT.txt"
+    }
+  ],
+  "scope": "Exact pinned Source3 inputs and distinct RPM license copies; native built RPM/module content verification remains pending"
+}

@@ -1,0 +1,5585 @@
+[
+  {
+    "arch": "x86_64",
+    "checksum": "8511333ecb0186c813c32bdb90eeecba7d780321a0b30fac320fb500b9f224bf2fc30bed6094d2efd1fa4c784e4d1da4dd53e381af67b28f0f577be4cef71559",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/ImageMagick-7.1.2.33-1.1.x86_64.rpm"
+    },
+    "name": "ImageMagick",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ImageMagick",
+        "rel": "1.1",
+        "ver": "7.1.2.33"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ImageMagick(x86-64)",
+        "rel": "1.1",
+        "ver": "7.1.2.33"
+      }
+    ],
+    "requires": [
+      {
+        "name": "libMagickCore-7.Q16HDRI.so.10()(64bit)"
+      },
+      {
+        "name": "libMagickWand-7.Q16HDRI.so.10()(64bit)"
+      },
+      {
+        "name": "libMagickWand-7.Q16HDRI.so.10(VERS_10.0)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.34)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "7.1.2.33"
+    }
+  },
+  {
+    "arch": "noarch",
+    "checksum": "1ddb971ca74c087ab18bc5e05ac61768d9ee0a226a1e36ee6a195f54ef4cd1157a4e73d6ce3c8d79241f5f9f31ba66befcb3cdbbbb12e490acf228385fcf9bc0",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "noarch/ImageMagick-config-7-SUSE-7.1.2.33-1.1.noarch.rpm"
+    },
+    "name": "ImageMagick-config-7-SUSE",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ImageMagick-config-7-SUSE",
+        "rel": "1.1",
+        "ver": "7.1.2.33"
+      },
+      {
+        "name": "imagick-config-7"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "7.1.2.33"
+    }
+  },
+  {
+    "arch": "noarch",
+    "checksum": "542b21bccdede608f685f86033b68fddd0ac3efd3b60ddd62bb9be599820af00729c596927f7cd9ca265350e47b34f556ee6e69f6022aa78aac06a4923612e29",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "noarch/cli11-devel-2.7.2-1.1.noarch.rpm"
+    },
+    "name": "cli11-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cli11-devel",
+        "rel": "1.1",
+        "ver": "2.7.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(CLI11)",
+        "ver": "2.7.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(CLI11)",
+        "ver": "2.7.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "2.7.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "e5e5f9c0cf77f07321064a060f7535a773fc44136f33cb0e5a3534f1b268f2417d5a44bf82b0a65684a7245f3a70d9016ef480d85d61299f195c5d8b716ffacf",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/cpptrace-devel-1.0.4-1.4.x86_64.rpm"
+    },
+    "name": "cpptrace-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(cpptrace)",
+        "ver": "1.0.4"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cpptrace-devel",
+        "rel": "1.4",
+        "ver": "1.0.4"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cpptrace-devel(x86-64)",
+        "rel": "1.4",
+        "ver": "1.0.4"
+      }
+    ],
+    "requires": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libcpptrace1",
+        "ver": "1.0.4"
+      },
+      {
+        "name": "pkgconfig(libdwarf)"
+      },
+      {
+        "name": "pkgconfig(libunwind)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.4",
+      "ver": "1.0.4"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "3b6a527aa5f5081a16ded76b1cd5781a3f83e52b910ad3523e6fc08efcb85755336258e964436da568413500866136ec06e96fd87084f855065da9dc3a95979e",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/ffmpeg-9.0.2-4.1.x86_64.rpm"
+    },
+    "name": "ffmpeg",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg(x86-64)",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-tools",
+        "ver": "9.0.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "(libavcodec63 = 9.0.2-4.1 or ffmpeg-9-mini-libs = 9.0.2-4.1)"
+      },
+      {
+        "name": "(libavdevice63 = 9.0.2-4.1 or ffmpeg-9-mini-libs = 9.0.2-4.1)"
+      },
+      {
+        "name": "(libavfilter12 = 9.0.2-4.1 or ffmpeg-9-mini-libs = 9.0.2-4.1)"
+      },
+      {
+        "name": "(libavformat63 = 9.0.2-4.1 or ffmpeg-9-mini-libs = 9.0.2-4.1)"
+      },
+      {
+        "name": "(libavutil61 = 9.0.2-4.1 or ffmpeg-9-mini-libs = 9.0.2-4.1)"
+      },
+      {
+        "name": "(libswresample7 = 9.0.2-4.1 or ffmpeg-9-mini-libs = 9.0.2-4.1)"
+      },
+      {
+        "name": "(libswscale10 = 9.0.2-4.1 or ffmpeg-9-mini-libs = 9.0.2-4.1)"
+      },
+      {
+        "name": "libSDL2-2.0.so.0()(64bit)"
+      },
+      {
+        "name": "libSDL2-2.0.so.0(SUSE_2.0.6)(64bit)"
+      },
+      {
+        "name": "libSDL2-2.0.so.0(SUSE_2.0.8)(64bit)"
+      },
+      {
+        "name": "libavcodec.so.63()(64bit)"
+      },
+      {
+        "name": "libavcodec.so.63(LIBAVCODEC_63)(64bit)"
+      },
+      {
+        "name": "libavdevice.so.63()(64bit)"
+      },
+      {
+        "name": "libavdevice.so.63(LIBAVDEVICE_63)(64bit)"
+      },
+      {
+        "name": "libavfilter.so.12()(64bit)"
+      },
+      {
+        "name": "libavfilter.so.12(LIBAVFILTER_12)(64bit)"
+      },
+      {
+        "name": "libavformat.so.63()(64bit)"
+      },
+      {
+        "name": "libavformat.so.63(LIBAVFORMAT_63)(64bit)"
+      },
+      {
+        "name": "libavutil.so.61()(64bit)"
+      },
+      {
+        "name": "libavutil.so.61(LIBAVUTIL_61)(64bit)"
+      },
+      {
+        "name": "libavutil.so.61(LIBAVUTIL_61_VK)(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1()(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1(GCC_3.4)(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.29)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.35)(64bit)"
+      },
+      {
+        "name": "libplacebo.so.360()(64bit)"
+      },
+      {
+        "name": "libswresample.so.7()(64bit)"
+      },
+      {
+        "name": "libswresample.so.7(LIBSWRESAMPLE_7)(64bit)"
+      },
+      {
+        "name": "libswscale.so.10()(64bit)"
+      },
+      {
+        "name": "libswscale.so.10(LIBSWSCALE_10)(64bit)"
+      },
+      {
+        "name": "libz.so.1()(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.38)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "4.1",
+      "ver": "9.0.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "474855ea9a0cc4dfdfa7ff8f3956094389b02b1e54f8f1fc28adcea5f4d35de2b73ce3ef93c2024e8b945395db7a2754fd6f9ceaf727a138cc00b57ea68322c1",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/ffmpeg-9-libavcodec-devel-9.0.2-4.1.x86_64.rpm"
+    },
+    "name": "ffmpeg-9-libavcodec-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-9-libavcodec-devel",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-9-libavcodec-devel(x86-64)",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavcodec-devel",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libavcodec)",
+        "ver": "63.1.102"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-9-libavutil-devel",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavcodec63",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(libavutil)",
+        "ver": "61.1.102"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(libswresample)",
+        "ver": "7.1.102"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "4.1",
+      "ver": "9.0.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "35826f5a8984359f8b3a0b0a689f0582eb5c47eb38a392fdfa78d9bcf39f0885156ab9e89004879b64184ce4c5c8d98ad7cc9aefda8dd8132328cb01743db395",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/ffmpeg-9-libavformat-devel-9.0.2-4.1.x86_64.rpm"
+    },
+    "name": "ffmpeg-9-libavformat-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-9-libavformat-devel",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-9-libavformat-devel(x86-64)",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavformat-devel",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libavformat)",
+        "ver": "63.1.102"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-9-libavcodec-devel",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-9-libavutil-devel",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-9-libswresample-devel",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavformat63",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(libavcodec)",
+        "ver": "63.1.102"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(libavutil)",
+        "ver": "61.1.102"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(libswresample)",
+        "ver": "7.1.102"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "4.1",
+      "ver": "9.0.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "c709495955c3f0ef80b9a086613b33990d10ceac00995a51b12ee47f2779ecc609e785b5eb11a535cf1b061bc0c560fd1d4587e1fdf576138aae78db8cd482f3",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/ffmpeg-9-libavutil-devel-9.0.2-4.1.x86_64.rpm"
+    },
+    "name": "ffmpeg-9-libavutil-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-9-libavutil-devel",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-9-libavutil-devel(x86-64)",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavutil-devel",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libavutil)",
+        "ver": "61.1.102"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavutil61",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "4.1",
+      "ver": "9.0.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "9fc72d408a4d8bfe1e2a991d9ca2d10c39cd5e77a050ee0793d5cc3f39c5aef9916b2a085d1ca5817b9a85913ca4ecb8e3092b8c0ac642ad580544b34068ba94",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/ffmpeg-9-libswresample-devel-9.0.2-4.1.x86_64.rpm"
+    },
+    "name": "ffmpeg-9-libswresample-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-9-libswresample-devel",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-9-libswresample-devel(x86-64)",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libswresample-devel",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libswresample)",
+        "ver": "7.1.102"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-9-libavutil-devel",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libswresample7",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(libavutil)",
+        "ver": "61.1.102"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "4.1",
+      "ver": "9.0.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "e26b7fb79f2993605a4b4693baffa31e4136a2c13d56fea3ca099a4139b5a22a96118609bb229098b53e71587318973c0d760af91a11c4c7916e1ef030971c8c",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/ffmpeg-9-libswscale-devel-9.0.2-4.1.x86_64.rpm"
+    },
+    "name": "ffmpeg-9-libswscale-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-9-libswscale-devel",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-9-libswscale-devel(x86-64)",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libswscale-devel",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libswscale)",
+        "ver": "10.1.102"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "ffmpeg-9-libavutil-devel",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libswscale10",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(libavutil)",
+        "ver": "61.1.102"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "4.1",
+      "ver": "9.0.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "6d0fd008c33ea2037f5a3bf44205ba889ae8bc4ef8fbbe86e5542d13d302187705b9ac8cafb2bfd83a1cff1159d322cefa5299b21e17096cf7ad4912133b83ef",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/jemalloc-devel-5.4.0-1.1.x86_64.rpm"
+    },
+    "name": "jemalloc-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "jemalloc-devel",
+        "rel": "1.1",
+        "ver": "5.4.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "jemalloc-devel(x86-64)",
+        "rel": "1.1",
+        "ver": "5.4.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(jemalloc)",
+        "ver": "5.4.0_0"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libjemalloc2",
+        "ver": "5.4.0"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "5.4.0"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "ded835090944a4317e20199cb278619fc447101ed1f3ebb9d1dbb97e5d1f09851f7bb1a82621509499b7f2070629156239fe463f73b90f34556530f1efda183b",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libMagickCore-7_Q16HDRI10-7.1.2.33-1.1.x86_64.rpm"
+    },
+    "name": "libMagickCore-7_Q16HDRI10",
+    "provides": [
+      {
+        "name": "libMagickCore-7.Q16HDRI.so.10()(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libMagickCore-7_Q16HDRI10",
+        "rel": "1.1",
+        "ver": "7.1.2.33"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libMagickCore-7_Q16HDRI10(x86-64)",
+        "rel": "1.1",
+        "ver": "7.1.2.33"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "imagick-config-7"
+      },
+      {
+        "name": "libOpenEXR-3_4.so.33()(64bit)"
+      },
+      {
+        "name": "libOpenEXRCore-3_4.so.33()(64bit)"
+      },
+      {
+        "name": "libX11.so.6()(64bit)"
+      },
+      {
+        "name": "libXext.so.6()(64bit)"
+      },
+      {
+        "name": "libbz2.so.1()(64bit)"
+      },
+      {
+        "name": "libcairo.so.2()(64bit)"
+      },
+      {
+        "name": "libfftw3.so.3()(64bit)"
+      },
+      {
+        "name": "libfontconfig.so.1()(64bit)"
+      },
+      {
+        "name": "libfreetype.so.6()(64bit)"
+      },
+      {
+        "name": "libglib-2.0.so.0()(64bit)"
+      },
+      {
+        "name": "libgobject-2.0.so.0()(64bit)"
+      },
+      {
+        "name": "libheif.so.1()(64bit)"
+      },
+      {
+        "name": "libjbig.so.2()(64bit)"
+      },
+      {
+        "name": "libjpeg.so.8()(64bit)"
+      },
+      {
+        "name": "libjpeg.so.8(LIBJPEG_8.0)(64bit)"
+      },
+      {
+        "name": "libjxl.so.0.12()(64bit)"
+      },
+      {
+        "name": "libjxl.so.0.12(JXL_0)(64bit)"
+      },
+      {
+        "name": "libjxl_threads.so.0.12()(64bit)"
+      },
+      {
+        "name": "libjxl_threads.so.0.12(JXL_0)(64bit)"
+      },
+      {
+        "name": "liblcms2.so.2()(64bit)"
+      },
+      {
+        "name": "liblqr-1.so.0()(64bit)"
+      },
+      {
+        "name": "libltdl.so.7()(64bit)"
+      },
+      {
+        "name": "liblzma.so.5()(64bit)"
+      },
+      {
+        "name": "liblzma.so.5(XZ_5.0)(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.29)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.35)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.38)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.43)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.44)(64bit)"
+      },
+      {
+        "name": "libpango-1.0.so.0()(64bit)"
+      },
+      {
+        "name": "libpangocairo-1.0.so.0()(64bit)"
+      },
+      {
+        "name": "libpng16.so.16()(64bit)"
+      },
+      {
+        "name": "libpng16.so.16(PNG16_0)(64bit)"
+      },
+      {
+        "name": "libraw_r.so.25()(64bit)"
+      },
+      {
+        "name": "librsvg-2.so.2()(64bit)"
+      },
+      {
+        "name": "libtiff.so.6()(64bit)"
+      },
+      {
+        "name": "libtiff.so.6(LIBTIFF_4.0)(64bit)"
+      },
+      {
+        "name": "libtiff.so.6(LIBTIFF_4.1)(64bit)"
+      },
+      {
+        "name": "libtiff.so.6(LIBTIFF_4.2)(64bit)"
+      },
+      {
+        "name": "libwebp.so.7()(64bit)"
+      },
+      {
+        "name": "libwebpdemux.so.2()(64bit)"
+      },
+      {
+        "name": "libwebpmux.so.3()(64bit)"
+      },
+      {
+        "name": "libxml2.so.16()(64bit)"
+      },
+      {
+        "name": "libz.so.1()(64bit)"
+      },
+      {
+        "name": "libz.so.1(ZLIB_1.2.0)(64bit)"
+      },
+      {
+        "name": "libz.so.1(ZLIB_1.2.3.3)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.38)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "7.1.2.33"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "c2405b976833e2f36457e806a2b095dfae01c873961df96ace88b8462b24699f21a718e05f36c0dc07b6f15283673d76f4c98fb3e09aa2ac3fde9f464d9e5f54",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libMagickWand-7_Q16HDRI10-7.1.2.33-1.1.x86_64.rpm"
+    },
+    "name": "libMagickWand-7_Q16HDRI10",
+    "provides": [
+      {
+        "name": "libMagickWand-7.Q16HDRI.so.10()(64bit)"
+      },
+      {
+        "name": "libMagickWand-7.Q16HDRI.so.10(VERS_10.0)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libMagickWand-7_Q16HDRI10",
+        "rel": "1.1",
+        "ver": "7.1.2.33"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libMagickWand-7_Q16HDRI10(x86-64)",
+        "rel": "1.1",
+        "ver": "7.1.2.33"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libMagickCore-7.Q16HDRI.so.10()(64bit)"
+      },
+      {
+        "name": "libX11.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.38)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.38)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "7.1.2.33"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "c4bf42974f6639e5c48a3b607cdb6f406fa454606047968d7c4a6b817a1e2c62ecf697708f810c746ee4676fd04a0636156b733bcfb0ce163348e2b0622f0177",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libQt6Quick3DAssetImport6-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "libQt6Quick3DAssetImport6",
+    "provides": [
+      {
+        "name": "libQt6Quick3DAssetImport.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DAssetImport.so.6(NonQt)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DAssetImport.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DAssetImport.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3DAssetImport6",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3DAssetImport6(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.14)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "fc36575949d403f95c389fe26ccb005da4e8bf53e0e6f3ae326ed79857222671c4059a0444f4364e1bce8410099eeea601956399d9d1a41a698e45259a9a1577",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libQt6Quick3DAssetUtils6-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "libQt6Quick3DAssetUtils6",
+    "provides": [
+      {
+        "name": "libQt6Quick3DAssetUtils.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DAssetUtils.so.6(NonQt)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DAssetUtils.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DAssetUtils.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3DAssetUtils6",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3DAssetUtils6(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DAssetImport.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DAssetImport.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DRuntimeRender.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DRuntimeRender.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DUtils.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DUtils.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DUtils.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6QuickTimeline.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickTimeline.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.14)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "58b18ab7d46360aaea91ff5e9814da466be203d6f07346777066371d631ea8a9668fc6bde1a9aa992665d469c449e92bfe61e29afd9c9af90808a47afb2d2265",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libQt6Quick3DGlslParser6-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "libQt6Quick3DGlslParser6",
+    "provides": [
+      {
+        "name": "libQt6Quick3DGlslParser.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DGlslParser.so.6(NonQt)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DGlslParser.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DGlslParser.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3DGlslParser6",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3DGlslParser6(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.18)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.20)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.29)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.30)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.32)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.14)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "679949a3ee2041f77c3fe78ed282c473671d8ecd1a998fd22ef876ff514bf34f6986ec02c57d09e424051b755e26954fc19558456fd81f0ede16049e0307487d",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libQt6Quick3DIblBaker6-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "libQt6Quick3DIblBaker6",
+    "provides": [
+      {
+        "name": "libQt6Quick3DIblBaker.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DIblBaker.so.6(NonQt)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DIblBaker.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DIblBaker.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3DIblBaker6",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3DIblBaker6(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DRuntimeRender.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DRuntimeRender.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DUtils.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DUtils.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.29)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.32)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "9c1f5bc2133024b9e000a6db6f251a5596825db2205a1650ba250e63d4a8ea169556c09f8663ee06cf4b2ca92e76fef6d36c10224fc00c3a8dc51a398bb3ba71",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libQt6Quick3DParticles6-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "libQt6Quick3DParticles6",
+    "provides": [
+      {
+        "name": "libQt6Quick3DParticles.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DParticles.so.6(NonQt)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DParticles.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DParticles.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3DParticles6",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3DParticles6(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DRuntimeRender.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DRuntimeRender.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DUtils.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DUtils.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DUtils.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.27)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.29)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.38)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.43)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.14)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "5552560e7d876c3d0ac177b76755a2ef4e45f6c127946093652b39adf2e1698921729b60a03aa5a4e8c11ea2af20f3d0637e99070c6945106e58fddfb88ec022",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libQt6QuickTimeline6-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "libQt6QuickTimeline6",
+    "provides": [
+      {
+        "name": "libQt6QuickTimeline.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickTimeline.so.6(NonQt)(64bit)"
+      },
+      {
+        "name": "libQt6QuickTimeline.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickTimeline.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6QuickTimeline6",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6QuickTimeline6(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "libQt6QuickTimelineBlendTrees.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6QuickTimelineBlendTrees.so.6(NonQt)(64bit)"
+      },
+      {
+        "name": "libQt6QuickTimelineBlendTrees.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6QuickTimelineBlendTrees.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.14)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "98ace4270c0a63979e4c2f591d925b169f79bec14c6cb3c7c4bc70f623c5e859e6f4929912849771d6403f8ee7051fbcb5c2667c62452d12469696fcbdd449e0",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libassimp6-6.0.5-4.3.x86_64.rpm"
+    },
+    "name": "libassimp6",
+    "provides": [
+      {
+        "name": "libassimp.so.6()(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libassimp6",
+        "rel": "4.3",
+        "ver": "6.0.5"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libassimp6(x86-64)",
+        "rel": "4.3",
+        "ver": "6.0.5"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "ld-linux-x86-64.so.2()(64bit)"
+      },
+      {
+        "name": "ld-linux-x86-64.so.2(GLIBC_2.3)(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1()(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1(GCC_3.0)(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1(GCC_3.3.1)(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.27)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.29)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.38)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.43)(64bit)"
+      },
+      {
+        "name": "libminizip.so.1()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.13)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.15)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.5)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.8)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.11)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.14)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.15)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.18)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.19)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.20)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.21)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.26)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.29)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.32)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.9)(64bit)"
+      },
+      {
+        "name": "libz.so.1()(64bit)"
+      },
+      {
+        "name": "libz.so.1(ZLIB_1.2.0)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.38)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "4.3",
+      "ver": "6.0.5"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "e5569089e5cd0c296767b821e059a395e81364d0de87a2563174fbd7d5df23f6b5711d2ea2284ee6226ac447bf963fdf5e9822f7f0d0b914e86004b10b428f00",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libavcodec63-9.0.2-4.1.x86_64.rpm"
+    },
+    "name": "libavcodec63",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavcodec",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "name": "libavcodec.so.63()(64bit)"
+      },
+      {
+        "name": "libavcodec.so.63(LIBAVCODEC_63)(64bit)"
+      },
+      {
+        "name": "libavcodec.so.63(LIBAVCODEC_63_VDPAU)(64bit)"
+      },
+      {
+        "name": "libavcodec.so.63(LIBAVCODEC_PRIVATE)(64bit)"
+      },
+      {
+        "name": "libavcodec.so.63(LIBAVCODEC_UNTRACKED)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavcodec63",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavcodec63(x86-64)",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libSvtAv1Enc.so.4()(64bit)"
+      },
+      {
+        "name": "libSvtAv1Enc.so.4(SVT_4.2.0)(64bit)"
+      },
+      {
+        "name": "libaom.so.3()(64bit)"
+      },
+      {
+        "name": "libavutil.so.61()(64bit)"
+      },
+      {
+        "name": "libavutil.so.61(LIBAVUTIL_61)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavutil61",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "name": "libcodec2.so.1.2()(64bit)"
+      },
+      {
+        "name": "libdav1d.so.7()(64bit)"
+      },
+      {
+        "name": "libgsm.so.1()(64bit)"
+      },
+      {
+        "name": "libjxl.so.0.12()(64bit)"
+      },
+      {
+        "name": "libjxl.so.0.12(JXL_0)(64bit)"
+      },
+      {
+        "name": "libjxl_threads.so.0.12()(64bit)"
+      },
+      {
+        "name": "libjxl_threads.so.0.12(JXL_0)(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.27)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.29)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.35)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.43)(64bit)"
+      },
+      {
+        "name": "libmp3lame.so.0()(64bit)"
+      },
+      {
+        "name": "liboapv.so.1()(64bit)"
+      },
+      {
+        "name": "libopencore-amrnb.so.0()(64bit)"
+      },
+      {
+        "name": "libopencore-amrwb.so.0()(64bit)"
+      },
+      {
+        "name": "libopenh264.so.8()(64bit)"
+      },
+      {
+        "name": "libopenjp2.so.7()(64bit)"
+      },
+      {
+        "name": "libopus.so.0()(64bit)"
+      },
+      {
+        "name": "librav1e.so.0.8()(64bit)"
+      },
+      {
+        "name": "libspeex.so.1()(64bit)"
+      },
+      {
+        "name": "libswresample.so.7()(64bit)"
+      },
+      {
+        "name": "libswresample.so.7(LIBSWRESAMPLE_7)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libswresample7",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "name": "libtheoradec.so.2()(64bit)"
+      },
+      {
+        "name": "libtheoradec.so.2(libtheoradec_1.0)(64bit)"
+      },
+      {
+        "name": "libtheoraenc.so.2()(64bit)"
+      },
+      {
+        "name": "libtheoraenc.so.2(libtheoraenc_1.0)(64bit)"
+      },
+      {
+        "name": "libtwolame.so.0()(64bit)"
+      },
+      {
+        "name": "libva.so.2()(64bit)"
+      },
+      {
+        "name": "libvo-amrwbenc.so.0()(64bit)"
+      },
+      {
+        "name": "libvorbis.so.0()(64bit)"
+      },
+      {
+        "name": "libvorbisenc.so.2()(64bit)"
+      },
+      {
+        "name": "libvpl.so.2()(64bit)"
+      },
+      {
+        "name": "libvpl.so.2(LIBVPL_2.0)(64bit)"
+      },
+      {
+        "name": "libvpx.so.12()(64bit)"
+      },
+      {
+        "name": "libwebp.so.7()(64bit)"
+      },
+      {
+        "name": "libwebpmux.so.3()(64bit)"
+      },
+      {
+        "name": "libxvidcore.so.4()(64bit)"
+      },
+      {
+        "name": "libz.so.1()(64bit)"
+      },
+      {
+        "name": "libz.so.1(ZLIB_1.2.0)(64bit)"
+      },
+      {
+        "name": "libzvbi.so.0()(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.34)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "4.1",
+      "ver": "9.0.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "56e3d21da3acd50dfe1de5ee7fc5ac920024fff10ab2addec731fa7295e8e18a13cea6b10e241ffa27c8c793d5fde97f34f9d16c50ad3c0d2a40f616f362b6b1",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libavdevice63-9.0.2-4.1.x86_64.rpm"
+    },
+    "name": "libavdevice63",
+    "provides": [
+      {
+        "name": "libavdevice.so.63()(64bit)"
+      },
+      {
+        "name": "libavdevice.so.63(LIBAVDEVICE_63)(64bit)"
+      },
+      {
+        "name": "libavdevice.so.63(LIBAVDEVICE_PRIVATE)(64bit)"
+      },
+      {
+        "name": "libavdevice.so.63(LIBAVDEVICE_UNTRACKED)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavdevice63",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavdevice63(x86-64)",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libasound.so.2()(64bit)"
+      },
+      {
+        "name": "libasound.so.2(ALSA_0.9)(64bit)"
+      },
+      {
+        "name": "libasound.so.2(ALSA_0.9.0rc4)(64bit)"
+      },
+      {
+        "name": "libavc1394.so.0()(64bit)"
+      },
+      {
+        "name": "libavcodec.so.63()(64bit)"
+      },
+      {
+        "name": "libavcodec.so.63(LIBAVCODEC_63)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavcodec63",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "name": "libavfilter.so.12()(64bit)"
+      },
+      {
+        "name": "libavfilter.so.12(LIBAVFILTER_12)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavfilter12",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "name": "libavformat.so.63()(64bit)"
+      },
+      {
+        "name": "libavformat.so.63(LIBAVFORMAT_63)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavformat63",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "name": "libavutil.so.61()(64bit)"
+      },
+      {
+        "name": "libavutil.so.61(LIBAVUTIL_61)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavutil61",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "name": "libcdio_cdda.so.2()(64bit)"
+      },
+      {
+        "name": "libcdio_cdda.so.2(CDIO_CDDA_2)(64bit)"
+      },
+      {
+        "name": "libcdio_paranoia.so.2()(64bit)"
+      },
+      {
+        "name": "libcdio_paranoia.so.2(CDIO_PARANOIA_2)(64bit)"
+      },
+      {
+        "name": "libdc1394.so.26()(64bit)"
+      },
+      {
+        "name": "libdrm.so.2()(64bit)"
+      },
+      {
+        "name": "libiec61883.so.0()(64bit)"
+      },
+      {
+        "name": "libjack.so.0()(64bit)"
+      },
+      {
+        "name": "libpulse.so.0()(64bit)"
+      },
+      {
+        "name": "libpulse.so.0(PULSE_0)(64bit)"
+      },
+      {
+        "name": "libraw1394.so.11()(64bit)"
+      },
+      {
+        "name": "librom1394.so.0()(64bit)"
+      },
+      {
+        "name": "libxcb-shape.so.0()(64bit)"
+      },
+      {
+        "name": "libxcb-shm.so.0()(64bit)"
+      },
+      {
+        "name": "libxcb-xfixes.so.0()(64bit)"
+      },
+      {
+        "name": "libxcb.so.1()(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.34)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "4.1",
+      "ver": "9.0.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "8ba0a5c718bfb12ffdc324269febe48aaddd407816164f1b12b100ad2bb4bdc03db190e1346c4c8d483eed26065e49c25807df14179bd3aa900565e8011632d5",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libavfilter12-9.0.2-4.1.x86_64.rpm"
+    },
+    "name": "libavfilter12",
+    "provides": [
+      {
+        "name": "libavfilter.so.12()(64bit)"
+      },
+      {
+        "name": "libavfilter.so.12(LIBAVFILTER_12)(64bit)"
+      },
+      {
+        "name": "libavfilter.so.12(LIBAVFILTER_PRIVATE)(64bit)"
+      },
+      {
+        "name": "libavfilter.so.12(LIBAVFILTER_UNTRACKED)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavfilter12",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavfilter12(x86-64)",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libass.so.9()(64bit)"
+      },
+      {
+        "name": "libavcodec.so.63()(64bit)"
+      },
+      {
+        "name": "libavcodec.so.63(LIBAVCODEC_63)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavcodec63",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "name": "libavformat.so.63()(64bit)"
+      },
+      {
+        "name": "libavformat.so.63(LIBAVFORMAT_63)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavformat63",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "name": "libavutil.so.61()(64bit)"
+      },
+      {
+        "name": "libavutil.so.61(LIBAVUTIL_61)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavutil61",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "name": "libbs2b.so.0()(64bit)"
+      },
+      {
+        "name": "libfontconfig.so.1()(64bit)"
+      },
+      {
+        "name": "libfreetype.so.6()(64bit)"
+      },
+      {
+        "name": "libfribidi.so.0()(64bit)"
+      },
+      {
+        "name": "libharfbuzz.so.0()(64bit)"
+      },
+      {
+        "name": "liblilv-0.so.0()(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.27)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.29)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.35)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.43)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.44)(64bit)"
+      },
+      {
+        "name": "libmysofa.so.1()(64bit)"
+      },
+      {
+        "name": "libplacebo.so.360()(64bit)"
+      },
+      {
+        "name": "librubberband.so.3()(64bit)"
+      },
+      {
+        "name": "libswresample.so.7()(64bit)"
+      },
+      {
+        "name": "libswresample.so.7(LIBSWRESAMPLE_7)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libswresample7",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "name": "libswscale.so.10()(64bit)"
+      },
+      {
+        "name": "libswscale.so.10(LIBSWSCALE_10)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libswscale10",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "name": "libva.so.2()(64bit)"
+      },
+      {
+        "name": "libvidstab.so.1.2()(64bit)"
+      },
+      {
+        "name": "libvmaf.so.3()(64bit)"
+      },
+      {
+        "name": "libvpl.so.2()(64bit)"
+      },
+      {
+        "name": "libvpl.so.2(LIBVPL_2.0)(64bit)"
+      },
+      {
+        "name": "libz.so.1()(64bit)"
+      },
+      {
+        "name": "libzimg.so.2()(64bit)"
+      },
+      {
+        "name": "libzmq.so.5()(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.34)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "4.1",
+      "ver": "9.0.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "07bbcef7c80d8ba5b76f70f840bde4e4852cabf29e8df845a35ed6d6156d46284ef5f1a8d2e84e0c7b4c0e5a1417500125d2a0858494736edbbfebc212a60b65",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libavformat63-9.0.2-4.1.x86_64.rpm"
+    },
+    "name": "libavformat63",
+    "provides": [
+      {
+        "name": "libavformat.so.63()(64bit)"
+      },
+      {
+        "name": "libavformat.so.63(LIBAVFORMAT_63)(64bit)"
+      },
+      {
+        "name": "libavformat.so.63(LIBAVFORMAT_PRIVATE)(64bit)"
+      },
+      {
+        "name": "libavformat.so.63(LIBAVFORMAT_UNTRACKED)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavformat63",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavformat63(x86-64)",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libavcodec.so.63()(64bit)"
+      },
+      {
+        "name": "libavcodec.so.63(LIBAVCODEC_63)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavcodec63",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "name": "libavutil.so.61()(64bit)"
+      },
+      {
+        "name": "libavutil.so.61(LIBAVUTIL_61)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavutil61",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "name": "libbluray.so.4()(64bit)"
+      },
+      {
+        "name": "libbz2.so.1()(64bit)"
+      },
+      {
+        "name": "libcrypto.so.3()(64bit)"
+      },
+      {
+        "name": "libcrypto.so.3(OPENSSL_3.0.0)(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.35)(64bit)"
+      },
+      {
+        "name": "libopenmpt.so.0()(64bit)"
+      },
+      {
+        "name": "librist.so.4()(64bit)"
+      },
+      {
+        "name": "libsrt.so.1.5()(64bit)"
+      },
+      {
+        "name": "libssh.so.4()(64bit)"
+      },
+      {
+        "name": "libssh.so.4(LIBSSH_4_5_0)(64bit)"
+      },
+      {
+        "name": "libssl.so.3()(64bit)"
+      },
+      {
+        "name": "libssl.so.3(OPENSSL_3.0.0)(64bit)"
+      },
+      {
+        "name": "libxml2.so.16()(64bit)"
+      },
+      {
+        "name": "libz.so.1()(64bit)"
+      },
+      {
+        "name": "libz.so.1(ZLIB_1.2.0.2)(64bit)"
+      },
+      {
+        "name": "libzmq.so.5()(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.34)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "4.1",
+      "ver": "9.0.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "be7410d84b9b22dbe3049550834425f312da6904ef5deb7b4ace7aae818b39d62c0bd87cb29984efaee65ddc6e8951350a6544ff30466aa1fc14db20ea43debe",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libavutil61-9.0.2-4.1.x86_64.rpm"
+    },
+    "name": "libavutil61",
+    "provides": [
+      {
+        "name": "libavutil.so.61()(64bit)"
+      },
+      {
+        "name": "libavutil.so.61(LIBAVUTIL_61)(64bit)"
+      },
+      {
+        "name": "libavutil.so.61(LIBAVUTIL_61_VK)(64bit)"
+      },
+      {
+        "name": "libavutil.so.61(LIBAVUTIL_PRIVATE)(64bit)"
+      },
+      {
+        "name": "libavutil.so.61(LIBAVUTIL_UNTRACKED)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavutil61",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavutil61(x86-64)",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libX11.so.6()(64bit)"
+      },
+      {
+        "name": "libcrypto.so.3()(64bit)"
+      },
+      {
+        "name": "libcrypto.so.3(OPENSSL_3.0.0)(64bit)"
+      },
+      {
+        "name": "libdrm.so.2()(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.29)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.35)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.44)(64bit)"
+      },
+      {
+        "name": "libva-drm.so.2()(64bit)"
+      },
+      {
+        "name": "libva-x11.so.2()(64bit)"
+      },
+      {
+        "name": "libva.so.2()(64bit)"
+      },
+      {
+        "name": "libva.so.2(VA_API_0.33.0)(64bit)"
+      },
+      {
+        "name": "libvdpau.so.1()(64bit)"
+      },
+      {
+        "name": "libvpl.so.2()(64bit)"
+      },
+      {
+        "name": "libvpl.so.2(LIBVPL_2.0)(64bit)"
+      },
+      {
+        "name": "libz.so.1()(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.34)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "4.1",
+      "ver": "9.0.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "302f08b7db34000d102ddfbe93b748368c0fc3ed424c017e7d5b7c69acde47843a70dad737414b2e7adb896977a4c33e2be436f906595555efc09ade92eb4e41",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libcdio19-2.2.0-1.6.x86_64.rpm"
+    },
+    "name": "libcdio19",
+    "provides": [
+      {
+        "name": "libcdio.so.19()(64bit)"
+      },
+      {
+        "name": "libcdio.so.19(CDIO_19)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libcdio19",
+        "rel": "1.6",
+        "ver": "2.2.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libcdio19(x86-64)",
+        "rel": "1.6",
+        "ver": "2.2.0"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.38)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.6",
+      "ver": "2.2.0"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "75315644059f0c5f1d88f4caa921d8f9da92d9eacf21f475112332f4440687c147a82ce1bfcc17293364934b45b64eea107f002f7cbe57c445dfd459fa163267",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libcdio_cdda2-10.2+2.0.1-1.18.x86_64.rpm"
+    },
+    "name": "libcdio_cdda2",
+    "provides": [
+      {
+        "name": "libcdio_cdda.so.2()(64bit)"
+      },
+      {
+        "name": "libcdio_cdda.so.2(CDIO_CDDA_2)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libcdio_cdda2",
+        "rel": "1.18",
+        "ver": "10.2+2.0.1"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libcdio_cdda2(x86-64)",
+        "rel": "1.18",
+        "ver": "10.2+2.0.1"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libcdio.so.19()(64bit)"
+      },
+      {
+        "name": "libcdio.so.19(CDIO_19)(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.33)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.18",
+      "ver": "10.2+2.0.1"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "6cfacc6d627228f9446b3318846fa8ebecf2f77d5d5a67619f4c8b2065c4e49ecf5fac990c639fec8a806c7962fb9d50059b3c34665db1bd88e726b9187302b4",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libcdio_paranoia2-10.2+2.0.1-1.18.x86_64.rpm"
+    },
+    "name": "libcdio_paranoia2",
+    "provides": [
+      {
+        "name": "libcdio_paranoia.so.2()(64bit)"
+      },
+      {
+        "name": "libcdio_paranoia.so.2(CDIO_PARANOIA_2)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libcdio_paranoia2",
+        "rel": "1.18",
+        "ver": "10.2+2.0.1"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libcdio_paranoia2(x86-64)",
+        "rel": "1.18",
+        "ver": "10.2+2.0.1"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libcdio.so.19()(64bit)"
+      },
+      {
+        "name": "libcdio.so.19(CDIO_19)(64bit)"
+      },
+      {
+        "name": "libcdio_cdda.so.2()(64bit)"
+      },
+      {
+        "name": "libcdio_cdda.so.2(CDIO_CDDA_2)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.14)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.18",
+      "ver": "10.2+2.0.1"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "e99311108776b814f5a5953fa2b455e32b983d5913e939fd0d0d00878966c98601b3080119e7ad2a2482ca8670b154a8bfc23b4bcf460e3a9813306c84630f5d",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libcpptrace1-1.0.4-1.4.x86_64.rpm"
+    },
+    "name": "libcpptrace1",
+    "provides": [
+      {
+        "name": "libcpptrace.so.1()(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libcpptrace1",
+        "rel": "1.4",
+        "ver": "1.0.4"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libcpptrace1(x86-64)",
+        "rel": "1.4",
+        "ver": "1.0.4"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "ld-linux-x86-64.so.2()(64bit)"
+      },
+      {
+        "name": "ld-linux-x86-64.so.2(GLIBC_2.3)(64bit)"
+      },
+      {
+        "name": "libdwarf.so.2()(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1()(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1(GCC_3.0)(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1(GCC_3.3.1)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.13)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.15)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.5)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.7)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.11)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.14)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.15)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.18)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.20)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.21)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.29)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.31)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.32)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.5)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.9)(64bit)"
+      },
+      {
+        "name": "libunwind.so.8()(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.35)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.4",
+      "ver": "1.0.4"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "c63ceb71710eadc337de2c64efb66b883e0c38cbb2c9033230bd47391e81baf078dbb724dd874ddd66796f5a3a60b90fa15391ff99311935b2aa2690303f4e4d",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libdc1394-26-2.2.7-2.8.x86_64.rpm"
+    },
+    "name": "libdc1394-26",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libdc1394-26",
+        "rel": "2.8",
+        "ver": "2.2.7"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libdc1394-26(x86-64)",
+        "rel": "2.8",
+        "ver": "2.2.7"
+      },
+      {
+        "name": "libdc1394.so.26()(64bit)"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.29)(64bit)"
+      },
+      {
+        "name": "libraw1394.so.11()(64bit)"
+      },
+      {
+        "name": "libusb-1.0.so.0()(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.34)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "2.8",
+      "ver": "2.2.7"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "7f1e1d1e4b42670ec47c2847ec810fd056eb6303a88b8343b0c219c9b818c5d9760a54ae713c94627883eb0a1fbe287d59787573a9b755d66e28d56f1166097f",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libdwarf-devel-2.3.3-1.1.x86_64.rpm"
+    },
+    "name": "libdwarf-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libdwarf-devel",
+        "rel": "1.1",
+        "ver": "2.3.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libdwarf-devel(x86-64)",
+        "rel": "1.1",
+        "ver": "2.3.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libdwarf)",
+        "ver": "2.3.3"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libdwarf2",
+        "ver": "2.3.3"
+      },
+      {
+        "name": "libelf-devel"
+      },
+      {
+        "name": "pkgconfig(libzstd)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "2.3.3"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "29b8e5d9261bab408621c831bd7f6c6ec3f61aa8e84ed9e0387be08d8328311895a2f3615738c357aa2341db43fa30fe0ed2ff864af7a0c82c9a911aafa69ef5",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libdwarf2-2.3.3-1.1.x86_64.rpm"
+    },
+    "name": "libdwarf2",
+    "provides": [
+      {
+        "name": "libdwarf.so.2()(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libdwarf2",
+        "rel": "1.1",
+        "ver": "2.3.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libdwarf2(x86-64)",
+        "rel": "1.1",
+        "ver": "2.3.3"
+      },
+      {
+        "name": "libdwarfp.so.2()(64bit)"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libz.so.1()(64bit)"
+      },
+      {
+        "name": "libzstd.so.1()(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.38)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "2.3.3"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "0c5c67d9e5d63e550c694d685a1820f9af3afb9f00aa8944a6dfaf094db3efd3a5ce32272e822fcfe25e6fa1d2eb0dfec9872d53bf237ccecab97f6475a40f80",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libelf-devel-0.196-2.1.x86_64.rpm"
+    },
+    "name": "libelf-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libelf-devel",
+        "rel": "2.1",
+        "ver": "0.196"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libelf-devel(x86-64)",
+        "rel": "2.1",
+        "ver": "0.196"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libelf)",
+        "ver": "0.196"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "name": "glibc-devel"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libelf1",
+        "ver": "0.196"
+      },
+      {
+        "name": "pkgconfig(libzstd)"
+      },
+      {
+        "name": "pkgconfig(zlib)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "2.1",
+      "ver": "0.196"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "126d91d70d219d3feec2a999bc97bede346f5df140d5ac184b3a61cedcba3011ac1c33faeef231b692d589e0a05ec283f730d1e4fa5149d304c1573d41dea5a0",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libgbm-devel-26.2.4-1.1.x86_64.rpm"
+    },
+    "name": "libgbm-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libgbm-devel",
+        "rel": "1.1",
+        "ver": "26.2.4"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libgbm-devel(x86-64)",
+        "rel": "1.1",
+        "ver": "26.2.4"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(gbm)",
+        "ver": "26.2.4"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libgbm1",
+        "ver": "26.2.4"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "26.2.4"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "18f1f90e61ae8599fe5f121154fe44a863d851e92acccff0395a86df88420e14f064212f68e937b92df1c819bc3a10420251823dd6d6fdc0aa21e5c6e8c7807a",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libinput-devel-1.32-1.1.x86_64.rpm"
+    },
+    "name": "libinput-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libinput-devel",
+        "rel": "1.1",
+        "ver": "1.32"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libinput-devel(x86-64)",
+        "rel": "1.1",
+        "ver": "1.32"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libinput)",
+        "ver": "1.32.0"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libinput10",
+        "ver": "1.32"
+      },
+      {
+        "name": "pkgconfig(libudev)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "1.32"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "997cd6faaefcbc504aed21f422fba54f3c53f022ac4727b01f4a9600704256957f1af5473bad4b92637962647ebd2c8cd90384c5331592cb5f8ec6678cf799eb",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libjack0-1.9.22-5.5.x86_64.rpm"
+    },
+    "name": "libjack0",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libjack",
+        "ver": "1.9.22"
+      },
+      {
+        "name": "libjack.so.0()(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libjack0",
+        "rel": "5.5",
+        "ver": "1.9.22"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libjack0(x86-64)",
+        "rel": "5.5",
+        "ver": "1.9.22"
+      },
+      {
+        "name": "libjack2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libgcc_s.so.1()(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1(GCC_3.0)(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.15)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.11)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.15)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.21)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.32)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.9)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.38)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "5.5",
+      "ver": "1.9.22"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "c79a3bab27b5247b7b2f33769ecec3d2012fbd5da5761fa74cf40f5928e569da5dc5fdb1d111ed7ff848bc340e9b7cfa486949ce001576329e37528f99cc97fe",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libjemalloc2-5.4.0-1.1.x86_64.rpm"
+    },
+    "name": "libjemalloc2",
+    "provides": [
+      {
+        "name": "libjemalloc.so.2()(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libjemalloc2",
+        "rel": "1.1",
+        "ver": "5.4.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libjemalloc2(x86-64)",
+        "rel": "1.1",
+        "ver": "5.4.0"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libgcc_s.so.1()(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1(GCC_3.0)(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1(GCC_3.3)(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.29)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.34)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "5.4.0"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "0ed63de713d8f3174decb6215e081bddc814b50248599de0dad3c87ab9d1622b90f30f735a691264732fa3913fb3b22bc91b25e8b4cecfb6eb0e5baad40af12f",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/liblqr-1-0-0.4.3-1.1.x86_64.rpm"
+    },
+    "name": "liblqr-1-0",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "liblqr-1-0",
+        "rel": "1.1",
+        "ver": "0.4.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "liblqr-1-0(x86-64)",
+        "rel": "1.1",
+        "ver": "0.4.3"
+      },
+      {
+        "name": "liblqr-1.so.0()(64bit)"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libglib-2.0.so.0()(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.27)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.2.5)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "0.4.3"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "58067eeb5ccfcb245d0246557b9a0225556fcca9a8e60d768be08d90a226074d31f9aee9e99a4e97e3be3b0b7f9a079c608a25e1852bb13a2667a6a7ff9f4dc8",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libswresample7-9.0.2-4.1.x86_64.rpm"
+    },
+    "name": "libswresample7",
+    "provides": [
+      {
+        "name": "libswresample.so.7()(64bit)"
+      },
+      {
+        "name": "libswresample.so.7(LIBSWRESAMPLE_7)(64bit)"
+      },
+      {
+        "name": "libswresample.so.7(LIBSWRESAMPLE_PRIVATE)(64bit)"
+      },
+      {
+        "name": "libswresample.so.7(LIBSWRESAMPLE_UNTRACKED)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libswresample7",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libswresample7(x86-64)",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libavutil.so.61()(64bit)"
+      },
+      {
+        "name": "libavutil.so.61(LIBAVUTIL_61)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavutil61",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.29)(64bit)"
+      },
+      {
+        "name": "libsoxr.so.0()(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.14)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "4.1",
+      "ver": "9.0.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "58a7ea6bbade34469adbcd3fa4d97d3846b4527811d81ff0db635fe154fd23a6885c1b6006bfd5efe73d338b4e32abe3adb860f5af8ad8994282c78b873c2b26",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libswscale10-9.0.2-4.1.x86_64.rpm"
+    },
+    "name": "libswscale10",
+    "provides": [
+      {
+        "name": "libswscale.so.10()(64bit)"
+      },
+      {
+        "name": "libswscale.so.10(LIBSWSCALE_10)(64bit)"
+      },
+      {
+        "name": "libswscale.so.10(LIBSWSCALE_PRIVATE)(64bit)"
+      },
+      {
+        "name": "libswscale.so.10(LIBSWSCALE_UNTRACKED)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libswscale10",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libswscale10(x86-64)",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libavutil.so.61()(64bit)"
+      },
+      {
+        "name": "libavutil.so.61(LIBAVUTIL_61)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libavutil61",
+        "rel": "4.1",
+        "ver": "9.0.2"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.27)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.29)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.43)(64bit)"
+      },
+      {
+        "name": "libz.so.1()(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.34)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "4.1",
+      "ver": "9.0.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "e7984a2939459ea46c382e30a37dbb52cf54023fc973cf3b0c9cedbb62b5c99365e38bc6cca3cbadaa29fc0f731fddd2e0696e9ac399356f9b8c12c6ff9e25ad",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libunwind-coredump0-1.8.3-3.3.x86_64.rpm"
+    },
+    "name": "libunwind-coredump0",
+    "provides": [
+      {
+        "name": "libunwind-coredump.so.0()(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libunwind-coredump0",
+        "rel": "3.3",
+        "ver": "1.8.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libunwind-coredump0(x86-64)",
+        "rel": "3.3",
+        "ver": "1.8.3"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "liblzma.so.5()(64bit)"
+      },
+      {
+        "name": "liblzma.so.5(XZ_5.0)(64bit)"
+      },
+      {
+        "name": "libunwind-x86_64.so.8()(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.33)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "3.3",
+      "ver": "1.8.3"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "f6d89c5896b3aadf271962b3c889464cfa04f92b4915ff8989032aef899cf3bc1c8a08ecfb113ef45052311cc77670f6a4420cfe9b9b7880f9930cc256b25a7c",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libunwind-devel-1.8.3-3.3.x86_64.rpm"
+    },
+    "name": "libunwind-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libunwind-devel",
+        "rel": "3.3",
+        "ver": "1.8.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libunwind-devel(x86-64)",
+        "rel": "3.3",
+        "ver": "1.8.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libunwind)",
+        "ver": "1.8.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libunwind-coredump)",
+        "ver": "1.8.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libunwind-generic)",
+        "ver": "1.8.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libunwind-ptrace)",
+        "ver": "1.8.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libunwind-setjmp)",
+        "ver": "1.8.3"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libunwind-coredump0",
+        "rel": "3.3",
+        "ver": "1.8.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libunwind-ptrace0",
+        "rel": "3.3",
+        "ver": "1.8.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libunwind-setjmp0",
+        "rel": "3.3",
+        "ver": "1.8.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libunwind8",
+        "rel": "3.3",
+        "ver": "1.8.3"
+      },
+      {
+        "name": "pkgconfig(libunwind)"
+      },
+      {
+        "name": "pkgconfig(libunwind-generic)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "3.3",
+      "ver": "1.8.3"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "8f6b633412de845edd730c00ffa1cd2329aa33d2da3080b59c72cec2d4bb87513bb69fd62d84b0d0f8c3a7eb1f33142d247419fd1221cb3fca0b818d02c414dd",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libunwind-ptrace0-1.8.3-3.3.x86_64.rpm"
+    },
+    "name": "libunwind-ptrace0",
+    "provides": [
+      {
+        "name": "libunwind-ptrace.so.0()(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libunwind-ptrace0",
+        "rel": "3.3",
+        "ver": "1.8.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libunwind-ptrace0(x86-64)",
+        "rel": "3.3",
+        "ver": "1.8.3"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "liblzma.so.5()(64bit)"
+      },
+      {
+        "name": "liblzma.so.5(XZ_5.0)(64bit)"
+      },
+      {
+        "name": "libunwind-x86_64.so.8()(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.33)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "3.3",
+      "ver": "1.8.3"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "91ca838e5c32d6873bafbc91cad4a3f7b69a0256d06b3435d06cfeea16065ce761e1aab77ce4615e5ff7dcd675ca0a49ac75abcb4fcbfe843829b40ebc95a82f",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libunwind-setjmp0-1.8.3-3.3.x86_64.rpm"
+    },
+    "name": "libunwind-setjmp0",
+    "provides": [
+      {
+        "name": "libunwind-setjmp.so.0()(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libunwind-setjmp0",
+        "rel": "3.3",
+        "ver": "1.8.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libunwind-setjmp0(x86-64)",
+        "rel": "3.3",
+        "ver": "1.8.3"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/sbin/ldconfig",
+        "pre": "1"
+      },
+      {
+        "name": "/sbin/ldconfig"
+      },
+      {
+        "name": "libunwind-x86_64.so.8()(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "3.3",
+      "ver": "1.8.3"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "0d64d80e966fcd22edd97bec34d3ee6ad5058ed56f903e8f9b12b13d12eb85f9b07ff8a6c50724b7ee25394ef659c4d351c84cfa1d110e49438b8720944102b4",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libxkbcommon-x11-devel-1.13.2-1.3.x86_64.rpm"
+    },
+    "name": "libxkbcommon-x11-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libxkbcommon-x11-devel",
+        "rel": "1.3",
+        "ver": "1.13.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libxkbcommon-x11-devel(x86-64)",
+        "rel": "1.3",
+        "ver": "1.13.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(xkbcommon-x11)",
+        "ver": "1.13.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libxkbcommon-x11-0",
+        "rel": "1.3",
+        "ver": "1.13.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(xcb)",
+        "ver": "1.10"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(xcb-xkb)",
+        "ver": "1.10"
+      },
+      {
+        "name": "pkgconfig(xkbcommon)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.3",
+      "ver": "1.13.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "f4795faed121ffe1aaa7b1f3bb211e2b2920c49a06d2f7e8f4b568b221b0e0d1c6d04264833d70bfc1174c400cbf596680acc69086401b840e6216ee1a74bd2b",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/libzstd-devel-1.5.7-6.1.x86_64.rpm"
+    },
+    "name": "libzstd-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(zstd)",
+        "ver": "1.5.7"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libzstd-devel",
+        "rel": "6.1",
+        "ver": "1.5.7"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libzstd-devel(x86-64)",
+        "rel": "6.1",
+        "ver": "1.5.7"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libzstd)",
+        "ver": "1.5.7"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "name": "glibc-devel"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libzstd1",
+        "ver": "1.5.7"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "6.1",
+      "ver": "1.5.7"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "31e0ca9d2ba8b07f78bb1235bc2670109662b12fe2bbea698aa6be764daef882833722fd4c643dce6aedb9304934610cf5342057323eda7aa9959361cf2314bc",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/mtdev-devel-1.1.6-1.21.x86_64.rpm"
+    },
+    "name": "mtdev-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "mtdev-devel",
+        "rel": "1.21",
+        "ver": "1.1.6"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "mtdev-devel(x86-64)",
+        "rel": "1.21",
+        "ver": "1.1.6"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(mtdev)",
+        "ver": "1.1.6"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "name": "glibc-devel"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libmtdev1",
+        "ver": "1.1.6"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.21",
+      "ver": "1.1.6"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "97ef186823ad332504f0a1e906eba3d207ef0bed654f9799464850ba0b8f9c9c26a9083222b7509327be13b59ff2eede9c82e81f52f265e73c942924e3020412",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/pam-devel-1.7.3-1.1.x86_64.rpm"
+    },
+    "name": "pam-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pam-devel",
+        "rel": "1.1",
+        "ver": "1.7.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pam-devel(x86-64)",
+        "rel": "1.1",
+        "ver": "1.7.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(pam)",
+        "ver": "1.7.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(pam_misc)",
+        "ver": "1.7.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(pamc)",
+        "ver": "1.7.3"
+      },
+      {
+        "name": "rpm_macro(_pam_confdir)"
+      },
+      {
+        "name": "rpm_macro(_pam_libdir)"
+      },
+      {
+        "name": "rpm_macro(_pam_moduledir)"
+      },
+      {
+        "name": "rpm_macro(_pam_secconfdir)"
+      },
+      {
+        "name": "rpm_macro(_pam_secdistconfdir)"
+      },
+      {
+        "name": "rpm_macro(_pam_vendordir)"
+      },
+      {
+        "name": "rpm_macro(_pamdir)"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "name": "glibc-devel"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pam",
+        "ver": "1.7.3"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "1.7.3"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "0ee4895845191389536a98151bf1a73be154519b2d740e23b732464b247f93485bff3624378edff1ac3ebc7ba0710818e2d50b188cc3c3f20bc1cb0027676c3c",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/pipewire-devel-1.6.9-2.1.x86_64.rpm"
+    },
+    "name": "pipewire-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pipewire-devel",
+        "rel": "2.1",
+        "ver": "1.6.9"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pipewire-devel(x86-64)",
+        "rel": "2.1",
+        "ver": "1.6.9"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libpipewire-0.3)",
+        "ver": "1.6.9"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libspa-0.2)",
+        "ver": "0.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "libpipewire-0_3-0",
+        "ver": "1.6.9"
+      },
+      {
+        "name": "pkgconfig(libspa-0.2)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "2.1",
+      "ver": "1.6.9"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "2323d64cc49cf55ea19ffec8194a0320fcaab1d37f9939d5157fa4b9c8f3653ab885d3b73e47f7af0d32575864f6e56b5b7a4d7db6a6f0a1b9b08c59a2757f7f",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/polkit-devel-127-7.2.x86_64.rpm"
+    },
+    "name": "polkit-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(polkit-agent-1)",
+        "ver": "127"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(polkit-gobject-1)",
+        "ver": "127"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "polkit-devel",
+        "rel": "7.2",
+        "ver": "127"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "polkit-devel(x86-64)",
+        "rel": "7.2",
+        "ver": "127"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "name": "libglib-2.0.so.0()(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libpolkit-agent-1-0",
+        "ver": "127"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libpolkit-gobject-1-0",
+        "ver": "127"
+      },
+      {
+        "name": "pkgconfig"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(gio-2.0)",
+        "ver": "2.44"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(gio-unix-2.0)",
+        "ver": "2.44"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(glib-2.0)",
+        "ver": "2.44"
+      },
+      {
+        "name": "pkgconfig(polkit-gobject-1)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "polkit",
+        "rel": "7.2",
+        "ver": "127"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "typelib-1_0-Polkit-1_0",
+        "ver": "127"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.34)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "7.2",
+      "ver": "127"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "b2ef724f93b57db1a34237c67940305a3d38df3dae53dabc9f8a7911ae7a5f28ce022165884780433f560e3a87ce5338c1266b5d1741a4a88c9dea6a92cbc067",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-gui-private-devel-6.11.2-2.1.x86_64.rpm"
+    },
+    "name": "qt6-gui-private-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6EglFSDeviceIntegrationPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6EglFsKmsGbmSupportPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6EglFsKmsSupportPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6GuiPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6XcbQpaPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-gui-private-devel",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-gui-private-devel(x86-64)",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6CorePrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6DeviceDiscoverySupportPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6FbSupportPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Gui)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6InputSupportPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6OpenGLPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Gui6",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "pkgconfig(xkbcommon)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-kmssupport-private-devel",
+        "ver": "6.11.2"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "2.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "34acbe48dc5d2e54c2111f9abcd3ffec6c7ab8602082a629b615a1ce0b0ae740b9ccd952cd36250f5c7487402113d02b25771e3bbed342e2e3bc970f9d3967c7",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-kmssupport-devel-static-6.11.2-2.1.x86_64.rpm"
+    },
+    "name": "qt6-kmssupport-devel-static",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6KmsSupportPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-kmssupport-devel-static",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-kmssupport-devel-static(x86-64)",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6CorePrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6GuiPrivate)",
+        "ver": "6.11.2"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "2.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "2c3784407ce04aa1e3bc547bdef3596d5f7c93aaca19692bd03e67e730af4a69268c0309e9d12269a977f2f1a0b47527e8b646fa8b978dfe88b11ddac11cf718",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-kmssupport-private-devel-6.11.2-2.1.x86_64.rpm"
+    },
+    "name": "qt6-kmssupport-private-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-kmssupport-private-devel",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-kmssupport-private-devel(x86-64)",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-kmssupport-devel-static",
+        "ver": "6.11.2"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "2.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "9cee5ec22c8a792c8572d2a189e8b7ac5dcc7e1481c735313a5f294a0ee6c0888c64ef34f8bab7e035ee74e4510fd2e4fda0c7dab776f78740fb5bdd566f03be",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-opengl-private-devel-6.11.2-2.1.x86_64.rpm"
+    },
+    "name": "qt6-opengl-private-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6OpenGLPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-opengl-private-devel",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-opengl-private-devel(x86-64)",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6CorePrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6GuiPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6OpenGL)",
+        "ver": "6.11.2"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "2.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "7678744c3af5cf788526a8ea5681a75598aa404999691855ee37a9e81a51b0c550ee21f91feb21e5bcfb5b467a8ff3c3cba85146cd51e994011bfdb8358c2ef0",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-platformsupport-devel-static-6.11.2-2.1.x86_64.rpm"
+    },
+    "name": "qt6-platformsupport-devel-static",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6DeviceDiscoverySupportPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6FbSupportPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6InputSupportPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-platformsupport-devel-static",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-platformsupport-devel-static(x86-64)",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-platformsupport-private-devel",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6CorePrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6GuiPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "pkgconfig(atspi-2)"
+      },
+      {
+        "name": "pkgconfig(egl)"
+      },
+      {
+        "name": "pkgconfig(fontconfig)"
+      },
+      {
+        "name": "pkgconfig(freetype2)"
+      },
+      {
+        "name": "pkgconfig(gl)"
+      },
+      {
+        "name": "pkgconfig(glib-2.0)"
+      },
+      {
+        "name": "pkgconfig(libinput)"
+      },
+      {
+        "name": "pkgconfig(libudev)"
+      },
+      {
+        "name": "pkgconfig(mtdev)"
+      },
+      {
+        "name": "pkgconfig(tslib)"
+      },
+      {
+        "name": "pkgconfig(x11)"
+      },
+      {
+        "name": "pkgconfig(xext)"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(xkbcommon)",
+        "ver": "0.4.1"
+      },
+      {
+        "epoch": "0",
+        "flags": "GE",
+        "name": "pkgconfig(xkbcommon-x11)",
+        "ver": "0.4.1"
+      },
+      {
+        "name": "pkgconfig(xrender)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "2.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "060cec648d258510f74d51ca3009cc1a57c87ca1416442f7bab4bd8c80ba4a4dbd818226b9bc499cf249560ef807260a3d6d901687e0bd2e950dd9522cb9de6a",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-quick-private-devel-6.11.2-2.1.x86_64.rpm"
+    },
+    "name": "qt6-quick-private-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6QuickPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick-private-devel",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick-private-devel(x86-64)",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6CorePrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6GuiPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6QmlModelsPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6QmlPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick)",
+        "ver": "6.11.2"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "2.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "813c5bf98e133d61b3b8fb3caf7d4177725fd2f8a743e7708ec06cefffd7246c9d80caf4d0759d31bc74dfe9db82ab218abfbac7806f91e516c253a4814e251d",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-quick3d-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "qt6-quick3d",
+    "provides": [
+      {
+        "name": "libassimp.so()(64bit)"
+      },
+      {
+        "name": "libassimp.so(NonQt)(64bit)"
+      },
+      {
+        "name": "libassimp.so(Qt_6)(64bit)"
+      },
+      {
+        "name": "libassimp.so(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick3d",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick3d(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "libQt6Concurrent.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Concurrent.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Core.so.6(Qt_6.11)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Gui.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Qml.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3D.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DAssetImport.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DAssetImport.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DAssetUtils.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DAssetUtils.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DGlslParser.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DGlslParser.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DIblBaker.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DIblBaker.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DParticles.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DParticles.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DRuntimeRender.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DRuntimeRender.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DRuntimeRender.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DUtils.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DUtils.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libQt6Quick3DUtils.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6ShaderTools.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6ShaderTools.so.6(Qt_6.11.2_PRIVATE_API)(64bit)"
+      },
+      {
+        "name": "libQt6Widgets.so.6()(64bit)"
+      },
+      {
+        "name": "libQt6Widgets.so.6(Qt_6)(64bit)"
+      },
+      {
+        "name": "libassimp.so.6()(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1()(64bit)"
+      },
+      {
+        "name": "libgcc_s.so.1(GCC_3.0)(64bit)"
+      },
+      {
+        "name": "libm.so.6()(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.2.5)(64bit)"
+      },
+      {
+        "name": "libm.so.6(GLIBC_2.43)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6()(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(CXXABI_1.3.9)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.18)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.21)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.29)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.30)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.32)(64bit)"
+      },
+      {
+        "name": "libstdc++.so.6(GLIBCXX_3.4.9)(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.38)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "359dde32adecdcac315de6307afb5bb8a1dc0f31788cbfab4cd21909e96319f222b1954b3146d532f4e698eb0136d81c5fe03b4024139c5fd5029e045394fe08",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-quick3d-devel-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "qt6-quick3d-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick3D)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick3DTools)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(Qt6Quick3D)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick3d-devel",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick3d-devel(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Gui)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Qml)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick3DRuntimeRender)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3D6",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "pkgconfig(Qt6Core)"
+      },
+      {
+        "name": "pkgconfig(Qt6Gui)"
+      },
+      {
+        "name": "pkgconfig(Qt6Qml)"
+      },
+      {
+        "name": "pkgconfig(Qt6Quick)"
+      },
+      {
+        "name": "pkgconfig(Qt6Quick3DRuntimeRender)"
+      },
+      {
+        "name": "qt6-quick3d"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "ad0006e5c99273e355b37a807ae8fff69bce3a3a56313a582334d6fed60f4772527f631593d33952d2f6ba1705d869993d2e2233e175344b5ab0d8d3560d5e8e",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-quick3druntimerender-devel-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "qt6-quick3druntimerender-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick3DRuntimeRender)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(Qt6Quick3DRuntimeRender)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick3druntimerender-devel",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick3druntimerender-devel(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Concurrent)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Gui)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick3DUtils)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6ShaderTools)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3DRuntimeRender6",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "pkgconfig(Qt6Concurrent)"
+      },
+      {
+        "name": "pkgconfig(Qt6Core)"
+      },
+      {
+        "name": "pkgconfig(Qt6Gui)"
+      },
+      {
+        "name": "pkgconfig(Qt6Quick)"
+      },
+      {
+        "name": "pkgconfig(Qt6Quick3DUtils)"
+      },
+      {
+        "name": "pkgconfig(Qt6ShaderTools)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "0c21eea5ba78c314492cf73c6242c50be92d3a44b4466f5a6f78136a153d1c6e635af22d24ba4a131c15d7cf56b57948615374d1413af393fbe622a1be0985a2",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-quick3dutils-devel-6.11.2-1.1.x86_64.rpm"
+    },
+    "name": "qt6-quick3dutils-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick3DUtils)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(Qt6Quick3DUtils)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick3dutils-devel",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-quick3dutils-devel(x86-64)",
+        "rel": "1.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Gui)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6Quick)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libQt6Quick3DUtils6",
+        "ver": "6.11.2"
+      },
+      {
+        "name": "pkgconfig(Qt6Core)"
+      },
+      {
+        "name": "pkgconfig(Qt6Gui)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "5986ded13724465edeef4daf6fc1d945512f9495a2d479e593142490cf79d0a0d7ca54926efcb7fb5d44abf92db9b0538ec7efab58b8db23be378f23adee931b",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/qt6-waylandclient-private-devel-6.11.2-2.1.x86_64.rpm"
+    },
+    "name": "qt6-waylandclient-private-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6WaylandClientPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-waylandclient-private-devel",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "qt6-waylandclient-private-devel(x86-64)",
+        "rel": "2.1",
+        "ver": "6.11.2"
+      }
+    ],
+    "requires": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6CorePrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6GuiPrivate)",
+        "ver": "6.11.2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "cmake(Qt6WaylandClient)",
+        "ver": "6.11.2"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "2.1",
+      "ver": "6.11.2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "817797a5951967640fa9954c4a21fe487bee3228d32e117a1785df225a9935c9579e33201ad0f1d757f6718a39e8d5b99ee466f5701c4b819fbec8913c179d1d",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/spirv-tools-devel-2026.4~rc2-1.1.x86_64.rpm"
+    },
+    "name": "spirv-tools-devel",
+    "provides": [
+      {
+        "name": "cmake(SPIRV-Tools)"
+      },
+      {
+        "name": "cmake(SPIRV-Tools-diff)"
+      },
+      {
+        "name": "cmake(SPIRV-Tools-link)"
+      },
+      {
+        "name": "cmake(SPIRV-Tools-lint)"
+      },
+      {
+        "name": "cmake(SPIRV-Tools-opt)"
+      },
+      {
+        "name": "cmake(SPIRV-Tools-reduce)"
+      },
+      {
+        "name": "cmake(SPIRV-Tools-tools)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(SPIRV-Tools)",
+        "ver": "2026.4.1"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(SPIRV-Tools-shared)",
+        "ver": "2026.4.1"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "spirv-tools-devel",
+        "rel": "1.1",
+        "ver": "2026.4~rc2"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "spirv-tools-devel(x86-64)",
+        "rel": "1.1",
+        "ver": "2026.4~rc2"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libSPIRV-Tools-2026_4_rc2",
+        "ver": "2026.4~rc2"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "2026.4~rc2"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "84d6838f84f1edfe99d6dd8299e0bc0e46d4a95d1df84a879f44150c78f669b226bc633858b87add2a22dcc4f002f53dc6cdd60462edab3861f9ebb9bc301468",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/systemd-devel-261.3-1.1.x86_64.rpm"
+    },
+    "name": "systemd-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libudev-devel",
+        "rel": "1.1",
+        "ver": "261.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libsystemd)",
+        "ver": "261"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(libudev)",
+        "ver": "261"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "systemd-devel",
+        "rel": "1.1",
+        "ver": "261.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "systemd-devel(x86-64)",
+        "rel": "1.1",
+        "ver": "261.3"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libsystemd0",
+        "rel": "1.1",
+        "ver": "261.3"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "libudev1",
+        "rel": "1.1",
+        "ver": "261.3"
+      },
+      {
+        "name": "systemd-rpm-macros"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.1",
+      "ver": "261.3"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "549ee97d22ea1dd6cb8592574fea91680e393a75b9ef5eed67da6e09afccbd30630425be27886b1a39804f7d57d816bb2a26eedea9d9c5dbc74764acc0b0daa8",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/tslib-1.24-1.5.x86_64.rpm"
+    },
+    "name": "tslib",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "config(tslib)",
+        "rel": "1.5",
+        "ver": "1.24"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "tslib",
+        "rel": "1.5",
+        "ver": "1.24"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "tslib(x86-64)",
+        "rel": "1.5",
+        "ver": "1.24"
+      }
+    ],
+    "requires": [
+      {
+        "name": "libts.so.0()(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.38)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.5",
+      "ver": "1.24"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "c0dafb28ecb94d93a7a1ac8cdb0c107c9ab323c3c53d54274bc22deeddcfe3b0d55d1558677e4cf00ef3f396b2e7253ecd82e32f8694374dad6c790802d98fc6",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/tslib-devel-1.24-1.5.x86_64.rpm"
+    },
+    "name": "tslib-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(tslib)",
+        "ver": "1.24"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "tslib-devel",
+        "rel": "1.5",
+        "ver": "1.24"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "tslib-devel(x86-64)",
+        "rel": "1.5",
+        "ver": "1.24"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      },
+      {
+        "name": "glibc-devel"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "tslib",
+        "ver": "1.24"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "tslib-plugins",
+        "ver": "1.24"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.5",
+      "ver": "1.24"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "cbf50ca1a870573666f10325a39c3b7d4131fcc4b6a55d71391b18191d75d7d3b6dbff13d8f2cfcd80369266fe31aab3684352c62e13054825348086cf0fa936",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/tslib-plugins-1.24-1.5.x86_64.rpm"
+    },
+    "name": "tslib-plugins",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "tslib-plugins",
+        "rel": "1.5",
+        "ver": "1.24"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "tslib-plugins(x86-64)",
+        "rel": "1.5",
+        "ver": "1.24"
+      }
+    ],
+    "requires": [
+      {
+        "name": "libts.so.0()(64bit)"
+      },
+      {
+        "name": "libc.so.6(GLIBC_2.38)(64bit)"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.5",
+      "ver": "1.24"
+    }
+  },
+  {
+    "arch": "x86_64",
+    "checksum": "8c7d684a969198d76bdb20deaec08ed0a63500799a5efe0c5c8df78ba31f6fec4d9e189b3c8b228e519d9ca9a925abdfcc9deee3e27e57a55ebe2cb41e7222f4",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "x86_64/typelib-1_0-Polkit-1_0-127-7.2.x86_64.rpm"
+    },
+    "name": "typelib-1_0-Polkit-1_0",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "typelib(Polkit)",
+        "ver": "1.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "typelib(PolkitAgent)",
+        "ver": "1.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "typelib-1_0-Polkit-1_0",
+        "rel": "7.2",
+        "ver": "127"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "typelib-1_0-Polkit-1_0(x86-64)",
+        "rel": "7.2",
+        "ver": "127"
+      }
+    ],
+    "requires": [
+      {
+        "name": "libpolkit-agent-1.so.0()(64bit)"
+      },
+      {
+        "name": "libpolkit-gobject-1.so.0()(64bit)"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "typelib(GLib)",
+        "ver": "2.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "typelib(GModule)",
+        "ver": "2.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "typelib(GObject)",
+        "ver": "2.0"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "typelib(Gio)",
+        "ver": "2.0"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "7.2",
+      "ver": "127"
+    }
+  },
+  {
+    "arch": "noarch",
+    "checksum": "1dc0ec51063774c66b7865885b650008e34972a328a5a751fe635c912e277baf1079b98e7a72a8304c7acb6c581e98b38b518b2575e75c23c876c629dc5e5bb4",
+    "checksum_type": "sha512",
+    "location": {
+      "href": "noarch/wayland-protocols-devel-1.49-1.3.noarch.rpm"
+    },
+    "name": "wayland-protocols-devel",
+    "provides": [
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "pkgconfig(wayland-protocols)",
+        "ver": "1.49"
+      },
+      {
+        "epoch": "0",
+        "flags": "EQ",
+        "name": "wayland-protocols-devel",
+        "rel": "1.3",
+        "ver": "1.49"
+      }
+    ],
+    "requires": [
+      {
+        "name": "/usr/bin/pkg-config"
+      }
+    ],
+    "version": {
+      "epoch": "0",
+      "rel": "1.3",
+      "ver": "1.49"
+    }
+  }
+]

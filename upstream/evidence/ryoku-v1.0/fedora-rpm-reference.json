@@ -1,0 +1,5440 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "a59d051f0e8080052216f6c7b9eb7e5928935ce8",
+  "scope": "Pinned source-only RPM reference header/split/dependency and scriptlet-region facts; raw macros/conditionals not evaluated; no Fedora/SUSE build, package/provider acceptance, network or recipe execution",
+  "spec_count": 54,
+  "shared_ryoku_source_specs": 23,
+  "scriptlet_spec_count": 5,
+  "specs": [
+    {
+      "source": "fedora/packages/rpm/apple_cursor.spec",
+      "git_blob": "282b71e989c6537f78e91c25992e61a6ebe81921",
+      "git_mode": "100644",
+      "sha256": "1fb0297dadadec1f10100f17ce774847be37bdd8876a115e610782bc587c2a6e",
+      "bytes": 750,
+      "name": "apple_cursor",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           apple_cursor"
+        },
+        {
+          "line": 2,
+          "text": "Version:        2.0.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-only"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://github.com/ful1e5/apple_cursor"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/releases/download/v%{version}/macOS.tar.xz"
+        },
+        {
+          "line": 8,
+          "text": "Source1:        %{url}/raw/v%{version}/LICENSE#/apple-cursor-LICENSE"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/asusctl.spec",
+      "git_blob": "ea282477b8dd185eaa082c6bbfaf651f3ac23ffa",
+      "git_mode": "100644",
+      "sha256": "3f54e933f547b290fcb1c62497b3c9966d21787ed1f1fdab3a4a57c7da7fb3b3",
+      "bytes": 2022,
+      "name": "asusctl",
+      "raw_header_fields": [
+        {
+          "line": 3,
+          "text": "Name:           asusctl"
+        },
+        {
+          "line": 4,
+          "text": "Version:        6.4.0"
+        },
+        {
+          "line": 5,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 7,
+          "text": "License:        MPL-2.0"
+        },
+        {
+          "line": 8,
+          "text": "URL:            https://github.com/OpenGamingCollective/asusctl"
+        },
+        {
+          "line": 9,
+          "text": "Source0:        %{url}/archive/refs/tags/%{version}.tar.gz#/asusctl-%{version}.tar.gz"
+        },
+        {
+          "line": 10,
+          "text": "Source100:      %{name}-%{version}-vendor.tar.gz"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  cargo"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  rust"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  clang"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  llvm-devel"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  gcc"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  make"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  pkgconfig(libudev)"
+        },
+        {
+          "line": 20,
+          "text": "BuildRequires:  libusb1-devel"
+        },
+        {
+          "line": 21,
+          "text": "BuildRequires:  systemd-rpm-macros"
+        },
+        {
+          "line": 22,
+          "text": "Requires:       systemd-udev"
+        },
+        {
+          "line": 23,
+          "text": "Requires:       libusb1"
+        },
+        {
+          "line": 24,
+          "text": "Conflicts:      tlp"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [
+        {
+          "section": "post",
+          "line_start": 52,
+          "line_end": 56,
+          "source_region_sha256": "8bede1eca5bbb03c6742c39acb863698cc72c106d38dab2ea86ef2832baa4d75"
+        },
+        {
+          "section": "preun",
+          "line_start": 57,
+          "line_end": 59,
+          "source_region_sha256": "454bee85b49339f25c31ef72f0eecb4759afd16c1cddcd793033a62dd1bd999b"
+        },
+        {
+          "section": "postun",
+          "line_start": 60,
+          "line_end": 63,
+          "source_region_sha256": "cb6067c56163ad38a32368c89ca9004dedbb7ac0861132638843fb62da31c263"
+        }
+      ],
+      "retained_feature_owners": "#181/#27/#28/#31/#32",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/blesh.spec",
+      "git_blob": "d29cb09d165a90ecf561ecaf95f1f0f243d999db",
+      "git_mode": "100644",
+      "sha256": "a25bfb4441eec490e7dd3111da7f9deb8696264efb620c4667fa554e425a31ab",
+      "bytes": 760,
+      "name": "blesh",
+      "raw_header_fields": [
+        {
+          "line": 3,
+          "text": "Name:           blesh"
+        },
+        {
+          "line": 4,
+          "text": "Version:        0.4.0_devel3"
+        },
+        {
+          "line": 5,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 7,
+          "text": "License:        BSD-3-Clause"
+        },
+        {
+          "line": 8,
+          "text": "URL:            https://github.com/akinomyoga/ble.sh"
+        },
+        {
+          "line": 9,
+          "text": "Source0:        %{url}/releases/download/v%{upstream_version}/ble-%{upstream_version}-2.tar.xz"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  tar"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  xz"
+        },
+        {
+          "line": 13,
+          "text": "Requires:       bash"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/broadcom-bt-firmware.spec",
+      "git_blob": "a191a24200017bbbb30b3e5592f05d0d0e5aff80",
+      "git_mode": "100644",
+      "sha256": "89b573ce9a02eafc522df01918ec5ffdbe8f897db581356674c75095dbe8319b",
+      "bytes": 1092,
+      "name": "broadcom-bt-firmware",
+      "raw_header_fields": [
+        {
+          "line": 3,
+          "text": "Name:           broadcom-bt-firmware"
+        },
+        {
+          "line": 4,
+          "text": "Version:        12.0.1.1105"
+        },
+        {
+          "line": 5,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 7,
+          "text": "License:        LicenseRef-Broadcom-Firmware AND MIT"
+        },
+        {
+          "line": 8,
+          "text": "URL:            https://github.com/winterheart/broadcom-bt-firmware"
+        },
+        {
+          "line": 9,
+          "text": "Source0:        %{url}/releases/download/v%{upstream_version}/%{name}-%{version}.deb"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  binutils"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  tar"
+        },
+        {
+          "line": 13,
+          "text": "Conflicts:      broadcom-bt-firmware-git"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#181/#27/#28/#31/#32",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/catppuccin-cursors-mocha.spec",
+      "git_blob": "3bae20d874fb6b3d95928ef7f8203e03ade8e4c1",
+      "git_mode": "100644",
+      "sha256": "8dab723894c47cd2678343e6b33ca4ebe97cf55fe3398311eb539a8864126465",
+      "bytes": 2219,
+      "name": "catppuccin-cursors-mocha",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           catppuccin-cursors-mocha"
+        },
+        {
+          "line": 2,
+          "text": "Version:        2.0.0"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-2.0-only"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://github.com/catppuccin/cursors"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/releases/download/v%{version}/catppuccin-mocha-blue-cursors.zip"
+        },
+        {
+          "line": 8,
+          "text": "Source1:        %{url}/releases/download/v%{version}/catppuccin-mocha-dark-cursors.zip"
+        },
+        {
+          "line": 9,
+          "text": "Source2:        %{url}/releases/download/v%{version}/catppuccin-mocha-flamingo-cursors.zip"
+        },
+        {
+          "line": 10,
+          "text": "Source3:        %{url}/releases/download/v%{version}/catppuccin-mocha-green-cursors.zip"
+        },
+        {
+          "line": 11,
+          "text": "Source4:        %{url}/releases/download/v%{version}/catppuccin-mocha-lavender-cursors.zip"
+        },
+        {
+          "line": 12,
+          "text": "Source5:        %{url}/releases/download/v%{version}/catppuccin-mocha-light-cursors.zip"
+        },
+        {
+          "line": 13,
+          "text": "Source6:        %{url}/releases/download/v%{version}/catppuccin-mocha-maroon-cursors.zip"
+        },
+        {
+          "line": 14,
+          "text": "Source7:        %{url}/releases/download/v%{version}/catppuccin-mocha-mauve-cursors.zip"
+        },
+        {
+          "line": 15,
+          "text": "Source8:        %{url}/releases/download/v%{version}/catppuccin-mocha-peach-cursors.zip"
+        },
+        {
+          "line": 16,
+          "text": "Source9:        %{url}/releases/download/v%{version}/catppuccin-mocha-pink-cursors.zip"
+        },
+        {
+          "line": 17,
+          "text": "Source10:       %{url}/releases/download/v%{version}/catppuccin-mocha-red-cursors.zip"
+        },
+        {
+          "line": 18,
+          "text": "Source11:       %{url}/releases/download/v%{version}/catppuccin-mocha-rosewater-cursors.zip"
+        },
+        {
+          "line": 19,
+          "text": "Source12:       %{url}/releases/download/v%{version}/catppuccin-mocha-sapphire-cursors.zip"
+        },
+        {
+          "line": 20,
+          "text": "Source13:       %{url}/releases/download/v%{version}/catppuccin-mocha-sky-cursors.zip"
+        },
+        {
+          "line": 21,
+          "text": "Source14:       %{url}/releases/download/v%{version}/catppuccin-mocha-teal-cursors.zip"
+        },
+        {
+          "line": 22,
+          "text": "Source15:       %{url}/releases/download/v%{version}/catppuccin-mocha-yellow-cursors.zip"
+        },
+        {
+          "line": 23,
+          "text": "BuildRequires:  unzip"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/dualsensectl.spec",
+      "git_blob": "983de0014d7ecc6266b3bac14d461f6a049439de",
+      "git_mode": "100644",
+      "sha256": "4f08cde5f4d913bc96dd88067cc1289fdc1755bc608b1dc0cf92864226d48c7f",
+      "bytes": 851,
+      "name": "dualsensectl",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           dualsensectl"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.7"
+        },
+        {
+          "line": 3,
+          "text": "Release:        2%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-2.0-only"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://github.com/nowrep/dualsensectl"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/archive/v%{version}.tar.gz#/%{name}-%{version}.tar.gz"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  gcc"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  meson"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  pkgconfig(dbus-1)"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  pkgconfig(hidapi-hidraw)"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  pkgconfig(libudev)"
+        },
+        {
+          "line": 15,
+          "text": "Requires:       dbus-libs"
+        },
+        {
+          "line": 16,
+          "text": "Requires:       hidapi"
+        },
+        {
+          "line": 17,
+          "text": "Requires:       libusb1"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#181/#27/#28/#31/#32",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/game-devices-udev.spec",
+      "git_blob": "52c2e828133d7b4822bb9a2917a8eb9219360c0f",
+      "git_mode": "100644",
+      "sha256": "873ef302c52d16eb9d1cf1be42b0a0df7dfa3b636cae47bf4f5ccbd6488d8d64",
+      "bytes": 749,
+      "name": "game-devices-udev",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           game-devices-udev"
+        },
+        {
+          "line": 2,
+          "text": "Version:        1.0"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        MIT"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://codeberg.org/fabiscafe/game-devices-udev"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/archive/%{version}.tar.gz#/%{name}-%{version}.tar.gz"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  meson >= 1.0"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  systemd-rpm-macros"
+        },
+        {
+          "line": 11,
+          "text": "Requires:       systemd-udev"
+        },
+        {
+          "line": 12,
+          "text": "Provides:       nintendo-udev = %{version}-%{release}"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#181/#27/#28/#31/#32",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/gpk.spec",
+      "git_blob": "21f17783996af40fb3b54e4a4d736218171462d4",
+      "git_mode": "100644",
+      "sha256": "ee9d60ac80d1637eaedbec734c2fb15a7647e7d042bd99d7fdd579b1e129a7aa",
+      "bytes": 820,
+      "name": "gpk",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           gpk"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.6.10"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://github.com/neur0map/glazepkg"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/releases/download/v%{version}/gpk-linux-amd64#/gpk-%{version}-x86_64"
+        },
+        {
+          "line": 8,
+          "text": "Source1:        https://raw.githubusercontent.com/neur0map/glazepkg/v%{version}/LICENSE#/gpk-LICENSE"
+        },
+        {
+          "line": 12,
+          "text": "Provides:       gpk"
+        },
+        {
+          "line": 13,
+          "text": "Conflicts:      gpk-bin"
+        },
+        {
+          "line": 14,
+          "text": "Obsoletes:      gpk-bin < %{version}-%{release}"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#27/#28/#29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/gpu-screen-recorder.spec",
+      "git_blob": "835de77fd529ea2e0c660791c7768e860a22e164",
+      "git_mode": "100644",
+      "sha256": "18bf5d345df6456d3193b366bd2f8500cc0759be998bc3ec947e56e40d1da533",
+      "bytes": 1852,
+      "name": "gpu-screen-recorder",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           gpu-screen-recorder"
+        },
+        {
+          "line": 2,
+          "text": "Version:        6.1.3"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-only"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://git.dec05eba.com/gpu-screen-recorder"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        https://dec05eba.com/snapshot/gpu-screen-recorder.git.%{version}.tar.gz#/%{name}-%{version}.tar.gz"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  gcc"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  meson"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  ninja-build"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  pkgconfig"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  dbus-devel"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  ffmpeg-free-devel"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  libX11-devel"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  libXcomposite-devel"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  libXdamage-devel"
+        },
+        {
+          "line": 20,
+          "text": "BuildRequires:  libXfixes-devel"
+        },
+        {
+          "line": 21,
+          "text": "BuildRequires:  libXrandr-devel"
+        },
+        {
+          "line": 22,
+          "text": "BuildRequires:  libcap-devel"
+        },
+        {
+          "line": 23,
+          "text": "BuildRequires:  libdrm-devel"
+        },
+        {
+          "line": 24,
+          "text": "BuildRequires:  libva-devel"
+        },
+        {
+          "line": 25,
+          "text": "BuildRequires:  pipewire-devel"
+        },
+        {
+          "line": 26,
+          "text": "BuildRequires:  pulseaudio-libs-devel"
+        },
+        {
+          "line": 27,
+          "text": "BuildRequires:  vulkan-headers"
+        },
+        {
+          "line": 28,
+          "text": "BuildRequires:  wayland-devel"
+        },
+        {
+          "line": 29,
+          "text": "Requires:       bash"
+        },
+        {
+          "line": 30,
+          "text": "Requires:       ffmpeg-free"
+        },
+        {
+          "line": 31,
+          "text": "Requires:       libcap"
+        },
+        {
+          "line": 32,
+          "text": "Requires:       libjpeg-turbo"
+        },
+        {
+          "line": 33,
+          "text": "Requires:       mesa-dri-drivers"
+        },
+        {
+          "line": 34,
+          "text": "Recommends:     mesa-va-drivers"
+        },
+        {
+          "line": 35,
+          "text": "Suggests:       intel-media-driver"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/hypr-dynamic-cursors.spec",
+      "git_blob": "f89fa189b10edfbb1d43f9a838667f46f7c9d8f9",
+      "git_mode": "100644",
+      "sha256": "3f9011dde451bd942a18512be3ec8a5eda0076725d7d8e53d818e14ceb945e53",
+      "bytes": 1114,
+      "name": "hypr-dynamic-cursors",
+      "raw_header_fields": [
+        {
+          "line": 3,
+          "text": "Name:           hypr-dynamic-cursors"
+        },
+        {
+          "line": 4,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 5,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 7,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 8,
+          "text": "URL:            https://github.com/VirtCode/hypr-dynamic-cursors"
+        },
+        {
+          "line": 9,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  gcc-c++"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  make"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  pkgconf-pkg-config"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  hyprcursor-devel"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  libdrm-devel"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  pixman-devel"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  hyprland-devel"
+        },
+        {
+          "line": 20,
+          "text": "Requires:       hyprland%{?_isa} = %{hyprland_evr}"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#25/#180/#182",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/hyprglass.spec",
+      "git_blob": "fe5cd470d467bd914d21da9738c179adde46e014",
+      "git_mode": "100644",
+      "sha256": "bc5972590aa79b4e6f04e710f71e866d02773874f6478185aee8269b68a53980",
+      "bytes": 1050,
+      "name": "hyprglass",
+      "raw_header_fields": [
+        {
+          "line": 3,
+          "text": "Name:           hyprglass"
+        },
+        {
+          "line": 4,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 5,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 7,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 8,
+          "text": "URL:            https://github.com/hyprnux/hyprglass"
+        },
+        {
+          "line": 9,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  gcc-c++"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  libdrm-devel"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  make"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  pixman-devel"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  pkgconf-pkg-config"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  hyprland-devel"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  wayland-devel"
+        },
+        {
+          "line": 20,
+          "text": "Requires:       hyprland%{?_isa} = %{hyprland_evr}"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#25/#180/#182",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/hyprgrass.spec",
+      "git_blob": "f09dadac5d84863aac10365c9e0bcf2e86686bd1",
+      "git_mode": "100644",
+      "sha256": "39f6a1ca069bb53f89a79ae02d50702b3465b0b557857535f7cab1d238bdb5d6",
+      "bytes": 1276,
+      "name": "hyprgrass",
+      "raw_header_fields": [
+        {
+          "line": 3,
+          "text": "Name:           hyprgrass"
+        },
+        {
+          "line": 4,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 5,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 7,
+          "text": "License:        Apache-2.0"
+        },
+        {
+          "line": 8,
+          "text": "URL:            https://github.com/horriblename/hyprgrass"
+        },
+        {
+          "line": 9,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  cairo-devel"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  gcc-c++"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  glm-devel"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  libdrm-devel"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  libinput-devel"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  libxkbcommon-devel"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  lua-devel"
+        },
+        {
+          "line": 20,
+          "text": "BuildRequires:  meson"
+        },
+        {
+          "line": 21,
+          "text": "BuildRequires:  ninja-build"
+        },
+        {
+          "line": 22,
+          "text": "BuildRequires:  pango-devel"
+        },
+        {
+          "line": 23,
+          "text": "BuildRequires:  pixman-devel"
+        },
+        {
+          "line": 24,
+          "text": "BuildRequires:  pkgconf-pkg-config"
+        },
+        {
+          "line": 25,
+          "text": "BuildRequires:  hyprland-devel"
+        },
+        {
+          "line": 26,
+          "text": "BuildRequires:  wayland-devel"
+        },
+        {
+          "line": 27,
+          "text": "Requires:       hyprland%{?_isa} = %{hyprland_evr}"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#25/#180/#182",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/hyprland-preview-share-picker.spec",
+      "git_blob": "c02dc57e86b16108f79a4366886a5d60abd8902a",
+      "git_mode": "100644",
+      "sha256": "7b32dd6f0c4cca6197538f284d0f25dad00ea4d54fdfdd00c01d33a11b8f3b63",
+      "bytes": 1832,
+      "name": "hyprland-preview-share-picker",
+      "raw_header_fields": [
+        {
+          "line": 5,
+          "text": "Name:           hyprland-preview-share-picker"
+        },
+        {
+          "line": 6,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 7,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 9,
+          "text": "License:        MIT"
+        },
+        {
+          "line": 10,
+          "text": "URL:            https://github.com/WhySoBad/hyprland-preview-share-picker"
+        },
+        {
+          "line": 11,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 12,
+          "text": "Source100:      %{name}-%{version}-vendor.tar.gz"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  cargo"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  gcc"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  git"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  gtk4-devel"
+        },
+        {
+          "line": 20,
+          "text": "BuildRequires:  gtk4-layer-shell-devel"
+        },
+        {
+          "line": 21,
+          "text": "BuildRequires:  pkgconf-pkg-config"
+        },
+        {
+          "line": 22,
+          "text": "BuildRequires:  rust"
+        },
+        {
+          "line": 23,
+          "text": "BuildRequires:  wayland-devel"
+        },
+        {
+          "line": 24,
+          "text": "BuildRequires:  hyprland-devel"
+        },
+        {
+          "line": 25,
+          "text": "Requires:       glibc"
+        },
+        {
+          "line": 26,
+          "text": "Requires:       gtk4"
+        },
+        {
+          "line": 27,
+          "text": "Requires:       gtk4-layer-shell"
+        },
+        {
+          "line": 28,
+          "text": "Requires:       hyprland%{?_isa} = %{hyprland_evr}"
+        },
+        {
+          "line": 29,
+          "text": "Requires:       libgcc"
+        },
+        {
+          "line": 30,
+          "text": "Requires:       libstdc++"
+        },
+        {
+          "line": 31,
+          "text": "Requires:       libwayland-client"
+        },
+        {
+          "line": 32,
+          "text": "Requires:       libwayland-cursor"
+        },
+        {
+          "line": 33,
+          "text": "Requires:       libwayland-egl"
+        },
+        {
+          "line": 34,
+          "text": "Requires:       libwayland-server"
+        },
+        {
+          "line": 35,
+          "text": "Requires:       slurp"
+        },
+        {
+          "line": 36,
+          "text": "Requires:       xdg-desktop-portal-hyprland"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#25/#180/#182",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/imgborders.spec",
+      "git_blob": "93eafb759d858b8e38f6540a34188654ffc05600",
+      "git_mode": "100644",
+      "sha256": "24c2487c30a15282d9c2731b3847280a0725cd91a1d921bb61b545c69ac04d29",
+      "bytes": 1089,
+      "name": "imgborders",
+      "raw_header_fields": [
+        {
+          "line": 3,
+          "text": "Name:           imgborders"
+        },
+        {
+          "line": 4,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 5,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 7,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 8,
+          "text": "URL:            https://codeberg.org/zacoons/imgborders"
+        },
+        {
+          "line": 9,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  cairo-devel"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  cmake"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  gcc-c++"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  libdrm-devel"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  make"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  pango-devel"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  pixman-devel"
+        },
+        {
+          "line": 20,
+          "text": "BuildRequires:  pkgconf-pkg-config"
+        },
+        {
+          "line": 21,
+          "text": "BuildRequires:  hyprland-devel"
+        },
+        {
+          "line": 22,
+          "text": "Requires:       hyprland%{?_isa} = %{hyprland_evr}"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#25/#180/#182",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/localsend-bin.spec",
+      "git_blob": "23c3805ed81e99164a7b080f6638e9f91383e7db",
+      "git_mode": "100644",
+      "sha256": "9964ed8267ff615fd60c593f5c29b6a99d8ac5046d12b722a945efaa170cfe04",
+      "bytes": 1551,
+      "name": "localsend-bin",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           localsend-bin"
+        },
+        {
+          "line": 2,
+          "text": "Version:        1.18.2"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        Apache-2.0"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://github.com/localsend/localsend"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/releases/download/v%{version}/LocalSend-%{version}-linux-x86-64.deb"
+        },
+        {
+          "line": 8,
+          "text": "Source1:        %{url}/raw/v%{version}/LICENSE#/localsend-LICENSE"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  bsdtar"
+        },
+        {
+          "line": 13,
+          "text": "Requires:       fuse-libs"
+        },
+        {
+          "line": 14,
+          "text": "Requires:       xdg-user-dirs"
+        },
+        {
+          "line": 15,
+          "text": "Requires:       libayatana-appindicator-gtk3"
+        },
+        {
+          "line": 16,
+          "text": "Requires:       libayatana-indicator-gtk3"
+        },
+        {
+          "line": 17,
+          "text": "Provides:       localsend = %{version}"
+        },
+        {
+          "line": 18,
+          "text": "Conflicts:      localsend"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/mise.spec",
+      "git_blob": "ad9bf79ae94386e68893d33e2729141d27fe50a0",
+      "git_mode": "100644",
+      "sha256": "766f3820ed01ffc81b13c9d2559ddde601e507fec256a89a50e3d0920b429f39",
+      "bytes": 1129,
+      "name": "mise",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           mise"
+        },
+        {
+          "line": 2,
+          "text": "Version:        2026.10.7"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        MIT"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://github.com/jdx/mise"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/releases/download/v%{version}/mise-v%{version}-linux-x64.tar.gz"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  tar"
+        },
+        {
+          "line": 12,
+          "text": "Conflicts:      rtx"
+        },
+        {
+          "line": 13,
+          "text": "Obsoletes:      rtx < %{version}-%{release}"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/nvibrant.spec",
+      "git_blob": "8d685cb5d21d3e2de57c2cdd884b2ab5d6ffb019",
+      "git_mode": "100644",
+      "sha256": "5caff5aec98ae7c48bca6bfc42b256dfc98283a8bedf064de3a7a5216046d119",
+      "bytes": 1029,
+      "name": "nvibrant",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           nvibrant"
+        },
+        {
+          "line": 2,
+          "text": "Version:        1.3.0"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        MIT"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://github.com/Tremeschin/nvibrant"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/releases/download/v%{version}/nvibrant-%{version}-py3-none-manylinux_2_17_x86_64.whl"
+        },
+        {
+          "line": 8,
+          "text": "Source1:        %{url}/raw/v%{version}/license.txt#/nvibrant-license.txt"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  python3-devel"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  python3-installer"
+        },
+        {
+          "line": 13,
+          "text": "Requires:       python3"
+        },
+        {
+          "line": 14,
+          "text": "Requires:       python3-packaging"
+        },
+        {
+          "line": 15,
+          "text": "Provides:       nvibrant-bin = %{version}-%{release}"
+        },
+        {
+          "line": 16,
+          "text": "Conflicts:      nvibrant-bin"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#181/#27/#28/#31/#32",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/phinger-cursors.spec",
+      "git_blob": "41e22de69f4e0296319b636d52e9fd45168feb65",
+      "git_mode": "100644",
+      "sha256": "e0a61217371c547b1248c6203f4e94cb3ba8efad6ea63270faf5bd671938043a",
+      "bytes": 824,
+      "name": "phinger-cursors",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           phinger-cursors"
+        },
+        {
+          "line": 2,
+          "text": "Version:        2.2"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        CC-BY-SA-4.0"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://github.com/phisch/phinger-cursors"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/releases/download/v%{version}/phinger-cursors-variants.tar.bz2"
+        },
+        {
+          "line": 8,
+          "text": "Source1:        %{url}/raw/v%{version}/LICENSE#/phinger-cursors-LICENSE"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/prowl.spec",
+      "git_blob": "02043cdb0a4bdea84b1c4e9ba1604239b1fc46e6",
+      "git_mode": "100644",
+      "sha256": "d61fd43283f3ad58567b1080ec81fc88a4605a11c8937d9b9922672985f25e21",
+      "bytes": 1357,
+      "name": "prowl",
+      "raw_header_fields": [
+        {
+          "line": 4,
+          "text": "Name:           prowl"
+        },
+        {
+          "line": 5,
+          "text": "Version:        0.17.2"
+        },
+        {
+          "line": 6,
+          "text": "Release:        3%{?dist}"
+        },
+        {
+          "line": 8,
+          "text": "License:        MIT"
+        },
+        {
+          "line": 9,
+          "text": "URL:            https://github.com/neur0map/prowl"
+        },
+        {
+          "line": 10,
+          "text": "Source0:        https://github.com/neur0map/prowl/archive/%{prowl_commit}.tar.gz#/prowl-%{prowl_commit}.tar.gz"
+        },
+        {
+          "line": 11,
+          "text": "Source100:      %{name}-%{version}-vendor.tar.gz"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  gcc"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  golang >= 1.26.4"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  glibc-devel"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  sqlite-devel"
+        },
+        {
+          "line": 18,
+          "text": "Requires:       glibc"
+        },
+        {
+          "line": 19,
+          "text": "Requires:       libgcc"
+        },
+        {
+          "line": 20,
+          "text": "Requires:       libstdc++"
+        },
+        {
+          "line": 21,
+          "text": "Conflicts:      prowl-agent"
+        },
+        {
+          "line": 22,
+          "text": "Obsoletes:      prowl-agent < 1:0"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#183/#47",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/quickshell.spec",
+      "git_blob": "6ad4a1d38c07d65249a7a7cd56c5ed1157ccd573",
+      "git_mode": "100644",
+      "sha256": "f4804cb4f2dbc82725bebffd7164696e4e622f133fb9bcfaee4d77aedca0c3a3",
+      "bytes": 1778,
+      "name": "quickshell",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           quickshell"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.3.2"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        LGPL-3.0-only"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://git.outfoxxed.me/quickshell/quickshell"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/archive/v%{version}.tar.gz#/quickshell-%{version}.tar.gz"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  cmake"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  gcc-c++"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  ninja-build"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  pkgconfig"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  cli11-devel"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  glib2-devel"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  jemalloc-devel"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  libdrm-devel"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  libglvnd-devel"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  libxcb-devel"
+        },
+        {
+          "line": 20,
+          "text": "BuildRequires:  mesa-libgbm-devel"
+        },
+        {
+          "line": 21,
+          "text": "BuildRequires:  pam-devel"
+        },
+        {
+          "line": 22,
+          "text": "BuildRequires:  pipewire-devel"
+        },
+        {
+          "line": 23,
+          "text": "BuildRequires:  polkit-devel"
+        },
+        {
+          "line": 24,
+          "text": "BuildRequires:  qt6-qtbase-devel"
+        },
+        {
+          "line": 25,
+          "text": "BuildRequires:  qt6-qtbase-private-devel"
+        },
+        {
+          "line": 26,
+          "text": "BuildRequires:  qt6-qtdeclarative-devel"
+        },
+        {
+          "line": 27,
+          "text": "BuildRequires:  qt6-qtshadertools-devel"
+        },
+        {
+          "line": 28,
+          "text": "BuildRequires:  qt6-qtwayland-devel"
+        },
+        {
+          "line": 29,
+          "text": "BuildRequires:  spirv-tools-devel"
+        },
+        {
+          "line": 30,
+          "text": "BuildRequires:  vulkan-headers"
+        },
+        {
+          "line": 31,
+          "text": "BuildRequires:  wayland-devel"
+        },
+        {
+          "line": 32,
+          "text": "BuildRequires:  wayland-protocols-devel"
+        },
+        {
+          "line": 33,
+          "text": "Requires:       hicolor-icon-theme"
+        },
+        {
+          "line": 34,
+          "text": "Requires:       qt6-qtsvg"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#14/#173",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryogami.spec",
+      "git_blob": "5e99d61a0d64054217a888cd0378bc3b3e16a1aa",
+      "git_mode": "100644",
+      "sha256": "104ad40f7bdbb29a3713308e35d1bd25bb89eacc62d2cdd14623af9394a51e6b",
+      "bytes": 1471,
+      "name": "ryogami",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ryogami"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://ryoku.dev"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  cmake"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  ninja-build"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  golang >= 1.26.4"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  gcc"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  pkgconf-pkg-config"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  qt6-qtbase-devel"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  qt6-qtbase-private-devel"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  qt6-qtdeclarative-devel"
+        },
+        {
+          "line": 20,
+          "text": "BuildRequires:  qt6-qtshadertools-devel"
+        },
+        {
+          "line": 21,
+          "text": "BuildRequires:  qt6-qtmultimedia-devel"
+        },
+        {
+          "line": 22,
+          "text": "BuildRequires:  vulkan-headers"
+        },
+        {
+          "line": 23,
+          "text": "BuildRequires:  wayland-devel"
+        },
+        {
+          "line": 24,
+          "text": "BuildRequires:  wayland-protocols-devel"
+        },
+        {
+          "line": 25,
+          "text": "BuildRequires:  ffmpeg-free-devel"
+        },
+        {
+          "line": 26,
+          "text": "Requires:       quickshell >= 0.3.0"
+        },
+        {
+          "line": 27,
+          "text": "Requires:       ffmpeg-free"
+        },
+        {
+          "line": 29,
+          "text": "Requires:       openh264"
+        },
+        {
+          "line": 30,
+          "text": "Requires:       ImageMagick"
+        },
+        {
+          "line": 31,
+          "text": "Requires:       qt6-qtmultimedia"
+        },
+        {
+          "line": 32,
+          "text": "Requires:       qt6-qtimageformats"
+        },
+        {
+          "line": 33,
+          "text": "Requires:       skwd-paper-bin"
+        },
+        {
+          "line": 34,
+          "text": "Suggests:       yt-dlp"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#25/#175/#176",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku-blobs.spec",
+      "git_blob": "b8680870995269b65f3d7808a3474ecb7d004fb9",
+      "git_mode": "100644",
+      "sha256": "5c4303aa96e4197cb9b83a7df7b422f9547971d69efa9134969c23413c178e0c",
+      "bytes": 1089,
+      "name": "ryoku-blobs",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ryoku-blobs"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://ryoku.dev"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  cmake"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  ninja-build"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  gcc-c++"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  qt6-qtbase-devel"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  qt6-qtdeclarative-devel"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  qt6-qtmultimedia-devel"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  qt6-qtquick3d-devel"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  qt6-qtshadertools-devel"
+        },
+        {
+          "line": 20,
+          "text": "Requires:       qt6-qtbase"
+        },
+        {
+          "line": 21,
+          "text": "Requires:       qt6-qtdeclarative"
+        },
+        {
+          "line": 22,
+          "text": "Requires:       qt6-qtmultimedia"
+        },
+        {
+          "line": 23,
+          "text": "Requires:       qt6-qtquick3d"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku-cursor-material.spec",
+      "git_blob": "3752fa30a1e7eb640cfaaa86f03d2d6d843625f5",
+      "git_mode": "100644",
+      "sha256": "02309250b2a22dbbd367c8320e2b72c1749fae40105b4445ae1efd155d522d72",
+      "bytes": 2528,
+      "name": "ryoku-cursor-material",
+      "raw_header_fields": [
+        {
+          "line": 4,
+          "text": "Name:           ryoku-cursor-material"
+        },
+        {
+          "line": 5,
+          "text": "Version:        1.0.0"
+        },
+        {
+          "line": 6,
+          "text": "Release:        2%{?dist}"
+        },
+        {
+          "line": 8,
+          "text": "License:        GPL-3.0-or-later AND MIT"
+        },
+        {
+          "line": 9,
+          "text": "URL:            https://github.com/SakibShahariar/material-bibata-cursor"
+        },
+        {
+          "line": 10,
+          "text": "Source0:        https://github.com/rtgiskard/bibata_cursor/archive/%{bibata_commit}.tar.gz#/bibata_cursor-%{bibata_commit}.tar.gz"
+        },
+        {
+          "line": 11,
+          "text": "Source1:        themes.json"
+        },
+        {
+          "line": 12,
+          "text": "Source2:        compile_bibata_material.fish"
+        },
+        {
+          "line": 13,
+          "text": "Source3:        metadata_generator.py"
+        },
+        {
+          "line": 14,
+          "text": "Source4:        ryoku-cursor-material-recolor"
+        },
+        {
+          "line": 15,
+          "text": "Source5:        https://raw.githubusercontent.com/SakibShahariar/material-bibata-cursor/%{recipe_commit}/LICENSE#/material-bibata-LICENSE"
+        },
+        {
+          "line": 16,
+          "text": "Source6:        https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/GPL-3.0-or-later.txt#/GPL-3.0.txt"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  fish"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  jq"
+        },
+        {
+          "line": 20,
+          "text": "BuildRequires:  librsvg2-tools"
+        },
+        {
+          "line": 21,
+          "text": "BuildRequires:  python3"
+        },
+        {
+          "line": 22,
+          "text": "BuildRequires:  xcursorgen"
+        },
+        {
+          "line": 23,
+          "text": "Requires:       librsvg2-tools"
+        },
+        {
+          "line": 24,
+          "text": "Requires:       python3"
+        },
+        {
+          "line": 25,
+          "text": "Requires:       xcursorgen"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku-desktop-hyprland.spec",
+      "git_blob": "14c55cac410adf1be183e1ed972bf60427049a19",
+      "git_mode": "100644",
+      "sha256": "3180b1890690f831242ee2e7e1247f432f86f8022ef22403e00fffe3db6c603f",
+      "bytes": 1389,
+      "name": "ryoku-desktop-hyprland",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ryoku-desktop-hyprland"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://ryoku.dev"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  golang >= 1.26.4"
+        },
+        {
+          "line": 13,
+          "text": "Requires:       ryoku-desktop = %{version}-%{release}"
+        },
+        {
+          "line": 14,
+          "text": "Requires:       hyprland"
+        },
+        {
+          "line": 15,
+          "text": "Requires:       ryoku-hypr-plugins = %{version}-%{release}"
+        },
+        {
+          "line": 16,
+          "text": "Requires:       ryoku-keysounds = %{version}-%{release}"
+        },
+        {
+          "line": 17,
+          "text": "Requires:       hypr-dynamic-cursors = %{version}-%{release}"
+        },
+        {
+          "line": 18,
+          "text": "Requires:       hyprglass = %{version}-%{release}"
+        },
+        {
+          "line": 19,
+          "text": "Requires:       hyprgrass = %{version}-%{release}"
+        },
+        {
+          "line": 20,
+          "text": "Requires:       imgborders = %{version}-%{release}"
+        },
+        {
+          "line": 21,
+          "text": "Requires:       hyprland-preview-share-picker = %{version}-%{release}"
+        },
+        {
+          "line": 22,
+          "text": "Requires:       hyprpolkitagent"
+        },
+        {
+          "line": 23,
+          "text": "Requires:       xdg-desktop-portal-hyprland"
+        },
+        {
+          "line": 24,
+          "text": "Requires:       hyprsunset"
+        },
+        {
+          "line": 25,
+          "text": "Provides:       ryoku-desktop-compositor"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#25/#180/#182",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku-desktop-niri.spec",
+      "git_blob": "973c4a9cd62305226dcf7cef4730a1ce4194bc18",
+      "git_mode": "100644",
+      "sha256": "919ec424cef86fadc1cf21b2c28dcfb5bb3933c86260f5b71875ef074ab00dcc",
+      "bytes": 1080,
+      "name": "ryoku-desktop-niri",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ryoku-desktop-niri"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://ryoku.dev"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  golang >= 1.26.4"
+        },
+        {
+          "line": 13,
+          "text": "Requires:       ryoku-desktop = %{version}-%{release}"
+        },
+        {
+          "line": 14,
+          "text": "Requires:       niri"
+        },
+        {
+          "line": 15,
+          "text": "Requires:       xwayland-satellite"
+        },
+        {
+          "line": 16,
+          "text": "Requires:       xdg-desktop-portal-gnome"
+        },
+        {
+          "line": 17,
+          "text": "Requires:       wlsunset"
+        },
+        {
+          "line": 18,
+          "text": "Suggests:       ryoku-keysounds-niri"
+        },
+        {
+          "line": 19,
+          "text": "Suggests:       ryoku-keysounds-profiles"
+        },
+        {
+          "line": 20,
+          "text": "Suggests:       libcanberra"
+        },
+        {
+          "line": 21,
+          "text": "Provides:       ryoku-desktop-compositor"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#46",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku-desktop.spec",
+      "git_blob": "edc9cffe09c38ff4e77fccd981adbca3216b9193",
+      "git_mode": "100644",
+      "sha256": "5e47daf67ffab093451f99bcfe34f296736d9777f93612e04b520858adf93e09",
+      "bytes": 8798,
+      "name": "ryoku-desktop",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ryoku-desktop"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-or-later AND MIT"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://ryoku.dev"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  gtk3-devel"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  webkit2gtk4.1-devel"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  golang >= 1.26.4"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  cmake"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  ninja-build"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  gcc-c++"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  qt6-qtbase-devel"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  qt6-qtdeclarative-devel"
+        },
+        {
+          "line": 20,
+          "text": "Requires:       ryoku = %{version}-%{release}"
+        },
+        {
+          "line": 21,
+          "text": "Requires(post): ryoku = %{version}-%{release}"
+        },
+        {
+          "line": 22,
+          "text": "Requires:       ryoku-shell = %{version}-%{release}"
+        },
+        {
+          "line": 23,
+          "text": "Requires:       ryogami = %{version}-%{release}"
+        },
+        {
+          "line": 24,
+          "text": "Requires:       ryoku-hub = %{version}-%{release}"
+        },
+        {
+          "line": 25,
+          "text": "Requires:       ryoku-blobs = %{version}-%{release}"
+        },
+        {
+          "line": 26,
+          "text": "Requires:       ryoku-extras = %{version}-%{release}"
+        },
+        {
+          "line": 27,
+          "text": "Requires:       ryoku-keyring"
+        },
+        {
+          "line": 28,
+          "text": "Requires:       sddm-theme-ryoku = %{version}-%{release}"
+        },
+        {
+          "line": 29,
+          "text": "Requires:       ryoku-desktop-compositor"
+        },
+        {
+          "line": 30,
+          "text": "Requires:       dnf"
+        },
+        {
+          "line": 31,
+          "text": "Requires:       gpk"
+        },
+        {
+          "line": 32,
+          "text": "Requires:       quickshell >= 0.3.0"
+        },
+        {
+          "line": 33,
+          "text": "Requires:       gpu-screen-recorder"
+        },
+        {
+          "line": 34,
+          "text": "Requires:       wl-clip-persist"
+        },
+        {
+          "line": 35,
+          "text": "Requires:       ryoku-cursor-material"
+        },
+        {
+          "line": 36,
+          "text": "Requires:       xorg-x11-server-Xwayland"
+        },
+        {
+          "line": 37,
+          "text": "Requires:       qt6-qtwayland"
+        },
+        {
+          "line": 38,
+          "text": "Requires:       qt5-qtwayland"
+        },
+        {
+          "line": 39,
+          "text": "Requires:       qt6-qt5compat"
+        },
+        {
+          "line": 40,
+          "text": "Requires:       qt6-qtsvg"
+        },
+        {
+          "line": 41,
+          "text": "Requires:       qt6-qtimageformats"
+        },
+        {
+          "line": 42,
+          "text": "Requires:       qt6-qtmultimedia"
+        },
+        {
+          "line": 43,
+          "text": "Requires:       qt6-qtdeclarative"
+        },
+        {
+          "line": 44,
+          "text": "Requires:       qt6-qtquick3d"
+        },
+        {
+          "line": 45,
+          "text": "Requires:       gtk3"
+        },
+        {
+          "line": 46,
+          "text": "Requires:       webkit2gtk4.1"
+        },
+        {
+          "line": 47,
+          "text": "Requires:       weston"
+        },
+        {
+          "line": 48,
+          "text": "Requires:       xdg-desktop-portal-gtk"
+        },
+        {
+          "line": 49,
+          "text": "Requires:       adw-gtk3-theme"
+        },
+        {
+          "line": 50,
+          "text": "Requires:       papirus-icon-theme"
+        },
+        {
+          "line": 51,
+          "text": "Requires:       kf6-syntax-highlighting"
+        },
+        {
+          "line": 52,
+          "text": "Requires:       brightnessctl"
+        },
+        {
+          "line": 53,
+          "text": "Requires:       playerctl"
+        },
+        {
+          "line": 54,
+          "text": "Requires:       mpv"
+        },
+        {
+          "line": 55,
+          "text": "Requires:       mpv-mpris"
+        },
+        {
+          "line": 56,
+          "text": "Requires:       yt-dlp"
+        },
+        {
+          "line": 57,
+          "text": "Requires:       wl-clipboard"
+        },
+        {
+          "line": 58,
+          "text": "Requires:       grim"
+        },
+        {
+          "line": 59,
+          "text": "Requires:       slurp"
+        },
+        {
+          "line": 60,
+          "text": "Requires:       cava"
+        },
+        {
+          "line": 61,
+          "text": "Requires:       python3"
+        },
+        {
+          "line": 62,
+          "text": "Requires:       pipewire"
+        },
+        {
+          "line": 63,
+          "text": "Requires:       pulseaudio-utils"
+        },
+        {
+          "line": 64,
+          "text": "Requires:       jq"
+        },
+        {
+          "line": 65,
+          "text": "Requires:       ImageMagick"
+        },
+        {
+          "line": 66,
+          "text": "Requires:       ffmpeg-free"
+        },
+        {
+          "line": 67,
+          "text": "Requires:       curl"
+        },
+        {
+          "line": 68,
+          "text": "Requires:       zenity"
+        },
+        {
+          "line": 69,
+          "text": "Requires:       iw"
+        },
+        {
+          "line": 70,
+          "text": "Requires:       nftables"
+        },
+        {
+          "line": 71,
+          "text": "Requires:       bluez"
+        },
+        {
+          "line": 72,
+          "text": "Requires:       pam-u2f"
+        },
+        {
+          "line": 73,
+          "text": "Requires:       rtkit"
+        },
+        {
+          "line": 74,
+          "text": "Requires:       rsms-inter-fonts"
+        },
+        {
+          "line": 75,
+          "text": "Requires:       google-noto-sans-fonts"
+        },
+        {
+          "line": 76,
+          "text": "Requires:       google-noto-serif-fonts"
+        },
+        {
+          "line": 77,
+          "text": "Requires:       google-noto-sans-mono-fonts"
+        },
+        {
+          "line": 78,
+          "text": "Requires:       google-noto-sans-cjk-fonts"
+        },
+        {
+          "line": 79,
+          "text": "Requires:       google-noto-emoji-fonts"
+        },
+        {
+          "line": 80,
+          "text": "Requires:       tesseract"
+        },
+        {
+          "line": 81,
+          "text": "Requires:       tesseract-langpack-eng"
+        },
+        {
+          "line": 82,
+          "text": "Requires:       zbar"
+        },
+        {
+          "line": 83,
+          "text": "Requires:       wtype"
+        },
+        {
+          "line": 84,
+          "text": "Requires:       libqalculate"
+        },
+        {
+          "line": 85,
+          "text": "Requires:       upower"
+        },
+        {
+          "line": 86,
+          "text": "Requires:       ppd-service"
+        },
+        {
+          "line": 87,
+          "text": "Requires:       ddcutil"
+        },
+        {
+          "line": 88,
+          "text": "Requires:       hypridle"
+        },
+        {
+          "line": 89,
+          "text": "Requires:       hyprpicker"
+        },
+        {
+          "line": 90,
+          "text": "Requires:       grub2-tools"
+        },
+        {
+          "line": 91,
+          "text": "Requires:       grub2-tools-extra"
+        },
+        {
+          "line": 92,
+          "text": "Requires:       fontconfig"
+        },
+        {
+          "line": 93,
+          "text": "Requires:       grubby"
+        },
+        {
+          "line": 94,
+          "text": "Requires:       btrfs-progs"
+        },
+        {
+          "line": 95,
+          "text": "Requires:       snapper"
+        },
+        {
+          "line": 96,
+          "text": "Requires:       plymouth"
+        },
+        {
+          "line": 97,
+          "text": "Requires:       plymouth-scripts"
+        },
+        {
+          "line": 98,
+          "text": "Requires:       plymouth-plugin-script"
+        },
+        {
+          "line": 99,
+          "text": "Requires:       plymouth-plugin-label"
+        },
+        {
+          "line": 100,
+          "text": "Requires:       dracut"
+        },
+        {
+          "line": 101,
+          "text": "Requires:       kernel-devel"
+        },
+        {
+          "line": 102,
+          "text": "Requires:       kernel-headers"
+        },
+        {
+          "line": 103,
+          "text": "Requires:       dkms"
+        },
+        {
+          "line": 105,
+          "text": "Recommends:     power-profiles-daemon"
+        },
+        {
+          "line": 106,
+          "text": "Suggests:       kitty"
+        },
+        {
+          "line": 107,
+          "text": "Suggests:       fish"
+        },
+        {
+          "line": 108,
+          "text": "Suggests:       blesh"
+        },
+        {
+          "line": 109,
+          "text": "Suggests:       zsh"
+        },
+        {
+          "line": 110,
+          "text": "Suggests:       zsh-autosuggestions"
+        },
+        {
+          "line": 111,
+          "text": "Suggests:       zsh-history-substring-search"
+        },
+        {
+          "line": 112,
+          "text": "Suggests:       zsh-syntax-highlighting"
+        },
+        {
+          "line": 113,
+          "text": "Suggests:       ryoku-oh-my-zsh"
+        },
+        {
+          "line": 114,
+          "text": "Suggests:       starship"
+        },
+        {
+          "line": 115,
+          "text": "Suggests:       fastfetch"
+        },
+        {
+          "line": 116,
+          "text": "Suggests:       yazi"
+        },
+        {
+          "line": 117,
+          "text": "Suggests:       neovim"
+        },
+        {
+          "line": 118,
+          "text": "Suggests:       nautilus"
+        },
+        {
+          "line": 119,
+          "text": "Suggests:       nautilus-python"
+        },
+        {
+          "line": 120,
+          "text": "Suggests:       dolphin"
+        },
+        {
+          "line": 121,
+          "text": "Suggests:       thunar"
+        },
+        {
+          "line": 122,
+          "text": "Suggests:       ryotunes"
+        },
+        {
+          "line": 123,
+          "text": "Suggests:       ryomanager"
+        },
+        {
+          "line": 124,
+          "text": "Suggests:       ryoku-rashin"
+        },
+        {
+          "line": 125,
+          "text": "Suggests:       waifu2x-ncnn-vulkan"
+        },
+        {
+          "line": 126,
+          "text": "Suggests:       pavucontrol"
+        },
+        {
+          "line": 127,
+          "text": "Suggests:       songrec"
+        },
+        {
+          "line": 128,
+          "text": "Suggests:       openrgb"
+        },
+        {
+          "line": 129,
+          "text": "Suggests:       gamescope"
+        },
+        {
+          "line": 130,
+          "text": "Suggests:       gamemode"
+        },
+        {
+          "line": 131,
+          "text": "Suggests:       mangohud"
+        },
+        {
+          "line": 132,
+          "text": "Suggests:       chromium"
+        },
+        {
+          "line": 133,
+          "text": "Suggests:       kdialog"
+        },
+        {
+          "line": 134,
+          "text": "Suggests:       plasma-integration"
+        },
+        {
+          "line": 135,
+          "text": "Suggests:       qemu-kvm"
+        },
+        {
+          "line": 136,
+          "text": "Suggests:       libvirt"
+        },
+        {
+          "line": 137,
+          "text": "Suggests:       edk2-ovmf"
+        },
+        {
+          "line": 138,
+          "text": "Suggests:       swtpm"
+        },
+        {
+          "line": 139,
+          "text": "Suggests:       quickemu"
+        },
+        {
+          "line": 140,
+          "text": "Suggests:       libisoburn"
+        },
+        {
+          "line": 141,
+          "text": "Suggests:       spice-gtk"
+        },
+        {
+          "line": 142,
+          "text": "Suggests:       spice-gtk-tools"
+        },
+        {
+          "line": 143,
+          "text": "Suggests:       picocom"
+        },
+        {
+          "line": 144,
+          "text": "Suggests:       telnet"
+        },
+        {
+          "line": 145,
+          "text": "Suggests:       freerdp"
+        },
+        {
+          "line": 146,
+          "text": "Suggests:       tigervnc"
+        },
+        {
+          "line": 147,
+          "text": "Suggests:       asusctl"
+        },
+        {
+          "line": 148,
+          "text": "Suggests:       ryoku-extras"
+        },
+        {
+          "line": 150,
+          "text": "Provides:       ryostore"
+        },
+        {
+          "line": 151,
+          "text": "Provides:       ryovm"
+        },
+        {
+          "line": 152,
+          "text": "Provides:       ryoku-ui = %{version}-%{release}"
+        },
+        {
+          "line": 153,
+          "text": "Obsoletes:      ryostore < 0.2"
+        },
+        {
+          "line": 154,
+          "text": "Obsoletes:      ryovm < 0.2"
+        },
+        {
+          "line": 155,
+          "text": "Obsoletes:      ryoku-ui < 0.2"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [
+        {
+          "section": "pre",
+          "line_start": 171,
+          "line_end": 184,
+          "source_region_sha256": "e66e1fa424aad21c0e41870ce9153e5e5977e1b13bffc89140d12018943e1f52"
+        },
+        {
+          "section": "post",
+          "line_start": 185,
+          "line_end": 195,
+          "source_region_sha256": "398413050eec2edd2d7b302f51116663bd9fb1799fe85f68cd67fac734e512c3"
+        },
+        {
+          "section": "posttrans",
+          "line_start": 196,
+          "line_end": 230,
+          "source_region_sha256": "a0834061cdbf90bc9e9f6cc999e60ce6897b5bb9783bb5ca792831996017ddbd"
+        },
+        {
+          "section": "preun",
+          "line_start": 231,
+          "line_end": 241,
+          "source_region_sha256": "ebf1692d49595d3ffdcc4516df4058beee96fc63fe8625cfffb55934be7e477a"
+        },
+        {
+          "section": "postun",
+          "line_start": 242,
+          "line_end": 252,
+          "source_region_sha256": "9e4d70ebfe1dff6bd3fd5eb1b295bd537f77e013896b2f2bf5fb9f1bde59b557"
+        }
+      ],
+      "retained_feature_owners": "#25/#27/#28/#29/#31/#177",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku-extras.spec",
+      "git_blob": "1fd6bd5b3237c233c88606564d2d71a7ed3c2a0f",
+      "git_mode": "100644",
+      "sha256": "11ccb734e54697c395eaf9c8719ccabea5b3029ddc0d6bed51ac6c30b1951aaf",
+      "bytes": 1362,
+      "name": "ryoku-extras",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ryoku-extras"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-or-later AND OFL-1.1 AND BSD-3-Clause"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://ryoku.dev"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 8,
+          "text": "BuildRequires:  python3"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku-hub.spec",
+      "git_blob": "9a83e9bea709525590851650fd741a099164a4b1",
+      "git_mode": "100644",
+      "sha256": "a1438bbd9d2f10377f9a4bd75bbb9a250cbe31b93130e3198a888df30936cb6e",
+      "bytes": 861,
+      "name": "ryoku-hub",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ryoku-hub"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://ryoku.dev"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  golang >= 1.26.4"
+        },
+        {
+          "line": 13,
+          "text": "Suggests:       python3"
+        },
+        {
+          "line": 14,
+          "text": "Suggests:       git"
+        },
+        {
+          "line": 15,
+          "text": "Suggests:       cmake"
+        },
+        {
+          "line": 16,
+          "text": "Suggests:       gcc"
+        },
+        {
+          "line": 17,
+          "text": "Suggests:       gcc-c++"
+        },
+        {
+          "line": 18,
+          "text": "Suggests:       make"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku-hypr-plugins.spec",
+      "git_blob": "a6d78e539556151c941568a4e5d30b6139f1f370",
+      "git_mode": "100644",
+      "sha256": "152dd522296f8ed629216223dc7df0657a416207cb6d7d657d487a608b47079e",
+      "bytes": 1248,
+      "name": "ryoku-hypr-plugins",
+      "raw_header_fields": [
+        {
+          "line": 3,
+          "text": "Name:           ryoku-hypr-plugins"
+        },
+        {
+          "line": 4,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 5,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 7,
+          "text": "License:        BSD-3-Clause"
+        },
+        {
+          "line": 8,
+          "text": "URL:            https://github.com/hyprwm/hyprland-plugins"
+        },
+        {
+          "line": 9,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  gcc-c++"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  make"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  pkgconf-pkg-config"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  hyprland-devel"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  cairo-devel"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  libdrm-devel"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  libinput-devel"
+        },
+        {
+          "line": 20,
+          "text": "BuildRequires:  libxkbcommon-devel"
+        },
+        {
+          "line": 21,
+          "text": "BuildRequires:  pango-devel"
+        },
+        {
+          "line": 22,
+          "text": "BuildRequires:  pixman-devel"
+        },
+        {
+          "line": 23,
+          "text": "BuildRequires:  systemd-devel"
+        },
+        {
+          "line": 24,
+          "text": "BuildRequires:  wayland-devel"
+        },
+        {
+          "line": 25,
+          "text": "Requires:       hyprland%{?_isa} = %{hyprland_evr}"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#25/#180/#182",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku-keyring.spec",
+      "git_blob": "bc3d0a56353b43d7f8ada3959f5ed47931c236a6",
+      "git_mode": "100644",
+      "sha256": "89afc97b5da737241e3e138c0b2b0bf209204f445a0d777ef44a0e9b917c9755",
+      "bytes": 924,
+      "name": "ryoku-keyring",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ryoku-keyring"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://ryoku.dev"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#28/#32/#42-45",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku-keysounds-niri.spec",
+      "git_blob": "744eb208f5d9ae4ce03e56ba74a66ce3fded3d95",
+      "git_mode": "100644",
+      "sha256": "fcfb3c281219056eb9a4b3b7afda57fee21db78a702a84f86fa85e600a988ff2",
+      "bytes": 1011,
+      "name": "ryoku-keysounds-niri",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ryoku-keysounds-niri"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://ryoku.dev"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  gcc"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  libcanberra-devel"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  rust"
+        },
+        {
+          "line": 15,
+          "text": "Requires:       libcanberra"
+        },
+        {
+          "line": 16,
+          "text": "Requires:       ryoku-keysounds-profiles = %{version}-%{release}"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#25/#180/#182",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku-keysounds-profiles.spec",
+      "git_blob": "27268dcd71798d2e00dd235b125ceed9e60e1bb3",
+      "git_mode": "100644",
+      "sha256": "a1529e2bb6ee31f3525df6548c31841b9ac69e0b770c976f8359471bd7ec55de",
+      "bytes": 892,
+      "name": "ryoku-keysounds-profiles",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ryoku-keysounds-profiles"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-or-later AND MIT"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://ryoku.dev"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  ffmpeg-free"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  python3"
+        },
+        {
+          "line": 14,
+          "text": "Requires:       ffmpeg-free"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#25/#180/#182",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku-keysounds.spec",
+      "git_blob": "6e0e78c5d66fad16faf81999f1021dfb312412a5",
+      "git_mode": "100644",
+      "sha256": "e7f4d6dbd91930f29189f4a479503f334d38a27f3a2a53586e413ad36e47c9e2",
+      "bytes": 1224,
+      "name": "ryoku-keysounds",
+      "raw_header_fields": [
+        {
+          "line": 3,
+          "text": "Name:           ryoku-keysounds"
+        },
+        {
+          "line": 4,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 5,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 7,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 8,
+          "text": "URL:            https://ryoku.dev"
+        },
+        {
+          "line": 9,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  gcc-c++"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  libcanberra-devel"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  libdrm-devel"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  make"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  pkgconf-pkg-config"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  pixman-devel"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  hyprland-devel"
+        },
+        {
+          "line": 20,
+          "text": "Requires:       hyprland%{?_isa} = %{hyprland_evr}"
+        },
+        {
+          "line": 21,
+          "text": "Requires:       libcanberra"
+        },
+        {
+          "line": 22,
+          "text": "Requires:       ryoku-keysounds-profiles = %{version}-%{release}"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#25/#180/#182",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku-oh-my-zsh.spec",
+      "git_blob": "1566e1382648d9eeff8dc2798188261838838eb7",
+      "git_mode": "100644",
+      "sha256": "6e65bf3b681b767957f595000f44f49895703346637a6bfd8f9a366951abfc6e",
+      "bytes": 1204,
+      "name": "ryoku-oh-my-zsh",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ryoku-oh-my-zsh"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.1.0"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        MIT"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://github.com/ohmyzsh/ohmyzsh"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 9,
+          "text": "Requires:       zsh"
+        },
+        {
+          "line": 10,
+          "text": "Provides:       oh-my-zsh = %{version}-%{release}"
+        },
+        {
+          "line": 11,
+          "text": "Provides:       oh-my-zsh-git = %{version}-%{release}"
+        },
+        {
+          "line": 12,
+          "text": "Conflicts:      oh-my-zsh"
+        },
+        {
+          "line": 13,
+          "text": "Conflicts:      oh-my-zsh-git"
+        },
+        {
+          "line": 14,
+          "text": "Obsoletes:      oh-my-zsh < %{version}-%{release}"
+        },
+        {
+          "line": 15,
+          "text": "Obsoletes:      oh-my-zsh-git < %{version}-%{release}"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku-palette-bridge.spec",
+      "git_blob": "cfc4faf8a17c592cad3fd532f63e9b87d6267fe8",
+      "git_mode": "100644",
+      "sha256": "4f7fdf97837c04360f947a22a9b2823aa1e11e0e9cf7c15270b3177b7b811ffd",
+      "bytes": 910,
+      "name": "ryoku-palette-bridge",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ryoku-palette-bridge"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        MIT"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://ryoku.dev"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  golang >= 1.26.4"
+        },
+        {
+          "line": 13,
+          "text": "Requires:       bash"
+        },
+        {
+          "line": 14,
+          "text": "Requires:       curl"
+        },
+        {
+          "line": 15,
+          "text": "Requires:       jq"
+        },
+        {
+          "line": 16,
+          "text": "Requires:       ryoku"
+        },
+        {
+          "line": 17,
+          "text": "Requires:       ryoku-extras"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku-rashin.spec",
+      "git_blob": "38a2e05fb91b4d282c7e44094a184aba3f707e42",
+      "git_mode": "100644",
+      "sha256": "8890e1f70363ba541bd5abeab2d6d4ba7e7ce798e78ed391f3edc3d9dfbe5607",
+      "bytes": 1424,
+      "name": "ryoku-rashin",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ryoku-rashin"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://ryoku.dev"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  golang >= 1.26.4"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  gtk3-devel"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  webkit2gtk4.1-devel"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  cmake"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  ninja-build"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  gcc-c++"
+        },
+        {
+          "line": 18,
+          "text": "Requires:       ryoku-desktop = %{version}-%{release}"
+        },
+        {
+          "line": 19,
+          "text": "Requires(post): ryoku = %{version}-%{release}"
+        },
+        {
+          "line": 20,
+          "text": "Requires:       uv"
+        },
+        {
+          "line": 21,
+          "text": "Requires:       nodejs24"
+        },
+        {
+          "line": 22,
+          "text": "Requires:       gcc"
+        },
+        {
+          "line": 23,
+          "text": "Requires:       prowl"
+        },
+        {
+          "line": 24,
+          "text": "Requires:       gtk3"
+        },
+        {
+          "line": 25,
+          "text": "Requires:       webkit2gtk4.1"
+        },
+        {
+          "line": 26,
+          "text": "Requires:       python3"
+        },
+        {
+          "line": 27,
+          "text": "Suggests:       sqlite"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [
+        {
+          "section": "post",
+          "line_start": 45,
+          "line_end": 49,
+          "source_region_sha256": "d075e9788e729faa10233b29c1fcb738d6430beb43411b52d492e389d9e69005"
+        },
+        {
+          "section": "postun",
+          "line_start": 50,
+          "line_end": 53,
+          "source_region_sha256": "15bdbe90858d8b3d405aaf77d9b9a52c3a86e3829cf4187965372d6e1f9c12ea"
+        }
+      ],
+      "retained_feature_owners": "#183/#47",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku-shell.spec",
+      "git_blob": "722c7fece14c4bfb18916b0a614747fe5ff420d2",
+      "git_mode": "100644",
+      "sha256": "5cbe8e9c8a974170ad9a4ac9df16b64fd3a6bf98f65b1756e0a66bea3c2a99bc",
+      "bytes": 1544,
+      "name": "ryoku-shell",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ryoku-shell"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://ryoku.dev"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  golang >= 1.26.4"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  gcc"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  pkgconf-pkg-config"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  wayland-devel"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  wayland-protocols-devel"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  ffmpeg-free-devel"
+        },
+        {
+          "line": 18,
+          "text": "Requires:       quickshell >= 0.3.0"
+        },
+        {
+          "line": 19,
+          "text": "Requires:       ffmpeg-free"
+        },
+        {
+          "line": 20,
+          "text": "Requires:       libwayland-client"
+        },
+        {
+          "line": 21,
+          "text": "Requires:       libwayland-cursor"
+        },
+        {
+          "line": 22,
+          "text": "Requires:       libwayland-egl"
+        },
+        {
+          "line": 23,
+          "text": "Requires:       libwayland-server"
+        },
+        {
+          "line": 24,
+          "text": "Requires:       jq"
+        },
+        {
+          "line": 25,
+          "text": "Requires:       python3"
+        },
+        {
+          "line": 26,
+          "text": "Requires:       uv"
+        },
+        {
+          "line": 27,
+          "text": "Requires:       socat"
+        },
+        {
+          "line": 28,
+          "text": "Requires:       gum"
+        },
+        {
+          "line": 29,
+          "text": "Requires:       qrencode"
+        },
+        {
+          "line": 30,
+          "text": "Requires:       upower"
+        },
+        {
+          "line": 31,
+          "text": "Requires:       brightnessctl"
+        },
+        {
+          "line": 32,
+          "text": "Requires:       ddcutil"
+        },
+        {
+          "line": 33,
+          "text": "Requires:       wtype"
+        },
+        {
+          "line": 34,
+          "text": "Requires:       wl-clipboard"
+        },
+        {
+          "line": 35,
+          "text": "Requires:       zenity"
+        },
+        {
+          "line": 36,
+          "text": "Requires:       ppd-service"
+        },
+        {
+          "line": 37,
+          "text": "Requires:       NetworkManager"
+        },
+        {
+          "line": 38,
+          "text": "Requires:       NetworkManager-wifi"
+        },
+        {
+          "line": 39,
+          "text": "Requires:       curl"
+        },
+        {
+          "line": 40,
+          "text": "Requires:       libnotify"
+        },
+        {
+          "line": 41,
+          "text": "Requires:       inotify-tools"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#25/#27/#28/#29/#31/#177",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryoku.spec",
+      "git_blob": "493008e6ce027363db77487aff43a6382f6a9943",
+      "git_mode": "100644",
+      "sha256": "83eed777b6d48a71584b5e61cd25ebf9db70eed3b2deffae8436a942ae1629ae",
+      "bytes": 821,
+      "name": "ryoku",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ryoku"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://ryoku.dev"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  bash"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  coreutils"
+        },
+        {
+          "line": 11,
+          "text": "BuildRequires:  findutils"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  golang >= 1.26.4"
+        },
+        {
+          "line": 13,
+          "text": "Requires:       dnf"
+        },
+        {
+          "line": 14,
+          "text": "Requires:       snapper"
+        },
+        {
+          "line": 15,
+          "text": "Requires:       libdnf5-plugin-actions"
+        },
+        {
+          "line": 16,
+          "text": "Suggests:       lua"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#25/#27/#28/#29/#31/#177",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryomanager.spec",
+      "git_blob": "a5dc4ac218fee7f50509a9e1120a5432faa950c3",
+      "git_mode": "100644",
+      "sha256": "f58e47c5c7114a1a60330dd724e292803a10b48f786439efcb931859a44bb607",
+      "bytes": 1866,
+      "name": "ryomanager",
+      "raw_header_fields": [
+        {
+          "line": 5,
+          "text": "Name:           ryomanager"
+        },
+        {
+          "line": 6,
+          "text": "Version:        0.1.0.r27.g459c671"
+        },
+        {
+          "line": 7,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 9,
+          "text": "License:        GPL-3.0-only"
+        },
+        {
+          "line": 10,
+          "text": "URL:            https://github.com/Ryoku-dev/ryomanager"
+        },
+        {
+          "line": 11,
+          "text": "Source0:        %{url}/archive/%{ryomanager_commit}.tar.gz#/%{name}-%{ryomanager_commit}.tar.gz"
+        },
+        {
+          "line": 12,
+          "text": "Source1:        %{name}-%{version}-node_modules.tar.gz"
+        },
+        {
+          "line": 13,
+          "text": "Source2:        %{name}.desktop"
+        },
+        {
+          "line": 14,
+          "text": "Source100:      %{name}-%{version}-vendor.tar.gz"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  desktop-file-utils"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  gcc"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  golang >= 1.25"
+        },
+        {
+          "line": 20,
+          "text": "BuildRequires:  gtk3-devel"
+        },
+        {
+          "line": 21,
+          "text": "BuildRequires:  pkgconf-pkg-config"
+        },
+        {
+          "line": 22,
+          "text": "BuildRequires:  nodejs24-npm"
+        },
+        {
+          "line": 23,
+          "text": "BuildRequires:  webkit2gtk4.1-devel"
+        },
+        {
+          "line": 24,
+          "text": "Requires:       desktop-file-utils"
+        },
+        {
+          "line": 25,
+          "text": "Requires:       gtk3"
+        },
+        {
+          "line": 26,
+          "text": "Requires:       hicolor-icon-theme"
+        },
+        {
+          "line": 27,
+          "text": "Requires:       webkit2gtk4.1"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ryotunes.spec",
+      "git_blob": "3276408b58162eacc8715c1cdeba366a6f8b12aa",
+      "git_mode": "100644",
+      "sha256": "5807da81a473999fa81139ca61e5598c159eff7e88e789d80f495b4216598453",
+      "bytes": 4741,
+      "name": "ryotunes",
+      "raw_header_fields": [
+        {
+          "line": 4,
+          "text": "Name:           ryotunes"
+        },
+        {
+          "line": 6,
+          "text": "Version:        1.1.6"
+        },
+        {
+          "line": 7,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 9,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 10,
+          "text": "URL:            https://github.com/ryoku-dev/ryotunes"
+        },
+        {
+          "line": 11,
+          "text": "Source0:        ryotunes-%{version}.tar.gz"
+        },
+        {
+          "line": 12,
+          "text": "Source1:        ryotunes-%{version}-node_modules.tar.gz"
+        },
+        {
+          "line": 13,
+          "text": "Source100:      %{name}-%{version}-vendor.tar.gz"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  cargo"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  rust"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  gcc"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  gcc-c++"
+        },
+        {
+          "line": 20,
+          "text": "BuildRequires:  clang"
+        },
+        {
+          "line": 21,
+          "text": "BuildRequires:  nodejs"
+        },
+        {
+          "line": 22,
+          "text": "BuildRequires:  pnpm"
+        },
+        {
+          "line": 23,
+          "text": "BuildRequires:  webkit2gtk4.1-devel"
+        },
+        {
+          "line": 24,
+          "text": "BuildRequires:  libappindicator-gtk3-devel"
+        },
+        {
+          "line": 25,
+          "text": "BuildRequires:  mpv-devel"
+        },
+        {
+          "line": 26,
+          "text": "BuildRequires:  openssl-devel"
+        },
+        {
+          "line": 27,
+          "text": "BuildRequires:  librsvg2-devel"
+        },
+        {
+          "line": 28,
+          "text": "BuildRequires:  desktop-file-utils"
+        },
+        {
+          "line": 29,
+          "text": "BuildRequires:  systemd-rpm-macros"
+        },
+        {
+          "line": 30,
+          "text": "Requires:       webkit2gtk4.1"
+        },
+        {
+          "line": 31,
+          "text": "Requires:       libappindicator-gtk3"
+        },
+        {
+          "line": 32,
+          "text": "Requires:       mpv-libs"
+        },
+        {
+          "line": 33,
+          "text": "Requires:       yt-dlp"
+        },
+        {
+          "line": 34,
+          "text": "Requires:       ffmpeg-free"
+        },
+        {
+          "line": 35,
+          "text": "Requires:       openssl-libs"
+        },
+        {
+          "line": 36,
+          "text": "Requires:       librsvg2"
+        },
+        {
+          "line": 37,
+          "text": "Requires:       desktop-file-utils"
+        },
+        {
+          "line": 38,
+          "text": "Requires:       hicolor-icon-theme"
+        },
+        {
+          "line": 39,
+          "text": "Requires:       xdg-utils"
+        },
+        {
+          "line": 40,
+          "text": "Requires:       polkit"
+        },
+        {
+          "line": 41,
+          "text": "Requires:       quickshell >= 0.3.0"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [
+        {
+          "section": "post",
+          "line_start": 105,
+          "line_end": 107,
+          "source_region_sha256": "ff2e1864d77240e848c9abfb93a8234a4a4fbcec4ff399d17d406454f1024449"
+        },
+        {
+          "section": "preun",
+          "line_start": 108,
+          "line_end": 110,
+          "source_region_sha256": "488426def267b1ed4590a2df33688559de292ee133780b519f35a5733d58a198"
+        },
+        {
+          "section": "postun",
+          "line_start": 111,
+          "line_end": 113,
+          "source_region_sha256": "2f1b292d4a2e9b523ee960900657f6bdea356edbb4bb8d43075247b28b607514"
+        }
+      ],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/sddm-theme-ryoku.spec",
+      "git_blob": "989372ac32e02847c82fb71fdc308c4de9d35a2c",
+      "git_mode": "100644",
+      "sha256": "b410508b3c47c6f5c08389c4aa2a3efebf19abb5248e2ce76800b01562a514b5",
+      "bytes": 712,
+      "name": "sddm-theme-ryoku",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           sddm-theme-ryoku"
+        },
+        {
+          "line": 2,
+          "text": "Version:        0.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://ryoku.dev"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        ryoku-%{version}.tar.gz"
+        },
+        {
+          "line": 10,
+          "text": "Requires:       sddm"
+        },
+        {
+          "line": 11,
+          "text": "Requires:       qt6-qtdeclarative"
+        },
+        {
+          "line": 12,
+          "text": "Requires:       qt6-qt5compat"
+        },
+        {
+          "line": 13,
+          "text": "Requires:       qt6-qtsvg"
+        },
+        {
+          "line": 14,
+          "text": "Requires:       qt6-qtmultimedia"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "shared-Ryoku-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#177",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/skwd-paper-bin.spec",
+      "git_blob": "dd48fe39d2bb4d025fb52e2160b2fb5ffa9664df",
+      "git_mode": "100644",
+      "sha256": "cd1a38deb86342f632d272d4072ca8f23cf11ce853d588b621792b939f67ac18",
+      "bytes": 3478,
+      "name": "skwd-paper-bin",
+      "raw_header_fields": [
+        {
+          "line": 5,
+          "text": "Name:           skwd-paper-bin"
+        },
+        {
+          "line": 6,
+          "text": "Version:        1.0.0_beta.23"
+        },
+        {
+          "line": 7,
+          "text": "Release:        3%{?dist}"
+        },
+        {
+          "line": 9,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 10,
+          "text": "URL:            https://github.com/liixini/skwd-paper"
+        },
+        {
+          "line": 11,
+          "text": "Source0:        %{url}/archive/%{skwd_commit}.tar.gz#/skwd-paper-%{version}.tar.gz"
+        },
+        {
+          "line": 12,
+          "text": "Source1:        https://ffmpeg.org/releases/ffmpeg-%{ffmpeg_version}.tar.xz"
+        },
+        {
+          "line": 13,
+          "text": "Source100:      %{name}-%{version}-vendor.tar.gz"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  alsa-lib-devel"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  cargo"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  clang"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  cmake"
+        },
+        {
+          "line": 20,
+          "text": "BuildRequires:  gcc"
+        },
+        {
+          "line": 21,
+          "text": "BuildRequires:  gcc-c++"
+        },
+        {
+          "line": 22,
+          "text": "BuildRequires:  glslc"
+        },
+        {
+          "line": 23,
+          "text": "BuildRequires:  libdav1d-devel"
+        },
+        {
+          "line": 24,
+          "text": "BuildRequires:  libdrm-devel"
+        },
+        {
+          "line": 25,
+          "text": "BuildRequires:  libva-devel"
+        },
+        {
+          "line": 26,
+          "text": "BuildRequires:  libshaderc-devel"
+        },
+        {
+          "line": 27,
+          "text": "BuildRequires:  libyuv-devel"
+        },
+        {
+          "line": 28,
+          "text": "BuildRequires:  libxkbcommon-devel"
+        },
+        {
+          "line": 29,
+          "text": "BuildRequires:  make"
+        },
+        {
+          "line": 30,
+          "text": "BuildRequires:  nasm"
+        },
+        {
+          "line": 31,
+          "text": "BuildRequires:  ninja-build"
+        },
+        {
+          "line": 32,
+          "text": "BuildRequires:  patchelf"
+        },
+        {
+          "line": 33,
+          "text": "BuildRequires:  pkgconf-pkg-config"
+        },
+        {
+          "line": 34,
+          "text": "BuildRequires:  pulseaudio-libs-devel"
+        },
+        {
+          "line": 35,
+          "text": "BuildRequires:  python3"
+        },
+        {
+          "line": 36,
+          "text": "BuildRequires:  rust"
+        },
+        {
+          "line": 37,
+          "text": "BuildRequires:  vulkan-headers"
+        },
+        {
+          "line": 38,
+          "text": "BuildRequires:  vulkan-loader-devel"
+        },
+        {
+          "line": 39,
+          "text": "BuildRequires:  wayland-devel"
+        },
+        {
+          "line": 40,
+          "text": "BuildRequires:  xz"
+        },
+        {
+          "line": 41,
+          "text": "BuildRequires:  zlib-ng-compat-devel"
+        },
+        {
+          "line": 42,
+          "text": "Requires:       alsa-lib"
+        },
+        {
+          "line": 43,
+          "text": "Requires:       dav1d"
+        },
+        {
+          "line": 44,
+          "text": "Requires:       libgcc"
+        },
+        {
+          "line": 45,
+          "text": "Requires:       libstdc++"
+        },
+        {
+          "line": 46,
+          "text": "Requires:       libdrm"
+        },
+        {
+          "line": 47,
+          "text": "Requires:       libglvnd"
+        },
+        {
+          "line": 48,
+          "text": "Requires:       pulseaudio-libs"
+        },
+        {
+          "line": 49,
+          "text": "Requires:       pulseaudio-utils"
+        },
+        {
+          "line": 50,
+          "text": "Requires:       libva"
+        },
+        {
+          "line": 51,
+          "text": "Requires:       libxkbcommon"
+        },
+        {
+          "line": 52,
+          "text": "Requires:       libyuv"
+        },
+        {
+          "line": 53,
+          "text": "Requires:       glslc"
+        },
+        {
+          "line": 54,
+          "text": "Requires:       vulkan-loader"
+        },
+        {
+          "line": 55,
+          "text": "Requires:       libwayland-client"
+        },
+        {
+          "line": 56,
+          "text": "Requires:       libwayland-cursor"
+        },
+        {
+          "line": 57,
+          "text": "Requires:       libwayland-egl"
+        },
+        {
+          "line": 58,
+          "text": "Requires:       libwayland-server"
+        },
+        {
+          "line": 59,
+          "text": "Requires:       zlib-ng-compat"
+        },
+        {
+          "line": 60,
+          "text": "Provides:       skwd-paper = %{version}-%{release}"
+        },
+        {
+          "line": 61,
+          "text": "Conflicts:      skwd-paper"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#25/#175/#176",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/songrec.spec",
+      "git_blob": "c50bfe6756d6c264081df1999c93fcc8e323e210",
+      "git_mode": "100644",
+      "sha256": "5ba6f6b8de1d584206829271e9c225c8966bec6a47ec2704a3e8d89d9aa6352a",
+      "bytes": 2379,
+      "name": "songrec",
+      "raw_header_fields": [
+        {
+          "line": 3,
+          "text": "Name:           songrec"
+        },
+        {
+          "line": 4,
+          "text": "Version:        0.7.5"
+        },
+        {
+          "line": 5,
+          "text": "Release:        2%{?dist}"
+        },
+        {
+          "line": 7,
+          "text": "License:        GPL-3.0-only"
+        },
+        {
+          "line": 8,
+          "text": "URL:            https://github.com/marin-m/SongRec"
+        },
+        {
+          "line": 9,
+          "text": "Source0:        %{url}/archive/%{version}.tar.gz#/%{name}-%{version}.tar.gz"
+        },
+        {
+          "line": 10,
+          "text": "Source100:      %{name}-%{version}-vendor.tar.gz"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  alsa-lib-devel"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  cargo"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  cairo-devel"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  clang"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  dbus-devel"
+        },
+        {
+          "line": 18,
+          "text": "BuildRequires:  ffmpeg-free-devel"
+        },
+        {
+          "line": 19,
+          "text": "BuildRequires:  gcc"
+        },
+        {
+          "line": 20,
+          "text": "BuildRequires:  gdk-pixbuf2-devel"
+        },
+        {
+          "line": 21,
+          "text": "BuildRequires:  glib2-devel"
+        },
+        {
+          "line": 22,
+          "text": "BuildRequires:  gtk4-devel"
+        },
+        {
+          "line": 23,
+          "text": "BuildRequires:  libadwaita-devel"
+        },
+        {
+          "line": 24,
+          "text": "BuildRequires:  libsoup3-devel"
+        },
+        {
+          "line": 25,
+          "text": "BuildRequires:  openssl-devel"
+        },
+        {
+          "line": 26,
+          "text": "BuildRequires:  pango-devel"
+        },
+        {
+          "line": 27,
+          "text": "BuildRequires:  pipewire-devel"
+        },
+        {
+          "line": 28,
+          "text": "BuildRequires:  pkgconf-pkg-config"
+        },
+        {
+          "line": 29,
+          "text": "BuildRequires:  pulseaudio-libs-devel"
+        },
+        {
+          "line": 30,
+          "text": "BuildRequires:  rust"
+        },
+        {
+          "line": 31,
+          "text": "Requires:       hicolor-icon-theme"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ttf-firacode-nerd.spec",
+      "git_blob": "b871e3f18bc7e0dad8c116c160e978596ca32d8b",
+      "git_mode": "100644",
+      "sha256": "b518c8e0898e2da743ca7a20fe06f973651d713db45ce4efb82cf198bf3af0cf",
+      "bytes": 693,
+      "name": "ttf-firacode-nerd",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ttf-firacode-nerd"
+        },
+        {
+          "line": 2,
+          "text": "Version:        3.5.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        OFL-1.1"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://github.com/ryanoasis/nerd-fonts"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/releases/download/v%{version}/FiraCode.tar.xz"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  tar"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  xz"
+        },
+        {
+          "line": 11,
+          "text": "Requires:       fonts-filesystem"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ttf-fraunces-variable.spec",
+      "git_blob": "12f847271f5518f463401548c5d62ffd8e188828",
+      "git_mode": "100644",
+      "sha256": "cc9cec4e9260262e08c6fd8f531d415452ffec0bb9d85d8c3d55b996e15cdc56",
+      "bytes": 1068,
+      "name": "ttf-fraunces-variable",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ttf-fraunces-variable"
+        },
+        {
+          "line": 2,
+          "text": "Version:        1.000"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        OFL-1.1"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://github.com/undercasetype/Fraunces"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/releases/download/%{version}/UnderCaseType_Fraunces_%{version}.zip"
+        },
+        {
+          "line": 8,
+          "text": "Source1:        %{url}/raw/%{version}/OFL.txt#/fraunces-OFL.txt"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  unzip"
+        },
+        {
+          "line": 11,
+          "text": "Requires:       fonts-filesystem"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ttf-hack-nerd.spec",
+      "git_blob": "fa80b1e9a08b5ef6411aac27aaddaf7f78f32136",
+      "git_mode": "100644",
+      "sha256": "e8b8d14b43a43fa14cbd2a4f5877ac297ed2864f5916847b72c5734e82e75cbd",
+      "bytes": 693,
+      "name": "ttf-hack-nerd",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ttf-hack-nerd"
+        },
+        {
+          "line": 2,
+          "text": "Version:        3.5.1"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        MIT AND Bitstream-Vera"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://github.com/ryanoasis/nerd-fonts"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/releases/download/v%{version}/Hack.tar.xz"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  tar"
+        },
+        {
+          "line": 10,
+          "text": "BuildRequires:  xz"
+        },
+        {
+          "line": 11,
+          "text": "Requires:       fonts-filesystem"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ttf-maple-mono-nf.spec",
+      "git_blob": "549fdc80da342fae427752a64009dfab3bb7847d",
+      "git_mode": "100644",
+      "sha256": "c03d57700c8a88f844980311e753218fd1b07934e7ac1b73abc09b83e4eb782e",
+      "bytes": 684,
+      "name": "ttf-maple-mono-nf",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           ttf-maple-mono-nf"
+        },
+        {
+          "line": 2,
+          "text": "Version:        7.9"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        OFL-1.1"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://github.com/subframe7536/maple-font"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/releases/download/v%{version}/MapleMono-NF.zip"
+        },
+        {
+          "line": 9,
+          "text": "BuildRequires:  unzip"
+        },
+        {
+          "line": 10,
+          "text": "Requires:       fonts-filesystem"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/ttf-readex-pro.spec",
+      "git_blob": "1ad4d5cb2be5f2ac4e991b79214bf56797987682",
+      "git_mode": "100644",
+      "sha256": "be3bffe369d768c1db547a385d47bff63661869218a09b384a40b313deed5cf1",
+      "bytes": 795,
+      "name": "ttf-readex-pro",
+      "raw_header_fields": [
+        {
+          "line": 3,
+          "text": "Name:           ttf-readex-pro"
+        },
+        {
+          "line": 4,
+          "text": "Version:        1.204"
+        },
+        {
+          "line": 5,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 7,
+          "text": "License:        OFL-1.1"
+        },
+        {
+          "line": 8,
+          "text": "URL:            https://github.com/ThomasJockin/readexpro"
+        },
+        {
+          "line": 9,
+          "text": "Source0:        %{url}/archive/%{readex_commit}.tar.gz#/readexpro-%{readex_commit}.tar.gz"
+        },
+        {
+          "line": 11,
+          "text": "Requires:       fonts-filesystem"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/vimix-cursors.spec",
+      "git_blob": "a1c203d9bc1e11ca4eadd03ff2ea2741be0c2ead",
+      "git_mode": "100644",
+      "sha256": "8656ccb6babac146a82fb9bdc76ad38e38d341fa88687d5011e06f7180f688bb",
+      "bytes": 852,
+      "name": "vimix-cursors",
+      "raw_header_fields": [
+        {
+          "line": 3,
+          "text": "Name:           vimix-cursors"
+        },
+        {
+          "line": 4,
+          "text": "Version:        2020.02.24"
+        },
+        {
+          "line": 5,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 7,
+          "text": "License:        GPL-3.0-or-later"
+        },
+        {
+          "line": 8,
+          "text": "URL:            https://github.com/vinceliuice/Vimix-cursors"
+        },
+        {
+          "line": 9,
+          "text": "Source0:        %{url}/archive/%{upstream_version}.tar.gz#/Vimix-cursors-%{upstream_version}.tar.gz"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/voxtype.spec",
+      "git_blob": "363c661bdee6f6f7118457544e96cd03847d7f1b",
+      "git_mode": "100644",
+      "sha256": "c1459db96a9be6e2ee2ce9368618adfc6bdef6f1f4f651dbee029d355ef9e247",
+      "bytes": 1617,
+      "name": "voxtype",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           voxtype"
+        },
+        {
+          "line": 2,
+          "text": "Version:        1.1.0"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        MIT"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://github.com/peteonrails/voxtype"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/releases/download/v%{version}/voxtype-%{version}-1.x86_64.rpm"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  cpio"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  rpm"
+        },
+        {
+          "line": 17,
+          "text": "BuildRequires:  systemd-rpm-macros"
+        },
+        {
+          "line": 18,
+          "text": "Requires:       alsa-lib"
+        },
+        {
+          "line": 19,
+          "text": "Requires:       curl"
+        },
+        {
+          "line": 20,
+          "text": "Requires:       glibc"
+        },
+        {
+          "line": 21,
+          "text": "Requires:       pipewire-alsa"
+        },
+        {
+          "line": 22,
+          "text": "Suggests:       libnotify"
+        },
+        {
+          "line": 23,
+          "text": "Suggests:       pipewire"
+        },
+        {
+          "line": 24,
+          "text": "Suggests:       vulkan-loader"
+        },
+        {
+          "line": 25,
+          "text": "Suggests:       wl-clipboard"
+        },
+        {
+          "line": 26,
+          "text": "Suggests:       wtype"
+        },
+        {
+          "line": 27,
+          "text": "Provides:       voxtype-bin = %{version}-%{release}"
+        },
+        {
+          "line": 28,
+          "text": "Conflicts:      voxtype-bin"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#179",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/waifu2x-ncnn-vulkan.spec",
+      "git_blob": "331da9bc4d1155f5d0ae9e160bc537540299911a",
+      "git_mode": "100644",
+      "sha256": "11837e8d56bbf2274b7245e93eb6f42c9d5339b954768cefc3765e048edfb008",
+      "bytes": 1035,
+      "name": "waifu2x-ncnn-vulkan",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           waifu2x-ncnn-vulkan"
+        },
+        {
+          "line": 2,
+          "text": "Version:        20250915"
+        },
+        {
+          "line": 3,
+          "text": "Release:        1%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        MIT"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://github.com/nihui/waifu2x-ncnn-vulkan"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/releases/download/%{version}/%{name}-%{version}-linux.zip"
+        },
+        {
+          "line": 8,
+          "text": "Source1:        %{name}-wrapper"
+        },
+        {
+          "line": 12,
+          "text": "BuildRequires:  unzip"
+        },
+        {
+          "line": 13,
+          "text": "Requires:       vulkan-loader"
+        },
+        {
+          "line": 14,
+          "text": "Conflicts:      waifu2x-ncnn-vulkan-git"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#25/#175/#176",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/wl-clip-persist.spec",
+      "git_blob": "36b54062d22d93908549375b98093f01c2f52fcd",
+      "git_mode": "100644",
+      "sha256": "af5c6e08aa0bdaf0d738a8b122ba547d28a7d064a7707f8235d2646762983dcb",
+      "bytes": 1010,
+      "name": "wl-clip-persist",
+      "raw_header_fields": [
+        {
+          "line": 3,
+          "text": "Name:           wl-clip-persist"
+        },
+        {
+          "line": 4,
+          "text": "Version:        0.5.0"
+        },
+        {
+          "line": 5,
+          "text": "Release:        2%{?dist}"
+        },
+        {
+          "line": 7,
+          "text": "License:        MIT"
+        },
+        {
+          "line": 8,
+          "text": "URL:            https://github.com/Linus789/wl-clip-persist"
+        },
+        {
+          "line": 9,
+          "text": "Source0:        %{url}/archive/v%{version}.tar.gz#/%{name}-%{version}.tar.gz"
+        },
+        {
+          "line": 10,
+          "text": "Source100:      %{name}-%{version}-vendor.tar.gz"
+        },
+        {
+          "line": 14,
+          "text": "BuildRequires:  cargo"
+        },
+        {
+          "line": 15,
+          "text": "BuildRequires:  gcc"
+        },
+        {
+          "line": 16,
+          "text": "BuildRequires:  rust"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/xpadneo-dkms.spec",
+      "git_blob": "2f296c1594d61a48f904037933c2146e9deb7405",
+      "git_mode": "100644",
+      "sha256": "4af316109a7b4afa038b7e27211ef2c9de2650ab9bcdd36faf7ff13dfff9e1ca",
+      "bytes": 2758,
+      "name": "xpadneo-dkms",
+      "raw_header_fields": [
+        {
+          "line": 4,
+          "text": "Name:           xpadneo-dkms"
+        },
+        {
+          "line": 5,
+          "text": "Version:        0.10.4"
+        },
+        {
+          "line": 6,
+          "text": "Release:        2%{?dist}"
+        },
+        {
+          "line": 8,
+          "text": "License:        GPL-2.0-only AND GPL-3.0-or-later"
+        },
+        {
+          "line": 9,
+          "text": "URL:            https://github.com/atar-axis/xpadneo"
+        },
+        {
+          "line": 10,
+          "text": "Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz#/xpadneo-%{version}.tar.gz"
+        },
+        {
+          "line": 13,
+          "text": "BuildRequires:  make"
+        },
+        {
+          "line": 14,
+          "text": "Requires:       dkms"
+        },
+        {
+          "line": 15,
+          "text": "Requires:       make"
+        },
+        {
+          "line": 16,
+          "text": "Requires:       bluez"
+        },
+        {
+          "line": 17,
+          "text": "Requires:       bluez-tools"
+        },
+        {
+          "line": 18,
+          "text": "Requires:       kernel-devel"
+        },
+        {
+          "line": 19,
+          "text": "Requires:       kernel-headers"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [
+        {
+          "section": "post",
+          "line_start": 43,
+          "line_end": 65,
+          "source_region_sha256": "9ec781058568a0c84922efcbbc8ae5fdc25cab544f16b44ef96f8fa3df0eb475"
+        },
+        {
+          "section": "preun",
+          "line_start": 66,
+          "line_end": 70,
+          "source_region_sha256": "b2ffe18b6988b8ebc0ced0229778b59756cb3d6441b3cff3a5dc78a534998133"
+        },
+        {
+          "section": "postun",
+          "line_start": 71,
+          "line_end": 73,
+          "source_region_sha256": "8a32b05c8e4efc91e0ff95ee0dbff86628743a80fc13c84f02f604c63a97858c"
+        }
+      ],
+      "retained_feature_owners": "#181/#27/#28/#31/#32",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    },
+    {
+      "source": "fedora/packages/rpm/zsh-history-substring-search.spec",
+      "git_blob": "5b568a1bba06ed2c7c3aa279f6b424c8865a2fc9",
+      "git_mode": "100644",
+      "sha256": "ecd9494989eb29af6b503b0b393733ab6c8673f068b89e367b190492e7266ab8",
+      "bytes": 972,
+      "name": "zsh-history-substring-search",
+      "raw_header_fields": [
+        {
+          "line": 1,
+          "text": "Name:           zsh-history-substring-search"
+        },
+        {
+          "line": 2,
+          "text": "Version:        1.1.0"
+        },
+        {
+          "line": 3,
+          "text": "Release:        2%{?dist}"
+        },
+        {
+          "line": 5,
+          "text": "License:        BSD-3-Clause"
+        },
+        {
+          "line": 6,
+          "text": "URL:            https://github.com/zsh-users/zsh-history-substring-search"
+        },
+        {
+          "line": 7,
+          "text": "Source0:        %{url}/archive/v%{version}/%{name}-v%{version}.tar.gz"
+        },
+        {
+          "line": 9,
+          "text": "Requires:       zsh"
+        }
+      ],
+      "conditionals": [],
+      "source_kind": "separate-upstream-or-prepared-source",
+      "scriptlet_regions": [],
+      "retained_feature_owners": "#47/#180/#181/#182/#27-29",
+      "tumbleweed_disposition": "Reference-only Fedora mechanisms; retain corresponding full feature using owned Rust providers/declarative RPMs; no source/package/runtime import or acceptance"
+    }
+  ],
+  "supporting_sources": [
+    {
+      "source": "fedora/README.md",
+      "git_blob": "8169d0641d84d84d5b2187522a8b41940215374f",
+      "git_mode": "100644",
+      "sha256": "bd37f4ce99a8e590d011c01723a2bb6f369301b4ea8d8840b3336b24a6e9c187",
+      "bytes": 5115,
+      "literal_release_payload_references": []
+    },
+    {
+      "source": "fedora/packages/rpm/README.md",
+      "git_blob": "2d2d5365a8f8cd05dde08e2b129e71e9071e09e8",
+      "git_mode": "100644",
+      "sha256": "e01ce82a5b0a501022e2a193337d0fbb6a9934c232fe960870e089d777fb0458",
+      "bytes": 5935,
+      "literal_release_payload_references": []
+    },
+    {
+      "source": "fedora/packages/rpm/payload/hypr-dynamic-cursors.sh",
+      "git_blob": "45b09b537e2ae028df0ac8dda4ea485797fec5ca",
+      "git_mode": "100644",
+      "sha256": "3afb5ef8e40a221865dc5538d688cb238ccb27ea10e826fe6dacf9731c5a92b9",
+      "bytes": 454,
+      "literal_release_payload_references": []
+    },
+    {
+      "source": "fedora/packages/rpm/payload/hyprglass.sh",
+      "git_blob": "da3640c405bdde1b4eeeb4ab46ec87a699bc15d7",
+      "git_mode": "100644",
+      "sha256": "d4ebc63fba9749d0a58008719e899fe63a4e02308c57db2282c9fcd53d248fa1",
+      "bytes": 384,
+      "literal_release_payload_references": []
+    },
+    {
+      "source": "fedora/packages/rpm/payload/hyprgrass.sh",
+      "git_blob": "cf62557574b7d49be400d65b2fb7590c2917090d",
+      "git_mode": "100644",
+      "sha256": "498fd599b4eab2411756fbae8e7a0c54426528af7e707a0b7e614d3a8dede700",
+      "bytes": 747,
+      "literal_release_payload_references": []
+    },
+    {
+      "source": "fedora/packages/rpm/payload/hyprland-plugin.sh",
+      "git_blob": "e0c3f329c64f1c26342d2bd626e9fd80873bdaa7",
+      "git_mode": "100644",
+      "sha256": "958cdd25004e0d09c5444ee9f8f6c352d1a7ef3522144125e681e11a4e2c8856",
+      "bytes": 1008,
+      "literal_release_payload_references": []
+    },
+    {
+      "source": "fedora/packages/rpm/payload/hyprland-preview-share-picker.sh",
+      "git_blob": "fd0ef74b259381e3bda655a071c4f54a01608c7b",
+      "git_mode": "100644",
+      "sha256": "54ad31f881488eb4c78459ab63c11ceefc6a8555fc44f68a0207fe7faaa0f675",
+      "bytes": 847,
+      "literal_release_payload_references": []
+    },
+    {
+      "source": "fedora/packages/rpm/payload/imgborders.sh",
+      "git_blob": "b4f72f24d72e2fd81b397f148936e160c0e23af6",
+      "git_mode": "100644",
+      "sha256": "26d03aad736c86979eedcd1fdc22483977fe4337690c4f3c55f50f497ce05e38",
+      "bytes": 507,
+      "literal_release_payload_references": []
+    },
+    {
+      "source": "fedora/packages/rpm/payload/ryogami.sh",
+      "git_blob": "2dac1894ae8d6659467aadd57092cef58663ffa4",
+      "git_mode": "100644",
+      "sha256": "80a306db964929270aed3f55c7fcd3a409cb792dd894e7b6a14e8941fbdd237a",
+      "bytes": 566,
+      "literal_release_payload_references": [
+        "release/packages/ryogami/payload.sh"
+      ]
+    },
+    {
+      "source": "fedora/packages/rpm/payload/ryoku-blobs.sh",
+      "git_blob": "046c4f68e108cccfd3f532153b2a9665862950db",
+      "git_mode": "100644",
+      "sha256": "68c2bc3a10c3db19a8ef506847f12e8342fe631c8cfce7d0379bba3aa7cf5e13",
+      "bytes": 570,
+      "literal_release_payload_references": [
+        "release/packages/ryoku-blobs/payload.sh"
+      ]
+    },
+    {
+      "source": "fedora/packages/rpm/payload/ryoku-desktop-hyprland.sh",
+      "git_blob": "97eb1aeeab2b3e3feda34a03cfd99378ab6aa7fc",
+      "git_mode": "100644",
+      "sha256": "348d7f0a5b8eaea584a2515fb76e961a3efefb64e823dc4c3d0aef2e83aaa8c3",
+      "bytes": 812,
+      "literal_release_payload_references": [
+        "release/packages/ryoku-desktop-hyprland/payload.sh"
+      ]
+    },
+    {
+      "source": "fedora/packages/rpm/payload/ryoku-desktop-niri.sh",
+      "git_blob": "437653754114cae5d516fede5fe56ffb452e5ecb",
+      "git_mode": "100644",
+      "sha256": "f2a41bf23ed495f537677782cb06f0499593a8337f65b351aee195df238d9aed",
+      "bytes": 577,
+      "literal_release_payload_references": [
+        "release/packages/ryoku-desktop-niri/payload.sh"
+      ]
+    },
+    {
+      "source": "fedora/packages/rpm/payload/ryoku-desktop.sh",
+      "git_blob": "700a2f934bb61320482578df4b376a1e87fe91fd",
+      "git_mode": "100644",
+      "sha256": "a392ab05dfb80806252f1193079f47e2264f109ca2efefdbf054ed239385f60e",
+      "bytes": 2279,
+      "literal_release_payload_references": [
+        "release/packages/ryoku-desktop/payload.sh"
+      ]
+    },
+    {
+      "source": "fedora/packages/rpm/payload/ryoku-hub.sh",
+      "git_blob": "be82f5cd1afb41e611ca06ef4e1b45e87aa7b3ce",
+      "git_mode": "100644",
+      "sha256": "6ad20d6c4b897529a62c89d1c718bc9e0d052a14b4dc550d7a88c82eaebd4901",
+      "bytes": 568,
+      "literal_release_payload_references": [
+        "release/packages/ryoku-hub/payload.sh"
+      ]
+    },
+    {
+      "source": "fedora/packages/rpm/payload/ryoku-hypr-plugins.sh",
+      "git_blob": "cf094dd068f8ed23be9cfa7e9d32886c61ba1fab",
+      "git_mode": "100644",
+      "sha256": "92610e9f893ac578f09cd11ccc5622fcc4ca2fbbb63c25cf9eaa7db9522b99d8",
+      "bytes": 614,
+      "literal_release_payload_references": []
+    },
+    {
+      "source": "fedora/packages/rpm/payload/ryoku-keysounds-niri.sh",
+      "git_blob": "7c0107ed2f5e10ed3ca8f6c4504d7685e626f7ce",
+      "git_mode": "100644",
+      "sha256": "6784ff79dfc4910024f550e4c835fe306ed8978a06933a1d0c468fd63ac663de",
+      "bytes": 579,
+      "literal_release_payload_references": [
+        "release/packages/ryoku-keysounds-niri/payload.sh"
+      ]
+    },
+    {
+      "source": "fedora/packages/rpm/payload/ryoku-keysounds-profiles.sh",
+      "git_blob": "dfdf4a5be2e6e0c4592ef1b9e8be3214f320b512",
+      "git_mode": "100644",
+      "sha256": "2789c3345e49a2cca9e4721dd00ab594a7cf53910ba6b7a9f1d9480b79027a20",
+      "bytes": 648,
+      "literal_release_payload_references": [
+        "release/packages/ryoku-keysounds-profiles/payload.sh"
+      ]
+    },
+    {
+      "source": "fedora/packages/rpm/payload/ryoku-keysounds.sh",
+      "git_blob": "6295d59eb41913b947d26d162abd192c9a3e0204",
+      "git_mode": "100644",
+      "sha256": "2e0ed2e32b3bda18a4ac93a3e27706f493dd9a562175b291140e58b00ee492d7",
+      "bytes": 939,
+      "literal_release_payload_references": []
+    },
+    {
+      "source": "fedora/packages/rpm/payload/ryoku-palette-bridge.sh",
+      "git_blob": "9358dc600584b61dbcf1de092a73a1f706f98262",
+      "git_mode": "100644",
+      "sha256": "fe6d5aae2d21389b09fbb23a2afa08bc46733d3731f85788a1229e14c2c9986f",
+      "bytes": 579,
+      "literal_release_payload_references": [
+        "release/packages/ryoku-palette-bridge/payload.sh"
+      ]
+    },
+    {
+      "source": "fedora/packages/rpm/payload/ryoku-rashin.sh",
+      "git_blob": "df24820440dcd87a38ed4adc598e4c8b559eaf86",
+      "git_mode": "100644",
+      "sha256": "efa8734f02d7251597efdcc476a8b306cda53d5801330f9467590429b9193a52",
+      "bytes": 571,
+      "literal_release_payload_references": [
+        "release/packages/ryoku-rashin/payload.sh"
+      ]
+    },
+    {
+      "source": "fedora/packages/rpm/payload/ryoku-shell.sh",
+      "git_blob": "d0c2adc64cfd6909a736447506799f600fdcd602",
+      "git_mode": "100644",
+      "sha256": "0bb9899f3b03da7d8dfe4583c515cddf2b3ce9e7ed658b78be03e31c9d988835",
+      "bytes": 570,
+      "literal_release_payload_references": [
+        "release/packages/ryoku-shell/payload.sh"
+      ]
+    },
+    {
+      "source": "fedora/packages/rpm/payload/ryoku.sh",
+      "git_blob": "c384a3c2dc1692d03d070863842175ef696a6ffe",
+      "git_mode": "100644",
+      "sha256": "8b0a48360b68f17d31e24503b5c9274d941f1ed2b2e5caa52f9f8ccac366f3e0",
+      "bytes": 1053,
+      "literal_release_payload_references": [
+        "release/packages/ryoku/payload.sh"
+      ]
+    },
+    {
+      "source": "fedora/packages/rpm/prepare-srpms.sh",
+      "git_blob": "b03925b1aca9bbe574ed0b136a6a57b288948bee",
+      "git_mode": "100755",
+      "sha256": "52802342b28305e4d9c1de948fb01d08cfd0ca3c73cea934d4221e49fbe97c6c",
+      "bytes": 17375,
+      "literal_release_payload_references": []
+    },
+    {
+      "source": "fedora/packages/rpm/source-owners",
+      "git_blob": "2235a3a2e2cd560f6ded45bad20004ec429080b0",
+      "git_mode": "100644",
+      "sha256": "4685e23aa4a7f791dd2ffc7d4e64f9756fc2a8112e73a60f829085c816f359f6",
+      "bytes": 608,
+      "literal_release_payload_references": []
+    },
+    {
+      "source": "fedora/packages/rpm/stage-package.sh",
+      "git_blob": "794192e30d306954281702c124f2f1dc369ffe2d",
+      "git_mode": "100755",
+      "sha256": "7b910a1f5959fe7742e41e6f52981a0adc4875a68b95fe724aa07155902bf0ff",
+      "bytes": 1616,
+      "literal_release_payload_references": []
+    },
+    {
+      "source": "release/packages/ryogami/payload.sh",
+      "git_blob": "43d6f2a2c8807c0aa1981441ed5a07e434b04f2b",
+      "git_mode": "100755",
+      "sha256": "1a243dc92e3d5d0210ee3a9d29e07688053cbaf9aff9ef07ac8b54cac36edb6f",
+      "bytes": 2109,
+      "role": "canonical release payload referenced by pinned Fedora wrapper; reference only"
+    },
+    {
+      "source": "release/packages/ryoku-blobs/payload.sh",
+      "git_blob": "aa2b920fc6d0a18cb76cf15331d9544397e36897",
+      "git_mode": "100755",
+      "sha256": "469596753dde9572440c3e427ff383a28317ba60f0eeb8e9bcf1c634491f997c",
+      "bytes": 1036,
+      "role": "canonical release payload referenced by pinned Fedora wrapper; reference only"
+    },
+    {
+      "source": "release/packages/ryoku-desktop-hyprland/payload.sh",
+      "git_blob": "8ed52c7f223c0568209e9562db898bd00a7ee95f",
+      "git_mode": "100755",
+      "sha256": "342cc28917f269ae9c9b39f66ca5896120597671d4392a5a5f49d554fe101cf1",
+      "bytes": 1988,
+      "role": "canonical release payload referenced by pinned Fedora wrapper; reference only"
+    },
+    {
+      "source": "release/packages/ryoku-desktop-niri/payload.sh",
+      "git_blob": "3e3b0bda80e46fb4ada9c3c1047701bcb4d2335e",
+      "git_mode": "100755",
+      "sha256": "e0d1c98f26445368430023a2b90fc19432343950819879b7b34abad4752750f5",
+      "bytes": 2714,
+      "role": "canonical release payload referenced by pinned Fedora wrapper; reference only"
+    },
+    {
+      "source": "release/packages/ryoku-desktop/payload.sh",
+      "git_blob": "40c2c8132974f0e392f59386b835faedba4d63a1",
+      "git_mode": "100755",
+      "sha256": "9ec2410cd8def8ae8fb2b8f27c37e8644c7de36ce401e06c469014053c2a4678",
+      "bytes": 36129,
+      "role": "canonical release payload referenced by pinned Fedora wrapper; reference only"
+    },
+    {
+      "source": "release/packages/ryoku-hub/payload.sh",
+      "git_blob": "eb701a62e27385db4290a5ccacbeb5282ea28164",
+      "git_mode": "100755",
+      "sha256": "29884e81661e2fb229f88638ac325f396fb39c4f3a8bbe07bcf61b3d8252c10c",
+      "bytes": 880,
+      "role": "canonical release payload referenced by pinned Fedora wrapper; reference only"
+    },
+    {
+      "source": "release/packages/ryoku-keysounds-niri/payload.sh",
+      "git_blob": "9fd0be506daebba74f64ed88bbd32d1ba6af1023",
+      "git_mode": "100755",
+      "sha256": "23f3af85bcffd1b4b7bd2254a88fab3ed89c32041eb004b0eef5739ae3c1c321",
+      "bytes": 977,
+      "role": "canonical release payload referenced by pinned Fedora wrapper; reference only"
+    },
+    {
+      "source": "release/packages/ryoku-keysounds-profiles/payload.sh",
+      "git_blob": "6f54946a077dc6891304351a9b5e31f36b0b51bd",
+      "git_mode": "100755",
+      "sha256": "5420d4c5a8d8a53d9ae527c6e7254d582d2c5a372c97572f778484771752ce8e",
+      "bytes": 2225,
+      "role": "canonical release payload referenced by pinned Fedora wrapper; reference only"
+    },
+    {
+      "source": "release/packages/ryoku-palette-bridge/payload.sh",
+      "git_blob": "a8755c01f6c4b31ffb60599fa7ef8e222535df52",
+      "git_mode": "100755",
+      "sha256": "717c2936684762d7cd91f4a3ba0fec38c71c4e07d389e84245c5549603202c92",
+      "bytes": 1757,
+      "role": "canonical release payload referenced by pinned Fedora wrapper; reference only"
+    },
+    {
+      "source": "release/packages/ryoku-rashin/payload.sh",
+      "git_blob": "cf952d352548589b33ac8d1f5e6d6191919d89d6",
+      "git_mode": "100755",
+      "sha256": "c0ef5ee55a7d19a43f259c8804f8b4302fd908af84549d73a8a3511dff52d6cc",
+      "bytes": 3031,
+      "role": "canonical release payload referenced by pinned Fedora wrapper; reference only"
+    },
+    {
+      "source": "release/packages/ryoku-shell/payload.sh",
+      "git_blob": "88dfd470bc4831417222fd361817eeccb0c03e86",
+      "git_mode": "100755",
+      "sha256": "48649ad1a9fb2a91759107074c852690b2b5742d85bef25d7f667bc1108817d9",
+      "bytes": 1722,
+      "role": "canonical release payload referenced by pinned Fedora wrapper; reference only"
+    },
+    {
+      "source": "release/packages/ryoku/payload.sh",
+      "git_blob": "ecb8ee188b080349a0eabc8d96e1898a9ddb017e",
+      "git_mode": "100755",
+      "sha256": "28a6904937db7f71b87ff93f6b43fc43d31e5880aeedad5dba4a307d7de9c3ae",
+      "bytes": 1509,
+      "role": "canonical release payload referenced by pinned Fedora wrapper; reference only"
+    }
+  ],
+  "version_semantics": "Checked-in shared-tree Version0.1 is a preparation placeholder; README/prepare-srpms replace it from RYOKU_PKGVER or release-version output. The openSUSE package version policy remains independently defined by issue173."
+}

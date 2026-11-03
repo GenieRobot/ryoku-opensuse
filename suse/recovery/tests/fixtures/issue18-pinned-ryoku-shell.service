@@ -10,7 +10,7 @@ StartLimitIntervalSec=60
 StartLimitBurst=5
 
 [Service]
-# the dev deploy rewrites this to ~/.local/bin; the package ships /usr/bin.
+# the dev deploy repoints the Exec lines at ~/.local/bin with a drop-in; the package ships /usr/bin.
 # set here, not only via the session env: an import that does not land would
 # silently drop the polkit agent back to the stock one.
 Environment=RYOKU_POLKIT_AGENT=1
@@ -31,6 +31,9 @@ ExecStartPre=/usr/bin/ryoku-qylock-activate
 ExecStart=/usr/bin/ryoku-shell daemon
 ExecStop=/usr/bin/ryoku-qylock-activate --prepare-stop
 ExecStartPost=-/usr/bin/ryoku-power-cutover qylock-guards-stop
+# Voxtype is optional. When present, seed its managed config and service after
+# the shell is already running, regardless of which session started us.
+ExecStartPost=-/usr/bin/ryoku-hub voxtype ensure
 TimeoutStartSec=0
 TimeoutStopSec=0
 Restart=always
