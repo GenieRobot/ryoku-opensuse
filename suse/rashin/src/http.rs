@@ -15,11 +15,21 @@ use std::{
     collections::BTreeMap,
     io::{Read, Write},
     net::{TcpListener, TcpStream},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
     time::Duration,
 };
 
 const HEADER_LIMIT: usize = 16 * 1024;
+const CONNECTION_LIMIT: usize = 32;
+struct ConnectionLease(Arc<AtomicUsize>);
+impl Drop for ConnectionLease {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
+}
 pub struct Gateway {
     engine: Arc<Engine>,
     token: String,
@@ -50,9 +60,30 @@ impl Gateway {
         if format!("http://{}", listener.local_addr().map_err(|_| Error::Storage)?) != self.origin {
             return Err(Error::InvalidRequest);
         }
+        let gateway = Arc::new(self);
+        let active = Arc::new(AtomicUsize::new(0));
         for stream in listener.incoming() {
             let mut stream = stream.map_err(|_| Error::Storage)?;
-            let _ = self.connection(&mut stream);
+            if active
+                .try_update(Ordering::AcqRel, Ordering::Acquire, |count| {
+                    (count < CONNECTION_LIMIT).then_some(count + 1)
+                })
+                .is_err()
+            {
+                continue;
+            }
+            let worker_gateway = Arc::clone(&gateway);
+            let worker_active = Arc::clone(&active);
+            if std::thread::Builder::new()
+                .name("rashin-http".into())
+                .spawn(move || {
+                    let _lease = ConnectionLease(worker_active);
+                    let _ = worker_gateway.connection(&mut stream);
+                })
+                .is_err()
+            {
+                active.fetch_sub(1, Ordering::AcqRel);
+            }
         }
         Ok(())
     }

@@ -1109,3 +1109,15 @@ terminal and approval/diff/replay UI remain required.
 NSS/default state, installed inventory/writer leases and linked recovery for
 covered effects, remaining Prowl/provider/usage workflows, native app/shell/Hub,
 full package closure and Tumbleweed acceptance remain in the full issue scope.
+
+## Browser request concurrency
+
+The Rust development gateway serves up to 32 HTTP connections concurrently.
+An incomplete request no longer serializes an authenticated Ask cancellation
+behind its read timeout. Excess connections are closed, and a slot is released
+when a handler exits, including on unwind. The existing per-I/O timeout remains;
+a local client that continually sends bytes can occupy a slot, so the cap does
+not guarantee availability against a local client holding every slot. The host
+loopback tests exercise cancellation with the deterministic fixture provider,
+the limit, and recovery of capacity after disconnect. This is not evidence of
+the retained upstream WebKit UI, packaged service, or linked recovery.

@@ -23,6 +23,101 @@ use std::{
 };
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
+
+#[test]
+#[ignore = "requires host loopback sockets"]
+fn stalled_http_client_does_not_block_authenticated_ask_cancellation() {
+    use std::net::{TcpListener, TcpStream};
+    let fixture = Fixture::new();
+    let engine = fixture.engine();
+    engine
+        .dispatch(Request::PutProvider {
+            id: "slow".into(),
+            provider: Provider::Fixture {
+                delay_millis: 1_000,
+                outcome: ryoku_rashin::provider::FixtureOutcome::Stream {
+                    chunks: vec!["answer".into()],
+                    fail: false,
+                },
+                catalog: None,
+            },
+        })
+        .unwrap();
+    engine
+        .dispatch(Request::SetRoute {
+            lane: Lane::Ask,
+            provider: "slow".into(),
+            model: "fixture-v1".into(),
+        })
+        .unwrap();
+    engine.dispatch(Request::Ask { id: "http-cancel".into(), prompt: "help".into() }).unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let token = "a".repeat(64);
+    let gateway = ryoku_rashin::http::Gateway::new(
+        Arc::clone(&engine),
+        token.clone(),
+        format!("http://{address}"),
+    )
+    .unwrap();
+    std::thread::spawn(move || {
+        let _ = gateway.serve(listener);
+    });
+    let mut stalled = TcpStream::connect(address).unwrap();
+    stalled.write_all(b"POST /api/action HTTP/1.1\r\n").unwrap();
+    std::thread::sleep(Duration::from_millis(100));
+    let mut client = TcpStream::connect(address).unwrap();
+    client.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+    let body = br#"{"action":"cancel","id":"http-cancel"}"#;
+    write!(client, "POST /api/action HTTP/1.1\r\nHost: {address}\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n", body.len()).unwrap();
+    client.write_all(body).unwrap();
+    let mut response = String::new();
+    client.read_to_string(&mut response).unwrap();
+    assert!(response.starts_with("HTTP/1.1 200"), "{response}");
+    assert_eq!(done(&engine, "http-cancel")["status"], "cancelled");
+}
+
+#[test]
+#[ignore = "requires host loopback sockets"]
+fn http_connection_limit_releases_capacity_after_clients_disconnect() {
+    use std::net::{TcpListener, TcpStream};
+    let fixture = Fixture::new();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let gateway = ryoku_rashin::http::Gateway::new(
+        fixture.engine(),
+        "b".repeat(64),
+        format!("http://{address}"),
+    )
+    .unwrap();
+    std::thread::spawn(move || {
+        let _ = gateway.serve(listener);
+    });
+    let mut stalled = Vec::new();
+    for _ in 0..32 {
+        let mut stream = TcpStream::connect(address).unwrap();
+        stream.write_all(b"GET / HTTP/1.1\r\n").unwrap();
+        stalled.push(stream);
+    }
+    std::thread::sleep(Duration::from_millis(250));
+    let mut excess = TcpStream::connect(address).unwrap();
+    excess.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+    let mut byte = [0];
+    assert_eq!(excess.read(&mut byte).unwrap(), 0);
+    drop(stalled);
+    let until = Instant::now() + Duration::from_secs(2);
+    loop {
+        let mut client = TcpStream::connect(address).unwrap();
+        client.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+        let _ = write!(client, "GET / HTTP/1.1\r\nHost: {address}\r\n\r\n");
+        let mut response = String::new();
+        if client.read_to_string(&mut response).is_ok() && response.starts_with("HTTP/1.1 200") {
+            break;
+        }
+        assert!(Instant::now() < until, "capacity was not released");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
 struct Fixture {
     path: PathBuf,
 }
