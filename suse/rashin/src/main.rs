@@ -40,6 +40,7 @@ fn run() -> Result<()> {
         Some("serve" | "web") => {
             let store = Store::open(Path::new(&args[1]))?;
             let listener = store.listener()?;
+            let ask_listener = store.upstream_ask_listener()?;
             if args[0] == "web" {
                 let token = store.browser_token()?;
                 let http = std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
@@ -47,6 +48,13 @@ fn run() -> Result<()> {
                 let origin = format!("http://{}", http.local_addr().map_err(|_| Error::Storage)?);
                 let engine = Engine::open(store)?;
                 engine.start_usage_scheduler()?;
+                let ask_engine = std::sync::Arc::clone(&engine);
+                std::thread::Builder::new()
+                    .name("rashin-ask-listener".into())
+                    .spawn(move || {
+                        let _ = ryoku_rashin::upstream_ask::serve(ask_listener, ask_engine);
+                    })
+                    .map_err(|_| Error::Storage)?;
                 let unix_engine = std::sync::Arc::clone(&engine);
                 std::thread::Builder::new()
                     .name("rashin-unix".into())
@@ -61,6 +69,13 @@ fn run() -> Result<()> {
             } else {
                 let engine = Engine::open(store)?;
                 engine.start_usage_scheduler()?;
+                let ask_engine = std::sync::Arc::clone(&engine);
+                std::thread::Builder::new()
+                    .name("rashin-ask-listener".into())
+                    .spawn(move || {
+                        let _ = ryoku_rashin::upstream_ask::serve(ask_listener, ask_engine);
+                    })
+                    .map_err(|_| Error::Storage)?;
                 serve(listener, engine)
             }
         }

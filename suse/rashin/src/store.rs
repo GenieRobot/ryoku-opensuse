@@ -53,18 +53,24 @@ impl Store {
         Ok(token)
     }
     pub fn listener(&self) -> Result<UnixListener> {
-        match fs::statat(&self.directory, "rashin.sock", fs::AtFlags::SYMLINK_NOFOLLOW) {
+        self.named_listener("rashin.sock")
+    }
+    pub fn upstream_ask_listener(&self) -> Result<UnixListener> {
+        self.named_listener("upstream-ask.sock")
+    }
+    fn named_listener(&self, name: &str) -> Result<UnixListener> {
+        match fs::statat(&self.directory, name, fs::AtFlags::SYMLINK_NOFOLLOW) {
             Ok(stat)
                 if FileType::from_raw_mode(stat.st_mode) == FileType::Socket
                     && stat.st_uid == self.uid =>
             {
-                fs::unlinkat(&self.directory, "rashin.sock", fs::AtFlags::empty())
+                fs::unlinkat(&self.directory, name, fs::AtFlags::empty())
                     .map_err(|_| Error::Storage)?;
             }
             Err(rustix::io::Errno::NOENT) => (),
             _ => return Err(Error::UnsafeState),
         }
-        let path = format!("/proc/self/fd/{}/rashin.sock", self.directory.as_raw_fd());
+        let path = format!("/proc/self/fd/{}/{name}", self.directory.as_raw_fd());
         let listener = UnixListener::bind(&path).map_err(|_| Error::Storage)?;
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))
             .map_err(|_| Error::Storage)?;

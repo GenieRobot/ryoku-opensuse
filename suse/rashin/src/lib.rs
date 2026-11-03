@@ -12,6 +12,7 @@ pub mod provider;
 pub mod prowl;
 pub mod runtime;
 pub mod store;
+pub mod upstream_ask;
 pub mod usage;
 pub mod wiki;
 

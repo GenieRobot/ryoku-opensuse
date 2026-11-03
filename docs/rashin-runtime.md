@@ -1121,3 +1121,34 @@ not guarantee availability against a local client holding every slot. The host
 loopback tests exercise cancellation with the deterministic fixture provider,
 the limit, and recovery of capacity after disconnect. This is not evidence of
 the retained upstream WebKit UI, packaged service, or linked recovery.
+
+## Pinned launcher Ask over a private socket
+
+The development daemon creates `upstream-ask.sock` beside `rashin.sock` in its
+owner-only Store. The pinned 1.0 Go launcher can use the narrow Ask adapter by
+applying `upstream/patches/issue183-rashin-private-ask.patch` and setting
+`RYOKU_RASHIN_ASK_SOCKET` to that socket's absolute path. With that setting the
+CLI checks the connected Unix peer's UID before writing any HTTP request; the
+Rust listener checks the client UID before reading. Socket permissions and the
+Store lease remain part of the boundary. Same-UID processes have owner authority;
+this does not distinguish a trusted launcher from another process of that user.
+When the setting is absent the patch retains upstream's original transport, so
+packaged launch integration must set it explicitly and must not expose the
+original upstream loopback server as a protected service.
+
+The adapter accepts only ping, Ask, Ask cancellation and recent Ask history.
+It dispatches through the existing typed runtime, permits one launcher Ask at
+a time, and bounds connections to 16. The CLI retains upstream answer action
+and image extraction. Results and usage use the existing private Store; a daemon
+restart can recover completed history. The recent list returns up to 12 completed
+Ask jobs ordered by their start timestamp; legacy records lack subsecond ordering.
+A disconnected client causes cancellation when a later stream write detects it;
+it is not an instantaneous disconnect guarantee. The actual patched CLI has
+been tested with a deterministic provider and isolated UID 0/1 socket peers.
+
+This is a development integration for the launcher Ask flow, not the retained
+WebSocket UI, full terminal lane or an account-bound linked recovery provider.
+Packaging, absolute-deadline admission under sustained hostile local traffic,
+full action semantics, WebKit, Tumbleweed VM acceptance and the other retained
+upstream workflows remain open. Hosted CI for `5921334` did not start because
+GitHub reported an account billing lock; local results do not replace hosted CI.

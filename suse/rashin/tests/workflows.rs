@@ -25,6 +25,20 @@ use std::{
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
 #[test]
+fn upstream_ask_socket_refuses_unrelated_files_and_symlinks() {
+    let fixture = Fixture::new();
+    let socket = fixture.path.join("upstream-ask.sock");
+    fs::write(&socket, "keep").unwrap();
+    let store = Store::open(&fixture.path).unwrap();
+    assert!(matches!(store.upstream_ask_listener(), Err(Error::UnsafeState)));
+    assert_eq!(fs::read(&socket).unwrap(), b"keep");
+    fs::remove_file(&socket).unwrap();
+    symlink("elsewhere", &socket).unwrap();
+    assert!(matches!(store.upstream_ask_listener(), Err(Error::UnsafeState)));
+    assert_eq!(fs::read_link(&socket).unwrap(), PathBuf::from("elsewhere"));
+}
+
+#[test]
 #[ignore = "requires host loopback sockets"]
 fn stalled_http_client_does_not_block_authenticated_ask_cancellation() {
     use std::net::{TcpListener, TcpStream};
