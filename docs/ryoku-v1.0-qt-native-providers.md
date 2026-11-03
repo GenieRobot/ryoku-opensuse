@@ -19,6 +19,22 @@ All 52,976 primary records and compressed/open hashes were checked locally.
 
 ## Payload ownership is separate from QML capability ownership
 
+The original native runtime RPM from `8985d22698e3f73d77a9ee2e9305d438c5f9f6b0`
+contains 18 Qt/KDE QML requirements. The
+[direct capability record](../upstream/evidence/ryoku-v1.0/original-qt-import-capabilities.json)
+matches every requirement to a unique x86-64 or noarch provider in the
+previously authenticated primary records. Fourteen are supplied by
+`qtdeclarative-imports-provides-qt6` 1.0-1.55, including
+`qt6qmlimport(QtQuick.6) >= 11`, whose signed capability is exactly `= 11`.
+The other four resolve to `qt6-qt5compat-imports` 6.11.2-1.1,
+`qt6-multimedia-imports` 6.11.2-1.2, `qt6-quick3d-imports` 6.11.2-1.1 and
+`kf6-syntax-highlighting-imports` 6.31.0-1.1. Each row preserves the exact
+requirement, signed package checksum, architecture, version and capability.
+This is direct metadata matching for the original RPM, not proof that the
+corrected candidate has identical requirements, that a transaction is solvable,
+or that the module payloads load. The corrected build and native solver remain
+open.
+
 | Module URI | Signed native payload / plugin | Signed QML capability provider |
 |---|---|---|
 | QtQuick3D | qt6-quick3d-imports 6.11.2-1.1; libqquick3dplugin.so | qt6-quick3d-imports |
